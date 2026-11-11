@@ -1,0 +1,7909 @@
+{
+  "source": "migration-kit/vecteurs/contexte_config.py",
+  "fichiers": {
+    "court.md": {
+      "texte": "Bonjour\n"
+    },
+    "crlf.md": {
+      "texte": "ligne1\r\nligne2\rligne3\n"
+    },
+    "bom.md": {
+      "texte": "\ufeffavec BOM"
+    },
+    "blanc.md": {
+      "texte": "   \n\t "
+    },
+    "vide.md": {
+      "texte": ""
+    },
+    "invalide.md": {
+      "hex": "fffe00616263"
+    },
+    "long.md": {
+      "texte": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "unicode.md": {
+      "texte": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\u00e9"
+    }
+  },
+  "noeuds": [
+    {
+      "noeud": null,
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": null,
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": "",
+      "defaut": "def",
+      "valeur": ""
+    },
+    {
+      "noeud": "",
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": "x",
+      "defaut": "def",
+      "valeur": "x"
+    },
+    {
+      "noeud": "x",
+      "defaut": "",
+      "valeur": "x"
+    },
+    {
+      "noeud": {
+        "inline": "x"
+      },
+      "defaut": "def",
+      "valeur": "x"
+    },
+    {
+      "noeud": {
+        "inline": "x"
+      },
+      "defaut": "",
+      "valeur": "x"
+    },
+    {
+      "noeud": {
+        "file": "nexiste.md",
+        "inline": "fb"
+      },
+      "defaut": "def",
+      "valeur": "fb"
+    },
+    {
+      "noeud": {
+        "file": "nexiste.md",
+        "inline": "fb"
+      },
+      "defaut": "",
+      "valeur": "fb"
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/court.md"
+      },
+      "defaut": "def",
+      "valeur": "Bonjour\n"
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/court.md"
+      },
+      "defaut": "",
+      "valeur": "Bonjour\n"
+    },
+    {
+      "noeud": {
+        "file": ""
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "file": ""
+      },
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": {
+        "file": null,
+        "inline": null
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "file": null,
+        "inline": null
+      },
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": 5,
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": 5,
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": [],
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": [],
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": {
+        "inline": 5
+      },
+      "defaut": "def",
+      "valeur": "5"
+    },
+    {
+      "noeud": {
+        "inline": 5
+      },
+      "defaut": "",
+      "valeur": "5"
+    },
+    {
+      "noeud": {
+        "inline": "   "
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "inline": "   "
+      },
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/blanc.md"
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/blanc.md"
+      },
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/vide.md",
+        "inline": ""
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "file": "<TMP>/vide.md",
+        "inline": ""
+      },
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": true,
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": true,
+      "defaut": "",
+      "valeur": ""
+    },
+    {
+      "noeud": {
+        "inline": ""
+      },
+      "defaut": "def",
+      "valeur": "def"
+    },
+    {
+      "noeud": {
+        "inline": ""
+      },
+      "defaut": "",
+      "valeur": ""
+    }
+  ],
+  "configs": [
+    {
+      "nom": "vide",
+      "texte": "{}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "absent",
+      "texte": null,
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "invalide",
+      "texte": "{pas json",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "liste",
+      "texte": "[1, 2]",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "nan_json",
+      "texte": "{\"budgets\": {\"tokens_per_char\": NaN}}",
+      "registre": [],
+      "tpc": {
+        "$flottant": "nan"
+      },
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": {
+              "$flottant": "nan"
+            }
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          null,
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "erreur": "ValueError"
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "complet",
+      "texte": "{\"budgets\": {\"tokens_per_char\": 0.25, \"warn_system_total\": 0, \"fail_on_overrun\": false, \"ratio\": [0.1, 0.2]}, \"tools\": {\"read_file\": {\"enabled\": true, \"description\": \"court\", \"timeout_s\": 12.5}, \"execute_shell\": {\"enabled\": false, \"timeout_s\": \"abc\"}, \"slow\": {\"timeout_s\": \"30\"}, \"zero\": {\"timeout_s\": 0}, \"neg\": {\"timeout_s\": -4}, \"nan\": {\"timeout_s\": \"nan\"}, \"inf\": {\"timeout_s\": \"inf\"}, \"liste\": {\"timeout_s\": [1]}, \"a.b\": {\"enabled\": false}, \"a\": {\"b\": {\"enabled\": false}}, \"faux0\": {\"enabled\": 0}, \"nul\": {\"enabled\": null}, \"texte\": \"pas un dict\", \"desc_vide\": {\"description\": \"\"}, \"desc_blanche\": {\"description\": \"   \"}, \"desc_fichier\": {\"description\": {\"file\": \"<TMP>/court.md\"}}, \"desc_fichier_blanc\": {\"description\": {\"file\": \"<TMP>/blanc.md\", \"inline\": \"repli inline\"}}, \"vrai_texte\": {\"enabled\": \"false\"}}, \"tool_gating\": {\"enabled\": true, \"gated\": {\"git\": \"keyword:git, Commit ,branch\", \"browser\": \"keyword:screenshot,navig,page web\", \"vide\": \"keyword:\", \"autre\": \"regex:x\", \"nombre\": 5, \"nul\": null, \"accent\": \"keyword:\\u00c9T\\u00c9\"}}, \"system_prompt\": {\"file\": \"<TMP>/court.md\"}, \"compression\": {\"system_prompt\": {\"inline\": \"  \"}}, \"context\": {\"sandbox_prefix\": \"\", \"compact_retry\": \"NEW\", \"obj\": {\"inline\": \"inline seul\"}, \"nombre\": 5, \"liste\": [\"a\"], \"fichier_absent\": {\"file\": \"nexiste/pas.md\", \"inline\": \"repli\"}, \"fichier_racine\": {\"file\": \"LICENSE\"}, \"crlf\": {\"file\": \"<TMP>/crlf.md\"}, \"bom\": {\"file\": \"<TMP>/bom.md\"}, \"invalide\": {\"file\": \"<TMP>/invalide.md\", \"inline\": \"repli invalide\"}, \"unicode\": {\"file\": \"<TMP>/unicode.md\"}, \"fichier_faux\": {\"file\": false, \"inline\": \"x\"}, \"fichier_nombre\": {\"file\": 5, \"inline\": \"y\"}, \"inline_nombre\": {\"inline\": 7}, \"inline_blanc\": {\"inline\": \" \"}, \"vide_dict\": {}, \"fichier_dossier\": {\"file\": \"<TMP>\", \"inline\": \"dossier\"}, \"relatif_remonte\": {\"file\": \"../hors.md\", \"inline\": \"r\"}}}",
+      "registre": [],
+      "tpc": 0.25,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": [
+              0.1,
+              0.2
+            ]
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": {
+              "read_file": {
+                "enabled": true,
+                "description": "court",
+                "timeout_s": 12.5
+              },
+              "execute_shell": {
+                "enabled": false,
+                "timeout_s": "abc"
+              },
+              "slow": {
+                "timeout_s": "30"
+              },
+              "zero": {
+                "timeout_s": 0
+              },
+              "neg": {
+                "timeout_s": -4
+              },
+              "nan": {
+                "timeout_s": "nan"
+              },
+              "inf": {
+                "timeout_s": "inf"
+              },
+              "liste": {
+                "timeout_s": [
+                  1
+                ]
+              },
+              "a.b": {
+                "enabled": false
+              },
+              "a": {
+                "b": {
+                  "enabled": false
+                }
+              },
+              "faux0": {
+                "enabled": 0
+              },
+              "nul": {
+                "enabled": null
+              },
+              "texte": "pas un dict",
+              "desc_vide": {
+                "description": ""
+              },
+              "desc_blanche": {
+                "description": "   "
+              },
+              "desc_fichier": {
+                "description": {
+                  "file": "<TMP>/court.md"
+                }
+              },
+              "desc_fichier_blanc": {
+                "description": {
+                  "file": "<TMP>/blanc.md",
+                  "inline": "repli inline"
+                }
+              },
+              "vrai_texte": {
+                "enabled": "false"
+              }
+            }
+          }
+        ],
+        [
+          "a..b",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "context.nombre",
+          {
+            "valeur": 5
+          }
+        ],
+        [
+          "absent.x",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "budgets",
+          {
+            "valeur": {
+              "tokens_per_char": 0.25,
+              "warn_system_total": 0,
+              "fail_on_overrun": false,
+              "ratio": [
+                0.1,
+                0.2
+              ]
+            }
+          }
+        ]
+      ],
+      "text": [
+        [
+          "context.sandbox_prefix",
+          {
+            "valeur": ""
+          }
+        ],
+        [
+          "context.compact_retry",
+          {
+            "valeur": "NEW"
+          }
+        ],
+        [
+          "context.obj",
+          {
+            "valeur": "inline seul"
+          }
+        ],
+        [
+          "context.nombre",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context.liste",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context.fichier_absent",
+          {
+            "valeur": "repli"
+          }
+        ],
+        [
+          "context.fichier_racine",
+          {
+            "valeur": "MIT License\n\nCopyright (c) 2026 Elpis contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+          }
+        ],
+        [
+          "context.crlf",
+          {
+            "valeur": "ligne1\nligne2\nligne3\n"
+          }
+        ],
+        [
+          "context.bom",
+          {
+            "valeur": "\ufeffavec BOM"
+          }
+        ],
+        [
+          "context.invalide",
+          {
+            "valeur": "repli invalide"
+          }
+        ],
+        [
+          "context.unicode",
+          {
+            "valeur": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\u00e9"
+          }
+        ],
+        [
+          "context.fichier_faux",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "context.fichier_nombre",
+          {
+            "valeur": "y"
+          }
+        ],
+        [
+          "context.inline_nombre",
+          {
+            "valeur": "7"
+          }
+        ],
+        [
+          "context.inline_blanc",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context.vide_dict",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context.fichier_dossier",
+          {
+            "valeur": "dossier"
+          }
+        ],
+        [
+          "context.relatif_remonte",
+          {
+            "valeur": "r"
+          }
+        ],
+        [
+          "system_prompt",
+          {
+            "valeur": "Bonjour\n"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "tools.read_file",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "context.sandbox_prefix",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context.compact_retry",
+          {
+            "valeur": "NEW"
+          }
+        ],
+        [
+          "context.obj",
+          {
+            "valeur": "inline seul"
+          }
+        ],
+        [
+          "context.nombre",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context.liste",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context.fichier_absent",
+          {
+            "valeur": "repli"
+          }
+        ],
+        [
+          "context.fichier_racine",
+          {
+            "valeur": "MIT License\n\nCopyright (c) 2026 Elpis contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+          }
+        ],
+        [
+          "context.crlf",
+          {
+            "valeur": "ligne1\nligne2\nligne3\n"
+          }
+        ],
+        [
+          "context.bom",
+          {
+            "valeur": "\ufeffavec BOM"
+          }
+        ],
+        [
+          "context.invalide",
+          {
+            "valeur": "repli invalide"
+          }
+        ],
+        [
+          "context.unicode",
+          {
+            "valeur": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\u00e9"
+          }
+        ],
+        [
+          "context.fichier_faux",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "context.fichier_nombre",
+          {
+            "valeur": "y"
+          }
+        ],
+        [
+          "context.inline_nombre",
+          {
+            "valeur": "7"
+          }
+        ],
+        [
+          "context.inline_blanc",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context.vide_dict",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context.fichier_dossier",
+          {
+            "valeur": "dossier"
+          }
+        ],
+        [
+          "context.relatif_remonte",
+          {
+            "valeur": "r"
+          }
+        ],
+        [
+          "system_prompt",
+          {
+            "valeur": "Bonjour\n"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "tools.read_file",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "a.b",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "faux0",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "nul",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "texte",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "slow",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "zero",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "neg",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "nan",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "inf",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "liste",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "desc_vide",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "desc_blanche",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "desc_fichier",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "desc_fichier_blanc",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "vrai_texte",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": [
+          "a.b",
+          "execute_shell"
+        ]
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "court"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a.b",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "faux0",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "nul",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "texte",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "slow",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "zero",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "neg",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "nan",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "inf",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "liste",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "desc_vide",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "desc_blanche",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "desc_fichier",
+          {
+            "valeur": "Bonjour\n"
+          }
+        ],
+        [
+          "desc_fichier_blanc",
+          {
+            "valeur": "repli inline"
+          }
+        ],
+        [
+          "vrai_texte",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": 0.25
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": [
+              0.1,
+              0.2
+            ]
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 0
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 12.5
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a.b",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "faux0",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "nul",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "texte",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "slow",
+          {
+            "valeur": 30.0
+          }
+        ],
+        [
+          "zero",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "neg",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "nan",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "inf",
+          {
+            "valeur": {
+              "$flottant": "inf"
+            }
+          }
+        ],
+        [
+          "liste",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "desc_vide",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "desc_blanche",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "desc_fichier",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "desc_fichier_blanc",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "vrai_texte",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "git",
+          null,
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "browser",
+          "take a SCREENSHOT",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "browser",
+          "Page Web ici",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "vide",
+          "x",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "autre",
+          "x",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "nombre",
+          "5",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "nul",
+          "x",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "fs",
+          "x",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "",
+          "x",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          null,
+          "x",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "GIT",
+          "git",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "accent",
+          "en \u00e9t\u00e9",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "accent",
+          "EN \u00c9T\u00c9",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 100
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 2
+          }
+        ],
+        [
+          "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          {
+            "valeur": 1
+          }
+        ],
+        [
+          "e\u0301",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "a\ud800",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8",
+          {
+            "valeur": 2
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 8
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 7 cat\u00e9gorie(s) (accent, autre, browser, git, nombre, nul, vide) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 7 cat\u00e9gorie(s) (accent, autre, browser, git, nombre, nul, vide) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ]
+    },
+    {
+      "nom": "budget_depasse_avertit",
+      "texte": "{\"budgets\": {\"warn_system_total\": 1}, \"system_prompt\": {\"file\": \"<TMP>/long.md\"}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] system_prompt: ~303 tok > budget 1"
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] system_prompt: ~303 tok > budget 1"
+        ]
+      ]
+    },
+    {
+      "nom": "budget_depasse_leve",
+      "texte": "{\"budgets\": {\"warn_system_total\": 1, \"fail_on_overrun\": true}, \"system_prompt\": \"court texte\"}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "court texte"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "court texte"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "erreur": "ValueError"
+      },
+      "validate_journal": [],
+      "load": {
+        "erreur": "ValueError",
+        "message": "[context_config] system_prompt: ~3 tok > budget 1"
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "budget_compression",
+      "texte": "{\"budgets\": {\"warn_compression_summary\": \"5\", \"tokens_per_char\": 1}, \"compression\": {\"system_prompt\": \"123456\"}}",
+      "registre": [],
+      "tpc": 1.0,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "123456"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "123456"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": 1
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 400
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 10
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] compression.system_prompt: ~6 tok > budget 5"
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] compression.system_prompt: ~6 tok > budget 5"
+        ]
+      ]
+    },
+    {
+      "nom": "budget_juste",
+      "texte": "{\"budgets\": {\"warn_system_total\": 3, \"tokens_per_char\": 1}, \"system_prompt\": \"abc\"}",
+      "registre": [],
+      "tpc": 1.0,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "abc"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "abc"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": 1
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 400
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 10
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "budget_illisible",
+      "texte": "{\"budgets\": {\"warn_system_total\": \"abc\"}, \"system_prompt\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": "abc"
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "tpc_texte",
+      "texte": "{\"budgets\": {\"tokens_per_char\": \"0.5\"}}",
+      "registre": [],
+      "tpc": 0.5,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": "0.5"
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 200
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 5
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "tpc_illisible",
+      "texte": "{\"budgets\": {\"tokens_per_char\": \"abc\"}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": "abc"
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "tpc_nul",
+      "texte": "{\"budgets\": {\"tokens_per_char\": null}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "tpc_nan_budget",
+      "texte": "{\"budgets\": {\"tokens_per_char\": \"nan\", \"warn_system_total\": 1}, \"system_prompt\": \"x\"}",
+      "registre": [],
+      "tpc": {
+        "$flottant": "nan"
+      },
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": "nan"
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          null,
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "erreur": "ValueError"
+          }
+        ]
+      ],
+      "validate": {
+        "erreur": "ValueError"
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "ERROR",
+          "[context_config] validation soft-failed"
+        ]
+      ]
+    },
+    {
+      "nom": "tpc_infini_leve",
+      "texte": "{\"budgets\": {\"tokens_per_char\": \"inf\", \"warn_system_total\": 1, \"fail_on_overrun\": 1}, \"system_prompt\": \"x\"}",
+      "registre": [],
+      "tpc": {
+        "$flottant": "inf"
+      },
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "x"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": "inf"
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": 1
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          null,
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "erreur": "OverflowError"
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "erreur": "OverflowError"
+          }
+        ]
+      ],
+      "validate": {
+        "erreur": "OverflowError"
+      },
+      "validate_journal": [],
+      "load": {
+        "erreur": "OverflowError",
+        "message": "cannot convert float infinity to integer"
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "gating_inerte",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": {\"git\": \"keyword:git\", \"zz_inconnue\": \"keyword:x\"}}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (git, zz_inconnue) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (git, zz_inconnue) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ]
+    },
+    {
+      "nom": "gating_desactive",
+      "texte": "{\"tool_gating\": {\"enabled\": false, \"gated\": {\"git\": \"x\"}}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "gating_vide",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": {}}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "gating_liste",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": [\"git\", \"fs\", \"git\"]}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "erreur": "AttributeError"
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "erreur": "AttributeError"
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 3 cat\u00e9gorie(s) (fs, git, git) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 3 cat\u00e9gorie(s) (fs, git, git) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ]
+    },
+    {
+      "nom": "gating_nombre",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": 5}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "erreur": "AttributeError"
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "erreur": "AttributeError"
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "gating_texte",
+      "texte": "{\"tool_gating\": {\"enabled\": \"oui\", \"gated\": \"gf\"}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "erreur": "AttributeError"
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "erreur": "AttributeError"
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (f, g) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (f, g) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ]
+    },
+    {
+      "nom": "tools_liste",
+      "texte": "{\"tools\": [\"a\"]}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": [
+              "a"
+            ]
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "erreur": "AttributeError"
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "fichier_nul",
+      "texte": "{\"budgets\": {\"warn_system_total\": 1}, \"system_prompt\": {\"file\": \"a\\u0000b\"}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "erreur": "ValueError"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "erreur": "ValueError"
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "ERROR",
+          "[context_config] validation soft-failed"
+        ]
+      ]
+    },
+    {
+      "nom": "fichier_nul_absolu",
+      "texte": "{\"budgets\": {\"warn_system_total\": 1}, \"system_prompt\": {\"file\": \"/a\\u0000b\", \"inline\": \"repli\"}}",
+      "registre": [],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "repli"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "repli"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 1
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": false
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [],
+      "load": {
+        "ok": true
+      },
+      "load_journal": []
+    },
+    {
+      "nom": "complet",
+      "texte": "{\"budgets\": {\"tokens_per_char\": 0.25, \"warn_system_total\": 0, \"fail_on_overrun\": false, \"ratio\": [0.1, 0.2]}, \"tools\": {\"read_file\": {\"enabled\": true, \"description\": \"court\", \"timeout_s\": 12.5}, \"execute_shell\": {\"enabled\": false, \"timeout_s\": \"abc\"}, \"slow\": {\"timeout_s\": \"30\"}, \"zero\": {\"timeout_s\": 0}, \"neg\": {\"timeout_s\": -4}, \"nan\": {\"timeout_s\": \"nan\"}, \"inf\": {\"timeout_s\": \"inf\"}, \"liste\": {\"timeout_s\": [1]}, \"a.b\": {\"enabled\": false}, \"a\": {\"b\": {\"enabled\": false}}, \"faux0\": {\"enabled\": 0}, \"nul\": {\"enabled\": null}, \"texte\": \"pas un dict\", \"desc_vide\": {\"description\": \"\"}, \"desc_blanche\": {\"description\": \"   \"}, \"desc_fichier\": {\"description\": {\"file\": \"<TMP>/court.md\"}}, \"desc_fichier_blanc\": {\"description\": {\"file\": \"<TMP>/blanc.md\", \"inline\": \"repli inline\"}}, \"vrai_texte\": {\"enabled\": \"false\"}}, \"tool_gating\": {\"enabled\": true, \"gated\": {\"git\": \"keyword:git, Commit ,branch\", \"browser\": \"keyword:screenshot,navig,page web\", \"vide\": \"keyword:\", \"autre\": \"regex:x\", \"nombre\": 5, \"nul\": null, \"accent\": \"keyword:\\u00c9T\\u00c9\"}}, \"system_prompt\": {\"file\": \"<TMP>/court.md\"}, \"compression\": {\"system_prompt\": {\"inline\": \"  \"}}, \"context\": {\"sandbox_prefix\": \"\", \"compact_retry\": \"NEW\", \"obj\": {\"inline\": \"inline seul\"}, \"nombre\": 5, \"liste\": [\"a\"], \"fichier_absent\": {\"file\": \"nexiste/pas.md\", \"inline\": \"repli\"}, \"fichier_racine\": {\"file\": \"LICENSE\"}, \"crlf\": {\"file\": \"<TMP>/crlf.md\"}, \"bom\": {\"file\": \"<TMP>/bom.md\"}, \"invalide\": {\"file\": \"<TMP>/invalide.md\", \"inline\": \"repli invalide\"}, \"unicode\": {\"file\": \"<TMP>/unicode.md\"}, \"fichier_faux\": {\"file\": false, \"inline\": \"x\"}, \"fichier_nombre\": {\"file\": 5, \"inline\": \"y\"}, \"inline_nombre\": {\"inline\": 7}, \"inline_blanc\": {\"inline\": \" \"}, \"vide_dict\": {}, \"fichier_dossier\": {\"file\": \"<TMP>\", \"inline\": \"dossier\"}, \"relatif_remonte\": {\"file\": \"../hors.md\", \"inline\": \"r\"}}}",
+      "registre": [
+        "fs",
+        "git",
+        "task"
+      ],
+      "tpc": 0.25,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": [
+              0.1,
+              0.2
+            ]
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": {
+              "read_file": {
+                "enabled": true,
+                "description": "court",
+                "timeout_s": 12.5
+              },
+              "execute_shell": {
+                "enabled": false,
+                "timeout_s": "abc"
+              },
+              "slow": {
+                "timeout_s": "30"
+              },
+              "zero": {
+                "timeout_s": 0
+              },
+              "neg": {
+                "timeout_s": -4
+              },
+              "nan": {
+                "timeout_s": "nan"
+              },
+              "inf": {
+                "timeout_s": "inf"
+              },
+              "liste": {
+                "timeout_s": [
+                  1
+                ]
+              },
+              "a.b": {
+                "enabled": false
+              },
+              "a": {
+                "b": {
+                  "enabled": false
+                }
+              },
+              "faux0": {
+                "enabled": 0
+              },
+              "nul": {
+                "enabled": null
+              },
+              "texte": "pas un dict",
+              "desc_vide": {
+                "description": ""
+              },
+              "desc_blanche": {
+                "description": "   "
+              },
+              "desc_fichier": {
+                "description": {
+                  "file": "<TMP>/court.md"
+                }
+              },
+              "desc_fichier_blanc": {
+                "description": {
+                  "file": "<TMP>/blanc.md",
+                  "inline": "repli inline"
+                }
+              },
+              "vrai_texte": {
+                "enabled": "false"
+              }
+            }
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "Bonjour\n"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "Bonjour\n"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": [
+          "a.b",
+          "execute_shell"
+        ]
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "court"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": 0.25
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": [
+              0.1,
+              0.2
+            ]
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": false
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": 0
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 12.5
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": false
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 100
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 2
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 7 cat\u00e9gorie(s) (accent, autre, browser, git, nombre, nul, vide) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ],
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated : cat\u00e9gorie(s) inconnue(s) du registre : accent, autre, browser, nombre, nul, vide (connues : fs, git, task)"
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 7 cat\u00e9gorie(s) (accent, autre, browser, git, nombre, nul, vide) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ],
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated : cat\u00e9gorie(s) inconnue(s) du registre : accent, autre, browser, nombre, nul, vide (connues : fs, git, task)"
+        ]
+      ]
+    },
+    {
+      "nom": "gating_inerte",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": {\"git\": \"keyword:git\", \"zz_inconnue\": \"keyword:x\"}}}",
+      "registre": [
+        "fs",
+        "git",
+        "task"
+      ],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (git, zz_inconnue) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ],
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated : cat\u00e9gorie(s) inconnue(s) du registre : zz_inconnue (connues : fs, git, task)"
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 2 cat\u00e9gorie(s) (git, zz_inconnue) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ],
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated : cat\u00e9gorie(s) inconnue(s) du registre : zz_inconnue (connues : fs, git, task)"
+        ]
+      ]
+    },
+    {
+      "nom": "gating_liste",
+      "texte": "{\"tool_gating\": {\"enabled\": true, \"gated\": [\"git\", \"fs\", \"git\"]}}",
+      "registre": [
+        "fs",
+        "git",
+        "task"
+      ],
+      "tpc": 0.30303030303030304,
+      "get": [
+        [
+          "budgets.ratio",
+          {
+            "valeur": "D"
+          }
+        ],
+        [
+          "tools",
+          {
+            "valeur": "D"
+          }
+        ]
+      ],
+      "text": [
+        [
+          "system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DEF"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "DEF"
+          }
+        ]
+      ],
+      "override": [
+        [
+          "system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "compression.system_prompt",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "FALLBACK"
+          }
+        ],
+        [
+          "context",
+          {
+            "valeur": "FALLBACK"
+          }
+        ]
+      ],
+      "tool_enabled": [
+        [
+          "read_file",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": true
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": true
+          }
+        ]
+      ],
+      "disabled_tools": {
+        "valeur": []
+      },
+      "tool_description": [
+        [
+          "read_file",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": "DOC"
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": "DOC"
+          }
+        ]
+      ],
+      "budget_raw": [
+        [
+          "tokens_per_char",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "ratio",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "fail_on_overrun",
+          {
+            "valeur": null
+          }
+        ],
+        [
+          "warn_system_total",
+          {
+            "valeur": null
+          }
+        ]
+      ],
+      "tool_timeout_s": [
+        [
+          "read_file",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "execute_shell",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "a",
+          {
+            "valeur": 0.0
+          }
+        ],
+        [
+          "absent",
+          {
+            "valeur": 0.0
+          }
+        ]
+      ],
+      "gating_enabled": {
+        "valeur": true
+      },
+      "category_gated_out": [
+        [
+          "git",
+          "bonjour",
+          {
+            "erreur": "AttributeError"
+          }
+        ],
+        [
+          "git",
+          "please COMMIT",
+          {
+            "erreur": "AttributeError"
+          }
+        ]
+      ],
+      "est_tokens": [
+        [
+          "",
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          null,
+          {
+            "valeur": 0
+          }
+        ],
+        [
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          {
+            "valeur": 121
+          }
+        ],
+        [
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          {
+            "valeur": 3
+          }
+        ]
+      ],
+      "validate": {
+        "valeur": null
+      },
+      "validate_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 3 cat\u00e9gorie(s) (fs, git, git) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ],
+      "load": {
+        "ok": true
+      },
+      "load_journal": [
+        [
+          "WARNING",
+          "[context_config] tool_gating.gated liste 3 cat\u00e9gorie(s) (fs, git, git) mais le gating par mots-cl\u00e9s n'est PAS c\u00e2bl\u00e9 : aucune cat\u00e9gorie ne sera masqu\u00e9e. R\u00e9glage sans effet \u2014 utilisez les toggles du panneau Outils, ou tools.<nom>.enabled=false pour retirer un outil."
+        ]
+      ]
+    }
+  ],
+  "chemins": [
+    {
+      "env": null,
+      "chemin": "<RACINE>/shared_infra/context_config.json"
+    },
+    {
+      "env": "",
+      "chemin": "<RACINE>/shared_infra/context_config.json"
+    },
+    {
+      "env": "   ",
+      "chemin": "<RACINE>/shared_infra/context_config.json"
+    },
+    {
+      "env": "<TMP>//sous/./cc.json",
+      "chemin": "<TMP>/sous/cc.json"
+    },
+    {
+      "env": "shared_infra/../shared_infra/context_config.json",
+      "chemin": "<RACINE>/shared_infra/context_config.json"
+    },
+    {
+      "env": "conf/cc.json",
+      "chemin": "<RACINE>/conf/cc.json"
+    },
+    {
+      "env": "~/cc.json",
+      "chemin": "<RACINE>/~/cc.json"
+    },
+    {
+      "env": "<TMP>/sous/../cc.json",
+      "chemin": "<TMP>/sous/../cc.json"
+    }
+  ]
+}

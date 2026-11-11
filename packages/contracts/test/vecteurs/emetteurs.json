@@ -1,0 +1,1103 @@
+{
+  "source": "migration-kit/vecteurs/contracts_emetteurs.py",
+  "releves": [
+    {
+      "type": "annotation_frame",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 141,
+      "cles": [
+        "boxes",
+        "image_url",
+        "img_h",
+        "img_w",
+        "sig",
+        "target",
+        "ts"
+      ],
+      "ouvert": false,
+      "prives": [
+        "_vision_track"
+      ]
+    },
+    {
+      "type": "compression_capped",
+      "fichier": "llm_core/conversation_compressor.py",
+      "ligne": 1908,
+      "cles": [
+        "max",
+        "round"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "compression_done",
+      "fichier": "llm_core/conversation_compressor.py",
+      "ligne": 2050,
+      "cles": [
+        "external",
+        "path",
+        "stats"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "compression_start",
+      "fichier": "llm_core/conversation_compressor.py",
+      "ligne": 1939,
+      "cles": [
+        "ctx_size",
+        "external",
+        "model",
+        "path",
+        "reason",
+        "threshold",
+        "tokens",
+        "turns"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "compression_state",
+      "fichier": "llm_core/conversation_compressor.py",
+      "ligne": 2036,
+      "cles": [
+        "covered_turns",
+        "ledger_block",
+        "round",
+        "summary_xml",
+        "turns_compressed"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_replace",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1035,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_replace",
+      "fichier": "llm_core/engine/live_text.py",
+      "ligne": 145,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_token",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 923,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_token",
+      "fichier": "llm_core/engine/live_text.py",
+      "ligne": 99,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_token",
+      "fichier": "llm_core/engine/live_text.py",
+      "ligne": 111,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_token",
+      "fichier": "llm_core/engine/live_text.py",
+      "ligne": 147,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "content_token",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 695,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "error",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1469,
+      "cles": [
+        "detail",
+        "kind",
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "error",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1645,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "error",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 913,
+      "cles": [
+        "detail",
+        "hard_iteration",
+        "iteration",
+        "kind",
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "final",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 327,
+      "cles": [
+        "assistant",
+        "chat_id",
+        "metrics",
+        "persist_error",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "final",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1536,
+      "cles": [
+        "assistant",
+        "cancelled",
+        "chat_id",
+        "metrics",
+        "persist_error",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "title",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "final",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1578,
+      "cles": [
+        "assistant",
+        "cancelled",
+        "chat_id",
+        "metrics",
+        "persist_error",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "final",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 425,
+      "cles": [
+        "assistant",
+        "cancelled",
+        "chat_id",
+        "generated_images",
+        "image",
+        "image_error",
+        "image_meta",
+        "metrics",
+        "persist_error",
+        "persisted",
+        "revised_prompt",
+        "run_ids",
+        "title"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "image",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 409,
+      "cles": [
+        "items",
+        "prompt"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "image",
+      "fichier": "llm_core/tools/image_tool.py",
+      "ligne": 178,
+      "cles": [
+        "items",
+        "prompt",
+        "source"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "image_error",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 411,
+      "cles": [],
+      "ouvert": true
+    },
+    {
+      "type": "image_error",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 538,
+      "cles": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "image_error",
+      "fichier": "llm_core/tools/image_tool.py",
+      "ligne": 172,
+      "cles": [
+        "source"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "image_progress",
+      "fichier": "llm_core/imagegen/service.py",
+      "ligne": 292,
+      "cles": [
+        "elapsed_s",
+        "eta_s",
+        "height",
+        "n",
+        "pct",
+        "pct_real",
+        "preview",
+        "queue_position",
+        "source",
+        "state",
+        "width"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "image_prompt",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 457,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 767,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 459,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 1093,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 1140,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 1280,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "llm_core/engine/resume.py",
+      "ligne": 245,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "info",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 836,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "iteration",
+      "fichier": "llm_core/_chat_with_tools.py",
+      "ligne": 804,
+      "cles": [
+        "context_tokens",
+        "max",
+        "n",
+        "tokens_used"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "journal_truncated",
+      "fichier": "shared_infra/runtime/run_journal.py",
+      "ligne": 314,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "kv_cache",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1385,
+      "cles": [
+        "pct",
+        "total",
+        "used"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "kv_cache",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 1250,
+      "cles": [
+        "pct",
+        "total",
+        "used"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "llm_user_suffix",
+      "fichier": "llm_core/_chat_with_tools.py",
+      "ligne": 509,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "log",
+      "fichier": "chatbot_app/turn/preparation.py",
+      "ligne": 286,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 762,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 773,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 782,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1053,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 382,
+      "cles": [
+        "kind",
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "llm_core/_chat_with_tools.py",
+      "ligne": 455,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "mode",
+      "fichier": "llm_core/_chat_with_tools.py",
+      "ligne": 813,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "notice",
+      "fichier": "llm_core/_chat_with_tools.py",
+      "ligne": 780,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "notice",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1049,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "notice",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1060,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "notice",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1696,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "notice",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1833,
+      "cles": [
+        "level",
+        "message"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "ping",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 381,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "ping",
+      "fichier": "chatbot_app/turn/events.py",
+      "ligne": 137,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "ping",
+      "fichier": "chatbot_app/turn/image.py",
+      "ligne": 519,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "prompt_progress",
+      "fichier": "chatbot_app/turn/events.py",
+      "ligne": 38,
+      "cles": [
+        "cache",
+        "iter",
+        "processed",
+        "time_ms",
+        "total"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "prompt_progress",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 537,
+      "cles": [
+        "cache",
+        "iter",
+        "processed",
+        "time_ms",
+        "total"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "prune_state",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 454,
+      "cles": [
+        "keys"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "prune_state",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 860,
+      "cles": [
+        "keys"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "queue_cleared",
+      "fichier": "chatbot_app/turn/events.py",
+      "ligne": 322,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "queue_cleared",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 885,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "queue_cleared",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1440,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "queue_cleared",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1448,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "queue_status",
+      "fichier": "chatbot_app/turn/events.py",
+      "ligne": 313,
+      "cles": [],
+      "ouvert": true
+    },
+    {
+      "type": "queue_status",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 821,
+      "cles": [],
+      "ouvert": true
+    },
+    {
+      "type": "queue_status",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 854,
+      "cles": [],
+      "ouvert": true
+    },
+    {
+      "type": "rag_sources",
+      "fichier": "apps/core/src/rag/outils-chat.ts",
+      "ligne": 381,
+      "cles": [
+        "sources"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "replay_done",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 389,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "run_end",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 402,
+      "cles": [
+        "status"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "run_end",
+      "fichier": "shared_infra/runtime/run_journal.py",
+      "ligne": 271,
+      "cles": [
+        "status"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "run_lost",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 344,
+      "cles": [
+        "reason"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "run_lost",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 353,
+      "cles": [
+        "reason"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "run_lost",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 416,
+      "cles": [
+        "reason"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "run_started",
+      "fichier": "shared_infra/runtime/run_journal.py",
+      "ligne": 194,
+      "cles": [
+        "run_id"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "session_expired",
+      "fichier": "chatbot_app/routes/chat_control.py",
+      "ligne": 375,
+      "cles": [],
+      "ouvert": false
+    },
+    {
+      "type": "shell_output",
+      "fichier": "llm_core/engine/tool_exec.py",
+      "ligne": 227,
+      "cles": [
+        "bytes_total",
+        "call_id",
+        "chunk",
+        "done",
+        "duration_ms",
+        "live_truncated",
+        "name",
+        "returncode",
+        "seq",
+        "stream",
+        "timed_out"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "shell_output",
+      "fichier": "llm_core/engine/tool_exec.py",
+      "ligne": 255,
+      "cles": [
+        "bytes_total",
+        "call_id",
+        "chunk",
+        "done",
+        "duration_ms",
+        "live_truncated",
+        "name",
+        "returncode",
+        "seq",
+        "stream",
+        "timed_out"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1190,
+      "cles": [
+        "agent",
+        "child_id",
+        "status",
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1218,
+      "cles": [
+        "agent",
+        "child_id",
+        "status",
+        "tokens"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1295,
+      "cles": [
+        "agent",
+        "args_preview",
+        "calls",
+        "child_id",
+        "max_steps",
+        "status",
+        "step",
+        "tokens",
+        "tool"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1358,
+      "cles": [
+        "agent",
+        "calls",
+        "child_id",
+        "max_steps",
+        "result_preview",
+        "status",
+        "step",
+        "tokens",
+        "tool"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1552,
+      "cles": [
+        "agent",
+        "child_id",
+        "depth",
+        "resumed",
+        "status"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "task_step",
+      "fichier": "llm_core/tools/task_tool.py",
+      "ligne": 1767,
+      "cles": [
+        "agent",
+        "child_id",
+        "context_tokens",
+        "duration_ms",
+        "input_tokens",
+        "output_tokens",
+        "result",
+        "state",
+        "status",
+        "steps_total",
+        "transcript"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 833,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_content",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1026,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_content",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 1033,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_content",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 1325,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_content",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 174,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_content",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 247,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_token",
+      "fichier": "chatbot_app/turn/execution.py",
+      "ligne": 920,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "thinking_token",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 459,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "title",
+      "fichier": "apps/core/src/tour/execution.ts",
+      "ligne": 542,
+      "cles": [
+        "chat_id",
+        "title"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "todo_updated",
+      "fichier": "llm_core/engine/tool_exec.py",
+      "ligne": 435,
+      "cles": [
+        "remaining",
+        "todos"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_call",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1549,
+      "cles": [
+        "args",
+        "call_id",
+        "internal",
+        "name"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_call_delta",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 469,
+      "cles": [
+        "index",
+        "iter",
+        "reset"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_call_delta",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 496,
+      "cles": [
+        "args_delta",
+        "index",
+        "iter",
+        "name_delta"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_history_partial",
+      "fichier": "llm_core/engine/run.py",
+      "ligne": 506,
+      "cles": [
+        "tool_history"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_limit",
+      "fichier": "llm_core/engine/run_exit.py",
+      "ligne": 559,
+      "cles": [
+        "effective_iterations",
+        "hard_iterations",
+        "hard_iterations_max",
+        "iterations",
+        "limit_kind",
+        "max_iterations",
+        "reason",
+        "stop_reason",
+        "tool_calls_done"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_log",
+      "fichier": "llm_core/engine/tool_exec.py",
+      "ligne": 284,
+      "cles": [
+        "level",
+        "logger",
+        "message",
+        "name"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_progress",
+      "fichier": "llm_core/engine/tool_exec.py",
+      "ligne": 199,
+      "cles": [
+        "message",
+        "name",
+        "progress",
+        "total"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "tool_result",
+      "fichier": "llm_core/engine/run.py",
+      "ligne": 365,
+      "cles": [
+        "name",
+        "ok",
+        "path"
+      ],
+      "ouvert": false,
+      "hors_fil": "entr\u00e9e interne de RunRecord.events, jamais \u00e9mise"
+    },
+    {
+      "type": "tool_result",
+      "fichier": "llm_core/engine/tool_dispatch.py",
+      "ligne": 1626,
+      "cles": [
+        "call_id",
+        "desktop",
+        "duration_ms",
+        "internal",
+        "name",
+        "result",
+        "screenshot_session",
+        "screenshot_step",
+        "screenshot_url"
+      ],
+      "ouvert": true
+    },
+    {
+      "type": "warning",
+      "fichier": "llm_core/engine/llm_turn.py",
+      "ligne": 866,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    },
+    {
+      "type": "warning",
+      "fichier": "llm_core/engine/tool_catalog.py",
+      "ligne": 339,
+      "cles": [
+        "text"
+      ],
+      "ouvert": false
+    }
+  ]
+}

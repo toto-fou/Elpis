@@ -1,0 +1,712 @@
+{
+  "source": "migration-kit/vecteurs/core_interne.py",
+  "svc": "svc-jeton-de-service",
+  "comptes": [
+    [
+      "admin",
+      1,
+      {}
+    ],
+    [
+      "bob",
+      0,
+      {
+        "network_profile_id": " lan ",
+        "autre": 1
+      }
+    ],
+    [
+      "modo",
+      2,
+      {
+        "forced_network_profile_id": "corp",
+        "network_profile_id": "lan"
+      }
+    ]
+  ],
+  "connecteurs": [
+    [
+      "bob",
+      "github",
+      "GitHub.com",
+      "ghp_secret",
+      "ci"
+    ],
+    [
+      "bob",
+      "gitea",
+      "10.0.0.42:3000",
+      "tok-gitea",
+      ""
+    ],
+    [
+      "modo",
+      "gitlab",
+      "gitlab.acme.io",
+      "glp",
+      "m"
+    ]
+  ],
+  "jetons_demandes": [
+    [
+      "bob",
+      "tools",
+      [
+        "fs",
+        "git"
+      ]
+    ],
+    [
+      "modo",
+      "opencode",
+      null
+    ],
+    [
+      "bob",
+      "vision",
+      null
+    ]
+  ],
+  "etapes": [
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {},
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "Bearer faux"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "Basic svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "  Bearer   svc-jeton-de-service  "
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "Bearersvc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "Bearer svc-jeton-de-servicex"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=bob",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      true
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {},
+      {
+        "token": "x"
+      },
+      true
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=%20bob%20",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=inconnu",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=modo",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/identity?username=admin",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": "<tools>"
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": "<opencode>"
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": "<vision>"
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": "  <tools>  "
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": "ept_inconnuinconnuinconnu"
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": 5
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {
+        "token": ""
+      },
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      {},
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      "<<{>>",
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      [],
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      [
+        1
+      ],
+      false
+    ],
+    [
+      "POST",
+      "/api/internal/tokens/introspect",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      "texte",
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2&remote_url=https://github.com/o/r.git",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2&remote_url=http://10.0.0.42:3000/a/b.git",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2&remote_url=git@github.com:o/r.git",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2&remote_url=https://gitlab.com/x/y",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=3&remote_url=https://gitlab.com/x/y",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=3&remote_url=https://github.com/o/r",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2&remote_url=pas-une-url",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=0&remote_url=x",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=2",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential?user_id=abc&remote_url=x",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/credential",
+      {},
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/connector-hosts?user_id=2",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/connector-hosts?user_id=99",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/connector-hosts?user_id=0",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/connector-hosts?user_id=1.5",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      false
+    ],
+    [
+      "GET",
+      "/api/internal/git/connector-hosts",
+      {
+        "authorization": "Bearer svc-jeton-de-service"
+      },
+      null,
+      true
+    ]
+  ],
+  "ids": {
+    "admin": 1,
+    "bob": 2,
+    "modo": 3
+  },
+  "jetons": {
+    "tools": "ept_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0",
+    "opencode": "pcr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1",
+    "vision": "evt_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2"
+  },
+  "reponses": [
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"username\":\"bob\",\"network_profile_id\":\"lan\",\"is_admin\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"username\":\"bob\",\"network_profile_id\":\"lan\",\"is_admin\":false}",
+      "www": null
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 503,
+      "corps": "{\"detail\":\"aucun jeton de service configur\u00e9\"}",
+      "www": null
+    },
+    {
+      "statut": 503,
+      "corps": "{\"detail\":\"aucun jeton de service configur\u00e9\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"username requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"username requis\"}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"username\":\"bob\",\"network_profile_id\":\"lan\",\"is_admin\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":3,\"username\":\"modo\",\"network_profile_id\":\"corp\",\"is_admin\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":1,\"username\":\"admin\",\"network_profile_id\":\"isolated\",\"is_admin\":true}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"username\":\"bob\",\"network_profile_id\":\"lan\",\"is_admin\":false,\"kind\":\"tools\",\"families\":[\"fs\",\"git\"]}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":3,\"username\":\"modo\",\"network_profile_id\":\"corp\",\"is_admin\":false,\"kind\":\"opencode\",\"families\":[]}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"username\":\"bob\",\"network_profile_id\":\"lan\",\"is_admin\":false,\"kind\":\"tools\",\"families\":[\"fs\",\"git\"]}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "www": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "www": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":{\"username\":\"ci\",\"token\":\"ghp_secret\",\"host\":\"github.com\"}}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":{\"username\":\"\",\"token\":\"tok-gitea\",\"host\":\"10.0.0.42:3000\"}}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":{\"username\":\"ci\",\"token\":\"ghp_secret\",\"host\":\"github.com\"}}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":null}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":{\"username\":\"m\",\"token\":\"glp\",\"host\":\"gitlab.com\"}}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":null}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"credential\":null}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"user_id et remote_url requis\"}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"user_id et remote_url requis\"}",
+      "www": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "www": null
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"jeton de service requis\"}",
+      "www": "Bearer"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"hosts\":[\"10.0.0.42:3000\",\"github.com\"]}",
+      "www": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"hosts\":[]}",
+      "www": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"user_id requis\"}",
+      "www": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"1.5\"}]}",
+      "www": null
+    },
+    {
+      "statut": 503,
+      "corps": "{\"detail\":\"aucun jeton de service configur\u00e9\"}",
+      "www": null
+    }
+  ]
+}

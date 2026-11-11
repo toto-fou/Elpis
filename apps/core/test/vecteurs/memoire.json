@@ -1,0 +1,3204 @@
+{
+  "source": "migration-kit/vecteurs/memoire.py",
+  "unicode": "15.1.0",
+  "parse": [
+    {
+      "brut": "",
+      "entrees": []
+    },
+    {
+      "brut": "   \n  ",
+      "entrees": []
+    },
+    {
+      "brut": "premier\n\u00a7\ndeuxieme ligne1\ndeuxieme ligne2\n\u00a7\ntroisieme",
+      "entrees": [
+        "premier",
+        "deuxieme ligne1\ndeuxieme ligne2",
+        "troisieme"
+      ]
+    },
+    {
+      "brut": "a\n  \u00a7  \nb",
+      "entrees": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "a\n\t\u00a7\t\nb",
+      "entrees": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "a\n\u00a7x\nb",
+      "entrees": [
+        "a\n\u00a7x\nb"
+      ]
+    },
+    {
+      "brut": "a\nx\u00a7\nb",
+      "entrees": [
+        "a\nx\u00a7\nb"
+      ]
+    },
+    {
+      "brut": "\u00a7\na\n\u00a7",
+      "entrees": [
+        "a"
+      ]
+    },
+    {
+      "brut": "\u00a7",
+      "entrees": []
+    },
+    {
+      "brut": "\n\u00a7\n",
+      "entrees": []
+    },
+    {
+      "brut": "a\r\n\u00a7\r\nb",
+      "entrees": [
+        "a\r\n\u00a7\r\nb"
+      ]
+    },
+    {
+      "brut": "a\r\u00a7\rb",
+      "entrees": [
+        "a\r\u00a7\rb"
+      ]
+    },
+    {
+      "brut": "a\u2028\u00a7\u2028b",
+      "entrees": [
+        "a\u2028\u00a7\u2028b"
+      ]
+    },
+    {
+      "brut": "a\n\u00a0\u00a7\nb",
+      "entrees": [
+        "a\n\u00a0\u00a7\nb"
+      ]
+    },
+    {
+      "brut": "a\n\u00a7\n\n\u00a7\nb",
+      "entrees": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "  a  \n\u00a7\n  b  ",
+      "entrees": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "a\n\u00a7 \nb\n\u00a7\t\nc",
+      "entrees": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "brut": "\u00e9\ud83d\ude00\n\u00a7\n\u20ac",
+      "entrees": [
+        "\u00e9\ud83d\ude00",
+        "\u20ac"
+      ]
+    },
+    {
+      "brut": "a\n\\\u00a7\nb",
+      "entrees": [
+        "a\n\\\u00a7\nb"
+      ]
+    },
+    {
+      "brut": "a\n\u00a7\u00a7\nb",
+      "entrees": [
+        "a\n\u00a7\u00a7\nb"
+      ]
+    },
+    {
+      "brut": "a\u000b\u00a7\u000bb",
+      "entrees": [
+        "a\u000b\u00a7\u000bb"
+      ]
+    },
+    {
+      "brut": "a\n\u00a7\n\u3000\n\u00a7\nb",
+      "entrees": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "x\n\u00a7",
+      "entrees": [
+        "x"
+      ]
+    },
+    {
+      "brut": "\u00a7\ny",
+      "entrees": [
+        "y"
+      ]
+    }
+  ],
+  "reecritures": [
+    {
+      "contenu": "nouveau fait A\n---\nnouveau fait B\nsur deux lignes\n---\nfait C",
+      "parties": [
+        "nouveau fait A",
+        "nouveau fait B\nsur deux lignes",
+        "fait C"
+      ]
+    },
+    {
+      "contenu": "un\n\u00a7\ndeux",
+      "parties": [
+        "un",
+        "deux"
+      ]
+    },
+    {
+      "contenu": "   \n---\n  ",
+      "parties": []
+    },
+    {
+      "contenu": "a\n-----\nb",
+      "parties": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "contenu": "a\n--\nb",
+      "parties": [
+        "a\n--\nb"
+      ]
+    },
+    {
+      "contenu": "a\n --- \nb",
+      "parties": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "contenu": "a\r\n---\r\nb",
+      "parties": [
+        "a\r\n---\r\nb"
+      ]
+    },
+    {
+      "contenu": "a\n---x\nb",
+      "parties": [
+        "a\n---x\nb"
+      ]
+    },
+    {
+      "contenu": "---\na\n---",
+      "parties": [
+        "a"
+      ]
+    },
+    {
+      "contenu": "a\n\u2014\nb",
+      "parties": [
+        "a\n\u2014\nb"
+      ]
+    }
+  ],
+  "serialisation": [
+    {
+      "entrees": [
+        "a",
+        "b"
+      ],
+      "texte": "a\n\u00a7\nb"
+    },
+    {
+      "entrees": [
+        " a ",
+        "",
+        "  ",
+        "b\n"
+      ],
+      "texte": "a\n\u00a7\nb"
+    },
+    {
+      "entrees": [],
+      "texte": ""
+    },
+    {
+      "entrees": [
+        "\ud83d\ude00"
+      ],
+      "texte": "\ud83d\ude00"
+    },
+    {
+      "entrees": [
+        "\u00a7",
+        "x"
+      ],
+      "texte": "\u00a7\n\u00a7\nx"
+    }
+  ],
+  "normalisation": [
+    {
+      "texte": "  Python\n  EST\tSuper  ",
+      "norme": "python est super"
+    },
+    {
+      "texte": "\u2026pr\u00e9f\u00e9rences de codage...",
+      "norme": "pr\u00e9f\u00e9rences de codage"
+    },
+    {
+      "texte": "a \u2026 b",
+      "norme": "a \u2026 b"
+    },
+    {
+      "texte": "caf\u00e9",
+      "norme": "caf\u00e9"
+    },
+    {
+      "texte": "caf\u00e9",
+      "norme": "caf\u00e9"
+    },
+    {
+      "texte": "Stra\u00dfe",
+      "norme": "strasse"
+    },
+    {
+      "texte": "STRASSE",
+      "norme": "strasse"
+    },
+    {
+      "texte": "\u0391\u03a3",
+      "norme": "\u03b1\u03c3"
+    },
+    {
+      "texte": "\u039f\u0394\u039f\u03a3 \u039f\u0394\u039f\u03a3",
+      "norme": "\u03bf\u03b4\u03bf\u03c3 \u03bf\u03b4\u03bf\u03c3"
+    },
+    {
+      "texte": "\u03c2",
+      "norme": "\u03c3"
+    },
+    {
+      "texte": "\u0130stanbul",
+      "norme": "i\u0307stanbul"
+    },
+    {
+      "texte": "\ufb00 ligature",
+      "norme": "ff ligature"
+    },
+    {
+      "texte": "\u13a0\uab70",
+      "norme": "\u13a0\u13a0"
+    },
+    {
+      "texte": "\u1f88",
+      "norme": "\u1f00\u03b9"
+    },
+    {
+      "texte": "\u0149",
+      "norme": "\u02bcn"
+    },
+    {
+      "texte": "\u00b5",
+      "norme": "\u03bc"
+    },
+    {
+      "texte": "\u017f",
+      "norme": "s"
+    },
+    {
+      "texte": "x\u001cy\u001dz\u001e\u001fw",
+      "norme": "x y z w"
+    },
+    {
+      "texte": "a\u0085b\u2028c\ufeffd",
+      "norme": "a b c\ufeffd"
+    },
+    {
+      "texte": "......",
+      "norme": ""
+    },
+    {
+      "texte": "\u2026 \u2026",
+      "norme": ""
+    },
+    {
+      "texte": "...a...",
+      "norme": "a"
+    },
+    {
+      "texte": "..a..",
+      "norme": "..a.."
+    },
+    {
+      "texte": "\u2026",
+      "norme": ""
+    },
+    {
+      "texte": "a\u2026",
+      "norme": "a"
+    },
+    {
+      "texte": " \u2026 a \u2026 ",
+      "norme": "a"
+    },
+    {
+      "texte": "\u3000x\u3000",
+      "norme": "x"
+    },
+    {
+      "texte": "\u01c4 \u01c5 \u01c6",
+      "norme": "\u01c6 \u01c6 \u01c6"
+    },
+    {
+      "texte": "\u1e9e",
+      "norme": "ss"
+    },
+    {
+      "texte": "\ufb01",
+      "norme": "fi"
+    },
+    {
+      "texte": "K",
+      "norme": "k"
+    },
+    {
+      "texte": "\u00c5",
+      "norme": "\u00e5"
+    },
+    {
+      "texte": "\u03d0\u03d1\u03d5\u03d6\u03f0\u03f1\u03f5",
+      "norme": "\u03b2\u03b8\u03c6\u03c0\u03ba\u03c1\u03b5"
+    },
+    {
+      "texte": "\u0390",
+      "norme": "\u03b9\u0308\u0301"
+    },
+    {
+      "texte": "\u01f0",
+      "norme": "j\u030c"
+    },
+    {
+      "texte": "\ufb13",
+      "norme": "\u0574\u0576"
+    },
+    {
+      "texte": "",
+      "norme": ""
+    },
+    {
+      "texte": "   ",
+      "norme": ""
+    },
+    {
+      "texte": "x\u1c89y\ua7cb",
+      "norme": "x\u1c89y\ua7cb"
+    },
+    {
+      "texte": "\ud83d\ude00\u00c9\u00c9",
+      "norme": "\ud83d\ude00\u00e9\u00e9"
+    },
+    {
+      "texte": "\ud83a\udd00",
+      "norme": "\ud83a\udd22"
+    },
+    {
+      "texte": "\ud801\udc00\ud801\udc28",
+      "norme": "\ud801\udc28\ud801\udc28"
+    }
+  ],
+  "ids": [
+    {
+      "texte": "user likes python",
+      "longueur": 4,
+      "id": "9a9b"
+    },
+    {
+      "texte": "user likes python",
+      "longueur": 12,
+      "id": "9a9ba4bb55a9"
+    },
+    {
+      "texte": "",
+      "longueur": 4,
+      "id": "da39"
+    },
+    {
+      "texte": "  a  ",
+      "longueur": 4,
+      "id": "86f7"
+    },
+    {
+      "texte": "caf\u00e9",
+      "longueur": 4,
+      "id": "f424"
+    },
+    {
+      "texte": "caf\u00e9",
+      "longueur": 4,
+      "id": "f424"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00",
+      "longueur": 40,
+      "id": "9c286deb5d7549eafd1dcb2b58e0b573bc1b4a97"
+    },
+    {
+      "texte": "x",
+      "longueur": 0,
+      "id": "1"
+    },
+    {
+      "texte": "x",
+      "longueur": -3,
+      "id": "1"
+    },
+    {
+      "texte": "abc",
+      "longueur": 100,
+      "id": "a9993e364706816aba3e25717850c26c9cd0d89d"
+    }
+  ],
+  "listes_ids": [
+    {
+      "entrees": [
+        "note 13",
+        "note 376",
+        "autre note"
+      ],
+      "ids": [
+        "1029d",
+        "1029f",
+        "088b"
+      ]
+    },
+    {
+      "entrees": [
+        "note 47",
+        "note 377",
+        "autre note"
+      ],
+      "ids": [
+        "765946",
+        "76594a",
+        "088b"
+      ]
+    },
+    {
+      "entrees": [
+        "note 206",
+        "note 711",
+        "autre note"
+      ],
+      "ids": [
+        "f7797e",
+        "f77972",
+        "088b"
+      ]
+    },
+    {
+      "entrees": [
+        "m\u00eame texte",
+        "m\u00eame texte",
+        "diff\u00e9rent"
+      ],
+      "ids": [
+        "50448198edf9",
+        "50448198edf9",
+        "a4be"
+      ]
+    }
+  ],
+  "assainissement": [
+    {
+      "texte": "a\n\u00a7\nb",
+      "sain": "a\n\\\u00a7\nb"
+    },
+    {
+      "texte": "code \u00a7 section",
+      "sain": "code \u00a7 section"
+    },
+    {
+      "texte": "a\r\n\u00a7\r\nb",
+      "sain": "a\n\\\u00a7\nb"
+    },
+    {
+      "texte": "a\r\u00a7\rb",
+      "sain": "a\n\\\u00a7\nb"
+    },
+    {
+      "texte": "  \u00a7  ",
+      "sain": "  \\\u00a7  "
+    },
+    {
+      "texte": "\u00a7",
+      "sain": "\\\u00a7"
+    },
+    {
+      "texte": "a\n\t\u00a7 \nb",
+      "sain": "a\n\t\\\u00a7 \nb"
+    },
+    {
+      "texte": "a\n\u00a7x\nb",
+      "sain": "a\n\u00a7x\nb"
+    },
+    {
+      "texte": "\n\u00a7\n\u00a7\n",
+      "sain": "\n\\\u00a7\n\\\u00a7\n"
+    },
+    {
+      "texte": "a\u2028\u00a7\u2028b",
+      "sain": "a\u2028\u00a7\u2028b"
+    },
+    {
+      "texte": "a\\\u00a7b",
+      "sain": "a\\\u00a7b"
+    }
+  ],
+  "cibles": [
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "[f876]",
+      "index": 1,
+      "matched_by": "id",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "[9a9b] texte totalement p\u00e9rim\u00e9",
+      "index": 0,
+      "matched_by": "id",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "[ffff] uses sqlite",
+      "index": 1,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python"
+      ],
+      "cible": "[ffff]",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "9a9b",
+      "index": 0,
+      "matched_by": "id",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "  9a9b  ",
+      "index": 0,
+      "matched_by": "id",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "user likes python",
+        "project uses sqlite"
+      ],
+      "cible": "9A9B",
+      "index": 0,
+      "matched_by": "id",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "Pr\u00e9f\u00e9rences de codage Python :\n- indentation 4 espaces",
+        "autre"
+      ],
+      "cible": "pr\u00e9f\u00e9rences de codage python : - indentation",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "apple one",
+        "apple two"
+      ],
+      "cible": "apple",
+      "index": null,
+      "matched_by": "",
+      "candidates": [
+        0,
+        1
+      ],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "l'utilisateur pr\u00e9f\u00e8re des r\u00e9ponses concises et directes",
+        "note courte"
+      ],
+      "cible": "pr\u00e9f\u00e8re des r\u00e9ponses concises svp",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.91
+    },
+    {
+      "entries": [
+        "fact one",
+        "fact two"
+      ],
+      "cible": "quelque chose\n\u00a7\nd'autre",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "fade away",
+        "autre chose"
+      ],
+      "cible": "fade",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "abcd",
+        "autre"
+      ],
+      "cible": "abcd",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "x"
+      ],
+      "cible": "",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [],
+      "cible": "x",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "x"
+      ],
+      "cible": "   ",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "Stra\u00dfe 12"
+      ],
+      "cible": "STRASSE",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "\u2026a"
+      ],
+      "cible": "a\u2026",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "une note sur le d\u00e9ploiement Jenkins",
+        "une note sur la base Qdrant"
+      ],
+      "cible": "note sur le deploiement jenkins",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.97
+    },
+    {
+      "entries": [
+        "le serveur \u00e9coute sur le port 8443",
+        "le cache est vid\u00e9 chaque nuit"
+      ],
+      "cible": "serveur ecoute port 8443 svp",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.82
+    },
+    {
+      "entries": [
+        "aaaa bbbb cccc",
+        "dddd"
+      ],
+      "cible": "aaxbbxcc",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "m\u00eame",
+        "m\u00eame"
+      ],
+      "cible": "m\u00eame",
+      "index": null,
+      "matched_by": "",
+      "candidates": [
+        0,
+        1
+      ],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "m\u00eame",
+        "m\u00eame"
+      ],
+      "cible": "[f685fdfe33dc]",
+      "index": null,
+      "matched_by": "",
+      "candidates": [
+        0,
+        1
+      ],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "abc",
+        "xyz"
+      ],
+      "cible": "[abc]",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.6
+    },
+    {
+      "entries": [
+        "abc",
+        "xyz"
+      ],
+      "cible": "[0123456789abcdef0123456789abcdef01234567]",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "\ud83d\ude00 emoji note",
+        "texte"
+      ],
+      "cible": "\ud83d\ude00 emoji",
+      "index": 0,
+      "matched_by": "substring",
+      "candidates": [],
+      "closest_index": null,
+      "closest_score": 0.0
+    },
+    {
+      "entries": [
+        "abcdefghij"
+      ],
+      "cible": "abcxyzdefghij",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.77
+    },
+    {
+      "entries": [
+        "aa bb cc dd ee ff",
+        "zz"
+      ],
+      "cible": "aa bb cc dd ee fg zz",
+      "index": null,
+      "matched_by": "",
+      "candidates": [],
+      "closest_index": 0,
+      "closest_score": 0.8
+    }
+  ],
+  "blocs": [
+    {
+      "a": "abcd",
+      "b": "abcd",
+      "blocs": [
+        [
+          0,
+          0,
+          4
+        ],
+        [
+          4,
+          4,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "abxcd",
+      "b": "abcd",
+      "blocs": [
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          3,
+          2,
+          2
+        ],
+        [
+          5,
+          4,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "",
+      "b": "abc",
+      "blocs": [
+        [
+          0,
+          3,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "abc",
+      "b": "",
+      "blocs": [
+        [
+          3,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "qabxcd",
+      "b": "abycdf",
+      "blocs": [
+        [
+          1,
+          0,
+          2
+        ],
+        [
+          4,
+          3,
+          2
+        ],
+        [
+          6,
+          6,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "pr\u00e9f\u00e8re des r\u00e9ponses concises svp",
+      "b": "l'utilisateur pr\u00e9f\u00e8re des r\u00e9ponses concises et directes",
+      "blocs": [
+        [
+          0,
+          14,
+          30
+        ],
+        [
+          30,
+          54,
+          1
+        ],
+        [
+          33,
+          55,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "aaaa",
+      "b": "aa",
+      "blocs": [
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          4,
+          2,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "abab",
+      "b": "baba",
+      "blocs": [
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          4,
+          4,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "\ud83d\ude00a\ud83d\ude00b",
+      "b": "a\ud83d\ude00b\ud83d\ude00",
+      "blocs": [
+        [
+          1,
+          0,
+          3
+        ],
+        [
+          4,
+          4,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "xyzxyzxyz",
+      "b": "zyxzyxzyx",
+      "blocs": [
+        [
+          0,
+          2,
+          1
+        ],
+        [
+          1,
+          4,
+          1
+        ],
+        [
+          2,
+          6,
+          1
+        ],
+        [
+          3,
+          8,
+          1
+        ],
+        [
+          9,
+          9,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "the quick brown fox",
+      "b": "the quack brawn fax",
+      "blocs": [
+        [
+          0,
+          0,
+          6
+        ],
+        [
+          7,
+          7,
+          5
+        ],
+        [
+          13,
+          13,
+          4
+        ],
+        [
+          18,
+          18,
+          1
+        ],
+        [
+          19,
+          19,
+          0
+        ]
+      ]
+    },
+    {
+      "a": "abababababababababababababababababababababababababababababab",
+      "b": "babababababababababababababababababababababababababababababa",
+      "blocs": [
+        [
+          0,
+          1,
+          59
+        ],
+        [
+          60,
+          60,
+          0
+        ]
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "limite": 200,
+      "initial": null,
+      "ops": [
+        [
+          "add",
+          "fact A"
+        ],
+        [
+          "add",
+          "fact B"
+        ],
+        [
+          "add",
+          "fact B"
+        ],
+        [
+          "add",
+          "   "
+        ],
+        [
+          "replace",
+          "fact A",
+          "fact A edited"
+        ],
+        [
+          "replace",
+          "fact",
+          "x"
+        ],
+        [
+          "replace",
+          "inexistant",
+          "x"
+        ],
+        [
+          "remove",
+          "fact B"
+        ],
+        [
+          "remove",
+          "zzz"
+        ],
+        [
+          "rewrite",
+          "un\n---\ndeux"
+        ],
+        [
+          "set_entries",
+          [
+            "a\n---\nb",
+            " c ",
+            "",
+            "d\n\u00a7\ne"
+          ]
+        ],
+        [
+          "restore",
+          [
+            "a\n---\nb",
+            "c",
+            "d\n\\\u00a7\ne"
+          ],
+          []
+        ],
+        [
+          "restore",
+          [
+            "x"
+          ],
+          [
+            "y"
+          ]
+        ],
+        [
+          "add",
+          "apr\u00e8s"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "fact A"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 6,
+            "limit": 200,
+            "usage_pct": 3.0,
+            "n_entries": 1,
+            "entries": [
+              "fact A"
+            ],
+            "entry_ids": [
+              "6027"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "666163742041"
+        },
+        {
+          "op": [
+            "add",
+            "fact B"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 15,
+            "limit": 200,
+            "usage_pct": 7.5,
+            "n_entries": 2,
+            "entries": [
+              "fact A",
+              "fact B"
+            ],
+            "entry_ids": [
+              "6027",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "fact A"
+            ],
+            "unchanged": false
+          },
+          "fichier": "6661637420410ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "add",
+            "fact B"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 15,
+            "limit": 200,
+            "usage_pct": 7.5,
+            "n_entries": 2,
+            "entries": [
+              "fact A",
+              "fact B"
+            ],
+            "entry_ids": [
+              "6027",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "fact A",
+              "fact B"
+            ],
+            "unchanged": true
+          },
+          "fichier": "6661637420410ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "add",
+            "   "
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "content is empty",
+            "error_code": "empty_content",
+            "chars": 15,
+            "limit": 200,
+            "usage_pct": 7.5,
+            "n_entries": 2,
+            "entries": [
+              "fact A",
+              "fact B"
+            ],
+            "entry_ids": [
+              "6027",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "6661637420410ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "replace",
+            "fact A",
+            "fact A edited"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "replace",
+            "error": null,
+            "error_code": null,
+            "chars": 22,
+            "limit": 200,
+            "usage_pct": 11.0,
+            "n_entries": 2,
+            "entries": [
+              "fact A edited",
+              "fact B"
+            ],
+            "entry_ids": [
+              "e73e",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "fact A",
+              "fact B"
+            ],
+            "unchanged": false
+          },
+          "fichier": "666163742041206564697465640ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "replace",
+            "fact",
+            "x"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "replace",
+            "error": "ambiguous target (2 entries match); use the id of ONE entry",
+            "error_code": "ambiguous",
+            "chars": 22,
+            "limit": 200,
+            "usage_pct": 11.0,
+            "n_entries": 2,
+            "entries": [
+              "fact A edited",
+              "fact B"
+            ],
+            "entry_ids": [
+              "e73e",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [
+              0,
+              1
+            ],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "666163742041206564697465640ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "replace",
+            "inexistant",
+            "x"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "replace",
+            "error": "no entry matches the target; reuse the bracketed id as displayed",
+            "error_code": "no_match",
+            "chars": 22,
+            "limit": 200,
+            "usage_pct": 11.0,
+            "n_entries": 2,
+            "entries": [
+              "fact A edited",
+              "fact B"
+            ],
+            "entry_ids": [
+              "e73e",
+              "f5f0"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "666163742041206564697465640ac2a70a666163742042"
+        },
+        {
+          "op": [
+            "remove",
+            "fact B"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "remove",
+            "error": null,
+            "error_code": null,
+            "chars": 13,
+            "limit": 200,
+            "usage_pct": 6.5,
+            "n_entries": 1,
+            "entries": [
+              "fact A edited"
+            ],
+            "entry_ids": [
+              "e73e"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "fact A edited",
+              "fact B"
+            ],
+            "unchanged": false
+          },
+          "fichier": "66616374204120656469746564"
+        },
+        {
+          "op": [
+            "remove",
+            "zzz"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "remove",
+            "error": "no entry matches the target; reuse the bracketed id as displayed",
+            "error_code": "no_match",
+            "chars": 13,
+            "limit": 200,
+            "usage_pct": 6.5,
+            "n_entries": 1,
+            "entries": [
+              "fact A edited"
+            ],
+            "entry_ids": [
+              "e73e"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "66616374204120656469746564"
+        },
+        {
+          "op": [
+            "rewrite",
+            "un\n---\ndeux"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "rewrite",
+            "error": null,
+            "error_code": null,
+            "chars": 9,
+            "limit": 200,
+            "usage_pct": 4.5,
+            "n_entries": 2,
+            "entries": [
+              "un",
+              "deux"
+            ],
+            "entry_ids": [
+              "dd3b",
+              "503c"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "fact A edited"
+            ],
+            "unchanged": false
+          },
+          "fichier": "756e0ac2a70a64657578"
+        },
+        {
+          "op": [
+            "set_entries",
+            [
+              "a\n---\nb",
+              " c ",
+              "",
+              "d\n\u00a7\ne"
+            ]
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "rewrite",
+            "error": null,
+            "error_code": null,
+            "chars": 20,
+            "limit": 200,
+            "usage_pct": 10.0,
+            "n_entries": 3,
+            "entries": [
+              "a\n---\nb",
+              "c",
+              "d\n\\\u00a7\ne"
+            ],
+            "entry_ids": [
+              "495c",
+              "84a5",
+              "78f1"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "un",
+              "deux"
+            ],
+            "unchanged": false
+          },
+          "fichier": "610a2d2d2d0a620ac2a70a630ac2a70a640a5cc2a70a65"
+        },
+        {
+          "op": [
+            "restore",
+            [
+              "a\n---\nb",
+              "c",
+              "d\n\\\u00a7\ne"
+            ],
+            []
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "restore",
+            "error": null,
+            "error_code": null,
+            "chars": 0,
+            "limit": 200,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "a\n---\nb",
+              "c",
+              "d\n\\\u00a7\ne"
+            ],
+            "unchanged": false
+          },
+          "fichier": ""
+        },
+        {
+          "op": [
+            "restore",
+            [
+              "x"
+            ],
+            [
+              "y"
+            ]
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "restore",
+            "error": "the store changed since this write; nothing was restored",
+            "error_code": "changed",
+            "chars": 0,
+            "limit": 200,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": ""
+        },
+        {
+          "op": [
+            "add",
+            "apr\u00e8s"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 5,
+            "limit": 200,
+            "usage_pct": 2.5,
+            "n_entries": 1,
+            "entries": [
+              "apr\u00e8s"
+            ],
+            "entry_ids": [
+              "a1e9"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "617072c3a873"
+        }
+      ]
+    },
+    {
+      "limite": 20,
+      "initial": null,
+      "ops": [
+        [
+          "add",
+          "123456789012345"
+        ],
+        [
+          "add",
+          "another entry that is too long"
+        ],
+        [
+          "replace",
+          "1234",
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ],
+        [
+          "rewrite",
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ],
+        [
+          "rewrite",
+          "   \n---\n "
+        ],
+        [
+          "set_entries",
+          []
+        ],
+        [
+          "restore",
+          [
+            "123456789012345"
+          ],
+          [
+            "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+          ]
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "123456789012345"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "add",
+            "another entry that is too long"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "exceeds the limit (48/20 chars); consolidate or remove an entry first",
+            "error_code": "over_limit",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "replace",
+            "1234",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "replace",
+            "error": "exceeds the limit (30/20 chars)",
+            "error_code": "over_limit",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "rewrite",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "rewrite",
+            "error": "exceeds the limit (50/20 chars); rewrite shorter",
+            "error_code": "over_limit",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "rewrite",
+            "   \n---\n "
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "rewrite",
+            "error": "empty content: rewrite replaces the WHOLE store and requires at least one entry (separate them with a --- line)",
+            "error_code": "empty_content",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "set_entries",
+            []
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "rewrite",
+            "error": "empty content: rewrite replaces the WHOLE store and requires at least one entry (separate them with a --- line)",
+            "error_code": "empty_content",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        },
+        {
+          "op": [
+            "restore",
+            [
+              "123456789012345"
+            ],
+            [
+              "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+            ]
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "restore",
+            "error": "exceeds the limit (30/20 chars)",
+            "error_code": "over_limit",
+            "chars": 15,
+            "limit": 20,
+            "usage_pct": 75.0,
+            "n_entries": 1,
+            "entries": [
+              "123456789012345"
+            ],
+            "entry_ids": [
+              "65cc"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "313233343536373839303132333435"
+        }
+      ]
+    },
+    {
+      "limite": 0,
+      "initial": null,
+      "ops": [
+        [
+          "add",
+          "x"
+        ],
+        [
+          "rewrite",
+          "a\n---\nb"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "x"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "exceeds the limit (1/0 chars); consolidate or remove an entry first",
+            "error_code": "over_limit",
+            "chars": 0,
+            "limit": 0,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": null
+        },
+        {
+          "op": [
+            "rewrite",
+            "a\n---\nb"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "rewrite",
+            "error": "exceeds the limit (5/0 chars); rewrite shorter",
+            "error_code": "over_limit",
+            "chars": 0,
+            "limit": 0,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": null
+        }
+      ]
+    },
+    {
+      "limite": 30,
+      "initial": "ancien\n\u00a7\nautre\r\nligne\n\u00a7\n\n",
+      "ops": [
+        [
+          "add",
+          "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+        ],
+        [
+          "add",
+          "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+        ],
+        [
+          "remove",
+          "autre ligne"
+        ],
+        [
+          "add",
+          "ligne1\r\nligne2\rligne3"
+        ],
+        [
+          "replace",
+          "ligne1 ligne2 ligne3",
+          "\u00a7\n\u00a7"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 26,
+            "limit": 30,
+            "usage_pct": 86.7,
+            "n_entries": 3,
+            "entries": [
+              "ancien",
+              "autre\nligne",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "entry_ids": [
+              "7c41",
+              "0dd7",
+              "4e5a"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "ancien",
+              "autre\nligne"
+            ],
+            "unchanged": false
+          },
+          "fichier": "616e6369656e0ac2a70a61757472650a6c69676e650ac2a70af09f9880f09f9880f09f9880"
+        },
+        {
+          "op": [
+            "add",
+            "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "exceeds the limit (39/30 chars); consolidate or remove an entry first",
+            "error_code": "over_limit",
+            "chars": 26,
+            "limit": 30,
+            "usage_pct": 86.7,
+            "n_entries": 3,
+            "entries": [
+              "ancien",
+              "autre\nligne",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "entry_ids": [
+              "7c41",
+              "0dd7",
+              "4e5a"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "616e6369656e0ac2a70a61757472650a6c69676e650ac2a70af09f9880f09f9880f09f9880"
+        },
+        {
+          "op": [
+            "remove",
+            "autre ligne"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "remove",
+            "error": null,
+            "error_code": null,
+            "chars": 12,
+            "limit": 30,
+            "usage_pct": 40.0,
+            "n_entries": 2,
+            "entries": [
+              "ancien",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "entry_ids": [
+              "7c41",
+              "4e5a"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "ancien",
+              "autre\nligne",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "unchanged": false
+          },
+          "fichier": "616e6369656e0ac2a70af09f9880f09f9880f09f9880"
+        },
+        {
+          "op": [
+            "add",
+            "ligne1\r\nligne2\rligne3"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "exceeds the limit (35/30 chars); consolidate or remove an entry first",
+            "error_code": "over_limit",
+            "chars": 12,
+            "limit": 30,
+            "usage_pct": 40.0,
+            "n_entries": 2,
+            "entries": [
+              "ancien",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "entry_ids": [
+              "7c41",
+              "4e5a"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "616e6369656e0ac2a70af09f9880f09f9880f09f9880"
+        },
+        {
+          "op": [
+            "replace",
+            "ligne1 ligne2 ligne3",
+            "\u00a7\n\u00a7"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "replace",
+            "error": "no entry matches the target; reuse the bracketed id as displayed",
+            "error_code": "no_match",
+            "chars": 12,
+            "limit": 30,
+            "usage_pct": 40.0,
+            "n_entries": 2,
+            "entries": [
+              "ancien",
+              "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+            ],
+            "entry_ids": [
+              "7c41",
+              "4e5a"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "616e6369656e0ac2a70af09f9880f09f9880f09f9880"
+        }
+      ]
+    },
+    {
+      "limite": 100,
+      "initial": "\ufeffbom\n\u00a7\nsuite",
+      "ops": [
+        [
+          "add",
+          "x"
+        ],
+        [
+          "remove",
+          "bom"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "x"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 16,
+            "limit": 100,
+            "usage_pct": 16.0,
+            "n_entries": 3,
+            "entries": [
+              "\ufeffbom",
+              "suite",
+              "x"
+            ],
+            "entry_ids": [
+              "8977",
+              "5cd5",
+              "11f6"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "\ufeffbom",
+              "suite"
+            ],
+            "unchanged": false
+          },
+          "fichier": "efbbbf626f6d0ac2a70a73756974650ac2a70a78"
+        },
+        {
+          "op": [
+            "remove",
+            "bom"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "remove",
+            "error": null,
+            "error_code": null,
+            "chars": 9,
+            "limit": 100,
+            "usage_pct": 9.0,
+            "n_entries": 2,
+            "entries": [
+              "suite",
+              "x"
+            ],
+            "entry_ids": [
+              "5cd5",
+              "11f6"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "\ufeffbom",
+              "suite",
+              "x"
+            ],
+            "unchanged": false
+          },
+          "fichier": "73756974650ac2a70a78"
+        }
+      ]
+    },
+    {
+      "limite": 100000,
+      "initial": null,
+      "ops": [
+        [
+          "add",
+          "a"
+        ],
+        [
+          "add",
+          "b\ud800"
+        ],
+        [
+          "rewrite",
+          "c\udfff"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "a"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "add",
+            "error": null,
+            "error_code": null,
+            "chars": 1,
+            "limit": 100000,
+            "usage_pct": 0.0,
+            "n_entries": 1,
+            "entries": [
+              "a"
+            ],
+            "entry_ids": [
+              "86f7"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "61"
+        },
+        {
+          "op": [
+            "add",
+            "b\ud800"
+          ],
+          "erreur": "UnicodeEncodeError",
+          "fichier": "61"
+        },
+        {
+          "op": [
+            "rewrite",
+            "c\udfff"
+          ],
+          "erreur": "UnicodeEncodeError",
+          "fichier": "61"
+        }
+      ]
+    },
+    {
+      "limite": 100,
+      "initial_octets": "6661697420756e0a2323ff0a",
+      "ops": [
+        [
+          "add",
+          "x"
+        ],
+        [
+          "replace",
+          "fait",
+          "y"
+        ],
+        [
+          "remove",
+          "fait"
+        ],
+        [
+          "restore",
+          [],
+          [
+            "z"
+          ]
+        ],
+        [
+          "rewrite",
+          "repare"
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "add",
+            "x"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "add",
+            "error": "memory file unreadable (I/O or non-UTF-8 encoding); nothing was written, to avoid clobbering the existing entries",
+            "error_code": "read_failed",
+            "chars": 0,
+            "limit": 100,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "6661697420756e0a2323ff0a"
+        },
+        {
+          "op": [
+            "replace",
+            "fait",
+            "y"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "replace",
+            "error": "memory file unreadable (I/O or non-UTF-8 encoding); nothing was written, to avoid clobbering the existing entries",
+            "error_code": "read_failed",
+            "chars": 0,
+            "limit": 100,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "6661697420756e0a2323ff0a"
+        },
+        {
+          "op": [
+            "remove",
+            "fait"
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "remove",
+            "error": "memory file unreadable (I/O or non-UTF-8 encoding); nothing was written, to avoid clobbering the existing entries",
+            "error_code": "read_failed",
+            "chars": 0,
+            "limit": 100,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "6661697420756e0a2323ff0a"
+        },
+        {
+          "op": [
+            "restore",
+            [],
+            [
+              "z"
+            ]
+          ],
+          "resultat": {
+            "ok": false,
+            "action": "restore",
+            "error": "memory file unreadable (I/O or non-UTF-8 encoding); nothing was written, to avoid clobbering the existing entries",
+            "error_code": "read_failed",
+            "chars": 0,
+            "limit": 100,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "6661697420756e0a2323ff0a"
+        },
+        {
+          "op": [
+            "rewrite",
+            "repare"
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "rewrite",
+            "error": null,
+            "error_code": null,
+            "chars": 6,
+            "limit": 100,
+            "usage_pct": 6.0,
+            "n_entries": 1,
+            "entries": [
+              "repare"
+            ],
+            "entry_ids": [
+              "3aac"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [],
+            "unchanged": false
+          },
+          "fichier": "726570617265"
+        }
+      ]
+    },
+    {
+      "limite": 100,
+      "initial": "a\n\u00a7\nb",
+      "ops": [
+        [
+          "restore",
+          [
+            "a",
+            "b"
+          ],
+          [
+            "b",
+            "a"
+          ]
+        ],
+        [
+          "restore",
+          [
+            "b",
+            "a"
+          ],
+          []
+        ]
+      ],
+      "etapes": [
+        {
+          "op": [
+            "restore",
+            [
+              "a",
+              "b"
+            ],
+            [
+              "b",
+              "a"
+            ]
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "restore",
+            "error": null,
+            "error_code": null,
+            "chars": 5,
+            "limit": 100,
+            "usage_pct": 5.0,
+            "n_entries": 2,
+            "entries": [
+              "b",
+              "a"
+            ],
+            "entry_ids": [
+              "e9d7",
+              "86f7"
+            ],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "a",
+              "b"
+            ],
+            "unchanged": false
+          },
+          "fichier": "620ac2a70a61"
+        },
+        {
+          "op": [
+            "restore",
+            [
+              "b",
+              "a"
+            ],
+            []
+          ],
+          "resultat": {
+            "ok": true,
+            "action": "restore",
+            "error": null,
+            "error_code": null,
+            "chars": 0,
+            "limit": 100,
+            "usage_pct": 0.0,
+            "n_entries": 0,
+            "entries": [],
+            "entry_ids": [],
+            "closest_index": null,
+            "candidate_indexes": [],
+            "before": [
+              "b",
+              "a"
+            ],
+            "unchanged": false
+          },
+          "fichier": ""
+        }
+      ]
+    }
+  ],
+  "rendus": [
+    {
+      "brut": "",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": ""
+    },
+    {
+      "brut": "alpha\n\u00a7\nbeta",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": "## MEMORY.md  (12/100 chars \u00b7 12.0%)\n[be76] alpha\n\u00a7\n[a295] beta"
+    },
+    {
+      "brut": "ligne un\nligne deux",
+      "limite": 200,
+      "label": "USER.md",
+      "gabarit": "",
+      "rendu": "## USER.md  (19/200 chars \u00b7 9.5%)\n[2fc9] ligne un\nligne deux"
+    },
+    {
+      "brut": "alpha",
+      "limite": 0,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": "## MEMORY.md  (5/0 chars \u00b7 0.0%)\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 3,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": "## MEMORY.md  (5/3 chars \u00b7 166.7%)\n[be76] alpha"
+    },
+    {
+      "brut": "xxxxxxx",
+      "limite": 9,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": "## MEMORY.md  (7/9 chars \u00b7 77.8%)\n[2db6] xxxxxxx"
+    },
+    {
+      "brut": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "limite": 1375,
+      "label": "USER.md",
+      "gabarit": "",
+      "rendu": "## USER.md  (5/1375 chars \u00b7 0.4%)\n[8bd0] \ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "## {label}",
+      "rendu": "## MEMORY.md\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{label} {chars}/{limit} {pct}%",
+      "rendu": "MEMORY.md 5/100 5.0%\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{pct:.0f}|{chars:>6}|",
+      "rendu": "5|     5|\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{label!r} {limit:,}",
+      "rendu": "'MEMORY.md' 100\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{inconnu}",
+      "rendu": "## MEMORY.md  (5/100 chars \u00b7 5.0%)\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{",
+      "rendu": "## MEMORY.md  (5/100 chars \u00b7 5.0%)\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{{label}} {label:*^12}",
+      "rendu": "{label} *MEMORY.md**\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 3,
+      "label": "MEMORY.md",
+      "gabarit": "{pct:08.3f}",
+      "rendu": "0166.700\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 2200,
+      "label": "MEMORY.md",
+      "gabarit": "{chars:+d} {limit:x} {pct:e}",
+      "rendu": "+5 898 2.000000e-01\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 7,
+      "label": "MEMORY.md",
+      "gabarit": "{pct} {pct:g} {pct:%}",
+      "rendu": "71.4 71.4 7140.000000%\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{0}",
+      "rendu": "## MEMORY.md  (5/100 chars \u00b7 5.0%)\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{label:>3.2}",
+      "rendu": " ME\n[be76] alpha"
+    },
+    {
+      "brut": "alpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "{chars:.2f}",
+      "rendu": "5.00\n[be76] alpha"
+    },
+    {
+      "brut": "alpha\n\u00a7\nalpha",
+      "limite": 100,
+      "label": "MEMORY.md",
+      "gabarit": "",
+      "rendu": "## MEMORY.md  (13/100 chars \u00b7 13.0%)\n[be76331b95df] alpha\n\u00a7\n[be76331b95df] alpha"
+    }
+  ],
+  "journal_ecrit": {
+    "ajouts": [
+      {
+        "action": "add",
+        "store": "memory",
+        "before": [],
+        "after": [
+          "note A"
+        ],
+        "source": "tool",
+        "chat_id": "c1",
+        "title": "Je retiens"
+      },
+      {
+        "action": "add",
+        "store": "memory",
+        "before": [
+          "note A"
+        ],
+        "after": [
+          "note A"
+        ]
+      },
+      {
+        "action": "replace",
+        "store": "user",
+        "before": [
+          "\u00e9\ud83d\ude00",
+          "x"
+        ],
+        "after": [
+          "y",
+          "x"
+        ],
+        "chat_id": "",
+        "title": ""
+      },
+      {
+        "action": "undo",
+        "store": "user",
+        "before": [
+          "y",
+          "x"
+        ],
+        "after": [
+          "\u00e9\ud83d\ude00",
+          "x"
+        ],
+        "source": "undo",
+        "undo_of": "00000002",
+        "chat_id": null
+      },
+      {
+        "action": "rewrite",
+        "store": "memory",
+        "before": [
+          "a\u2028b"
+        ],
+        "after": [
+          "c\u0085d",
+          "q\"\\"
+        ],
+        "source": "settings"
+      }
+    ],
+    "ops": [
+      "00000001",
+      null,
+      "00000002",
+      "00000003",
+      "00000004"
+    ],
+    "fichier": "{\"op\": \"00000001\", \"ts\": 1759830000.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": \"c1\", \"title\": \"Je retiens\", \"before\": [], \"after\": [\"note A\"]}\n{\"op\": \"00000002\", \"ts\": 1759830000.5, \"source\": \"tool\", \"action\": \"replace\", \"store\": \"user\", \"chat_id\": null, \"title\": null, \"before\": [\"\u00e9\ud83d\ude00\", \"x\"], \"after\": [\"y\", \"x\"]}\n{\"op\": \"00000003\", \"ts\": 1759830001.25, \"source\": \"undo\", \"action\": \"undo\", \"store\": \"user\", \"chat_id\": null, \"title\": null, \"before\": [\"y\", \"x\"], \"after\": [\"\u00e9\ud83d\ude00\", \"x\"], \"undo_of\": \"00000002\"}\n{\"op\": \"00000004\", \"ts\": 1000000000.1, \"source\": \"settings\", \"action\": \"rewrite\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [\"a\u2028b\"], \"after\": [\"c\u0085d\", \"q\\\"\\\\\"]}\n",
+    "rogne": "{\"op\": \"00000032\", \"ts\": 1759830145.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n45\"]}\n{\"op\": \"00000033\", \"ts\": 1759830146.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n46\"]}\n{\"op\": \"00000034\", \"ts\": 1759830147.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n47\"]}\n{\"op\": \"00000035\", \"ts\": 1759830148.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n48\"]}\n{\"op\": \"00000036\", \"ts\": 1759830149.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n49\"]}\n{\"op\": \"00000037\", \"ts\": 1759830150.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n50\"]}\n{\"op\": \"00000038\", \"ts\": 1759830151.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n51\"]}\n{\"op\": \"00000039\", \"ts\": 1759830152.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n52\"]}\n{\"op\": \"0000003a\", \"ts\": 1759830153.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n53\"]}\n{\"op\": \"0000003b\", \"ts\": 1759830154.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n54\"]}\n{\"op\": \"0000003c\", \"ts\": 1759830155.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n55\"]}\n{\"op\": \"0000003d\", \"ts\": 1759830156.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n56\"]}\n{\"op\": \"0000003e\", \"ts\": 1759830157.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n57\"]}\n{\"op\": \"0000003f\", \"ts\": 1759830158.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n58\"]}\n{\"op\": \"00000040\", \"ts\": 1759830159.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n59\"]}\n{\"op\": \"00000041\", \"ts\": 1759830160.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n60\"]}\n{\"op\": \"00000042\", \"ts\": 1759830161.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n61\"]}\n{\"op\": \"00000043\", \"ts\": 1759830162.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n62\"]}\n{\"op\": \"00000044\", \"ts\": 1759830163.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n63\"]}\n{\"op\": \"00000045\", \"ts\": 1759830164.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n64\"]}\n{\"op\": \"00000046\", \"ts\": 1759830165.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n65\"]}\n{\"op\": \"00000047\", \"ts\": 1759830166.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n66\"]}\n{\"op\": \"00000048\", \"ts\": 1759830167.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n67\"]}\n{\"op\": \"00000049\", \"ts\": 1759830168.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n68\"]}\n{\"op\": \"0000004a\", \"ts\": 1759830169.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n69\"]}\n{\"op\": \"0000004b\", \"ts\": 1759830170.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n70\"]}\n{\"op\": \"0000004c\", \"ts\": 1759830171.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n71\"]}\n{\"op\": \"0000004d\", \"ts\": 1759830172.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n72\"]}\n{\"op\": \"0000004e\", \"ts\": 1759830173.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n73\"]}\n{\"op\": \"0000004f\", \"ts\": 1759830174.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n74\"]}\n{\"op\": \"00000050\", \"ts\": 1759830175.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n75\"]}\n{\"op\": \"00000051\", \"ts\": 1759830176.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n76\"]}\n{\"op\": \"00000052\", \"ts\": 1759830177.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n77\"]}\n{\"op\": \"00000053\", \"ts\": 1759830178.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n78\"]}\n{\"op\": \"00000054\", \"ts\": 1759830179.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n79\"]}\n{\"op\": \"00000055\", \"ts\": 1759830180.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n80\"]}\n{\"op\": \"00000056\", \"ts\": 1759830181.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n81\"]}\n{\"op\": \"00000057\", \"ts\": 1759830182.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n82\"]}\n{\"op\": \"00000058\", \"ts\": 1759830183.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n83\"]}\n{\"op\": \"00000059\", \"ts\": 1759830184.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n84\"]}\n{\"op\": \"0000005a\", \"ts\": 1759830185.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n85\"]}\n{\"op\": \"0000005b\", \"ts\": 1759830186.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n86\"]}\n{\"op\": \"0000005c\", \"ts\": 1759830187.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n87\"]}\n{\"op\": \"0000005d\", \"ts\": 1759830188.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n88\"]}\n{\"op\": \"0000005e\", \"ts\": 1759830189.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n89\"]}\n{\"op\": \"0000005f\", \"ts\": 1759830190.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n90\"]}\n{\"op\": \"00000060\", \"ts\": 1759830191.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n91\"]}\n{\"op\": \"00000061\", \"ts\": 1759830192.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n92\"]}\n{\"op\": \"00000062\", \"ts\": 1759830193.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n93\"]}\n{\"op\": \"00000063\", \"ts\": 1759830194.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n94\"]}\n{\"op\": \"00000064\", \"ts\": 1759830195.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n95\"]}\n{\"op\": \"00000065\", \"ts\": 1759830196.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n96\"]}\n{\"op\": \"00000066\", \"ts\": 1759830197.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n97\"]}\n{\"op\": \"00000067\", \"ts\": 1759830198.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n98\"]}\n{\"op\": \"00000068\", \"ts\": 1759830199.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n99\"]}\n{\"op\": \"00000069\", \"ts\": 1759830200.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n100\"]}\n{\"op\": \"0000006a\", \"ts\": 1759830201.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n101\"]}\n{\"op\": \"0000006b\", \"ts\": 1759830202.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n102\"]}\n{\"op\": \"0000006c\", \"ts\": 1759830203.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n103\"]}\n{\"op\": \"0000006d\", \"ts\": 1759830204.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n104\"]}\n{\"op\": \"0000006e\", \"ts\": 1759830205.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n105\"]}\n{\"op\": \"0000006f\", \"ts\": 1759830206.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n106\"]}\n{\"op\": \"00000070\", \"ts\": 1759830207.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n107\"]}\n{\"op\": \"00000071\", \"ts\": 1759830208.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n108\"]}\n{\"op\": \"00000072\", \"ts\": 1759830209.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n109\"]}\n{\"op\": \"00000073\", \"ts\": 1759830210.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n110\"]}\n{\"op\": \"00000074\", \"ts\": 1759830211.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n111\"]}\n{\"op\": \"00000075\", \"ts\": 1759830212.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n112\"]}\n{\"op\": \"00000076\", \"ts\": 1759830213.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n113\"]}\n{\"op\": \"00000077\", \"ts\": 1759830214.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n114\"]}\n{\"op\": \"00000078\", \"ts\": 1759830215.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n115\"]}\n{\"op\": \"00000079\", \"ts\": 1759830216.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n116\"]}\n{\"op\": \"0000007a\", \"ts\": 1759830217.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n117\"]}\n{\"op\": \"0000007b\", \"ts\": 1759830218.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n118\"]}\n{\"op\": \"0000007c\", \"ts\": 1759830219.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n119\"]}\n{\"op\": \"0000007d\", \"ts\": 1759830220.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n120\"]}\n{\"op\": \"0000007e\", \"ts\": 1759830221.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n121\"]}\n{\"op\": \"0000007f\", \"ts\": 1759830222.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n122\"]}\n{\"op\": \"00000080\", \"ts\": 1759830223.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n123\"]}\n{\"op\": \"00000081\", \"ts\": 1759830224.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n124\"]}\n{\"op\": \"00000082\", \"ts\": 1759830225.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n125\"]}\n{\"op\": \"00000083\", \"ts\": 1759830226.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n126\"]}\n{\"op\": \"00000084\", \"ts\": 1759830227.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n127\"]}\n{\"op\": \"00000085\", \"ts\": 1759830228.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n128\"]}\n{\"op\": \"00000086\", \"ts\": 1759830229.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n129\"]}\n{\"op\": \"00000087\", \"ts\": 1759830230.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n130\"]}\n{\"op\": \"00000088\", \"ts\": 1759830231.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n131\"]}\n{\"op\": \"00000089\", \"ts\": 1759830232.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n132\"]}\n{\"op\": \"0000008a\", \"ts\": 1759830233.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n133\"]}\n{\"op\": \"0000008b\", \"ts\": 1759830234.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n134\"]}\n{\"op\": \"0000008c\", \"ts\": 1759830235.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n135\"]}\n{\"op\": \"0000008d\", \"ts\": 1759830236.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n136\"]}\n{\"op\": \"0000008e\", \"ts\": 1759830237.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n137\"]}\n{\"op\": \"0000008f\", \"ts\": 1759830238.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n138\"]}\n{\"op\": \"00000090\", \"ts\": 1759830239.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n139\"]}\n{\"op\": \"00000091\", \"ts\": 1759830240.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n140\"]}\n{\"op\": \"00000092\", \"ts\": 1759830241.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n141\"]}\n{\"op\": \"00000093\", \"ts\": 1759830242.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n142\"]}\n{\"op\": \"00000094\", \"ts\": 1759830243.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n143\"]}\n{\"op\": \"00000095\", \"ts\": 1759830244.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n144\"]}\n{\"op\": \"00000096\", \"ts\": 1759830245.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n145\"]}\n{\"op\": \"00000097\", \"ts\": 1759830246.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n146\"]}\n{\"op\": \"00000098\", \"ts\": 1759830247.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n147\"]}\n{\"op\": \"00000099\", \"ts\": 1759830248.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n148\"]}\n{\"op\": \"0000009a\", \"ts\": 1759830249.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n149\"]}\n{\"op\": \"0000009b\", \"ts\": 1759830250.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n150\"]}\n{\"op\": \"0000009c\", \"ts\": 1759830251.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n151\"]}\n{\"op\": \"0000009d\", \"ts\": 1759830252.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n152\"]}\n{\"op\": \"0000009e\", \"ts\": 1759830253.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n153\"]}\n{\"op\": \"0000009f\", \"ts\": 1759830254.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n154\"]}\n{\"op\": \"000000a0\", \"ts\": 1759830255.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n155\"]}\n{\"op\": \"000000a1\", \"ts\": 1759830256.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n156\"]}\n{\"op\": \"000000a2\", \"ts\": 1759830257.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n157\"]}\n{\"op\": \"000000a3\", \"ts\": 1759830258.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n158\"]}\n{\"op\": \"000000a4\", \"ts\": 1759830259.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n159\"]}\n{\"op\": \"000000a5\", \"ts\": 1759830260.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n160\"]}\n{\"op\": \"000000a6\", \"ts\": 1759830261.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n161\"]}\n{\"op\": \"000000a7\", \"ts\": 1759830262.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n162\"]}\n{\"op\": \"000000a8\", \"ts\": 1759830263.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n163\"]}\n{\"op\": \"000000a9\", \"ts\": 1759830264.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n164\"]}\n{\"op\": \"000000aa\", \"ts\": 1759830265.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n165\"]}\n{\"op\": \"000000ab\", \"ts\": 1759830266.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n166\"]}\n{\"op\": \"000000ac\", \"ts\": 1759830267.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n167\"]}\n{\"op\": \"000000ad\", \"ts\": 1759830268.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n168\"]}\n{\"op\": \"000000ae\", \"ts\": 1759830269.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n169\"]}\n{\"op\": \"000000af\", \"ts\": 1759830270.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n170\"]}\n{\"op\": \"000000b0\", \"ts\": 1759830271.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n171\"]}\n{\"op\": \"000000b1\", \"ts\": 1759830272.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n172\"]}\n{\"op\": \"000000b2\", \"ts\": 1759830273.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n173\"]}\n{\"op\": \"000000b3\", \"ts\": 1759830274.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n174\"]}\n{\"op\": \"000000b4\", \"ts\": 1759830275.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n175\"]}\n{\"op\": \"000000b5\", \"ts\": 1759830276.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n176\"]}\n{\"op\": \"000000b6\", \"ts\": 1759830277.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n177\"]}\n{\"op\": \"000000b7\", \"ts\": 1759830278.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n178\"]}\n{\"op\": \"000000b8\", \"ts\": 1759830279.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n179\"]}\n{\"op\": \"000000b9\", \"ts\": 1759830280.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n180\"]}\n{\"op\": \"000000ba\", \"ts\": 1759830281.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n181\"]}\n{\"op\": \"000000bb\", \"ts\": 1759830282.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n182\"]}\n{\"op\": \"000000bc\", \"ts\": 1759830283.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n183\"]}\n{\"op\": \"000000bd\", \"ts\": 1759830284.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n184\"]}\n{\"op\": \"000000be\", \"ts\": 1759830285.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n185\"]}\n{\"op\": \"000000bf\", \"ts\": 1759830286.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n186\"]}\n{\"op\": \"000000c0\", \"ts\": 1759830287.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n187\"]}\n{\"op\": \"000000c1\", \"ts\": 1759830288.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n188\"]}\n{\"op\": \"000000c2\", \"ts\": 1759830289.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n189\"]}\n{\"op\": \"000000c3\", \"ts\": 1759830290.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n190\"]}\n{\"op\": \"000000c4\", \"ts\": 1759830291.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n191\"]}\n{\"op\": \"000000c5\", \"ts\": 1759830292.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n192\"]}\n{\"op\": \"000000c6\", \"ts\": 1759830293.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n193\"]}\n{\"op\": \"000000c7\", \"ts\": 1759830294.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n194\"]}\n{\"op\": \"000000c8\", \"ts\": 1759830295.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n195\"]}\n{\"op\": \"000000c9\", \"ts\": 1759830296.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n196\"]}\n{\"op\": \"000000ca\", \"ts\": 1759830297.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n197\"]}\n{\"op\": \"000000cb\", \"ts\": 1759830298.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n198\"]}\n{\"op\": \"000000cc\", \"ts\": 1759830299.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n199\"]}\n{\"op\": \"000000cd\", \"ts\": 1759830300.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n200\"]}\n{\"op\": \"000000ce\", \"ts\": 1759830301.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n201\"]}\n{\"op\": \"000000cf\", \"ts\": 1759830302.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n202\"]}\n{\"op\": \"000000d0\", \"ts\": 1759830303.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n203\"]}\n{\"op\": \"000000d1\", \"ts\": 1759830304.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n204\"]}\n{\"op\": \"000000d2\", \"ts\": 1759830305.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n205\"]}\n{\"op\": \"000000d3\", \"ts\": 1759830306.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n206\"]}\n{\"op\": \"000000d4\", \"ts\": 1759830307.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n207\"]}\n{\"op\": \"000000d5\", \"ts\": 1759830308.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n208\"]}\n{\"op\": \"000000d6\", \"ts\": 1759830309.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n209\"]}\n{\"op\": \"000000d7\", \"ts\": 1759830310.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n210\"]}\n{\"op\": \"000000d8\", \"ts\": 1759830311.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n211\"]}\n{\"op\": \"000000d9\", \"ts\": 1759830312.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n212\"]}\n{\"op\": \"000000da\", \"ts\": 1759830313.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n213\"]}\n{\"op\": \"000000db\", \"ts\": 1759830314.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n214\"]}\n{\"op\": \"000000dc\", \"ts\": 1759830315.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n215\"]}\n{\"op\": \"000000dd\", \"ts\": 1759830316.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n216\"]}\n{\"op\": \"000000de\", \"ts\": 1759830317.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n217\"]}\n{\"op\": \"000000df\", \"ts\": 1759830318.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n218\"]}\n{\"op\": \"000000e0\", \"ts\": 1759830319.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n219\"]}\n{\"op\": \"000000e1\", \"ts\": 1759830320.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n220\"]}\n{\"op\": \"000000e2\", \"ts\": 1759830321.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n221\"]}\n{\"op\": \"000000e3\", \"ts\": 1759830322.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n222\"]}\n{\"op\": \"000000e4\", \"ts\": 1759830323.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n223\"]}\n{\"op\": \"000000e5\", \"ts\": 1759830324.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n224\"]}\n{\"op\": \"000000e6\", \"ts\": 1759830325.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n225\"]}\n{\"op\": \"000000e7\", \"ts\": 1759830326.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n226\"]}\n{\"op\": \"000000e8\", \"ts\": 1759830327.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n227\"]}\n{\"op\": \"000000e9\", \"ts\": 1759830328.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n228\"]}\n{\"op\": \"000000ea\", \"ts\": 1759830329.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n229\"]}\n{\"op\": \"000000eb\", \"ts\": 1759830330.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n230\"]}\n{\"op\": \"000000ec\", \"ts\": 1759830331.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n231\"]}\n{\"op\": \"000000ed\", \"ts\": 1759830332.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n232\"]}\n{\"op\": \"000000ee\", \"ts\": 1759830333.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n233\"]}\n{\"op\": \"000000ef\", \"ts\": 1759830334.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n234\"]}\n{\"op\": \"000000f0\", \"ts\": 1759830335.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n235\"]}\n{\"op\": \"000000f1\", \"ts\": 1759830336.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n236\"]}\n{\"op\": \"000000f2\", \"ts\": 1759830337.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n237\"]}\n{\"op\": \"000000f3\", \"ts\": 1759830338.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n238\"]}\n{\"op\": \"000000f4\", \"ts\": 1759830339.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n239\"]}\n{\"op\": \"000000f5\", \"ts\": 1759830340.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n240\"]}\n{\"op\": \"000000f6\", \"ts\": 1759830341.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n241\"]}\n{\"op\": \"000000f7\", \"ts\": 1759830342.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n242\"]}\n{\"op\": \"000000f8\", \"ts\": 1759830343.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n243\"]}\n{\"op\": \"000000f9\", \"ts\": 1759830344.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n244\"]}\n{\"op\": \"000000fa\", \"ts\": 1759830345.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n245\"]}\n{\"op\": \"000000fb\", \"ts\": 1759830346.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n246\"]}\n{\"op\": \"000000fc\", \"ts\": 1759830347.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n247\"]}\n{\"op\": \"000000fd\", \"ts\": 1759830348.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n248\"]}\n{\"op\": \"000000fe\", \"ts\": 1759830349.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n249\"]}\n{\"op\": \"000000ff\", \"ts\": 1759830350.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": null, \"title\": null, \"before\": [], \"after\": [\"n250\"]}\n",
+    "purge": [
+      true,
+      false,
+      false
+    ]
+  },
+  "journal_lu": {
+    "texte": "{\"op\": \"aaaa1111\", \"ts\": 1.0, \"source\": \"tool\", \"action\": \"add\", \"store\": \"memory\", \"chat_id\": \"c1\", \"title\": null, \"before\": [], \"after\": [\"x\"]}\npas du json\n\n   \n[1, 2]\n{\"op\": \"\"}\n{\"op\": null, \"x\": 1}\n{\"op\": \"bbbb2222\", \"ts\": 2, \"source\": \"undo\", \"action\": \"undo\", \"store\": \"memory\", \"before\": [\"x\"], \"after\": [], \"undo_of\": \"aaaa1111\"}\r\n{\"op\": \"cccc3333\", \"ts\": 3.5, \"store\": \"memory\", \"before\": [], \"after\": [\"x\"], \"source\": \"undo\"}\r{\"op\": \"dddd4444\", \"store\": \"user\", \"before\": \"abc\", \"after\": \"xabcz\"}\u000b{\"op\": \"AAAA1111\", \"store\": \"memory\", \"before\": [], \"after\": [\"x\", \"y\", \"x\"], \"source\": \"tool\", \"chat_id\": \"c9\"}\u2028{\"op\": \"eeee5555\", \"before\": {\"k\": 1}, \"after\": {\"k\": 1, \"z\": 2}}\n{\"op\": \"ffff6666\", \"ts\": 1759830000.0, \"source\": \"settings\", \"store\": \"memory\", \"before\": [\"x\", \"x\", \"y\"], \"after\": [\"y\", \"x\", \"z\", \"z\"]}\n",
+    "records": [
+      {
+        "op": "aaaa1111",
+        "ts": 1.0,
+        "source": "tool",
+        "action": "add",
+        "store": "memory",
+        "chat_id": "c1",
+        "title": null,
+        "before": [],
+        "after": [
+          "x"
+        ]
+      },
+      {
+        "op": "bbbb2222",
+        "ts": 2,
+        "source": "undo",
+        "action": "undo",
+        "store": "memory",
+        "before": [
+          "x"
+        ],
+        "after": [],
+        "undo_of": "aaaa1111"
+      },
+      {
+        "op": "cccc3333",
+        "ts": 3.5,
+        "store": "memory",
+        "before": [],
+        "after": [
+          "x"
+        ],
+        "source": "undo"
+      },
+      {
+        "op": "dddd4444",
+        "store": "user",
+        "before": "abc",
+        "after": "xabcz"
+      },
+      {
+        "op": "AAAA1111",
+        "store": "memory",
+        "before": [],
+        "after": [
+          "x",
+          "y",
+          "x"
+        ],
+        "source": "tool",
+        "chat_id": "c9"
+      },
+      {
+        "op": "eeee5555",
+        "before": {
+          "k": 1
+        },
+        "after": {
+          "k": 1,
+          "z": 2
+        }
+      },
+      {
+        "op": "ffff6666",
+        "ts": 1759830000.0,
+        "source": "settings",
+        "store": "memory",
+        "before": [
+          "x",
+          "x",
+          "y"
+        ],
+        "after": [
+          "y",
+          "x",
+          "z",
+          "z"
+        ]
+      }
+    ],
+    "get": {
+      "aaaa1111": {
+        "op": "aaaa1111",
+        "ts": 1.0,
+        "source": "tool",
+        "action": "add",
+        "store": "memory",
+        "chat_id": "c1",
+        "title": null,
+        "before": [],
+        "after": [
+          "x"
+        ]
+      },
+      " AAAA1111 ": {
+        "op": "aaaa1111",
+        "ts": 1.0,
+        "source": "tool",
+        "action": "add",
+        "store": "memory",
+        "chat_id": "c1",
+        "title": null,
+        "before": [],
+        "after": [
+          "x"
+        ]
+      },
+      "zzzz": null,
+      "": null,
+      "bbbb2222": {
+        "op": "bbbb2222",
+        "ts": 2,
+        "source": "undo",
+        "action": "undo",
+        "store": "memory",
+        "before": [
+          "x"
+        ],
+        "after": [],
+        "undo_of": "aaaa1111"
+      },
+      "ffff6666": {
+        "op": "ffff6666",
+        "ts": 1759830000.0,
+        "source": "settings",
+        "store": "memory",
+        "before": [
+          "x",
+          "x",
+          "y"
+        ],
+        "after": [
+          "y",
+          "x",
+          "z",
+          "z"
+        ]
+      }
+    },
+    "undone_by": {
+      "aaaa1111": {
+        "op": "bbbb2222",
+        "ts": 2,
+        "source": "undo",
+        "action": "undo",
+        "store": "memory",
+        "before": [
+          "x"
+        ],
+        "after": [],
+        "undo_of": "aaaa1111"
+      },
+      "bbbb2222": null,
+      "zzzz": null
+    },
+    "diff": [
+      {
+        "added": [
+          "x"
+        ],
+        "removed": []
+      },
+      {
+        "added": [],
+        "removed": [
+          "x"
+        ]
+      },
+      {
+        "added": [
+          "x"
+        ],
+        "removed": []
+      },
+      {
+        "added": [
+          "x",
+          "z"
+        ],
+        "removed": []
+      },
+      {
+        "added": [
+          "x",
+          "y",
+          "x"
+        ],
+        "removed": []
+      },
+      {
+        "added": [
+          "z"
+        ],
+        "removed": []
+      },
+      {
+        "added": [
+          "z",
+          "z"
+        ],
+        "removed": [
+          "x"
+        ]
+      }
+    ],
+    "origins": [
+      {
+        "store": "memory",
+        "entries": [
+          "x",
+          "y",
+          "z",
+          "absent"
+        ],
+        "origins": [
+          {
+            "ts": null,
+            "source": "tool",
+            "chat_id": "c9",
+            "op": "AAAA1111"
+          },
+          {
+            "ts": null,
+            "source": "tool",
+            "chat_id": "c9",
+            "op": "AAAA1111"
+          },
+          {
+            "ts": 1759830000.0,
+            "source": "settings",
+            "chat_id": null,
+            "op": "ffff6666"
+          },
+          null
+        ]
+      },
+      {
+        "store": "user",
+        "entries": [
+          "ab",
+          "xa",
+          "z"
+        ],
+        "origins": [
+          null,
+          {
+            "ts": null,
+            "source": null,
+            "chat_id": null,
+            "op": "dddd4444"
+          },
+          {
+            "ts": null,
+            "source": null,
+            "chat_id": null,
+            "op": "dddd4444"
+          }
+        ]
+      },
+      {
+        "store": "autre",
+        "entries": [
+          "x"
+        ],
+        "origins": [
+          null
+        ]
+      }
+    ]
+  },
+  "origines_illisibles": [
+    {
+      "after": "12345",
+      "erreur": "TypeError",
+      "message": "argument of type 'int' is not iterable"
+    },
+    {
+      "after": "1.5",
+      "erreur": "TypeError",
+      "message": "argument of type 'float' is not iterable"
+    },
+    {
+      "after": "true",
+      "erreur": "TypeError",
+      "message": "argument of type 'bool' is not iterable"
+    }
+  ],
+  "portees": [
+    {
+      "username": "alice",
+      "scope": "user",
+      "dossier": "/sb",
+      "safe": "alice",
+      "chemins": [
+        "/sb/alice/memory/MEMORY.md",
+        "/sb/alice/memory/USER.md"
+      ]
+    },
+    {
+      "username": "bob",
+      "scope": "",
+      "dossier": "/sb",
+      "safe": "bob",
+      "chemins": [
+        "/sb/bob/memory/MEMORY.md",
+        "/sb/bob/memory/USER.md"
+      ]
+    },
+    {
+      "username": "carol",
+      "scope": "pipeline:42:node:7",
+      "dossier": "/sb",
+      "safe": "carol",
+      "chemins": [
+        "/sb/carol/memory/scopes/59cfdc62d144/MEMORY.md",
+        "/sb/carol/memory/USER.md"
+      ]
+    },
+    {
+      "username": "dan",
+      "scope": "  chat ",
+      "dossier": "/sb",
+      "safe": "dan",
+      "chemins": [
+        "/sb/dan/memory/MEMORY.md",
+        "/sb/dan/memory/USER.md"
+      ]
+    },
+    {
+      "username": "Jean.Dupont",
+      "scope": "default",
+      "dossier": "/sb",
+      "safe": "JeanDupont",
+      "chemins": [
+        "/sb/JeanDupont/memory/MEMORY.md",
+        "/sb/JeanDupont/memory/USER.md"
+      ]
+    },
+    {
+      "username": "",
+      "scope": "x",
+      "dossier": "/sb",
+      "safe": "guest",
+      "chemins": [
+        "/sb/guest/memory/scopes/11f6ad8ec52a/MEMORY.md",
+        "/sb/guest/memory/USER.md"
+      ]
+    },
+    {
+      "username": null,
+      "scope": null,
+      "dossier": "/sb",
+      "safe": "guest",
+      "chemins": [
+        "/sb/guest/memory/MEMORY.md",
+        "/sb/guest/memory/USER.md"
+      ]
+    },
+    {
+      "username": "\u00e9\ud83d\ude00a_b-c",
+      "scope": "team:5:role:reviewer",
+      "dossier": "/sb",
+      "safe": "a_b-c",
+      "chemins": [
+        "/sb/a_b-c/memory/scopes/9e2131ab413a/MEMORY.md",
+        "/sb/a_b-c/memory/USER.md"
+      ]
+    },
+    {
+      "username": "../../etc",
+      "scope": "user",
+      "dossier": "/sb",
+      "safe": "etc",
+      "chemins": [
+        "/sb/etc/memory/MEMORY.md",
+        "/sb/etc/memory/USER.md"
+      ]
+    },
+    {
+      "username": "alice",
+      "scope": "user",
+      "dossier": "./sb//x/",
+      "safe": "alice",
+      "chemins": [
+        "sb/x/alice/memory/MEMORY.md",
+        "sb/x/alice/memory/USER.md"
+      ]
+    },
+    {
+      "username": "alice",
+      "scope": "user",
+      "dossier": "//sb",
+      "safe": "alice",
+      "chemins": [
+        "//sb/alice/memory/MEMORY.md",
+        "//sb/alice/memory/USER.md"
+      ]
+    },
+    {
+      "username": "alice",
+      "scope": "user",
+      "dossier": "sb/../y",
+      "safe": "alice",
+      "chemins": [
+        "sb/../y/alice/memory/MEMORY.md",
+        "sb/../y/alice/memory/USER.md"
+      ]
+    },
+    {
+      "username": "alice",
+      "scope": "\u3000user\u3000",
+      "dossier": "/sb",
+      "safe": "alice",
+      "chemins": [
+        "/sb/alice/memory/MEMORY.md",
+        "/sb/alice/memory/USER.md"
+      ]
+    },
+    {
+      "username": "alice",
+      "scope": "\u00e9",
+      "dossier": "/sb",
+      "safe": "alice",
+      "chemins": [
+        "/sb/alice/memory/scopes/bf15be717ac1/MEMORY.md",
+        "/sb/alice/memory/USER.md"
+      ]
+    }
+  ],
+  "hash_portees": {
+    "pipeline:42:node:7": "59cfdc62d144",
+    "\u00e9": "bf15be717ac1",
+    "": "da39a3ee5e6b",
+    "team:5:role:reviewer": "9e2131ab413a"
+  },
+  "empreintes": {
+    "casefold": "6aec61e7d43b743511e0de1b733acb962b4239eb689264458cecf745dce5a940",
+    "nfc": "f85e7d54f784278f90a5bcf3be26ebfb1bb8535354f5833cdacad3617218d459"
+  }
+}

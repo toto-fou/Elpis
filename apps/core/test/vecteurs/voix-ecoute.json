@@ -1,0 +1,713 @@
+{
+  "source": "migration-kit/vecteurs/interface_voix_ecoute.py",
+  "voix": [
+    {
+      "section": null,
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {},
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": [],
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": "x",
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": true
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": "true"
+      },
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": 1
+      },
+      "config": {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": " http://10.0.0.9:8090/ "
+        },
+        "tts": {
+          "endpoint_url": ""
+        }
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "http://10.0.0.9:8090",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        true,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "http://a/",
+          "format": "OpenAI",
+          "model": " m ",
+          "language": "",
+          "prompt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "token": " t ",
+          "logprob_min": "-7",
+          "timeout_sec": 2.5,
+          "max_upload_mb": "12",
+          "max_utterance_sec": 200,
+          "max_concurrent": "abc",
+          "verify": "false"
+        },
+        "tts": {
+          "endpoint_url": "http://b",
+          "format": "nope",
+          "voice": null,
+          "speed": 0.123456,
+          "timeout_sec": 299.5,
+          "max_chars": 4000.5,
+          "max_concurrent": 2.5,
+          "verify": "0"
+        }
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "http://a",
+          "format": "openai",
+          "model": "m",
+          "language": "fr",
+          "prompt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "token": "t",
+          "logprob_min": -5.0,
+          "timeout_sec": 5,
+          "max_upload_mb": 12,
+          "max_utterance_sec": 120,
+          "max_concurrent": 1,
+          "verify": false
+        },
+        "tts": {
+          "endpoint_url": "http://b",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 0.5,
+          "timeout_sec": 300,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": false
+        }
+      },
+      "drapeaux": [
+        true,
+        true
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": {
+          "timeout_sec": 2.5,
+          "max_concurrent": 3.5,
+          "logprob_min": -0.0005
+        },
+        "tts": {
+          "speed": 1.0005
+        }
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -0.001,
+          "timeout_sec": 5,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 4,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": {
+          "verify": "Non",
+          "endpoint_url": 12
+        },
+        "tts": {
+          "verify": "",
+          "endpoint_url": [
+            "x"
+          ]
+        }
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "12",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": false
+        },
+        "tts": {
+          "endpoint_url": "['x']",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        true,
+        true
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": {
+          "format": "LLAMA-AUDIO",
+          "timeout_sec": true
+        },
+        "tts": {
+          "format": "piper-http",
+          "speed": "inf"
+        }
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "",
+          "format": "llama-audio",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 5,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "piper-http",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 2.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    },
+    {
+      "section": {
+        "enabled": true,
+        "stt": [],
+        "tts": "x"
+      },
+      "config": {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "",
+          "format": "whisper.cpp",
+          "model": "",
+          "language": "fr",
+          "prompt": "",
+          "token": "",
+          "logprob_min": -1.0,
+          "timeout_sec": 30,
+          "max_upload_mb": 10,
+          "max_utterance_sec": 30,
+          "max_concurrent": 1,
+          "verify": true
+        },
+        "tts": {
+          "endpoint_url": "",
+          "format": "elpis-tts",
+          "model": "",
+          "token": "",
+          "voice": "fr_FR-siwis-medium",
+          "speed": 1.0,
+          "timeout_sec": 30,
+          "max_chars": 4000,
+          "max_concurrent": 2,
+          "verify": true
+        }
+      },
+      "drapeaux": [
+        false,
+        false
+      ]
+    }
+  ],
+  "hotes": [
+    {
+      "config": {},
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {}
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": null
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true
+          }
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true
+          },
+          "listen": "lan"
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": "lan"
+        }
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": " LAN "
+        }
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": "local"
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": ""
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": null
+        }
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {
+          "listen": 0
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": "false"
+          }
+        }
+      },
+      "hote": "127.0.0.1"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": 0
+          },
+          "listen": "lan"
+        }
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": {
+          "https": null,
+          "listen": "lan"
+        }
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": []
+      },
+      "hote": "0.0.0.0"
+    },
+    {
+      "config": {
+        "security": "x"
+      },
+      "erreur": "AttributeError"
+    },
+    {
+      "config": {
+        "security": {
+          "https": []
+        }
+      },
+      "hote": "0.0.0.0"
+    }
+  ],
+  "fichiers": [
+    {
+      "cas": "absent",
+      "contenu": null,
+      "hote": "127.0.0.1"
+    },
+    {
+      "cas": "illisible",
+      "contenu": "{pas du json",
+      "hote": "127.0.0.1"
+    },
+    {
+      "cas": "liste",
+      "contenu": "[1]",
+      "hote": "127.0.0.1"
+    },
+    {
+      "cas": "lan",
+      "contenu": "{\"security\": {\"listen\": \"lan\"}}",
+      "hote": "0.0.0.0"
+    },
+    {
+      "cas": "vide",
+      "contenu": "",
+      "hote": "127.0.0.1"
+    }
+  ]
+}

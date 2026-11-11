@@ -1,0 +1,218 @@
+{
+  "source": "migration-kit/vecteurs/core_outils.py",
+  "borne": "OuTiLs",
+  "max": 2097152,
+  "etapes": [
+    [
+      {
+        "nom": "file",
+        "fichier": "a.txt",
+        "type": "text/plain",
+        "hex": "426f6e6a6f75722c206c65206d6f6e646520210a"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "\u00e9.txt",
+        "type": "text/plain",
+        "hex": "c3896c6563747269636974c3a920f09f988020e4b8ade696870d0a"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "bom.txt",
+        "type": "text/plain",
+        "hex": "efbbbf6176656320424f4d"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "latin.txt",
+        "type": "text/plain",
+        "hex": "c96c6563747269636974e920e761"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "tronque.txt",
+        "type": "text/plain",
+        "hex": "616263e282"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "demi.txt",
+        "type": "text/plain",
+        "hex": "eda08078"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "nul.bin",
+        "type": "application/octet-stream",
+        "hex": "00ff7f80c0"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "vide.txt",
+        "type": "text/plain",
+        "hex": ""
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "pile.txt",
+        "type": "text/plain",
+        "hex": [
+          "61",
+          2097152
+        ]
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "trop.txt",
+        "type": "text/plain",
+        "hex": [
+          "61",
+          2097153
+        ]
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "emoji.txt",
+        "type": "text/plain",
+        "hex": [
+          "f09f9880",
+          524288
+        ]
+      }
+    ],
+    [
+      {
+        "nom": "autre",
+        "fichier": "a.txt",
+        "type": "text/plain",
+        "hex": "78"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": null,
+        "type": null,
+        "hex": "74657874652073696d706c65"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "a.txt",
+        "type": "text/plain",
+        "hex": "7072656d696572"
+      },
+      {
+        "nom": "file",
+        "fichier": "b.txt",
+        "type": "text/plain",
+        "hex": "7365636f6e64"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "C:\\dossier\\win.txt",
+        "type": "text/plain",
+        "hex": "6368656d696e2077696e646f7773"
+      }
+    ],
+    [
+      {
+        "nom": "file",
+        "fichier": "sans-type",
+        "type": null,
+        "hex": "73616e732074797065"
+      }
+    ]
+  ],
+  "reponses": [
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"a.txt\",\"content\":\"Bonjour, le monde !\\n\",\"size\":20}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"\u00e9.txt\",\"content\":\"\u00c9lectricit\u00e9 \ud83d\ude00 \u4e2d\u6587\\r\\n\",\"size\":18}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"bom.txt\",\"content\":\"\ufeffavec BOM\",\"size\":9}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"latin.txt\",\"content\":\"\u00c9lectricit\u00e9 \u00e7a\",\"size\":14}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"tronque.txt\",\"content\":\"abc\u00e2\u0082\",\"size\":5}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"demi.txt\",\"content\":\"\u00ed\u00a0\u0080x\",\"size\":4}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"nul.bin\",\"content\":\"\\u0000\u00ff\u007f\u0080\u00c0\",\"size\":5}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"vide.txt\",\"content\":\"\",\"size\":0}"
+    },
+    {
+      "statut": 200,
+      "empreinte": "3e2f143ae754e935eb7a32df8560686160e5b6b31752576d29ea9b22b5d59332",
+      "taille": 2097213
+    },
+    {
+      "statut": 413,
+      "corps": "{\"detail\":\"Fichier trop volumineux (plafond : 2 Mo).\"}"
+    },
+    {
+      "statut": 200,
+      "empreinte": "a57da1b955fe04b922b5a909bf1f8582d690b5d3acb5b1112dc78753c84c9719",
+      "taille": 2097213
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"file\"],\"msg\":\"Field required\",\"input\":null}]}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"value_error\",\"loc\":[\"body\",\"file\"],\"msg\":\"Value error, Expected UploadFile, received: <class 'str'>\",\"input\":\"texte simple\",\"ctx\":{\"error\":{}}}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"b.txt\",\"content\":\"second\",\"size\":6}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"win.txt\",\"content\":\"chemin windows\",\"size\":14}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"filename\":\"sans-type\",\"content\":\"sans type\",\"size\":9}"
+    }
+  ]
+}

@@ -1,0 +1,1901 @@
+{
+  "source": "migration-kit/vecteurs/llm_acces.py",
+  "cles": [
+    {
+      "key": null,
+      "valeur": null
+    },
+    {
+      "key": "",
+      "valeur": null
+    },
+    {
+      "key": "  ",
+      "valeur": null
+    },
+    {
+      "key": "builtin",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": " builtin ",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": "BUILTIN",
+      "valeur": null
+    },
+    {
+      "key": "builtin2",
+      "valeur": null
+    },
+    {
+      "key": "*",
+      "valeur": null
+    },
+    {
+      "key": " * ",
+      "valeur": null
+    },
+    {
+      "key": "conn:3",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": " conn:3 ",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn:012",
+      "valeur": [
+        "conn",
+        12
+      ]
+    },
+    {
+      "key": "conn:00",
+      "valeur": null
+    },
+    {
+      "key": "conn:0",
+      "valeur": null
+    },
+    {
+      "key": "conn:-1",
+      "valeur": null
+    },
+    {
+      "key": "conn:+1",
+      "valeur": null
+    },
+    {
+      "key": "conn: 1",
+      "valeur": null
+    },
+    {
+      "key": "conn:1 ",
+      "valeur": [
+        "conn",
+        1
+      ]
+    },
+    {
+      "key": "CONN:1",
+      "valeur": null
+    },
+    {
+      "key": "conn:\u0661\u0662",
+      "valeur": null
+    },
+    {
+      "key": "conn:1\u0661\u0662",
+      "valeur": null
+    },
+    {
+      "key": "conn:\u00b2",
+      "valeur": null
+    },
+    {
+      "key": "conn:",
+      "valeur": null
+    },
+    {
+      "key": "conn:1e3",
+      "valeur": null
+    },
+    {
+      "key": "conn:1.0",
+      "valeur": null
+    },
+    {
+      "key": "conn:3\n",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn:99999999999999999999",
+      "valeur": [
+        "conn",
+        99999999999999999999
+      ]
+    },
+    {
+      "key": "conn:99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "erreur": "ValueError",
+      "message": "Exceeds the limit (4300 digits) for integer string conversion: value has 5000 digits; use sys.set_int_max_str_digits() to increase the limit"
+    },
+    {
+      "key": 3,
+      "valeur": null
+    },
+    {
+      "key": true,
+      "valeur": null
+    },
+    {
+      "key": [
+        "conn:1"
+      ],
+      "valeur": null
+    },
+    {
+      "key": "url:x",
+      "valeur": null
+    },
+    {
+      "key": "conn:3\u3000",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "\u00a0conn:4",
+      "valeur": [
+        "conn",
+        4
+      ]
+    }
+  ],
+  "connector_key": [
+    {
+      "id": 3,
+      "valeur": "conn:3"
+    },
+    {
+      "id": "12",
+      "valeur": "conn:12"
+    },
+    {
+      "id": "012",
+      "valeur": "conn:12"
+    },
+    {
+      "id": " 7 ",
+      "valeur": "conn:7"
+    },
+    {
+      "id": true,
+      "valeur": "conn:1"
+    },
+    {
+      "id": 5.9,
+      "valeur": "conn:5"
+    },
+    {
+      "id": "abc",
+      "erreur": "ValueError",
+      "message": "invalid literal for int() with base 10: 'abc'"
+    },
+    {
+      "id": null,
+      "erreur": "TypeError"
+    },
+    {
+      "id": "\u0661\u0662",
+      "valeur": "conn:12"
+    },
+    {
+      "id": -2,
+      "valeur": "conn:-2"
+    }
+  ],
+  "normalisations": [
+    {
+      "keys": null,
+      "valeur": null
+    },
+    {
+      "keys": [],
+      "valeur": []
+    },
+    {
+      "keys": [
+        "builtin",
+        "builtin",
+        "conn:1"
+      ],
+      "valeur": [
+        "builtin",
+        "conn:1"
+      ]
+    },
+    {
+      "keys": [
+        "*",
+        "conn:2",
+        "*"
+      ],
+      "valeur": [
+        "*",
+        "conn:2"
+      ]
+    },
+    {
+      "keys": [
+        "conn:012",
+        "conn:12",
+        "conn:0012"
+      ],
+      "valeur": [
+        "conn:12"
+      ]
+    },
+    {
+      "keys": [
+        "conn:\u0661\u0662"
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : conn:\u0661\u0662"
+    },
+    {
+      "keys": [
+        " builtin ",
+        " * ",
+        " conn:5 "
+      ],
+      "valeur": [
+        "builtin",
+        "*",
+        "conn:5"
+      ]
+    },
+    {
+      "keys": [
+        1,
+        null,
+        "x",
+        "conn:abc",
+        true
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : 1, None, x, conn:abc, True"
+    },
+    {
+      "keys": [
+        "builtin",
+        "conn:0",
+        "conn:-3",
+        "builtin "
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : conn:0, conn:-3"
+    },
+    {
+      "keys": "builtin",
+      "erreur": "ValueError",
+      "message": "engine_keys doit \u00eatre null ou une liste"
+    },
+    {
+      "keys": {
+        "builtin": 1
+      },
+      "erreur": "ValueError",
+      "message": "engine_keys doit \u00eatre null ou une liste"
+    },
+    {
+      "keys": 5,
+      "erreur": "ValueError",
+      "message": "engine_keys doit \u00eatre null ou une liste"
+    },
+    {
+      "keys": [
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin"
+      ],
+      "valeur": [
+        "builtin"
+      ]
+    },
+    {
+      "keys": [
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin",
+        "builtin"
+      ],
+      "erreur": "ValueError",
+      "message": "engine_keys : trop de cl\u00e9s"
+    },
+    {
+      "keys": [
+        "conn:1",
+        "conn:2",
+        "conn:3",
+        "conn:4",
+        "conn:5",
+        "conn:6",
+        "conn:7",
+        "conn:8",
+        "conn:9",
+        "conn:10",
+        "conn:11",
+        "conn:12",
+        "conn:13",
+        "conn:14",
+        "conn:15",
+        "conn:16",
+        "conn:17",
+        "conn:18",
+        "conn:19",
+        "conn:20",
+        "conn:21",
+        "conn:22",
+        "conn:23",
+        "conn:24",
+        "conn:25",
+        "conn:26",
+        "conn:27",
+        "conn:28",
+        "conn:29"
+      ],
+      "valeur": [
+        "conn:1",
+        "conn:2",
+        "conn:3",
+        "conn:4",
+        "conn:5",
+        "conn:6",
+        "conn:7",
+        "conn:8",
+        "conn:9",
+        "conn:10",
+        "conn:11",
+        "conn:12",
+        "conn:13",
+        "conn:14",
+        "conn:15",
+        "conn:16",
+        "conn:17",
+        "conn:18",
+        "conn:19",
+        "conn:20",
+        "conn:21",
+        "conn:22",
+        "conn:23",
+        "conn:24",
+        "conn:25",
+        "conn:26",
+        "conn:27",
+        "conn:28",
+        "conn:29"
+      ]
+    },
+    {
+      "keys": [
+        "",
+        "conn:7",
+        "conn:07",
+        "*"
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : "
+    },
+    {
+      "keys": [
+        [
+          "builtin"
+        ]
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : ['builtin']"
+    },
+    {
+      "keys": [
+        "conn:\u00b2"
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : conn:\u00b2"
+    },
+    {
+      "keys": [
+        "conn:3\n",
+        "*\n"
+      ],
+      "valeur": [
+        "conn:3",
+        "*"
+      ]
+    },
+    {
+      "keys": [
+        "conn:1.5",
+        "conn:1e3"
+      ],
+      "erreur": "ValueError",
+      "message": "Cl\u00e9s de serveur invalides : conn:1.5, conn:1e3"
+    }
+  ],
+  "decodages": [
+    {
+      "engine_keys": null,
+      "can_manage_models": null,
+      "valeur": {
+        "engine_keys": null,
+        "can_manage_models": null
+      }
+    },
+    {
+      "engine_keys": "[]",
+      "can_manage_models": 0,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": false
+      }
+    },
+    {
+      "engine_keys": "[\"builtin\", 3, null, \"conn:1\", \"builtin\"]",
+      "can_manage_models": 1,
+      "valeur": {
+        "engine_keys": [
+          "builtin",
+          "conn:1",
+          "builtin"
+        ],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "{\"a\": 1}",
+      "can_manage_models": 2,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "pas du json",
+      "can_manage_models": null,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": null
+      }
+    },
+    {
+      "engine_keys": "\"texte\"",
+      "can_manage_models": 1,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "[NaN, \"*\"]",
+      "can_manage_models": 0,
+      "valeur": {
+        "engine_keys": [
+          "*"
+        ],
+        "can_manage_models": false
+      }
+    },
+    {
+      "engine_keys": "",
+      "can_manage_models": 1,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "[\"\\u00e9\", [\"x\"]]",
+      "can_manage_models": 5,
+      "valeur": {
+        "engine_keys": [
+          "\u00e9"
+        ],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "null",
+      "can_manage_models": -1,
+      "valeur": {
+        "engine_keys": [],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "  [\"a\"]  ",
+      "can_manage_models": 1,
+      "valeur": {
+        "engine_keys": [
+          "a"
+        ],
+        "can_manage_models": true
+      }
+    },
+    {
+      "engine_keys": "[1.5, true, \"conn:2\"]",
+      "can_manage_models": true,
+      "valeur": {
+        "engine_keys": [
+          "conn:2"
+        ],
+        "can_manage_models": true
+      }
+    }
+  ],
+  "resolutions": [
+    {
+      "user": null,
+      "groups": [],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": [
+          "builtin"
+        ],
+        "can_manage_models": null
+      },
+      "groups": [
+        {
+          "engine_keys": [
+            "conn:2"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [
+          "builtin"
+        ],
+        "engine_source": "user",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": null,
+        "can_manage_models": null
+      },
+      "groups": [
+        {
+          "engine_keys": [
+            "conn:1"
+          ],
+          "can_manage_models": null
+        },
+        {
+          "engine_keys": null,
+          "can_manage_models": null
+        },
+        {
+          "engine_keys": [
+            "conn:2",
+            "conn:1"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [
+          "conn:1",
+          "conn:2"
+        ],
+        "engine_source": "groups",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": false
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": false,
+        "manage_source": "groups"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": [],
+        "can_manage_models": null
+      },
+      "groups": [],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [],
+        "engine_source": "user",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": [
+          "*"
+        ],
+        "can_manage_models": null
+      },
+      "groups": [
+        {
+          "engine_keys": [
+            "conn:1"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "user",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": [
+            "conn:1"
+          ],
+          "can_manage_models": null
+        },
+        {
+          "engine_keys": [
+            "*"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "groups",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": [],
+        "can_manage_models": false
+      },
+      "groups": [
+        {
+          "engine_keys": [],
+          "can_manage_models": false
+        }
+      ],
+      "is_admin": true,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "admin",
+        "can_manage_models": true,
+        "manage_source": "admin"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": null,
+        "can_manage_models": false
+      },
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": true
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": false,
+        "manage_source": "user"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": null,
+        "can_manage_models": true
+      },
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": false
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "user"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": false
+        },
+        {
+          "engine_keys": null,
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": false,
+        "manage_source": "groups"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": false
+        },
+        {
+          "engine_keys": null,
+          "can_manage_models": true
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "groups"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": null
+        },
+        {
+          "engine_keys": null,
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {},
+        null,
+        {
+          "engine_keys": [
+            "builtin"
+          ],
+          "can_manage_models": false
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [
+          "builtin"
+        ],
+        "engine_source": "groups",
+        "can_manage_models": false,
+        "manage_source": "groups"
+      }
+    },
+    {
+      "user": {},
+      "groups": [],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": [
+          "b",
+          "a",
+          "a"
+        ],
+        "can_manage_models": 0
+      },
+      "groups": [],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [
+          "a",
+          "b"
+        ],
+        "engine_source": "user",
+        "can_manage_models": false,
+        "manage_source": "user"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        {
+          "engine_keys": [
+            "x"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": [
+          "x"
+        ],
+        "engine_source": "groups",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": null,
+        "can_manage_models": 1
+      },
+      "groups": [],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": true,
+        "manage_source": "user"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": null,
+          "can_manage_models": 0
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": false,
+        "manage_source": "groups"
+      }
+    },
+    {
+      "user": null,
+      "groups": [
+        {
+          "engine_keys": [
+            "*",
+            "conn:3"
+          ],
+          "can_manage_models": null
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "groups",
+        "can_manage_models": true,
+        "manage_source": "default"
+      }
+    },
+    {
+      "user": {
+        "engine_keys": null
+      },
+      "groups": [
+        {
+          "can_manage_models": false
+        }
+      ],
+      "is_admin": false,
+      "acces": {
+        "engine_keys": null,
+        "engine_source": "default",
+        "can_manage_models": false,
+        "manage_source": "groups"
+      }
+    }
+  ],
+  "json_keys": [
+    {
+      "keys": [
+        "a",
+        "b",
+        "conn:10",
+        "conn:9"
+      ],
+      "ordre": null,
+      "valeur": [
+        "a",
+        "b",
+        "conn:10",
+        "conn:9"
+      ]
+    },
+    {
+      "keys": [],
+      "ordre": null,
+      "valeur": []
+    },
+    {
+      "keys": [
+        "a",
+        "b",
+        "z"
+      ],
+      "ordre": [
+        "z",
+        "x",
+        "a"
+      ],
+      "valeur": [
+        "z",
+        "a",
+        "b"
+      ]
+    },
+    {
+      "keys": [
+        "*",
+        "builtin"
+      ],
+      "ordre": [],
+      "valeur": [
+        "*",
+        "builtin"
+      ]
+    }
+  ],
+  "filtres": [
+    {
+      "ctx": null,
+      "is_admin": null,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": null,
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": null,
+      "is_admin": false,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": true,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": null,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": true,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": true,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": false,
+      "ids": [
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "conn:2"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": null,
+      "ids": [
+        2,
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "conn:2"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "conn:2"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": false,
+      "ids": [
+        2,
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": null,
+        "groups": [
+          {
+            "engine_keys": [
+              "conn:1",
+              "builtin"
+            ],
+            "can_manage_models": null
+          }
+        ]
+      },
+      "is_admin": null,
+      "ids": [
+        1,
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": null,
+        "groups": [
+          {
+            "engine_keys": [
+              "conn:1",
+              "builtin"
+            ],
+            "can_manage_models": null
+          }
+        ]
+      },
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": null,
+        "groups": [
+          {
+            "engine_keys": [
+              "conn:1",
+              "builtin"
+            ],
+            "can_manage_models": null
+          }
+        ]
+      },
+      "is_admin": false,
+      "ids": [
+        1,
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": null,
+      "ids": [
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": false,
+      "ids": [
+        3,
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "*"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": null,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "*"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": true,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "ctx": {
+        "is_admin": false,
+        "user": {
+          "engine_keys": [
+            "*"
+          ],
+          "can_manage_models": null
+        },
+        "groups": []
+      },
+      "is_admin": false,
+      "ids": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        "8",
+        9,
+        10,
+        11
+      ]
+    }
+  ],
+  "comptes": [
+    {
+      "id": 1,
+      "username": "root",
+      "is_admin": 1,
+      "group_ids": [
+        10
+      ],
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": null,
+      "llm_engine_source": "admin",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "admin"
+    },
+    {
+      "id": 2,
+      "username": "alice",
+      "is_admin": 0,
+      "group_ids": [
+        10,
+        11
+      ],
+      "llm_engine_keys": [
+        "conn:3",
+        "builtin"
+      ],
+      "llm_can_manage_models": false,
+      "llm_effective_engine_keys": [
+        "builtin",
+        "conn:3"
+      ],
+      "llm_engine_source": "user",
+      "llm_effective_can_manage_models": false,
+      "llm_manage_source": "user"
+    },
+    {
+      "id": 3,
+      "username": "bob",
+      "is_admin": 0,
+      "group_ids": [
+        10,
+        11,
+        99
+      ],
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": [
+        "builtin"
+      ],
+      "llm_engine_source": "groups",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "groups"
+    },
+    {
+      "id": 4,
+      "username": "carole",
+      "is_admin": 2,
+      "group_ids": [
+        12
+      ],
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": null,
+      "llm_engine_source": "groups",
+      "llm_effective_can_manage_models": false,
+      "llm_manage_source": "groups"
+    },
+    {
+      "id": 5,
+      "username": "dan",
+      "is_admin": 0,
+      "group_ids": [],
+      "llm_engine_keys": [],
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": [],
+      "llm_engine_source": "user",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "default"
+    },
+    {
+      "id": 6,
+      "username": "eve",
+      "is_admin": 0,
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": null,
+      "llm_engine_source": "default",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "default"
+    },
+    {
+      "id": 7,
+      "username": "fred",
+      "is_admin": 0,
+      "group_ids": null,
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": null,
+      "llm_engine_source": "default",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "default"
+    },
+    {
+      "id": 8,
+      "username": "gil",
+      "is_admin": true,
+      "group_ids": [
+        12,
+        10
+      ],
+      "llm_engine_keys": null,
+      "llm_can_manage_models": null,
+      "llm_effective_engine_keys": null,
+      "llm_engine_source": "admin",
+      "llm_effective_can_manage_models": true,
+      "llm_manage_source": "admin"
+    }
+  ]
+}

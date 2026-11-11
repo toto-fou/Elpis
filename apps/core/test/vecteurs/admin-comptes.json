@@ -1,0 +1,2436 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_comptes.py",
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      2
+    ],
+    [
+      "dave",
+      0
+    ],
+    [
+      "eve",
+      0
+    ]
+  ],
+  "t0": 1800000000.0,
+  "entetes": [
+    "content-type",
+    "cache-control"
+  ],
+  "etapes": [
+    {
+      "config": {
+        "app": {
+          "sandbox_quota_mb": 2048
+        },
+        "security": {
+          "password_policy": {
+            "min_length": 8,
+            "require_numbers": true
+          }
+        },
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "isolated",
+              "name": "Isol\u00e9",
+              "mode": "none"
+            },
+            {
+              "id": "web",
+              "name": "Web",
+              "mode": "allowlist",
+              "domains": [
+                "example.com"
+              ],
+              "ports": [
+                443
+              ]
+            }
+          ]
+        },
+        "desktop": {
+          "targets": [
+            {
+              "name": "vm-01",
+              "agent_url": "http://10.0.0.1:9",
+              "access": "list",
+              "allowed_users": [
+                "bob",
+                "zed"
+              ]
+            },
+            {
+              "name": "vm-02",
+              "agent_url": "http://10.0.0.2:9"
+            },
+            {
+              "name": "vm-03",
+              "agent_url": "http://10.0.0.3:9",
+              "access": "LIST",
+              "allowed_users": []
+            },
+            {
+              "name": "vm-04",
+              "access": "list",
+              "allowed_users": [
+                "dave",
+                "",
+                7
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fichier": [
+        "bob/work/a.bin",
+        1572864
+      ]
+    },
+    {
+      "fichier": [
+        "eve/work/sub/x.txt",
+        3
+      ]
+    },
+    {
+      "dossier": [
+        "eve/work/sub",
+        320
+      ]
+    },
+    {
+      "fichier": [
+        "ailleurs/garde.txt",
+        5
+      ]
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups",
+      "compte": "bob"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups",
+      "compte": "carol"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{\"name\": \"  dev \", \"description\": \" d \"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{\"name\": \"ops\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{\"name\": \"\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{\"name\": 5}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{\"name\": null, \"description\": \"x\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/groups",
+      "compte": "carol",
+      "corps": "{\"name\": \"rh\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/groups",
+      "compte": "alice"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1",
+      "compte": "alice",
+      "corps": "{\"name\": \"d\u00e9veloppeurs\", \"description\": \"\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/99",
+      "compte": "alice",
+      "corps": "{\"name\": \"x\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/abc",
+      "compte": "alice",
+      "corps": "{\"name\": \"x\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1",
+      "compte": "alice",
+      "corps": "{\"name\": \" \"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [1, \"2\", 2.7, true]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": \"12\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [1, \"x\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": 5}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [1, 99]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/99/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [1]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [[1]]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [Infinity]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [NaN]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [99999999999999999999]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "{\"group_ids\": [2]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/groups",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/llm/engine-options",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice",
+      "corps": "{\"engine_keys\": [\"builtin\"], \"can_manage_models\": false}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice",
+      "corps": "{\"engine_keys\": [\"conn:9\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice",
+      "corps": "{\"can_manage_models\": \"oui\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/1/llm-access",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/groups/99/llm-access",
+      "compte": "alice",
+      "corps": "{}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/groups",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/2/llm-access",
+      "compte": "alice"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/llm-access",
+      "compte": "alice",
+      "corps": "{\"engine_keys\": [\"*\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/llm-access",
+      "compte": "alice",
+      "corps": "{\"engine_keys\": \"builtin\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/llm-access",
+      "compte": "alice",
+      "corps": "{\"engine_keys\": null, \"can_manage_models\": null}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/1/llm-access",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/99/llm-access",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": 100}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": \"5 Go\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": -5}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": -1}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/3/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": 12345678901234567890123}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/4/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": 7.9}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/99/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": 1}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": [1]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "{\"quota_mb\": Infinity}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/sandbox-quota",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": \"web\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": \"inconnu\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": null}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/99/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": \"\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/5/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": \" web \"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/4/network-profile",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/network-profile",
+      "compte": "alice",
+      "corps": "{\"profile_id\": 5}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": [\"vm-01\", \"vm-03\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": [\"vm-99\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": \"vm-01\"}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": [1]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/99/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": []}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/2/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": []}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/4/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": [\"vm-02\", \"vm-02\"]}"
+    },
+    {
+      "m": "PUT",
+      "u": "/api/admin/users/3/desktop-targets",
+      "compte": "alice",
+      "corps": "{\"targets\": [\"vm-01\"]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"frank\", \"password\": \"motdepasse1\", \"role\": \"moderator\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"frank\", \"password\": \"motdepasse1\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"jean dupont\", \"password\": \"motdepasse1\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"gina\", \"password\": \"court1\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"gina\", \"password\": \"sanschiffre\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"\", \"password\": \"x\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"gina\", \"password\": \"motdepasse2\", \"role\": [\"admin\"]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": 5}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/new",
+      "compte": "alice",
+      "corps": "{\"username\": \"hugo\", \"password\": \"  motdepasse3  \", \"role\": \"admin\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/role",
+      "compte": "alice",
+      "corps": "{\"role\": \"admin\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/role",
+      "compte": "alice",
+      "corps": "{\"role\": 1.0}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/1/role",
+      "compte": "alice",
+      "corps": "{\"role\": \"user\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/99/role",
+      "compte": "alice",
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/2/role",
+      "compte": "alice",
+      "corps": "{\"role\": {\"a\": 1}}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/3/role",
+      "compte": "alice",
+      "corps": "{\"role\": \"moderator\"}"
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          2,
+          "tools",
+          "t",
+          "h2",
+          "ab12",
+          "fs,git",
+          1799999900.0,
+          null
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 2, \"new_password\": \"nouveau123\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 2}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": \"abc\", \"new_password\": \"nouveau123\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": \"2\", \"new_password\": \"court1\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 2, \"new_password\": {\"a\": 1}}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 2, \"new_password\": 12345678}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 99, \"new_password\": \"nouveau123\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/reset-password",
+      "compte": "alice",
+      "corps": "{\"target_id\": 0, \"new_password\": \"nouveau123\"}"
+    },
+    {
+      "lire": "SELECT id, username, is_admin, must_change_pwd, session_min_ts, settings_json FROM users ORDER BY id"
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          4,
+          "tools",
+          "outils",
+          "h4a",
+          "cd34",
+          "fs",
+          1799999950.0,
+          1800003600.5
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          4,
+          "vision",
+          "",
+          "h4b",
+          "ef56",
+          "",
+          1799999990.0,
+          1800000060.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          4,
+          "opencode",
+          "oc",
+          "h4c",
+          "gh78",
+          "",
+          1799999980.0,
+          null
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO oauth_clients(client_id, kind, name, created_at) VALUES(?,?,?,?)",
+        [
+          "cl1",
+          "dcr",
+          "Client un",
+          1799740795.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO oauth_clients(client_id, kind, name, created_at) VALUES(?,?,?,?)",
+        [
+          "https://cimd.example/c.json",
+          "cimd",
+          "",
+          1799999990.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO oauth_tokens(grant_id, user_id, client_id, kind, token_hash, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          "g1",
+          4,
+          "cl1",
+          "refresh",
+          "r1",
+          "fs git",
+          1799999900.0,
+          1800086400.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO oauth_tokens(grant_id, user_id, client_id, kind, token_hash, families, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [
+          "g1",
+          4,
+          "cl1",
+          "access",
+          "a1",
+          "fs git",
+          1799999900.0,
+          1800003600.0
+        ]
+      ]
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/4/access",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/99/access",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/oauth/clients",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/users/4/access/revoke",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users/4/access",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/oauth/clients",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/oauth/clients?client_id=cl1",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/oauth/clients?client_id=cl1",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/oauth/clients",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/oauth/clients?client_id=x&client_id=https%3A%2F%2Fcimd.example%2Fc.json",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/oauth/clients",
+      "compte": "carol"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups",
+      "compte": "alice"
+    },
+    {
+      "fichier": [
+        "dave/work/f.txt",
+        10
+      ]
+    },
+    {
+      "lien": [
+        "frank/work",
+        "ailleurs"
+      ]
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/1",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/4?delete_sandbox=true",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/4?delete_sandbox=true",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/5?delete_sandbox=TRUE",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/3?delete_sandbox=false",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/6?delete_sandbox=true&delete_sandbox=true",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/99",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/abc",
+      "compte": "alice"
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/admin/users/7",
+      "compte": "bob"
+    },
+    {
+      "existe": "dave"
+    },
+    {
+      "existe": "eve"
+    },
+    {
+      "existe": "frank"
+    },
+    {
+      "existe": "ailleurs/garde.txt"
+    },
+    {
+      "lire": "SELECT id, username, is_admin, must_change_pwd, session_min_ts, settings_json FROM users ORDER BY id"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/users-with-groups",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/groups",
+      "compte": "alice"
+    }
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2,
+    "carol": 3,
+    "dave": 4,
+    "eve": 5
+  },
+  "sorties": [
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"users\":[{\"id\":1,\"username\":\"alice\",\"is_admin\":1,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"admin\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"admin\"},{\"id\":2,\"username\":\"bob\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":1.5,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":3,\"username\":\"carol\",\"is_admin\":2,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":4,\"username\":\"dave\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":5,\"username\":\"eve\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"}],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[],\"ports\":[],\"dns\":[]},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[\"example.com\"],\"ports\":[443],\"dns\":[]}],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"bob\",\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"groups\":[{\"id\":1,\"name\":\"dev\",\"description\":\"d\",\"created_at\":1800000000.0,\"member_count\":0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null},{\"id\":2,\"name\":\"ops\",\"description\":\"\",\"created_at\":1800000000.0,\"member_count\":0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Groupe introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"group_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"group_ids\":[1,2]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"group_ids\":[1,2]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"group_ids : identifiants entiers attendus\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"group_ids : identifiants entiers attendus\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Groupe introuvable : 99\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Compte introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"group_ids : identifiants entiers attendus\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"group_ids : identifiants entiers attendus\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"group_ids\":[]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"group_ids\":[2]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"engines\":[{\"key\":\"builtin\",\"label\":\"Serveur int\u00e9gr\u00e9\",\"kind\":\"builtin\",\"provider_type\":\"llamacpp\",\"enabled\":true}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"engine_keys\":null,\"can_manage_models\":null}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"engine_keys\":[\"builtin\"],\"can_manage_models\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.group.llm_access\", \"details\": {\"can_manage_models\": false, \"engine_keys\": [\"builtin\"], \"group_id\": 1, \"group_name\": \"d\u00e9veloppeurs\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Serveurs inconnus : conn:9\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"can_manage_models doit \u00eatre null, true ou false\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON attendu\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON attendu\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Groupe introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"groups\":[{\"id\":1,\"name\":\"d\u00e9veloppeurs\",\"description\":\"\",\"created_at\":1800000000.0,\"member_count\":1,\"llm_engine_keys\":[\"builtin\"],\"llm_can_manage_models\":false},{\"id\":2,\"name\":\"ops\",\"description\":\"\",\"created_at\":1800000000.0,\"member_count\":2,\"llm_engine_keys\":null,\"llm_can_manage_models\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"engine_keys\":null,\"can_manage_models\":null,\"effective_engine_keys\":[\"builtin\"],\"engine_source\":\"groups\",\"effective_can_manage_models\":false,\"manage_source\":\"groups\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"engine_keys\":[\"*\"],\"can_manage_models\":null,\"effective_engine_keys\":null,\"engine_source\":\"user\",\"effective_can_manage_models\":false,\"manage_source\":\"groups\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.llm_access\", \"details\": {\"can_manage_models\": null, \"engine_keys\": [\"*\"], \"target_user_id\": 2, \"target_username\": \"bob\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"engine_keys doit \u00eatre null ou une liste\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"engine_keys\":null,\"can_manage_models\":null,\"effective_engine_keys\":[\"builtin\"],\"engine_source\":\"groups\",\"effective_can_manage_models\":false,\"manage_source\":\"groups\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.llm_access\", \"details\": {\"can_manage_models\": null, \"engine_keys\": null, \"target_user_id\": 2, \"target_username\": \"bob\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"engine_keys\":null,\"can_manage_models\":null,\"effective_engine_keys\":null,\"engine_source\":\"admin\",\"effective_can_manage_models\":true,\"manage_source\":\"admin\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"quota_mb\":100}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"quota_mb doit \u00eatre un entier (Mo)\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"quota_mb required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"quota_mb must be >= 0 or -1 to reset\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"quota_mb\":-1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"quota_mb\":12345678901234567890123}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"quota_mb\":7}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"quota_mb\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"quota_mb doit \u00eatre un entier (Mo)\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"forced_network_profile_id\":\"web\",\"network_profile_id\":\"web\",\"container_destroyed\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.network_profile\", \"details\": {\"container_destroyed\": true, \"effective\": \"web\", \"forced\": \"web\", \"target_user_id\": 2, \"target_username\": \"bob\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [
+        [
+          "detruire",
+          2,
+          "bob",
+          "bob/work",
+          "isolated"
+        ]
+      ],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil r\u00e9seau 'inconnu' introuvable. Disponibles : ['isolated', 'web']\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"forced_network_profile_id\":\"\",\"network_profile_id\":\"web\",\"container_destroyed\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.network_profile\", \"details\": {\"container_destroyed\": false, \"effective\": \"web\", \"forced\": null, \"target_user_id\": 2, \"target_username\": \"bob\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"User 99 introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"forced_network_profile_id\":\"web\",\"network_profile_id\":\"web\",\"container_destroyed\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.network_profile\", \"details\": {\"container_destroyed\": false, \"effective\": \"web\", \"forced\": \"web\", \"target_user_id\": 5, \"target_username\": \"eve\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [
+        [
+          "detruire",
+          5,
+          "eve",
+          "eve/work",
+          "isolated"
+        ]
+      ],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"forced_network_profile_id\":\"\",\"network_profile_id\":\"isolated\",\"container_destroyed\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.network_profile\", \"details\": {\"container_destroyed\": false, \"effective\": \"isolated\", \"forced\": null, \"target_user_id\": 4, \"target_username\": \"dave\"}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil r\u00e9seau '5' introuvable. Disponibles : ['isolated', 'web']\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"changed\":[\"vm-01\",\"vm-04\"],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"bob\",\"dave\",\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.desktop_targets\", \"details\": {\"changed\": [\"vm-01\", \"vm-04\"], \"target_user_id\": 4, \"target_username\": \"dave\", \"targets\": [\"vm-01\", \"vm-03\"]}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": "{\n  \"app\": {\n    \"sandbox_quota_mb\": 2048\n  },\n  \"security\": {\n    \"password_policy\": {\n      \"min_length\": 8,\n      \"require_numbers\": true\n    }\n  },\n  \"executors\": {\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist\",\n        \"domains\": [\n          \"example.com\"\n        ],\n        \"ports\": [\n          443\n        ]\n      }\n    ]\n  },\n  \"desktop\": {\n    \"targets\": [\n      {\n        \"name\": \"vm-01\",\n        \"agent_url\": \"http://10.0.0.1:9\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"bob\",\n          \"dave\",\n          \"zed\"\n        ]\n      },\n      {\n        \"name\": \"vm-02\",\n        \"agent_url\": \"http://10.0.0.2:9\"\n      },\n      {\n        \"name\": \"vm-03\",\n        \"agent_url\": \"http://10.0.0.3:9\",\n        \"access\": \"LIST\",\n        \"allowed_users\": []\n      },\n      {\n        \"name\": \"vm-04\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"7\"\n        ]\n      }\n    ]\n  }\n}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Machine inconnue : vm-99\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"targets : liste de noms de machines\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"targets : liste de noms de machines\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON attendu\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"changed\":[\"vm-01\"],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"dave\",\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.desktop_targets\", \"details\": {\"changed\": [\"vm-01\"], \"target_user_id\": 2, \"target_username\": \"bob\", \"targets\": []}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": "{\n  \"app\": {\n    \"sandbox_quota_mb\": 2048\n  },\n  \"security\": {\n    \"password_policy\": {\n      \"min_length\": 8,\n      \"require_numbers\": true\n    }\n  },\n  \"executors\": {\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist\",\n        \"domains\": [\n          \"example.com\"\n        ],\n        \"ports\": [\n          443\n        ]\n      }\n    ]\n  },\n  \"desktop\": {\n    \"targets\": [\n      {\n        \"name\": \"vm-01\",\n        \"agent_url\": \"http://10.0.0.1:9\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"dave\",\n          \"zed\"\n        ]\n      },\n      {\n        \"name\": \"vm-02\",\n        \"agent_url\": \"http://10.0.0.2:9\"\n      },\n      {\n        \"name\": \"vm-03\",\n        \"agent_url\": \"http://10.0.0.3:9\",\n        \"access\": \"LIST\",\n        \"allowed_users\": []\n      },\n      {\n        \"name\": \"vm-04\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"7\"\n        ]\n      }\n    ]\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"changed\":[\"vm-01\"],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.desktop_targets\", \"details\": {\"changed\": [\"vm-01\"], \"target_user_id\": 4, \"target_username\": \"dave\", \"targets\": [\"vm-02\", \"vm-02\"]}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": "{\n  \"app\": {\n    \"sandbox_quota_mb\": 2048\n  },\n  \"security\": {\n    \"password_policy\": {\n      \"min_length\": 8,\n      \"require_numbers\": true\n    }\n  },\n  \"executors\": {\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist\",\n        \"domains\": [\n          \"example.com\"\n        ],\n        \"ports\": [\n          443\n        ]\n      }\n    ]\n  },\n  \"desktop\": {\n    \"targets\": [\n      {\n        \"name\": \"vm-01\",\n        \"agent_url\": \"http://10.0.0.1:9\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"zed\"\n        ]\n      },\n      {\n        \"name\": \"vm-02\",\n        \"agent_url\": \"http://10.0.0.2:9\"\n      },\n      {\n        \"name\": \"vm-03\",\n        \"agent_url\": \"http://10.0.0.3:9\",\n        \"access\": \"LIST\",\n        \"allowed_users\": []\n      },\n      {\n        \"name\": \"vm-04\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"7\"\n        ]\n      }\n    ]\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"changed\":[\"vm-01\"],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"carol\",\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.user.desktop_targets\", \"details\": {\"changed\": [\"vm-01\"], \"target_user_id\": 3, \"target_username\": \"carol\", \"targets\": [\"vm-01\"]}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": "{\n  \"app\": {\n    \"sandbox_quota_mb\": 2048\n  },\n  \"security\": {\n    \"password_policy\": {\n      \"min_length\": 8,\n      \"require_numbers\": true\n    }\n  },\n  \"executors\": {\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist\",\n        \"domains\": [\n          \"example.com\"\n        ],\n        \"ports\": [\n          443\n        ]\n      }\n    ]\n  },\n  \"desktop\": {\n    \"targets\": [\n      {\n        \"name\": \"vm-01\",\n        \"agent_url\": \"http://10.0.0.1:9\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"carol\",\n          \"zed\"\n        ]\n      },\n      {\n        \"name\": \"vm-02\",\n        \"agent_url\": \"http://10.0.0.2:9\"\n      },\n      {\n        \"name\": \"vm-03\",\n        \"agent_url\": \"http://10.0.0.3:9\",\n        \"access\": \"LIST\",\n        \"allowed_users\": []\n      },\n      {\n        \"name\": \"vm-04\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"7\"\n        ]\n      }\n    ]\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"L'utilisateur existe d\u00e9j\u00e0\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le mot de passe doit faire au moins 8 caract\u00e8res.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le mot de passe doit contenir au moins un chiffre (0-9).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Donn\u00e9es invalides\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"role\":\"admin\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"role\":1.0}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Impossible de retirer vos propres droits admin\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur non trouv\u00e9\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"role\":\"moderator\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Missing data\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le mot de passe doit faire au moins 8 caract\u00e8res.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le mot de passe doit faire au moins 8 caract\u00e8res.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Missing data\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "lignes": "[[1, \"alice\", 1, 0, 0.0, \"{}\"], [2, \"bob\", 0, 1, 1800000000.0, \"{\\\"network_profile_id\\\": \\\"web\\\"}\"], [3, \"carol\", 2, 0, 0.0, \"{\\\"sandbox_quota_mb\\\": 12345678901234567890123}\"], [4, \"dave\", 0, 0, 0.0, \"{\\\"sandbox_quota_mb\\\": 7}\"], [5, \"eve\", 0, 0, 0.0, \"{\\\"forced_network_profile_id\\\": \\\"web\\\", \\\"network_profile_id\\\": \\\"web\\\"}\"], [6, \"frank\", 2, 1, 0.0, \"{}\"], [7, \"hugo\", 1, 1, 0.0, \"{}\"]]",
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"tokens\":[{\"id\":4,\"kind\":\"opencode\",\"name\":\"oc\",\"families\":[],\"created_at\":1799999980.0,\"expires_at\":null,\"last_used_at\":null},{\"id\":2,\"kind\":\"tools\",\"name\":\"outils\",\"families\":[\"fs\"],\"created_at\":1799999950.0,\"expires_at\":1800003600.5,\"last_used_at\":null}],\"grants\":[{\"grant_id\":\"g1\",\"client_name\":\"Client un\",\"families\":[\"fs git\"],\"created_at\":1799999900.0,\"last_used_at\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"client_id\":\"https://cimd.example/c.json\",\"kind\":\"cimd\",\"name\":\"\",\"has_secret\":false,\"auth_method\":\"none\",\"redirect_uris\":[],\"metadata\":{},\"created_at\":1799999990.0,\"fetched_at\":null,\"last_used_at\":null,\"grants\":0,\"age_days\":0},{\"client_id\":\"cl1\",\"kind\":\"dcr\",\"name\":\"Client un\",\"has_secret\":false,\"auth_method\":\"none\",\"redirect_uris\":[],\"metadata\":{},\"created_at\":1799740795.0,\"fetched_at\":null,\"last_used_at\":null,\"grants\":1,\"age_days\":3}]}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"tokens\":3,\"oauth\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.users.access.revoke\", \"details\": {\"oauth\": 1, \"target_user_id\": 4, \"tokens\": 3}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"tokens\":[],\"grants\":[]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"client_id\":\"https://cimd.example/c.json\",\"kind\":\"cimd\",\"name\":\"\",\"has_secret\":false,\"auth_method\":\"none\",\"redirect_uris\":[],\"metadata\":{},\"created_at\":1799999990.0,\"fetched_at\":null,\"last_used_at\":null,\"grants\":0,\"age_days\":0},{\"client_id\":\"cl1\",\"kind\":\"dcr\",\"name\":\"Client un\",\"has_secret\":false,\"auth_method\":\"none\",\"redirect_uris\":[],\"metadata\":{},\"created_at\":1799740795.0,\"fetched_at\":null,\"last_used_at\":null,\"grants\":0,\"age_days\":3}]}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Client introuvable.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"client_id\"],\"msg\":\"Field required\",\"input\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"users\":[{\"id\":1,\"username\":\"alice\",\"is_admin\":1,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"admin\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"admin\"},{\"id\":2,\"username\":\"bob\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"d\u00e9veloppeurs, ops\",\"group_ids\":[1,2],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"web\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":1.5,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":[\"builtin\"],\"llm_engine_source\":\"groups\",\"llm_effective_can_manage_models\":false,\"llm_manage_source\":\"groups\"},{\"id\":3,\"username\":\"carol\",\"is_admin\":2,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"ops\",\"group_ids\":[2],\"sandbox_quota_mb\":12345678901234567890123,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":4,\"username\":\"dave\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":7,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":5,\"username\":\"eve\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"web\",\"forced_network_profile_id\":\"web\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":6,\"username\":\"frank\",\"is_admin\":2,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"default\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"default\"},{\"id\":7,\"username\":\"hugo\",\"is_admin\":1,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"admin\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"admin\"}],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[],\"ports\":[],\"dns\":[]},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[\"example.com\"],\"ports\":[443],\"dns\":[]}],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"carol\",\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Vous ne pouvez pas vous supprimer vous-m\u00eame.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"sandbox_deleted\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        4
+      ],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        4
+      ],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"sandbox_deleted\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        5
+      ],
+      "bac": [
+        [
+          "purger",
+          5,
+          "eve",
+          "eve/work"
+        ]
+      ],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"sandbox_deleted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        3
+      ],
+      "bac": [],
+      "config": "{\n  \"app\": {\n    \"sandbox_quota_mb\": 2048\n  },\n  \"security\": {\n    \"password_policy\": {\n      \"min_length\": 8,\n      \"require_numbers\": true\n    }\n  },\n  \"executors\": {\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist\",\n        \"domains\": [\n          \"example.com\"\n        ],\n        \"ports\": [\n          443\n        ]\n      }\n    ]\n  },\n  \"desktop\": {\n    \"targets\": [\n      {\n        \"name\": \"vm-01\",\n        \"agent_url\": \"http://10.0.0.1:9\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"zed\"\n        ]\n      },\n      {\n        \"name\": \"vm-02\",\n        \"agent_url\": \"http://10.0.0.2:9\"\n      },\n      {\n        \"name\": \"vm-03\",\n        \"agent_url\": \"http://10.0.0.3:9\",\n        \"access\": \"LIST\",\n        \"allowed_users\": []\n      },\n      {\n        \"name\": \"vm-04\",\n        \"access\": \"list\",\n        \"allowed_users\": [\n          \"7\"\n        ]\n      }\n    ]\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"sandbox_deleted\":false,\"sandbox_error\":\"[Errno None] None: PosixPath('{bac}/frank/work')\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        6
+      ],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [
+        99
+      ],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"target_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "existe": false,
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "existe": false,
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "existe": true,
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "existe": true,
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "lignes": "[[1, \"alice\", 1, 0, 0.0, \"{}\"], [2, \"bob\", 0, 1, 1800000000.0, \"{\\\"network_profile_id\\\": \\\"web\\\"}\"], [7, \"hugo\", 1, 1, 0.0, \"{}\"]]",
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"users\":[{\"id\":1,\"username\":\"alice\",\"is_admin\":1,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"admin\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"admin\"},{\"id\":2,\"username\":\"bob\",\"is_admin\":0,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"d\u00e9veloppeurs, ops\",\"group_ids\":[1,2],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"web\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":1.5,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":[\"builtin\"],\"llm_engine_source\":\"groups\",\"llm_effective_can_manage_models\":false,\"llm_manage_source\":\"groups\"},{\"id\":7,\"username\":\"hugo\",\"is_admin\":1,\"created_at\":1800000000.0,\"avatar\":null,\"group_names\":\"\",\"group_ids\":[],\"sandbox_quota_mb\":2048,\"network_profile_id\":\"isolated\",\"forced_network_profile_id\":\"\",\"sandbox_used_mb\":0.0,\"llm_engine_keys\":null,\"llm_can_manage_models\":null,\"llm_effective_engine_keys\":null,\"llm_engine_source\":\"admin\",\"llm_effective_can_manage_models\":true,\"llm_manage_source\":\"admin\"}],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[],\"ports\":[],\"dns\":[]},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"none\",\"ips\":[],\"description\":\"\",\"domains\":[\"example.com\"],\"ports\":[443],\"dns\":[]}],\"desktop_targets\":[{\"name\":\"vm-01\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[\"zed\"]},{\"name\":\"vm-02\",\"os\":\"linux\",\"access\":\"all\",\"allowed_users\":[]},{\"name\":\"vm-03\",\"os\":\"linux\",\"access\":\"list\",\"allowed_users\":[]}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"groups\":[{\"id\":1,\"name\":\"d\u00e9veloppeurs\",\"description\":\"\",\"created_at\":1800000000.0,\"member_count\":1,\"llm_engine_keys\":[\"builtin\"],\"llm_can_manage_models\":false},{\"id\":2,\"name\":\"ops\",\"description\":\"\",\"created_at\":1800000000.0,\"member_count\":1,\"llm_engine_keys\":null,\"llm_can_manage_models\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "revoques": [],
+      "bac": [],
+      "config": null
+    }
+  ]
+}

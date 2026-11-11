@@ -1,0 +1,6249 @@
+{
+  "base": "<RAG>",
+  "configs": [
+    {
+      "env": {},
+      "rag": {},
+      "url": "",
+      "jeton": "",
+      "delai": 30.0,
+      "configure": false
+    },
+    {
+      "env": {
+        "RAG_SERVICE_URL": " http://env:1/// "
+      },
+      "rag": {
+        "service_url": "http://cfg:2",
+        "service_token": " t "
+      },
+      "url": "http://env:1",
+      "jeton": "t",
+      "delai": 30.0,
+      "configure": true
+    },
+    {
+      "env": {
+        "RAG_SERVICE_TOKEN": " envtok ",
+        "RAG_SERVICE_TIMEOUT": "12.5"
+      },
+      "rag": {
+        "service_url": "http://cfg:2/"
+      },
+      "url": "http://cfg:2",
+      "jeton": "envtok",
+      "delai": 12.5,
+      "configure": true
+    },
+    {
+      "env": {
+        "RAG_SERVICE_TIMEOUT": "abc"
+      },
+      "rag": {
+        "service_timeout": "7"
+      },
+      "url": "",
+      "jeton": "",
+      "delai": 7.0,
+      "configure": false
+    },
+    {
+      "env": {
+        "RAG_SERVICE_TIMEOUT": " 1_0 "
+      },
+      "rag": {
+        "service_timeout": null
+      },
+      "url": "",
+      "jeton": "",
+      "delai": 10.0,
+      "configure": false
+    },
+    {
+      "env": {},
+      "rag": {
+        "service_timeout": "pas un nombre"
+      },
+      "url": "",
+      "jeton": "",
+      "delai": 30.0,
+      "configure": false
+    },
+    {
+      "env": {},
+      "rag": {
+        "service_timeout": 0
+      },
+      "url": "",
+      "jeton": "",
+      "delai": 30.0,
+      "configure": false
+    },
+    {
+      "env": {},
+      "rag": "pas un dict",
+      "url": "",
+      "jeton": "",
+      "delai": 30.0,
+      "configure": false
+    },
+    {
+      "env": {},
+      "rag": {
+        "service_url": "  ",
+        "service_token": ""
+      },
+      "fichier_jeton": "  depuis-fichier \n",
+      "url": "",
+      "jeton": "depuis-fichier",
+      "delai": 30.0,
+      "configure": false
+    }
+  ],
+  "appels": [
+    {
+      "flux": {
+        "nom": "resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"start\"}\n\ndata: {\"type\": \"progress\", \"pct\": 50}\n\ndata: {\"type\": \"result\", \"payload\": {\"used\": true, \"x\": 1.5}}\n\ndata: {\"type\": \"done\"}\n\ndata: {\"type\": \"result\", \"payload\": {\"apres\": 1}}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {
+          "used": true,
+          "x": 1.5
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"start\"}\n\ndata: {\"type\": \"progress\", \"pct\": 50}\n\ndata: {\"type\": \"result\", \"payload\": {\"used\": true, \"x\": 1.5}}\n\ndata: {\"type\": \"done\"}\n\ndata: {\"type\": \"result\", \"payload\": {\"apres\": 1}}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {
+          "used": true,
+          "x": 1.5
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"error\", \"msg\": \"collection absente\"}\n\ndata: {\"type\": \"done\"}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagToolError",
+        "message": "collection absente"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"error\", \"msg\": \"collection absente\"}\n\ndata: {\"type\": \"done\"}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagToolError",
+        "message": "collection absente"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur_vide",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"error\", \"msg\": \"\"}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagToolError",
+        "message": "unknown error"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur_vide",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"error\", \"msg\": \"\"}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagToolError",
+        "message": "unknown error"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur_et_resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"a\": 1}}\n\ndata: {\"type\": \"error\", \"msg\": \"tard\"}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagToolError",
+        "message": "tard"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "erreur_et_resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"a\": 1}}\n\ndata: {\"type\": \"error\", \"msg\": \"tard\"}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagToolError",
+        "message": "tard"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "sans_resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"start\"}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "RAG service stream closed without a result event (<RAG>/api/tools/rag_search). Check the rag_app logs."
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "sans_resultat",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"start\"}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "RAG service stream closed without a result event (<RAG>/api/tools/rag_search). Check the rag_app logs."
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "payload_vide",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": null}\n\ndata: {\"type\": \"done\"}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {}
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "payload_vide",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": null}\n\ndata: {\"type\": \"done\"}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {}
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "decoupe",
+        "statut": 200,
+        "morceaux": [
+          "da",
+          "ta: {\"type\": \"res",
+          "ult\", \"payload\": {\"\u00e9\": \"\u00e8\"}}\r",
+          "\n\r\n: ping\n",
+          "data:{\"type\":\"done\"}"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {
+          "\u00e9": "\u00e8"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "decoupe",
+        "statut": 200,
+        "morceaux": [
+          "da",
+          "ta: {\"type\": \"res",
+          "ult\", \"payload\": {\"\u00e9\": \"\u00e8\"}}\r",
+          "\n\r\n: ping\n",
+          "data:{\"type\":\"done\"}"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {
+          "\u00e9": "\u00e8"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "commentaires_et_bruit",
+        "statut": 200,
+        "morceaux": [
+          ": keep-alive\n\nevent: x\nid: 3\ndata:\ndata: {pas du json}\ndata:   {\"type\": \"result\", \"payload\": {\"ok\": 1}}\u2028data: {\"type\":\"done\"}\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {
+          "ok": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "commentaires_et_bruit",
+        "statut": 200,
+        "morceaux": [
+          ": keep-alive\n\nevent: x\nid: 3\ndata:\ndata: {pas du json}\ndata:   {\"type\": \"result\", \"payload\": {\"ok\": 1}}\u2028data: {\"type\":\"done\"}\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {
+          "ok": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "nan",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"v\": NaN}}\n\n"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {
+          "v": {
+            "$flottant": "nan"
+          }
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "nan",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"v\": NaN}}\n\n"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {
+          "v": {
+            "$flottant": "nan"
+          }
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "http_500",
+        "statut": 500,
+        "morceaux": [
+          "Erreur interne \u00e9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500 on <RAG>/api/tools/rag_search: Erreur interne \u00e9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "http_500",
+        "statut": 500,
+        "morceaux": [
+          "Erreur interne \u00e9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500 on <RAG>/api/tools/rag_search: Erreur interne \u00e9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "http_401_vide",
+        "statut": 401,
+        "morceaux": []
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 401 on <RAG>/api/tools/rag_search: no body"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "http_401_vide",
+        "statut": 401,
+        "morceaux": []
+      },
+      "payload": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 401 on <RAG>/api/tools/rag_search: no body"
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "fin_cr",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"k\": 2}}\r"
+        ]
+      },
+      "payload": {
+        "question": "q",
+        "n": 1,
+        "\u00e9": "\u00fc"
+      },
+      "out": {
+        "valeur": {
+          "k": 2
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{\"question\":\"q\",\"n\":1,\"\u00e9\":\"\u00fc\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    },
+    {
+      "flux": {
+        "nom": "fin_cr",
+        "statut": 200,
+        "morceaux": [
+          "data: {\"type\": \"result\", \"payload\": {\"k\": 2}}\r"
+        ]
+      },
+      "payload": null,
+      "out": {
+        "valeur": {
+          "k": 2
+        }
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_search",
+          "corps": "{}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ]
+    }
+  ],
+  "injoignable": {
+    "erreur": "RagServiceError",
+    "message": "Network error contacting RAG service (<RAG>/api/tools/rag_search): All connection attempts failed"
+  },
+  "sans_url": {
+    "erreur": "RagServiceError",
+    "message": "RAG service URL is not configured. Set rag.service_url in config.json (repo root) or RAG_SERVICE_URL env var."
+  },
+  "pings": [
+    {
+      "statut": 200,
+      "corps": "{\"ok\": true, \"v\": 1}",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "v": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\": true, \"v\": 1}",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "v": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\": true, \"v\": 1}",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "v": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\": true, \"v\": 1}",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "v": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\": true, \"v\": 1}",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "v": 1
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": "pas du json xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 401,
+      "corps": "",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 401)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 401,
+      "corps": "",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 401)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 401,
+      "corps": "",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 401)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 401,
+      "corps": "",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 401)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 401,
+      "corps": "",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 401)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 403,
+      "corps": "non",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 403)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 403,
+      "corps": "non",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 403)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 403,
+      "corps": "non",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 403)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 403,
+      "corps": "non",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 403)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 403,
+      "corps": "non",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "Auth refused (HTTP 403)."
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500: boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500: boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500: boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500: boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "erreur": "RagServiceError",
+        "message": "HTTP 500: boum yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "url": null,
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": ""
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "url": "http://rag.test:8000",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": ""
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "url": "http://autre:1/",
+      "jeton": null,
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": ""
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "url": "http://autre:1",
+      "jeton": "explicite",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": ""
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "http://autre:1/api/health",
+          "corps": "",
+          "authorization": "Bearer explicite",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "url": "http://rag.test:8000/",
+      "jeton": "",
+      "out": {
+        "valeur": {
+          "ok": true,
+          "raw": ""
+        }
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/health",
+          "corps": "",
+          "authorization": null,
+          "accept": "application/json"
+        }
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "statut": 200,
+      "corps": "[\"a\", \"b\"]",
+      "out": {
+        "valeur": [
+          "a",
+          "b"
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"collections\": [\"a\", {\"name\": \"b\"}, {\"x\": 1}, \"\", null]}",
+      "out": {
+        "valeur": [
+          "a",
+          "b",
+          ""
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"collections\": [1]}",
+      "out": {
+        "valeur": []
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"autre\": 1}",
+      "out": {
+        "valeur": []
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "pas du json",
+      "out": {
+        "valeur": []
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 404,
+      "corps": "[]",
+      "out": {
+        "valeur": []
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "\"texte\"",
+      "out": {
+        "valeur": []
+      },
+      "requetes": [
+        {
+          "methode": "GET",
+          "url": "<RAG>/api/collections",
+          "corps": "",
+          "authorization": "Bearer jeton-rag",
+          "accept": "application/json"
+        }
+      ]
+    }
+  ],
+  "applications": [
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "socle"
+            },
+            {
+              "role": "system",
+              "content": "r\u00e9sum\u00e9"
+            },
+            {
+              "role": "user",
+              "content": "  question  "
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"question\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 8,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "premi\u00e8re"
+        },
+        {
+          "role": "user",
+          "content": "   "
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "premi\u00e8re"
+            },
+            {
+              "role": "user",
+              "content": "   "
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"premi\u00e8re\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 12,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 12,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 12,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 12,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:x"
+              }
+            },
+            {
+              "type": "text",
+              "text": "d\u00e9cris"
+            },
+            {
+              "type": "text",
+              "text": 5
+            },
+            {
+              "text": "suite"
+            },
+            "brut"
+          ]
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:x"
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": "d\u00e9cris"
+                },
+                {
+                  "type": "text",
+                  "text": 5
+                },
+                {
+                  "text": "suite"
+                },
+                "brut"
+              ]
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"d\u00e9cris suite\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 1,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 1,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 1,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 1,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "system",
+          "content": "tard"
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "s"
+            },
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "system",
+              "content": "tard"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"q\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": null
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 7,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "CONTEXTE",
+        "sources": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "CONTEXTE"
+            },
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 7,
+              "sources_count": 2,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "",
+        "sources": []
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": false,
+        "error": "rien trouv\u00e9"
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false,
+            "error": "rien trouv\u00e9"
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": false
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 7,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {
+        "used": true,
+        "context_text": "C",
+        "sources": null
+      },
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "system",
+              "content": "C"
+            },
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": true,
+            "sources": []
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": [
+        [
+          [
+            "rag_hit",
+            1,
+            {
+              "query_len": 7,
+              "sources_count": 0,
+              "mode": "hybrid"
+            }
+          ],
+          {}
+        ]
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {},
+      "collection": "",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "\ud83d\ude00 \u00e9moji"
+        }
+      ],
+      "resultat": {},
+      "collection": "docs",
+      "out": {
+        "valeur": [
+          [
+            {
+              "role": "user",
+              "content": "\ud83d\ude00 \u00e9moji"
+            }
+          ],
+          {
+            "enabled": true,
+            "used": false
+          }
+        ]
+      },
+      "requetes": [
+        {
+          "methode": "POST",
+          "url": "<RAG>/api/tools/rag_inline",
+          "corps": "{\"question\":\"\ud83d\ude00 \u00e9moji\",\"search_mode\":\"hybrid\",\"collection\":\"docs\"}",
+          "authorization": "Bearer jeton-rag",
+          "accept": "text/event-stream"
+        }
+      ],
+      "metriques": []
+    }
+  ],
+  "erreur_outil": {
+    "valeur": [
+      [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      {
+        "enabled": true,
+        "used": false,
+        "error": "panne outil"
+      }
+    ]
+  },
+  "injoignable_apply": {
+    "valeur": [
+      [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      {
+        "enabled": true,
+        "used": false,
+        "error": "Network error contacting RAG service (<RAG>/api/tools/rag_inline): All connection attempts failed"
+      }
+    ]
+  },
+  "non_configure": {
+    "valeur": [
+      [
+        {
+          "role": "system",
+          "content": "socle"
+        },
+        {
+          "role": "system",
+          "content": "r\u00e9sum\u00e9"
+        },
+        {
+          "role": "user",
+          "content": "  question  "
+        },
+        {
+          "role": "assistant",
+          "content": "r"
+        }
+      ],
+      {
+        "enabled": false,
+        "used": false,
+        "error": "RAG service URL non configur\u00e9e"
+      }
+    ]
+  }
+}

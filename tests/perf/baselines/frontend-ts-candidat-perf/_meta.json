@@ -1,0 +1,100 @@
+{
+ "label": "frontend-ts-candidat-perf",
+ "commit": "8f46021",
+ "frontendModifie": false,
+ "ts": "2026-10-14T08:38:55.927Z",
+ "quick": true,
+ "only": null,
+ "navigateur": "141.0.7390.37",
+ "executable": "/opt/pw-browsers/chromium",
+ "node": "v24.21.0",
+ "machine": {
+  "nproc": 4,
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "ramGo": 16,
+  "plateforme": "linux 6.18.44-fc-v114",
+  "loadavg": [
+   1.22,
+   1.23,
+   1.3
+  ],
+  "statCpu": "cpu  658761 305 116234 2227801 12118 0 129064 36648 0 0"
+ },
+ "serveur": "tests/perf/perf-server.mjs (faux serveur, même origine, NDJSON cadencé)",
+ "cache": "froid : navigateur et contexte neufs à chaque run ; cache disque OS chaud (chauffe à blanc)",
+ "throttlingCpu": "Emulation.setCPUThrottlingRate selon la cellule (cpu1 / cpu4)",
+ "viewport": "1440x900",
+ "cellules": [
+  {
+   "s": "a_stream_code",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4,
+    "toks": 60
+   },
+   "runs": 3
+  },
+  {
+   "s": "f_stream_tools",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4,
+    "toks": 60,
+    "rounds": 30
+   },
+   "runs": 3
+  },
+  {
+   "s": "c_open_longchat",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4
+   },
+   "runs": 3
+  },
+  {
+   "s": "e_idle",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 1,
+    "idleMs": 15000
+   },
+   "runs": 3
+  },
+  {
+   "s": "i_boot",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4
+   },
+   "runs": 3
+  },
+  {
+   "s": "a_stream_code",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4,
+    "toks": 150
+   },
+   "runs": 3
+  },
+  {
+   "s": "a_stream_code",
+   "p": {
+    "reducedMotion": "reduce",
+    "cpuRate": 4,
+    "toks": 250
+   },
+   "runs": 3
+  }
+ ],
+ "fin": {
+  "ts": "2026-10-14T08:46:24.098Z",
+  "loadavg": [
+   1.71,
+   1.45,
+   1.37
+  ],
+  "statCpu": "cpu  699767 324 122164 2353360 12457 0 138162 39403 0 0"
+ }
+}

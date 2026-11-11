@@ -1,0 +1,79 @@
+{
+  "entrees": {
+    "appels": [
+      [
+        "data: {\"choices\": [{\"delta\": {\"content\": \"<tool_call>\\n{\\\"name\\\": \\\"zeta_echo\\\", \\\"arguments\\\": {\\\"msg\\\": \\\"x\\\"}}\\n</tool_call>\"}}]}",
+        "data: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 100, \"completion_tokens\": 20}, \"timings\": {\"prompt_n\": 100}}",
+        "data: [DONE]"
+      ],
+      [
+        "data: {\"choices\": [{\"delta\": {\"content\": \"Fini via\"}}]}",
+        "data: {\"choices\": [{\"delta\": {\"content\": \" legacy.\"}}]}",
+        "data: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 150, \"completion_tokens\": 8}, \"timings\": {\"prompt_n\": 150}}",
+        "data: [DONE]"
+      ]
+    ],
+    "harnais": "boucle",
+    "messages": [
+      {
+        "content": "SOCLE GOLDEN",
+        "role": "system"
+      },
+      {
+        "content": "Utilise zeta_echo puis conclus.",
+        "role": "user"
+      }
+    ],
+    "outils": [
+      {
+        "comportement": "echo",
+        "definition": {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      },
+      {
+        "comportement": "somme",
+        "definition": {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      }
+    ],
+    "releve": "types"
+  },
+  "sortie": [
+    "iteration",
+    "mode",
+    "tool_call",
+    "tool_result",
+    "iteration",
+    "mode",
+    "content_token"
+  ]
+}

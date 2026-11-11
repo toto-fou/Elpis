@@ -1,0 +1,1710 @@
+{
+  "source": "migration-kit/vecteurs/core_openapi.py",
+  "service": "jeton-service-openapi-0123456789abcdef",
+  "jetons": [
+    [
+      "alice",
+      "ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fs,git,shell",
+      null
+    ],
+    [
+      "bob",
+      "ept_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "git",
+      null
+    ],
+    [
+      "alice",
+      "ept_cccccccccccccccccccccccccccccccccccccccc",
+      "fs",
+      -1
+    ]
+  ],
+  "manifeste": {
+    "version": 1,
+    "toolHosts": {
+      "main": {
+        "url": "http://127.0.0.1:9",
+        "token": "jeton-service-openapi-0123456789abcdef"
+      }
+    },
+    "mcpServers": {
+      "elpis-fs": {
+        "type": "http",
+        "url": "http://127.0.0.1:9/mcp/fs",
+        "headers": {
+          "Authorization": "Bearer jeton-service-openapi-0123456789abcdef"
+        },
+        "x-elpis": {
+          "role": "toolhost",
+          "host": "main",
+          "families": [
+            "fs"
+          ]
+        }
+      },
+      "elpis-git": {
+        "type": "http",
+        "url": "http://127.0.0.1:9/mcp/git",
+        "headers": {
+          "Authorization": "Bearer jeton-service-openapi-0123456789abcdef"
+        },
+        "x-elpis": {
+          "role": "toolhost",
+          "host": "main",
+          "families": [
+            "git"
+          ]
+        }
+      }
+    }
+  },
+  "outils_fs": [
+    {
+      "name": "lire",
+      "description": "Lit un fichier.",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "Lire un fichier"
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/$defs/Mode"
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$defs": {
+          "Mode": {
+            "enum": [
+              "a",
+              "b"
+            ]
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/Res"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "x-fastmcp-wrap-result": true,
+        "$defs": {
+          "Res": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "ecrire",
+      "title": "\u00c9crire",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "c": {
+            "$ref": "#/definitions/Contenu"
+          }
+        },
+        "definitions": {
+          "Contenu": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Ligne"
+            }
+          },
+          "Ligne": {
+            "type": "string",
+            "maxLength": 3
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "texte"
+    },
+    {
+      "name": "nombre",
+      "inputSchema": null
+    },
+    {
+      "name": "liste"
+    },
+    {
+      "name": "erreur"
+    },
+    {
+      "name": "lent"
+    },
+    {
+      "name": "sature"
+    },
+    {
+      "name": "panne"
+    },
+    {
+      "name": "bogue"
+    },
+    {
+      "name": "echo",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    {
+      "name": "meta outil/\u00e9",
+      "_meta": {
+        "x": 1
+      },
+      "outputSchema": {
+        "x-fastmcp-wrap-result": true,
+        "properties": {
+          "result": 5
+        }
+      }
+    }
+  ],
+  "specs": [
+    [
+      "fs",
+      [
+        {
+          "name": "lire",
+          "description": "Lit un fichier.",
+          "annotations": {
+            "readOnlyHint": true,
+            "title": "Lire un fichier"
+          },
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "mode": {
+                "$ref": "#/$defs/Mode"
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "$defs": {
+              "Mode": {
+                "enum": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/$defs/Res"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "x-fastmcp-wrap-result": true,
+            "$defs": {
+              "Res": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "name": "ecrire",
+          "title": "\u00c9crire",
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true
+          },
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "c": {
+                "$ref": "#/definitions/Contenu"
+              }
+            },
+            "definitions": {
+              "Contenu": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/Ligne"
+                }
+              },
+              "Ligne": {
+                "type": "string",
+                "maxLength": 3
+              }
+            },
+            "additionalProperties": false
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "name": "texte"
+        },
+        {
+          "name": "nombre",
+          "inputSchema": null
+        },
+        {
+          "name": "liste"
+        },
+        {
+          "name": "erreur"
+        },
+        {
+          "name": "lent"
+        },
+        {
+          "name": "sature"
+        },
+        {
+          "name": "panne"
+        },
+        {
+          "name": "bogue"
+        },
+        {
+          "name": "echo",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "array"
+              }
+            }
+          }
+        },
+        {
+          "name": "meta outil/\u00e9",
+          "_meta": {
+            "x": 1
+          },
+          "outputSchema": {
+            "x-fastmcp-wrap-result": true,
+            "properties": {
+              "result": 5
+            }
+          }
+        }
+      ]
+    ],
+    [
+      "git",
+      [
+        {
+          "name": "b",
+          "inputSchema": {
+            "$defs": {},
+            "definitions": {
+              "D": {
+                "type": "string"
+              }
+            },
+            "properties": {
+              "x": {
+                "$ref": "#/definitions/D"
+              }
+            }
+          }
+        },
+        {
+          "name": "a",
+          "inputSchema": [
+            1,
+            2
+          ],
+          "annotations": {
+            "title": "T",
+            "openWorldHint": false
+          },
+          "description": "",
+          "title": ""
+        },
+        {
+          "name": "c",
+          "inputSchema": {
+            "$defs": {
+              "X": {
+                "$ref": "#/$defs/X"
+              }
+            },
+            "$ref": "#/$defs/Y",
+            "allOf": [
+              {
+                "$ref": "#/$defs/X"
+              },
+              {
+                "$ref": 5
+              }
+            ]
+          },
+          "outputSchema": {
+            "$defs": {
+              "O": {}
+            },
+            "$ref": "#/$defs/O"
+          }
+        }
+      ]
+    ],
+    [
+      "browser",
+      []
+    ]
+  ],
+  "validations": [
+    [
+      {
+        "name": "lire",
+        "description": "Lit un fichier.",
+        "annotations": {
+          "readOnlyHint": true,
+          "title": "Lire un fichier"
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "$defs": {
+            "Mode": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/Res"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "x-fastmcp-wrap-result": true,
+          "$defs": {
+            "Res": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {}
+    ],
+    [
+      {
+        "name": "lire",
+        "description": "Lit un fichier.",
+        "annotations": {
+          "readOnlyHint": true,
+          "title": "Lire un fichier"
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "$defs": {
+            "Mode": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/Res"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "x-fastmcp-wrap-result": true,
+          "$defs": {
+            "Res": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "path": "a"
+      }
+    ],
+    [
+      {
+        "name": "lire",
+        "description": "Lit un fichier.",
+        "annotations": {
+          "readOnlyHint": true,
+          "title": "Lire un fichier"
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "$defs": {
+            "Mode": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/Res"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "x-fastmcp-wrap-result": true,
+          "$defs": {
+            "Res": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "path": 5,
+        "max": 0,
+        "mode": "c"
+      }
+    ],
+    [
+      {
+        "name": "ecrire",
+        "title": "\u00c9crire",
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "c": {
+              "$ref": "#/definitions/Contenu"
+            }
+          },
+          "definitions": {
+            "Contenu": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Ligne"
+              }
+            },
+            "Ligne": {
+              "type": "string",
+              "maxLength": 3
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      {
+        "c": [
+          "abcd",
+          1
+        ],
+        "z": 1
+      }
+    ],
+    [
+      {
+        "name": "ecrire",
+        "title": "\u00c9crire",
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "c": {
+              "$ref": "#/definitions/Contenu"
+            }
+          },
+          "definitions": {
+            "Contenu": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Ligne"
+              }
+            },
+            "Ligne": {
+              "type": "string",
+              "maxLength": 3
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      {
+        "c": "x"
+      }
+    ],
+    [
+      {
+        "name": "n",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "l": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "l": [
+          1,
+          "x",
+          2.5,
+          null
+        ]
+      }
+    ],
+    [
+      {
+        "name": "s",
+        "inputSchema": {
+          "type": "objet"
+        }
+      },
+      {}
+    ],
+    [
+      {
+        "name": "v"
+      },
+      {
+        "x": 1
+      }
+    ],
+    [
+      {
+        "name": "m",
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j",
+            "k"
+          ]
+        }
+      },
+      {}
+    ]
+  ],
+  "resultats": [
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"result\": \"x\"}"
+          }
+        ],
+        "structuredContent": {
+          "result": "x"
+        }
+      },
+      {
+        "name": "lire",
+        "description": "Lit un fichier.",
+        "annotations": {
+          "readOnlyHint": true,
+          "title": "Lire un fichier"
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "$defs": {
+            "Mode": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "$ref": "#/$defs/Res"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "x-fastmcp-wrap-result": true,
+          "$defs": {
+            "Res": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ],
+    [
+      {
+        "content": [],
+        "structuredContent": {
+          "result": "x",
+          "y": 1
+        }
+      },
+      {
+        "name": "ecrire",
+        "title": "\u00c9crire",
+        "annotations": {
+          "destructiveHint": false,
+          "idempotentHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "c": {
+              "$ref": "#/definitions/Contenu"
+            }
+          },
+          "definitions": {
+            "Contenu": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Ligne"
+              }
+            },
+            "Ligne": {
+              "type": "string",
+              "maxLength": 3
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "bonjour"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "42"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "true"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "null"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "[1, {\"a\": \"\u00e9\"}]"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "a"
+          },
+          {
+            "type": "text",
+            "text": "b"
+          }
+        ]
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"error\": \"x\"}"
+          }
+        ],
+        "isError": true
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "rien"
+          }
+        ],
+        "isError": true
+      },
+      {
+        "name": "t"
+      }
+    ],
+    [
+      {
+        "content": []
+      },
+      {
+        "name": "t"
+      }
+    ]
+  ],
+  "delais": [
+    "execute_shell",
+    "pw_wait",
+    "desktop_shell",
+    "task",
+    "generate_image",
+    "autre"
+  ],
+  "etapes": [
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json"
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer pcr_pppppppppppppppppppppppppppppppppppppppp"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_cccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "x-elpis-token": "ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "host": "mauvais_hote"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/office/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/git/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/shell/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/inconnu",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{\"path\": \"a.txt\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": ""
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": " \n\t "
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{\"path\": 5, \"max\": 0, \"mode\": \"c\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "octets": "fffe"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/ecrire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{\"c\": [\"ab\"]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/texte",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/nombre",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/liste",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/erreur",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lent",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/sature",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/panne",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/bogue",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/echo",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{\"a\": [1, \"\u00e9\", {\"b\": null}]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/meta%20outil%2F%C3%A9",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "repete": [
+        "x",
+        8388609
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "repete": [
+        "x",
+        8388609
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/inconnu",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "repete": [
+        "x",
+        8388609
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "corps": "--x\r\nContent-Disposition: form-data; name=\"path\"\r\n\r\na\r\n--x--\r\n"
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/git/x",
+      "entetes": {
+        "authorization": "Bearer ept_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "corps": "{}"
+    },
+    {
+      "config": {
+        "mcp": {
+          "tokens": {
+            "tools_families": "git,fs"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "config": {
+        "mcp": {
+          "tokens": {
+            "tools_families": "git"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "config": {
+        "mcp": {
+          "tokens": {
+            "tools_enabled": false
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/tools/fs/openapi.json",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/tools/fs/lire",
+      "corps": "{}"
+    }
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2
+  },
+  "pur": {
+    "specs": [
+      "{\"openapi\": \"3.1.0\", \"jsonSchemaDialect\": \"https://json-schema.org/draft/2020-12/schema\", \"info\": {\"title\": \"Elpis \u2014 \\\"fs\\\" tools\", \"version\": \"1.0.0\", \"description\": \"Elpis tools of the \\\"fs\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"}, \"servers\": [{\"url\": \"http://h/api/tools/fs\"}], \"security\": [{\"bearer\": []}], \"paths\": {\"/lire\": {\"post\": {\"operationId\": \"lire\", \"summary\": \"Lire un fichier\", \"description\": \"Lit un fichier.\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/lire.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"anyOf\": [{\"$ref\": \"#/components/schemas/lire.out.output\"}, {\"$ref\": \"#/components/schemas/ToolError\"}]}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}, \"x-elpis-annotations\": {\"readOnlyHint\": true}}}, \"/ecrire\": {\"post\": {\"operationId\": \"ecrire\", \"summary\": \"\u00c9crire\", \"description\": \"\u00c9crire\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ecrire.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"anyOf\": [{\"$ref\": \"#/components/schemas/ecrire.out.output\"}, {\"$ref\": \"#/components/schemas/ToolError\"}]}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}, \"x-elpis-annotations\": {\"destructiveHint\": false, \"idempotentHint\": true}}}, \"/texte\": {\"post\": {\"operationId\": \"texte\", \"summary\": \"texte\", \"description\": \"texte\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/texte.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/nombre\": {\"post\": {\"operationId\": \"nombre\", \"summary\": \"nombre\", \"description\": \"nombre\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/nombre.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/liste\": {\"post\": {\"operationId\": \"liste\", \"summary\": \"liste\", \"description\": \"liste\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/liste.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/erreur\": {\"post\": {\"operationId\": \"erreur\", \"summary\": \"erreur\", \"description\": \"erreur\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/erreur.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/lent\": {\"post\": {\"operationId\": \"lent\", \"summary\": \"lent\", \"description\": \"lent\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/lent.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/sature\": {\"post\": {\"operationId\": \"sature\", \"summary\": \"sature\", \"description\": \"sature\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/sature.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/panne\": {\"post\": {\"operationId\": \"panne\", \"summary\": \"panne\", \"description\": \"panne\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/panne.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/bogue\": {\"post\": {\"operationId\": \"bogue\", \"summary\": \"bogue\", \"description\": \"bogue\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/bogue.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/echo\": {\"post\": {\"operationId\": \"echo\", \"summary\": \"echo\", \"description\": \"echo\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/echo.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/meta outil/\u00e9\": {\"post\": {\"operationId\": \"meta outil/\u00e9\", \"summary\": \"meta outil/\u00e9\", \"description\": \"meta outil/\u00e9\", \"tags\": [\"fs\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/meta_outil__.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"anyOf\": [{\"$ref\": \"#/components/schemas/meta_outil__.out.output\"}, {\"$ref\": \"#/components/schemas/ToolError\"}]}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}}, \"components\": {\"schemas\": {\"ToolError\": {\"type\": \"object\", \"description\": \"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\", \"properties\": {\"ok\": {\"const\": false}, \"error\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}, \"fix\": {\"type\": \"string\"}}, \"required\": [\"ok\"]}, \"HTTPError\": {\"type\": \"object\", \"properties\": {\"detail\": {}}, \"required\": [\"detail\"]}, \"lire.Mode\": {\"enum\": [\"a\", \"b\"]}, \"lire.input\": {\"type\": \"object\", \"properties\": {\"path\": {\"type\": \"string\"}, \"mode\": {\"$ref\": \"#/components/schemas/lire.Mode\"}, \"max\": {\"type\": \"integer\", \"minimum\": 1}}, \"required\": [\"path\"]}, \"lire.out.Res\": {\"type\": \"string\"}, \"lire.out.output\": {\"$ref\": \"#/components/schemas/lire.out.Res\"}, \"ecrire.Contenu\": {\"type\": \"array\", \"items\": {\"$ref\": \"#/components/schemas/ecrire.Ligne\"}}, \"ecrire.Ligne\": {\"type\": \"string\", \"maxLength\": 3}, \"ecrire.input\": {\"type\": \"object\", \"properties\": {\"c\": {\"$ref\": \"#/components/schemas/ecrire.Contenu\"}}, \"additionalProperties\": false}, \"ecrire.out.output\": {\"type\": \"object\", \"properties\": {\"ok\": {\"type\": \"boolean\"}}}, \"texte.input\": {\"type\": \"object\", \"properties\": {}}, \"nombre.input\": {\"type\": \"object\", \"properties\": {}}, \"liste.input\": {\"type\": \"object\", \"properties\": {}}, \"erreur.input\": {\"type\": \"object\", \"properties\": {}}, \"lent.input\": {\"type\": \"object\", \"properties\": {}}, \"sature.input\": {\"type\": \"object\", \"properties\": {}}, \"panne.input\": {\"type\": \"object\", \"properties\": {}}, \"bogue.input\": {\"type\": \"object\", \"properties\": {}}, \"echo.input\": {\"type\": \"object\", \"properties\": {\"a\": {\"type\": \"array\"}}}, \"meta_outil__.input\": {\"type\": \"object\", \"properties\": {}}, \"meta_outil__.out.output\": {\"x-fastmcp-wrap-result\": true, \"properties\": {\"result\": 5}}}, \"responses\": {\"E401\": {\"description\": \"Tool token missing, invalid, expired or revoked.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E404\": {\"description\": \"Family or tool outside the token's scope, or unknown.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E422\": {\"description\": \"Arguments do not match the tool's schema.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E429\": {\"description\": \"Too many simultaneous calls for this account (or service saturated): retry.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E502\": {\"description\": \"The tool service is not responding.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}}, \"securitySchemes\": {\"bearer\": {\"type\": \"http\", \"scheme\": \"bearer\", \"description\": \"Elpis tool token (ept_\u2026).\"}}}}",
+      "{\"openapi\": \"3.1.0\", \"jsonSchemaDialect\": \"https://json-schema.org/draft/2020-12/schema\", \"info\": {\"title\": \"Elpis \u2014 \\\"git\\\" tools\", \"version\": \"1.0.0\", \"description\": \"Elpis tools of the \\\"git\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"}, \"servers\": [{\"url\": \"http://h/api/tools/git\"}], \"security\": [{\"bearer\": []}], \"paths\": {\"/b\": {\"post\": {\"operationId\": \"b\", \"summary\": \"b\", \"description\": \"b\", \"tags\": [\"git\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/b.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}, \"/a\": {\"post\": {\"operationId\": \"a\", \"summary\": \"T\", \"description\": \"T\", \"tags\": [\"git\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/a.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"description\": \"Tool result (JSON; plain text under \\\"text\\\").\"}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}, \"x-elpis-annotations\": {\"openWorldHint\": false}}}, \"/c\": {\"post\": {\"operationId\": \"c\", \"summary\": \"c\", \"description\": \"c\", \"tags\": [\"git\"], \"requestBody\": {\"required\": true, \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/c.input\"}}}}, \"responses\": {\"200\": {\"description\": \"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\", \"content\": {\"application/json\": {\"schema\": {\"anyOf\": [{\"$ref\": \"#/components/schemas/c.out.output\"}, {\"$ref\": \"#/components/schemas/ToolError\"}]}}}}, \"401\": {\"$ref\": \"#/components/responses/E401\"}, \"404\": {\"$ref\": \"#/components/responses/E404\"}, \"422\": {\"$ref\": \"#/components/responses/E422\"}, \"429\": {\"$ref\": \"#/components/responses/E429\"}, \"502\": {\"$ref\": \"#/components/responses/E502\"}}}}}, \"components\": {\"schemas\": {\"ToolError\": {\"type\": \"object\", \"description\": \"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\", \"properties\": {\"ok\": {\"const\": false}, \"error\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}, \"fix\": {\"type\": \"string\"}}, \"required\": [\"ok\"]}, \"HTTPError\": {\"type\": \"object\", \"properties\": {\"detail\": {}}, \"required\": [\"detail\"]}, \"b.D\": {\"type\": \"string\"}, \"b.input\": {\"properties\": {\"x\": {\"$ref\": \"#/components/schemas/b.D\"}}, \"type\": \"object\"}, \"a.input\": {\"type\": \"object\", \"properties\": {}}, \"c.X\": {\"$ref\": \"#/components/schemas/c.X\"}, \"c.input\": {\"$ref\": \"#/$defs/Y\", \"allOf\": [{\"$ref\": \"#/components/schemas/c.X\"}, {\"$ref\": 5}], \"type\": \"object\", \"properties\": {}}, \"c.out.O\": {}, \"c.out.output\": {\"$ref\": \"#/components/schemas/c.out.O\"}}, \"responses\": {\"E401\": {\"description\": \"Tool token missing, invalid, expired or revoked.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E404\": {\"description\": \"Family or tool outside the token's scope, or unknown.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E422\": {\"description\": \"Arguments do not match the tool's schema.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E429\": {\"description\": \"Too many simultaneous calls for this account (or service saturated): retry.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E502\": {\"description\": \"The tool service is not responding.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}}, \"securitySchemes\": {\"bearer\": {\"type\": \"http\", \"scheme\": \"bearer\", \"description\": \"Elpis tool token (ept_\u2026).\"}}}}",
+      "{\"openapi\": \"3.1.0\", \"jsonSchemaDialect\": \"https://json-schema.org/draft/2020-12/schema\", \"info\": {\"title\": \"Elpis \u2014 \\\"browser\\\" tools\", \"version\": \"1.0.0\", \"description\": \"Elpis tools of the \\\"browser\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"}, \"servers\": [{\"url\": \"http://h/api/tools/browser\"}], \"security\": [{\"bearer\": []}], \"paths\": {}, \"components\": {\"schemas\": {\"ToolError\": {\"type\": \"object\", \"description\": \"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\", \"properties\": {\"ok\": {\"const\": false}, \"error\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}, \"fix\": {\"type\": \"string\"}}, \"required\": [\"ok\"]}, \"HTTPError\": {\"type\": \"object\", \"properties\": {\"detail\": {}}, \"required\": [\"detail\"]}}, \"responses\": {\"E401\": {\"description\": \"Tool token missing, invalid, expired or revoked.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E404\": {\"description\": \"Family or tool outside the token's scope, or unknown.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E422\": {\"description\": \"Arguments do not match the tool's schema.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E429\": {\"description\": \"Too many simultaneous calls for this account (or service saturated): retry.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}, \"E502\": {\"description\": \"The tool service is not responding.\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/HTTPError\"}}}}}, \"securitySchemes\": {\"bearer\": {\"type\": \"http\", \"scheme\": \"bearer\", \"description\": \"Elpis tool token (ept_\u2026).\"}}}}"
+    ],
+    "validations": [
+      [
+        {
+          "path": "(racine)",
+          "message": "'path' is a required property"
+        }
+      ],
+      [],
+      [
+        {
+          "path": "max",
+          "message": "0 is less than the minimum of 1"
+        },
+        {
+          "path": "mode",
+          "message": "'c' is not one of ['a', 'b']"
+        },
+        {
+          "path": "path",
+          "message": "5 is not of type 'string'"
+        }
+      ],
+      [
+        {
+          "path": "(racine)",
+          "message": "Additional properties are not allowed ('z' was unexpected)"
+        },
+        {
+          "path": "c/0",
+          "message": "'abcd' is too long"
+        },
+        {
+          "path": "c/1",
+          "message": "1 is not of type 'string'"
+        }
+      ],
+      [
+        {
+          "path": "c",
+          "message": "'x' is not of type 'array'"
+        }
+      ],
+      [
+        {
+          "path": "l/1",
+          "message": "'x' is not of type 'integer'"
+        },
+        {
+          "path": "l/2",
+          "message": "2.5 is not of type 'integer'"
+        },
+        {
+          "path": "l/3",
+          "message": "None is not of type 'integer'"
+        }
+      ],
+      [],
+      [],
+      [
+        {
+          "path": "(racine)",
+          "message": "'a' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'b' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'c' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'d' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'e' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'f' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'g' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'h' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'i' is a required property"
+        },
+        {
+          "path": "(racine)",
+          "message": "'j' is a required property"
+        }
+      ]
+    ],
+    "resultats": [
+      "\"x\"",
+      "{\"result\": \"x\", \"y\": 1}",
+      "{\"text\": \"bonjour\"}",
+      "{\"text\": \"42\"}",
+      "{\"text\": \"true\"}",
+      "{\"text\": \"null\"}",
+      "[1, {\"a\": \"\u00e9\"}]",
+      "{\"text\": \"a\\n\\nb\"}",
+      "{\"error\": \"x\", \"ok\": false}",
+      "{\"ok\": false, \"error\": \"rien\"}",
+      "[]"
+    ],
+    "delais": {
+      "execute_shell": 610.0,
+      "pw_wait": 330.0,
+      "desktop_shell": 610.0,
+      "task": 3660.0,
+      "generate_image": 3840.0,
+      "autre": 300.0
+    }
+  },
+  "reponses": [
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Tool token required (Authorization: Bearer ept_\u2026).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Tool token invalid, expired or revoked.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Tool token invalid, expired or revoked.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Tool token required (Authorization: Bearer ept_\u2026).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"openapi\":\"3.1.0\",\"jsonSchemaDialect\":\"https://json-schema.org/draft/2020-12/schema\",\"info\":{\"title\":\"Elpis \u2014 \\\"fs\\\" tools\",\"version\":\"1.0.0\",\"description\":\"Elpis tools of the \\\"fs\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"},\"servers\":[{\"url\":\"http://testserver/api/tools/fs\"}],\"security\":[{\"bearer\":[]}],\"paths\":{\"/bogue\":{\"post\":{\"operationId\":\"bogue\",\"summary\":\"bogue\",\"description\":\"bogue\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/bogue.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/echo\":{\"post\":{\"operationId\":\"echo\",\"summary\":\"echo\",\"description\":\"echo\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/echo.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/ecrire\":{\"post\":{\"operationId\":\"ecrire\",\"summary\":\"\u00c9crire\",\"description\":\"\u00c9crire\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ecrire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/ecrire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"destructiveHint\":false,\"idempotentHint\":true}}},\"/erreur\":{\"post\":{\"operationId\":\"erreur\",\"summary\":\"erreur\",\"description\":\"erreur\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/erreur.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lent\":{\"post\":{\"operationId\":\"lent\",\"summary\":\"lent\",\"description\":\"lent\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lent.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lire\":{\"post\":{\"operationId\":\"lire\",\"summary\":\"Lire un fichier\",\"description\":\"Lit un fichier.\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/lire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"readOnlyHint\":true}}},\"/liste\":{\"post\":{\"operationId\":\"liste\",\"summary\":\"liste\",\"description\":\"liste\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/liste.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/meta outil/\u00e9\":{\"post\":{\"operationId\":\"meta outil/\u00e9\",\"summary\":\"meta outil/\u00e9\",\"description\":\"meta outil/\u00e9\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/meta_outil__.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/meta_outil__.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/nombre\":{\"post\":{\"operationId\":\"nombre\",\"summary\":\"nombre\",\"description\":\"nombre\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/nombre.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/panne\":{\"post\":{\"operationId\":\"panne\",\"summary\":\"panne\",\"description\":\"panne\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/panne.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/sature\":{\"post\":{\"operationId\":\"sature\",\"summary\":\"sature\",\"description\":\"sature\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/sature.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/texte\":{\"post\":{\"operationId\":\"texte\",\"summary\":\"texte\",\"description\":\"texte\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/texte.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}}},\"components\":{\"schemas\":{\"ToolError\":{\"type\":\"object\",\"description\":\"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\",\"properties\":{\"ok\":{\"const\":false},\"error\":{\"type\":\"string\"},\"message\":{\"type\":\"string\"},\"fix\":{\"type\":\"string\"}},\"required\":[\"ok\"]},\"HTTPError\":{\"type\":\"object\",\"properties\":{\"detail\":{}},\"required\":[\"detail\"]},\"bogue.input\":{\"type\":\"object\",\"properties\":{}},\"echo.input\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"array\"}}},\"ecrire.Contenu\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ecrire.Ligne\"}},\"ecrire.Ligne\":{\"type\":\"string\",\"maxLength\":3},\"ecrire.input\":{\"type\":\"object\",\"properties\":{\"c\":{\"$ref\":\"#/components/schemas/ecrire.Contenu\"}},\"additionalProperties\":false},\"ecrire.out.output\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}}},\"erreur.input\":{\"type\":\"object\",\"properties\":{}},\"lent.input\":{\"type\":\"object\",\"properties\":{}},\"lire.Mode\":{\"enum\":[\"a\",\"b\"]},\"lire.input\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"mode\":{\"$ref\":\"#/components/schemas/lire.Mode\"},\"max\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"path\"]},\"lire.out.Res\":{\"type\":\"string\"},\"lire.out.output\":{\"$ref\":\"#/components/schemas/lire.out.Res\"},\"liste.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.out.output\":{\"x-fastmcp-wrap-result\":true,\"properties\":{\"result\":5}},\"nombre.input\":{\"type\":\"object\",\"properties\":{}},\"panne.input\":{\"type\":\"object\",\"properties\":{}},\"sature.input\":{\"type\":\"object\",\"properties\":{}},\"texte.input\":{\"type\":\"object\",\"properties\":{}}},\"responses\":{\"E401\":{\"description\":\"Tool token missing, invalid, expired or revoked.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E404\":{\"description\":\"Family or tool outside the token's scope, or unknown.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E422\":{\"description\":\"Arguments do not match the tool's schema.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E429\":{\"description\":\"Too many simultaneous calls for this account (or service saturated): retry.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E502\":{\"description\":\"The tool service is not responding.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}}},\"securitySchemes\":{\"bearer\":{\"type\":\"http\",\"scheme\":\"bearer\",\"description\":\"Elpis tool token (ept_\u2026).\"}}}}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"openapi\":\"3.1.0\",\"jsonSchemaDialect\":\"https://json-schema.org/draft/2020-12/schema\",\"info\":{\"title\":\"Elpis \u2014 \\\"fs\\\" tools\",\"version\":\"1.0.0\",\"description\":\"Elpis tools of the \\\"fs\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"},\"servers\":[{\"url\":\"/api/tools/fs\"}],\"security\":[{\"bearer\":[]}],\"paths\":{\"/bogue\":{\"post\":{\"operationId\":\"bogue\",\"summary\":\"bogue\",\"description\":\"bogue\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/bogue.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/echo\":{\"post\":{\"operationId\":\"echo\",\"summary\":\"echo\",\"description\":\"echo\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/echo.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/ecrire\":{\"post\":{\"operationId\":\"ecrire\",\"summary\":\"\u00c9crire\",\"description\":\"\u00c9crire\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ecrire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/ecrire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"destructiveHint\":false,\"idempotentHint\":true}}},\"/erreur\":{\"post\":{\"operationId\":\"erreur\",\"summary\":\"erreur\",\"description\":\"erreur\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/erreur.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lent\":{\"post\":{\"operationId\":\"lent\",\"summary\":\"lent\",\"description\":\"lent\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lent.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lire\":{\"post\":{\"operationId\":\"lire\",\"summary\":\"Lire un fichier\",\"description\":\"Lit un fichier.\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/lire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"readOnlyHint\":true}}},\"/liste\":{\"post\":{\"operationId\":\"liste\",\"summary\":\"liste\",\"description\":\"liste\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/liste.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/meta outil/\u00e9\":{\"post\":{\"operationId\":\"meta outil/\u00e9\",\"summary\":\"meta outil/\u00e9\",\"description\":\"meta outil/\u00e9\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/meta_outil__.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/meta_outil__.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/nombre\":{\"post\":{\"operationId\":\"nombre\",\"summary\":\"nombre\",\"description\":\"nombre\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/nombre.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/panne\":{\"post\":{\"operationId\":\"panne\",\"summary\":\"panne\",\"description\":\"panne\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/panne.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/sature\":{\"post\":{\"operationId\":\"sature\",\"summary\":\"sature\",\"description\":\"sature\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/sature.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/texte\":{\"post\":{\"operationId\":\"texte\",\"summary\":\"texte\",\"description\":\"texte\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/texte.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}}},\"components\":{\"schemas\":{\"ToolError\":{\"type\":\"object\",\"description\":\"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\",\"properties\":{\"ok\":{\"const\":false},\"error\":{\"type\":\"string\"},\"message\":{\"type\":\"string\"},\"fix\":{\"type\":\"string\"}},\"required\":[\"ok\"]},\"HTTPError\":{\"type\":\"object\",\"properties\":{\"detail\":{}},\"required\":[\"detail\"]},\"bogue.input\":{\"type\":\"object\",\"properties\":{}},\"echo.input\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"array\"}}},\"ecrire.Contenu\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ecrire.Ligne\"}},\"ecrire.Ligne\":{\"type\":\"string\",\"maxLength\":3},\"ecrire.input\":{\"type\":\"object\",\"properties\":{\"c\":{\"$ref\":\"#/components/schemas/ecrire.Contenu\"}},\"additionalProperties\":false},\"ecrire.out.output\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}}},\"erreur.input\":{\"type\":\"object\",\"properties\":{}},\"lent.input\":{\"type\":\"object\",\"properties\":{}},\"lire.Mode\":{\"enum\":[\"a\",\"b\"]},\"lire.input\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"mode\":{\"$ref\":\"#/components/schemas/lire.Mode\"},\"max\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"path\"]},\"lire.out.Res\":{\"type\":\"string\"},\"lire.out.output\":{\"$ref\":\"#/components/schemas/lire.out.Res\"},\"liste.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.out.output\":{\"x-fastmcp-wrap-result\":true,\"properties\":{\"result\":5}},\"nombre.input\":{\"type\":\"object\",\"properties\":{}},\"panne.input\":{\"type\":\"object\",\"properties\":{}},\"sature.input\":{\"type\":\"object\",\"properties\":{}},\"texte.input\":{\"type\":\"object\",\"properties\":{}}},\"responses\":{\"E401\":{\"description\":\"Tool token missing, invalid, expired or revoked.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E404\":{\"description\":\"Family or tool outside the token's scope, or unknown.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E422\":{\"description\":\"Arguments do not match the tool's schema.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E429\":{\"description\":\"Too many simultaneous calls for this account (or service saturated): retry.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E502\":{\"description\":\"The tool service is not responding.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}}},\"securitySchemes\":{\"bearer\":{\"type\":\"http\",\"scheme\":\"bearer\",\"description\":\"Elpis tool token (ept_\u2026).\"}}}}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille d'outils inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille d'outils inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"The tool service is not responding.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"The tool service is not responding.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Outil inconnu.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "\"contenu\"",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Arguments do not match the tool's schema.\",\"errors\":[{\"path\":\"(racine)\",\"message\":\"'path' is a required property\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Arguments do not match the tool's schema.\",\"errors\":[{\"path\":\"(racine)\",\"message\":\"'path' is a required property\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Corps JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"The body must be a JSON object (the tool's arguments).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Arguments do not match the tool's schema.\",\"errors\":[{\"path\":\"max\",\"message\":\"0 is less than the minimum of 1\"},{\"path\":\"mode\",\"message\":\"'c' is not one of ['a', 'b']\"},{\"path\":\"path\",\"message\":\"5 is not of type 'string'\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Corps JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"args\":{\"c\":[\"ab\"]}}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"text\":\"bonjour\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"text\":\"42\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "[1,2]",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"absent\",\"fix\":\"x\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"timeout\",\"message\":\"L'outil 'lent' n'a pas r\u00e9pondu en 300s \u2014 attente abandonn\u00e9e ; il peut encore s'ex\u00e9cuter c\u00f4t\u00e9 serveur.\",\"fix\":\"V\u00e9rifie l'\u00e9tat (fichier, d\u00e9p\u00f4t, processus) avant de relancer ; puis relance une action plus cibl\u00e9e/rapide, ou d\u00e9coupe le travail en \u00e9tapes plus petites.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 429,
+      "corps": "{\"detail\":\"Tool service saturated: the tool was not executed.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "retry-after": "10"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"The tool service is not responding.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"boom\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"args\":{\"a\":[1,\"\u00e9\",{\"b\":null}]},\"username\":\"alice\",\"user_id\":\"1\",\"call\":\"openapi-\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 413,
+      "corps": "{\"detail\":\"Corps trop volumineux.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Tool token required (Authorization: Bearer ept_\u2026).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Outil inconnu.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":\"Corps JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"The tool service is not responding.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"openapi\":\"3.1.0\",\"jsonSchemaDialect\":\"https://json-schema.org/draft/2020-12/schema\",\"info\":{\"title\":\"Elpis \u2014 \\\"fs\\\" tools\",\"version\":\"1.0.0\",\"description\":\"Elpis tools of the \\\"fs\\\" family, run in the sandbox of the account that owns the token. Authentication: \\\"Authorization: Bearer ept_\u2026\\\" (tool token created in Settings \u203a Connections).\"},\"servers\":[{\"url\":\"http://testserver/api/tools/fs\"}],\"security\":[{\"bearer\":[]}],\"paths\":{\"/bogue\":{\"post\":{\"operationId\":\"bogue\",\"summary\":\"bogue\",\"description\":\"bogue\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/bogue.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/echo\":{\"post\":{\"operationId\":\"echo\",\"summary\":\"echo\",\"description\":\"echo\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/echo.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/ecrire\":{\"post\":{\"operationId\":\"ecrire\",\"summary\":\"\u00c9crire\",\"description\":\"\u00c9crire\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ecrire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/ecrire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"destructiveHint\":false,\"idempotentHint\":true}}},\"/erreur\":{\"post\":{\"operationId\":\"erreur\",\"summary\":\"erreur\",\"description\":\"erreur\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/erreur.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lent\":{\"post\":{\"operationId\":\"lent\",\"summary\":\"lent\",\"description\":\"lent\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lent.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/lire\":{\"post\":{\"operationId\":\"lire\",\"summary\":\"Lire un fichier\",\"description\":\"Lit un fichier.\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/lire.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/lire.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}},\"x-elpis-annotations\":{\"readOnlyHint\":true}}},\"/liste\":{\"post\":{\"operationId\":\"liste\",\"summary\":\"liste\",\"description\":\"liste\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/liste.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/meta outil/\u00e9\":{\"post\":{\"operationId\":\"meta outil/\u00e9\",\"summary\":\"meta outil/\u00e9\",\"description\":\"meta outil/\u00e9\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/meta_outil__.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"anyOf\":[{\"$ref\":\"#/components/schemas/meta_outil__.out.output\"},{\"$ref\":\"#/components/schemas/ToolError\"}]}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/nombre\":{\"post\":{\"operationId\":\"nombre\",\"summary\":\"nombre\",\"description\":\"nombre\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/nombre.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/panne\":{\"post\":{\"operationId\":\"panne\",\"summary\":\"panne\",\"description\":\"panne\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/panne.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/sature\":{\"post\":{\"operationId\":\"sature\",\"summary\":\"sature\",\"description\":\"sature\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/sature.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}},\"/texte\":{\"post\":{\"operationId\":\"texte\",\"summary\":\"texte\",\"description\":\"texte\",\"tags\":[\"fs\"],\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/texte.input\"}}}},\"responses\":{\"200\":{\"description\":\"Tool result. A TOOL failure also returns 200, with \\\"ok: false\\\" (see ToolError).\",\"content\":{\"application/json\":{\"schema\":{\"description\":\"Tool result (JSON; plain text under \\\"text\\\").\"}}}},\"401\":{\"$ref\":\"#/components/responses/E401\"},\"404\":{\"$ref\":\"#/components/responses/E404\"},\"422\":{\"$ref\":\"#/components/responses/E422\"},\"429\":{\"$ref\":\"#/components/responses/E429\"},\"502\":{\"$ref\":\"#/components/responses/E502\"}}}}},\"components\":{\"schemas\":{\"ToolError\":{\"type\":\"object\",\"description\":\"Tool failure (argument rejected, file missing, timeout\u2026): the HTTP call succeeds, the tool does not. The calling model must read ``error``/``message`` and ``fix``.\",\"properties\":{\"ok\":{\"const\":false},\"error\":{\"type\":\"string\"},\"message\":{\"type\":\"string\"},\"fix\":{\"type\":\"string\"}},\"required\":[\"ok\"]},\"HTTPError\":{\"type\":\"object\",\"properties\":{\"detail\":{}},\"required\":[\"detail\"]},\"bogue.input\":{\"type\":\"object\",\"properties\":{}},\"echo.input\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"array\"}}},\"ecrire.Contenu\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ecrire.Ligne\"}},\"ecrire.Ligne\":{\"type\":\"string\",\"maxLength\":3},\"ecrire.input\":{\"type\":\"object\",\"properties\":{\"c\":{\"$ref\":\"#/components/schemas/ecrire.Contenu\"}},\"additionalProperties\":false},\"ecrire.out.output\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}}},\"erreur.input\":{\"type\":\"object\",\"properties\":{}},\"lent.input\":{\"type\":\"object\",\"properties\":{}},\"lire.Mode\":{\"enum\":[\"a\",\"b\"]},\"lire.input\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"mode\":{\"$ref\":\"#/components/schemas/lire.Mode\"},\"max\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"path\"]},\"lire.out.Res\":{\"type\":\"string\"},\"lire.out.output\":{\"$ref\":\"#/components/schemas/lire.out.Res\"},\"liste.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.input\":{\"type\":\"object\",\"properties\":{}},\"meta_outil__.out.output\":{\"x-fastmcp-wrap-result\":true,\"properties\":{\"result\":5}},\"nombre.input\":{\"type\":\"object\",\"properties\":{}},\"panne.input\":{\"type\":\"object\",\"properties\":{}},\"sature.input\":{\"type\":\"object\",\"properties\":{}},\"texte.input\":{\"type\":\"object\",\"properties\":{}}},\"responses\":{\"E401\":{\"description\":\"Tool token missing, invalid, expired or revoked.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E404\":{\"description\":\"Family or tool outside the token's scope, or unknown.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E422\":{\"description\":\"Arguments do not match the tool's schema.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E429\":{\"description\":\"Too many simultaneous calls for this account (or service saturated): retry.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}},\"E502\":{\"description\":\"The tool service is not responding.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/HTTPError\"}}}}},\"securitySchemes\":{\"bearer\":{\"type\":\"http\",\"scheme\":\"bearer\",\"description\":\"Elpis tool token (ept_\u2026).\"}}}}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    null,
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille d'outils inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    null,
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    }
+  ]
+}

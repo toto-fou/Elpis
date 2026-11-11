@@ -1,0 +1,2231 @@
+{
+  "config": [
+    {
+      "nom": "sans fichier ni env",
+      "entree": {},
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "exemple complet",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "host": "127.0.0.1",
+            "port": 8765,
+            "transport": "streamable-http",
+            "transports": [
+              "http",
+              "sse"
+            ]
+          },
+          "token_file": "user_db/.local_mcp_token",
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "skill_run",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "../user_sandboxes",
+          "db_path": "user_db/toolhost.db",
+          "app_url": "https://elpis.example.lan/",
+          "playwright_api_url": " http://127.0.0.1:3000 ",
+          "assets": {
+            "pw_dir": "/var/lib/elpis/pw_screens",
+            "desktop_dir": "/var/lib/elpis/desktop_screens"
+          },
+          "identity_max_skew_s": 60
+        },
+        "jeton": "  jeton-du-fichier  \nligne2\n"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": true,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "skill_run",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{tmp}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "https://elpis.example.lan",
+          "playwright_api_url": "http://127.0.0.1:3000",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "jeton-du-fichier",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "/var/lib/elpis/pw_screens",
+        "desktop_dir": "/var/lib/elpis/desktop_screens",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "exemple, env prioritaire",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "host": "127.0.0.1",
+            "port": 8765,
+            "transport": "streamable-http",
+            "transports": [
+              "http",
+              "sse"
+            ]
+          },
+          "token_file": "user_db/.local_mcp_token",
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "skill_run",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "../user_sandboxes",
+          "db_path": "user_db/toolhost.db",
+          "app_url": "https://elpis.example.lan/",
+          "playwright_api_url": " http://127.0.0.1:3000 ",
+          "assets": {
+            "pw_dir": "/var/lib/elpis/pw_screens",
+            "desktop_dir": "/var/lib/elpis/desktop_screens"
+          },
+          "identity_max_skew_s": 60
+        },
+        "jeton": "jf",
+        "env": {
+          "LOCAL_MCP_HOST": "0.0.0.0",
+          "LOCAL_MCP_PORT": "9001",
+          "LOCAL_MCP_TRANSPORT": " HTTP ",
+          "TOOLHOST_TRANSPORTS": "sse; http ,foo,STREAMABLE_HTTP",
+          "LOCAL_MCP_TOKEN": "  env-tok ",
+          "LOCAL_MCP_TOOL_FAMILIES": "all,-desktop,zzz",
+          "TOOLHOST_APP_URL": "http://core:8001//",
+          "PLAYWRIGHT_API_URL": "http://pw",
+          "PW_SCREENS_DIR": " /pw ",
+          "DESKTOP_SCREENS_DIR": "/ds",
+          "APP_SANDBOX_DIR": "/ignor\u00e9-car-fichier"
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "0.0.0.0",
+          "port": 9001,
+          "transport": "streamable-http",
+          "transports": [
+            "sse",
+            "http"
+          ],
+          "has_token": true,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser"
+          ],
+          "sandbox_dir": "{tmp}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "http://core:8001",
+          "playwright_api_url": "http://pw",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": [
+            "famille d'outils inconnue ignor\u00e9e : 'zzz'"
+          ]
+        },
+        "token": "env-tok",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "/pw",
+        "desktop_dir": "/ds",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier illisible",
+      "entree": {
+        "fichier": "<<{pas du json>>"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": [
+            "toolhost.json illisible : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier vide",
+      "entree": {
+        "fichier": "<<>>"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": [
+            "toolhost.json illisible : Expecting value: line 1 column 1 (char 0)"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier BOM",
+      "entree": {
+        "fichier": "!!efbbbf7b7d"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": [
+            "toolhost.json illisible : Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier UTF-8 invalide",
+      "entree": {
+        "fichier": "!!ff7b7d"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": [
+            "toolhost.json illisible : 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier liste",
+      "entree": {
+        "fichier": [
+          1,
+          2
+        ]
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": [
+            "toolhost.json : objet JSON attendu"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "fichier objet vide",
+      "entree": {
+        "fichier": {}
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "stdio",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "transport": "stdio",
+            "transports": [
+              "http"
+            ]
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "stdio",
+          "transports": [],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": false
+      }
+    },
+    {
+      "nom": "transports inconnus",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "transports": [
+              "ws",
+              5,
+              null
+            ]
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": [
+            "aucun transport r\u00e9seau reconnu \u2014 repli sur http"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "transports vides",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "transports": []
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": [
+            "aucun transport r\u00e9seau reconnu \u2014 repli sur http"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "bind non objet",
+      "entree": {
+        "fichier": {
+          "bind": "0.0.0.0:1"
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "port texte",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": "8800"
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8800,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "port invalide",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": "abc"
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "port flottant",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": 8801.9
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8801,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "port vrai",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": true
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 1,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "port nul \u2192 cfg",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": 0
+          }
+        },
+        "cfg": {
+          "LOCAL_MCP_PORT": 7000
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 7000,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "familles liste",
+      "entree": {
+        "fichier": {
+          "families": [
+            "GIT",
+            " fs ",
+            "zzz",
+            "aaa",
+            "fs",
+            3
+          ]
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "git"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": [
+            "famille inconnue ignor\u00e9e : '3'",
+            "famille inconnue ignor\u00e9e : 'aaa'",
+            "famille inconnue ignor\u00e9e : 'zzz'"
+          ]
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "familles texte",
+      "entree": {
+        "fichier": {
+          "families": "all,-shell"
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "familles vides",
+      "entree": {
+        "fichier": {
+          "families": []
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "familles nulles \u2192 manifeste",
+      "entree": {
+        "fichier": {
+          "families": null
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "\u00e9cart d'horloge",
+      "entree": {
+        "fichier": {
+          "identity_max_skew_s": "30.5"
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 30.5,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "\u00e9cart invalide",
+      "entree": {
+        "fichier": {
+          "identity_max_skew_s": "abc"
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "\u00e9cart nul",
+      "entree": {
+        "fichier": {
+          "identity_max_skew_s": 0
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "\u00e9cart liste",
+      "entree": {
+        "fichier": {
+          "identity_max_skew_s": [
+            1
+          ]
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "chemins absolus et ~",
+      "entree": {
+        "fichier": {
+          "token_file": "~/jeton",
+          "sandbox_dir": "/srv//sb/./x/",
+          "db_path": "~",
+          "assets": "pas un objet"
+        },
+        "env": {
+          "HOME": "{tmp}/maison"
+        },
+        "jeton_maison": "jeton-maison"
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": true,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "/srv/sb/x",
+          "db_path": "{tmp}/maison",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "jeton-maison",
+        "token_file": "{tmp}/maison/jeton",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "jeton absent : config",
+      "entree": {
+        "fichier": {
+          "token_file": "nulle-part"
+        },
+        "cfg": {
+          "LOCAL_MCP_TOKEN": " cfg-tok "
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": true,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "cfg-tok",
+        "token_file": "{racine}/nulle-part",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "sans fichier : env et cfg",
+      "entree": {
+        "env": {
+          "APP_SANDBOX_DIR": "rel/sb",
+          "LOCAL_MCP_TOKEN": "e"
+        },
+        "cfg": {
+          "LOCAL_MCP_HOST": "10.0.0.2",
+          "LOCAL_MCP_PORT": 9100,
+          "LOCAL_MCP_TOKEN_FILE": ""
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "10.0.0.2",
+          "port": 9100,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": true,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/rel/sb",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": []
+        },
+        "token": "e",
+        "token_file": "",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "manifeste : serve et familles",
+      "entree": {
+        "mcp": {
+          "version": 1,
+          "mcpServers": {
+            "elpis-tools": {
+              "type": "http",
+              "url": "http://127.0.0.1:8765/mcp",
+              "x-elpis": {
+                "role": "toolhost",
+                "families": [
+                  "git",
+                  "fs"
+                ],
+                "serve": {
+                  "transports": [
+                    "sse"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "git"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "defaults",
+          "path": "",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "TOOLHOST_CONFIG relatif",
+      "entree": {
+        "env": {
+          "TOOLHOST_CONFIG": " conf/hote.json "
+        },
+        "fichier_a": "conf/hote.json",
+        "fichier": {
+          "bind": {
+            "host": "::1"
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "::1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/conf/hote.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "valeurs nulles",
+      "entree": {
+        "fichier": {
+          "app_url": null,
+          "token_file": null,
+          "sandbox_dir": "",
+          "playwright_api_url": 0,
+          "assets": {
+            "pw_dir": null
+          }
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "app_url nombre",
+      "entree": {
+        "fichier": {
+          "app_url": 12
+        }
+      },
+      "sortie": {
+        "public": {
+          "host": "127.0.0.1",
+          "port": 8765,
+          "transport": "streamable-http",
+          "transports": [
+            "http",
+            "sse"
+          ],
+          "has_token": false,
+          "families": [
+            "fs",
+            "shell",
+            "git",
+            "chart",
+            "office",
+            "memory",
+            "skill",
+            "skill_run",
+            "todo",
+            "browser",
+            "desktop"
+          ],
+          "sandbox_dir": "{racine}/user_sandboxes",
+          "db_path": "{racine}/user_db/toolhost.db",
+          "app_url": "12",
+          "playwright_api_url": "",
+          "source": "file",
+          "path": "{racine}/toolhost.json",
+          "warnings": []
+        },
+        "token": "",
+        "token_file": "{racine}/user_db/.local_mcp_token",
+        "pw_dir": "",
+        "desktop_dir": "",
+        "skew": 60.0,
+        "reseau": true
+      }
+    },
+    {
+      "nom": "h\u00f4te nombre : le Python l\u00e8ve",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "host": 5
+          }
+        }
+      },
+      "sortie": {
+        "erreur": "AttributeError"
+      }
+    },
+    {
+      "nom": "port liste : le Python l\u00e8ve",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "port": [
+              1
+            ]
+          }
+        }
+      },
+      "sortie": {
+        "erreur": "TypeError"
+      }
+    },
+    {
+      "nom": "transport nombre : le Python l\u00e8ve",
+      "entree": {
+        "fichier": {
+          "bind": {
+            "transport": 7
+          }
+        }
+      },
+      "sortie": {
+        "erreur": "AttributeError"
+      }
+    }
+  ],
+  "bearer": [
+    {
+      "entete": "Bearer svc",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "bearer svc",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "BEARER   svc  ",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "  Bearer svc",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "Bearer",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Bearer ",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Bearersvc",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Basic svc",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Bearer svcx",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Bearer svc",
+      "jeton": "",
+      "attendu": false
+    },
+    {
+      "entete": "",
+      "jeton": "svc",
+      "attendu": false
+    },
+    {
+      "entete": "Bearer \tsvc\t",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "Bearer s vc",
+      "jeton": "s vc",
+      "attendu": true
+    },
+    {
+      "entete": "Bearer svc\u00a0",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "\u0085Bearer svc",
+      "jeton": "svc",
+      "attendu": true
+    },
+    {
+      "entete": "Bearer \u001csvc\u001f",
+      "jeton": "svc",
+      "attendu": true
+    }
+  ],
+  "argv": [
+    {
+      "argv": [
+        "--stdio",
+        "--families",
+        "fs,git"
+      ],
+      "attendu": "fs,git"
+    },
+    {
+      "argv": [
+        "--family=git"
+      ],
+      "attendu": "git"
+    },
+    {
+      "argv": [
+        "--stdio"
+      ],
+      "attendu": null
+    },
+    {
+      "argv": [
+        "--families"
+      ],
+      "attendu": null
+    },
+    {
+      "argv": [
+        "--families",
+        " "
+      ],
+      "attendu": ""
+    },
+    {
+      "argv": [
+        "--family",
+        "fs",
+        "--families=git,shell",
+        "x"
+      ],
+      "attendu": "fs,git,shell"
+    },
+    {
+      "argv": [
+        "--families=",
+        "--family",
+        "desktop"
+      ],
+      "attendu": "desktop"
+    },
+    {
+      "argv": [],
+      "attendu": null
+    }
+  ],
+  "manifeste": [
+    {
+      "entree": {
+        "host": "127.0.0.1",
+        "port": 8765,
+        "transports": [
+          "http",
+          "sse"
+        ],
+        "familles": [
+          "fs",
+          "git",
+          "skill_run"
+        ],
+        "base_url": "",
+        "transport": "http"
+      },
+      "endpoints": {
+        "fs": {
+          "http": "http://127.0.0.1:8765/mcp/fs",
+          "sse": "http://127.0.0.1:8765/sse/fs",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        },
+        "git": {
+          "http": "http://127.0.0.1:8765/mcp/git",
+          "sse": "http://127.0.0.1:8765/sse/git",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "git"
+            ]
+          }
+        },
+        "skill_run": {
+          "http": "http://127.0.0.1:8765/mcp/skill_run",
+          "sse": "http://127.0.0.1:8765/sse/skill_run",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "skill_run"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {
+          "elpis-fs": {
+            "type": "http",
+            "url": "http://127.0.0.1:8765/mcp/fs",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          },
+          "elpis-git": {
+            "type": "http",
+            "url": "http://127.0.0.1:8765/mcp/git",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          },
+          "elpis-skill-run": {
+            "type": "http",
+            "url": "http://127.0.0.1:8765/mcp/skill_run",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          }
+        }
+      }
+    },
+    {
+      "entree": {
+        "host": "127.0.0.1",
+        "port": 8765,
+        "transports": [
+          "http",
+          "sse"
+        ],
+        "familles": [
+          "fs",
+          "skill_run"
+        ],
+        "base_url": "https://th.lan/",
+        "transport": "sse"
+      },
+      "endpoints": {
+        "fs": {
+          "http": "https://th.lan/mcp/fs",
+          "sse": "https://th.lan/sse/fs",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        },
+        "skill_run": {
+          "http": "https://th.lan/mcp/skill_run",
+          "sse": "https://th.lan/sse/skill_run",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "skill_run"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {
+          "elpis-fs": {
+            "type": "sse",
+            "url": "https://th.lan/sse/fs",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          },
+          "elpis-skill-run": {
+            "type": "sse",
+            "url": "https://th.lan/sse/skill_run",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          }
+        }
+      }
+    },
+    {
+      "entree": {
+        "host": "0.0.0.0",
+        "port": 1,
+        "transports": [
+          "http"
+        ],
+        "familles": [
+          "git"
+        ],
+        "base_url": "",
+        "transport": "sse"
+      },
+      "endpoints": {
+        "git": {
+          "http": "http://0.0.0.0:1/mcp/git",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "git"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {}
+      }
+    },
+    {
+      "entree": {
+        "host": "h",
+        "port": 2,
+        "transports": [
+          "sse"
+        ],
+        "familles": [
+          "desktop",
+          "browser"
+        ],
+        "base_url": "http://a//",
+        "transport": " STDIO "
+      },
+      "endpoints": {
+        "desktop": {
+          "sse": "http://a/sse/desktop",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "desktop"
+            ]
+          }
+        },
+        "browser": {
+          "sse": "http://a/sse/browser",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "browser"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {
+          "elpis-desktop": {
+            "type": "stdio",
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "desktop"
+            ],
+            "env": {
+              "LOCAL_MCP_TRANSPORT": "stdio"
+            }
+          },
+          "elpis-browser": {
+            "type": "stdio",
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "browser"
+            ],
+            "env": {
+              "LOCAL_MCP_TRANSPORT": "stdio"
+            }
+          }
+        }
+      }
+    },
+    {
+      "entree": {
+        "host": "h",
+        "port": 2,
+        "transports": [],
+        "familles": [
+          "fs"
+        ],
+        "base_url": "",
+        "transport": "Streamable_HTTP"
+      },
+      "endpoints": {
+        "fs": {
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {}
+      }
+    },
+    {
+      "entree": {
+        "host": "h",
+        "port": 2,
+        "transports": [
+          "http"
+        ],
+        "familles": [
+          "fs"
+        ],
+        "base_url": "",
+        "transport": "remote"
+      },
+      "endpoints": {
+        "fs": {
+          "http": "http://h:2/mcp/fs",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {
+          "elpis-fs": {
+            "type": "http",
+            "url": "http://h:2/mcp/fs",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          }
+        }
+      }
+    },
+    {
+      "entree": {
+        "host": "h",
+        "port": 2,
+        "transports": [
+          "http"
+        ],
+        "familles": [
+          "fs"
+        ],
+        "base_url": "",
+        "transport": ""
+      },
+      "endpoints": {
+        "fs": {
+          "http": "http://h:2/mcp/fs",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {
+          "elpis-fs": {
+            "type": "http",
+            "url": "http://h:2/mcp/fs",
+            "headers": {
+              "Authorization": "Bearer <jeton de service>"
+            }
+          }
+        }
+      }
+    },
+    {
+      "entree": {
+        "host": "h",
+        "port": 2,
+        "transports": [
+          "http"
+        ],
+        "familles": [
+          "fs"
+        ],
+        "base_url": "",
+        "transport": "stdio2"
+      },
+      "endpoints": {
+        "fs": {
+          "http": "http://h:2/mcp/fs",
+          "stdio": {
+            "command": "/usr/bin/python-elpis",
+            "args": [
+              "-m",
+              "toolhost",
+              "--stdio",
+              "--families",
+              "fs"
+            ]
+          }
+        }
+      },
+      "export": {
+        "mcpServers": {}
+      }
+    },
+    {
+      "entree": {
+        "host": "::1",
+        "port": 3,
+        "transports": [
+          "http",
+          "sse"
+        ],
+        "familles": [],
+        "base_url": "",
+        "transport": "http"
+      },
+      "endpoints": {},
+      "export": {
+        "mcpServers": {}
+      }
+    }
+  ]
+}

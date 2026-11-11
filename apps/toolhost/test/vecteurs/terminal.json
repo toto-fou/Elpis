@@ -1,0 +1,1401 @@
+{
+  "constantes": {
+    "DEFAULT_SID": "default",
+    "MAX_SESSIONS_PER_USER": 4,
+    "TERM_BOOTSTRAP": "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash",
+    "PTY_EXEC_USER": "10001:10001",
+    "PTY_PRIVDROP_WRAP": "t=$(tty 2>/dev/null); [ -c \"$t\" ] && chown \"$1:tty\" \"$t\" 2>/dev/null; shift; exec \"$@\"",
+    "PTY_IDLE_TIMEOUT_SEC": 1800,
+    "SESSION_DB_RETENTION_SEC": 604800,
+    "WS_INPUT_RATE_CAPACITY": 200,
+    "WS_INPUT_RATE_REFILL": 100.0,
+    "WS_MAX_CTRL_BYTES": 1024,
+    "WS_QUOTA_INTERVAL_S": 20.0,
+    "WS_QUOTA_WARN_PCT": 0.9
+  },
+  "commandes": [
+    {
+      "conteneur": "elpis-sb-hugo",
+      "verdict": null,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-hugo",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-hugo",
+      "verdict": true,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "0:0",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-hugo",
+        "/bin/sh",
+        "-c",
+        "t=$(tty 2>/dev/null); [ -c \"$t\" ] && chown \"$1:tty\" \"$t\" 2>/dev/null; shift; exec \"$@\"",
+        "--",
+        "10001",
+        "setpriv",
+        "--reuid=10001",
+        "--regid=10001",
+        "--init-groups",
+        "--bounding-set=-net_admin",
+        "--",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-hugo",
+      "verdict": false,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-hugo",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-Jean_Dupont",
+      "verdict": null,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-Jean_Dupont",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-Jean_Dupont",
+      "verdict": true,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "0:0",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-Jean_Dupont",
+        "/bin/sh",
+        "-c",
+        "t=$(tty 2>/dev/null); [ -c \"$t\" ] && chown \"$1:tty\" \"$t\" 2>/dev/null; shift; exec \"$@\"",
+        "--",
+        "10001",
+        "setpriv",
+        "--reuid=10001",
+        "--regid=10001",
+        "--init-groups",
+        "--bounding-set=-net_admin",
+        "--",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-Jean_Dupont",
+      "verdict": false,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-Jean_Dupont",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-user_7",
+      "verdict": null,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-user_7",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-user_7",
+      "verdict": true,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "0:0",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-user_7",
+        "/bin/sh",
+        "-c",
+        "t=$(tty 2>/dev/null); [ -c \"$t\" ] && chown \"$1:tty\" \"$t\" 2>/dev/null; shift; exec \"$@\"",
+        "--",
+        "10001",
+        "setpriv",
+        "--reuid=10001",
+        "--regid=10001",
+        "--init-groups",
+        "--bounding-set=-net_admin",
+        "--",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    },
+    {
+      "conteneur": "elpis-sb-user_7",
+      "verdict": false,
+      "argv": [
+        "docker",
+        "exec",
+        "-it",
+        "--user",
+        "10001:10001",
+        "--workdir",
+        "/work",
+        "-e",
+        "TERM=xterm-256color",
+        "-e",
+        "LANG=C.UTF-8",
+        "-e",
+        "LC_ALL=C.UTF-8",
+        "-e",
+        "GIT_CONFIG_COUNT=1",
+        "-e",
+        "GIT_CONFIG_KEY_0=safe.directory",
+        "-e",
+        "GIT_CONFIG_VALUE_0=*",
+        "elpis-sb-user_7",
+        "/bin/sh",
+        "-c",
+        "umask 0022; { echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; echo 'umask 0022'; } > /tmp/.elpis-termrc 2>/dev/null && exec /bin/bash --rcfile /tmp/.elpis-termrc; exec /bin/bash"
+      ]
+    }
+  ],
+  "sids": [
+    {
+      "sid": "default",
+      "valide": true
+    },
+    {
+      "sid": "t_AbC-12_xyZ",
+      "valide": true
+    },
+    {
+      "sid": "a",
+      "valide": true
+    },
+    {
+      "sid": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "valide": true
+    },
+    {
+      "sid": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "valide": false
+    },
+    {
+      "sid": "",
+      "valide": false
+    },
+    {
+      "sid": "abc\n",
+      "valide": false
+    },
+    {
+      "sid": "\nabc",
+      "valide": false
+    },
+    {
+      "sid": "a b",
+      "valide": false
+    },
+    {
+      "sid": "a/b",
+      "valide": false
+    },
+    {
+      "sid": "a.b",
+      "valide": false
+    },
+    {
+      "sid": "\u00e9",
+      "valide": false
+    },
+    {
+      "sid": "t_ab%2F",
+      "valide": false
+    },
+    {
+      "sid": "ab\u0000",
+      "valide": false
+    },
+    {
+      "sid": "ab\t",
+      "valide": false
+    },
+    {
+      "sid": "--",
+      "valide": true
+    },
+    {
+      "sid": "__",
+      "valide": true
+    },
+    {
+      "sid": "\uff21\uff22",
+      "valide": false
+    },
+    {
+      "sid": "\u0663",
+      "valide": false
+    },
+    {
+      "sid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "valide": false
+    }
+  ],
+  "noms": [
+    {
+      "noms": [],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "Terminal 1"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 1",
+        "Terminal 2"
+      ],
+      "attendu": "Terminal 3"
+    },
+    {
+      "noms": [
+        "Terminal 1",
+        "Terminal 3"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 2"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "build",
+        "Terminal 1",
+        "d\u00e9ploiement"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 01"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 0"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "terminal 1"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "Terminal 1 "
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        " Terminal 1"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 1\n"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal  1"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "Terminal \u0663",
+        "Terminal 1",
+        "Terminal 2"
+      ],
+      "attendu": "Terminal 4"
+    },
+    {
+      "noms": [
+        "Terminal \uff11"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 1x"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "Terminal -1"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "Terminal 99999999999999999999"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        null,
+        "",
+        "Terminal 1"
+      ],
+      "attendu": "Terminal 2"
+    },
+    {
+      "noms": [
+        "Terminal 1",
+        "Terminal 1",
+        "Terminal 2"
+      ],
+      "attendu": "Terminal 3"
+    },
+    {
+      "noms": [
+        "Terminal\u00a01"
+      ],
+      "attendu": "Terminal 1"
+    },
+    {
+      "noms": [
+        "\u2003Terminal 2\u2003",
+        "Terminal 1"
+      ],
+      "attendu": "Terminal 3"
+    }
+  ],
+  "creation": [
+    {
+      "corps": {},
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "name": "build"
+      },
+      "nom": "build"
+    },
+    {
+      "corps": {
+        "name": "  espaces  "
+      },
+      "nom": "espaces"
+    },
+    {
+      "corps": {
+        "name": ""
+      },
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "name": null
+      },
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "name": 0
+      },
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "name": 5
+      },
+      "nom": "5"
+    },
+    {
+      "corps": {
+        "name": 1.5
+      },
+      "nom": "1.5"
+    },
+    {
+      "corps": {
+        "name": 1.0
+      },
+      "nom": "1.0"
+    },
+    {
+      "corps": {
+        "name": true
+      },
+      "nom": "True"
+    },
+    {
+      "corps": {
+        "name": false
+      },
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "name": [
+          1,
+          "a"
+        ]
+      },
+      "nom": "[1, 'a']"
+    },
+    {
+      "corps": {
+        "name": {
+          "a": 1,
+          "b": null
+        }
+      },
+      "nom": "{'a': 1, 'b': None}"
+    },
+    {
+      "corps": {
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "nom": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "corps": {
+        "name": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+      },
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    },
+    {
+      "corps": {
+        "name": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      },
+      "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+    },
+    {
+      "corps": {
+        "name": "\u2003nom\u2003"
+      },
+      "nom": "nom"
+    },
+    {
+      "corps": {
+        "name": "a\nb"
+      },
+      "nom": "a\nb"
+    },
+    {
+      "corps": [
+        1
+      ],
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": "texte",
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": null,
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": 3,
+      "nom": "Terminal 2"
+    },
+    {
+      "corps": {
+        "autre": 1
+      },
+      "nom": "Terminal 2"
+    }
+  ],
+  "taille": [
+    {
+      "corps": {},
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        24,
+        80
+      ]
+    },
+    {
+      "corps": {
+        "rows": 40,
+        "cols": 120
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        40,
+        120
+      ]
+    },
+    {
+      "corps": {
+        "rows": "12",
+        "cols": " 30 "
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        12,
+        30
+      ]
+    },
+    {
+      "corps": {
+        "rows": 0,
+        "cols": -5
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        1,
+        1
+      ]
+    },
+    {
+      "corps": {
+        "rows": 1.9,
+        "cols": 2.5
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        1,
+        2
+      ]
+    },
+    {
+      "corps": {
+        "rows": true,
+        "cols": false
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        1,
+        1
+      ]
+    },
+    {
+      "corps": {
+        "rows": "abc"
+      },
+      "statut": 400,
+      "detail": "rows/cols doivent \u00eatre des entiers positifs",
+      "pose": null
+    },
+    {
+      "corps": {
+        "rows": null
+      },
+      "statut": 400,
+      "detail": "rows/cols doivent \u00eatre des entiers positifs",
+      "pose": null
+    },
+    {
+      "corps": {
+        "cols": [
+          1
+        ]
+      },
+      "statut": 400,
+      "detail": "rows/cols doivent \u00eatre des entiers positifs",
+      "pose": null
+    },
+    {
+      "corps": {
+        "rows": "1_0"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        10,
+        80
+      ]
+    },
+    {
+      "corps": {
+        "rows": "\u0661\u0662"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": [
+        12,
+        80
+      ]
+    },
+    {
+      "corps": {
+        "rows": "1e3"
+      },
+      "statut": 400,
+      "detail": "rows/cols doivent \u00eatre des entiers positifs",
+      "pose": null
+    },
+    {
+      "corps": {
+        "rows": "0x10"
+      },
+      "statut": 400,
+      "detail": "rows/cols doivent \u00eatre des entiers positifs",
+      "pose": null
+    },
+    {
+      "corps": {
+        "rows": 70000,
+        "cols": 70000
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": null
+    },
+    {
+      "corps": {
+        "rows": 1000000000000000000000000000000
+      },
+      "reponse": {
+        "ok": true
+      },
+      "pose": null
+    }
+  ],
+  "frappe": [
+    {
+      "corps": {
+        "data": "ls\r"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": true,
+      "octets": "6c730d"
+    },
+    {
+      "corps": {
+        "data": ""
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": {},
+      "reponse": {
+        "ok": true
+      },
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": null
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": 0
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": []
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": 5
+      },
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": true,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": [
+          1
+        ]
+      },
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": true,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": true
+      },
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": true,
+      "octets": ""
+    },
+    {
+      "corps": {
+        "data": "\u00e9\ud83d\ude00"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": true,
+      "octets": "c3a9f09f9880"
+    },
+    {
+      "corps": {
+        "data": "a\ud800b"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": true,
+      "octets": "613f62"
+    },
+    {
+      "corps": {
+        "data": "\u0000\u001b[A"
+      },
+      "reponse": {
+        "ok": true
+      },
+      "cree": true,
+      "octets": "001b5b41"
+    },
+    {
+      "corps": [
+        1
+      ],
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": "texte",
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": null,
+      "statut": 500,
+      "type": "AttributeError",
+      "cree": false,
+      "octets": ""
+    },
+    {
+      "corps": "<json invalide>",
+      "statut": 500,
+      "type": "ValueError",
+      "cree": false,
+      "octets": ""
+    }
+  ],
+  "controles": [
+    {
+      "messages": [
+        "{\"op\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"type\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": 0, \"type\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"\", \"type\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": [], \"type\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"PING\"}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 30, \"cols\": 100}"
+      ],
+      "trames": [],
+      "taille": [
+        30,
+        100
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"type\": \"resize\", \"rows\": 5, \"cols\": 7}"
+      ],
+      "trames": [],
+      "taille": [
+        5,
+        7
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": \"12\", \"cols\": \"34\"}"
+      ],
+      "trames": [],
+      "taille": [
+        12,
+        34
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 0, \"cols\": -3}"
+      ],
+      "trames": [],
+      "taille": [
+        1,
+        1
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 1.9, \"cols\": 2.1}"
+      ],
+      "trames": [],
+      "taille": [
+        1,
+        2
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": true, \"cols\": true}"
+      ],
+      "trames": [],
+      "taille": [
+        1,
+        1
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": \"abc\", \"cols\": 3}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": null, \"cols\": 3}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 70000, \"cols\": 80}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 65535, \"cols\": 65535}"
+      ],
+      "trames": [],
+      "taille": [
+        65535,
+        65535
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": NaN, \"cols\": 3}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": Infinity, \"cols\": 3}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\"}"
+      ],
+      "trames": [],
+      "taille": [
+        24,
+        80
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"inconnu\"}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "pas du json"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        ""
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "[1, 2]"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "\"ping\""
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "null"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "42"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"ping\", \"x\": \"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"ping\", \"x\": \"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\"}"
+      ],
+      "trames": [],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"ping\", \"x\": \"\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"resize\", \"rows\": 10, \"cols\": 20}",
+        "{\"op\": \"resize\", \"rows\": 70000, \"cols\": 1}",
+        "{\"op\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        10,
+        20
+      ],
+      "ferme": 1000,
+      "hello": true
+    },
+    {
+      "messages": [
+        "{\"op\": \"ping\"}",
+        "[]",
+        "{\"op\": \"ping\"}"
+      ],
+      "trames": [
+        {
+          "type": "pong"
+        }
+      ],
+      "taille": [
+        0,
+        0
+      ],
+      "ferme": 1000,
+      "hello": true
+    }
+  ],
+  "json_controle": "{\"type\":\"hello\",\"fresh_shell\":true}"
+}

@@ -1,0 +1,4678 @@
+{
+  "entree": {
+    "coerce": [
+      [
+        null,
+        "int"
+      ],
+      [
+        {
+          "i": "5"
+        },
+        "int"
+      ],
+      [
+        {
+          "i": "-12"
+        },
+        "int"
+      ],
+      [
+        {
+          "i": "9007199254740991"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "5.0"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "-0.0"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "5.5"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "1e+20"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "nan"
+        },
+        "int"
+      ],
+      [
+        {
+          "f": "inf"
+        },
+        "int"
+      ],
+      [
+        {
+          "b": true
+        },
+        "int"
+      ],
+      [
+        {
+          "b": false
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "7"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": " 7 "
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "+7"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "7_0"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "\u0667"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "7.0"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "7.5"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "1e3"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "oui"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": ""
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "\u20027\u3000"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "nan"
+        },
+        "int"
+      ],
+      [
+        {
+          "s": "-inf"
+        },
+        "int"
+      ],
+      [
+        {
+          "x": "37"
+        },
+        "int"
+      ],
+      [
+        null,
+        "real"
+      ],
+      [
+        {
+          "i": "5"
+        },
+        "real"
+      ],
+      [
+        {
+          "f": "0.1"
+        },
+        "real"
+      ],
+      [
+        {
+          "f": "-0.0"
+        },
+        "real"
+      ],
+      [
+        {
+          "f": "1e+300"
+        },
+        "real"
+      ],
+      [
+        {
+          "s": "1.5"
+        },
+        "real"
+      ],
+      [
+        {
+          "s": " 2 "
+        },
+        "real"
+      ],
+      [
+        {
+          "s": "abc"
+        },
+        "real"
+      ],
+      [
+        {
+          "s": "1_5.2_5"
+        },
+        "real"
+      ],
+      [
+        {
+          "s": "Infinity"
+        },
+        "real"
+      ],
+      [
+        {
+          "s": "nan"
+        },
+        "real"
+      ],
+      [
+        {
+          "b": true
+        },
+        "real"
+      ],
+      [
+        {
+          "x": "312e35"
+        },
+        "real"
+      ],
+      [
+        null,
+        "text"
+      ],
+      [
+        {
+          "s": "caf\u00e9"
+        },
+        "text"
+      ],
+      [
+        {
+          "s": ""
+        },
+        "text"
+      ],
+      [
+        {
+          "i": "5"
+        },
+        "text"
+      ],
+      [
+        {
+          "f": "5.0"
+        },
+        "text"
+      ],
+      [
+        {
+          "f": "0.1"
+        },
+        "text"
+      ],
+      [
+        {
+          "x": "636166c3a9"
+        },
+        "text"
+      ],
+      [
+        {
+          "x": "ff41"
+        },
+        "text"
+      ],
+      [
+        {
+          "b": true
+        },
+        "text"
+      ]
+    ],
+    "norm": [
+      null,
+      {
+        "i": "0"
+      },
+      {
+        "i": "-7"
+      },
+      {
+        "i": "123456789012"
+      },
+      {
+        "f": "5.0"
+      },
+      {
+        "f": "-0.0"
+      },
+      {
+        "f": "0.1"
+      },
+      {
+        "f": "0.3333333333333333"
+      },
+      {
+        "f": "1e+20"
+      },
+      {
+        "f": "1.5e+20"
+      },
+      {
+        "f": "1e-05"
+      },
+      {
+        "f": "0.0001"
+      },
+      {
+        "f": "123456789.123"
+      },
+      {
+        "f": "1e+16"
+      },
+      {
+        "f": "2.5e-07"
+      },
+      {
+        "f": "-1234.5678901"
+      },
+      {
+        "f": "nan"
+      },
+      {
+        "f": "inf"
+      },
+      {
+        "f": "-inf"
+      },
+      {
+        "s": "texte"
+      },
+      {
+        "s": ""
+      },
+      {
+        "s": "\u2205"
+      },
+      {
+        "x": "636166c3a9"
+      },
+      {
+        "x": "ff"
+      }
+    ],
+    "digest": [
+      [],
+      [
+        [
+          null,
+          {
+            "i": "1"
+          },
+          {
+            "s": "a"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "f": "1.0"
+          },
+          {
+            "s": "x\u001fy"
+          }
+        ],
+        [
+          {
+            "s": "\u00e9"
+          },
+          null
+        ]
+      ],
+      [
+        [
+          {
+            "i": "1"
+          }
+        ],
+        [
+          {
+            "f": "1.0"
+          }
+        ],
+        [
+          {
+            "s": "1"
+          }
+        ]
+      ]
+    ],
+    "auto": [
+      [
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      [
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      [
+        [
+          5,
+          6
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          7,
+          1
+        ]
+      ],
+      [
+        [
+          4,
+          99
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      [
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          "1"
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      [
+        [
+          2,
+          1.0
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      []
+    ],
+    "parse": [
+      [
+        "sqlite:/tmp/app.db",
+        null
+      ],
+      [
+        "sqlite:///tmp/app.db",
+        null
+      ],
+      [
+        "sqlite://x",
+        null
+      ],
+      [
+        "sqlite:",
+        null
+      ],
+      [
+        "  sqlite:/a b  ",
+        null
+      ],
+      [
+        "sqlite:relatif.db",
+        null
+      ],
+      [
+        "postgres://u@h:5433/base",
+        null
+      ],
+      [
+        "postgresql://u@H.Example:5432/b",
+        null
+      ],
+      [
+        "pg://h/b",
+        null
+      ],
+      [
+        "POSTGRES://u:p%40ss@h/b%20c?tls=require",
+        null
+      ],
+      [
+        "postgres://u:pw@h/b",
+        "autre"
+      ],
+      [
+        "postgres://u@h/b?tls=",
+        null
+      ],
+      [
+        "postgres://u@h/b?tls=verify&tls=off",
+        null
+      ],
+      [
+        "postgres://u@h/b?x=1&tls=a+b",
+        null
+      ],
+      [
+        "postgres://u@h:99999/b",
+        null
+      ],
+      [
+        "postgres://u@h:abc/b",
+        null
+      ],
+      [
+        "postgres://u@h/",
+        null
+      ],
+      [
+        "postgres:///b",
+        null
+      ],
+      [
+        "mysql://u@h/b",
+        null
+      ],
+      [
+        "",
+        null
+      ],
+      [
+        null,
+        null
+      ],
+      [
+        "postgres://u@[::1]:5432/b",
+        null
+      ],
+      [
+        "postgres://@h/b",
+        null
+      ],
+      [
+        "postgres://u%C3%A9@h/caf%C3%A9",
+        null
+      ],
+      [
+        "postgres://u@h/b/",
+        null
+      ],
+      [
+        "postgres://u@h//b",
+        null
+      ]
+    ],
+    "formulaires": [
+      {},
+      {
+        "backend": "mysql"
+      },
+      {
+        "backend": "postgres"
+      },
+      {
+        "backend": " PostgreSQL ",
+        "host": "h",
+        "name": "b",
+        "user": "u"
+      },
+      {
+        "backend": "postgres",
+        "host": " h ",
+        "name": "b",
+        "user": "u",
+        "port": "5433",
+        "tls": "REQUIRE",
+        "password": "x"
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": "abc"
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": 5432.9
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": true
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": [
+          1
+        ]
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": "5_433"
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "port": 0
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "tls": " off"
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "tls": "Verify"
+      },
+      {
+        "backend": "postgres",
+        "host": "",
+        "name": "b",
+        "user": "u"
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b"
+      },
+      {
+        "backend": "postgres",
+        "host": 5,
+        "name": 1.5,
+        "user": true,
+        "password": 0
+      },
+      {
+        "backend": "postgres",
+        "host": "h",
+        "name": "b",
+        "user": "u",
+        "password": 123
+      },
+      [
+        1
+      ],
+      "texte",
+      null
+    ],
+    "seed": [
+      "INSERT INTO users(id, username, pass_salt, pass_hash, created_at, is_admin, settings_json) VALUES (1,'admin','s','h',1.5,1,'{\"theme\":\"clair\"}'),(2,'alice','s','h',2.0,0,'{}'),(3,'\u00c9mile','s','h',3.25,0,'{\"agents\":[{\"nom\":\"No\u00e9\"}]}')",
+      "INSERT INTO groups(id, name, description, created_at) VALUES (1,'\u00e9quipe','',1.0),(5,'b',NULL,2.0)",
+      "INSERT INTO user_groups(user_id, group_id) VALUES (1,1),(2,1),(999,1),(2,5),(3,77)",
+      "INSERT INTO chats(id, user_id, title, messages_json, updated_at, archived) VALUES ('c1',1,'Bonjour','[]',10.0,0),('c2',2,'B','[]',11.5,'oui'),('c3',42,'orphelin','[]',12.0,0),('c4',3,'\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00','[{\"role\":\"user\"}]',0.1,'\u0667'),('C0',1,'casse','[]',1e20,'7_0')",
+      "INSERT INTO saved_prompts(id, user_id, title, content, created_at) VALUES (1,1,'t','x','abc'),(2,1,'u','y',4.5)",
+      "INSERT INTO session_messages(id, user_id, app, session_id, role, content, ts) VALUES (1,1,'chat','s1','user','Un caf\u00e9 noir',100.0),(2,2,'chat','s2','assistant','Cr\u00e8me br\u00fbl\u00e9e',101.5),(3,7,'chat','s3','user','orphelin',102.0)",
+      "INSERT INTO ax_nodes(id, site, path, parent_id, node_type, role, name, node_key) VALUES (3,'s','/',1,'n','r','c','k3'),(1,'s','/',NULL,'n','r','a','k1'),(2,'s','/',3,'n','r','b','k2'),(4,'s','/',99,'n','r','o','k4'),(5,'s','/',6,'n','r','x','k5'),(6,'s','/',5,'n','r','y','k6'),(7,'s','/',4,'n','r','z','k7')",
+      "INSERT INTO metric_events(id, event_type, value, tags_json, created_at, user_id) VALUES (1,'x',0.1,'{}',5.0,1),(2,'y',1e20,NULL,6.0,NULL),(3,'z','7',NULL,7.5,2),(4,'w',NULL,'{}',8.0,'abc')",
+      "INSERT INTO notifications(id, owner_user_id, kind, title, created_at) VALUES (10,1,'k','t',1.0),(20,2,'k','u',2.0)",
+      "CREATE TABLE vestige(a INTEGER)",
+      "INSERT INTO vestige VALUES (1),(2)",
+      "ALTER TABLE users ADD COLUMN ancien TEXT",
+      "UPDATE users SET ancien = 'x'"
+    ],
+    "bascule": [
+      [
+        "saved",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "postgres",
+            "host": "h",
+            "port": 5432,
+            "name": "b",
+            "user": "u",
+            "tls": "off",
+            "timeout": 30.0,
+            "schema": null,
+            "password": "secret"
+          },
+          false
+        ]
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "pending_password",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "postgres",
+            "host": "h2",
+            "port": 5433,
+            "name": "",
+            "user": "u",
+            "tls": "require"
+          },
+          false
+        ]
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "postgres",
+            "host": "h3",
+            "port": 5432,
+            "name": "b",
+            "user": "u",
+            "tls": "off"
+          },
+          true
+        ]
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "pending_password",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "sqlite"
+          },
+          true
+        ]
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "config",
+        "{\"database\": {\"backend\": \"postgres\", \"pending\": {\"backend\": \"mysql\", \"host\": \"m\"}, \"generation\": \"3\"}}"
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "pending_password",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "postgres",
+            "host": "h4",
+            "port": 1,
+            "name": "n",
+            "user": "u",
+            "password": "p2"
+          },
+          true
+        ]
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "config",
+        "{\"database\": {\"generation\": \"x\", \"port\": \"5434\"}}"
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "ecrire",
+        [
+          {
+            "backend": "sqlite"
+          },
+          true
+        ]
+      ],
+      [
+        "config",
+        "{\"autre\": 1.0, \"database\": []}"
+      ],
+      [
+        "saved",
+        null
+      ],
+      [
+        "config",
+        "{\"database\": {\"port\": \"abc\"}}"
+      ],
+      [
+        "saved",
+        null
+      ]
+    ],
+    "routes": [
+      [
+        "anonyme",
+        "GET",
+        "/api/admin/database",
+        null,
+        null
+      ],
+      [
+        "alice",
+        "GET",
+        "/api/admin/database",
+        null,
+        null
+      ],
+      [
+        "modo",
+        "POST",
+        "/api/admin/database/test",
+        {
+          "backend": "postgres"
+        },
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/database",
+        null,
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/database/job",
+        null,
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/test",
+        "{pas du json",
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/test",
+        [
+          1
+        ],
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/test",
+        {
+          "backend": "sqlite"
+        },
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/test",
+        {
+          "backend": "postgres",
+          "host": "127.0.0.1",
+          "port": 1,
+          "name": "b",
+          "user": "u",
+          "password": "p"
+        },
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/save",
+        {
+          "backend": "postgres",
+          "host": "h",
+          "name": "b",
+          "user": "u",
+          "password": "pw",
+          "port": "6543",
+          "tls": "verify"
+        },
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/database",
+        null,
+        {
+          "APP_DB_HOST": "x",
+          "APP_DB_PASSWORD": "y"
+        }
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/save",
+        {
+          "backend": "postgres",
+          "host": "h2",
+          "name": "b",
+          "user": "u"
+        },
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/simulate",
+        {
+          "backend": "postgres",
+          "host": "127.0.0.1",
+          "port": 1,
+          "name": "b",
+          "user": "u",
+          "password": "p"
+        },
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/simulate",
+        {
+          "backend": "postgres"
+        },
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/migrate",
+        {
+          "backend": "postgres",
+          "host": "127.0.0.1",
+          "port": 1,
+          "name": "b",
+          "user": "u"
+        },
+        {
+          "APP_DB_BACKEND": "sqlite"
+        }
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/migrate",
+        {
+          "backend": "x"
+        },
+        {
+          "APP_DB_BACKEND": "sqlite"
+        }
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/sqlite",
+        null,
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/database/migrate",
+        {
+          "backend": "postgres",
+          "host": "127.0.0.1",
+          "port": 1,
+          "name": "b",
+          "user": "u",
+          "password": "p"
+        },
+        null
+      ],
+      [
+        "attendre",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/database/job",
+        null,
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/database",
+        null,
+        null
+      ]
+    ]
+  },
+  "coerce": [
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "i": "5"
+      }
+    },
+    {
+      "ok": {
+        "i": "-12"
+      }
+    },
+    {
+      "ok": {
+        "i": "9007199254740991"
+      }
+    },
+    {
+      "ok": {
+        "i": "5"
+      }
+    },
+    {
+      "ok": {
+        "i": "0"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": {
+        "i": "100000000000000000000"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": {
+        "i": "1"
+      }
+    },
+    {
+      "ok": {
+        "i": "0"
+      }
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "ok": {
+        "i": "70"
+      }
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": {
+        "i": "1000"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": {
+        "i": "7"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "f": "5.0"
+      }
+    },
+    {
+      "ok": {
+        "f": "0.1"
+      }
+    },
+    {
+      "ok": {
+        "f": "-0.0"
+      }
+    },
+    {
+      "ok": {
+        "f": "1e+300"
+      }
+    },
+    {
+      "ok": {
+        "f": "1.5"
+      }
+    },
+    {
+      "ok": {
+        "f": "2.0"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": {
+        "f": "15.25"
+      }
+    },
+    {
+      "ok": {
+        "f": "inf"
+      }
+    },
+    {
+      "ok": {
+        "f": "nan"
+      }
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "erreur": "ValueError"
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "s": "caf\u00e9"
+      }
+    },
+    {
+      "ok": {
+        "s": ""
+      }
+    },
+    {
+      "ok": {
+        "s": "5"
+      }
+    },
+    {
+      "ok": {
+        "s": "5.0"
+      }
+    },
+    {
+      "ok": {
+        "s": "0.1"
+      }
+    },
+    {
+      "ok": {
+        "s": "caf\u00e9"
+      }
+    },
+    {
+      "ok": {
+        "s": "\ufffdA"
+      }
+    },
+    {
+      "ok": {
+        "s": "True"
+      }
+    }
+  ],
+  "norm": [
+    "\u2205",
+    "0",
+    "-7",
+    "123456789012",
+    "5",
+    "0",
+    "0.1",
+    "0.333333333",
+    "100000000000000000000",
+    "150000000000000000000",
+    "1e-05",
+    "0.0001",
+    "123456789",
+    "10000000000000000",
+    "2.5e-07",
+    "-1234.56789",
+    "nan",
+    "inf",
+    "-inf",
+    "texte",
+    "",
+    "\u2205",
+    "caf\u00e9",
+    "\ufffd"
+  ],
+  "digest": [
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "683d648d09a189c852deefc7988695158d19d772181356d85eec941974d2f01e",
+    "e830c6937e2f5dd4306eace8b746e5e9e3c1984a056d0b5330a63d4fa3d39918",
+    "5e0d16b411520d3420e8bc58732d03cd6b98644777ae3cce4b7e993a857ab52b"
+  ],
+  "auto": [
+    [
+      [
+        1,
+        null
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        2
+      ]
+    ],
+    [
+      [
+        1,
+        null
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        2
+      ]
+    ],
+    [
+      [
+        1,
+        null
+      ],
+      [
+        7,
+        1
+      ],
+      [
+        5,
+        6
+      ],
+      [
+        6,
+        5
+      ]
+    ],
+    [
+      [
+        1,
+        null
+      ],
+      [
+        4,
+        99
+      ],
+      [
+        2,
+        4
+      ]
+    ],
+    [
+      [
+        1,
+        null
+      ],
+      [
+        2,
+        "1"
+      ],
+      [
+        3,
+        2
+      ]
+    ],
+    [
+      [
+        1,
+        null
+      ],
+      [
+        2,
+        1.0
+      ]
+    ],
+    []
+  ],
+  "parse": [
+    {
+      "ok": {
+        "backend": "sqlite",
+        "path": "/tmp/app.db",
+        "description": "sqlite:/tmp/app.db"
+      }
+    },
+    {
+      "ok": {
+        "backend": "sqlite",
+        "path": "/tmp/app.db",
+        "description": "sqlite:/tmp/app.db"
+      }
+    },
+    {
+      "ok": {
+        "backend": "sqlite",
+        "path": "x",
+        "description": "sqlite:x"
+      }
+    },
+    {
+      "erreur": "ValueError",
+      "message": "chemin SQLite manquant (sqlite:/chemin/app.db)"
+    },
+    {
+      "ok": {
+        "backend": "sqlite",
+        "path": "/a b",
+        "description": "sqlite:/a b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "sqlite",
+        "path": "relatif.db",
+        "description": "sqlite:relatif.db"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5433,
+        "name": "base",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5433/base"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h.example",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h.example:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "elpis",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://elpis@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b c",
+        "user": "u",
+        "password": "p@ss",
+        "tls": "require",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b c"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "autre",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "verify",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "a b",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    },
+    {
+      "erreur": "ValueError",
+      "message": "Port out of range 0-65535"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "Port could not be cast to integer value as 'abc'"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "cible illisible : 'postgres://u@h/' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "cible illisible : 'postgres:///b' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "cible illisible : 'mysql://u@h/b' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "cible illisible : '' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+    },
+    {
+      "erreur": "ValueError",
+      "message": "cible illisible : '' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "::1",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@::1:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "elpis",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://elpis@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "caf\u00e9",
+        "user": "u\u00e9",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u\u00e9@h:5432/caf\u00e9"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "password": "",
+        "tls": "off",
+        "timeout": 60.0,
+        "schema": null,
+        "description": "postgres://u@h:5432/b"
+      }
+    }
+  ],
+  "formulaires": [
+    {
+      "statut": 400,
+      "detail": "Moteur : postgres"
+    },
+    {
+      "statut": 400,
+      "detail": "Moteur : postgres"
+    },
+    {
+      "statut": 400,
+      "detail": "H\u00f4te, base et utilisateur requis"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5433,
+        "name": "b",
+        "user": "u",
+        "tls": "require",
+        "timeout": 30.0,
+        "schema": null,
+        "password": "x"
+      }
+    },
+    {
+      "statut": 400,
+      "detail": "Port invalide"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 1,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "statut": 400,
+      "detail": "Port invalide"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5433,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "statut": 400,
+      "detail": "TLS : off, require ou verify"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "tls": "verify",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "statut": 400,
+      "detail": "H\u00f4te, base et utilisateur requis"
+    },
+    {
+      "statut": 400,
+      "detail": "H\u00f4te, base et utilisateur requis"
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "5",
+        "port": 5432,
+        "name": "1.5",
+        "user": "True",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null
+      }
+    },
+    {
+      "ok": {
+        "backend": "postgres",
+        "host": "h",
+        "port": 5432,
+        "name": "b",
+        "user": "u",
+        "tls": "off",
+        "timeout": 30.0,
+        "schema": null,
+        "password": "123"
+      }
+    },
+    {
+      "erreur": "AttributeError"
+    },
+    {
+      "erreur": "AttributeError"
+    },
+    {
+      "erreur": "AttributeError"
+    }
+  ],
+  "transfert": {
+    "dry_run": {
+      "source": "sqlite:<d>/user_db/app.db",
+      "target": "sqlite:<d>/cible.db",
+      "dry_run": true,
+      "tables": {
+        "ax_credentials": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "ax_nodes": {
+          "source": 7,
+          "dropped_columns": []
+        },
+        "ax_selectors": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "ax_transitions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "users": {
+          "source": 3,
+          "dropped_columns": [
+            "ancien"
+          ]
+        },
+        "chats": {
+          "source": 5,
+          "dropped_columns": []
+        },
+        "code_clients": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_commands": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_messages": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_meta": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_notes": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_pairings": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_parts": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_permissions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_questions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "code_sessions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "daily_usage_reports": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "editor_action_cache": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "editor_routines": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "editor_routine_runs": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "editor_webhook_deliveries": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "git_connectors": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "groups": {
+          "source": 2,
+          "dropped_columns": []
+        },
+        "llm_calls": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "llm_connectors": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "llm_engine_policies": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "mcp_shared_servers": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "metric_events": {
+          "source": 4,
+          "dropped_columns": []
+        },
+        "notifications": {
+          "source": 2,
+          "dropped_columns": []
+        },
+        "prompt_templates": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "revoked_sessions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "runs": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "sandbox_placements": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "saved_prompts": {
+          "source": 2,
+          "dropped_columns": []
+        },
+        "session_messages": {
+          "source": 3,
+          "dropped_columns": []
+        },
+        "shared_prompts": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "terminal_sessions": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "tool_call_metrics": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "tool_tokens": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "oauth_clients": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "oauth_codes": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "oauth_tokens": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "usage_events": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "user_groups": {
+          "source": 5,
+          "dropped_columns": []
+        },
+        "generated_images": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "shell_jobs": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "shell_job_events": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "rag_collections": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "rag_grants": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "rag_documents": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "rag_jobs": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "rag_hidden": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "vault_secrets": {
+          "source": 0,
+          "dropped_columns": []
+        }
+      },
+      "ignored": {
+        "vestige": 2
+      },
+      "orphans": 0,
+      "rejected": 0,
+      "ok": true,
+      "source_version": "<source_version>",
+      "target_version": "<target_version>",
+      "seconds": "<seconds>"
+    },
+    "rapport": {
+      "source": "sqlite:<d>/user_db/app.db",
+      "target": "sqlite:<d>/cible.db",
+      "dry_run": false,
+      "tables": {
+        "ax_credentials": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "ax_nodes": {
+          "source": 7,
+          "copied": 6,
+          "orphans": 1,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 6
+        },
+        "ax_selectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "ax_transitions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "users": {
+          "source": 3,
+          "copied": 3,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [
+            "ancien"
+          ],
+          "target": 3,
+          "sample_ok": true
+        },
+        "chats": {
+          "source": 5,
+          "copied": 3,
+          "orphans": 1,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "code_clients": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_commands": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_messages": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_meta": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_notes": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_pairings": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_parts": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_permissions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_questions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "daily_usage_reports": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_action_cache": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_routines": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_routine_runs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_webhook_deliveries": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "git_connectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "groups": {
+          "source": 2,
+          "copied": 2,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2,
+          "sample_ok": true
+        },
+        "llm_calls": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "llm_connectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "llm_engine_policies": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "mcp_shared_servers": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "metric_events": {
+          "source": 4,
+          "copied": 3,
+          "orphans": 0,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "notifications": {
+          "source": 2,
+          "copied": 2,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2,
+          "sample_ok": true
+        },
+        "prompt_templates": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "revoked_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "runs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "sandbox_placements": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "saved_prompts": {
+          "source": 2,
+          "copied": 1,
+          "orphans": 0,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 1
+        },
+        "session_messages": {
+          "source": 3,
+          "copied": 2,
+          "orphans": 1,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2
+        },
+        "shared_prompts": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "terminal_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "tool_call_metrics": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "tool_tokens": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_clients": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_codes": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_tokens": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "usage_events": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "user_groups": {
+          "source": 5,
+          "copied": 3,
+          "orphans": 2,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "generated_images": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "shell_jobs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "shell_job_events": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_collections": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_grants": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_documents": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_jobs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_hidden": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "vault_secrets": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        }
+      },
+      "ignored": {
+        "vestige": 2
+      },
+      "orphans": 5,
+      "rejected": 3,
+      "ok": true,
+      "source_version": "<source_version>",
+      "target_version": "<target_version>",
+      "mismatches": [],
+      "seconds": "<seconds>"
+    },
+    "avancement": [
+      [
+        "ax_nodes",
+        6,
+        7
+      ],
+      [
+        "users",
+        3,
+        3
+      ],
+      [
+        "chats",
+        3,
+        5
+      ],
+      [
+        "groups",
+        2,
+        2
+      ],
+      [
+        "metric_events",
+        3,
+        4
+      ],
+      [
+        "notifications",
+        2,
+        2
+      ],
+      [
+        "saved_prompts",
+        1,
+        2
+      ],
+      [
+        "session_messages",
+        2,
+        3
+      ],
+      [
+        "user_groups",
+        3,
+        5
+      ]
+    ],
+    "cible": {
+      "ax_nodes": {
+        "colonnes": [
+          "id",
+          "site",
+          "path",
+          "parent_id",
+          "node_type",
+          "region_tag",
+          "role",
+          "name",
+          "node_key",
+          "verified_count",
+          "last_ok",
+          "stale",
+          "stale_at"
+        ],
+        "lignes": [
+          [
+            1,
+            "s",
+            "/",
+            null,
+            "n",
+            null,
+            "r",
+            "a",
+            "k1",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            2,
+            "s",
+            "/",
+            3,
+            "n",
+            null,
+            "r",
+            "b",
+            "k2",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            3,
+            "s",
+            "/",
+            1,
+            "n",
+            null,
+            "r",
+            "c",
+            "k3",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            5,
+            "s",
+            "/",
+            6,
+            "n",
+            null,
+            "r",
+            "x",
+            "k5",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            6,
+            "s",
+            "/",
+            5,
+            "n",
+            null,
+            "r",
+            "y",
+            "k6",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            7,
+            "s",
+            "/",
+            4,
+            "n",
+            null,
+            "r",
+            "z",
+            "k7",
+            0,
+            null,
+            0,
+            null
+          ]
+        ]
+      },
+      "users": {
+        "colonnes": [
+          "id",
+          "username",
+          "pass_salt",
+          "pass_hash",
+          "created_at",
+          "is_admin",
+          "avatar",
+          "settings_json",
+          "must_change_pwd",
+          "session_min_ts"
+        ],
+        "lignes": [
+          [
+            1,
+            "admin",
+            "s",
+            "h",
+            "1.5",
+            1,
+            null,
+            "{\"theme\":\"clair\"}",
+            0,
+            "0.0"
+          ],
+          [
+            2,
+            "alice",
+            "s",
+            "h",
+            "2.0",
+            0,
+            null,
+            "{}",
+            0,
+            "0.0"
+          ],
+          [
+            3,
+            "\u00c9mile",
+            "s",
+            "h",
+            "3.25",
+            0,
+            null,
+            "{\"agents\":[{\"nom\":\"No\u00e9\"}]}",
+            0,
+            "0.0"
+          ]
+        ]
+      },
+      "chats": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "title",
+          "messages_json",
+          "updated_at",
+          "archived",
+          "archived_at",
+          "meta_json"
+        ],
+        "lignes": [
+          [
+            "C0",
+            1,
+            "casse",
+            "[]",
+            "1e+20",
+            70,
+            null,
+            "{}"
+          ],
+          [
+            "c1",
+            1,
+            "Bonjour",
+            "[]",
+            "10.0",
+            0,
+            null,
+            "{}"
+          ],
+          [
+            "c4",
+            3,
+            "\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00",
+            "[{\"role\":\"user\"}]",
+            "0.1",
+            7,
+            null,
+            "{}"
+          ]
+        ]
+      },
+      "groups": {
+        "colonnes": [
+          "id",
+          "name",
+          "description",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            1,
+            "\u00e9quipe",
+            "",
+            "1.0"
+          ],
+          [
+            5,
+            "b",
+            null,
+            "2.0"
+          ]
+        ]
+      },
+      "metric_events": {
+        "colonnes": [
+          "id",
+          "event_type",
+          "value",
+          "tags_json",
+          "created_at",
+          "user_id"
+        ],
+        "lignes": [
+          [
+            1,
+            "x",
+            "0.1",
+            "{}",
+            "5.0",
+            1
+          ],
+          [
+            2,
+            "y",
+            "1e+20",
+            null,
+            "6.0",
+            null
+          ],
+          [
+            3,
+            "z",
+            "7.0",
+            null,
+            "7.5",
+            2
+          ]
+        ]
+      },
+      "notifications": {
+        "colonnes": [
+          "id",
+          "owner_user_id",
+          "kind",
+          "title",
+          "body",
+          "ref_type",
+          "ref_id",
+          "read_at",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            10,
+            1,
+            "k",
+            "t",
+            "",
+            "",
+            null,
+            null,
+            "1.0"
+          ],
+          [
+            20,
+            2,
+            "k",
+            "u",
+            "",
+            "",
+            null,
+            null,
+            "2.0"
+          ]
+        ]
+      },
+      "saved_prompts": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "title",
+          "content",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            2,
+            1,
+            "u",
+            "y",
+            "4.5"
+          ]
+        ]
+      },
+      "session_messages": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "app",
+          "session_id",
+          "scope_key",
+          "role",
+          "content",
+          "ts"
+        ],
+        "lignes": [
+          [
+            1,
+            1,
+            "chat",
+            "s1",
+            "",
+            "user",
+            "Un caf\u00e9 noir",
+            "100.0"
+          ],
+          [
+            2,
+            2,
+            "chat",
+            "s2",
+            "",
+            "assistant",
+            "Cr\u00e8me br\u00fbl\u00e9e",
+            "101.5"
+          ]
+        ]
+      },
+      "user_groups": {
+        "colonnes": [
+          "user_id",
+          "group_id"
+        ],
+        "lignes": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            5
+          ]
+        ]
+      },
+      "_tables": [
+        "ax_credentials",
+        "ax_nodes",
+        "ax_selectors",
+        "ax_transitions",
+        "chats",
+        "code_clients",
+        "code_commands",
+        "code_messages",
+        "code_meta",
+        "code_notes",
+        "code_pairings",
+        "code_parts",
+        "code_permissions",
+        "code_questions",
+        "code_sessions",
+        "daily_usage_reports",
+        "editor_action_cache",
+        "editor_routine_runs",
+        "editor_routines",
+        "editor_webhook_deliveries",
+        "generated_images",
+        "git_connectors",
+        "groups",
+        "llm_calls",
+        "llm_connectors",
+        "llm_engine_policies",
+        "mcp_shared_servers",
+        "metric_events",
+        "notifications",
+        "oauth_clients",
+        "oauth_codes",
+        "oauth_tokens",
+        "prompt_templates",
+        "rag_collections",
+        "rag_documents",
+        "rag_grants",
+        "rag_hidden",
+        "rag_jobs",
+        "revoked_sessions",
+        "runs",
+        "sandbox_placements",
+        "saved_prompts",
+        "schema_migrations",
+        "session_messages",
+        "session_messages_fts",
+        "session_messages_fts_config",
+        "session_messages_fts_data",
+        "session_messages_fts_docsize",
+        "session_messages_fts_idx",
+        "shared_prompts",
+        "shell_job_events",
+        "shell_jobs",
+        "terminal_sessions",
+        "tool_call_metrics",
+        "tool_tokens",
+        "usage_events",
+        "user_groups",
+        "users",
+        "vault_secrets"
+      ],
+      "_migrations": [
+        "0001_rename_toolbox_to_mcp",
+        "0002_remove_dead_blocks",
+        "0003_drop_agentic_tables",
+        "0004_drop_agents_routines_tables",
+        "0005_notifications_table",
+        "0006_git_connectors",
+        "0007_llm_connectors",
+        "0008_chat_meta",
+        "0009_revoked_sessions",
+        "0010_mcp_shared_servers",
+        "0011_usage_events",
+        "0012_drop_unused_metric_index",
+        "0013_encrypt_personal_mcp_auth",
+        "0014_usage_thinking_tokens",
+        "0015_mcp_headers_env",
+        "0016_sandbox_placements",
+        "0017_drop_scenarios",
+        "0018_llm_engine_policies",
+        "0019_llm_connector_engine_limits",
+        "0020_prompt_templates",
+        "0021_runs",
+        "0022_tool_tokens",
+        "0023_oauth",
+        "0024_generated_images",
+        "0025_usage_entree_inclusive",
+        "0026_usage_tool_tokens"
+      ],
+      "_fts": [
+        "Un caf\u00e9 noir"
+      ],
+      "_journal": "delete"
+    },
+    "non_vide": {
+      "erreur": "TransferError",
+      "message": "cible non vide (59 tables) : le transfert exige une base vierge"
+    },
+    "identiques": {
+      "erreur": "TransferError",
+      "message": "source et cible identiques"
+    },
+    "partielle_check": {
+      "ok": true,
+      "target": "sqlite:<d>/cible.db",
+      "tables": 60,
+      "empty": true,
+      "partial": true
+    },
+    "reprise": {
+      "source": "sqlite:<d>/user_db/app.db",
+      "target": "sqlite:<d>/cible.db",
+      "dry_run": false,
+      "tables": {
+        "ax_credentials": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "ax_nodes": {
+          "source": 7,
+          "copied": 6,
+          "orphans": 1,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 6
+        },
+        "ax_selectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "ax_transitions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "users": {
+          "source": 3,
+          "copied": 3,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [
+            "ancien"
+          ],
+          "target": 3,
+          "sample_ok": true
+        },
+        "chats": {
+          "source": 5,
+          "copied": 3,
+          "orphans": 1,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "code_clients": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_commands": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_messages": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_meta": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_notes": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_pairings": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_parts": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_permissions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_questions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "code_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "daily_usage_reports": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_action_cache": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_routines": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_routine_runs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "editor_webhook_deliveries": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "git_connectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "groups": {
+          "source": 2,
+          "copied": 2,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2,
+          "sample_ok": true
+        },
+        "llm_calls": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "llm_connectors": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "llm_engine_policies": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "mcp_shared_servers": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "metric_events": {
+          "source": 4,
+          "copied": 3,
+          "orphans": 0,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "notifications": {
+          "source": 2,
+          "copied": 2,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2,
+          "sample_ok": true
+        },
+        "prompt_templates": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "revoked_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "runs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "sandbox_placements": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "saved_prompts": {
+          "source": 2,
+          "copied": 1,
+          "orphans": 0,
+          "rejected": 1,
+          "dropped_columns": [],
+          "target": 1
+        },
+        "session_messages": {
+          "source": 3,
+          "copied": 2,
+          "orphans": 1,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 2
+        },
+        "shared_prompts": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "terminal_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "tool_call_metrics": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "tool_tokens": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_clients": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_codes": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "oauth_tokens": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "usage_events": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "user_groups": {
+          "source": 5,
+          "copied": 3,
+          "orphans": 2,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 3
+        },
+        "generated_images": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "shell_jobs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "shell_job_events": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_collections": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_grants": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_documents": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_jobs": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "rag_hidden": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "vault_secrets": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        }
+      },
+      "ignored": {
+        "vestige": 2
+      },
+      "orphans": 5,
+      "rejected": 3,
+      "ok": true,
+      "source_version": "<source_version>",
+      "target_version": "<target_version>",
+      "mismatches": [],
+      "seconds": "<seconds>"
+    },
+    "reprise_cible": {
+      "ax_nodes": {
+        "colonnes": [
+          "id",
+          "site",
+          "path",
+          "parent_id",
+          "node_type",
+          "region_tag",
+          "role",
+          "name",
+          "node_key",
+          "verified_count",
+          "last_ok",
+          "stale",
+          "stale_at"
+        ],
+        "lignes": [
+          [
+            1,
+            "s",
+            "/",
+            null,
+            "n",
+            null,
+            "r",
+            "a",
+            "k1",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            2,
+            "s",
+            "/",
+            3,
+            "n",
+            null,
+            "r",
+            "b",
+            "k2",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            3,
+            "s",
+            "/",
+            1,
+            "n",
+            null,
+            "r",
+            "c",
+            "k3",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            5,
+            "s",
+            "/",
+            6,
+            "n",
+            null,
+            "r",
+            "x",
+            "k5",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            6,
+            "s",
+            "/",
+            5,
+            "n",
+            null,
+            "r",
+            "y",
+            "k6",
+            0,
+            null,
+            0,
+            null
+          ],
+          [
+            7,
+            "s",
+            "/",
+            4,
+            "n",
+            null,
+            "r",
+            "z",
+            "k7",
+            0,
+            null,
+            0,
+            null
+          ]
+        ]
+      },
+      "users": {
+        "colonnes": [
+          "id",
+          "username",
+          "pass_salt",
+          "pass_hash",
+          "created_at",
+          "is_admin",
+          "avatar",
+          "settings_json",
+          "must_change_pwd",
+          "session_min_ts"
+        ],
+        "lignes": [
+          [
+            1,
+            "admin",
+            "s",
+            "h",
+            "1.5",
+            1,
+            null,
+            "{\"theme\":\"clair\"}",
+            0,
+            "0.0"
+          ],
+          [
+            2,
+            "alice",
+            "s",
+            "h",
+            "2.0",
+            0,
+            null,
+            "{}",
+            0,
+            "0.0"
+          ],
+          [
+            3,
+            "\u00c9mile",
+            "s",
+            "h",
+            "3.25",
+            0,
+            null,
+            "{\"agents\":[{\"nom\":\"No\u00e9\"}]}",
+            0,
+            "0.0"
+          ]
+        ]
+      },
+      "chats": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "title",
+          "messages_json",
+          "updated_at",
+          "archived",
+          "archived_at",
+          "meta_json"
+        ],
+        "lignes": [
+          [
+            "C0",
+            1,
+            "casse",
+            "[]",
+            "1e+20",
+            70,
+            null,
+            "{}"
+          ],
+          [
+            "c1",
+            1,
+            "Bonjour",
+            "[]",
+            "10.0",
+            0,
+            null,
+            "{}"
+          ],
+          [
+            "c4",
+            3,
+            "\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00",
+            "[{\"role\":\"user\"}]",
+            "0.1",
+            7,
+            null,
+            "{}"
+          ]
+        ]
+      },
+      "groups": {
+        "colonnes": [
+          "id",
+          "name",
+          "description",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            1,
+            "\u00e9quipe",
+            "",
+            "1.0"
+          ],
+          [
+            5,
+            "b",
+            null,
+            "2.0"
+          ]
+        ]
+      },
+      "metric_events": {
+        "colonnes": [
+          "id",
+          "event_type",
+          "value",
+          "tags_json",
+          "created_at",
+          "user_id"
+        ],
+        "lignes": [
+          [
+            1,
+            "x",
+            "0.1",
+            "{}",
+            "5.0",
+            1
+          ],
+          [
+            2,
+            "y",
+            "1e+20",
+            null,
+            "6.0",
+            null
+          ],
+          [
+            3,
+            "z",
+            "7.0",
+            null,
+            "7.5",
+            2
+          ]
+        ]
+      },
+      "notifications": {
+        "colonnes": [
+          "id",
+          "owner_user_id",
+          "kind",
+          "title",
+          "body",
+          "ref_type",
+          "ref_id",
+          "read_at",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            10,
+            1,
+            "k",
+            "t",
+            "",
+            "",
+            null,
+            null,
+            "1.0"
+          ],
+          [
+            20,
+            2,
+            "k",
+            "u",
+            "",
+            "",
+            null,
+            null,
+            "2.0"
+          ]
+        ]
+      },
+      "saved_prompts": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "title",
+          "content",
+          "created_at"
+        ],
+        "lignes": [
+          [
+            2,
+            1,
+            "u",
+            "y",
+            "4.5"
+          ]
+        ]
+      },
+      "session_messages": {
+        "colonnes": [
+          "id",
+          "user_id",
+          "app",
+          "session_id",
+          "scope_key",
+          "role",
+          "content",
+          "ts"
+        ],
+        "lignes": [
+          [
+            1,
+            1,
+            "chat",
+            "s1",
+            "",
+            "user",
+            "Un caf\u00e9 noir",
+            "100.0"
+          ],
+          [
+            2,
+            2,
+            "chat",
+            "s2",
+            "",
+            "assistant",
+            "Cr\u00e8me br\u00fbl\u00e9e",
+            "101.5"
+          ]
+        ]
+      },
+      "user_groups": {
+        "colonnes": [
+          "user_id",
+          "group_id"
+        ],
+        "lignes": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            5
+          ]
+        ]
+      },
+      "_tables": [
+        "ax_credentials",
+        "ax_nodes",
+        "ax_selectors",
+        "ax_transitions",
+        "chats",
+        "code_clients",
+        "code_commands",
+        "code_messages",
+        "code_meta",
+        "code_notes",
+        "code_pairings",
+        "code_parts",
+        "code_permissions",
+        "code_questions",
+        "code_sessions",
+        "daily_usage_reports",
+        "editor_action_cache",
+        "editor_routine_runs",
+        "editor_routines",
+        "editor_webhook_deliveries",
+        "generated_images",
+        "git_connectors",
+        "groups",
+        "llm_calls",
+        "llm_connectors",
+        "llm_engine_policies",
+        "mcp_shared_servers",
+        "metric_events",
+        "notifications",
+        "oauth_clients",
+        "oauth_codes",
+        "oauth_tokens",
+        "prompt_templates",
+        "rag_collections",
+        "rag_documents",
+        "rag_grants",
+        "rag_hidden",
+        "rag_jobs",
+        "revoked_sessions",
+        "runs",
+        "sandbox_placements",
+        "saved_prompts",
+        "schema_migrations",
+        "session_messages",
+        "session_messages_fts",
+        "session_messages_fts_config",
+        "session_messages_fts_data",
+        "session_messages_fts_docsize",
+        "session_messages_fts_idx",
+        "shared_prompts",
+        "shell_job_events",
+        "shell_jobs",
+        "terminal_sessions",
+        "tool_call_metrics",
+        "tool_tokens",
+        "usage_events",
+        "user_groups",
+        "users",
+        "vault_secrets"
+      ],
+      "_migrations": [
+        "0001_rename_toolbox_to_mcp",
+        "0002_remove_dead_blocks",
+        "0003_drop_agentic_tables",
+        "0004_drop_agents_routines_tables",
+        "0005_notifications_table",
+        "0006_git_connectors",
+        "0007_llm_connectors",
+        "0008_chat_meta",
+        "0009_revoked_sessions",
+        "0010_mcp_shared_servers",
+        "0011_usage_events",
+        "0012_drop_unused_metric_index",
+        "0013_encrypt_personal_mcp_auth",
+        "0014_usage_thinking_tokens",
+        "0015_mcp_headers_env",
+        "0016_sandbox_placements",
+        "0017_drop_scenarios",
+        "0018_llm_engine_policies",
+        "0019_llm_connector_engine_limits",
+        "0020_prompt_templates",
+        "0021_runs",
+        "0022_tool_tokens",
+        "0023_oauth",
+        "0024_generated_images",
+        "0025_usage_entree_inclusive",
+        "0026_usage_tool_tokens"
+      ],
+      "_fts": [
+        "Un caf\u00e9 noir"
+      ],
+      "_journal": "delete"
+    },
+    "source_pas_a_jour": {
+      "erreur": "TransferError",
+      "message": "source pas \u00e0 jour (migrations non appliqu\u00e9es : 0001_rename_toolbox_to_mcp, 0002_remove_dead_blocks, 0003_drop_agentic_tables, 0004_drop_agents_routines_tables, 0005_notifications_table) \u2014 d\u00e9marrer l'application une fois"
+    }
+  },
+  "bascule": [
+    {
+      "r": {
+        "ok": {
+          "backend": "sqlite",
+          "host": "127.0.0.1",
+          "port": null,
+          "name": "elpis",
+          "user": "elpis",
+          "tls": "off",
+          "pending": false,
+          "password_present": false
+        }
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": 0
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "secret"
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "postgres",
+          "host": "h",
+          "port": 5432,
+          "name": "b",
+          "user": "u",
+          "tls": "off",
+          "pending": true,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "secret"
+      }
+    },
+    {
+      "r": {
+        "ok": "secret"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "secret"
+      }
+    },
+    {
+      "r": {
+        "ok": 0
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5433,\n      \"user\": \"u\",\n      \"tls\": \"require\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "secret"
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "postgres",
+          "host": "h2",
+          "port": 5433,
+          "name": "elpis",
+          "user": "u",
+          "tls": "require",
+          "pending": true,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5433,\n      \"user\": \"u\",\n      \"tls\": \"require\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "secret"
+      }
+    },
+    {
+      "r": {
+        "ok": 1
+      },
+      "config": "{\n  \"database\": {\n    \"host\": \"h3\",\n    \"port\": 5432,\n    \"name\": \"b\",\n    \"user\": \"u\",\n    \"tls\": \"off\",\n    \"backend\": \"postgres\",\n    \"generation\": 1\n  }\n}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "postgres",
+          "host": "h3",
+          "port": 5432,
+          "name": "b",
+          "user": "u",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"host\": \"h3\",\n    \"port\": 5432,\n    \"name\": \"b\",\n    \"user\": \"u\",\n    \"tls\": \"off\",\n    \"backend\": \"postgres\",\n    \"generation\": 1\n  }\n}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": ""
+      },
+      "config": "{\n  \"database\": {\n    \"host\": \"h3\",\n    \"port\": 5432,\n    \"name\": \"b\",\n    \"user\": \"u\",\n    \"tls\": \"off\",\n    \"backend\": \"postgres\",\n    \"generation\": 1\n  }\n}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": 2
+      },
+      "config": "{\n  \"database\": {\n    \"host\": \"h3\",\n    \"port\": 5432,\n    \"name\": \"b\",\n    \"user\": \"u\",\n    \"tls\": \"off\",\n    \"backend\": \"sqlite\",\n    \"generation\": 2\n  }\n}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "sqlite",
+          "host": "h3",
+          "port": 5432,
+          "name": "b",
+          "user": "u",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"host\": \"h3\",\n    \"port\": 5432,\n    \"name\": \"b\",\n    \"user\": \"u\",\n    \"tls\": \"off\",\n    \"backend\": \"sqlite\",\n    \"generation\": 2\n  }\n}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": null,
+      "config": "{\"database\": {\"backend\": \"postgres\", \"pending\": {\"backend\": \"mysql\", \"host\": \"m\"}, \"generation\": \"3\"}}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "postgres",
+          "host": "127.0.0.1",
+          "port": null,
+          "name": "elpis",
+          "user": "elpis",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\"database\": {\"backend\": \"postgres\", \"pending\": {\"backend\": \"mysql\", \"host\": \"m\"}, \"generation\": \"3\"}}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": ""
+      },
+      "config": "{\"database\": {\"backend\": \"postgres\", \"pending\": {\"backend\": \"mysql\", \"host\": \"m\"}, \"generation\": \"3\"}}",
+      "mots": {
+        ".db_password": "secret",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": 4
+      },
+      "config": "{\n  \"database\": {\n    \"backend\": \"postgres\",\n    \"generation\": 4,\n    \"host\": \"h4\",\n    \"port\": 1,\n    \"name\": \"n\",\n    \"user\": \"u\"\n  }\n}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "postgres",
+          "host": "h4",
+          "port": 1,
+          "name": "n",
+          "user": "u",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"backend\": \"postgres\",\n    \"generation\": 4,\n    \"host\": \"h4\",\n    \"port\": 1,\n    \"name\": \"n\",\n    \"user\": \"u\"\n  }\n}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": null,
+      "config": "{\"database\": {\"generation\": \"x\", \"port\": \"5434\"}}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "sqlite",
+          "host": "127.0.0.1",
+          "port": 5434,
+          "name": "elpis",
+          "user": "elpis",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\"database\": {\"generation\": \"x\", \"port\": \"5434\"}}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "erreur": "ValueError",
+        "message": "invalid literal for int() with base 10: 'x'"
+      },
+      "config": "{\"database\": {\"generation\": \"x\", \"port\": \"5434\"}}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": null,
+      "config": "{\"autre\": 1.0, \"database\": []}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "ok": {
+          "backend": "sqlite",
+          "host": "127.0.0.1",
+          "port": null,
+          "name": "elpis",
+          "user": "elpis",
+          "tls": "off",
+          "pending": false,
+          "password_present": true
+        }
+      },
+      "config": "{\"autre\": 1.0, \"database\": []}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": null,
+      "config": "{\"database\": {\"port\": \"abc\"}}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    },
+    {
+      "r": {
+        "erreur": "ValueError",
+        "message": "invalid literal for int() with base 10: 'abc'"
+      },
+      "config": "{\"database\": {\"port\": \"abc\"}}",
+      "mots": {
+        ".db_password": "p2",
+        ".db_password.pending": null
+      }
+    }
+  ],
+  "routes": [
+    {
+      "statut": 401,
+      "corps": {
+        "detail": "not logged in"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 403,
+      "corps": {
+        "detail": "Admin required"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 403,
+      "corps": {
+        "detail": "Admin required"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "active": {
+          "backend": "sqlite",
+          "location": "sqlite:<d>/user_db/app.db",
+          "generation": 0,
+          "version": "<version>",
+          "size_bytes": "<taille>",
+          "migrations": 26,
+          "last_migration": "0026_usage_tool_tokens",
+          "pending_migrations": [],
+          "pool": null
+        },
+        "saved": {
+          "backend": "sqlite",
+          "host": "127.0.0.1",
+          "port": null,
+          "name": "elpis",
+          "user": "elpis",
+          "tls": "off",
+          "pending": false,
+          "password_present": false
+        },
+        "env": [],
+        "job": {
+          "state": "idle"
+        }
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "state": "idle"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 400,
+      "corps": {
+        "detail": "Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 400,
+      "corps": {
+        "detail": "Moteur : postgres"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "ok": false,
+        "error": "<erreur>"
+      },
+      "config": "{}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "ok": true,
+        "saved": {
+          "backend": "postgres",
+          "host": "h",
+          "port": 6543,
+          "name": "b",
+          "user": "u",
+          "tls": "verify",
+          "pending": true,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h\",\n      \"port\": 6543,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"verify\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "active": {
+          "backend": "sqlite",
+          "location": "sqlite:<d>/user_db/app.db",
+          "generation": 0,
+          "version": "<version>",
+          "size_bytes": "<taille>",
+          "migrations": 26,
+          "last_migration": "0026_usage_tool_tokens",
+          "pending_migrations": [],
+          "pool": null
+        },
+        "saved": {
+          "backend": "postgres",
+          "host": "h",
+          "port": 6543,
+          "name": "b",
+          "user": "u",
+          "tls": "verify",
+          "pending": true,
+          "password_present": true
+        },
+        "env": [
+          "APP_DB_HOST",
+          "APP_DB_PASSWORD"
+        ],
+        "job": {
+          "state": "idle"
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h\",\n      \"port\": 6543,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"verify\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "ok": true,
+        "saved": {
+          "backend": "postgres",
+          "host": "h2",
+          "port": 5432,
+          "name": "b",
+          "user": "u",
+          "tls": "off",
+          "pending": true,
+          "password_present": true
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "ok": false,
+        "error": "<erreur>"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": {
+        "detail": "H\u00f4te, base et utilisateur requis"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 409,
+      "corps": {
+        "detail": "Moteur impos\u00e9 par APP_DB_BACKEND : retirer la variable d'abord"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": {
+        "detail": "Moteur : postgres"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 409,
+      "corps": {
+        "detail": "D\u00e9j\u00e0 sur SQLite"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "ok": true
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "drapeau": false
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "state": "error",
+        "kind": "migrate",
+        "step": "transfert",
+        "progress": null,
+        "report": null,
+        "error": "<erreur>",
+        "started_at": "<started_at>",
+        "pid": "<pid>",
+        "updated_at": "<updated_at>",
+        "finished_at": "<finished_at>"
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "active": {
+          "backend": "sqlite",
+          "location": "sqlite:<d>/user_db/app.db",
+          "generation": 0,
+          "version": "<version>",
+          "size_bytes": "<taille>",
+          "migrations": 26,
+          "last_migration": "0026_usage_tool_tokens",
+          "pending_migrations": [],
+          "pool": null
+        },
+        "saved": {
+          "backend": "postgres",
+          "host": "h2",
+          "port": 5432,
+          "name": "b",
+          "user": "u",
+          "tls": "off",
+          "pending": true,
+          "password_present": true
+        },
+        "env": [],
+        "job": {
+          "state": "error",
+          "kind": "migrate",
+          "step": "transfert",
+          "progress": null,
+          "report": null,
+          "error": "<erreur>",
+          "started_at": "<started_at>",
+          "pid": "<pid>",
+          "updated_at": "<updated_at>",
+          "finished_at": "<finished_at>"
+        }
+      },
+      "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
+      "mots": {
+        ".db_password": null,
+        ".db_password.pending": "pw"
+      }
+    }
+  ],
+  "rechargements": 0,
+  "ids": {
+    "admin": 4,
+    "alice": 5,
+    "modo": 6
+  }
+}

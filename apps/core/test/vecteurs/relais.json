@@ -1,0 +1,5982 @@
+{
+  "prefixes": [
+    "/api/sandbox/",
+    "/api/terminal/",
+    "/ws/terminal",
+    "/api/playwright/screenshot/",
+    "/api/desktop/frame/"
+  ],
+  "prefixes_apercu": [
+    "/api/sandbox/pv/",
+    "/api/sandbox/pvs/"
+  ],
+  "servis_par_main": [
+    "/api/sandbox/preview-token"
+  ],
+  "session_recheck_s": 60.0,
+  "enregistres_par_main": [
+    "/api/sandbox/me"
+  ],
+  "hop_by_hop": [
+    "connection",
+    "content-length",
+    "host",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade"
+  ],
+  "entetes_retenus": [
+    "accept",
+    "content-type",
+    "content-length",
+    "range",
+    "if-none-match",
+    "if-modified-since",
+    "last-event-id",
+    "x-requested-with",
+    "cache-control"
+  ],
+  "chemins": [
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "path=/work",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": "path=/work"
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "a=%2e%2e&b=../c",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": "a=..&b=../c"
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "x=%2F",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": "x=/"
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "q='\"",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": "q='\""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree",
+      "requete": "vide=&=v&&",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": "vide=&=v&&"
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/",
+      "requete": "",
+      "decode": "/api/sandbox/",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox",
+      "requete": "",
+      "decode": "/api/sandbox",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandboxx/tree",
+      "requete": "",
+      "decode": "/api/sandboxx/tree",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox//tree",
+      "requete": "",
+      "decode": "/api/sandbox//tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox//tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox//tree",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/terminal/sessions",
+      "requete": "",
+      "decode": "/api/terminal/sessions",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/terminal/sessions",
+      "url": {
+        "valeur": {
+          "chemin": "/api/terminal/sessions",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/terminal",
+      "requete": "",
+      "decode": "/api/terminal",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/ws/terminal",
+      "requete": "",
+      "decode": "/ws/terminal",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "path=/work",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": "path=/work"
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "a=%2e%2e&b=../c",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": "a=..&b=../c"
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "x=%2F",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": "x=/"
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "q='\"",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": "q='\""
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminal/abc",
+      "requete": "vide=&=v&&",
+      "decode": "/ws/terminal/abc",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminal/abc",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminal/abc",
+          "requete": "vide=&=v&&"
+        }
+      }
+    },
+    {
+      "brut": "/ws/terminalfoo",
+      "requete": "",
+      "decode": "/ws/terminalfoo",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/ws/terminalfoo",
+      "url": {
+        "valeur": {
+          "chemin": "/ws/terminalfoo",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/playwright/screenshot/capture.png",
+      "requete": "",
+      "decode": "/api/playwright/screenshot/capture.png",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/playwright/screenshot/capture.png",
+      "url": {
+        "valeur": {
+          "chemin": "/api/playwright/screenshot/capture.png",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/desktop/frame/trame.jpg",
+      "requete": "",
+      "decode": "/api/desktop/frame/trame.jpg",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/desktop/frame/trame.jpg",
+      "url": {
+        "valeur": {
+          "chemin": "/api/desktop/frame/trame.jpg",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/memory/ax/x",
+      "requete": "",
+      "decode": "/api/memory/ax/x",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/pv/7-1-abc/index.html",
+      "requete": "",
+      "decode": "/api/sandbox/pv/7-1-abc/index.html",
+      "relaye": true,
+      "apercu": true,
+      "upstream_path": "/api/sandbox/pv/7-1-abc/index.html",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/pv/7-1-abc/index.html",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/pvs/7-1-abc/3000/",
+      "requete": "",
+      "decode": "/api/sandbox/pvs/7-1-abc/3000/",
+      "relaye": true,
+      "apercu": true,
+      "upstream_path": "/api/sandbox/pvs/7-1-abc/3000/",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/pvs/7-1-abc/3000/",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/pvx/a",
+      "requete": "",
+      "decode": "/api/sandbox/pvx/a",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/pvx/a",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/pvx/a",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/serve/a%20b/c.txt",
+      "requete": "",
+      "decode": "/api/sandbox/serve/a b/c.txt",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/serve/a%20b/c.txt",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/serve/a b/c.txt",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandb%6Fx/tree",
+      "requete": "",
+      "decode": "/api/sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandb%6Fx/tree",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/tree",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%C3%A9t%C3%A9",
+      "requete": "",
+      "decode": "/api/sandbox/\u00e9t\u00e9",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%C3%A9t%C3%A9",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/\u00e9t\u00e9",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%C3",
+      "requete": "",
+      "decode": "/api/sandbox/\ufffd",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%C3",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/\ufffd",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%FF%FE",
+      "requete": "",
+      "decode": "/api/sandbox/\ufffd\ufffd",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%FF%FE",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/\ufffd\ufffd",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%EF%BB%BFbom",
+      "requete": "",
+      "decode": "/api/sandbox/\ufeffbom",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%EF%BB%BFbom",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/\ufeffbom",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%",
+      "requete": "",
+      "decode": "/api/sandbox/%",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%z",
+      "requete": "",
+      "decode": "/api/sandbox/%z",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%z",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%z",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%zz",
+      "requete": "",
+      "decode": "/api/sandbox/%zz",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%zz",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%zz",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2",
+      "requete": "",
+      "decode": "/api/sandbox/%2",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%2",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%2",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/a%00b",
+      "requete": "",
+      "decode": "/api/sandbox/a\u0000b",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/a%00b",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/a\u0000b",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%3F?x",
+      "requete": "",
+      "decode": "/api/sandbox/??x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%3F",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/?",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%23frag",
+      "requete": "",
+      "decode": "/api/sandbox/#frag",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%23frag",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/#frag",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/a;b=c",
+      "requete": "",
+      "decode": "/api/sandbox/a;b=c",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/a;b=c",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/a;b=c",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/..;/mcp",
+      "requete": "",
+      "decode": "/api/sandbox/..;/mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/..;/mcp",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/..;/mcp",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/;..",
+      "requete": "",
+      "decode": "/api/sandbox/;..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/;..",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/;..",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%3b..",
+      "requete": "",
+      "decode": "/api/sandbox/;..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%3b..",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/;..",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/..%3b/x",
+      "requete": "",
+      "decode": "/api/sandbox/..;/x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/..%3b/x",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/..;/x",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/../mcp",
+      "requete": "",
+      "decode": "/api/sandbox/../mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/./tree",
+      "requete": "",
+      "decode": "/api/sandbox/./tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree/.",
+      "requete": "",
+      "decode": "/api/sandbox/tree/.",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree/..",
+      "requete": "",
+      "decode": "/api/sandbox/tree/..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/..",
+      "requete": "",
+      "decode": "/api/sandbox/..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/.",
+      "requete": "",
+      "decode": "/api/sandbox/.",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/...",
+      "requete": "",
+      "decode": "/api/sandbox/...",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/...",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/...",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/.../x",
+      "requete": "",
+      "decode": "/api/sandbox/.../x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/.../x",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/.../x",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/.hidden",
+      "requete": "",
+      "decode": "/api/sandbox/.hidden",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/.hidden",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/.hidden",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/..%2F..%2Fmcp",
+      "requete": "",
+      "decode": "/api/sandbox/../../mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/..%2f..%2fmcp",
+      "requete": "",
+      "decode": "/api/sandbox/../../mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2e%2e/%2e%2e/mcp",
+      "requete": "",
+      "decode": "/api/sandbox/../../mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2E%2E/%2E%2E/mcp",
+      "requete": "",
+      "decode": "/api/sandbox/../../mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2e./x",
+      "requete": "",
+      "decode": "/api/sandbox/../x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/.%2E/x",
+      "requete": "",
+      "decode": "/api/sandbox/../x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2e/x",
+      "requete": "",
+      "decode": "/api/sandbox/./x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree/..%5C..%5Cmcp",
+      "requete": "",
+      "decode": "/api/sandbox/tree/..\\..\\mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/tree/..%5c..%5cmcp",
+      "requete": "",
+      "decode": "/api/sandbox/tree/..\\..\\mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/a\\b",
+      "requete": "",
+      "decode": "/api/sandbox/a\\b",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%252e%252e/mcp",
+      "requete": "",
+      "decode": "/api/sandbox/%2e%2e/mcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%252e%252e/mcp",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%2e%2e/mcp",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%252E%252E%252Fmcp",
+      "requete": "",
+      "decode": "/api/sandbox/%2E%2E%2Fmcp",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%252E%252E%252Fmcp",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%2E%2E%2Fmcp",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%25%32%65%25%32%65/x",
+      "requete": "",
+      "decode": "/api/sandbox/%2e%2e/x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%25%32%65%25%32%65/x",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%2e%2e/x",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2F",
+      "requete": "",
+      "decode": "/api/sandbox//",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%5C",
+      "requete": "",
+      "decode": "/api/sandbox/\\",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/terminal/%2E%2E/sandbox/tree",
+      "requete": "",
+      "decode": "/api/terminal/../sandbox/tree",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/ws/terminal/..",
+      "requete": "",
+      "decode": "/ws/terminal/..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/ws/terminal/%2e%2e",
+      "requete": "",
+      "decode": "/ws/terminal/..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/ws/terminal%2F..",
+      "requete": "",
+      "decode": "/ws/terminal/..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/desktop/frame/../../manifest",
+      "requete": "",
+      "decode": "/api/desktop/frame/../../manifest",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/pv/7-1-abc/%2e%2e/%2e%2e/%2e%2e/manifest",
+      "requete": "",
+      "decode": "/api/sandbox/pv/7-1-abc/../../../manifest",
+      "relaye": true,
+      "apercu": true,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/playwright/screenshot/..%2Fx",
+      "requete": "",
+      "decode": "/api/playwright/screenshot/../x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/a/b/c/../../..",
+      "requete": "",
+      "decode": "/api/sandbox/a/b/c/../../..",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/%2e%2e%2f",
+      "requete": "",
+      "decode": "/api/sandbox/../",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/a|b^c`d{e}<f>\"g",
+      "requete": "",
+      "decode": "/api/sandbox/a|b^c`d{e}<f>\"g",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/a|b^c`d{e}<f>\"g",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/a|b^c`d{e}<f>\"g",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/~user/x",
+      "requete": "",
+      "decode": "/api/sandbox/~user/x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/~user/x",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/~user/x",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/a@b:c",
+      "requete": "",
+      "decode": "/api/sandbox/a@b:c",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/a@b:c",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/a@b:c",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%7e",
+      "requete": "",
+      "decode": "/api/sandbox/~",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%7e",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/~",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/%u002e%u002e/x",
+      "requete": "",
+      "decode": "/api/sandbox/%u002e%u002e/x",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/%u002e%u002e/x",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/%u002e%u002e/x",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/preview-token",
+      "requete": "",
+      "decode": "/api/sandbox/preview-token",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/preview%2Dtoken",
+      "requete": "",
+      "decode": "/api/sandbox/preview-token",
+      "relaye": false,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/preview-token/",
+      "requete": "",
+      "decode": "/api/sandbox/preview-token/",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/preview-token/",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/preview-token/",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/preview-tokenx",
+      "requete": "",
+      "decode": "/api/sandbox/preview-tokenx",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/preview-tokenx",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/preview-tokenx",
+          "requete": ""
+        }
+      }
+    },
+    {
+      "brut": "/api/sandbox/x/../preview-token",
+      "requete": "",
+      "decode": "/api/sandbox/x/../preview-token",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": null,
+      "url": {
+        "valeur": null
+      }
+    },
+    {
+      "brut": "/api/sandbox/Preview-token",
+      "requete": "",
+      "decode": "/api/sandbox/Preview-token",
+      "relaye": true,
+      "apercu": false,
+      "upstream_path": "/api/sandbox/Preview-token",
+      "url": {
+        "valeur": {
+          "chemin": "/api/sandbox/Preview-token",
+          "requete": ""
+        }
+      }
+    }
+  ],
+  "cibles": [
+    {
+      "cible": "/api/sandbox/tree",
+      "valeur": {
+        "chemin": "/api/sandbox/tree",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/api/sandbox/tree?path=/work",
+      "valeur": {
+        "chemin": "/api/sandbox/tree",
+        "requete": "path=/work"
+      }
+    },
+    {
+      "cible": "/a?b#c",
+      "valeur": {
+        "chemin": "/a",
+        "requete": "b"
+      }
+    },
+    {
+      "cible": "/a#b?c",
+      "valeur": {
+        "chemin": "/a",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/a?",
+      "valeur": {
+        "chemin": "/a",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/a?#",
+      "valeur": {
+        "chemin": "/a",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/a#",
+      "valeur": {
+        "chemin": "/a",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/api/sandbox/x?y=1&z=2#f",
+      "valeur": {
+        "chemin": "/api/sandbox/x",
+        "requete": "y=1&z=2"
+      }
+    },
+    {
+      "cible": "http://evil/api/sandbox/x",
+      "valeur": {
+        "chemin": "/api/sandbox/x",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "http://evil/api/sandbox/x?q=1",
+      "valeur": {
+        "chemin": "/api/sandbox/x",
+        "requete": "q=1"
+      }
+    },
+    {
+      "cible": "https://h:8001/ws/terminal/a?b",
+      "valeur": {
+        "chemin": "/ws/terminal/a",
+        "requete": "b"
+      }
+    },
+    {
+      "cible": "http://evil",
+      "valeur": {
+        "chemin": "",
+        "requete": ""
+      }
+    },
+    {
+      "cible": "/api/sandbox/%3F?x=%3F",
+      "valeur": {
+        "chemin": "/api/sandbox/%3F",
+        "requete": "x=%3F"
+      }
+    },
+    {
+      "cible": "/?",
+      "valeur": {
+        "chemin": "/",
+        "requete": ""
+      }
+    }
+  ],
+  "unquote": [
+    {
+      "entree": "",
+      "sortie": ""
+    },
+    {
+      "entree": "abc",
+      "sortie": "abc"
+    },
+    {
+      "entree": "%41%42",
+      "sortie": "AB"
+    },
+    {
+      "entree": "%e9",
+      "sortie": "\ufffd"
+    },
+    {
+      "entree": "%C3%A9",
+      "sortie": "\u00e9"
+    },
+    {
+      "entree": "\u00e9%C3%A9\u00e9",
+      "sortie": "\u00e9\u00e9\u00e9"
+    },
+    {
+      "entree": "%E2%82",
+      "sortie": "\ufffd"
+    },
+    {
+      "entree": "%E2%82%AC",
+      "sortie": "\u20ac"
+    },
+    {
+      "entree": "%F0%9F%98%80",
+      "sortie": "\ud83d\ude00"
+    },
+    {
+      "entree": "%F0%9F%98",
+      "sortie": "\ufffd"
+    },
+    {
+      "entree": "%ED%A0%80",
+      "sortie": "\ufffd\ufffd\ufffd"
+    },
+    {
+      "entree": "%C0%AF",
+      "sortie": "\ufffd\ufffd"
+    },
+    {
+      "entree": "%F4%90%80%80",
+      "sortie": "\ufffd\ufffd\ufffd\ufffd"
+    },
+    {
+      "entree": "%80",
+      "sortie": "\ufffd"
+    },
+    {
+      "entree": "%FF",
+      "sortie": "\ufffd"
+    },
+    {
+      "entree": "%EF%BB%BF",
+      "sortie": "\ufeff"
+    },
+    {
+      "entree": "a%",
+      "sortie": "a%"
+    },
+    {
+      "entree": "%%",
+      "sortie": "%%"
+    },
+    {
+      "entree": "%%41",
+      "sortie": "%A"
+    },
+    {
+      "entree": "%4",
+      "sortie": "%4"
+    },
+    {
+      "entree": "%g1",
+      "sortie": "%g1"
+    },
+    {
+      "entree": "%2e%2E",
+      "sortie": ".."
+    },
+    {
+      "entree": "100%",
+      "sortie": "100%"
+    },
+    {
+      "entree": "%25%32%65",
+      "sortie": "%2e"
+    },
+    {
+      "entree": "x\u0000y%00",
+      "sortie": "x\u0000y\u0000"
+    },
+    {
+      "entree": "\udcff%41",
+      "sortie": "\udcffA"
+    }
+  ],
+  "apercu": {
+    "secret": "ssssssssssssssssssssssssssssssssssssssssssssssss",
+    "maintenant": 1791331200.25,
+    "jetons": [
+      {
+        "uid": 7,
+        "ttl": 3600,
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "exp": 1791334800
+      },
+      {
+        "uid": 1,
+        "ttl": 1,
+        "jeton": "1-1791331201-731cb7f9bfabedfc2f0fc545a4e3f870",
+        "exp": 1791331201
+      },
+      {
+        "uid": 0,
+        "ttl": 60,
+        "jeton": "0-1791331260-bfb8b3ca096941a8cc194edb875e52bf",
+        "exp": 1791331260
+      },
+      {
+        "uid": 123456789,
+        "ttl": 10,
+        "jeton": "123456789-1791331210-62a18c7b79da13088d615b968a8dd880",
+        "exp": 1791331210
+      },
+      {
+        "uid": 42,
+        "ttl": 0,
+        "jeton": "42-1791331200-a8e22299fe7f05464a921eb9ccc5cd90",
+        "exp": 1791331200
+      },
+      {
+        "uid": 5,
+        "ttl": -10,
+        "jeton": "5-1791331190-cde68823a707e28efbdca8c89ecb73c5",
+        "exp": 1791331190
+      },
+      {
+        "uid": 9,
+        "ttl": 1000000000,
+        "jeton": "9-2791331200-85e17a7f952159a57edbc965feea38a3",
+        "exp": 2791331200
+      }
+    ],
+    "controles": [
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": 7
+      },
+      {
+        "jeton": "7-1791334800-878261B8E79F9864D08670F632E5A274",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "+7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": 7
+      },
+      {
+        "jeton": " 7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": 7
+      },
+      {
+        "jeton": "07-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": 7
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a2740",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274-x",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "\u0667-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": 7
+      },
+      {
+        "jeton": "7_0-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27\u00e9",
+        "maintenant": 1791331200.25,
+        "erreur": "TypeError"
+      },
+      {
+        "jeton": "",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "a-b-c",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7--x",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "-7-1-x",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334801-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "1-1791331201-731cb7f9bfabedfc2f0fc545a4e3f870",
+        "maintenant": 1791331200.25,
+        "valeur": 1
+      },
+      {
+        "jeton": "123456789-1791331210-62a18c7b79da13088d615b968a8dd880",
+        "maintenant": 1791331200.25,
+        "valeur": 123456789
+      },
+      {
+        "jeton": "5-1791331190-cde68823a707e28efbdca8c89ecb73c5",
+        "maintenant": 1791331200.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": 7
+      },
+      {
+        "jeton": "7-1791334800-878261B8E79F9864D08670F632E5A274",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "+7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": 7
+      },
+      {
+        "jeton": " 7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": 7
+      },
+      {
+        "jeton": "07-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": 7
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a2740",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274-x",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "\u0667-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": 7
+      },
+      {
+        "jeton": "7_0-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27\u00e9",
+        "maintenant": 1791334799.75,
+        "erreur": "TypeError"
+      },
+      {
+        "jeton": "",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "a-b-c",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7--x",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "-7-1-x",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334801-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "1-1791331201-731cb7f9bfabedfc2f0fc545a4e3f870",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "123456789-1791331210-62a18c7b79da13088d615b968a8dd880",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "5-1791331190-cde68823a707e28efbdca8c89ecb73c5",
+        "maintenant": 1791334799.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261B8E79F9864D08670F632E5A274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "+7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": " 7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "07-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a2740",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274-x",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "\u0667-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7_0-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27\u00e9",
+        "maintenant": 1791334800.25,
+        "erreur": "TypeError"
+      },
+      {
+        "jeton": "",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "a-b-c",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7--x",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "-7-1-x",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334801-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "1-1791331201-731cb7f9bfabedfc2f0fc545a4e3f870",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "123456789-1791331210-62a18c7b79da13088d615b968a8dd880",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "5-1791331190-cde68823a707e28efbdca8c89ecb73c5",
+        "maintenant": 1791334800.25,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261B8E79F9864D08670F632E5A274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "+7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": " 7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "07-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a2740",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a274-x",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "\u0667-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7_0-1791334800-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334800-878261b8e79f9864d08670f632e5a27\u00e9",
+        "maintenant": 1791334800.75,
+        "erreur": "TypeError"
+      },
+      {
+        "jeton": "",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "a-b-c",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7--x",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "-7-1-x",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "7-1791334801-878261b8e79f9864d08670f632e5a274",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "1-1791331201-731cb7f9bfabedfc2f0fc545a4e3f870",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "123456789-1791331210-62a18c7b79da13088d615b968a8dd880",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      },
+      {
+        "jeton": "5-1791331190-cde68823a707e28efbdca8c89ecb73c5",
+        "maintenant": 1791334800.75,
+        "valeur": null
+      }
+    ],
+    "chemins": [
+      {
+        "chemin": "/api/sandbox/pv/7-1791334800-878261b8e79f9864d08670f632e5a274/index.html",
+        "valeur": 7
+      },
+      {
+        "chemin": "/api/sandbox/pvs/7-1791334800-878261b8e79f9864d08670f632e5a274/3000/a",
+        "valeur": 7
+      },
+      {
+        "chemin": "/api/sandbox/pv/7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "valeur": 7
+      },
+      {
+        "chemin": "/api/sandbox/pv/7-1791334800-878261b8e79f9864d08670f632e5a274/",
+        "valeur": 7
+      },
+      {
+        "chemin": "/api/sandbox/pv//7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "valeur": null
+      },
+      {
+        "chemin": "/api/sandbox/pv/",
+        "valeur": null
+      },
+      {
+        "chemin": "/api/sandbox/tree",
+        "valeur": null
+      },
+      {
+        "chemin": "/api/sandbox/pvx/7-1791334800-878261b8e79f9864d08670f632e5a274/a",
+        "valeur": null
+      },
+      {
+        "chemin": "/api/sandbox/pvs/7-1791334800-878261b8e79f9864d08670f632e5a274",
+        "valeur": 7
+      }
+    ]
+  },
+  "http": {
+    "requetes": [
+      {
+        "entetes": [],
+        "amont": {
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      },
+      {
+        "entetes": [
+          [
+            "Accept",
+            "text/html"
+          ],
+          [
+            "Content-Type",
+            "application/json"
+          ],
+          [
+            "Content-Length",
+            "12"
+          ]
+        ],
+        "amont": {
+          "accept": "text/html",
+          "content-type": "application/json",
+          "content-length": "12",
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      },
+      {
+        "entetes": [
+          [
+            "accept",
+            "a"
+          ],
+          [
+            "ACCEPT",
+            "b"
+          ],
+          [
+            "Range",
+            "bytes=0-9"
+          ],
+          [
+            "If-None-Match",
+            "\"e\""
+          ]
+        ],
+        "amont": {
+          "accept": "b",
+          "range": "bytes=0-9",
+          "if-none-match": "\"e\"",
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      },
+      {
+        "entetes": [
+          [
+            "Authorization",
+            "Bearer navigateur"
+          ],
+          [
+            "X-Elpis-Identity",
+            "forgee"
+          ],
+          [
+            "Cookie",
+            "s=1"
+          ],
+          [
+            "X-Forwarded-For",
+            "1.2.3.4"
+          ],
+          [
+            "Host",
+            "elpis.lan"
+          ],
+          [
+            "Origin",
+            "http://elpis.lan"
+          ]
+        ],
+        "amont": {
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      },
+      {
+        "entetes": [
+          [
+            "Last-Event-ID",
+            "42"
+          ],
+          [
+            "X-Requested-With",
+            "XMLHttpRequest"
+          ],
+          [
+            "Cache-Control",
+            "no-cache"
+          ],
+          [
+            "If-Modified-Since",
+            "Tue, 06 Oct 2026 10:00:00 GMT"
+          ],
+          [
+            "Transfer-Encoding",
+            "chunked"
+          ],
+          [
+            "Connection",
+            "keep-alive"
+          ],
+          [
+            "Upgrade",
+            "websocket"
+          ],
+          [
+            "Accept-Encoding",
+            "gzip"
+          ]
+        ],
+        "amont": {
+          "last-event-id": "42",
+          "x-requested-with": "XMLHttpRequest",
+          "cache-control": "no-cache",
+          "if-modified-since": "Tue, 06 Oct 2026 10:00:00 GMT",
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      },
+      {
+        "entetes": [
+          [
+            "content-type",
+            "text/plain; charset=\u00e9"
+          ],
+          [
+            "User-Agent",
+            "navigateur"
+          ]
+        ],
+        "amont": {
+          "content-type": "text/plain; charset=\u00e9",
+          "authorization": "Bearer svc",
+          "x-elpis-identity": "<sign\u00e9>",
+          "x-forwarded-for": "10.0.0.9"
+        }
+      }
+    ],
+    "sans_ip": {
+      "authorization": "Bearer svc",
+      "x-elpis-identity": "<sign\u00e9>"
+    },
+    "reponses": [
+      {
+        "entetes": [],
+        "statut": 201,
+        "sortie": [
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      },
+      {
+        "entetes": [
+          [
+            "Content-Type",
+            "application/json"
+          ],
+          [
+            "Content-Length",
+            "2"
+          ],
+          [
+            "Connection",
+            "close"
+          ]
+        ],
+        "statut": 201,
+        "sortie": [
+          [
+            "content-type",
+            "application/json"
+          ],
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      },
+      {
+        "entetes": [
+          [
+            "set-cookie",
+            "a=1"
+          ],
+          [
+            "Set-Cookie",
+            "b=2"
+          ],
+          [
+            "x-autre",
+            "1"
+          ],
+          [
+            "SET-COOKIE",
+            "c=3"
+          ]
+        ],
+        "statut": 201,
+        "sortie": [
+          [
+            "set-cookie",
+            "a=1"
+          ],
+          [
+            "set-cookie",
+            "b=2"
+          ],
+          [
+            "x-autre",
+            "1"
+          ],
+          [
+            "set-cookie",
+            "c=3"
+          ],
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      },
+      {
+        "entetes": [
+          [
+            "Keep-Alive",
+            "timeout=5"
+          ],
+          [
+            "Proxy-Authenticate",
+            "Basic"
+          ],
+          [
+            "Proxy-Authorization",
+            "x"
+          ],
+          [
+            "TE",
+            "t"
+          ],
+          [
+            "Trailers",
+            "x"
+          ],
+          [
+            "Transfer-Encoding",
+            "chunked"
+          ],
+          [
+            "Upgrade",
+            "h2"
+          ],
+          [
+            "Host",
+            "h"
+          ],
+          [
+            "ETag",
+            "\"v\""
+          ]
+        ],
+        "statut": 201,
+        "sortie": [
+          [
+            "etag",
+            "\"v\""
+          ],
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      },
+      {
+        "entetes": [
+          [
+            "X-Accel-Buffering",
+            "yes"
+          ],
+          [
+            "Vary",
+            "Accept"
+          ],
+          [
+            "Content-Disposition",
+            "attachment; filename=\"a.txt\""
+          ]
+        ],
+        "statut": 201,
+        "sortie": [
+          [
+            "x-accel-buffering",
+            "yes"
+          ],
+          [
+            "vary",
+            "Accept"
+          ],
+          [
+            "content-disposition",
+            "attachment; filename=\"a.txt\""
+          ],
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      },
+      {
+        "entetes": [
+          [
+            "Location",
+            "/x"
+          ],
+          [
+            "Cache-Control",
+            "no-store"
+          ],
+          [
+            "Date",
+            "Tue, 06 Oct 2026 10:00:00 GMT"
+          ],
+          [
+            "Server",
+            "uvicorn"
+          ]
+        ],
+        "statut": 201,
+        "sortie": [
+          [
+            "location",
+            "/x"
+          ],
+          [
+            "cache-control",
+            "no-store"
+          ],
+          [
+            "date",
+            "Tue, 06 Oct 2026 10:00:00 GMT"
+          ],
+          [
+            "server",
+            "uvicorn"
+          ],
+          [
+            "x-accel-buffering",
+            "no"
+          ]
+        ]
+      }
+    ]
+  },
+  "fermetures": [
+    {
+      "code": null,
+      "raison": "",
+      "client": 1000,
+      "raison_client": ""
+    },
+    {
+      "code": 0,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 999,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1000,
+      "raison": "",
+      "client": 1000,
+      "raison_client": ""
+    },
+    {
+      "code": 1001,
+      "raison": "",
+      "client": 1001,
+      "raison_client": ""
+    },
+    {
+      "code": 1002,
+      "raison": "",
+      "client": 1002,
+      "raison_client": ""
+    },
+    {
+      "code": 1003,
+      "raison": "",
+      "client": 1003,
+      "raison_client": ""
+    },
+    {
+      "code": 1004,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1005,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1006,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1007,
+      "raison": "",
+      "client": 1007,
+      "raison_client": ""
+    },
+    {
+      "code": 1008,
+      "raison": "",
+      "client": 1008,
+      "raison_client": ""
+    },
+    {
+      "code": 1009,
+      "raison": "",
+      "client": 1009,
+      "raison_client": ""
+    },
+    {
+      "code": 1010,
+      "raison": "",
+      "client": 1010,
+      "raison_client": ""
+    },
+    {
+      "code": 1011,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1012,
+      "raison": "",
+      "client": 1012,
+      "raison_client": ""
+    },
+    {
+      "code": 1013,
+      "raison": "",
+      "client": 1013,
+      "raison_client": ""
+    },
+    {
+      "code": 1014,
+      "raison": "",
+      "client": 1014,
+      "raison_client": ""
+    },
+    {
+      "code": 1015,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 1016,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 2000,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 2999,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 3000,
+      "raison": "",
+      "client": 3000,
+      "raison_client": ""
+    },
+    {
+      "code": 3001,
+      "raison": "",
+      "client": 3001,
+      "raison_client": ""
+    },
+    {
+      "code": 3999,
+      "raison": "",
+      "client": 3999,
+      "raison_client": ""
+    },
+    {
+      "code": 4000,
+      "raison": "",
+      "client": 4000,
+      "raison_client": ""
+    },
+    {
+      "code": 4001,
+      "raison": "",
+      "client": 4001,
+      "raison_client": ""
+    },
+    {
+      "code": 4001,
+      "raison": "session expir\u00e9e",
+      "client": 4001,
+      "raison_client": "session expir\u00e9e"
+    },
+    {
+      "code": 4001,
+      "raison": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "client": 4001,
+      "raison_client": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "code": 4001,
+      "raison": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "client": 4001,
+      "raison_client": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    },
+    {
+      "code": 4001,
+      "raison": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "client": 4001,
+      "raison_client": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    },
+    {
+      "code": 4001,
+      "raison": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "client": 4001,
+      "raison_client": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    },
+    {
+      "code": 4001,
+      "raison": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "client": 4001,
+      "raison_client": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    },
+    {
+      "code": 4001,
+      "raison": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "client": 4001,
+      "raison_client": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+    },
+    {
+      "code": 4001,
+      "raison": "a\u0000b",
+      "client": 4001,
+      "raison_client": "a\u0000b"
+    },
+    {
+      "code": 4004,
+      "raison": "",
+      "client": 4004,
+      "raison_client": ""
+    },
+    {
+      "code": 4403,
+      "raison": "",
+      "client": 4403,
+      "raison_client": ""
+    },
+    {
+      "code": 4999,
+      "raison": "",
+      "client": 4999,
+      "raison_client": ""
+    },
+    {
+      "code": 5000,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    },
+    {
+      "code": 65535,
+      "raison": "",
+      "client": 1011,
+      "raison_client": ""
+    }
+  ],
+  "ws_url": [
+    {
+      "url": "http://h:1",
+      "ws": "ws://h:1"
+    },
+    {
+      "url": "https://h:1/x",
+      "ws": "wss://h:1/x"
+    },
+    {
+      "url": "ws://h",
+      "ws": "ws://h"
+    },
+    {
+      "url": "HTTP://h",
+      "ws": "HTTP://h"
+    },
+    {
+      "url": "ftp://h",
+      "ws": "ftp://h"
+    },
+    {
+      "url": "",
+      "ws": ""
+    }
+  ],
+  "loopback": [
+    {
+      "url": "http://127.0.0.1:8765",
+      "loopback": true
+    },
+    {
+      "url": "http://localhost:8765/",
+      "loopback": true
+    },
+    {
+      "url": "http://LOCALHOST",
+      "loopback": true
+    },
+    {
+      "url": "http://[::1]:8765",
+      "loopback": true
+    },
+    {
+      "url": "https://vm:8765",
+      "loopback": false
+    },
+    {
+      "url": "http://127.0.0.2:8765",
+      "loopback": false
+    },
+    {
+      "url": "http://0.0.0.0:8765",
+      "loopback": false
+    },
+    {
+      "url": "",
+      "loopback": true
+    },
+    {
+      "url": "pas une url",
+      "loopback": true
+    },
+    {
+      "url": "http://[::1",
+      "loopback": true
+    },
+    {
+      "url": "http://[fe80::1%25eth0]:1",
+      "loopback": false
+    },
+    {
+      "url": "  https://vm-outils:8765//  ",
+      "loopback": false
+    },
+    {
+      "url": "ws://h",
+      "loopback": false
+    },
+    {
+      "url": "http://user@127.0.0.1:1",
+      "loopback": true
+    },
+    {
+      "url": "http://127.0.0.1.nip.io",
+      "loopback": false
+    }
+  ],
+  "specs": [
+    {
+      "spec": {
+        "url": "http://127.0.0.1:8765",
+        "token": "t"
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://127.0.0.1:8765",
+        "token": "t",
+        "relay": false
+      }
+    },
+    {
+      "spec": {
+        "url": "https://vm:8765/",
+        "token": "t"
+      },
+      "hote": {
+        "id": "h",
+        "url": "https://vm:8765",
+        "token": "t",
+        "relay": true
+      }
+    },
+    {
+      "spec": {
+        "url": "http://127.0.0.1:9000",
+        "token": "t",
+        "relay": true
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://127.0.0.1:9000",
+        "token": "t",
+        "relay": true
+      }
+    },
+    {
+      "spec": {
+        "url": "https://vm",
+        "relay": false
+      },
+      "hote": {
+        "id": "h",
+        "url": "https://vm",
+        "token": "",
+        "relay": false
+      }
+    },
+    {
+      "spec": {
+        "url": "http://h",
+        "relay": 1
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://h",
+        "token": "",
+        "relay": true
+      }
+    },
+    {
+      "spec": {
+        "url": "http://h",
+        "relay": "true"
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://h",
+        "token": "",
+        "relay": true
+      }
+    },
+    {
+      "spec": {
+        "url": "",
+        "token": "t"
+      },
+      "hote": null
+    },
+    {
+      "spec": {
+        "url": null
+      },
+      "hote": null
+    },
+    {
+      "spec": {
+        "url": 7,
+        "token": 8
+      },
+      "hote": {
+        "id": "h",
+        "url": "7",
+        "token": "8",
+        "relay": false
+      }
+    },
+    {
+      "spec": {
+        "url": "  http://h:1///  ",
+        "token": " espaces "
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://h:1",
+        "token": " espaces ",
+        "relay": true
+      }
+    },
+    {
+      "spec": {
+        "token": "sans-url"
+      },
+      "hote": null
+    },
+    {
+      "spec": {
+        "url": "http://localhost",
+        "token": 0
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://localhost",
+        "token": "",
+        "relay": false
+      }
+    },
+    {
+      "spec": {
+        "url": "http://[::1"
+      },
+      "hote": {
+        "id": "h",
+        "url": "http://[::1",
+        "token": "",
+        "relay": false
+      }
+    }
+  ],
+  "strip_mcp_path": [
+    {
+      "url": "http://127.0.0.1:8765/mcp",
+      "valeur": "http://127.0.0.1:8765"
+    },
+    {
+      "url": "http://h:8765/mcp/git",
+      "valeur": "http://h:8765"
+    },
+    {
+      "url": "http://h:8765/sse/skill_run/",
+      "valeur": "http://h:8765"
+    },
+    {
+      "url": "http://h/mcp/mcp",
+      "valeur": "http://h"
+    },
+    {
+      "url": "http://h/a/mcp/fs",
+      "valeur": "http://h/a"
+    },
+    {
+      "url": "http://mcp:1/mcp",
+      "valeur": "http://mcp:1"
+    },
+    {
+      "url": "http://h/fs/git/mcp",
+      "valeur": "http://h/fs"
+    },
+    {
+      "url": "  http://h:1/x/  ",
+      "valeur": "http://h:1/x"
+    },
+    {
+      "url": "",
+      "valeur": ""
+    },
+    {
+      "url": "relatif/mcp",
+      "valeur": "relatif/mcp"
+    },
+    {
+      "url": "http://h/mcp?x=1#f",
+      "valeur": "http://h"
+    },
+    {
+      "url": "http://[::1]:8765/mcp/fs",
+      "valeur": "http://[::1]:8765"
+    },
+    {
+      "url": "http://h/MCP",
+      "valeur": "http://h/MCP"
+    },
+    {
+      "url": "http://h/sse/sse/sse",
+      "valeur": "http://h/sse"
+    }
+  ],
+  "profils": [
+    {
+      "reglages": {},
+      "profil": "isolated"
+    },
+    {
+      "reglages": {
+        "network_profile_id": "bridge"
+      },
+      "profil": "bridge"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "lan",
+        "network_profile_id": "bridge"
+      },
+      "profil": "lan"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "  ",
+        "network_profile_id": " wan "
+      },
+      "profil": "wan"
+    },
+    {
+      "reglages": {
+        "network_profile_id": 0
+      },
+      "profil": "isolated"
+    },
+    {
+      "reglages": {
+        "network_profile_id": 5
+      },
+      "profil": "5"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": true
+      },
+      "profil": "True"
+    },
+    {
+      "reglages": {
+        "network_profile_id": [
+          "a"
+        ]
+      },
+      "profil": "['a']"
+    },
+    {
+      "reglages": {
+        "network_profile_id": "\u2003x\u2003"
+      },
+      "profil": "x"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": null,
+        "network_profile_id": null
+      },
+      "profil": "isolated"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": " lan\u3000",
+        "network_profile_id": "web"
+      },
+      "profil": "lan"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": 0
+      },
+      "profil": "isolated"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": [
+          "lan"
+        ]
+      },
+      "profil": "['lan']"
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "Lan"
+      },
+      "profil": "Lan"
+    }
+  ],
+  "identites_relais": [
+    {
+      "reglages": {},
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "isolated",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "network_profile_id": "bridge"
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "bridge",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "lan",
+        "network_profile_id": "bridge"
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "lan",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": "lan"
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "  ",
+        "network_profile_id": " wan "
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "wan",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "network_profile_id": 0
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "isolated",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "network_profile_id": 5
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "5",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": true
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "True",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": "True"
+      }
+    },
+    {
+      "reglages": {
+        "network_profile_id": [
+          "a"
+        ]
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "['a']",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "network_profile_id": "\u2003x\u2003"
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "x",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": null,
+        "network_profile_id": null
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "isolated",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": " lan\u3000",
+        "network_profile_id": "web"
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "lan",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": "lan"
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": 0
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "isolated",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": ""
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": [
+          "lan"
+        ]
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "['lan']",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": "['lan']"
+      }
+    },
+    {
+      "reglages": {
+        "forced_network_profile_id": "Lan"
+      },
+      "identite": {
+        "user_id": 7,
+        "username": "hugo",
+        "roles": [],
+        "network_profile_id": "Lan",
+        "chat_id": "",
+        "is_admin": true,
+        "forced_network_profile_id": "Lan"
+      }
+    }
+  ],
+  "config_bac": [
+    {
+      "texte": "{}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "null",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "[]",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "0",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "\"\"",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "\"x\"",
+      "avertissements": [],
+      "erreur": "AttributeError"
+    },
+    {
+      "texte": "5",
+      "avertissements": [],
+      "erreur": "AttributeError"
+    },
+    {
+      "texte": "[1]",
+      "avertissements": [],
+      "erreur": "AttributeError"
+    },
+    {
+      "texte": "{\"limits\": []}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"limits\": [1]}",
+      "avertissements": [],
+      "erreur": "AttributeError"
+    },
+    {
+      "texte": "{\"limits\": {\"memory_mb\": \"4096\", \"cpu_quota_pct\": 50.9, \"pids_max\": true, \"timeout_s\": \" 7_0 \"}, \"idle_kill_hours\": \" 12 \", \"exec_user\": \"  0:0 \", \"force_user_docker\": \"non\", \"runtime\": \" runsc \", \"extra_run_args\": [\"--a\", \" \", 5, [\"x\"], null, \"\"], \"image\": \"autre/image:1\"}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 4096,
+        "cpu_quota_pct": 50,
+        "pids_max": 1,
+        "timeout_s": 70,
+        "exec_user": "0:0",
+        "force_user_docker": true,
+        "idle_kill_hours": 12,
+        "runtime": "runsc",
+        "extra_run_args": [
+          "--a",
+          "5",
+          "['x']",
+          "None"
+        ],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"limits\": {\"memory_mb\": \"abc\"}}",
+      "avertissements": [],
+      "erreur": "ValueError"
+    },
+    {
+      "texte": "{\"limits\": {\"timeout_s\": null}}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"idle_kill_hours\": null}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"limits\": {\"pids_max\": Infinity}}",
+      "avertissements": [],
+      "erreur": "OverflowError"
+    },
+    {
+      "texte": "{\"limits\": {\"pids_max\": NaN}}",
+      "avertissements": [],
+      "erreur": "ValueError"
+    },
+    {
+      "texte": "{\"exec_user\": 0, \"runtime\": 5}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "5",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"extra_run_args\": \"--x\"}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [
+          "-",
+          "-",
+          "x"
+        ],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"extra_run_args\": 3}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"force_user_docker\": []}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"lan\", \"name\": \"LAN\", \"mode\": \"allowlist_ip\", \"ips\": [\"10.0.0.0/24\", \" \", 7, \" 10.0.0.1 \", 1.5, null, false, [\"a\"], {\"k\": 1}], \"domains\": [\"GitHub.com.\", \"exemple.lan\\n.\", \"g\\u0131thub.com\", \"\\u212aelvin.lan\", \"a..b\", \"-a.com\", \"a-.com\", \"xn--bcher-kva.example\", \"a.b.c.d\", \"localhost\", \"\", \" . \", \"..\", \"A.COM...\", 5, null, \"\\u00e9t\\u00e9.fr\", \"\\u0130stanbul.tr\", \"\\u017fite.com\", \"a_b.com\", \"1.2.3.4\", \"\\u3000x.fr\\u3000\"], \"ports\": [\"443\", \" 80 \", \"4_43\", 8080.9, true, \"x\", null, [1], \"\\u0664\\u0664\\u0663\", \"1.5\", NaN, -1, \"+22\"], \"dns\": [\" 10.0.0.1 \", \"\", \"\\u2003\"]}]}",
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'exemple.lan\\n' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'g\u0131thub.com' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'a..b' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine '-a.com' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'a-.com' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'localhost' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine '5' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'none' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine '\u00e9t\u00e9.fr' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'i\u0307stanbul.tr' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine '\u017fite.com' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'lan' : domaine 'a_b.com' ignor\u00e9 (invalide)"
+      ],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "lan",
+            "name": "LAN",
+            "mode": "allowlist_ip",
+            "ips": [
+              "10.0.0.0/24",
+              "7",
+              "10.0.0.1",
+              "1.5",
+              "None",
+              "False",
+              "['a']",
+              "{'k': 1}"
+            ],
+            "description": "",
+            "domains": [
+              "github.com",
+              "kelvin.lan",
+              "xn--bcher-kva.example",
+              "a.b.c.d",
+              "a.com",
+              "1.2.3.4",
+              "x.fr"
+            ],
+            "ports": [
+              443,
+              80,
+              443,
+              8080,
+              1,
+              443,
+              -1,
+              22
+            ],
+            "dns": [
+              "10.0.0.1"
+            ]
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "lan"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"ports\": [Infinity]}]}",
+      "avertissements": [],
+      "erreur": "OverflowError"
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"ports\": \"443\", \"ips\": \"10.1\", \"dns\": {\"x\": 1}}]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "a",
+            "name": "A",
+            "mode": "none",
+            "ips": [
+              "1",
+              "0",
+              ".",
+              "1"
+            ],
+            "description": "",
+            "domains": [],
+            "ports": [
+              4,
+              4,
+              3
+            ],
+            "dns": [
+              "x"
+            ]
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "a"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"ports\": 5}]}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"ips\": true}]}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"domains\": \"a.com\"}]}",
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'a' : domaine 'a' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'a' : domaine 'c' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'a' : domaine 'o' ignor\u00e9 (invalide)",
+        "[sandbox] profil r\u00e9seau 'a' : domaine 'm' ignor\u00e9 (invalide)"
+      ],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "a",
+            "name": "A",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "a"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"domains\": 7}]}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"Lan\", \"name\": \"L\"}, {\"id\": \" lan \", \"name\": \" Le LAN \", \"mode\": \"BRIDGE\"}, {\"id\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\nx\", \"name\": \"X\", \"mode\": \"bridge\"}, {\"id\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"name\": \"B\", \"mode\": 1}, {\"id\": 5, \"name\": 1.5}, {\"id\": true, \"name\": \"T\"}, {\"id\": \"\\u00e9\", \"name\": \"E\"}, {\"id\": \"x\", \"name\": \"\"}, {\"id\": \"\", \"name\": \"Vide\"}, {\"id\": \"y\", \"name\": 0}, \"lan\", null, 3, {\"id\": \"lan\", \"name\": \"Doublon\"}, {\"id\": \"\\u0131\", \"name\": \"I\"}, {\"id\": \"a\\u2028\", \"name\": \"Z\"}, {\"id\": \"web\", \"name\": \"\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00Z\", \"description\": \"\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00\\ud83d\\ude00xyz\"}]}",
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : 'Lan'",
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n'",
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : 'True'",
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : '\u00e9'",
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : '\u0131'"
+      ],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "lan",
+            "name": "Le LAN",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "name": "B",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "5",
+            "name": "1.5",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "lan",
+            "name": "Doublon",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "a",
+            "name": "Z",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "web",
+            "name": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+            "mode": "none",
+            "ips": [],
+            "description": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00x",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "lan"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "web"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "5"
+        ],
+        [
+          "a",
+          "a"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"isolated\", \"name\": \"Isol\\u00e9 maison\", \"mode\": \"bridge\"}, {\"id\": \"z\", \"name\": \"Z\"}]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 maison",
+            "mode": "bridge",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "z",
+            "name": "Z",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "z"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": \"abc\"}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": {\"lan\": {\"id\": \"lan\"}}}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": 4}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"network_mode\": \"bridge\", \"network_allowlist\": [\"1.2.3.4\", 5, null]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": "bridge",
+            "ips": [
+              "1.2.3.4",
+              5,
+              null
+            ],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_allowlist\": \"10.0.0.1\"}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": "none",
+            "ips": [
+              "1",
+              "0",
+              ".",
+              "0",
+              ".",
+              "0",
+              ".",
+              "1"
+            ],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_mode\": null, \"network_allowlist\": [\"x\"]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": null,
+            "ips": [
+              "x"
+            ],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_mode\": 7}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": 7,
+            "ips": [],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_allowlist\": 5}",
+      "avertissements": [],
+      "erreur": "TypeError"
+    },
+    {
+      "texte": "{\"network_allowlist\": {\"a\": 1}, \"network_mode\": \"\"}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": "",
+            "ips": [
+              "a"
+            ],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_mode\": \"x\", \"network_profiles\": [{\"id\": \"Bad\", \"name\": \"B\"}]}",
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau ignor\u00e9 : identifiant de profil invalide : 'Bad'"
+      ],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "legacy",
+            "name": "Profil migr\u00e9 (legacy)",
+            "mode": "x",
+            "ips": [],
+            "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "legacy"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_mode\": \"x\", \"network_profiles\": [{\"id\": \"ok\", \"name\": \"O\"}]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 total",
+            "mode": "none",
+            "ips": [],
+            "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "ok",
+            "name": "O",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "isolated"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "isolated"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    },
+    {
+      "texte": "{\"network_profiles\": [{\"id\": \"web\", \"name\": \"W\", \"mode\": \"bridge\"}, {\"id\": \"isolated\", \"name\": \"Isol\\u00e9 apr\\u00e8s\"}, {\"id\": \"lan\", \"name\": \"L\"}]}",
+      "avertissements": [],
+      "config": {
+        "memory_mb": 2048,
+        "cpu_quota_pct": 100,
+        "pids_max": 512,
+        "timeout_s": 600,
+        "exec_user": "10001:10001",
+        "force_user_docker": false,
+        "idle_kill_hours": 24,
+        "runtime": "",
+        "extra_run_args": [],
+        "network_profiles": [
+          {
+            "id": "web",
+            "name": "W",
+            "mode": "bridge",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9 apr\u00e8s",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          },
+          {
+            "id": "lan",
+            "name": "L",
+            "mode": "none",
+            "ips": [],
+            "description": "",
+            "domains": [],
+            "ports": [],
+            "dns": []
+          }
+        ]
+      },
+      "profils": [
+        [
+          "isolated",
+          "isolated"
+        ],
+        [
+          "lan",
+          "lan"
+        ],
+        [
+          "Lan",
+          "isolated"
+        ],
+        [
+          " lan ",
+          "isolated"
+        ],
+        [
+          "legacy",
+          "isolated"
+        ],
+        [
+          "",
+          "isolated"
+        ],
+        [
+          "absent",
+          "isolated"
+        ],
+        [
+          "web",
+          "web"
+        ],
+        [
+          "z",
+          "isolated"
+        ],
+        [
+          "5",
+          "isolated"
+        ],
+        [
+          "a",
+          "isolated"
+        ]
+      ]
+    }
+  ],
+  "regles_profils": [
+    {
+      "texte": "",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "a.b",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "A.COM",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "a.com\n",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a\n.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "ab\n",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a.b-",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a.-b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "-a.b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a-.b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a--b.c",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "a_b.c",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "1.2.3.4",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.a",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.ab",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "\u212a.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "\u017f.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "\u0131.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "\u00e9.com",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "xn--bcher-kva.example",
+      "id": false,
+      "domaine": true
+    },
+    {
+      "texte": "a.b.",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": ".a.b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a..b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a.b\u2028",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "\u3000a.b",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "lan",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "lan_2-x",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "Lan",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "lan ",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "l\u00e0n",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "a\u0301",
+      "id": false,
+      "domaine": false
+    },
+    {
+      "texte": "0",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "_",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "-",
+      "id": true,
+      "domaine": false
+    },
+    {
+      "texte": "a\u2028",
+      "id": false,
+      "domaine": false
+    }
+  ],
+  "moins_charges": [
+    {
+      "comptes": {},
+      "choix": "a",
+      "un_seul": "b",
+      "aucun": "defaut"
+    },
+    {
+      "comptes": {
+        "a": 2,
+        "b": 1
+      },
+      "choix": "d",
+      "un_seul": "b",
+      "aucun": "defaut"
+    },
+    {
+      "comptes": {
+        "a": 1,
+        "b": 1,
+        "d": 0
+      },
+      "choix": "d",
+      "un_seul": "b",
+      "aucun": "defaut"
+    },
+    {
+      "comptes": {
+        "a": 0,
+        "b": 5,
+        "d": 5
+      },
+      "choix": "a",
+      "un_seul": "b",
+      "aucun": "defaut"
+    },
+    {
+      "comptes": {
+        "z": 9
+      },
+      "choix": "a",
+      "un_seul": "b",
+      "aucun": "defaut"
+    }
+  ],
+  "fichiers": {
+    "jeton": "20206a65746f6e2d64752d6669636869657220200a6c69676e65320a",
+    "jeton-bom": "efbbbf6a65746f6e0d0a",
+    "jeton-vide": "",
+    "jeton-latin1": "6a6574e96e0a",
+    "jeton-separateur": "61e280a862"
+  },
+  "manifestes": [
+    {
+      "nom": "exemple",
+      "texte": "{\"toolHosts\": {\"main\": {\"url\": \"http://127.0.0.1:8765\", \"token\": \"${file:<dossier>/jeton}\", \"serve\": {\"port\": 8765}}}, \"sandboxHosts\": {\"main\": {\"url\": \"http://127.0.0.1:8765\", \"token\": \"x\", \"relay\": true}}, \"placement\": {\"strategy\": \"single\", \"host\": \"main\"}, \"mcpServers\": {\"elpis-fs\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:8765/mcp/fs\", \"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {},
+      "hotes": [
+        [
+          "main",
+          {
+            "url": "http://127.0.0.1:8765",
+            "token": "jeton-du-fichier",
+            "relay": true,
+            "serve": {
+              "port": 8765
+            }
+          }
+        ]
+      ],
+      "placement": {
+        "strategy": "single",
+        "host": "main"
+      },
+      "hote": {
+        "id": "main",
+        "url": "http://127.0.0.1:8765",
+        "token": "jeton-du-fichier",
+        "relay": true,
+        "ws": "ws://127.0.0.1:8765"
+      }
+    },
+    {
+      "nom": "fusion_ordre",
+      "texte": "{\"sandboxHosts\": {\"b\": {\"url\": \"http://b\"}, \"a\": {\"url\": \"http://a\", \"relay\": false}}, \"toolHosts\": {\"a\": {\"token\": \"ta\"}, \"c\": {\"url\": \"http://c\"}}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "b",
+          {
+            "url": "http://b"
+          }
+        ],
+        [
+          "a",
+          {
+            "url": "http://a",
+            "relay": false,
+            "token": "ta"
+          }
+        ],
+        [
+          "c",
+          {
+            "url": "http://c"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "b",
+        "url": "http://b",
+        "token": "",
+        "relay": true,
+        "ws": "ws://b"
+      }
+    },
+    {
+      "nom": "substitutions",
+      "texte": "{\"sandboxHosts\": {\"vm\": {\"url\": \"${env:VECTEUR_URL}\", \"token\": \"${env:VECTEUR_ABSENT}x\", \"autre\": [\"${env:VECTEUR_URL}\", {\"k\": \"${file:<dossier>/jeton-bom}\"}], \"vide\": \"${file:<dossier>/jeton-vide}\", \"latin1\": \"${file:<dossier>/jeton-latin1}\", \"separateur\": \"${file:<dossier>/jeton-separateur}\", \"inconnu\": \"${bidule:x} ${env} ${ env : VECTEUR_URL }\"}}, \"mcpServers\": {}}",
+      "env": {
+        "VECTEUR_URL": "https://vm:8765"
+      },
+      "hotes": [
+        [
+          "vm",
+          {
+            "url": "https://vm:8765",
+            "token": "x",
+            "autre": [
+              "https://vm:8765",
+              {
+                "k": "\ufeffjeton"
+              }
+            ],
+            "vide": "",
+            "latin1": "",
+            "separateur": "a",
+            "inconnu": "${bidule:x}  ${ env : VECTEUR_URL }"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "vm",
+        "url": "https://vm:8765",
+        "token": "x",
+        "relay": true,
+        "ws": "wss://vm:8765"
+      }
+    },
+    {
+      "nom": "surcharges",
+      "texte": "{\"sandboxHosts\": {\"vm\": {\"url\": \"https://vm\", \"token\": \"fichier\"}, \"main\": {\"url\": \"http://m\"}}, \"placement\": {\"host\": \"vm\"}, \"mcpServers\": {\"elpis-fs\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:8765/mcp/fs\", \"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {
+        "LOCAL_MCP_URL": " http://127.0.0.1:9999/mcp/git/ ",
+        "LOCAL_MCP_TOKEN": " env "
+      },
+      "hotes": [
+        [
+          "vm",
+          {
+            "url": "http://127.0.0.1:9999",
+            "token": "env"
+          }
+        ],
+        [
+          "main",
+          {
+            "url": "http://m"
+          }
+        ]
+      ],
+      "placement": {
+        "host": "vm"
+      },
+      "hote": {
+        "id": "vm",
+        "url": "http://127.0.0.1:9999",
+        "token": "env",
+        "relay": false,
+        "ws": "ws://127.0.0.1:9999"
+      }
+    },
+    {
+      "nom": "surcharges_main",
+      "texte": "{\"sandboxHosts\": {\"x\": {\"url\": \"http://x\"}, \"main\": {\"url\": \"http://m\"}}, \"placement\": {\"host\": \"absent\"}, \"mcpServers\": {\"elpis-fs\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:8765/mcp/fs\", \"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {
+        "LOCAL_MCP_URL": "http://h:1/sse",
+        "LOCAL_MCP_TOKEN": "env"
+      },
+      "hotes": [
+        [
+          "x",
+          {
+            "url": "http://x"
+          }
+        ],
+        [
+          "main",
+          {
+            "url": "http://h:1",
+            "token": "env"
+          }
+        ]
+      ],
+      "placement": {
+        "host": "absent"
+      },
+      "hote": {
+        "id": "x",
+        "url": "http://x",
+        "token": "",
+        "relay": true,
+        "ws": "ws://x"
+      }
+    },
+    {
+      "nom": "surcharges_premier",
+      "texte": "{\"sandboxHosts\": {\"x\": {\"url\": \"http://x\"}, \"y\": {\"url\": \"http://y\"}}, \"mcpServers\": {\"elpis-fs\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:8765/mcp/fs\", \"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {
+        "LOCAL_MCP_URL": "http://h:2/mcp",
+        "LOCAL_MCP_TOKEN": ""
+      },
+      "hotes": [
+        [
+          "x",
+          {
+            "url": "http://h:2"
+          }
+        ],
+        [
+          "y",
+          {
+            "url": "http://y"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "x",
+        "url": "http://h:2",
+        "token": "",
+        "relay": true,
+        "ws": "ws://h:2"
+      }
+    },
+    {
+      "nom": "url_sans_toolhost",
+      "texte": "{\"sandboxHosts\": {\"main\": {\"url\": \"http://m\"}}, \"mcpServers\": {}}",
+      "env": {
+        "LOCAL_MCP_URL": "http://h:3/mcp",
+        "LOCAL_MCP_TOKEN": "env"
+      },
+      "hotes": [
+        [
+          "main",
+          {
+            "url": "http://m",
+            "token": "env"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "main",
+        "url": "http://m",
+        "token": "env",
+        "relay": true,
+        "ws": "ws://m"
+      }
+    },
+    {
+      "nom": "servers_vscode",
+      "texte": "{\"sandboxHosts\": {\"main\": {\"url\": \"http://m\"}}, \"servers\": {\"t\": {\"url\": \"http://t/mcp\", \"x-elpis\": {\"role\": \" TOOLHOST \"}}}}",
+      "env": {
+        "LOCAL_MCP_URL": "http://h:4/mcp/fs"
+      },
+      "hotes": [
+        [
+          "main",
+          {
+            "url": "http://h:4"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "main",
+        "url": "http://h:4",
+        "token": "",
+        "relay": true,
+        "ws": "ws://h:4"
+      }
+    },
+    {
+      "nom": "role_non_texte",
+      "texte": "{\"sandboxHosts\": {\"main\": {\"url\": \"http://m\"}}, \"mcpServers\": {\"t\": {\"x-elpis\": {\"role\": 1}}, \" \": {\"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {
+        "LOCAL_MCP_URL": "http://h:5/mcp"
+      },
+      "hotes": [
+        [
+          "main",
+          {
+            "url": "http://m"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "main",
+        "url": "http://m",
+        "token": "",
+        "relay": true,
+        "ws": "ws://m"
+      }
+    },
+    {
+      "nom": "hotes_non_objets",
+      "texte": "{\"sandboxHosts\": {\"a\": \"http://a\", \"b\": [\"x\"], \"c\": {\"url\": \"http://c\"}}, \"toolHosts\": [], \"placement\": \"single\", \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "c",
+          {
+            "url": "http://c"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "c",
+        "url": "http://c",
+        "token": "",
+        "relay": true,
+        "ws": "ws://c"
+      }
+    },
+    {
+      "nom": "sans_hotes",
+      "texte": "{\"mcpServers\": {\"elpis-fs\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:8765/mcp/fs\", \"x-elpis\": {\"role\": \"toolhost\"}}}}",
+      "env": {
+        "LOCAL_MCP_TOKEN": "env"
+      },
+      "hotes": [],
+      "placement": {},
+      "hote": null
+    },
+    {
+      "nom": "placement_absent",
+      "texte": "{\"sandboxHosts\": {\"a\": {\"url\": \"\"}, \"b\": {\"url\": \"http://b\", \"token\": \"t\"}}, \"placement\": {\"host\": \"zz\", \"strategy\": \"single\"}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "a",
+          {
+            "url": ""
+          }
+        ],
+        [
+          "b",
+          {
+            "url": "http://b",
+            "token": "t"
+          }
+        ]
+      ],
+      "placement": {
+        "host": "zz",
+        "strategy": "single"
+      },
+      "hote": null
+    },
+    {
+      "nom": "placement_hote_vide",
+      "texte": "{\"sandboxHosts\": {\"a\": {\"url\": \"\"}}, \"placement\": {\"host\": \"a\"}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "a",
+          {
+            "url": ""
+          }
+        ]
+      ],
+      "placement": {
+        "host": "a"
+      },
+      "hote": null
+    },
+    {
+      "nom": "cles_numeriques",
+      "texte": "{\"sandboxHosts\": {\"2\": {\"url\": \"http://deux\"}, \"1\": {\"url\": \"http://un\"}}, \"placement\": {\"host\": 2}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "2",
+          {
+            "url": "http://deux"
+          }
+        ],
+        [
+          "1",
+          {
+            "url": "http://un"
+          }
+        ]
+      ],
+      "placement": {
+        "host": 2
+      },
+      "hote": {
+        "id": "2",
+        "url": "http://deux",
+        "token": "",
+        "relay": true,
+        "ws": "ws://deux"
+      }
+    },
+    {
+      "nom": "cles_numeriques_premier",
+      "texte": "{\"sandboxHosts\": {\"b\": {\"url\": \"http://b\"}, \"2\": {\"url\": \"http://deux\"}, \"1\": {\"url\": \"http://un\"}}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "b",
+          {
+            "url": "http://b"
+          }
+        ],
+        [
+          "2",
+          {
+            "url": "http://deux"
+          }
+        ],
+        [
+          "1",
+          {
+            "url": "http://un"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "b",
+        "url": "http://b",
+        "token": "",
+        "relay": true,
+        "ws": "ws://b"
+      }
+    },
+    {
+      "nom": "cles_en_double",
+      "texte": "{\"sandboxHosts\": {\"b\": {\"url\": \"http://b1\"}, \"a\": {\"url\": \"http://a\"}, \"b\": {\"url\": \"http://b2\"}}, \"toolHosts\": {\"9\": {\"url\": \"http://9\"}}}",
+      "env": {},
+      "hotes": [
+        [
+          "b",
+          {
+            "url": "http://b2"
+          }
+        ],
+        [
+          "a",
+          {
+            "url": "http://a"
+          }
+        ],
+        [
+          "9",
+          {
+            "url": "http://9"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "b",
+        "url": "http://b2",
+        "token": "",
+        "relay": true,
+        "ws": "ws://b2"
+      }
+    },
+    {
+      "nom": "json_python",
+      "texte": "{\"sandboxHosts\": {\"a\": {\"url\": \"http://a\", \"poids\": NaN}}, \"mcpServers\": {}}",
+      "env": {},
+      "hotes": [
+        [
+          "a",
+          {
+            "url": "http://a",
+            "poids": "NaN"
+          }
+        ]
+      ],
+      "placement": {},
+      "hote": {
+        "id": "a",
+        "url": "http://a",
+        "token": "",
+        "relay": true,
+        "ws": "ws://a"
+      }
+    },
+    {
+      "nom": "json_casse",
+      "texte": "{\"sandboxHosts\": ",
+      "env": {},
+      "hotes": [],
+      "placement": {},
+      "hote": null
+    },
+    {
+      "nom": "pas_un_objet",
+      "texte": "[1, 2]",
+      "env": {},
+      "hotes": null,
+      "placement": null,
+      "hote": null
+    },
+    {
+      "nom": "bom",
+      "texte": "\ufeff{\"sandboxHosts\": {\"a\": {\"url\": \"http://a\"}}}",
+      "env": {},
+      "hotes": [],
+      "placement": {},
+      "hote": null
+    }
+  ]
+}

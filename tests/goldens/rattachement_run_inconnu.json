@@ -1,0 +1,53 @@
+{
+  "entrees": {
+    "chat_id": "c1",
+    "chronologie": [
+      {
+        "a": 0,
+        "verrou": "pris"
+      },
+      {
+        "a": 0,
+        "ouvrir": {
+          "debut": {
+            "chat_id": "c1",
+            "mode": "classique"
+          },
+          "run_id": "r1"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "Génération en cours…",
+          "type": "mode"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "Bon",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "jour",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 2,
+        "connexion": {
+          "run_id": "r0"
+        }
+      }
+    ],
+    "harnais": "rattachement"
+  },
+  "refus": {
+    "detail": "run_not_found",
+    "statut": 404
+  }
+}

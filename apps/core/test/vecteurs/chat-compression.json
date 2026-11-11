@@ -1,0 +1,962 @@
+{
+  "entrees": {
+    "chats": [
+      {
+        "uid": 1,
+        "id": "court",
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          }
+        ]
+      },
+      {
+        "uid": 1,
+        "id": "long",
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "question 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "question 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "question 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "question 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "question 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "question 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "question 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "question 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "question 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "question 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "question 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 11"
+          }
+        ]
+      },
+      {
+        "uid": 1,
+        "id": "plafond",
+        "etat": [
+          12,
+          4
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "question 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "question 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "question 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "question 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "question 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "question 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "question 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "question 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "question 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "question 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "question 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 11"
+          }
+        ]
+      },
+      {
+        "uid": 1,
+        "id": "gen",
+        "verrou": "gen",
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "question 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "question 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "question 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "question 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "question 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "question 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "question 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "question 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "question 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "question 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "question 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 11"
+          }
+        ]
+      },
+      {
+        "uid": 1,
+        "id": "compact",
+        "verrou": "compact",
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "question 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "question 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "question 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "question 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "question 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "question 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "question 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "question 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "question 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "question 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "question 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 11"
+          }
+        ]
+      },
+      {
+        "uid": 1,
+        "id": "outils",
+        "elagage": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "question 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "question 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "question 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "question 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "question 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "lis"
+          },
+          {
+            "role": "assistant",
+            "content": "lu",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+              }
+            ],
+            "tool_history_delta": true
+          },
+          {
+            "role": "notice",
+            "content": "",
+            "kind": "compaction"
+          }
+        ]
+      },
+      {
+        "uid": 2,
+        "id": "bobchat",
+        "etat": [
+          2,
+          3
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "bquestion 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "bquestion 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "br\u00e9ponse 11"
+          }
+        ]
+      },
+      {
+        "uid": 2,
+        "id": "bobcourt",
+        "etat": [
+          1,
+          1
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "cquestion 0 "
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 0"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 1"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 2"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 3"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 4"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 5"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 6"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 7"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 8"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 9"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 10"
+          },
+          {
+            "role": "user",
+            "content": "cquestion 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "role": "assistant",
+            "content": "cr\u00e9ponse 11"
+          }
+        ]
+      }
+    ],
+    "reglages": {
+      "2": {
+        "compression_max_rounds": 2
+      }
+    },
+    "requetes": [
+      [
+        1,
+        "GET",
+        "/api/chat/court/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/long/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/plafond/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/gen/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/compact/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/outils/compression-state",
+        null
+      ],
+      [
+        2,
+        "GET",
+        "/api/chat/bobchat/compression-state",
+        null
+      ],
+      [
+        2,
+        "GET",
+        "/api/chat/bobcourt/compression-state",
+        null
+      ],
+      [
+        1,
+        "GET",
+        "/api/chat/inconnu/compression-state",
+        null
+      ],
+      [
+        2,
+        "GET",
+        "/api/chat/long/compression-state",
+        null
+      ],
+      [
+        1,
+        "POST",
+        "/api/chat/inconnu/compress",
+        null
+      ],
+      [
+        1,
+        "POST",
+        "/api/chat/gen/compress",
+        null
+      ],
+      [
+        1,
+        "POST",
+        "/api/chat/compact/compress",
+        "{}"
+      ],
+      [
+        1,
+        "POST",
+        "/api/chat/long/compress",
+        "{\"connector_id\": 999}"
+      ],
+      [
+        1,
+        "POST",
+        "/api/chat/long/compress",
+        "{\"connector_id\": \"7\", \"model\": \" m \"}"
+      ]
+    ]
+  },
+  "sorties": {
+    "etats": {
+      "plafond": {
+        "role": "system",
+        "content": "[COMPRESSION_META v=1 round=12 covered_turns=4]\n[COMPRESSED_SUMMARY_V1]\n<summary>r\u00e9sum\u00e9</summary>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 4 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)"
+      },
+      "bobchat": {
+        "role": "system",
+        "content": "[COMPRESSION_META v=1 round=2 covered_turns=3]\n[COMPRESSED_SUMMARY_V1]\n<summary>r\u00e9sum\u00e9</summary>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 3 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)"
+      },
+      "bobcourt": {
+        "role": "system",
+        "content": "[COMPRESSION_META v=1 round=1 covered_turns=1]\n[COMPRESSED_SUMMARY_V1]\n<summary>r\u00e9sum\u00e9</summary>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 1 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)"
+      }
+    },
+    "reponses": [
+      {
+        "statut": 200,
+        "corps": "{\"round\":0,\"max\":12,\"can_compress\":false,\"reason\":\"too_short\",\"turns\":2,\"tokens_estimate\":21,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":0,\"max\":12,\"can_compress\":true,\"reason\":\"ok\",\"turns\":24,\"tokens_estimate\":1052,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":12,\"max\":12,\"can_compress\":false,\"reason\":\"max_reached\",\"turns\":20,\"tokens_estimate\":1091,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":0,\"max\":12,\"can_compress\":false,\"reason\":\"generation_running\",\"turns\":24,\"tokens_estimate\":1052,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":0,\"max\":12,\"can_compress\":false,\"reason\":\"compression_running\",\"turns\":24,\"tokens_estimate\":1052,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":0,\"max\":12,\"can_compress\":true,\"reason\":\"ok\",\"turns\":12,\"tokens_estimate\":276,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":2,\"max\":2,\"can_compress\":false,\"reason\":\"max_reached\",\"turns\":21,\"tokens_estimate\":1115,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 200,
+        "corps": "{\"round\":1,\"max\":2,\"can_compress\":true,\"reason\":\"ok\",\"turns\":23,\"tokens_estimate\":1149,\"estimated\":true,\"scope\":\"history_only\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": "no-cache"
+        }
+      },
+      {
+        "statut": 404,
+        "corps": "{\"detail\":\"chat not found\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 404,
+        "corps": "{\"detail\":\"chat not found\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 404,
+        "corps": "{\"detail\":\"chat not found\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":\"generation_running\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":\"compression_running\"}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":{\"code\":\"engine_unavailable\",\"reason\":\"missing\",\"message\":\"Le serveur s\u00e9lectionn\u00e9 n'existe plus.\"}}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":{\"code\":\"engine_unavailable\",\"reason\":\"missing\",\"message\":\"Le serveur s\u00e9lectionn\u00e9 n'existe plus.\"}}",
+        "entetes": {
+          "content-type": "application/json",
+          "cache-control": null
+        }
+      }
+    ]
+  }
+}

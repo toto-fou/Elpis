@@ -1,0 +1,91 @@
+{
+  "entrees": {
+    "chat_id": "c1",
+    "chronologie": [
+      {
+        "a": 0,
+        "verrou": "pris"
+      },
+      {
+        "a": 0,
+        "ouvrir": {
+          "debut": {
+            "chat_id": "c1",
+            "mode": "classique"
+          },
+          "run_id": "r1"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "Génération en cours…",
+          "type": "mode"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "Bon",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "jour",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 2,
+        "connexion": {}
+      },
+      {
+        "a": 3,
+        "verrou": "rendu"
+      },
+      {
+        "a": 4,
+        "verrou": "pris"
+      },
+      {
+        "a": 8,
+        "fermer": "done"
+      },
+      {
+        "a": 8,
+        "verrou": "rendu"
+      }
+    ],
+    "harnais": "rattachement"
+  },
+  "flux": [
+    {
+      "_s": 1,
+      "chat_id": "c1",
+      "mode": "classique",
+      "run_id": "r1",
+      "type": "run_started"
+    },
+    {
+      "_s": 2,
+      "text": "Génération en cours…",
+      "type": "mode"
+    },
+    {
+      "_s": 3,
+      "n": 2,
+      "text": "Bonjour",
+      "type": "content_token"
+    },
+    {
+      "type": "replay_done"
+    },
+    {
+      "_s": 4,
+      "status": "done",
+      "type": "run_end"
+    }
+  ]
+}

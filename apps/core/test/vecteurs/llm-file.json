@@ -1,0 +1,225 @@
+{
+  "source": "migration-kit/vecteurs/llm_file.py",
+  "ts": 1791331200.125,
+  "cas": [
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 4,
+        "total_slots_from_props": null,
+        "active_models": [],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":0,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":0,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 4,
+        "total_slots_from_props": 8,
+        "active_models": [],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":8,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":8,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 2,
+        "max_conversations_per_model_config_fallback": 1,
+        "total_slots_from_props": null,
+        "active_models": [
+          {
+            "model": "a",
+            "holders": 1,
+            "sem_locked": false,
+            "effective_max_convs": 3,
+            "shared_busy": 0
+          },
+          {
+            "model": "b",
+            "holders": 0,
+            "sem_locked": false,
+            "effective_max_convs": null,
+            "shared_busy": 2
+          }
+        ],
+        "slot_waiters": [
+          {
+            "model": "a",
+            "priority": "high",
+            "cancelled": false
+          },
+          {
+            "model": "a",
+            "priority": "low",
+            "cancelled": true
+          },
+          {
+            "model": null,
+            "priority": "low",
+            "cancelled": false
+          }
+        ]
+      },
+      "flux": "{\"llm\":{\"in_flight\":3,\"waiting\":2,\"capacity\":4,\"saturation_ratio\":0.75,\"models\":[{\"model\":\"a\",\"holders\":1,\"max\":3,\"waiters\":1},{\"model\":\"b\",\"holders\":2,\"max\":1,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":3,\"waiting\":2,\"capacity\":4,\"saturation_ratio\":0.75,\"models\":[{\"model\":\"a\",\"holders\":1,\"max\":3,\"waiters\":1},{\"model\":\"b\",\"holders\":2,\"max\":1,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 0,
+        "total_slots_from_props": 2,
+        "active_models": [
+          {
+            "model": "m",
+            "holders": 3,
+            "sem_locked": false,
+            "effective_max_convs": 0,
+            "shared_busy": 1
+          }
+        ],
+        "slot_waiters": [
+          {
+            "model": "m",
+            "priority": "high",
+            "cancelled": false
+          }
+        ]
+      },
+      "flux": "{\"llm\":{\"in_flight\":3,\"waiting\":1,\"capacity\":2,\"saturation_ratio\":1.5,\"models\":[{\"model\":\"m\",\"holders\":3,\"max\":1,\"waiters\":1}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":3,\"waiting\":1,\"capacity\":2,\"saturation_ratio\":1.5,\"models\":[{\"model\":\"m\",\"holders\":3,\"max\":1,\"waiters\":1}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 3,
+        "total_slots_from_props": 1,
+        "active_models": [
+          {
+            "model": "x",
+            "holders": 1,
+            "sem_locked": false,
+            "effective_max_convs": 3,
+            "shared_busy": 1
+          }
+        ],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":1,\"waiting\":0,\"capacity\":3,\"saturation_ratio\":0.333,\"models\":[{\"model\":\"x\",\"holders\":1,\"max\":3,\"waiters\":0}]},\"chat\":{\"active_estimate\":1},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":1,\"waiting\":0,\"capacity\":3,\"saturation_ratio\":0.333,\"models\":[{\"model\":\"x\",\"holders\":1,\"max\":3,\"waiters\":0}]},\"chat\":{\"active_estimate\":1},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 3,
+        "total_slots_from_props": null,
+        "active_models": [
+          {
+            "model": "x",
+            "holders": 2,
+            "sem_locked": false,
+            "effective_max_convs": 3,
+            "shared_busy": 0
+          }
+        ],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":2,\"waiting\":0,\"capacity\":3,\"saturation_ratio\":0.667,\"models\":[{\"model\":\"x\",\"holders\":2,\"max\":3,\"waiters\":0}]},\"chat\":{\"active_estimate\":2},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":2,\"waiting\":0,\"capacity\":3,\"saturation_ratio\":0.667,\"models\":[{\"model\":\"x\",\"holders\":2,\"max\":3,\"waiters\":0}]},\"chat\":{\"active_estimate\":2},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 7,
+        "total_slots_from_props": null,
+        "active_models": [
+          {
+            "model": "x",
+            "holders": 1,
+            "sem_locked": false,
+            "effective_max_convs": 6,
+            "shared_busy": 0
+          },
+          {
+            "model": "y",
+            "holders": 2,
+            "sem_locked": false,
+            "effective_max_convs": 6,
+            "shared_busy": 0
+          },
+          {
+            "model": "",
+            "holders": 0,
+            "sem_locked": false,
+            "effective_max_convs": 6,
+            "shared_busy": 0
+          }
+        ],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":3,\"waiting\":0,\"capacity\":18,\"saturation_ratio\":0.167,\"models\":[{\"model\":\"x\",\"holders\":1,\"max\":6,\"waiters\":0},{\"model\":\"y\",\"holders\":2,\"max\":6,\"waiters\":0},{\"model\":\"\",\"holders\":0,\"max\":6,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":3,\"waiting\":0,\"capacity\":18,\"saturation_ratio\":0.167,\"models\":[{\"model\":\"x\",\"holders\":1,\"max\":6,\"waiters\":0},{\"model\":\"y\",\"holders\":2,\"max\":6,\"waiters\":0},{\"model\":\"\",\"holders\":0,\"max\":6,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 3,
+        "total_slots_from_props": null,
+        "active_models": [
+          {
+            "model": "\u00e9\ud83d\ude00",
+            "holders": 1,
+            "sem_locked": false,
+            "effective_max_convs": 3,
+            "shared_busy": 0
+          }
+        ],
+        "slot_waiters": [
+          {
+            "model": "\u00e9\ud83d\ude00",
+            "cancelled": false
+          }
+        ]
+      },
+      "flux": "{\"llm\":{\"in_flight\":1,\"waiting\":1,\"capacity\":3,\"saturation_ratio\":0.333,\"models\":[{\"model\":\"\\u00e9\\ud83d\\ude00\",\"holders\":1,\"max\":3,\"waiters\":1}]},\"chat\":{\"active_estimate\":1},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":1,\"waiting\":1,\"capacity\":3,\"saturation_ratio\":0.333,\"models\":[{\"model\":\"\u00e9\ud83d\ude00\",\"holders\":1,\"max\":3,\"waiters\":1}]},\"chat\":{\"active_estimate\":1},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_conversations_per_model_config_fallback": null,
+        "active_models": null,
+        "slot_waiters": null
+      },
+      "flux": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":0,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":0,\"waiting\":0,\"capacity\":0,\"saturation_ratio\":0.0,\"models\":[]},\"chat\":{\"active_estimate\":0},\"ts\":1791331200.125}"
+    },
+    {
+      "stats": {
+        "max_models": 1,
+        "max_conversations_per_model_config_fallback": 3,
+        "total_slots_from_props": null,
+        "active_models": [
+          {
+            "model": "z",
+            "holders": 1,
+            "sem_locked": false,
+            "effective_max_convs": 3,
+            "shared_busy": 0
+          },
+          {
+            "model": "w",
+            "holders": 2,
+            "sem_locked": false,
+            "effective_max_convs": 9,
+            "shared_busy": 0
+          }
+        ],
+        "slot_waiters": []
+      },
+      "flux": "{\"llm\":{\"in_flight\":3,\"waiting\":0,\"capacity\":12,\"saturation_ratio\":0.25,\"models\":[{\"model\":\"z\",\"holders\":1,\"max\":3,\"waiters\":0},{\"model\":\"w\",\"holders\":2,\"max\":9,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}",
+      "reponse": "{\"llm\":{\"in_flight\":3,\"waiting\":0,\"capacity\":12,\"saturation_ratio\":0.25,\"models\":[{\"model\":\"z\",\"holders\":1,\"max\":3,\"waiters\":0},{\"model\":\"w\",\"holders\":2,\"max\":9,\"waiters\":0}]},\"chat\":{\"active_estimate\":3},\"ts\":1791331200.125}"
+    }
+  ]
+}

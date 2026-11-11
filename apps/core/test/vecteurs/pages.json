@@ -1,0 +1,36 @@
+{
+  "source": "migration-kit/vecteurs/interface_pages.py, sans @include ni __VENDOR_V__ depuis L10 (pages coquilles)",
+  "fichiers": {},
+  "cas": [
+    {
+      "nom": "versions",
+      "page": "<head><link href=\"static/css/s.css?v=4.23\"><script type=\"module\" src=\"static/x.js?v=1714123456-a3f9d2\"></script></head>",
+      "sortie": "<head><link href=\"static/css/s.css?v=BUILD-42\"><script type=\"module\" src=\"static/x.js?v=BUILD-42\"></script></head>",
+      "lus": []
+    },
+    {
+      "nom": "vendor",
+      "page": "<head><link href=\"static/vendor/src/regular/style.css\" rel=\"stylesheet\"><link href=\"static/vendor/github-dark.min.css?v=old\" rel=\"stylesheet\"></head>",
+      "sortie": "<head><link href=\"static/vendor/src/regular/style.css?v=fp(static/vendor/src/regular/style.css)\" rel=\"stylesheet\"><link href=\"static/vendor/github-dark.min.css?v=BUILD-42\" rel=\"stylesheet\"></head>",
+      "lus": []
+    },
+    {
+      "nom": "unicode",
+      "page": "<head></head>E ünïcødé ?v=ancien-é ?v=é.ü-1_2",
+      "sortie": "<head></head>E ünïcødé ?v=BUILD-42 ?v=BUILD-42",
+      "lus": []
+    },
+    {
+      "nom": "include_ignore",
+      "page": "<body><!-- @include includes/a.html --></body>",
+      "sortie": "<body><!-- @include includes/a.html --></body>",
+      "lus": []
+    },
+    {
+      "nom": "deux_head",
+      "page": "<head></head><head></head>",
+      "sortie": "<head></head><head></head>",
+      "lus": []
+    }
+  ]
+}

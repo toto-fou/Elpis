@@ -1,0 +1,99 @@
+{
+ "scenario": "a_stream_code",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4,
+  "toks": 60
+ },
+ "run": 1,
+ "label": "frontend-ts-candidat-perf",
+ "commit": "8f46021",
+ "ts": "2026-10-14T08:39:42.953Z",
+ "durationMs": 31727,
+ "longTasks": {
+  "count": 5,
+  "p50": 163,
+  "p95": 287,
+  "max": 287,
+  "tbtMs": 592
+ },
+ "fps": {
+  "mean": 58.88,
+  "p5": 59.88,
+  "droppedPct": 0.01,
+  "frozen": 0
+ },
+ "inputEvents": {
+  "countOver50ms": 24,
+  "p95": 24
+ },
+ "cls": 0,
+ "markdown": {
+  "parseCalls": 30,
+  "parseMs": 159,
+  "parseMaxMs": 49,
+  "hljsCalls": 0,
+  "hljsAutoCalls": 0,
+  "hljsMs": 0
+ },
+ "cdp": {
+  "ScriptDuration": 1.29,
+  "LayoutDuration": 1.2,
+  "RecalcStyleDuration": 0.47,
+  "TaskDuration": 12.35,
+  "JSHeapUsedMB": 21.09
+ },
+ "intervals": [
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at /:15988:12"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1369:27)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1369:27)"
+  },
+  {
+   "ms": 200,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at _startGenTicker (/static/js/app-chat.js?v=1784227200:4847:22)"
+  },
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2563:36)"
+  }
+ ],
+ "_window": [
+  1791967151103,
+  1791967182830
+ ],
+ "requests": {
+  "total": 7,
+  "byUrl": {
+   "/api/saved/chats/new": 1,
+   "/api/chat-saved-stream3": 1,
+   "/api/inbox/count": 1,
+   "/static/dist/assets/highlight.min-CHXK3mpW.js": 1,
+   "/api/llm/models": 1,
+   "/api/saved/chats": 1,
+   "/api/llm/models/m1/props": 1
+  }
+ },
+ "errors": [],
+ "toks": 60,
+ "reply": "code200"
+}

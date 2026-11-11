@@ -1,0 +1,526 @@
+{
+  "llama_timeout_sec": 600,
+  "delais_flux": [
+    {
+      "ctx": null,
+      "connect": 15.0,
+      "read": 600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 0,
+      "connect": 15.0,
+      "read": 600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": -5,
+      "connect": 15.0,
+      "read": 600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 1000,
+      "connect": 15.0,
+      "read": 600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 60000,
+      "connect": 15.0,
+      "read": 600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 60001,
+      "connect": 15.0,
+      "read": 600.01,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 100000,
+      "connect": 15.0,
+      "read": 1000.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 256000,
+      "connect": 15.0,
+      "read": 2560.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 359999,
+      "connect": 15.0,
+      "read": 3599.99,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 360000,
+      "connect": 15.0,
+      "read": 3600.0,
+      "write": 600,
+      "pool": 600
+    },
+    {
+      "ctx": 10000000,
+      "connect": 15.0,
+      "read": 3600.0,
+      "write": 600,
+      "pool": 600
+    }
+  ],
+  "libelles": {
+    "100": "Continue",
+    "101": "Switching Protocols",
+    "102": "Processing",
+    "103": "Early Hints",
+    "200": "OK",
+    "201": "Created",
+    "202": "Accepted",
+    "203": "Non-Authoritative Information",
+    "204": "No Content",
+    "205": "Reset Content",
+    "206": "Partial Content",
+    "207": "Multi-Status",
+    "208": "Already Reported",
+    "226": "IM Used",
+    "300": "Multiple Choices",
+    "301": "Moved Permanently",
+    "302": "Found",
+    "303": "See Other",
+    "304": "Not Modified",
+    "305": "Use Proxy",
+    "307": "Temporary Redirect",
+    "308": "Permanent Redirect",
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "402": "Payment Required",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "405": "Method Not Allowed",
+    "406": "Not Acceptable",
+    "407": "Proxy Authentication Required",
+    "408": "Request Timeout",
+    "409": "Conflict",
+    "410": "Gone",
+    "411": "Length Required",
+    "412": "Precondition Failed",
+    "413": "Request Entity Too Large",
+    "414": "Request-URI Too Long",
+    "415": "Unsupported Media Type",
+    "416": "Requested Range Not Satisfiable",
+    "417": "Expectation Failed",
+    "418": "I'm a teapot",
+    "421": "Misdirected Request",
+    "422": "Unprocessable Entity",
+    "423": "Locked",
+    "424": "Failed Dependency",
+    "425": "Too Early",
+    "426": "Upgrade Required",
+    "428": "Precondition Required",
+    "429": "Too Many Requests",
+    "431": "Request Header Fields Too Large",
+    "451": "Unavailable For Legal Reasons",
+    "500": "Internal Server Error",
+    "501": "Not Implemented",
+    "502": "Bad Gateway",
+    "503": "Service Unavailable",
+    "504": "Gateway Timeout",
+    "505": "HTTP Version Not Supported",
+    "506": "Variant Also Negotiates",
+    "507": "Insufficient Storage",
+    "508": "Loop Detected",
+    "510": "Not Extended",
+    "511": "Network Authentication Required"
+  },
+  "messages": [
+    {
+      "code": 100,
+      "location": false,
+      "message": "Informational response '100 Continue' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/100"
+    },
+    {
+      "code": 100,
+      "location": true,
+      "message": "Informational response '100 Continue' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/100"
+    },
+    {
+      "code": 200,
+      "location": false,
+      "message": ""
+    },
+    {
+      "code": 200,
+      "location": true,
+      "message": ""
+    },
+    {
+      "code": 204,
+      "location": false,
+      "message": ""
+    },
+    {
+      "code": 204,
+      "location": true,
+      "message": ""
+    },
+    {
+      "code": 301,
+      "location": false,
+      "message": "Redirect response '301 Moved Permanently' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301"
+    },
+    {
+      "code": 301,
+      "location": true,
+      "message": "Redirect response '301 Moved Permanently' for url 'http://h:1/v1/chat/completions'\nRedirect location: '/ailleurs'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/301"
+    },
+    {
+      "code": 302,
+      "location": false,
+      "message": "Redirect response '302 Found' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/302"
+    },
+    {
+      "code": 302,
+      "location": true,
+      "message": "Redirect response '302 Found' for url 'http://h:1/v1/chat/completions'\nRedirect location: '/ailleurs'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/302"
+    },
+    {
+      "code": 304,
+      "location": false,
+      "message": "Redirect response '304 Not Modified' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304"
+    },
+    {
+      "code": 304,
+      "location": true,
+      "message": "Redirect response '304 Not Modified' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304"
+    },
+    {
+      "code": 307,
+      "location": false,
+      "message": "Redirect response '307 Temporary Redirect' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/307"
+    },
+    {
+      "code": 307,
+      "location": true,
+      "message": "Redirect response '307 Temporary Redirect' for url 'http://h:1/v1/chat/completions'\nRedirect location: '/ailleurs'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/307"
+    },
+    {
+      "code": 400,
+      "location": false,
+      "message": "Client error '400 Bad Request' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+    },
+    {
+      "code": 400,
+      "location": true,
+      "message": "Client error '400 Bad Request' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+    },
+    {
+      "code": 404,
+      "location": false,
+      "message": "Client error '404 Not Found' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
+    },
+    {
+      "code": 404,
+      "location": true,
+      "message": "Client error '404 Not Found' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
+    },
+    {
+      "code": 413,
+      "location": false,
+      "message": "Client error '413 Request Entity Too Large' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413"
+    },
+    {
+      "code": 413,
+      "location": true,
+      "message": "Client error '413 Request Entity Too Large' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413"
+    },
+    {
+      "code": 418,
+      "location": false,
+      "message": "Client error '418 I'm a teapot' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/418"
+    },
+    {
+      "code": 418,
+      "location": true,
+      "message": "Client error '418 I'm a teapot' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/418"
+    },
+    {
+      "code": 429,
+      "location": false,
+      "message": "Client error '429 Too Many Requests' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+    },
+    {
+      "code": 429,
+      "location": true,
+      "message": "Client error '429 Too Many Requests' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+    },
+    {
+      "code": 500,
+      "location": false,
+      "message": "Server error '500 Internal Server Error' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"
+    },
+    {
+      "code": 500,
+      "location": true,
+      "message": "Server error '500 Internal Server Error' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500"
+    },
+    {
+      "code": 503,
+      "location": false,
+      "message": "Server error '503 Service Unavailable' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+    },
+    {
+      "code": 503,
+      "location": true,
+      "message": "Server error '503 Service Unavailable' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+    },
+    {
+      "code": 529,
+      "location": false,
+      "message": "Server error '529 ' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/529"
+    },
+    {
+      "code": 529,
+      "location": true,
+      "message": "Server error '529 ' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/529"
+    },
+    {
+      "code": 600,
+      "location": false,
+      "message": "Invalid status code '600 ' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/600"
+    },
+    {
+      "code": 600,
+      "location": true,
+      "message": "Invalid status code '600 ' for url 'http://h:1/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/600"
+    }
+  ],
+  "corps_json": [
+    {
+      "valeur": {
+        "model": "m",
+        "messages": [
+          {
+            "role": "user",
+            "content": "\u00e9 \u4e2d \ud83d\ude00"
+          }
+        ],
+        "stream": true,
+        "temperature": 0.7,
+        "top_k": 40
+      },
+      "octets": "eyJtb2RlbCI6Im0iLCJtZXNzYWdlcyI6W3sicm9sZSI6InVzZXIiLCJjb250ZW50Ijoiw6kg5LitIPCfmIAifV0sInN0cmVhbSI6dHJ1ZSwidGVtcGVyYXR1cmUiOjAuNywidG9wX2siOjQwfQ=="
+    },
+    {
+      "valeur": {
+        "a": [
+          1,
+          2.5,
+          null,
+          true,
+          false
+        ],
+        "b": {
+          "c": "\n\t\"\\"
+        },
+        "vide": {},
+        "liste": []
+      },
+      "octets": "eyJhIjpbMSwyLjUsbnVsbCx0cnVlLGZhbHNlXSwiYiI6eyJjIjoiXG5cdFwiXFwifSwidmlkZSI6e30sImxpc3RlIjpbXX0="
+    },
+    {
+      "valeur": {
+        "content": "<|im_start|>user\u2028x",
+        "add_special": false
+      },
+      "octets": "eyJjb250ZW50IjoiPHxpbV9zdGFydHw+dXNlcuKAqHgiLCJhZGRfc3BlY2lhbCI6ZmFsc2V9"
+    },
+    {
+      "valeur": [
+        1,
+        "deux"
+      ],
+      "octets": "WzEsImRldXgiXQ=="
+    },
+    {
+      "valeur": "texte",
+      "octets": "InRleHRlIg=="
+    },
+    {
+      "valeur": 3,
+      "octets": "Mw=="
+    },
+    {
+      "valeur": null,
+      "octets": ""
+    },
+    {
+      "valeur": {
+        "grand": 9007199254740991,
+        "petit": 1e-07,
+        "negatif": -2.5
+      },
+      "octets": "eyJncmFuZCI6OTAwNzE5OTI1NDc0MDk5MSwicGV0aXQiOjFlLTA3LCJuZWdhdGlmIjotMi41fQ=="
+    }
+  ],
+  "params": [
+    {
+      "params": {
+        "conv_id": "abc123",
+        "from": 0
+      },
+      "url": "http://h:1/v1/stream?conv_id=abc123&from=0"
+    },
+    {
+      "params": {
+        "conv_id": "a b+c&d=e/f?g",
+        "from": 12,
+        "model": "Qwen3 8B/Q4_K_M"
+      },
+      "url": "http://h:1/v1/stream?conv_id=a+b%2Bc%26d%3De%2Ff%3Fg&from=12&model=Qwen3+8B%2FQ4_K_M"
+    },
+    {
+      "params": {
+        "model": "\u00e9\u4e2d\ud83d\ude00"
+      },
+      "url": "http://h:1/v1/stream?model=%C3%A9%E4%B8%AD%F0%9F%98%80"
+    },
+    {
+      "params": {
+        "x": ""
+      },
+      "url": "http://h:1/v1/stream?x="
+    },
+    {
+      "params": {
+        "t": "~._-"
+      },
+      "url": "http://h:1/v1/stream?t=~._-"
+    }
+  ],
+  "lignes": [
+    {
+      "morceaux": [
+        "data: a\n\ndata: b\n\n"
+      ],
+      "lignes": [
+        "data: a",
+        "",
+        "data: b",
+        ""
+      ]
+    },
+    {
+      "morceaux": [
+        "data: a\r",
+        "\ndata: b\r\n",
+        "\r\n"
+      ],
+      "lignes": [
+        "data: a",
+        "data: b",
+        ""
+      ]
+    },
+    {
+      "morceaux": [
+        "da",
+        "ta: x",
+        "\n",
+        "data",
+        ": y"
+      ],
+      "lignes": [
+        "data: x",
+        "data: y"
+      ]
+    },
+    {
+      "morceaux": [
+        "ligne1\rligne2\rligne3"
+      ],
+      "lignes": [
+        "ligne1",
+        "ligne2",
+        "ligne3"
+      ]
+    },
+    {
+      "morceaux": [
+        "\n\n\n"
+      ],
+      "lignes": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "morceaux": [
+        "a\r"
+      ],
+      "lignes": [
+        "a"
+      ]
+    },
+    {
+      "morceaux": [
+        "sans fin"
+      ],
+      "lignes": [
+        "sans fin"
+      ]
+    },
+    {
+      "morceaux": [
+        "",
+        "x\n",
+        ""
+      ],
+      "lignes": [
+        "x"
+      ]
+    },
+    {
+      "morceaux": [
+        "data: \u00e9",
+        "t",
+        "\u00e9\n"
+      ],
+      "lignes": [
+        "data: \u00e9t\u00e9"
+      ]
+    },
+    {
+      "morceaux": [
+        "a\r\r\nb"
+      ],
+      "lignes": [
+        "a",
+        "",
+        "b"
+      ]
+    },
+    {
+      "morceaux": [
+        "\r",
+        "\n",
+        "\r"
+      ],
+      "lignes": [
+        "",
+        ""
+      ]
+    }
+  ]
+}

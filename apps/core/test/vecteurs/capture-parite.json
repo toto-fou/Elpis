@@ -1,0 +1,1313 @@
+{
+  "entrees": {
+    "cle": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+    "cles": [
+      "type",
+      "Type",
+      "a-b",
+      "9x",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      3,
+      null,
+      "chat_id",
+      "\u00e9",
+      "_x",
+      "a1_b"
+    ],
+    "valeurs": [
+      [
+        "",
+        {
+          "type": "final",
+          "chat_id": "abc-123",
+          "content": "bonjour",
+          "username": "alice",
+          "password": "x",
+          "count": 3,
+          "ok": true,
+          "rien": null,
+          "Weird Key": 1,
+          "weird_key": 2,
+          "nested": {
+            "API_KEY": "s",
+            "items": [
+              1,
+              "two",
+              {
+                "email": "a@b"
+              }
+            ],
+            "user_id": 7
+          }
+        }
+      ],
+      [
+        "",
+        [
+          {
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "id": "a b"
+          },
+          {
+            "mode": "chat"
+          },
+          {
+            "mode": "9chat"
+          },
+          {
+            "mode": "\u00e9"
+          }
+        ]
+      ],
+      [
+        "",
+        {
+          "role": "user",
+          "status": "ok",
+          "kind": "a.b-c",
+          "level": 1.5,
+          "ip": "10.0.0.1",
+          "owner": 3,
+          "session": "s",
+          "pin": "1234",
+          "spin": "x",
+          "state": "s",
+          "statement": "x",
+          "code": "c",
+          "zip_code": "z",
+          "display_name": "Al",
+          "remote_addr": "x",
+          "host": "h",
+          "hostname": "h",
+          "token_count": 3
+        }
+      ],
+      [
+        "secret_key",
+        "valeur"
+      ],
+      [
+        "username",
+        12
+      ],
+      [
+        "username",
+        1.0
+      ],
+      [
+        "email",
+        null
+      ],
+      [
+        "chat_id",
+        "ok"
+      ],
+      [
+        "",
+        "texte \u00e9"
+      ],
+      [
+        "",
+        ""
+      ],
+      [
+        "type",
+        ""
+      ],
+      [
+        "",
+        1152921504606846976
+      ],
+      [
+        "",
+        [
+          []
+        ]
+      ],
+      [
+        "",
+        {
+          "constructor": "x",
+          "toString": 1,
+          "__proto__": 2
+        }
+      ]
+    ],
+    "corps": [
+      [
+        "{\"a\": 1, \"b\": [true, null, \"x\"]}",
+        "application/json",
+        null
+      ],
+      [
+        "{\"a\": 1",
+        "application/json; charset=utf-8",
+        null
+      ],
+      [
+        "[1, 2]",
+        "application/problem+json",
+        null
+      ],
+      [
+        "{\"x\": NaN}",
+        "application/json",
+        null
+      ],
+      [
+        "{\"type\":\"a\",\"n\":1}\n{\"type\":\"ping\"}\n\n not json\n{\"type\":\"b\",\"text\":\"t\"}\n",
+        "application/x-ndjson",
+        null
+      ],
+      [
+        "event: m\ndata: {\"type\": \"a\"}\n\n: commentaire\nid: 3\nretry: 5\ndata:{\"type\":\"ping\"}\ndata: [1]\n",
+        "text/event-stream",
+        null
+      ],
+      [
+        "bonjour",
+        "text/plain",
+        null
+      ],
+      [
+        "\u0000\u0001",
+        "application/octet-stream",
+        99
+      ],
+      [
+        "",
+        "application/json",
+        null
+      ],
+      [
+        "{\"a\": 1}",
+        "",
+        null
+      ],
+      [
+        "{\"a\": 1}",
+        "Application/JSON",
+        null
+      ],
+      [
+        "\ufeff{\"type\":\"a\"}\n{\"type\":\"b\"}\n",
+        "application/x-ndjson",
+        null
+      ],
+      [
+        "\ufeff{\"a\": 1}",
+        "application/json",
+        null
+      ]
+    ],
+    "formes": [
+      {
+        "b": 1,
+        "a": [
+          1,
+          2.5,
+          "x",
+          null,
+          true,
+          {
+            "k": 1
+          },
+          {
+            "k": 2
+          },
+          {
+            "k": "s"
+          }
+        ]
+      },
+      [],
+      [
+        [],
+        [
+          1
+        ],
+        []
+      ],
+      null,
+      "s",
+      0,
+      false
+    ],
+    "compat": [
+      [
+        "null",
+        {
+          "a": "str"
+        }
+      ],
+      [
+        "number",
+        "str"
+      ],
+      [
+        {
+          "a": "str"
+        },
+        {
+          "a": "null"
+        }
+      ],
+      [
+        {
+          "a": "str"
+        },
+        {
+          "a": "str",
+          "b": "number"
+        }
+      ],
+      [
+        {
+          "liste": []
+        },
+        {
+          "liste": [
+            "str"
+          ]
+        }
+      ],
+      [
+        {
+          "liste": [
+            "str"
+          ]
+        },
+        {
+          "liste": [
+            "number"
+          ]
+        }
+      ],
+      [
+        {
+          "liste": [
+            "str",
+            "null"
+          ]
+        },
+        {
+          "liste": [
+            "str"
+          ]
+        }
+      ],
+      [
+        {
+          "liste": [
+            "str"
+          ]
+        },
+        {
+          "liste": [
+            "str",
+            "number"
+          ]
+        }
+      ],
+      [
+        {
+          "liste": [
+            {
+              "a": "str"
+            }
+          ]
+        },
+        {
+          "liste": [
+            {
+              "a": "null"
+            },
+            {
+              "a": "str"
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "liste": []
+        },
+        {
+          "a": "str"
+        }
+      ]
+    ],
+    "signatures": [
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "application/json; charset=utf-8"
+          },
+          "corps": {
+            "json": {
+              "a": [
+                1,
+                "x"
+              ],
+              "b": null
+            }
+          },
+          "tronque": false
+        }
+      },
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "application/x-ndjson"
+          },
+          "corps": {
+            "evenements": [
+              {
+                "type": "a",
+                "n": 1
+              },
+              {
+                "type": "a",
+                "n": 2
+              },
+              {
+                "type": "b"
+              },
+              {
+                "type": "a",
+                "x": "s"
+              },
+              "brut",
+              {
+                "t": 1
+              }
+            ]
+          },
+          "tronque": false
+        }
+      },
+      {
+        "reponse": {
+          "statut": 404,
+          "en_tetes": {},
+          "corps": null,
+          "tronque": false
+        }
+      },
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "text/plain"
+          },
+          "corps": {
+            "type": "text/plain",
+            "taille": 7
+          },
+          "tronque": true
+        }
+      },
+      {
+        "reponse": {
+          "statut": 204
+        }
+      }
+    ],
+    "signatures_en_plus": [
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "application/json"
+          },
+          "corps": {
+            "json": {
+              "a": [],
+              "b": "s"
+            }
+          },
+          "tronque": false
+        }
+      },
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "application/json"
+          },
+          "corps": {
+            "json": {
+              "a": [
+                2
+              ],
+              "b": null,
+              "c": 1
+            }
+          },
+          "tronque": false
+        }
+      },
+      {
+        "reponse": {
+          "statut": 200,
+          "en_tetes": {
+            "content-type": "application/x-ndjson"
+          },
+          "corps": {
+            "evenements": [
+              {
+                "type": "a",
+                "n": null
+              },
+              {
+                "type": "b"
+              },
+              {
+                "type": "a"
+              }
+            ]
+          },
+          "tronque": false
+        }
+      }
+    ],
+    "comparaisons": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "comparaisons_en_plus": [
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        1,
+        7
+      ]
+    ],
+    "requetes_export": [
+      [
+        "GET",
+        "/api/saved/chats",
+        null,
+        1
+      ],
+      [
+        "GET",
+        "/api/saved/chats/c1",
+        null,
+        1
+      ],
+      [
+        "GET",
+        "/api/saved/chats/inconnu",
+        null,
+        1
+      ],
+      [
+        "GET",
+        "/api/chat/c1/compression-state",
+        null,
+        1
+      ],
+      [
+        "GET",
+        "/api/chat/inconnu/compression-state",
+        null,
+        1
+      ],
+      [
+        "POST",
+        "/api/chat/cancel",
+        {
+          "chat_id": "c1"
+        },
+        1
+      ],
+      [
+        "POST",
+        "/api/chat/inconnu/compress",
+        null,
+        1
+      ],
+      [
+        "GET",
+        "/api/chat/active-runs",
+        null,
+        1
+      ],
+      [
+        "POST",
+        "/api/chat-saved-stream3",
+        "{",
+        1
+      ]
+    ],
+    "chats": [
+      [
+        1,
+        "c1",
+        "Premier",
+        [
+          {
+            "role": "user",
+            "content": "bonjour"
+          },
+          {
+            "role": "assistant",
+            "content": "salut",
+            "metrics": {
+              "tokens": 3
+            }
+          }
+        ],
+        100.0
+      ],
+      [
+        1,
+        "c2",
+        "Second",
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        200.0
+      ]
+    ]
+  },
+  "sorties": {
+    "pures": {
+      "cles": [
+        "type",
+        "<cle>",
+        "<cle>",
+        "<cle>",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "<cle>",
+        "<cle>",
+        "<cle>",
+        "chat_id",
+        "<cle>",
+        "<cle>",
+        "a1_b"
+      ],
+      "valeurs": [
+        {
+          "type": "final",
+          "chat_id": "abc-123",
+          "content": "<texte:7>",
+          "username": "<utilisateur:6664a420>",
+          "password": "<secret>",
+          "count": 3,
+          "ok": true,
+          "rien": null,
+          "<cle>": 1,
+          "weird_key": "<secret>",
+          "nested": {
+            "<cle>": "<texte:1>",
+            "items": [
+              1,
+              "<texte:3>",
+              {
+                "email": "<utilisateur:16cccba6>"
+              }
+            ],
+            "user_id": "<utilisateur:aed60f37>"
+          }
+        },
+        [
+          {
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "id": "<texte:41>"
+          },
+          {
+            "id": "<texte:3>"
+          },
+          {
+            "mode": "chat"
+          },
+          {
+            "mode": "<texte:5>"
+          },
+          {
+            "mode": "<texte:1>"
+          }
+        ],
+        {
+          "role": "user",
+          "status": "ok",
+          "kind": "a.b-c",
+          "level": 1.5,
+          "ip": "<utilisateur:cf8a06e7>",
+          "owner": "<utilisateur:7b1ed009>",
+          "session": "<secret>",
+          "pin": "<secret>",
+          "spin": "<secret>",
+          "state": "<secret>",
+          "statement": "<texte:1>",
+          "code": "<secret>",
+          "zip_code": "<texte:1>",
+          "display_name": "<utilisateur:e93be934>",
+          "remote_addr": "<utilisateur:5011cc61>",
+          "host": "<utilisateur:e44db94b>",
+          "hostname": "<texte:1>",
+          "token_count": "<secret>"
+        },
+        "<secret>",
+        "<utilisateur:39fca226>",
+        "<utilisateur:da8ea7e7>",
+        null,
+        "ok",
+        "<texte:7>",
+        "<texte:0>",
+        "<texte:0>",
+        1152921504606846976,
+        [
+          []
+        ],
+        {
+          "constructor": "<texte:1>",
+          "<cle>": 1
+        }
+      ],
+      "corps": [
+        {
+          "json": {
+            "a": 1,
+            "b": [
+              true,
+              null,
+              "<texte:1>"
+            ]
+          }
+        },
+        {
+          "type": "application/json",
+          "taille": 7
+        },
+        {
+          "json": [
+            1,
+            2
+          ]
+        },
+        {
+          "json": {
+            "x": NaN
+          }
+        },
+        {
+          "evenements": [
+            {
+              "type": "a",
+              "n": 1
+            },
+            {
+              "type": "b",
+              "text": "<texte:1>"
+            }
+          ]
+        },
+        {
+          "evenements": [
+            {
+              "type": "a"
+            },
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "type": "text/plain",
+          "taille": 7
+        },
+        {
+          "type": "application/octet-stream",
+          "taille": 99
+        },
+        null,
+        {
+          "type": "",
+          "taille": 8
+        },
+        {
+          "json": {
+            "a": 1
+          }
+        },
+        {
+          "evenements": [
+            {
+              "type": "b"
+            }
+          ]
+        },
+        {
+          "json": {
+            "a": 1
+          }
+        }
+      ],
+      "formes": [
+        {
+          "a": {
+            "liste": [
+              "bool",
+              "null",
+              "number",
+              "str",
+              {
+                "k": "number"
+              },
+              {
+                "k": "str"
+              }
+            ]
+          },
+          "b": "number"
+        },
+        {
+          "liste": []
+        },
+        {
+          "liste": [
+            {
+              "liste": [
+                "number"
+              ]
+            },
+            {
+              "liste": []
+            }
+          ]
+        },
+        "null",
+        "str",
+        "number",
+        "bool"
+      ],
+      "compatibles": [
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false
+      ],
+      "signatures": [
+        {
+          "statut": 200,
+          "type": "application/json",
+          "tronque": false,
+          "forme": {
+            "a": {
+              "liste": [
+                "number",
+                "str"
+              ]
+            },
+            "b": "null"
+          }
+        },
+        {
+          "statut": 200,
+          "type": "application/x-ndjson",
+          "tronque": false,
+          "evenements": [
+            "a",
+            "b",
+            "a",
+            null
+          ],
+          "formes": {
+            "None": {
+              "liste": [
+                "str",
+                {
+                  "t": "number"
+                }
+              ]
+            },
+            "a": {
+              "liste": [
+                {
+                  "n": "number",
+                  "type": "str"
+                },
+                {
+                  "type": "str",
+                  "x": "str"
+                }
+              ]
+            },
+            "b": {
+              "liste": [
+                {
+                  "type": "str"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "statut": 404,
+          "type": "",
+          "tronque": false
+        },
+        {
+          "statut": 200,
+          "type": "text/plain",
+          "tronque": true
+        },
+        {
+          "statut": 204,
+          "type": "",
+          "tronque": false
+        },
+        {
+          "statut": 200,
+          "type": "application/json",
+          "tronque": false,
+          "forme": {
+            "a": {
+              "liste": []
+            },
+            "b": "str"
+          }
+        },
+        {
+          "statut": 200,
+          "type": "application/json",
+          "tronque": false,
+          "forme": {
+            "a": {
+              "liste": [
+                "number"
+              ]
+            },
+            "b": "null",
+            "c": "number"
+          }
+        },
+        {
+          "statut": 200,
+          "type": "application/x-ndjson",
+          "tronque": false,
+          "evenements": [
+            "a",
+            "b",
+            "a"
+          ],
+          "formes": {
+            "a": {
+              "liste": [
+                {
+                  "n": "null",
+                  "type": "str"
+                },
+                {
+                  "type": "str"
+                }
+              ]
+            },
+            "b": {
+              "liste": [
+                {
+                  "type": "str"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "comparaisons": [
+        [],
+        [
+          "evenements : None \u2260 ['a', 'b', 'a', None]",
+          "forme : {'a': {'liste': ['number', 'str']}, 'b': 'null'} \u2260 None",
+          "formes : None \u2260 {'None': {'liste': ['str', {'t': 'number'}]}, 'a': {'liste': [{'n': 'number', 'type': 'str'}, {'type': 'str', 'x': 'str'}]}, 'b': {'liste': [{'type': 'str'}]}}",
+          "type : 'application/json' \u2260 'application/x-ndjson'"
+        ],
+        [
+          "forme : {'a': {'liste': ['number', 'str']}, 'b': 'null'} \u2260 None",
+          "statut : 200 \u2260 404",
+          "type : 'application/json' \u2260 ''"
+        ],
+        [
+          "statut : 404 \u2260 204"
+        ],
+        [],
+        [],
+        [],
+        [
+          "forme : {'a': {'liste': ['number', 'str']}, 'b': 'null'} \u2260 {'a': {'liste': ['number']}, 'b': 'null', 'c': 'number'}"
+        ],
+        [
+          "evenements : ['a', 'b', 'a', None] \u2260 ['a', 'b', 'a']",
+          "formes : {'None': {'liste': ['str', {'t': 'number'}]}, 'a': {'liste': [{'n': 'number', 'type': 'str'}, {'type': 'str', 'x': 'str'}]}, 'b': {'liste': [{'type': 'str'}]}} \u2260 {'a': {'liste': [{'n': 'null', 'type': 'str'}, {'type': 'str'}]}, 'b': {'liste': [{'type': 'str'}]}}"
+        ]
+      ]
+    },
+    "export": [
+      {
+        "gabarit": "/api/saved/chats",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "items": [
+                {
+                  "archived": false,
+                  "id": "c2",
+                  "title": "<texte:6>",
+                  "updated_at": 200.0
+                },
+                {
+                  "archived": false,
+                  "id": "c1",
+                  "title": "<texte:7>",
+                  "updated_at": 100.0
+                }
+              ]
+            }
+          },
+          "en_tetes": {
+            "content-length": "142",
+            "content-type": "application/json"
+          },
+          "statut": 200,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {},
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/saved/chats/{chat_id}",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "archived": false,
+              "ctx_pruned_keys": [],
+              "ctx_usage": null,
+              "id": "c1",
+              "llm_user_suffixes": {},
+              "messages": [
+                {
+                  "content": "<texte:7>",
+                  "role": "user"
+                },
+                {
+                  "content": "<texte:5>",
+                  "metrics": {
+                    "tokens": "<secret>"
+                  },
+                  "role": "assistant"
+                }
+              ],
+              "plan_mode": false,
+              "title": "<texte:7>",
+              "todos": [],
+              "tools": null,
+              "updated_at": 100.0
+            }
+          },
+          "en_tetes": {
+            "content-length": "279",
+            "content-type": "application/json"
+          },
+          "statut": 200,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {
+            "chat_id": "c1"
+          },
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/saved/chats/{chat_id}",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "detail": "<texte:14>"
+            }
+          },
+          "en_tetes": {
+            "content-length": "27",
+            "content-type": "application/json"
+          },
+          "statut": 404,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {
+            "chat_id": "inconnu"
+          },
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/chat/{chat_id}/compression-state",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "can_compress": false,
+              "estimated": true,
+              "max": 12,
+              "reason": "<texte:9>",
+              "round": 0,
+              "scope": "history_only",
+              "tokens_estimate": "<secret>",
+              "turns": 2
+            }
+          },
+          "en_tetes": {
+            "content-length": "133",
+            "content-type": "application/json"
+          },
+          "statut": 200,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {
+            "chat_id": "c1"
+          },
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/chat/{chat_id}/compression-state",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "detail": "<texte:14>"
+            }
+          },
+          "en_tetes": {
+            "content-length": "27",
+            "content-type": "application/json"
+          },
+          "statut": 404,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {
+            "chat_id": "inconnu"
+          },
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/chat/cancel",
+        "jour": "2026-01-01",
+        "methode": "POST",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "status": "cancelled"
+            }
+          },
+          "en_tetes": {
+            "content-length": "22",
+            "content-type": "application/json"
+          },
+          "statut": 200,
+          "tronque": false
+        },
+        "requete": {
+          "corps": {
+            "json": {
+              "chat_id": "c1"
+            }
+          },
+          "en_tetes": {
+            "accept": "*/*",
+            "content-length": "17",
+            "content-type": "application/json"
+          },
+          "params": {},
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/chat/{chat_id}/compress",
+        "jour": "2026-01-01",
+        "methode": "POST",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "detail": "<texte:14>"
+            }
+          },
+          "en_tetes": {
+            "content-length": "27",
+            "content-type": "application/json"
+          },
+          "statut": 404,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*",
+            "content-length": "0"
+          },
+          "params": {
+            "chat_id": "inconnu"
+          },
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "<non rout\u00e9>",
+        "jour": "2026-01-01",
+        "methode": "GET",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "detail": "<texte:9>"
+            }
+          },
+          "en_tetes": {
+            "content-length": "22",
+            "content-type": "application/json"
+          },
+          "statut": 404,
+          "tronque": false
+        },
+        "requete": {
+          "corps": null,
+          "en_tetes": {
+            "accept": "*/*"
+          },
+          "params": {},
+          "query": []
+        },
+        "v": 1
+      },
+      {
+        "gabarit": "/api/chat-saved-stream3",
+        "jour": "2026-01-01",
+        "methode": "POST",
+        "process": "main",
+        "reponse": {
+          "corps": {
+            "json": {
+              "detail": "<texte:12>"
+            }
+          },
+          "en_tetes": {
+            "content-length": "25",
+            "content-type": "application/json"
+          },
+          "statut": 400,
+          "tronque": false
+        },
+        "requete": {
+          "corps": {
+            "taille": 1,
+            "type": "application/json"
+          },
+          "en_tetes": {
+            "accept": "*/*",
+            "content-length": "1",
+            "content-type": "application/json"
+          },
+          "params": {},
+          "query": []
+        },
+        "v": 1
+      }
+    ]
+  }
+}

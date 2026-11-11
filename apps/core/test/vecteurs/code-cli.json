@@ -1,0 +1,1860 @@
+{
+  "source": "migration-kit/vecteurs/code_cli.py",
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ]
+  ],
+  "etapes": [
+    {
+      "jeton": "alice",
+      "type": "opencode",
+      "capture": "T"
+    },
+    {
+      "jeton": "alice",
+      "type": "tools",
+      "capture": "OUTILS"
+    },
+    {
+      "jeton": "bob",
+      "type": "opencode",
+      "capture": "TB"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.sh",
+      "hote": "10.0.0.5:8001",
+      "complet": true
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.ps1",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "evil.com;id"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1",
+      "hote": "e x"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.sh",
+      "hote": "lan.test/"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.sh",
+      "hote": "LAN.Test:1"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1",
+      "hote": "10.0.0.5",
+      "complet": true
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true,
+            "main_port": 8443
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1",
+      "hote": "elpis.lan"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": "oui",
+            "main_port": 0
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": 1,
+            "main_port": "abc"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true,
+            "main_port": 1.9
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "config": {
+        "security": "x"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/opencode",
+      "hote": "10.0.0.5:8001"
+    },
+    {
+      "config": {}
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "complet": true
+    },
+    {
+      "etat": {
+        "cache": {
+          "server_reachable": true,
+          "models": [
+            "qwen3-coder-30b",
+            "qwen3.6-27b",
+            "glm-4.7-flash",
+            "1",
+            "z-libre"
+          ],
+          "models_with_status": [
+            {
+              "id": "qwen3-coder-30b",
+              "status": "unloaded",
+              "vision": false
+            },
+            {
+              "id": "qwen3.6-27b",
+              "status": "loaded",
+              "vision": true
+            },
+            {
+              "id": "glm-4.7-flash",
+              "status": "loaded",
+              "vision": 0
+            },
+            {
+              "id": "1",
+              "status": "unloaded",
+              "vision": "oui"
+            },
+            {
+              "status": "loaded"
+            },
+            {
+              "id": "",
+              "status": "loaded"
+            },
+            {
+              "id": "z-libre"
+            }
+          ]
+        },
+        "contextes": {
+          "qwen3-coder-30b": 32768,
+          "": 8192,
+          "inconnu": 0,
+          "1": 1048576,
+          "glm-4.7-flash": 9000
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "complet": true
+    },
+    {
+      "config": {
+        "opencode": {
+          "default_model": " glm-4.7-flash "
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "config": {
+        "opencode": {
+          "default_model": "absent"
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "config": {
+        "opencode": "x"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "config": {
+        "opencode": null
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "etat": {
+        "cache": {
+          "server_reachable": true,
+          "models_with_status": [
+            {
+              "id": "b",
+              "status": "unloaded"
+            },
+            {
+              "id": "a",
+              "status": "loaded"
+            },
+            {
+              "id": "c",
+              "status": "loaded"
+            }
+          ]
+        },
+        "contextes": {}
+      }
+    },
+    {
+      "config": {}
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "etat": {
+        "cache": {
+          "server_reachable": true,
+          "models_with_status": [
+            {
+              "id": "x"
+            },
+            "pas-un-objet"
+          ]
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "etat": {
+        "cache": {
+          "server_reachable": false,
+          "models_with_status": [
+            {
+              "id": "x"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "etat": {
+        "cache": {
+          "server_reachable": true,
+          "models": [
+            "qwen3-coder-30b",
+            "qwen3.6-27b",
+            "glm-4.7-flash",
+            "1",
+            "z-libre"
+          ],
+          "models_with_status": [
+            {
+              "id": "qwen3-coder-30b",
+              "status": "unloaded",
+              "vision": false
+            },
+            {
+              "id": "qwen3.6-27b",
+              "status": "loaded",
+              "vision": true
+            },
+            {
+              "id": "glm-4.7-flash",
+              "status": "loaded",
+              "vision": 0
+            },
+            {
+              "id": "1",
+              "status": "unloaded",
+              "vision": "oui"
+            },
+            {
+              "status": "loaded"
+            },
+            {
+              "id": "",
+              "status": "loaded"
+            },
+            {
+              "id": "z-libre"
+            }
+          ]
+        },
+        "contextes": {
+          "qwen3-coder-30b": 32768
+        },
+        "mcp_url": "http://127.0.0.1:8765/mcp",
+        "mcp_jeton": "svc"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      },
+      "complet": true
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "authorization": "Bearer $T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "authorization": "  bEaReR   $T  "
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": " $T ",
+        "authorization": "Bearer faux"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "pcr_inconnu_mais_assez_long"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$OUTILS"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$TB"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "u": "alice"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      },
+      "hote": "evil.com;id"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "hote": "evil.com;id"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "u": "alice",
+      "hote": "10.168.1.50:8001"
+    },
+    {
+      "etat": {
+        "reglages": {
+          "alice": {
+            "opencode_mcp_families": {
+              "browser": false,
+              "git": 0,
+              "x": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "etat": {
+        "reglages": {
+          "alice": {
+            "opencode_mcp_families": [
+              "git"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "etat": {
+        "familles_opencode": "git,chart,fs"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "u": "bob"
+    },
+    {
+      "etat": {
+        "familles_opencode": ""
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "u": "bob"
+    },
+    {
+      "etat": {
+        "familles_opencode": "git,browser,desktop",
+        "url_publique": "http://outils.lan:9000/mcp/"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      },
+      "hote": "evil.com;id"
+    },
+    {
+      "etat": {
+        "url_publique": ""
+      }
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      },
+      "hote": "elpis.lan:8001"
+    },
+    {
+      "config": {}
+    },
+    {
+      "etat": {
+        "outils": [
+          {
+            "name": "git_status",
+            "description": "\u00c9tat du d\u00e9p\u00f4t",
+            "_meta": {
+              "category": {
+                "name": "git",
+                "label": "Git"
+              }
+            }
+          },
+          {
+            "name": "browser_open",
+            "_meta": {
+              "category": {
+                "name": "browser",
+                "label": ""
+              }
+            }
+          },
+          {
+            "name": "chart_bar",
+            "_meta": {
+              "category": {
+                "name": "chart",
+                "label": "Graphiques"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "h": {
+        "x-elpis-token": "faux"
+      }
+    },
+    {
+      "etat": {
+        "serveurs_locaux": {
+          "meteo": {
+            "transport": "http",
+            "url": "http://meteo.lan/mcp",
+            "headers": {
+              "X-K": 1,
+              "Authorization": "Bearer m"
+            },
+            "expose_opencode": true,
+            "description": "M\u00e9t\u00e9o"
+          },
+          "docs": {
+            "type": "sse",
+            "url": "http://docs.lan/sse",
+            "expose_opencode": true,
+            "enabled": false
+          },
+          "local": {
+            "command": "x",
+            "expose_opencode": true
+          },
+          "cache": {
+            "transport": "http",
+            "url": "http://cache.lan/mcp"
+          },
+          "elpis-git": {
+            "transport": "http",
+            "url": "http://doublon.lan/mcp",
+            "expose_opencode": true
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "etat": {
+        "mcp_jeton": ""
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families",
+      "u": "alice"
+    },
+    {
+      "etat": {
+        "mcp_url": "",
+        "mcp_jeton": "svc"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "env": {
+        "OPENCODE_DIST_DIR": "<DIST>"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/linux"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/MAC"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/%20darwin%09"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/Win"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/solaris"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/osx"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/l%C4%B0nux"
+    },
+    {
+      "m": "HEAD",
+      "p": "/api/cli/bundle/linux"
+    },
+    {
+      "m": "HEAD",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "HEAD",
+      "p": "/api/cli/opencode/families"
+    },
+    {
+      "m": "HEAD",
+      "p": "/api/cli/install.sh"
+    },
+    {
+      "m": "HEAD",
+      "p": "/opencode.ps1"
+    },
+    {
+      "m": "HEAD",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "env": {
+        "OPENCODE_DIST_DIR": null
+      }
+    },
+    {
+      "config": {
+        "opencode": {
+          "dist_dir": " <DIST> "
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/linux"
+    },
+    {
+      "config": {
+        "opencode": {
+          "dist_dir": "cli_dist_absent"
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/linux"
+    },
+    {
+      "config": {
+        "opencode": {}
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/windows"
+    },
+    {
+      "config": {
+        "opencode": null
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/windows"
+    },
+    {
+      "config": {
+        "opencode": "x"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/windows"
+    },
+    {
+      "config": {}
+    },
+    {
+      "env": {
+        "ELPIS_CA_FILE": "<CA>/ca.crt"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "env": {
+        "ELPIS_CA_FILE": "<CA>/absente.crt"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "env": {
+        "ELPIS_CA_FILE": null
+      }
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "ca_file": " <CA>/ca.crt "
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "ca_file": "<CA>"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "config": {
+        "features": {
+          "opencode": false
+        },
+        "security": {
+          "https": {
+            "ca_file": "<CA>/ca.crt"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/ca.crt"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.sh"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode"
+    },
+    {
+      "m": "GET",
+      "p": "/opencode.ps1"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/install.ps1",
+      "hote": "evil.com;id"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode.json",
+      "h": {
+        "x-elpis-token": "$T"
+      }
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/opencode/families"
+    },
+    {
+      "m": "GET",
+      "p": "/api/cli/bundle/linux"
+    },
+    {
+      "config": {}
+    }
+  ],
+  "fonctions": {
+    "bases": [
+      {
+        "entree": "http://10.168.1.5:8000/",
+        "valeur": "http://10.168.1.5:8000"
+      },
+      {
+        "entree": "https://host.lan/",
+        "valeur": "https://host.lan"
+      },
+      {
+        "entree": "http://evil.com;rm -rf /",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://e\";id;\"",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://e'; calc; '",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://e x/",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "ftp://e/",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://elpis.lan\n",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://elpis.lan:8001\n",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://elpis.lan;id",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://elpis.lan:8001/",
+        "valeur": "http://elpis.lan:8001"
+      },
+      {
+        "entree": "http://a:123456",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://a:12345",
+        "valeur": "http://a:12345"
+      },
+      {
+        "entree": "http://",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://a.b-c.D",
+        "valeur": "http://a.b-c.D"
+      },
+      {
+        "entree": "http://\u00e9.lan",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "HTTP://a",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://a//",
+        "valeur": "http://a"
+      },
+      {
+        "entree": "http://a/x",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      },
+      {
+        "entree": "http://a:",
+        "http": [
+          400,
+          "H\u00f4te invalide."
+        ]
+      }
+    ],
+    "sorties": [
+      {
+        "contexte": 0,
+        "sortie": 2048
+      },
+      {
+        "contexte": 1,
+        "sortie": 2048
+      },
+      {
+        "contexte": 8192,
+        "sortie": 2048
+      },
+      {
+        "contexte": 16383,
+        "sortie": 2048
+      },
+      {
+        "contexte": 16384,
+        "sortie": 2048
+      },
+      {
+        "contexte": 32768,
+        "sortie": 4096
+      },
+      {
+        "contexte": 131071,
+        "sortie": 16383
+      },
+      {
+        "contexte": 131072,
+        "sortie": 16384
+      },
+      {
+        "contexte": 131080,
+        "sortie": 16384
+      },
+      {
+        "contexte": 1048576,
+        "sortie": 16384
+      },
+      {
+        "contexte": 1099511627776,
+        "sortie": 16384
+      },
+      {
+        "contexte": -5,
+        "sortie": 2048
+      }
+    ],
+    "fallback": [
+      {
+        "id": "qwen3-coder-30b",
+        "vision": false
+      },
+      {
+        "id": "qwen3.6-35B",
+        "vision": false
+      },
+      {
+        "id": "qwen3.6-27b",
+        "vision": true
+      },
+      {
+        "id": "qwen3.6-1m",
+        "vision": false
+      },
+      {
+        "id": "gpt-oss-20b",
+        "vision": false
+      },
+      {
+        "id": "glm-4.7-flash",
+        "vision": false
+      },
+      {
+        "id": "gemma-4-31b",
+        "vision": false
+      },
+      {
+        "id": "gemma4-12b",
+        "vision": false
+      },
+      {
+        "id": "granite-20b",
+        "vision": false
+      },
+      {
+        "id": "default",
+        "vision": false
+      }
+    ],
+    "noms": {
+      "qwen3-coder-30b": "Qwen3 Coder 30B",
+      "qwen3.6-35B": "Qwen3.6 35B",
+      "qwen3.6-27b": "Qwen3.6 27B (vision)",
+      "qwen3.6-1m": "Qwen3.6 (1M ctx)",
+      "gpt-oss-20b": "GPT-OSS 20B",
+      "glm-4.7-flash": "GLM 4.7 Flash",
+      "gemma-4-31b": "Gemma 4 31B",
+      "gemma4-12b": "Gemma 4 12B",
+      "granite-20b": "Granite 20B",
+      "default": "Default (preset llama.cpp)"
+    },
+    "placeholder": "pcr_REMPLACEZ_PAR_VOTRE_JETON"
+  },
+  "ids": {
+    "alice": 1,
+    "bob": 2
+  },
+  "reponses": [
+    {
+      "jeton": true
+    },
+    {
+      "jeton": true
+    },
+    {
+      "jeton": true
+    },
+    {
+      "statut": 200,
+      "corps": "#!/usr/bin/env bash\nset -euo pipefail\n# Installeur OpenCode \u2014 servi par http://10.0.0.5:8001 (r\u00e9seau local).\nBASE=\"http://10.0.0.5:8001\"        # base des T\u00c9L\u00c9CHARGEMENTS (http en amor\u00e7age clair)\nAPP_URL=\"http://10.0.0.5:8001\"  # URL de l'app pour le plugin (https si frontal TLS)\ncase \"$(uname -s)\" in\n  Linux*)  OS=linux ;;\n  Darwin*) OS=macos ;;\n  *) echo \"OS non g\u00e9r\u00e9 par ce script ; utilise le t\u00e9l\u00e9chargement direct dans l'app.\" >&2; exit 1 ;;\nesac\nBIN_DIR=\"${OPENCODE_BIN_DIR:-$HOME/.local/bin}\"\nmkdir -p \"$BIN_DIR\"\n# D\u00e9fini ICI (et plus au moment d'\u00e9crire la config) : la CA locale y est d\u00e9pos\u00e9e\n# d\u00e8s sa r\u00e9cup\u00e9ration, donc AVANT de savoir si le plugin sera install\u00e9. Elle doit\n# survivre au script \u2014 c'est le fichier que le plugin \u00e9pingle.\nCFG_DIR=\"${XDG_CONFIG_HOME:-$HOME/.config}/opencode\"\nmkdir -p \"$CFG_DIR\"\nTMP=\"$(mktemp -d)\"; trap 'rm -rf \"$TMP\"' EXIT\n# \u2500\u2500 HTTPS (frontal Caddy, cert LAN auto-sign\u00e9) \u2500\u2500\n# En amor\u00e7age clair (BASE en http, cf. deploy/caddy \u203a @bootstrap) les\n# t\u00e9l\u00e9chargements n'ont AUCUN TLS \u00e0 g\u00e9rer. La CA locale n'est r\u00e9cup\u00e9r\u00e9e que si\n# un https est en jeu : l'app (APP_URL \u2014 le plugin lui parlera) et/ou les\n# t\u00e9l\u00e9chargements eux-m\u00eames (BASE https = commande historique).\nCURL_TLS=\"\"\nCA_FILE=\"\"\n# R\u00e9cup\u00e9ration de la CA : deux sources, la seconde rattrape les d\u00e9ploiements\n# SANS frontal :80 (HTTPS direct, port 80 filtr\u00e9) o\u00f9 l'ancienne version ne\n# trouvait rien et tombait sur \u00ab -k \u00bb pour de bon.\n#   1. http://<h\u00f4te>/ca.crt      \u2014 publi\u00e9 en clair par Caddy (deploy/caddy)\n#   2. <app>/api/cli/ca.crt      \u2014 servi par l'app elle-m\u00eame (toujours joignable)\n# Les deux sont des canaux NON authentifi\u00e9s : c'est un amor\u00e7age de confiance\n# (TOFU), au m\u00eame niveau de risque qu'un \u00ab -k \u00bb ponctuel. La diff\u00e9rence est\n# d\u00e9cisive pour la suite : une fois la CA en main, TOUT ce qui parle \u00e0 l'app est\n# r\u00e9ellement v\u00e9rifi\u00e9 \u2014 au lieu de d\u00e9sactiver la v\u00e9rification \u00e0 demeure.\nca_looks_valid() { grep -q 'BEGIN CERTIFICATE' \"$1\" 2>/dev/null; }\nCA_DST=\"$CFG_DIR/elpis-ca.crt\"\nfetch_ca() {\n  _h=\"${APP_URL#*://}\"; _h=\"${_h%%[:/]*}\"\n  for _u in \"http://$_h/ca.crt\" \"$BASE/api/cli/ca.crt\" \"$APP_URL/api/cli/ca.crt\"; do\n    if curl -fsSk -m 5 \"$_u\" -o \"$TMP/ca.crt\" 2>/dev/null && ca_looks_valid \"$TMP/ca.crt\"; then\n      # Emplacement DURABLE tout de suite : $TMP dispara\u00eet \u00e0 la sortie du script,\n      # or c'est ce chemin que le plugin \u00e9pingle (`ca_file`) et que l'utilisateur\n      # peut r\u00e9utiliser (`curl --cacert`, git, etc.).\n      cp \"$TMP/ca.crt\" \"$CA_DST\" && chmod 644 \"$CA_DST\" 2>/dev/null || true\n      CA_FILE=\"$CA_DST\"\n      echo \"CA locale r\u00e9cup\u00e9r\u00e9e ($_u) \u2192 $CA_DST\"\n      return 0\n    fi\n  done\n  rm -f \"$TMP/ca.crt\"\n  return 1\n}\ncase \"$BASE $APP_URL\" in\n  *https://*) fetch_ca || echo \"\u26a0 CA locale introuvable (ni :80, ni /api/cli/ca.crt).\" ;;\nesac\n# \u2500\u2500 Confiance SYST\u00c8ME \u2014 comportement PAR D\u00c9FAUT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n# C'est LE bon geste sur un r\u00e9seau local sans Internet : l'amor\u00e7age se fait en\n# clair (rien \u00e0 v\u00e9rifier), puis la CA de l'app est install\u00e9e SUR LE POSTE. Apr\u00e8s\n# quoi `curl`, `git`, `wget` et le navigateur parlent \u00e0 l'app en https v\u00e9rifi\u00e9 \u2014\n# plus aucun `-k` nulle part, et le certificat retrouve son r\u00f4le.\n# \u00c9pingler seul (ca_file) ne soigne que ce script et le plugin ; tous les autres\n# outils continuaient de refuser le certificat.\n# Opt-out explicite : ELPIS_TRUST_CA=n.\ntrust_ca_system() {\n  [ -n \"$CA_FILE\" ] || return 1\n  if [ -d /usr/local/share/ca-certificates ]; then\n    _dst=/usr/local/share/ca-certificates/elpis-local-ca.crt; _upd=\"update-ca-certificates\"\n  elif [ -d /etc/pki/ca-trust/source/anchors ]; then\n    _dst=/etc/pki/ca-trust/source/anchors/elpis-local-ca.crt; _upd=\"update-ca-trust extract\"\n  else\n    return 1\n  fi\n  # \u26a0 stdin de ce script EST le tube de curl : un `sudo` qui demande un mot de\n  # passe le lirait DANS LE SCRIPT (et l'ex\u00e9cuterait ensuite comme du shell).\n  # D'o\u00f9 : root direct, sinon sudo NON interactif (-n), sinon sudo branch\u00e9 sur\n  # le terminal r\u00e9el \u2014 jamais sur le tube.\n  _run_priv() {\n    # Les tentatives NON interactives sont muettes : on explique nous-m\u00eames\n    # l'\u00e9chec, un \u00ab cp: Permission denied \u00bb brut ne ferait qu'ajouter du bruit.\n    # Le sudo interactif, lui, garde sa sortie \u2014 sinon son invite de mot de passe\n    # serait invisible et l'utilisateur croirait le script fig\u00e9.\n    if [ \"$(id -u)\" = 0 ]; then \"$@\" 2>/dev/null; return $?; fi\n    command -v sudo >/dev/null 2>&1 || return 1\n    sudo -n \"$@\" 2>/dev/null && return 0\n    ( : < /dev/tty ) 2>/dev/null || return 1\n    sudo \"$@\" < /dev/tty\n  }\n  _run_priv cp \"$CA_FILE\" \"$_dst\" || return 1\n  _run_priv chmod 644 \"$_dst\" || true\n  # shellcheck disable=SC2086  # _upd peut valoir \u00ab update-ca-trust extract \u00bb\n  _run_priv $_upd >/dev/null 2>&1 || return 1\n  return 0\n}\nca_already_trusted() {\n  # D\u00e9j\u00e0 dans le magasin ? Alors il n'y a rien \u00e0 faire, et surtout rien \u00e0\n  # demander : une r\u00e9-install sur un poste d\u00e9j\u00e0 configur\u00e9 doit \u00eatre muette.\n  curl -fsS -m 5 --head \"$APP_URL/api/public-config\" >/dev/null 2>&1\n}\nif [ -n \"$CA_FILE\" ]; then\n  WANT_TRUST=y                       # d\u00e9faut : on configure le poste\n  case \"${ELPIS_TRUST_CA:-}\" in [nN0]*) WANT_TRUST=n ;; esac\n  if ca_already_trusted; then\n    echo \"Certificat de $APP_URL d\u00e9j\u00e0 reconnu par ce poste \u2014 rien \u00e0 installer.\"\n  elif [ \"$WANT_TRUST\" = n ]; then\n    echo \"CA non ajout\u00e9e au magasin syst\u00e8me (ELPIS_TRUST_CA=n) \u2014 elle reste \u00e9pingl\u00e9e pour opencode.\"\n  elif trust_ca_system; then\n    echo \"CA install\u00e9e dans le magasin syst\u00e8me \u2014 https v\u00e9rifi\u00e9 partout sur ce poste (curl, git, navigateur).\"\n  else\n    # \u00c9chec = droits absents ou distribution non g\u00e9r\u00e9e. La CA est l\u00e0, le geste\n    # est \u00e0 un pas : on donne la commande exacte plut\u00f4t qu'un simple constat.\n    echo \"\u26a0 Impossible d'installer la CA dans le magasin syst\u00e8me (droits administrateur requis).\"\n    echo \"  opencode et son greffon fonctionnent quand m\u00eame (CA \u00e9pingl\u00e9e : $CA_FILE).\"\n    if [ -d /etc/pki/ca-trust/source/anchors ]; then\n      echo \"  Pour les autres outils :  sudo cp '$CA_FILE' /etc/pki/ca-trust/source/anchors/elpis-local-ca.crt && sudo update-ca-trust extract\"\n    else\n      echo \"  Pour les autres outils :  sudo cp '$CA_FILE' /usr/local/share/ca-certificates/elpis-local-ca.crt && sudo update-ca-certificates\"\n    fi\n  fi\nfi\nif [ \"${BASE#https://}\" != \"$BASE\" ]; then\n  if curl -fsS -m 5 --head \"$BASE/api/cli/opencode.json\" >/dev/null 2>&1; then\n    : # certificat v\u00e9rifiable \u2014 rien \u00e0 faire\n  elif [ -n \"$CA_FILE\" ] \\\n       && curl -fsS -m 5 --cacert \"$CA_FILE\" --head \"$BASE/api/cli/opencode.json\" >/dev/null 2>&1; then\n    CURL_TLS=\"--cacert $CA_FILE\"\n    echo \"T\u00e9l\u00e9chargements https v\u00e9rifi\u00e9s via la CA locale.\"\n  else\n    # Deux causes bien distinctes, et l'ancien message les confondait (\u00ab CA\n    # introuvable \u00bb alors qu'on venait d'en r\u00e9cup\u00e9rer une) : une CA qui ne signe\n    # PAS le certificat de l'app, c'est un autre service sur le port 80 ou une\n    # PKI r\u00e9g\u00e9n\u00e9r\u00e9e \u2014 pas la m\u00eame consigne pour l'administrateur.\n    if [ -n \"$CA_FILE\" ]; then\n      echo \"\u26a0 La CA r\u00e9cup\u00e9r\u00e9e ne valide PAS le certificat de $BASE (autre service sur :80, ou PKI r\u00e9g\u00e9n\u00e9r\u00e9e).\"\n      # Ni \u00e9pingl\u00e9e, ni laiss\u00e9e sur le disque : le plugin \u00e9chouerait \u00e0 chaque\n      # appel, et un fichier \u00ab elpis-ca.crt \u00bb erron\u00e9 est un pi\u00e8ge pour la suite.\n      CA_FILE=\"\"; rm -f \"$CA_DST\"\n    else\n      echo \"\u26a0 Certificat https non v\u00e9rifiable et aucune CA locale joignable.\"\n    fi\n    CURL_TLS=\"-k\"\n    echo \"  \u2192 mode non v\u00e9rifi\u00e9 (-k) pour cette installation.\"\n  fi\nfi\nfetch()  { curl -fSL  $CURL_TLS \"$@\"; }\nfetchq() { curl -fsSL $CURL_TLS \"$@\"; }\n# Options TLS pour parler \u00e0 l'APP (\u2260 base des t\u00e9l\u00e9chargements) : en amor\u00e7age\n# clair BASE est en http donc CURL_TLS est vide, alors qu'APP_URL peut \u00eatre en\n# https derri\u00e8re Caddy \u2014 s'en servir tel quel ferait \u00e9chouer la connexion au\n# compte sur un cert auto-sign\u00e9.\nAPP_TLS=\"\"\nif [ \"${APP_URL#https://}\" != \"$APP_URL\" ]; then\n  if curl -fsS -m 5 --head \"$APP_URL/api/public-config\" >/dev/null 2>&1; then\n    :                                             # cert v\u00e9rifiable\n  elif [ -n \"$CA_FILE\" ]; then\n    APP_TLS=\"--cacert $CA_FILE\"\n  else\n    APP_TLS=\"-k\"\n  fi\nfi\necho \"T\u00e9l\u00e9chargement d'OpenCode ($OS) depuis $BASE ...\"\nfetch \"$BASE/api/cli/bundle/$OS\" -o \"$TMP/opencode.bundle\"\n# D\u00e9tecte l'archive (tar.gz / zip) ou un binaire brut.\nif tar tzf \"$TMP/opencode.bundle\" >/dev/null 2>&1; then\n  # --no-same-owner : l'archive porte l'uid/gid de la machine qui l'a fabriqu\u00e9e.\n  # Sous root \u2014 ou dans un conteneur / espace de noms utilisateur \u2014 tar essaie\n  # de le restaurer et \u00c9CHOUE (\u00ab Cannot change ownership \u00bb), ce qui interrompt\n  # toute l'installation. Les fichiers doivent appartenir \u00e0 qui installe.\n  tar xzf \"$TMP/opencode.bundle\" -C \"$TMP\" --no-same-owner\nelif command -v unzip >/dev/null 2>&1 && unzip -tq \"$TMP/opencode.bundle\" >/dev/null 2>&1; then\n  unzip -q \"$TMP/opencode.bundle\" -d \"$TMP\"\nelse\n  cp \"$TMP/opencode.bundle\" \"$TMP/opencode\"\nfi\nBIN=\"$(find \"$TMP\" -type f -name 'opencode' | head -n1 || true)\"\n[ -n \"$BIN\" ] || BIN=\"$TMP/opencode\"\ninstall -m 0755 \"$BIN\" \"$BIN_DIR/opencode\"\necho \"OpenCode install\u00e9 : $BIN_DIR/opencode\"\n# \u2500\u2500 Config Elpis : r\u00e9cup\u00e9r\u00e9e \u00c0 CHAUD depuis le serveur (mod\u00e8les + endpoint courants). \u2500\u2500\n# \u00c0 d\u00e9faut (offline / serveur down), repli sur le opencode.json embarqu\u00e9 dans l'archive.\n# (CFG_DIR est d\u00e9fini plus haut : la CA locale y est d\u00e9pos\u00e9e d\u00e8s sa r\u00e9cup\u00e9ration.)\nCFG_DST=\"$CFG_DIR/opencode.json\"\nCFG_SRC=\"\"\nif fetchq \"$BASE/api/cli/opencode.json\" -o \"$TMP/opencode.fresh.json\" 2>/dev/null; then\n  CFG_SRC=\"$TMP/opencode.fresh.json\"\n  echo \"Config Elpis \u00e0 jour r\u00e9cup\u00e9r\u00e9e depuis $BASE.\"\nelse\n  CFG_SRC=\"$(find \"$TMP\" -type f -name 'opencode.json' | head -n1 || true)\"\n  [ -n \"$CFG_SRC\" ] && echo \"Config live indisponible \u2014 repli sur la config embarqu\u00e9e (offline).\"\nfi\nif [ -n \"$CFG_SRC\" ]; then\n  mkdir -p \"$CFG_DIR\"\n  if [ -f \"$CFG_DST\" ]; then\n    cp \"$CFG_DST\" \"$CFG_DST.bak\"\n    echo \"Ancienne config sauvegard\u00e9e : $CFG_DST.bak\"\n  fi\n  cp \"$CFG_SRC\" \"$CFG_DST\"\n  echo \"Config Elpis install\u00e9e (\u00e0 jour) : $CFG_DST\"\nfi\n# \u2500\u2500 Pr\u00e9-amor\u00e7age des d\u00e9pendances de plugin \u2014 LE correctif \u00ab opencode met 1 min\n#    \u00e0 d\u00e9marrer \u00bb. D\u00e8s qu'un plugin est pr\u00e9sent, opencode lance un `npm install\n#    @opencode-ai/plugin` dans CHAQUE dossier de config et BLOQUE le chargement\n#    des plugins dessus (config.ts \u203a waitForDependencies). Mesur\u00e9 ici : 30 s en\n#    1.17.7, 71 s en 1.18.16 au premier lancement AVEC Internet \u2014 et un blocage\n#    de plusieurs minutes quand le r\u00e9seau ne r\u00e9pond pas (pare-feu qui drop), ce\n#    qui est exactement le cas d'un d\u00e9ploiement LAN sans Internet.\n#    opencode saute compl\u00e8tement l'install si `node_modules` existe ET que les\n#    d\u00e9pendances d\u00e9clar\u00e9es figurent dans le lock (core/src/npm.ts \u203a install) :\n#    trois fichiers suffisent, aucun paquet \u00e0 t\u00e9l\u00e9charger. V\u00e9rifi\u00e9 r\u00e9seau coup\u00e9 :\n#    d\u00e9marrage 8,6 s au lieu de \u00ab jamais \u00bb.\nseed_node_deps() {\n  [ -d \"$1\" ] || return 0\n  [ -e \"$1/node_modules\" ] && return 0        # d\u00e9j\u00e0 install\u00e9 \u2014 ne rien toucher\n  mkdir -p \"$1/node_modules\" || return 0\n  [ -f \"$1/package.json\" ] || printf '{\\n  \"dependencies\": { \"@opencode-ai/plugin\": \"%s\" }\\n}\\n' \"$2\" > \"$1/package.json\"\n  [ -f \"$1/package-lock.json\" ] || printf '{ \"name\": \"opencode-config\", \"lockfileVersion\": 3, \"requires\": true,\\n  \"packages\": { \"\": { \"dependencies\": { \"@opencode-ai/plugin\": \"%s\" } } } }\\n' \"$2\" > \"$1/package-lock.json\"\n  echo \"D\u00e9pendances de plugin pr\u00e9-amorc\u00e9es ($1) \u2014 d\u00e9marrage imm\u00e9diat hors ligne.\"\n}\n# `|| true` DANS le groupe : avec `set -o pipefail`, un binaire absent (127)\n# ferait \u00e9chouer tout le script sur cette simple lecture de version.\nOC_VERSION=\"$({ \"$BIN_DIR/opencode\" --version 2>/dev/null || true; } | tr -d '\\r' | head -n1)\"\ncase \"$OC_VERSION\" in ''|*[!0-9.]*) OC_VERSION=\"1.0.0\" ;; esac\nseed_node_deps \"$CFG_DIR\" \"$OC_VERSION\"\n# \u2500\u2500 Plugin elpis-remote (TypeScript, charg\u00e9 nativement par opencode) : sessions\n#    remont\u00e9es/pilotables depuis la page \u00ab Code \u00bb. Choix EXPLICITE : prompt Y/n\n#    (via /dev/tty \u2014 stdin est le pipe du curl), surcharg\u00e9 par\n#    ELPIS_INSTALL_PLUGIN=y|n ; d\u00e9faut = y \u2014 ce script est servi PAR l'app, donc\n#    l'intention est claire. (Le jeton ne sert plus d'indice : la commande\n#    d'install est d\u00e9sormais anonyme, l'appairage se fait apr\u00e8s coup via\n#    \u00ab /remote login \u00bb.)\nPLUGIN_DIR=\"$CFG_DIR/plugin\"\nWANT_PLUGIN=\"\"\ncase \"${ELPIS_INSTALL_PLUGIN:-}\" in\n  [yYoO1]*) WANT_PLUGIN=y ;;\n  [nN0]*)   WANT_PLUGIN=n ;;\nesac\nif [ -z \"$WANT_PLUGIN\" ]; then\n  DEF=y\n  # ( : </dev/tty ) OUVRE r\u00e9ellement le tty : vrai test d'interactivit\u00e9 \u2014 un\n  # [ -r /dev/tty ] seul est vrai m\u00eame sans terminal contr\u00f4lant (cron/daemon).\n  if ( : < /dev/tty ) 2>/dev/null; then\n    if [ \"$DEF\" = y ]; then HINT=\"[Y/n]\"; else HINT=\"[y/N]\"; fi\n    printf 'Installer le plugin elpis-remote (pilotage depuis la page Remote code) ? %s ' \"$HINT\" > /dev/tty 2>/dev/null || true\n    read -r REPLY < /dev/tty || REPLY=\"\"\n    case \"$REPLY\" in\n      [yYoO]*) WANT_PLUGIN=y ;;\n      [nN]*)   WANT_PLUGIN=n ;;\n      *)       WANT_PLUGIN=$DEF ;;\n    esac\n  else\n    WANT_PLUGIN=$DEF\n    echo \"(non interactif : plugin elpis-remote = $WANT_PLUGIN \u2014 forcer avec ELPIS_INSTALL_PLUGIN=y|n)\"\n  fi\nfi\nif [ \"$WANT_PLUGIN\" = y ]; then\n  if fetchq \"$BASE/api/code/plugin.ts\" -o \"$TMP/elpis-remote.ts\" 2>/dev/null; then\n    mkdir -p \"$PLUGIN_DIR\"\n    cp \"$TMP/elpis-remote.ts\" \"$PLUGIN_DIR/elpis-remote.ts\"\n    # \u00e8re pr\u00e9-TypeScript : jamais DEUX plugins charg\u00e9s (opencode glob *.{ts,js})\n    rm -f \"$PLUGIN_DIR/elpis-remote.js\" \"$PLUGIN_DIR/elpis-remote.js.bak\"\n    echo \"Plugin elpis-remote install\u00e9 : $PLUGIN_DIR/elpis-remote.ts\"\n  else\n    echo \"\u26a0 Plugin elpis-remote non r\u00e9cup\u00e9r\u00e9 ($BASE/api/code/plugin.ts) \u2014\"\n    echo \"  serveur pas \u00e0 jour ou fonctionnalit\u00e9 d\u00e9sactiv\u00e9e ; relancez ce script apr\u00e8s mise \u00e0 jour.\"\n  fi\nelse\n  echo \"Plugin elpis-remote non install\u00e9 (choix).\"\n  if [ -e \"$PLUGIN_DIR/elpis-remote.ts\" ] || [ -e \"$PLUGIN_DIR/elpis-remote.js\" ]; then\n    rm -f \"$PLUGIN_DIR/elpis-remote.ts\" \"$PLUGIN_DIR/elpis-remote.ts.bak\" \\\n          \"$PLUGIN_DIR/elpis-remote.js\" \"$PLUGIN_DIR/elpis-remote.js.bak\"\n    echo \"  Ancien plugin retir\u00e9 ($PLUGIN_DIR) \u2014 opencode redevient 100 % local.\"\n  fi\nfi\n# \u2500\u2500 Conf elpis-remote : \u00e9crite D\u00c8S que le plugin est install\u00e9, m\u00eame SANS jeton.\n#    La commande d'install est anonyme (aucun secret \u00e0 copier) ; ce qu'elle pose\n#    ici c'est la CIBLE (app_url) et le TLS (CA locale \u00e9pingl\u00e9e, sinon repli non\n#    v\u00e9rifi\u00e9) \u2014 sans quoi le plugin se rabattrait sur \u00ab insecure \u00bb \u00e0 la premi\u00e8re\n#    erreur de certificat. Le jeton arrive apr\u00e8s, via \u00ab /remote login \u00bb.\nif [ \"$WANT_PLUGIN\" = y ]; then\n  RJSON=\"$CFG_DIR/elpis-remote.json\"\n  KEEP=false\n  grep -qs '\"enabled\": *true' \"$RJSON\" 2>/dev/null && KEEP=true   # r\u00e9-install : garder l'\u00e9tat actif\n  # Jeton : l'env s'il est fourni, sinon CELUI D\u00c9J\u00c0 APPAIR\u00c9 \u2014 une r\u00e9-install ne\n  # doit pas d\u00e9sappairer un poste qui marchait.\n  TOKEN=\"${ELPIS_REMOTE_TOKEN:-}\"\n  if [ -z \"$TOKEN\" ] && [ -f \"$RJSON\" ]; then\n    TOKEN=\"$(sed -n 's/.*\"token\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' \"$RJSON\" | head -n1)\"\n  fi\n  # \u2500\u2500 Connexion au compte, ICI et pas dans opencode \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  # L'API plugin d'opencode n'a AUCUNE primitive de saisie : un mot de passe\n  # pass\u00e9 \u00e0 /remote arriverait par la ligne de commande du TUI (affich\u00e9 \u00e0\n  # l'\u00e9cran, conserv\u00e9 dans l'historique de commandes). Ce script, lui, tourne\n  # dans un vrai shell : `read -rs` masque la frappe. On \u00e9change donc les\n  # identifiants contre le jeton une bonne fois, et /remote marche ensuite seul.\n  # Le mot de passe n'est JAMAIS \u00e9crit sur disque ni pass\u00e9 en argument.\n  if [ -z \"$TOKEN\" ] && ( : < /dev/tty ) 2>/dev/null; then\n    printf 'Connecter votre compte %s maintenant ? [Y/n] ' \"$APP_URL\" > /dev/tty\n    read -r WANT_LOGIN < /dev/tty || WANT_LOGIN=\"\"\n    case \"$WANT_LOGIN\" in [nN]*) WANT_LOGIN=n ;; *) WANT_LOGIN=y ;; esac\n    if [ \"$WANT_LOGIN\" = y ]; then\n      COOKIES=\"$TMP/cookies.txt\"\n      for _try in 1 2 3; do\n        printf '  Identifiant : ' > /dev/tty\n        read -r LOGIN_USER < /dev/tty || LOGIN_USER=\"\"\n        printf '  Mot de passe : ' > /dev/tty\n        # -s : frappe masqu\u00e9e. Le retour chariot n'\u00e9tant pas affich\u00e9, on le pose.\n        stty -echo 2>/dev/null < /dev/tty\n        read -r LOGIN_PASS < /dev/tty || LOGIN_PASS=\"\"\n        stty echo 2>/dev/null < /dev/tty\n        printf '\\n' > /dev/tty\n        [ -n \"$LOGIN_USER\" ] && [ -n \"$LOGIN_PASS\" ] || { echo \"  Identifiants vides.\"; continue; }\n        # Les identifiants partent en corps JSON (jamais dans l'URL : elle\n        # finirait dans les access logs). --data @- via stdin plut\u00f4t qu'en\n        # argument : la ligne de commande curl est lisible dans `ps`.\n        LOGIN_BODY=\"$(LOGIN_USER=\"$LOGIN_USER\" LOGIN_PASS=\"$LOGIN_PASS\" awk 'BEGIN{\n          u=ENVIRON[\"LOGIN_USER\"]; p=ENVIRON[\"LOGIN_PASS\"];\n          gsub(/\\\\/,\"\\\\\\\\\",u); gsub(/\"/,\"\\\\\\\"\",u);\n          gsub(/\\\\/,\"\\\\\\\\\",p); gsub(/\"/,\"\\\\\\\"\",p);\n          printf \"{\\\"username\\\":\\\"%s\\\",\\\"password\\\":\\\"%s\\\"}\", u, p }')\"\n        LOGIN_PASS=\"\"   # plus besoin en m\u00e9moire du shell\n        if printf '%s' \"$LOGIN_BODY\" | curl -fsS $APP_TLS -c \"$COOKIES\" \\\n             -H 'Content-Type: application/json' --data @- \\\n             \"$APP_URL/api/login-lite\" > /dev/null 2>&1; then\n          LOGIN_BODY=\"\"\n          # Jeton DE CE POSTE, cr\u00e9\u00e9 ici et montr\u00e9 une seule fois (le serveur\n          # n'en garde que l'empreinte) : nomm\u00e9 d'apr\u00e8s la machine, il se\n          # r\u00e9voque seul dans Param\u00e8tres \u203a Connexions.\n          HN=\"$(hostname 2>/dev/null | tr -cd 'A-Za-z0-9._-' | cut -c1-40)\"\n          TOKEN=\"$(curl -fsS $APP_TLS -b \"$COOKIES\" -X POST -H 'Content-Type: application/json' \\\n                   --data \"{\\\"name\\\":\\\"opencode - ${HN:-poste}\\\"}\" \"$APP_URL/api/code/token\" 2>/dev/null \\\n                   | sed -n 's/.*\"token\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' | head -n1)\"\n          if [ -n \"$TOKEN\" ]; then\n            echo \"  \u2713 Connect\u00e9 ($LOGIN_USER) \u2014 jeton configur\u00e9.\"\n            break\n          fi\n          echo \"  Connexion r\u00e9ussie mais jeton indisponible (fonctionnalit\u00e9 Code d\u00e9sactiv\u00e9e ?).\"\n          break\n        fi\n        LOGIN_BODY=\"\"\n        echo \"  \u2717 Identifiants refus\u00e9s.\"\n      done\n      rm -f \"$COOKIES\"\n    fi\n  fi\n  # app_url = APP_URL (pas BASE) : l'amor\u00e7age peut \u00eatre en clair alors que\n  # l'app, elle, n'\u00e9coute qu'en https derri\u00e8re Caddy.\n  # La CA est D\u00c9J\u00c0 \u00e0 sa place d\u00e9finitive ($CA_DST, pos\u00e9e \u00e0 la r\u00e9cup\u00e9ration) \u2014\n  # ne pas la recopier ici : `cp` sur lui-m\u00eame \u00e9chouerait, et le script est en\n  # `set -e`. On ne fait qu'\u00e9crire le chemin.\n  TLS_JSON=\"\"\n  if [ -n \"$CA_FILE\" ]; then\n    TLS_JSON=',\\n  \"ca_file\": \"'\"$CA_FILE\"'\"'\n  elif [ \"${APP_URL#https://}\" != \"$APP_URL\" ]; then\n    TLS_JSON=',\\n  \"insecure\": true'\n  fi\n  printf '{\\n  \"app_url\": \"%s\",\\n  \"token\": \"%s\",\\n  \"enabled\": %s%b\\n}\\n' \\\n    \"$APP_URL\" \"$TOKEN\" \"$KEEP\" \"$TLS_JSON\" > \"$RJSON\"\n  if [ -n \"$TOKEN\" ]; then\n    echo \"Jeton elpis-remote configur\u00e9 ($RJSON).\"\n    echo \"\u2192 Dans opencode, tapez simplement /remote pour remonter votre session dans la page \u00ab Code \u00bb.\"\n    # \u2500\u2500 Outils Elpis (MCP) : la config est re-r\u00e9cup\u00e9r\u00e9e AVEC le jeton du compte\n    #    (vers l'APP, TLS v\u00e9rifi\u00e9 \u2014 jamais sur l'amor\u00e7age en clair) : le serveur\n    #    y ajoute le bloc ``mcp`` si son service d'outils est partag\u00e9 et\n    #    authentifi\u00e9. Sinon (service non expos\u00e9) la config pos\u00e9e plus haut reste.\n    if curl -fsS $APP_TLS -m 10 -H \"x-elpis-token: $TOKEN\" \"$APP_URL/api/cli/opencode.json\" \\\n         -o \"$TMP/opencode.user.json\" 2>/dev/null && grep -q '\"mcp\"' \"$TMP/opencode.user.json\"; then\n      cp \"$TMP/opencode.user.json\" \"$CFG_DST\"\n      echo \"Outils Elpis (MCP, au nom de ${LOGIN_USER:-votre compte}) ajout\u00e9s \u00e0 $CFG_DST.\"\n    else\n      echo \"Outils Elpis (MCP) non expos\u00e9s par ce serveur \u2014 config opencode inchang\u00e9e.\"\n    fi\n  else\n    echo \"Cible elpis-remote configur\u00e9e ($RJSON) \u2014 pas encore de jeton.\"\n    echo \"\u2192 Dans opencode, tapez /remote login : un code s'affiche, \u00e0 saisir dans la page \u00ab Code \u00bb de l'app.\"\n  fi\nfi\n# \u2500\u2500 PATH : ajout idempotent aux fichiers rc du shell (gard\u00e9 par un marqueur). \u2500\u2500\ncase \":$PATH:\" in\n  *\":$BIN_DIR:\"*) : ;;\n  *)\n    ADDED=\"\"\n    for RC in \"$HOME/.bashrc\" \"$HOME/.zshrc\" \"$HOME/.profile\" \"$HOME/.bash_profile\"; do\n      # .bashrc est cr\u00e9\u00e9 s'il manque ; les autres ne sont touch\u00e9s que s'ils existent.\n      if [ ! -e \"$RC\" ] && [ \"$RC\" != \"$HOME/.bashrc\" ]; then continue; fi\n      if grep -qs 'OPENCODE_ELPIS_PATH' \"$RC\" 2>/dev/null; then continue; fi\n      {\n        echo ''\n        echo '# OPENCODE_ELPIS_PATH (installeur OpenCode)'\n        echo 'case \":$PATH:\" in *\":'\"$BIN_DIR\"':\"*) ;; *) export PATH=\"'\"$BIN_DIR\"':$PATH\" ;; esac'\n      } >> \"$RC\"\n      ADDED=\"$ADDED $RC\"\n    done\n    if [ -n \"$ADDED\" ]; then\n      echo \"PATH mis \u00e0 jour dans :$ADDED\"\n      echo \"\u2192 Ouvrez un nouveau terminal, ou lancez : source $HOME/.bashrc\"\n    elif grep -qs 'OPENCODE_ELPIS_PATH' \"$HOME/.bashrc\" \"$HOME/.zshrc\" \"$HOME/.profile\" \"$HOME/.bash_profile\" 2>/dev/null; then\n      echo \"PATH d\u00e9j\u00e0 configur\u00e9 (relance un terminal pour en profiter).\"\n    else\n      echo \"\u2192 Ajoutez $BIN_DIR \u00e0 votre PATH.\"\n    fi\n    ;;\nesac\n",
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "8cda1cfd85603094ac188e505a72df3aa35cd433f4d2f2de6372a73ca62538de",
+        "taille": 21091
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "264e5e9c940ed2d65a0c2781304ca38e0ae62f7b1823b83c1a81413e23bfa896",
+        "taille": 16306
+      },
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "264e5e9c940ed2d65a0c2781304ca38e0ae62f7b1823b83c1a81413e23bfa896",
+        "taille": 16306
+      },
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"H\u00f4te invalide.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"H\u00f4te invalide.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "007322543ec87e818b0ece593bec8974ca10f09e8e027a46f8e856387c56b274",
+        "taille": 21076
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "fdfa535fd207740d7337d9df10e9a7651be2bccf6af7e784b51f2c6c166c81e7",
+        "taille": 21082
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "2ff1e7c6e6907c784b3c9f9c6a1dca714ebd9de149d970bdd492f20e9c746b64",
+        "taille": 21077
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "# Installeur OpenCode -- servi par http://10.0.0.5 (reseau local).\n# NOTE : ce script doit rester 100% ASCII. PowerShell 5.1 (Win10/11) lit un\n# .ps1 sans BOM en ANSI : un caractere accentue UTF-8 s'y decode en deux\n# octets dont l'un peut FERMER une chaine et casser le parsing du fichier\n# entier. Garde-fou cote serveur dans cli_install_ps1().\n$ErrorActionPreference = 'Stop'\n$Base   = 'http://10.0.0.5'      # base des TELECHARGEMENTS (http en amorcage clair)\n$AppUrl = 'https://10.0.0.5'   # URL de l'app pour le plugin (https si frontal TLS)\n# --- HTTPS (frontal Caddy, cert LAN auto-signe) : rien a faire tant qu'AUCUNE\n# des deux URL n'est en https. En amorcage clair $Base est en http, mais $AppUrl\n# peut etre en https (frontal TLS) -- et c'est LUI qu'on contacte pour connecter\n# le compte : ne tester que $Base laissait cet appel echouer sur le cert.\n# Si la verification echoue, on la desactive POUR CE SCRIPT\n# (PS7 : SkipCertificateCheck ; PS5.1 : callback compile).\n$Insecure = $false\nif (($Base -like 'https://*') -or ($AppUrl -like 'https://*')) {\n  if ($PSVersionTable.PSVersion.Major -lt 6) {\n    # .NET Framework peut demarrer SANS TLS 1.2 alors que Caddy exige TLS >= 1.2\n    # (\"The underlying connection was closed\") -- a activer AVANT tout appel.\n    # 3072 = Tls12 (valeur numerique : l'enum manque sur les vieux .NET).\n    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072\n  }\n  # Sonde l'URL https REELLEMENT en jeu (les deux si besoin).\n  $ProbeUrl = if ($Base -like 'https://*') { \"$Base/api/cli/opencode.json\" } else { \"$AppUrl/api/public-config\" }\n  try { Invoke-WebRequest -UseBasicParsing -Method Head -Uri $ProbeUrl -TimeoutSec 5 | Out-Null }\n  catch {\n    $Insecure = $true\n    if ($PSVersionTable.PSVersion.Major -ge 6) {\n      $PSDefaultParameterValues['Invoke-WebRequest:SkipCertificateCheck'] = $true\n      # Invoke-RestMethod (lecture du jeton) est une AUTRE cmdlet : sans cette\n      # 2e entree, elle repasserait par la verification et echouerait.\n      $PSDefaultParameterValues['Invoke-RestMethod:SkipCertificateCheck'] = $true\n    } else {\n      # PAS de scriptblock { $true } : .NET peut invoquer le callback sur un\n      # thread SANS runspace PowerShell -> handshake avorte (\"The underlying\n      # connection was closed\"). Callback C# COMPILE (Add-Type) = thread-safe.\n      if (-not ('ElpisTrustAll' -as [type])) {\n        Add-Type 'using System.Net;public class ElpisTrustAll{public static void Go(){ServicePointManager.ServerCertificateValidationCallback=delegate{return true;};}}'\n      }\n      [ElpisTrustAll]::Go()\n    }\n    Write-Host \"Certificat https non verifiable (CA locale) -- verification desactivee pour ce script.\"\n  }\n}\n# --- CA locale : recuperee TOT (avant tout le reste) et proposee au magasin de\n# confiance de l'utilisateur. C'est la vraie alternative a -k / SkipCertificate :\n# une fois la CA approuvee, curl, git, le navigateur et opencode verifient\n# reellement le certificat de l'app. Deux sources, la 2e rattrape les\n# deploiements sans frontal :80 (https direct, port 80 filtre).\n$CfgDir = Join-Path $env:USERPROFILE '.config\\opencode'\nNew-Item -ItemType Directory -Force -Path $CfgDir | Out-Null\n$CaFile = $null\nif (($AppUrl -like 'https://*') -or ($Base -like 'https://*')) {\n  # Emplacement DURABLE tout de suite : c'est ce chemin que le greffon epingle\n  # (ca_file) et que l'utilisateur peut reutiliser ensuite.\n  $CaDst = Join-Path $CfgDir 'elpis-ca.crt'\n  foreach ($u in @((\"http://\" + ([uri]$AppUrl).Host + \"/ca.crt\"), \"$Base/api/cli/ca.crt\", \"$AppUrl/api/cli/ca.crt\")) {\n    try {\n      Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $CaDst -TimeoutSec 10\n      if ((Get-Content $CaDst -Raw) -match 'BEGIN CERTIFICATE') {\n        $CaFile = $CaDst; Write-Host \"CA locale recuperee ($u) -> $CaDst\"; break\n      }\n    } catch {}\n  }\n  if (-not $CaFile) {\n    Remove-Item -Force -ErrorAction SilentlyContinue $CaDst\n    Write-Host \"Attention : CA locale introuvable (ni :80, ni /api/cli/ca.crt).\"\n  }\n}\n# --- Confiance du poste : comportement PAR DEFAUT (opt-out ELPIS_TRUST_CA=n).\n# Reseau local sans Internet : on amorce en clair, puis on installe la CA SUR LE\n# POSTE. Ensuite curl, git et le navigateur parlent a l'app en https verifie --\n# plus aucun -k, et le certificat retrouve son role. Cert:\\CurrentUser\\Root est\n# le magasin de l'UTILISATEUR : aucun droit administrateur (Windows affiche une\n# confirmation de securite, c'est normal et voulu). ---\nif ($CaFile) {\n  $AlreadyTrusted = $false\n  try {\n    Invoke-WebRequest -UseBasicParsing -Method Head -Uri \"$AppUrl/api/public-config\" -TimeoutSec 5 | Out-Null\n    $AlreadyTrusted = $true\n  } catch {}\n  if ($AlreadyTrusted) {\n    Write-Host \"Certificat de $AppUrl deja reconnu par ce poste -- rien a installer.\"\n  } elseif ($env:ELPIS_TRUST_CA -match '^[nN0]') {\n    Write-Host \"CA non ajoutee au magasin (ELPIS_TRUST_CA=n) -- elle reste epinglee pour opencode.\"\n  } else {\n    try {\n      Import-Certificate -FilePath $CaFile -CertStoreLocation Cert:\\CurrentUser\\Root -ErrorAction Stop | Out-Null\n      Write-Host \"CA installee dans le magasin de confiance utilisateur -- https verifie partout sur ce poste.\"\n    } catch {\n      Write-Host \"Attention : installation de la CA refusee ou impossible.\"\n      Write-Host \"  opencode et son greffon fonctionnent quand meme (CA epinglee : $CaFile).\"\n      Write-Host \"  Pour les autres outils : Import-Certificate -FilePath '$CaFile' -CertStoreLocation Cert:\\CurrentUser\\Root\"\n    }\n  }\n}\n$BinDir = if ($env:OPENCODE_BIN_DIR) { $env:OPENCODE_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\\opencode' }\nNew-Item -ItemType Directory -Force -Path $BinDir | Out-Null\n$Tmp = (New-Item -ItemType Directory -Force -Path (Join-Path $env:TEMP ('opencode-' + [guid]::NewGuid()))).FullName\n$Bundle = Join-Path $Tmp 'opencode.zip'\nWrite-Host \"Telechargement d'OpenCode (windows) depuis $Base ...\"\nInvoke-WebRequest -UseBasicParsing -Uri \"$Base/api/cli/bundle/windows\" -OutFile $Bundle\ntry { Expand-Archive -Force -Path $Bundle -DestinationPath $Tmp } catch { Copy-Item $Bundle (Join-Path $Tmp 'opencode.exe') -Force }\n$Exe = Get-ChildItem -Path $Tmp -Recurse -Filter 'opencode*.exe' | Select-Object -First 1\nif (-not $Exe) { $Exe = Get-Item (Join-Path $Tmp 'opencode.exe') }\nCopy-Item $Exe.FullName (Join-Path $BinDir 'opencode.exe') -Force\nWrite-Host \"OpenCode installe : $BinDir\\opencode.exe\"\n# --- Config Elpis : recuperee A CHAUD depuis le serveur (modeles + endpoint courants). ---\n# ($CfgDir est defini plus haut : la CA y est deposee des sa recuperation.)\n$CfgDst = Join-Path $CfgDir 'opencode.json'\n$CfgSrc = $null\ntry {\n  $Fresh = Join-Path $Tmp 'opencode.fresh.json'\n  Invoke-WebRequest -UseBasicParsing -Uri \"$Base/api/cli/opencode.json\" -OutFile $Fresh\n  $CfgSrc = $Fresh\n  Write-Host \"Config Elpis a jour recuperee depuis $Base.\"\n} catch {\n  $c = Get-ChildItem -Path $Tmp -Recurse -Filter 'opencode.json' | Select-Object -First 1\n  if ($c) { $CfgSrc = $c.FullName; Write-Host \"Config live indisponible -- repli sur la config embarquee (offline).\" }\n}\nif ($CfgSrc) {\n  if (Test-Path $CfgDst) { Copy-Item $CfgDst \"$CfgDst.bak\" -Force; Write-Host \"Ancienne config sauvegardee : $CfgDst.bak\" }\n  Copy-Item $CfgSrc $CfgDst -Force\n  Write-Host \"Config Elpis installee (a jour) : $CfgDst\"\n}\n# --- Pre-amorcage des dependances de plugin -- LE correctif \"opencode met une\n#     minute a demarrer\". Des qu'un plugin est present, opencode lance un\n#     `npm install @opencode-ai/plugin` dans chaque dossier de config et BLOQUE\n#     le chargement des plugins dessus. Mesure : 30 s (1.17.7) a 71 s (1.18.16)\n#     AVEC Internet, plusieurs minutes quand le reseau ne repond pas. opencode\n#     saute l'install si node_modules existe et que le lock declare la\n#     dependance : trois fichiers, zero telechargement. ---\n$OcVersion = \"1.0.0\"\ntry {\n  $v = (& (Join-Path $BinDir 'opencode.exe') --version 2>$null | Select-Object -First 1)\n  if ($v -match '^[0-9][0-9.]*$') { $OcVersion = $v.Trim() }\n} catch {}\n$NodeMods = Join-Path $CfgDir 'node_modules'\nif (-not (Test-Path $NodeMods)) {\n  New-Item -ItemType Directory -Force -Path $NodeMods | Out-Null\n  $PkgJson = Join-Path $CfgDir 'package.json'\n  $LockJson = Join-Path $CfgDir 'package-lock.json'\n  if (-not (Test-Path $PkgJson)) {\n    '{ \"dependencies\": { \"@opencode-ai/plugin\": \"' + $OcVersion + '\" } }' | Set-Content -Encoding UTF8 $PkgJson\n  }\n  if (-not (Test-Path $LockJson)) {\n    '{ \"name\": \"opencode-config\", \"lockfileVersion\": 3, \"requires\": true, \"packages\": { \"\": { \"dependencies\": { \"@opencode-ai/plugin\": \"' + $OcVersion + '\" } } } }' | Set-Content -Encoding UTF8 $LockJson\n  }\n  Write-Host \"Dependances de plugin pre-amorcees -- demarrage immediat hors ligne.\"\n}\n# --- Plugin elpis-remote (TypeScript, charge nativement par opencode) : choix\n#    EXPLICITE Y/n -- surcharge par ELPIS_INSTALL_PLUGIN=y|n ; defaut = y (ce\n#    script est servi PAR l'app, l'intention est claire). Le jeton ne sert plus\n#    d'indice : la commande d'install est anonyme, l'appairage se fait apres\n#    coup via /remote login. ---\n$PluginDir = Join-Path $CfgDir 'plugin'\n$WantPlugin = $null\nif ($env:ELPIS_INSTALL_PLUGIN) {\n  $WantPlugin = ($env:ELPIS_INSTALL_PLUGIN -match '^[yYoO1]')\n}\nif ($null -eq $WantPlugin) {\n  $Def = $true\n  $Hint = if ($Def) { '[Y/n]' } else { '[y/N]' }\n  try {\n    $r = Read-Host \"Installer le plugin elpis-remote (pilotage depuis la page Remote code) ? $Hint\"\n    if ($r -match '^[yYoO]') { $WantPlugin = $true }\n    elseif ($r -match '^[nN]') { $WantPlugin = $false }\n    else { $WantPlugin = $Def }\n  } catch { $WantPlugin = $Def }\n}\n$OldPlugin = @('elpis-remote.js', 'elpis-remote.js.bak', 'elpis-remote.ts.bak') |\n  ForEach-Object { Join-Path $PluginDir $_ }\nif ($WantPlugin) {\n  try {\n    New-Item -ItemType Directory -Force -Path $PluginDir | Out-Null\n    Invoke-WebRequest -UseBasicParsing -Uri \"$Base/api/code/plugin.ts\" -OutFile (Join-Path $PluginDir 'elpis-remote.ts')\n    # ere pre-TypeScript : jamais DEUX plugins charges (opencode glob *.{ts,js})\n    Remove-Item -Force -ErrorAction SilentlyContinue $OldPlugin\n    Write-Host \"Plugin elpis-remote installe : $PluginDir\\elpis-remote.ts\"\n  } catch {\n    Write-Host \"Plugin elpis-remote non installe (app injoignable ?) -- recuperable plus tard via $Base/api/code/plugin.ts\"\n  }\n} else {\n  Write-Host \"Plugin elpis-remote non installe (choix).\"\n  $Leftover = @($OldPlugin + (Join-Path $PluginDir 'elpis-remote.ts')) | Where-Object { Test-Path $_ }\n  if ($Leftover) { Remove-Item -Force $Leftover; Write-Host \"  Ancien plugin retire ($PluginDir).\" }\n}\n# --- Conf elpis-remote : ecrite DES que le plugin est installe, meme SANS jeton.\n#     La commande d'install est anonyme ; ce qu'elle pose ici c'est la CIBLE\n#     (app_url) et le TLS (CA locale epinglee). Le jeton arrive apres, via\n#     /remote login. ---\nif ($WantPlugin) {\n  $RJson = Join-Path $CfgDir 'elpis-remote.json'\n  $Keep = $false\n  $Token = $env:ELPIS_REMOTE_TOKEN\n  if (Test-Path $RJson) {\n    try {\n      $old = Get-Content $RJson -Raw | ConvertFrom-Json\n      if ($old.enabled) { $Keep = $true }\n      # Re-install : ne jamais desappairer un poste qui marchait.\n      if (-not $Token -and $old.token) { $Token = $old.token }\n    } catch {}\n  }\n  # CA locale : deja a sa place definitive ($CfgDir\\elpis-ca.crt, posee a la\n  # recuperation). On ne fait que l'EPINGLER pour que le greffon (fetch Bun)\n  # verifie vraiment l'app en https au lieu de se rabattre sur \"insecure\" --\n  # Bun n'utilise PAS le magasin de Windows, l'epinglage reste indispensable\n  # meme quand la CA a ete installee sur le poste.\n  $CaPinned = $CaFile\n  # --- Connexion au compte, ICI et pas dans opencode ---\n  # L'API plugin d'opencode n'a AUCUNE primitive de saisie : un mot de passe\n  # passe a /remote arriverait par la ligne de commande du TUI (affiche a\n  # l'ecran, garde dans l'historique). Ce script tourne dans un vrai shell :\n  # Read-Host -AsSecureString masque la frappe. Le mot de passe n'est jamais\n  # ecrit sur disque, et le SecureString est efface juste apres l'envoi.\n  if (-not $Token) {\n    $ans = Read-Host \"Connecter votre compte $AppUrl maintenant ? [Y/n]\"\n    if ($ans -notmatch '^[nN]') {\n      $sess = New-Object Microsoft.PowerShell.Commands.WebRequestSession\n      for ($i = 0; $i -lt 3; $i++) {\n        $u = Read-Host \"  Identifiant\"\n        $sec = Read-Host \"  Mot de passe\" -AsSecureString\n        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)\n        try { $pw = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }\n        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }\n        if (-not $u -or -not $pw) { Write-Host \"  Identifiants vides.\"; continue }\n        try {\n          $payload = @{ username = $u; password = $pw } | ConvertTo-Json -Compress\n          $pw = $null                       # plus besoin en clair\n          Invoke-WebRequest -UseBasicParsing -Method Post -Uri \"$AppUrl/api/login-lite\" `\n            -ContentType 'application/json' -Body $payload -WebSession $sess | Out-Null\n          $payload = $null\n          # Jeton DE CE POSTE, cree ici et montre une seule fois (le serveur\n          # n'en garde que l'empreinte).\n          $hn = ($env:COMPUTERNAME -replace '[^A-Za-z0-9._-]', '')\n          if ($hn.Length -gt 40) { $hn = $hn.Substring(0, 40) }\n          if (-not $hn) { $hn = 'poste' }\n          $cfg = Invoke-RestMethod -Method Post -Uri \"$AppUrl/api/code/token\" -WebSession $sess `\n                   -ContentType 'application/json' -Body (@{ name = \"opencode - $hn\" } | ConvertTo-Json -Compress)\n          if ($cfg.token) {\n            $Token = $cfg.token\n            Write-Host \"  OK Connecte ($u) -- jeton configure.\"\n            break\n          }\n          Write-Host \"  Connexion reussie mais jeton indisponible (fonctionnalite Code desactivee ?).\"\n          break\n        } catch {\n          $pw = $null; $payload = $null\n          Write-Host \"  Identifiants refuses.\"\n        }\n      }\n    }\n  }\n  # app_url = $AppUrl (PAS $Base) : l'amorcage peut etre en clair alors que\n  # l'app, elle, n'ecoute qu'en https derriere Caddy.\n  # token = '' (jamais $null : ConvertTo-Json ecrirait `null`, que le plugin\n  # relit en `undefined` -- '' est le meme faux mais reste une chaine).\n  $Conf = @{ app_url = $AppUrl; token = ''; enabled = $Keep }\n  if ($Token) { $Conf.token = $Token }\n  if ($CaPinned) { $Conf.ca_file = $CaPinned }                              # option tls de Bun\n  elseif ($Insecure -or $AppUrl -like 'https://*') { $Conf.insecure = $true }\n  $Conf | ConvertTo-Json | Set-Content -Encoding UTF8 $RJson\n  if ($Token) {\n    Write-Host \"Jeton elpis-remote configure ($RJson).\"\n    Write-Host \"-> Dans opencode, tapez simplement /remote pour remonter votre session dans la page Code.\"\n    # --- Outils Elpis (MCP) : config re-recuperee AVEC le jeton du compte (bloc mcp\n    #     ajoute par le serveur si son service d'outils est partage et authentifie).\n    try {\n      $UserCfg = Join-Path $Tmp 'opencode.user.json'\n      Invoke-WebRequest -UseBasicParsing -Headers @{ 'x-elpis-token' = $Token } `\n        -Uri \"$AppUrl/api/cli/opencode.json\" -OutFile $UserCfg\n      if ((Get-Content $UserCfg -Raw) -match '\"mcp\"') {\n        Copy-Item $UserCfg $CfgDst -Force\n        Write-Host \"Outils Elpis (MCP) ajoutes a $CfgDst.\"\n      } else {\n        Write-Host \"Outils Elpis (MCP) non exposes par ce serveur -- config opencode inchangee.\"\n      }\n    } catch { Write-Host \"Outils Elpis (MCP) : config utilisateur non recuperee -- config opencode inchangee.\" }\n  } else {\n    Write-Host \"Cible elpis-remote configuree ($RJson) -- pas encore de jeton.\"\n    Write-Host \"-> Dans opencode, tapez /remote login : un code s'affiche, a saisir dans la page Code de l'app.\"\n  }\n}\n# --- PATH utilisateur (persistant, sans droits admin) -- idempotent. ---\n$u = [Environment]::GetEnvironmentVariable('Path','User')\nif (-not $u) { $u = '' }\nif (($u -split ';') -notcontains $BinDir) {\n  [Environment]::SetEnvironmentVariable('Path', ($u.TrimEnd(';') + ';' + $BinDir), 'User')\n  $env:Path = $env:Path + ';' + $BinDir\n  Write-Host \"PATH utilisateur mis a jour. Rouvrez votre terminal pour en profiter.\"\n} else {\n  Write-Host \"$BinDir est deja dans votre PATH.\"\n}\n",
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "6554667f5c380b24e9aa966b81a79a075eb832d222af321c942acb668417cc89",
+        "taille": 21092
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "769f411368dd9b73b1d4a3ee583914a8ddcdd889c2cc97d72d60084585c1db11",
+        "taille": 16300
+      },
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "f318cefa7445f37ff9b45d639cce32b63405a969ae479d4097f53981a37ac8bb",
+        "taille": 21087
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "f318cefa7445f37ff9b45d639cce32b63405a969ae479d4097f53981a37ac8bb",
+        "taille": 21087
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "e76bc463dc1f06a2654257f5d8ab5389108a1d432985e9c2d456e43b1acdfb26",
+        "taille": 16304
+      },
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": {
+        "sha256": "8cda1cfd85603094ac188e505a72df3aa35cd433f4d2f2de6372a73ca62538de",
+        "taille": 21091
+      },
+      "type": "text/x-shellscript; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-35B\": {\n          \"name\": \"Qwen3.6 35B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"qwen3.6-1m\": {\n          \"name\": \"Qwen3.6 (1M ctx)\",\n          \"tool_call\": true\n        },\n        \"gpt-oss-20b\": {\n          \"name\": \"GPT-OSS 20B\",\n          \"tool_call\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"gemma-4-31b\": {\n          \"name\": \"Gemma 4 31B\",\n          \"tool_call\": true\n        },\n        \"gemma4-12b\": {\n          \"name\": \"Gemma 4 12B\",\n          \"tool_call\": true\n        },\n        \"granite-20b\": {\n          \"name\": \"Granite 20B\",\n          \"tool_call\": true\n        },\n        \"default\": {\n          \"name\": \"Default (preset llama.cpp)\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 9000,\n            \"output\": 2048\n          }\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true,\n          \"limit\": {\n            \"context\": 1048576,\n            \"output\": 16384\n          }\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 9000,\n            \"output\": 2048\n          }\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true,\n          \"limit\": {\n            \"context\": 1048576,\n            \"output\": 16384\n          }\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/glm-4.7-flash\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 9000,\n            \"output\": 2048\n          }\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true,\n          \"limit\": {\n            \"context\": 1048576,\n            \"output\": 16384\n          }\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3.6-27b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 9000,\n            \"output\": 2048\n          }\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true,\n          \"limit\": {\n            \"context\": 1048576,\n            \"output\": 16384\n          }\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"b\": {\n          \"name\": \"b\",\n          \"tool_call\": true\n        },\n        \"a\": {\n          \"name\": \"a\",\n          \"tool_call\": true\n        },\n        \"c\": {\n          \"name\": \"c\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/a\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-35B\": {\n          \"name\": \"Qwen3.6 35B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"qwen3.6-1m\": {\n          \"name\": \"Qwen3.6 (1M ctx)\",\n          \"tool_call\": true\n        },\n        \"gpt-oss-20b\": {\n          \"name\": \"GPT-OSS 20B\",\n          \"tool_call\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"gemma-4-31b\": {\n          \"name\": \"Gemma 4 31B\",\n          \"tool_call\": true\n        },\n        \"gemma4-12b\": {\n          \"name\": \"Gemma 4 12B\",\n          \"tool_call\": true\n        },\n        \"granite-20b\": {\n          \"name\": \"Granite 20B\",\n          \"tool_call\": true\n        },\n        \"default\": {\n          \"name\": \"Default (preset llama.cpp)\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-35B\": {\n          \"name\": \"Qwen3.6 35B\",\n          \"tool_call\": true\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"qwen3.6-1m\": {\n          \"name\": \"Qwen3.6 (1M ctx)\",\n          \"tool_call\": true\n        },\n        \"gpt-oss-20b\": {\n          \"name\": \"GPT-OSS 20B\",\n          \"tool_call\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"gemma-4-31b\": {\n          \"name\": \"Gemma 4 31B\",\n          \"tool_call\": true\n        },\n        \"gemma4-12b\": {\n          \"name\": \"Gemma 4 12B\",\n          \"tool_call\": true\n        },\n        \"granite-20b\": {\n          \"name\": \"Granite 20B\",\n          \"tool_call\": true\n        },\n        \"default\": {\n          \"name\": \"Default (preset llama.cpp)\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $TB\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $TB\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $TB\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"H\u00f4te invalide.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://10.168.1.50:8001/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://10.168.1.50:8001/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://10.168.1.50:8001/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer pcr_REMPLACEZ_PAR_VOTRE_JETON\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": false,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": false,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"families\":[{\"name\":\"git\",\"label\":\"git\",\"server\":\"elpis-git\",\"enabled\":false},{\"name\":\"browser\",\"label\":\"browser\",\"server\":\"elpis-browser\",\"enabled\":false},{\"name\":\"desktop\",\"label\":\"desktop\",\"server\":\"elpis-desktop\",\"enabled\":true}]}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-chart\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/chart\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"families\":[{\"name\":\"git\",\"label\":\"git\",\"server\":\"elpis-git\",\"enabled\":true},{\"name\":\"chart\",\"label\":\"chart\",\"server\":\"elpis-chart\",\"enabled\":true}]}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"families\":[]}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://outils.lan:9000/mcp/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://outils.lan:9000/mcp/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"http://outils.lan:9000/mcp/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"https://elpis.lan/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"https://elpis.lan/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-desktop\": {\n      \"type\": \"remote\",\n      \"url\": \"https://elpis.lan/api/mcp-bridge/desktop\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"families\":[{\"name\":\"git\",\"label\":\"Git\",\"server\":\"elpis-git\",\"enabled\":true},{\"name\":\"browser\",\"label\":\"Navigateur\",\"server\":\"elpis-browser\",\"enabled\":true}]}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Authentification requise.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Authentification requise.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\",\n  \"mcp\": {\n    \"elpis-git\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/git\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"elpis-browser\": {\n      \"type\": \"remote\",\n      \"url\": \"http://lan.test:8000/api/mcp-bridge/browser\",\n      \"enabled\": true,\n      \"headers\": {\n        \"Authorization\": \"Bearer $T\"\n      }\n    },\n    \"meteo\": {\n      \"type\": \"remote\",\n      \"url\": \"http://meteo.lan/mcp\",\n      \"enabled\": true,\n      \"headers\": {\n        \"X-K\": \"1\",\n        \"Authorization\": \"Bearer m\"\n      }\n    }\n  }\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"families\":[{\"name\":\"git\",\"label\":\"Git\",\"server\":\"elpis-git\",\"enabled\":true},{\"name\":\"browser\",\"label\":\"Navigateur\",\"server\":\"elpis-browser\",\"enabled\":true}]}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "etat": true
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"autoupdate\": false,\n  \"share\": \"disabled\",\n  \"provider\": {\n    \"elpis\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"Elpis llama.cpp (local)\",\n      \"options\": {\n        \"baseURL\": \"http://10.9.8.7:1234/v1\",\n        \"apiKey\": \"local-no-key\"\n      },\n      \"models\": {\n        \"qwen3-coder-30b\": {\n          \"name\": \"Qwen3 Coder 30B\",\n          \"tool_call\": true,\n          \"limit\": {\n            \"context\": 32768,\n            \"output\": 4096\n          }\n        },\n        \"qwen3.6-27b\": {\n          \"name\": \"Qwen3.6 27B (vision)\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"glm-4.7-flash\": {\n          \"name\": \"GLM 4.7 Flash\",\n          \"tool_call\": true\n        },\n        \"1\": {\n          \"name\": \"1\",\n          \"tool_call\": true,\n          \"attachment\": true\n        },\n        \"z-libre\": {\n          \"name\": \"z-libre\",\n          \"tool_call\": true\n        }\n      }\n    }\n  },\n  \"model\": \"elpis/qwen3-coder-30b\"\n}\n",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "env": true
+    },
+    {
+      "statut": 200,
+      "corps": "FAKE-LINUX",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename=\"opencode-linux.tar.gz\""
+    },
+    {
+      "statut": 200,
+      "corps": "MAC",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename=\"opencode-macos.zip\""
+    },
+    {
+      "statut": 200,
+      "corps": "MAC",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename=\"opencode-macos.zip\""
+    },
+    {
+      "statut": 200,
+      "corps": "WIN",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename*=utf-8''opencode-windows.%C3%A9.zip"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Artefact OpenCode introuvable pour \u00ab solaris \u00bb. D\u00e9pose un fichier opencode-<os>.(tar.gz|zip) dans <DIST> (os \u2208 linux|macos|windows).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 200,
+      "corps": "MAC",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename=\"opencode-macos.zip\""
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Artefact OpenCode introuvable pour \u00ab l\u0130nux \u00bb. D\u00e9pose un fichier opencode-<os>.(tar.gz|zip) dans <DIST> (os \u2208 linux|macos|windows).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "type": "application/json",
+      "disposition": null,
+      "allow": "GET",
+      "longueur": "31"
+    },
+    {
+      "env": true
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "FAKE-LINUX",
+      "type": "application/octet-stream",
+      "disposition": "attachment; filename=\"opencode-linux.tar.gz\""
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Artefact OpenCode introuvable pour \u00ab linux \u00bb. D\u00e9pose un fichier opencode-<os>.(tar.gz|zip) dans <RACINE>/cli_dist_absent (os \u2208 linux|macos|windows).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Artefact OpenCode introuvable pour \u00ab windows \u00bb. D\u00e9pose un fichier opencode-<os>.(tar.gz|zip) dans <RACINE>/cli_dist (os \u2208 linux|macos|windows).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "type": "text/plain; charset=utf-8",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "env": true
+    },
+    {
+      "statut": 200,
+      "corps": "-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----\n",
+      "type": "application/x-pem-file",
+      "disposition": "attachment; filename=\"ca.crt\""
+    },
+    {
+      "env": true
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Aucune CA locale (HTTPS non d\u00e9ploy\u00e9 sur cette instance).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "env": true
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----\n",
+      "type": "application/x-pem-file",
+      "disposition": "attachment; filename=\"ca.crt\""
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Aucune CA locale (HTTPS non d\u00e9ploy\u00e9 sur cette instance).\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    },
+    {
+      "statut": 200,
+      "corps": "-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----\n",
+      "type": "application/x-pem-file",
+      "disposition": "attachment; filename=\"ca.crt\""
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"OpenCode est d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "type": "application/json",
+      "disposition": null
+    },
+    {
+      "config": true
+    }
+  ]
+}

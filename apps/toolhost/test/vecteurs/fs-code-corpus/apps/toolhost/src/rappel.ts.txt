@@ -1,0 +1,234 @@
+// SPDX-License-Identifier: MIT
+/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception. */
+import { estDict, getPy, intPy, pyJsonLoads, strPy, veritePy } from "@elpis/commun";
+import type { Dict } from "@elpis/commun";
+import { creerIdentite, IDENTITY_HEADER, sign } from "@elpis/securite";
+import { request } from "undici";
+import type { Dispatcher } from "undici";
+
+import type { Journal } from "./journal";
+import { decrire } from "./mcp/service";
+
+export const TTL_MS = 15_000;
+export const TTL_NEGATIF_MS = 5_000;
+export const DELAI_MS = 4_000;
+const CACHE_MAX = 1024;
+
+export interface JetonIntrospecte {
+  user_id: number;
+  username: string;
+  kind: string;
+  families: string[];
+}
+
+export interface IdentiteDistante {
+  user_id: number;
+  username: string;
+  network_profile_id: string;
+  is_admin: boolean;
+}
+
+export interface OptionsRappel {
+  /** URL du core (`TOOLHOST_APP_URL` / `toolhost.json › app_url`), barre finale retirée. */
+  readonly appUrl: string;
+  readonly jeton: string;
+  readonly journal: Journal;
+  readonly agent?: Dispatcher;
+  readonly delaiMs?: number;
+}
+
+export class ClientRappel {
+  private readonly appUrl: string;
+  private readonly jeton: string;
+  private readonly journal: Journal;
+  private readonly agent: Dispatcher | undefined;
+  private readonly delaiMs: number;
+  private readonly cache = new Map<string, { valeur: unknown; expire: number }>();
+
+  constructor(o: OptionsRappel) {
+    this.appUrl = o.appUrl.replace(/\/+$/u, "");
+    this.jeton = o.jeton;
+    this.journal = o.journal;
+    this.agent = o.agent;
+    this.delaiMs = o.delaiMs ?? DELAI_MS;
+  }
+
+  /** Actif seulement avec une URL du core et un jeton de service. */
+  get actif(): boolean {
+    return Boolean(this.appUrl) && Boolean(this.jeton);
+  }
+
+  viderCache(): void {
+    this.cache.clear();
+  }
+
+  private lu(cle: string): { trouve: boolean; valeur: unknown } {
+    const e = this.cache.get(cle);
+    return e !== undefined && e.expire > performance.now()
+      ? { trouve: true, valeur: e.valeur }
+      : { trouve: false, valeur: null };
+  }
+
+  /** Valeur retenue 15 s (5 s si vide) ; au-delà de 1024 entrées, jusqu'à 256 entrées expirées sont oubliées. */
+  private retenir<T>(cle: string, valeur: T): T {
+    const maintenant = performance.now();
+    this.cache.set(cle, { valeur, expire: maintenant + (veritePy(valeur) ? TTL_MS : TTL_NEGATIF_MS) });
+    if (this.cache.size > CACHE_MAX) {
+      const expirees = [...this.cache].filter(([, e]) => e.expire <= maintenant).slice(0, 256);
+      for (const [k] of expirees) this.cache.delete(k);
+    }
+    return valeur;
+  }
+
+  /** Réponse 200 dont `ok` est vrai, sinon `null` (journalisé, chemin seul : jamais la requête ni le jeton). */
+  private async appeler(
+    methode: "GET" | "POST",
+    chemin: string,
+    params?: Dict,
+    corps?: Dict,
+    compte?: CompteSigne,
+  ): Promise<Dict | null> {
+    if (!this.actif) return null;
+    try {
+      const url = new URL(this.appUrl + chemin);
+      for (const [k, v] of Object.entries(params ?? {})) url.searchParams.set(k, strPy(v));
+      const r = await request(url, {
+        method: methode,
+        headers: {
+          authorization: `Bearer ${this.jeton}`,
+          ...(compte ? { [IDENTITY_HEADER]: sign(creerIdentite(compte), this.jeton) } : {}),
+          ...(corps ? { "content-type": "application/json" } : {}),
+        },
+        body: corps ? JSON.stringify(corps) : null,
+        signal: AbortSignal.timeout(this.delaiMs),
+        ...(this.agent ? { dispatcher: this.agent } : {}),
+      });
+      const texte = await r.body.text();
+      if (r.statusCode !== 200) {
+        this.journal.warn(`[toolhost.client] ${methode} ${chemin} → ${r.statusCode}`);
+        return null;
+      }
+      const donnees = pyJsonLoads(texte, { mode: "natif" });
+      return estDict(donnees) && veritePy(getPy(donnees, "ok")) ? donnees : null;
+    } catch (e) {
+      this.journal.warn(`[toolhost.client] ${methode} ${chemin} injoignable : ${decrire(e)}`);
+      return null;
+    }
+  }
+
+  /** Compte lié à un jeton personnel (`pcr_…`, `ept_…`). */
+  async introspectToken(jeton: string): Promise<JetonIntrospecte | null> {
+    if (!jeton) return null;
+    const cle = "tok:" + jeton;
+    const c = this.lu(cle);
+    if (c.trouve) return c.valeur as JetonIntrospecte | null;
+    const d = await this.appeler("POST", "/api/internal/tokens/introspect", undefined, { token: jeton });
+    return this.retenir(
+      cle,
+      lireOuNul(d, (x) => ({
+        user_id: intPy(exiger(x, "user_id")),
+        username: strPy(exiger(x, "username")),
+        kind: strPy(getPy(x, "kind") || ""),
+        families: liste(getPy(x, "families")).map(strPy),
+      })),
+    );
+  }
+
+  async identityForUsername(username: string): Promise<IdentiteDistante | null> {
+    if (!username) return null;
+    const cle = "id:" + username;
+    const c = this.lu(cle);
+    if (c.trouve) return c.valeur as IdentiteDistante | null;
+    const d = await this.appeler("GET", "/api/internal/identity", { username });
+    return this.retenir(
+      cle,
+      lireOuNul(d, (x) => ({
+        user_id: intPy(exiger(x, "user_id")),
+        username: strPy(exiger(x, "username")),
+        network_profile_id: strPy(getPy(x, "network_profile_id") || ""),
+        is_admin: veritePy(getPy(x, "is_admin")),
+      })),
+    );
+  }
+
+  /** `{username, token, host}` : SECRET, jamais journalisé ni gardé au-delà du TTL court. */
+  async gitCredential(uid: number, remoteUrl: string): Promise<Dict | null> {
+    if (!uid || !remoteUrl) return null;
+    const cle = `git:${Math.trunc(uid)}:${remoteUrl}`;
+    const c = this.lu(cle);
+    if (c.trouve) return c.valeur as Dict | null;
+    const d = await this.appeler("GET", "/api/internal/git/credential", {
+      user_id: Math.trunc(uid),
+      remote_url: remoteUrl,
+    });
+    const cred = d === null ? null : getPy(d, "credential");
+    return this.retenir(cle, estDict(cred) && veritePy(cred) ? { ...cred } : null);
+  }
+
+  async connectorHosts(uid: number): Promise<string[]> {
+    if (!uid) return [];
+    const cle = `hosts:${Math.trunc(uid)}`;
+    const c = this.lu(cle);
+    if (c.trouve) return [...((c.valeur as string[] | null) ?? [])];
+    const d = await this.appeler("GET", "/api/internal/git/connector-hosts", { user_id: Math.trunc(uid) });
+    const hotes = d === null ? null : liste(getPy(d, "hosts")).map(strPy);
+    return [...(this.retenir(cle, hotes) ?? [])];
+  }
+
+  /** Notification de fin d'automatisation du bureau pour `compte` (enveloppe signée : le core n'accepte pas d'autre destinataire). */
+  async creerNotification(compte: CompteSigne, titre: string, corps: string): Promise<boolean> {
+    return (
+      (await this.appeler(
+        "POST",
+        "/api/internal/notifications",
+        undefined,
+        { title: titre, body: corps },
+        compte,
+      )) !== null
+    );
+  }
+
+  /** Ancre épinglée `{auto_id, role, center}` de `compte` pour (cible, requête), `null` sinon ; jamais gardée en cache. */
+  async ancre(compte: CompteSigne, cible: string, requete: string): Promise<Dict | null> {
+    const d = await this.appeler(
+      "GET",
+      "/api/internal/desktop/anchor",
+      { target: cible, query: requete },
+      undefined,
+      compte,
+    );
+    const a = d === null ? null : getPy(d, "anchor");
+    return estDict(a) ? a : null;
+  }
+
+  async noterAncre(compte: CompteSigne, cible: string, requete: string, ancre: Dict): Promise<boolean> {
+    const corps = { target: cible, query: requete, ...ancre };
+    return (await this.appeler("POST", "/api/internal/desktop/anchor", undefined, corps, compte)) !== null;
+  }
+}
+
+/** Compte d'une enveloppe signée par l'hôte pour un rappel au nom d'un utilisateur. */
+export interface CompteSigne {
+  readonly user_id: number;
+  readonly username: string;
+}
+
+/** `d[cle]` : une clé absente lève (KeyError). */
+function exiger(d: Dict, cle: string): unknown {
+  if (!Object.hasOwn(d, cle)) throw new Error(`KeyError: ${cle}`);
+  return d[cle];
+}
+
+function liste(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : [];
+}
+
+/** Réponse mal formée (champ manquant, entier illisible) : `null` (le Python levait vers l'appelant). */
+function lireOuNul<T>(d: Dict | null, lire: (d: Dict) => T): T | null {
+  if (d === null) return null;
+  try {
+    return lire(d);
+  } catch {
+    return null;
+  }
+}

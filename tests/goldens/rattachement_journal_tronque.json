@@ -1,0 +1,107 @@
+{
+  "entrees": {
+    "chat_id": "c1",
+    "chronologie": [
+      {
+        "a": 0,
+        "verrou": "pris"
+      },
+      {
+        "a": 0,
+        "ouvrir": {
+          "debut": {
+            "chat_id": "c1",
+            "mode": "classique"
+          },
+          "run_id": "r1"
+        }
+      },
+      {
+        "a": 1,
+        "evenement": {
+          "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 2,
+        "evenement": {
+          "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 3,
+        "evenement": {
+          "text": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+          "type": "content_token"
+        }
+      },
+      {
+        "a": 4,
+        "evenement": {
+          "args": {
+            "chemin": "a.docx"
+          },
+          "id": "t1",
+          "name": "docx_lire",
+          "type": "tool_call"
+        }
+      },
+      {
+        "a": 5,
+        "connexion": {}
+      },
+      {
+        "a": 6,
+        "fermer": "done"
+      },
+      {
+        "a": 6,
+        "verrou": "rendu"
+      }
+    ],
+    "harnais": "rattachement",
+    "plafond_octets": 250
+  },
+  "flux": [
+    {
+      "_s": 1,
+      "chat_id": "c1",
+      "mode": "classique",
+      "run_id": "r1",
+      "type": "run_started"
+    },
+    {
+      "_s": 2,
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "type": "content_token"
+    },
+    {
+      "_s": 3,
+      "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "type": "content_token"
+    },
+    {
+      "_s": 4,
+      "type": "journal_truncated"
+    },
+    {
+      "_s": 5,
+      "args": {
+        "chemin": "a.docx"
+      },
+      "id": "t1",
+      "name": "docx_lire",
+      "type": "tool_call"
+    },
+    {
+      "type": "replay_done"
+    },
+    {
+      "_s": 6,
+      "status": "done",
+      "type": "run_end"
+    }
+  ]
+}

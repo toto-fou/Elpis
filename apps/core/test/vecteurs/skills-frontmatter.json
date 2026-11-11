@@ -1,0 +1,3134 @@
+{
+  "source": "migration-kit/vecteurs/skills_frontmatter.py",
+  "valeurs": [
+    {
+      "brut": "",
+      "valeur": ""
+    },
+    {
+      "brut": "   ",
+      "valeur": ""
+    },
+    {
+      "brut": "true",
+      "valeur": true
+    },
+    {
+      "brut": "True",
+      "valeur": true
+    },
+    {
+      "brut": "TRUE",
+      "valeur": true
+    },
+    {
+      "brut": "yes",
+      "valeur": true
+    },
+    {
+      "brut": "Yes",
+      "valeur": true
+    },
+    {
+      "brut": "false",
+      "valeur": false
+    },
+    {
+      "brut": "no",
+      "valeur": false
+    },
+    {
+      "brut": "NO",
+      "valeur": false
+    },
+    {
+      "brut": "null",
+      "valeur": null
+    },
+    {
+      "brut": "None",
+      "valeur": null
+    },
+    {
+      "brut": "~",
+      "valeur": null
+    },
+    {
+      "brut": " ~ ",
+      "valeur": null
+    },
+    {
+      "brut": "[a, b, c]",
+      "valeur": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "brut": "[ 'a' , \"b\" , ]",
+      "valeur": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "[]",
+      "valeur": []
+    },
+    {
+      "brut": "[  ]",
+      "valeur": []
+    },
+    {
+      "brut": "[,]",
+      "valeur": []
+    },
+    {
+      "brut": "[a,,b]",
+      "valeur": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "brut": "['x,y', z]",
+      "valeur": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "brut": "[[a]]",
+      "valeur": [
+        "[a]"
+      ]
+    },
+    {
+      "brut": "[a",
+      "valeur": "[a"
+    },
+    {
+      "brut": "a]",
+      "valeur": "a]"
+    },
+    {
+      "brut": "['''', \"\"]",
+      "valeur": []
+    },
+    {
+      "brut": "{a: b, c: d}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            "c",
+            "d"
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{}",
+      "valeur": {
+        "$dict": []
+      }
+    },
+    {
+      "brut": "{ }",
+      "valeur": {
+        "$dict": []
+      }
+    },
+    {
+      "brut": "{a}",
+      "valeur": {
+        "$dict": []
+      }
+    },
+    {
+      "brut": "{'k': 'v', \"n\": 2}",
+      "valeur": {
+        "$dict": [
+          [
+            "k",
+            "v"
+          ],
+          [
+            "n",
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{a: [1, 2]}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            "[1"
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{a: {b: c}}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            {
+              "$dict": [
+                [
+                  "b",
+                  "c"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{a: true, b: null, c: 1.5, d: 1.0}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            true
+          ],
+          [
+            "b",
+            null
+          ],
+          [
+            "c",
+            {
+              "$float": "1.5"
+            }
+          ],
+          [
+            "d",
+            {
+              "$float": "1.0"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{:x}",
+      "valeur": {
+        "$dict": [
+          [
+            "",
+            "x"
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{a:}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{a: b, a: c}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            "c"
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "{2: x, 1: y}",
+      "valeur": {
+        "$dict": [
+          [
+            "2",
+            "x"
+          ],
+          [
+            "1",
+            "y"
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "42",
+      "valeur": 42
+    },
+    {
+      "brut": "-7",
+      "valeur": -7
+    },
+    {
+      "brut": "+3",
+      "valeur": 3
+    },
+    {
+      "brut": "007",
+      "valeur": 7
+    },
+    {
+      "brut": "1_000",
+      "valeur": 1000
+    },
+    {
+      "brut": "1.5",
+      "valeur": {
+        "$float": "1.5"
+      }
+    },
+    {
+      "brut": ".5",
+      "valeur": {
+        "$float": "0.5"
+      }
+    },
+    {
+      "brut": "5.",
+      "valeur": {
+        "$float": "5.0"
+      }
+    },
+    {
+      "brut": "1e3",
+      "valeur": {
+        "$float": "1000.0"
+      }
+    },
+    {
+      "brut": "1E3",
+      "valeur": {
+        "$float": "1000.0"
+      }
+    },
+    {
+      "brut": "-1.5e-3",
+      "valeur": {
+        "$float": "-0.0015"
+      }
+    },
+    {
+      "brut": "1e",
+      "valeur": "1e"
+    },
+    {
+      "brut": "e",
+      "valeur": "e"
+    },
+    {
+      "brut": "1.2.3",
+      "valeur": "1.2.3"
+    },
+    {
+      "brut": "inf",
+      "valeur": "inf"
+    },
+    {
+      "brut": "nan",
+      "valeur": "nan"
+    },
+    {
+      "brut": "Infinity",
+      "valeur": "Infinity"
+    },
+    {
+      "brut": "-inf",
+      "valeur": "-inf"
+    },
+    {
+      "brut": "1e999",
+      "valeur": {
+        "$float": "inf"
+      }
+    },
+    {
+      "brut": "-1e999",
+      "valeur": {
+        "$float": "-inf"
+      }
+    },
+    {
+      "brut": "0x10",
+      "valeur": "0x10"
+    },
+    {
+      "brut": "\u0661\u0662",
+      "valeur": 12
+    },
+    {
+      "brut": "\u0661\u066b\u0665",
+      "valeur": "\u0661\u066b\u0665"
+    },
+    {
+      "brut": "\u00b2",
+      "valeur": "\u00b2"
+    },
+    {
+      "brut": "1 000",
+      "valeur": "1 000"
+    },
+    {
+      "brut": "\"quoted\"",
+      "valeur": "quoted"
+    },
+    {
+      "brut": "'single'",
+      "valeur": "single"
+    },
+    {
+      "brut": "\"",
+      "valeur": ""
+    },
+    {
+      "brut": "'",
+      "valeur": ""
+    },
+    {
+      "brut": "\"unbalanced",
+      "valeur": "\"unbalanced"
+    },
+    {
+      "brut": "'mixed\"",
+      "valeur": "'mixed\""
+    },
+    {
+      "brut": "\"a\" b \"c\"",
+      "valeur": "a\" b \"c"
+    },
+    {
+      "brut": "plain text",
+      "valeur": "plain text"
+    },
+    {
+      "brut": "  spaced  ",
+      "valeur": "spaced"
+    },
+    {
+      "brut": "\u00e9t\u00e9",
+      "valeur": "\u00e9t\u00e9"
+    },
+    {
+      "brut": "\ud83d\ude00",
+      "valeur": "\ud83d\ude00"
+    },
+    {
+      "brut": "TRUE1",
+      "valeur": "TRUE1"
+    },
+    {
+      "brut": "12345678901234567890",
+      "valeur": 12345678901234567890
+    },
+    {
+      "brut": "1_2.5",
+      "valeur": {
+        "$float": "12.5"
+      }
+    },
+    {
+      "brut": "1__2",
+      "valeur": "1__2"
+    },
+    {
+      "brut": "_1",
+      "valeur": "_1"
+    },
+    {
+      "brut": "1_",
+      "valeur": "1_"
+    },
+    {
+      "brut": "nan.0",
+      "valeur": "nan.0"
+    },
+    {
+      "brut": "-",
+      "valeur": "-"
+    },
+    {
+      "brut": "+",
+      "valeur": "+"
+    },
+    {
+      "brut": ".",
+      "valeur": "."
+    },
+    {
+      "brut": "e5",
+      "valeur": "e5"
+    },
+    {
+      "brut": "5e",
+      "valeur": "5e"
+    },
+    {
+      "brut": "1.5e+3",
+      "valeur": {
+        "$float": "1500.0"
+      }
+    },
+    {
+      "brut": "true ",
+      "valeur": true
+    },
+    {
+      "brut": "\u00a0true\u3000",
+      "valeur": true
+    },
+    {
+      "brut": "1\u00a0",
+      "valeur": 1
+    },
+    {
+      "brut": "#comment",
+      "valeur": "#comment"
+    },
+    {
+      "brut": "a: b",
+      "valeur": "a: b"
+    },
+    {
+      "brut": "1.0",
+      "valeur": {
+        "$float": "1.0"
+      }
+    },
+    {
+      "brut": "-0.0",
+      "valeur": {
+        "$float": "-0.0"
+      }
+    },
+    {
+      "brut": "0.0",
+      "valeur": {
+        "$float": "0.0"
+      }
+    },
+    {
+      "brut": "100.0",
+      "valeur": {
+        "$float": "100.0"
+      }
+    },
+    {
+      "brut": "1e16",
+      "valeur": {
+        "$float": "1e+16"
+      }
+    },
+    {
+      "brut": "1e15",
+      "valeur": {
+        "$float": "1000000000000000.0"
+      }
+    },
+    {
+      "brut": "0.0001",
+      "valeur": {
+        "$float": "0.0001"
+      }
+    },
+    {
+      "brut": "0.00001",
+      "valeur": {
+        "$float": "1e-05"
+      }
+    },
+    {
+      "brut": "123456789012345678.0",
+      "valeur": {
+        "$float": "1.2345678901234568e+17"
+      }
+    },
+    {
+      "brut": "3.141592653589793238",
+      "valeur": {
+        "$float": "3.141592653589793"
+      }
+    },
+    {
+      "brut": "0.1",
+      "valeur": {
+        "$float": "0.1"
+      }
+    },
+    {
+      "brut": "-.5e-7",
+      "valeur": {
+        "$float": "-5e-08"
+      }
+    },
+    {
+      "brut": "1\u20035",
+      "valeur": "1\u20035"
+    },
+    {
+      "brut": "1.5\u0085",
+      "valeur": {
+        "$float": "1.5"
+      }
+    },
+    {
+      "brut": "Yes\u0085",
+      "valeur": true
+    },
+    {
+      "brut": "1.5.",
+      "valeur": "1.5."
+    },
+    {
+      "brut": "\u0661.\u0665",
+      "valeur": {
+        "$float": "1.5"
+      }
+    },
+    {
+      "brut": "{a: 1, b}",
+      "valeur": {
+        "$dict": [
+          [
+            "a",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "brut": "[ ]",
+      "valeur": []
+    },
+    {
+      "brut": "[ , ]",
+      "valeur": []
+    }
+  ],
+  "blocs": [
+    {
+      "bloc": "name: x\ndescription: d",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "  \n# comment\n  # indented comment\nname: x",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n  author: me\n  version: \"1.0\"\nname: y",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "author",
+                  "me"
+                ],
+                [
+                  "version",
+                  "1.0"
+                ]
+              ]
+            }
+          ],
+          [
+            "name",
+            "y"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n\tauthor: tab\n  k2: v2",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "author",
+                  "tab"
+                ],
+                [
+                  "k2",
+                  "v2"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "key: \"\"\n  sub: 1",
+      "frontmatter": {
+        "$dict": [
+          [
+            "key",
+            {
+              "$dict": [
+                [
+                  "sub",
+                  1
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "key: ''\n  sub: 1",
+      "frontmatter": {
+        "$dict": [
+          [
+            "key",
+            {
+              "$dict": [
+                [
+                  "sub",
+                  1
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "key:\n  sub: 1\nkey:\n  other: 2",
+      "frontmatter": {
+        "$dict": [
+          [
+            "key",
+            {
+              "$dict": [
+                [
+                  "other",
+                  2
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "key: {}\n  sub: 1",
+      "frontmatter": {
+        "$dict": [
+          [
+            "key",
+            {
+              "$dict": []
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "a: 1\n  orphan: 2",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "  leading: indented first line",
+      "frontmatter": {
+        "$dict": []
+      }
+    },
+    {
+      "bloc": "no colon line\nname: z",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "z"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": ": empty key\nname: w",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "w"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "name: a:b:c",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "a:b:c"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "url: http://x:8080/y",
+      "frontmatter": {
+        "$dict": [
+          [
+            "url",
+            "http://x:8080/y"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "tags: [a, b]\ntags: [c]",
+      "frontmatter": {
+        "$dict": [
+          [
+            "tags",
+            [
+              "c"
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "b: 1\n2: x\na: 3\n10: y",
+      "frontmatter": {
+        "$dict": [
+          [
+            "b",
+            1
+          ],
+          [
+            "2",
+            "x"
+          ],
+          [
+            "a",
+            3
+          ],
+          [
+            "10",
+            "y"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "__proto__: x\nconstructor: y\ntoString: z\nhasOwnProperty: 1",
+      "frontmatter": {
+        "$dict": [
+          [
+            "__proto__",
+            "x"
+          ],
+          [
+            "constructor",
+            "y"
+          ],
+          [
+            "toString",
+            "z"
+          ],
+          [
+            "hasOwnProperty",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "name: x   \r\ndescription: crlf\r\n",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "crlf"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "a: 1\u000bb: 2\fc: 3\u001cd: 4\u0085e: 5\u2028f: 6\u001dg: 7\u001eh: 8\ri: 9",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            1
+          ],
+          [
+            "b",
+            2
+          ],
+          [
+            "c",
+            3
+          ],
+          [
+            "d",
+            4
+          ],
+          [
+            "e",
+            5
+          ],
+          [
+            "f",
+            6
+          ],
+          [
+            "g",
+            7
+          ],
+          [
+            "h",
+            8
+          ],
+          [
+            "i",
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n  : nokey\n  k:\n  nested: {a: b}",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "k",
+                  ""
+                ],
+                [
+                  "nested",
+                  {
+                    "$dict": [
+                      [
+                        "a",
+                        "b"
+                      ]
+                    ]
+                  }
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n  k: v\nother: \n  x: y",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "k",
+                  "v"
+                ]
+              ]
+            }
+          ],
+          [
+            "other",
+            {
+              "$dict": [
+                [
+                  "x",
+                  "y"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n\n  k: v",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "k",
+                  "v"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\nno_colon\n  k: v",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "k",
+                  "v"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:\n:\n  k: v",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "k",
+                  "v"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "x: 1\nmetadata:\n  a: 1\n  b: [1, 2]\n  c: true\n  d: 1.0",
+      "frontmatter": {
+        "$dict": [
+          [
+            "x",
+            1
+          ],
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "a",
+                  1
+                ],
+                [
+                  "b",
+                  [
+                    "1",
+                    "2"
+                  ]
+                ],
+                [
+                  "c",
+                  true
+                ],
+                [
+                  "d",
+                  {
+                    "$float": "1.0"
+                  }
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "",
+      "frontmatter": {
+        "$dict": []
+      }
+    },
+    {
+      "bloc": "\n\n",
+      "frontmatter": {
+        "$dict": []
+      }
+    },
+    {
+      "bloc": "\u00c9T\u00c9: valeur\ncl\u00e9: \u00e9t\u00e9",
+      "frontmatter": {
+        "$dict": [
+          [
+            "\u00c9T\u00c9",
+            "valeur"
+          ],
+          [
+            "cl\u00e9",
+            "\u00e9t\u00e9"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "name:x",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "name :x",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": " \t: x",
+      "frontmatter": {
+        "$dict": []
+      }
+    },
+    {
+      "bloc": "version: 1.0\nratio: 0.5\nbig: 1e16\nneg: -0.0",
+      "frontmatter": {
+        "$dict": [
+          [
+            "version",
+            {
+              "$float": "1.0"
+            }
+          ],
+          [
+            "ratio",
+            {
+              "$float": "0.5"
+            }
+          ],
+          [
+            "big",
+            {
+              "$float": "1e+16"
+            }
+          ],
+          [
+            "neg",
+            {
+              "$float": "-0.0"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "k: v # pas un commentaire\n# vraiment un commentaire: x",
+      "frontmatter": {
+        "$dict": [
+          [
+            "k",
+            "v # pas un commentaire"
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "a: 1\n\u00a0b: 2",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            1
+          ],
+          [
+            "b",
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "a:\n\u00a0 b: 2",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            ""
+          ],
+          [
+            "b",
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "a:\n  b: 1\n  b: 2\n  c:\n  d: 3",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            {
+              "$dict": [
+                [
+                  "b",
+                  2
+                ],
+                [
+                  "c",
+                  ""
+                ],
+                [
+                  "d",
+                  3
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "metadata:   \n  author:    me   ",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "author",
+                  "me"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "bloc": "x: [a, b]\n  y: 1",
+      "frontmatter": {
+        "$dict": [
+          [
+            "x",
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ]
+      }
+    }
+  ],
+  "contenus": [
+    {
+      "contenu": "---\nname: x\ndescription: d\n---\nbody\n",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "corps": "body\n",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\n\n\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "\n\n---\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "  ---\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "  ---\nname: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "no frontmatter\n---\nname: x\n---\n",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "no frontmatter\n---\nname: x\n---\n",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "---\nname: x\n",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "---",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "------\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "------\nname: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---   \nname: x\n---\t\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\r\nname: x\r\n---\r\nbody\r\n",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body\r\n",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\n\n\nname: x\n---  \n\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\u0085name: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "---\u0085name: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\u2028name: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "---\u2028name: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\nbody\n---\nmore: y\n---\nend",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body\n---\nmore: y\n---\nend",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n --- \n---\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "\ufeff---\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "\ufeff---\nname: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "\u00a0---\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "\u00a0---\nname: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\n---\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "---\nbody",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---x\n---\na: 1\n---\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "a",
+            1
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "body",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nmetadata:\n  author: me\n  version: \"1.0\"\n---\nbody\n",
+      "frontmatter": {
+        "$dict": [
+          [
+            "metadata",
+            {
+              "$dict": [
+                [
+                  "author",
+                  "me"
+                ],
+                [
+                  "version",
+                  "1.0"
+                ]
+              ]
+            }
+          ]
+        ]
+      },
+      "corps": "body\n",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\n\n\n\n  indented body",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "  indented body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: [a, b]\ntags: {x: 1}\n---\nB",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            [
+              "a",
+              "b"
+            ]
+          ],
+          [
+            "tags",
+            {
+              "$dict": [
+                [
+                  "x",
+                  1
+                ]
+              ]
+            }
+          ]
+        ]
+      },
+      "corps": "B",
+      "validation": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\u00a0\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\u0085\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\f\nbody",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nname: x\n---\n\u0085body",
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ]
+        ]
+      },
+      "corps": "\u0085body",
+      "validation": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab dossier \u00bb)",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "\n",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "\n",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\nversion: 1.0\n---\n",
+      "frontmatter": {
+        "$dict": [
+          [
+            "version",
+            {
+              "$float": "1.0"
+            }
+          ]
+        ]
+      },
+      "corps": "",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "x\n---\nname: x\n---\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "x\n---\nname: x\n---\nbody",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "---\n\n---\n\nbody",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "body",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "contenu": "--- \n---",
+      "frontmatter": {
+        "$dict": []
+      },
+      "corps": "",
+      "validation": [
+        "description : requise (non vide)"
+      ]
+    }
+  ],
+  "noms": [
+    {
+      "nom": "pdf-processing",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "pdf-processing",
+      "dossier": "pdf-processing",
+      "erreurs": []
+    },
+    {
+      "nom": "pdf-processing",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf-processing",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "PDF",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "PDF",
+      "dossier": "PDF",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "PDF",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "PDF",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf--x",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "pdf--x",
+      "dossier": "pdf--x",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "pdf--x",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf--x",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "-pdf",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "-pdf",
+      "dossier": "-pdf",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "-pdf",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "-pdf",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf-",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "pdf-",
+      "dossier": "pdf-",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "pdf-",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf-",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "claude-x",
+      "dossier": null,
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "claude-x",
+      "dossier": "claude-x",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "claude-x",
+      "dossier": "autre",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "claude-x",
+      "dossier": "",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "my-ANTHROPIC",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "my-ANTHROPIC",
+      "dossier": "my-ANTHROPIC",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "my-ANTHROPIC",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "my-ANTHROPIC",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "foo",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "foo",
+      "dossier": "foo",
+      "erreurs": []
+    },
+    {
+      "nom": "foo",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "foo",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "",
+      "dossier": null,
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "",
+      "dossier": "",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "",
+      "dossier": "autre",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "",
+      "dossier": "",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "   ",
+      "dossier": null,
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "   ",
+      "dossier": "   ",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "   ",
+      "dossier": "autre",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "   ",
+      "dossier": "",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": null,
+      "dossier": null,
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": null,
+      "dossier": null,
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": null,
+      "dossier": "autre",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": null,
+      "dossier": "",
+      "erreurs": [
+        "name : requis"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "erreurs": []
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": null,
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "autre",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dossier": "",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "dossier": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "dossier": null,
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "dossier": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "dossier": "autre",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "dossier": "",
+      "erreurs": [
+        "name : 65 > 64 caract\u00e8res",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "<tag>",
+      "dossier": null,
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "<tag>",
+      "dossier": "<tag>",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "<tag>",
+      "dossier": "autre",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "<tag>",
+      "dossier": "",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "a<b",
+      "dossier": null,
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "a<b",
+      "dossier": "a<b",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "a<b",
+      "dossier": "autre",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "a<b",
+      "dossier": "",
+      "erreurs": [
+        "name : pas de chevrons/tags XML",
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "name with spaces",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "name with spaces",
+      "dossier": "name with spaces",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "name with spaces",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "name with spaces",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": " trimmed ",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": " trimmed ",
+      "dossier": " trimmed ",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  trimmed  \u00bb)"
+      ]
+    },
+    {
+      "nom": " trimmed ",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": " trimmed ",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "x1-2-3",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "x1-2-3",
+      "dossier": "x1-2-3",
+      "erreurs": []
+    },
+    {
+      "nom": "x1-2-3",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "x1-2-3",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "1",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "1",
+      "dossier": "1",
+      "erreurs": []
+    },
+    {
+      "nom": "1",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "1",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "-",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "-",
+      "dossier": "-",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "-",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "-",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "a_b",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "a_b",
+      "dossier": "a_b",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "a_b",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "a_b",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "claudette",
+      "dossier": null,
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "claudette",
+      "dossier": "claudette",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "claudette",
+      "dossier": "autre",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "claudette",
+      "dossier": "",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "\uff23\uff2c\uff21\uff35\uff24\uff25",
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\uff23\uff2c\uff21\uff35\uff24\uff25",
+      "dossier": "\uff23\uff2c\uff21\uff35\uff24\uff25",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "nom": "\uff23\uff2c\uff21\uff35\uff24\uff25",
+      "dossier": "autre",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "\uff23\uff2c\uff21\uff35\uff24\uff25",
+      "dossier": "",
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "anthropicx",
+      "dossier": null,
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "anthropicx",
+      "dossier": "anthropicx",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)"
+      ]
+    },
+    {
+      "nom": "anthropicx",
+      "dossier": "autre",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "anthropicx",
+      "dossier": "",
+      "erreurs": [
+        "name : mot r\u00e9serv\u00e9 interdit (anthropic / claude)",
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "a\n",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "a\n",
+      "dossier": "a\n",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab a\n \u00bb)"
+      ]
+    },
+    {
+      "nom": "a\n",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "a\n",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf\u00a0",
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "nom": "pdf\u00a0",
+      "dossier": "pdf\u00a0",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab pdf\u00a0 \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf\u00a0",
+      "dossier": "autre",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab autre \u00bb)"
+      ]
+    },
+    {
+      "nom": "pdf\u00a0",
+      "dossier": "",
+      "erreurs": [
+        "name doit \u00eatre identique au nom du dossier (\u00ab  \u00bb)"
+      ]
+    }
+  ],
+  "descriptions": [
+    {
+      "description": "ok",
+      "erreurs": []
+    },
+    {
+      "description": "",
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "description": "   ",
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "description": null,
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "erreurs": []
+    },
+    {
+      "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "erreurs": [
+        "description : 1025 > 1024 caract\u00e8res"
+      ]
+    },
+    {
+      "description": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "erreurs": [
+        "description : 1025 > 1024 caract\u00e8res"
+      ]
+    },
+    {
+      "description": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "erreurs": []
+    },
+    {
+      "description": "<b>",
+      "erreurs": [
+        "description : pas de chevrons/tags XML"
+      ]
+    },
+    {
+      "description": "a > b",
+      "erreurs": [
+        "description : pas de chevrons/tags XML"
+      ]
+    },
+    {
+      "description": "  <  ",
+      "erreurs": [
+        "description : pas de chevrons/tags XML"
+      ]
+    },
+    {
+      "description": " yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy ",
+      "erreurs": []
+    },
+    {
+      "description": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "erreurs": [
+        "description : 1025 > 1024 caract\u00e8res"
+      ]
+    }
+  ],
+  "frontmatters": [
+    {
+      "frontmatter": {
+        "$dict": []
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : requis",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": []
+      },
+      "dossier": "dir-name",
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "x",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            5
+          ],
+          [
+            "description",
+            {
+              "$float": "1.0"
+            }
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            [
+              "a"
+            ]
+          ],
+          [
+            "description",
+            {
+              "$dict": [
+                [
+                  "k",
+                  "v"
+                ]
+              ]
+            }
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            ""
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "dir-name",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            null
+          ]
+        ]
+      },
+      "dossier": "dir-name",
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            false
+          ],
+          [
+            "description",
+            false
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : requis",
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": [
+        "compatibility : > 500 caract\u00e8res"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            null
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            12345
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            [
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc",
+              "abc"
+            ]
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": [
+        "compatibility : > 500 caract\u00e8res"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            true
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            "x"
+          ],
+          [
+            "description",
+            "<script>"
+          ]
+        ]
+      },
+      "dossier": "x",
+      "erreurs": [
+        "description : pas de chevrons/tags XML"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            {
+              "$float": "1.5"
+            }
+          ],
+          [
+            "description",
+            "1e16"
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            {
+              "$dict": [
+                [
+                  "a",
+                  {
+                    "$float": "1.0"
+                  }
+                ]
+              ]
+            }
+          ],
+          [
+            "description",
+            [
+              ""
+            ]
+          ]
+        ]
+      },
+      "dossier": null,
+      "erreurs": [
+        "name : minuscules a-z, chiffres et '-' uniquement, sans '-' en t\u00eate/fin ni '--' cons\u00e9cutifs"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "name",
+            0
+          ],
+          [
+            "description",
+            {
+              "$float": "0.0"
+            }
+          ]
+        ]
+      },
+      "dossier": "zero",
+      "erreurs": [
+        "description : requise (non vide)"
+      ]
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            {
+              "$dict": []
+            }
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    },
+    {
+      "frontmatter": {
+        "$dict": [
+          [
+            "compatibility",
+            ""
+          ],
+          [
+            "description",
+            "d"
+          ]
+        ]
+      },
+      "dossier": "c",
+      "erreurs": []
+    }
+  ]
+}

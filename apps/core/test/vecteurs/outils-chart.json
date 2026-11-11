@@ -1,0 +1,1088 @@
+{
+  "source": "llm_core/tools/chart_tools.py (register, _finish, _too_big, chart_resource) sur un faux MCP",
+  "cas": [
+    {
+      "nom": "type-bar",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"mois\": \"janv.\", \"ventes\": 120, \"co\u00fbts\": 90}, {\"mois\": \"f\u00e9vr.\", \"ventes\": 98, \"co\u00fbts\": 68}, {\"mois\": \"mars\", \"ventes\": 143, \"co\u00fbts\": 113}, {\"mois\": \"avr.\", \"ventes\": 160, \"co\u00fbts\": 130}], \"lines\": [{\"value\": 130, \"label\": \"objectif\"}], \"show_values\": true}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!9ba520022354\", \"chart_id\": \"9ba520022354\", \"summary\": \"bar \u00b7 x=mois (4) \u00b7 series: ventes, co\u00fbts\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/9ba520022354.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"mois\", \"ventes\", \"co\u00fbts\"], \"rows\": [[\"janv.\", 120, 90], [\"f\u00e9vr.\", 98, 68], [\"mars\", 143, 113], [\"avr.\", 160, 130]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"ventes\", \"data\": [120.0, 98.0, 143.0, 160.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}, \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"_lbl\": {\"v\": null}, \"labelLayout\": {\"hideOverlap\": true}, \"markLine\": {\"symbol\": \"none\", \"silent\": false, \"lineStyle\": {\"type\": \"dashed\", \"color\": \"@ink2\", \"width\": 1.5}, \"label\": {\"position\": \"insideEndTop\", \"color\": \"@ink2\", \"fontSize\": 11}, \"data\": [{\"yAxis\": 130.0, \"name\": \"objectif\", \"label\": {\"formatter\": \"objectif\"}}]}}, {\"type\": \"bar\", \"name\": \"co\u00fbts\", \"data\": [90.0, 68.0, 113.0, 130.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}, \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"_lbl\": {\"v\": null}, \"labelLayout\": {\"hideOverlap\": true}}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"janv.\", \"f\u00e9vr.\", \"mars\", \"avr.\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"mois\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-line",
+      "type": "outil",
+      "outil": "chart_line",
+      "args": "{\"data\": [{\"semaine\": \"S1\", \"API\": 181}, {\"semaine\": \"S2\", \"API\": 182}, {\"semaine\": \"S3\", \"API\": 183}, {\"semaine\": \"S4\", \"API\": 184}, {\"semaine\": \"S5\", \"API\": 185}, {\"semaine\": \"S6\", \"API\": 186}, {\"semaine\": \"S7\", \"API\": 187}, {\"semaine\": \"S8\", \"API\": 188}], \"trend\": true}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!cb6b6a2921fc\", \"chart_id\": \"cb6b6a2921fc\", \"summary\": \"line \u00b7 x=semaine (8) \u00b7 series: API\", \"chart_type\": \"line\", \"fixes\": [\"trend 'API': slope 1/step, R\u00b2 = 1.00\"]}",
+      "fichiers": {
+        "alice/cb6b6a2921fc.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"line\", \"unit\": \"\", \"table\": {\"columns\": [\"semaine\", \"API\"], \"rows\": [[\"S1\", 181], [\"S2\", 182], [\"S3\", 183], [\"S4\", 184], [\"S5\", 185], [\"S6\", 186], [\"S7\", 187], [\"S8\", 188]], \"truncated\": false}}, \"series\": [{\"type\": \"line\", \"name\": \"API\", \"data\": [181.0, 182.0, 183.0, 184.0, 185.0, 186.0, 187.0, 188.0], \"emphasis\": {\"focus\": \"series\"}, \"showSymbol\": true, \"symbolSize\": 7, \"lineStyle\": {\"width\": 2}, \"smooth\": false, \"connectNulls\": false}, {\"type\": \"line\", \"name\": \"Tendance API\", \"symbol\": \"none\", \"data\": [181.0, 182.0, 183.0, 184.0, 185.0, 186.0, 187.0, 188.0], \"lineStyle\": {\"type\": \"dashed\", \"width\": 1.5, \"color\": \"@ink2\"}, \"itemStyle\": {\"color\": \"@ink2\"}, \"tooltip\": {\"show\": false}, \"silent\": true}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"line\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"S1\", \"S2\", \"S3\", \"S4\", \"S5\", \"S6\", \"S7\", \"S8\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": false, \"name\": \"semaine\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"API\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-area",
+      "type": "outil",
+      "outil": "chart_area",
+      "args": "{\"data\": [{\"mois\": \"janv.\", \"a\": 1, \"b\": 2}, {\"mois\": \"f\u00e9vr.\", \"a\": 2, \"b\": 4}, {\"mois\": \"mars\", \"a\": 3, \"b\": 6}, {\"mois\": \"avr.\", \"a\": 4, \"b\": 8}], \"stack\": \"stacked\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!a29ca40306a7\", \"chart_id\": \"a29ca40306a7\", \"summary\": \"area stacked \u00b7 x=mois (4) \u00b7 series: a, b\", \"chart_type\": \"area\"}",
+      "fichiers": {
+        "alice/a29ca40306a7.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"area\", \"unit\": \"\", \"table\": {\"columns\": [\"mois\", \"a\", \"b\"], \"rows\": [[\"janv.\", 1, 2], [\"f\u00e9vr.\", 2, 4], [\"mars\", 3, 6], [\"avr.\", 4, 8]], \"truncated\": false}}, \"series\": [{\"type\": \"line\", \"name\": \"a\", \"data\": [1.0, 2.0, 3.0, 4.0], \"emphasis\": {\"focus\": \"series\"}, \"showSymbol\": false, \"symbolSize\": 7, \"lineStyle\": {\"width\": 1}, \"smooth\": false, \"connectNulls\": false, \"areaStyle\": {\"opacity\": 0.85}, \"stack\": \"total\"}, {\"type\": \"line\", \"name\": \"b\", \"data\": [2.0, 4.0, 6.0, 8.0], \"emphasis\": {\"focus\": \"series\"}, \"showSymbol\": false, \"symbolSize\": 7, \"lineStyle\": {\"width\": 1}, \"smooth\": false, \"connectNulls\": false, \"areaStyle\": {\"opacity\": 0.85}, \"stack\": \"total\"}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"line\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"janv.\", \"f\u00e9vr.\", \"mars\", \"avr.\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": false, \"name\": \"mois\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-stream",
+      "type": "outil",
+      "outil": "chart_stream",
+      "args": "{\"data\": [{\"mois\": \"2026-01\", \"canal\": \"T\u00e9l\", \"n\": 10}, {\"mois\": \"2026-01\", \"canal\": \"Web\", \"n\": 11}, {\"mois\": \"2026-02\", \"canal\": \"T\u00e9l\", \"n\": 20}, {\"mois\": \"2026-02\", \"canal\": \"Web\", \"n\": 21}, {\"mois\": \"2026-03\", \"canal\": \"T\u00e9l\", \"n\": 30}, {\"mois\": \"2026-03\", \"canal\": \"Web\", \"n\": 31}, {\"mois\": \"2026-04\", \"canal\": \"T\u00e9l\", \"n\": 40}, {\"mois\": \"2026-04\", \"canal\": \"Web\", \"n\": 41}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!560de84f16dd\", \"chart_id\": \"560de84f16dd\", \"summary\": \"stream \u00b7 4 dates \u00b7 2 series\", \"chart_type\": \"stream\", \"fixes\": [\"long format: series = column 'canal'\"]}",
+      "fichiers": {
+        "alice/560de84f16dd.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"stream\", \"unit\": \"\", \"table\": {\"columns\": [\"mois\", \"canal\", \"n\"], \"rows\": [[\"2026-01\", \"T\u00e9l\", 10], [\"2026-01\", \"Web\", 11], [\"2026-02\", \"T\u00e9l\", 20], [\"2026-02\", \"Web\", 21], [\"2026-03\", \"T\u00e9l\", 30], [\"2026-03\", \"Web\", 31], [\"2026-04\", \"T\u00e9l\", 40], [\"2026-04\", \"Web\", 41]], \"truncated\": false}}, \"singleAxis\": {\"type\": \"time\", \"top\": 40, \"bottom\": 30, \"left\": 20, \"right\": 20, \"axisTick\": {\"show\": false}}, \"series\": [{\"type\": \"themeRiver\", \"data\": [[\"2026-01-01\", 10.0, \"T\u00e9l\"], [\"2026-02-01\", 20.0, \"T\u00e9l\"], [\"2026-03-01\", 30.0, \"T\u00e9l\"], [\"2026-04-01\", 40.0, \"T\u00e9l\"], [\"2026-01-01\", 11.0, \"Web\"], [\"2026-02-01\", 21.0, \"Web\"], [\"2026-03-01\", 31.0, \"Web\"], [\"2026-04-01\", 41.0, \"Web\"]], \"emphasis\": {\"focus\": \"self\"}, \"label\": {\"show\": false}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"line\"}}, \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}}"
+      }
+    },
+    {
+      "nom": "type-radar",
+      "type": "outil",
+      "outil": "chart_radar",
+      "args": "{\"data\": [{\"solution\": \"A\", \"co\u00fbt\": 7, \"s\u00e9curit\u00e9\": 9, \"support\": 8}, {\"solution\": \"B\", \"co\u00fbt\": 9, \"s\u00e9curit\u00e9\": 6, \"support\": 6}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!46aca403d0cc\", \"chart_id\": \"46aca403d0cc\", \"summary\": \"radar \u00b7 3 axes \u00b7 2 series\", \"chart_type\": \"radar\", \"fixes\": [\"one row per entity: axes = numeric columns\"]}",
+      "fichiers": {
+        "alice/46aca403d0cc.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"radar\", \"unit\": \"\", \"table\": {\"columns\": [\"solution\", \"co\u00fbt\", \"s\u00e9curit\u00e9\", \"support\"], \"rows\": [[\"A\", 7, 9, 8], [\"B\", 9, 6, 6]], \"truncated\": false}}, \"radar\": {\"indicator\": [{\"name\": \"co\u00fbt\", \"max\": 10}, {\"name\": \"s\u00e9curit\u00e9\", \"max\": 10}, {\"name\": \"support\", \"max\": 10}], \"radius\": \"62%\", \"center\": [\"50%\", \"57%\"], \"splitNumber\": 4, \"axisName\": {\"color\": \"@ink2\", \"fontSize\": 12}, \"splitLine\": {\"lineStyle\": {\"color\": \"@grid\"}}, \"splitArea\": {\"show\": false}, \"axisLine\": {\"lineStyle\": {\"color\": \"@grid\"}}}, \"series\": [{\"type\": \"radar\", \"symbolSize\": 5, \"data\": [{\"name\": \"A\", \"value\": [7.0, 9.0, 8.0], \"areaStyle\": {\"opacity\": 0.12}, \"lineStyle\": {\"width\": 2}}, {\"name\": \"B\", \"value\": [9.0, 6.0, 6.0], \"areaStyle\": {\"opacity\": 0.12}, \"lineStyle\": {\"width\": 2}}], \"emphasis\": {\"focus\": \"self\"}}], \"tooltip\": {\"trigger\": \"item\"}, \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}}"
+      }
+    },
+    {
+      "nom": "type-polar_bar",
+      "type": "outil",
+      "outil": "chart_polar_bar",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"n\": 8}, {\"jour\": \"mar.\", \"n\": 9}, {\"jour\": \"mer.\", \"n\": 7}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!a9110887c364\", \"chart_id\": \"a9110887c364\", \"summary\": \"polar_bar \u00b7 3 categories \u00b7 1 series\", \"chart_type\": \"polar_bar\"}",
+      "fichiers": {
+        "alice/a9110887c364.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"polar_bar\", \"unit\": \"\", \"table\": {\"columns\": [\"jour\", \"n\"], \"rows\": [[\"lun.\", 8], [\"mar.\", 9], [\"mer.\", 7]], \"truncated\": false}}, \"polar\": {\"radius\": [\"14%\", \"74%\"], \"center\": [\"50%\", \"56%\"]}, \"angleAxis\": {\"type\": \"category\", \"data\": [\"lun.\", \"mar.\", \"mer.\"], \"startAngle\": 90, \"axisLine\": {\"lineStyle\": {\"color\": \"@grid\"}}, \"axisTick\": {\"show\": false}, \"axisLabel\": {\"color\": \"@ink2\"}}, \"radiusAxis\": {\"axisLabel\": {\"show\": false}, \"axisLine\": {\"show\": false}, \"axisTick\": {\"show\": false}, \"splitLine\": {\"lineStyle\": {\"color\": \"@grid\"}}}, \"series\": [{\"type\": \"bar\", \"name\": \"n\", \"data\": [8.0, 9.0, 7.0], \"coordinateSystem\": \"polar\", \"stack\": null, \"roundCap\": true, \"emphasis\": {\"focus\": \"series\"}}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-waterfall",
+      "type": "outil",
+      "outil": "chart_waterfall",
+      "args": "{\"data\": [{\"\u00e9tape\": \"Budget\", \"montant\": 1200}, {\"\u00e9tape\": \"Recrutements\", \"montant\": -180}, {\"\u00e9tape\": \"Subvention\", \"montant\": 140}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!4ff2c05190b0\", \"chart_id\": \"4ff2c05190b0\", \"summary\": \"waterfall \u00b7 4 steps \u00b7 final total 1\u202f160\", \"chart_type\": \"waterfall\", \"fixes\": [\"a 'Total' bar was added at the end\"]}",
+      "fichiers": {
+        "alice/4ff2c05190b0.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"waterfall\", \"unit\": \"\", \"table\": {\"columns\": [\"\u00e9tape\", \"montant\"], \"rows\": [[\"Budget\", 1200], [\"Recrutements\", -180], [\"Subvention\", 140]], \"truncated\": false}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"Budget\", \"Recrutements\", \"Subvention\", \"Total\"], \"axisTick\": {\"show\": false}, \"axisLabel\": {\"interval\": 0, \"width\": 96, \"overflow\": \"break\", \"lineHeight\": 14}}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"series\": [{\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"_base\", \"data\": [0.0, 1020.0, 1020.0, \"-\"], \"itemStyle\": {\"color\": \"transparent\"}, \"emphasis\": {\"disabled\": true}, \"tooltip\": {\"show\": false}, \"silent\": true}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Hausse\", \"data\": [{\"value\": 1200.0, \"label\": {\"formatter\": \"+1\u202f200\"}}, \"-\", {\"value\": 140.0, \"label\": {\"formatter\": \"+140\"}}, \"-\"], \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@up\", \"borderRadius\": [3, 3, 0, 0]}}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Baisse\", \"data\": [\"-\", {\"value\": 180.0, \"label\": {\"formatter\": \"\u2212180\"}}, \"-\", \"-\"], \"label\": {\"show\": true, \"position\": \"bottom\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@down\", \"borderRadius\": [3, 3, 0, 0]}}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Total\", \"data\": [\"-\", \"-\", \"-\", {\"value\": 1160.0, \"label\": {\"formatter\": \"1\u202f160\"}}], \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@neutral\", \"borderRadius\": [3, 3, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"legend\": {\"data\": [\"Hausse\", \"Baisse\", \"Total\"], \"top\": 4, \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-pie",
+      "type": "outil",
+      "outil": "chart_pie",
+      "args": "{\"data\": {\"Fixe\": 45, \"Mobile\": 35, \"Box\": 20}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!5c6622f31525\", \"chart_id\": \"5c6622f31525\", \"summary\": \"pie \u00b7 3 slices \u00b7 total 100 \u00b7 Fixe 45 %, Mobile 35 %, Box 20 %\", \"chart_type\": \"pie\", \"fixes\": [\"{label: value} converted to rows\"]}",
+      "fichiers": {
+        "alice/5c6622f31525.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"pie\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"valeur\"], \"rows\": [[\"Fixe\", 45], [\"Mobile\", 35], [\"Box\", 20]], \"truncated\": false}}, \"series\": [{\"type\": \"pie\", \"name\": \"valeur\", \"data\": [{\"name\": \"Fixe\", \"value\": 45.0}, {\"name\": \"Mobile\", \"value\": 35.0}, {\"name\": \"Box\", \"value\": 20.0}], \"center\": [\"50%\", \"56%\"], \"avoidLabelOverlap\": true, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"borderRadius\": 0}, \"label\": {\"formatter\": \"{b}\\n{d} %\", \"color\": \"@ink2\", \"fontSize\": 11, \"lineHeight\": 15}, \"_lbl\": {\"pct\": true}, \"labelLine\": {\"length\": 8, \"length2\": 10}, \"emphasis\": {\"scale\": true, \"scaleSize\": 4}, \"radius\": [\"0%\", \"68%\"]}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-donut",
+      "type": "outil",
+      "outil": "chart_donut",
+      "args": "{\"data\": {\"Windows\": 1240, \"macOS\": 180}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!12c441548c12\", \"chart_id\": \"12c441548c12\", \"summary\": \"donut \u00b7 2 slices \u00b7 total 1\u202f420 \u00b7 Windows 87 %, macOS 13 %\", \"chart_type\": \"donut\", \"fixes\": [\"{label: value} converted to rows\"]}",
+      "fichiers": {
+        "alice/12c441548c12.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"donut\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"valeur\"], \"rows\": [[\"Windows\", 1240], [\"macOS\", 180]], \"truncated\": false}}, \"graphic\": [{\"type\": \"text\", \"left\": \"center\", \"top\": \"51%\", \"style\": {\"text\": \"1\u202f420\", \"fill\": \"@ink\", \"fontSize\": 20, \"fontWeight\": 600, \"textAlign\": \"center\"}}], \"series\": [{\"type\": \"pie\", \"name\": \"valeur\", \"data\": [{\"name\": \"Windows\", \"value\": 1240.0}, {\"name\": \"macOS\", \"value\": 180.0}], \"center\": [\"50%\", \"56%\"], \"avoidLabelOverlap\": true, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"borderRadius\": 4}, \"label\": {\"formatter\": \"{b}\\n{d} %\", \"color\": \"@ink2\", \"fontSize\": 11, \"lineHeight\": 15}, \"_lbl\": {\"pct\": true}, \"labelLine\": {\"length\": 8, \"length2\": 10}, \"emphasis\": {\"scale\": true, \"scaleSize\": 4}, \"radius\": [\"44%\", \"68%\"]}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-rose",
+      "type": "outil",
+      "outil": "chart_rose",
+      "args": "{\"data\": {\"Mat\u00e9riel\": 34, \"Logiciel\": 51, \"R\u00e9seau\": 28}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!8bae3ad75f8f\", \"chart_id\": \"8bae3ad75f8f\", \"summary\": \"rose \u00b7 3 slices \u00b7 total 113 \u00b7 Logiciel 45 %, Mat\u00e9riel 30 %, R\u00e9seau 25 %\", \"chart_type\": \"rose\", \"fixes\": [\"{label: value} converted to rows\"]}",
+      "fichiers": {
+        "alice/8bae3ad75f8f.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"rose\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"valeur\"], \"rows\": [[\"Mat\u00e9riel\", 34], [\"Logiciel\", 51], [\"R\u00e9seau\", 28]], \"truncated\": false}}, \"series\": [{\"type\": \"pie\", \"name\": \"valeur\", \"data\": [{\"name\": \"Logiciel\", \"value\": 51.0}, {\"name\": \"Mat\u00e9riel\", \"value\": 34.0}, {\"name\": \"R\u00e9seau\", \"value\": 28.0}], \"center\": [\"50%\", \"56%\"], \"avoidLabelOverlap\": true, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"borderRadius\": 4}, \"label\": {\"formatter\": \"{b}\\n{d} %\", \"color\": \"@ink2\", \"fontSize\": 11, \"lineHeight\": 15}, \"_lbl\": {\"pct\": true}, \"labelLine\": {\"length\": 8, \"length2\": 10}, \"emphasis\": {\"scale\": true, \"scaleSize\": 4}, \"radius\": [\"14%\", \"70%\"], \"roseType\": \"area\"}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-treemap",
+      "type": "outil",
+      "outil": "chart_treemap",
+      "args": "{\"data\": [{\"direction\": \"Tech\", \"service\": \"Infra\", \"budget\": 820}, {\"direction\": \"Tech\", \"service\": \"D\u00e9v\", \"budget\": 640}, {\"direction\": \"RH\", \"service\": \"Paie\", \"budget\": 160}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!f7cc1a34b232\", \"chart_id\": \"f7cc1a34b232\", \"summary\": \"treemap \u00b7 2 groups \u00b7 2 level(s) \u00b7 total 1\u202f620\", \"chart_type\": \"treemap\", \"fixes\": [\"levels: direction > service\"]}",
+      "fichiers": {
+        "alice/f7cc1a34b232.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"treemap\", \"unit\": \"\", \"table\": {\"columns\": [\"direction\", \"service\", \"budget\"], \"rows\": [[\"Tech\", \"Infra\", 820], [\"Tech\", \"D\u00e9v\", 640], [\"RH\", \"Paie\", 160]], \"truncated\": false}}, \"series\": [{\"type\": \"treemap\", \"data\": [{\"name\": \"Tech\", \"children\": [{\"name\": \"Infra\", \"value\": 820.0}, {\"name\": \"D\u00e9v\", \"value\": 640.0}], \"value\": 1460.0}, {\"name\": \"RH\", \"children\": [{\"name\": \"Paie\", \"value\": 160.0}], \"value\": 160.0}], \"roam\": false, \"nodeClick\": \"zoomToNode\", \"top\": 10, \"bottom\": 34, \"left\": 4, \"right\": 4, \"breadcrumb\": {\"show\": true, \"bottom\": 4, \"itemStyle\": {\"color\": \"@track\", \"textStyle\": {\"color\": \"@ink\"}}}, \"label\": {\"show\": true, \"formatter\": \"{b}\", \"fontSize\": 12}, \"upperLabel\": {\"show\": true, \"height\": 20, \"color\": \"#ffffff\"}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"gapWidth\": 2}, \"levels\": [{\"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 3, \"gapWidth\": 3}}, {\"colorSaturation\": [0.35, 0.6], \"itemStyle\": {\"borderColorSaturation\": 0.65, \"gapWidth\": 1, \"borderWidth\": 1}}]}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-sunburst",
+      "type": "outil",
+      "outil": "chart_sunburst",
+      "args": "{\"data\": [{\"canal\": \"Recherche\", \"source\": \"A\", \"visites\": 4200}, {\"canal\": \"Recherche\", \"source\": \"B\", \"visites\": 1300}, {\"canal\": \"Direct\", \"source\": \"Favori\", \"visites\": 2100}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!d38a285fd395\", \"chart_id\": \"d38a285fd395\", \"summary\": \"sunburst \u00b7 2 groups \u00b7 2 level(s) \u00b7 total 7\u202f600\", \"chart_type\": \"sunburst\", \"fixes\": [\"levels: canal > source\"]}",
+      "fichiers": {
+        "alice/d38a285fd395.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"sunburst\", \"unit\": \"\", \"table\": {\"columns\": [\"canal\", \"source\", \"visites\"], \"rows\": [[\"Recherche\", \"A\", 4200], [\"Recherche\", \"B\", 1300], [\"Direct\", \"Favori\", 2100]], \"truncated\": false}}, \"series\": [{\"type\": \"sunburst\", \"data\": [{\"name\": \"Recherche\", \"children\": [{\"name\": \"A\", \"value\": 4200.0}, {\"name\": \"B\", \"value\": 1300.0}], \"value\": 5500.0}, {\"name\": \"Direct\", \"children\": [{\"name\": \"Favori\", \"value\": 2100.0}], \"value\": 2100.0}], \"radius\": [\"12%\", \"92%\"], \"center\": [\"50%\", \"55%\"], \"sort\": null, \"nodeClick\": \"rootToNode\", \"emphasis\": {\"focus\": \"ancestor\"}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2}, \"label\": {\"rotate\": \"radial\", \"minAngle\": 8, \"fontSize\": 11, \"color\": \"#ffffff\"}, \"levels\": [{}, {\"r0\": \"12%\", \"r\": \"45%\"}, {\"r0\": \"45%\", \"r\": \"72%\"}]}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-funnel",
+      "type": "outil",
+      "outil": "chart_funnel",
+      "args": "{\"data\": {\"Visites\": 12000, \"Formulaire\": 4300, \"Compte\": 1650}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!d5b13b312908\", \"chart_id\": \"d5b13b312908\", \"summary\": \"funnel \u00b7 3 stages \u00b7 final conversion 13,8\u202f%\", \"chart_type\": \"funnel\", \"fixes\": [\"{label: value} converted to rows\"]}",
+      "fichiers": {
+        "alice/d5b13b312908.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"funnel\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"valeur\"], \"rows\": [[\"Visites\", 12000], [\"Formulaire\", 4300], [\"Compte\", 1650]], \"truncated\": false}}, \"series\": [{\"type\": \"funnel\", \"data\": [{\"name\": \"Visites\", \"value\": 12000.0, \"itemStyle\": {\"color\": \"#256abf\"}, \"label\": {\"formatter\": \"Visites  12 k \u00b7 100 %\"}}, {\"name\": \"Formulaire\", \"value\": 4300.0, \"itemStyle\": {\"color\": \"#2a78d6\"}, \"label\": {\"formatter\": \"Formulaire  4\u202f300 \u00b7 36 %\"}}, {\"name\": \"Compte\", \"value\": 1650.0, \"itemStyle\": {\"color\": \"#3987e5\"}, \"label\": {\"formatter\": \"Compte  1\u202f650 \u00b7 14 %\"}}], \"sort\": \"descending\", \"gap\": 2, \"left\": \"4%\", \"width\": \"56%\", \"top\": 20, \"bottom\": 10, \"minSize\": \"14%\", \"label\": {\"position\": \"right\", \"color\": \"@ink\", \"fontSize\": 12}, \"labelLine\": {\"length\": 12, \"lineStyle\": {\"color\": \"@grid\"}}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 0}}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-histogram",
+      "type": "outil",
+      "outil": "chart_histogram",
+      "args": "{\"data\": [{\"\u00e2ge\": 20}, {\"\u00e2ge\": 27}, {\"\u00e2ge\": 34}, {\"\u00e2ge\": 41}, {\"\u00e2ge\": 48}, {\"\u00e2ge\": 55}, {\"\u00e2ge\": 22}, {\"\u00e2ge\": 29}, {\"\u00e2ge\": 36}, {\"\u00e2ge\": 43}, {\"\u00e2ge\": 50}, {\"\u00e2ge\": 57}, {\"\u00e2ge\": 24}, {\"\u00e2ge\": 31}, {\"\u00e2ge\": 38}, {\"\u00e2ge\": 45}, {\"\u00e2ge\": 52}, {\"\u00e2ge\": 59}, {\"\u00e2ge\": 26}, {\"\u00e2ge\": 33}, {\"\u00e2ge\": 40}, {\"\u00e2ge\": 47}, {\"\u00e2ge\": 54}, {\"\u00e2ge\": 21}, {\"\u00e2ge\": 28}, {\"\u00e2ge\": 35}, {\"\u00e2ge\": 42}, {\"\u00e2ge\": 49}, {\"\u00e2ge\": 56}, {\"\u00e2ge\": 23}, {\"\u00e2ge\": 30}, {\"\u00e2ge\": 37}, {\"\u00e2ge\": 44}, {\"\u00e2ge\": 51}, {\"\u00e2ge\": 58}, {\"\u00e2ge\": 25}, {\"\u00e2ge\": 32}, {\"\u00e2ge\": 39}, {\"\u00e2ge\": 46}, {\"\u00e2ge\": 53}, {\"\u00e2ge\": 20}, {\"\u00e2ge\": 27}, {\"\u00e2ge\": 34}, {\"\u00e2ge\": 41}, {\"\u00e2ge\": 48}, {\"\u00e2ge\": 55}, {\"\u00e2ge\": 22}, {\"\u00e2ge\": 29}, {\"\u00e2ge\": 36}, {\"\u00e2ge\": 43}, {\"\u00e2ge\": 50}, {\"\u00e2ge\": 57}, {\"\u00e2ge\": 24}, {\"\u00e2ge\": 31}, {\"\u00e2ge\": 38}, {\"\u00e2ge\": 45}, {\"\u00e2ge\": 52}, {\"\u00e2ge\": 59}, {\"\u00e2ge\": 26}, {\"\u00e2ge\": 33}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!6752f8449e47\", \"chart_id\": \"6752f8449e47\", \"summary\": \"histogram \u00b7 60 values \u00b7 4 bins of 10 \u00b7 mean 39,17 \u00b7 median 38,5\", \"chart_type\": \"histogram\"}",
+      "fichiers": {
+        "alice/6752f8449e47.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"histogram\", \"unit\": \"\", \"table\": {\"columns\": [\"\u00e2ge\"], \"rows\": [[20], [27], [34], [41], [48], [55], [22], [29], [36], [43], [50], [57], [24], [31], [38], [45], [52], [59], [26], [33], [40], [47], [54], [21], [28], [35], [42], [49], [56], [23], [30], [37], [44], [51], [58], [25], [32], [39], [46], [53], [20], [27], [34], [41], [48], [55], [22], [29], [36], [43], [50], [57], [24], [31], [38], [45], [52], [59], [26], [33]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"\u00e2ge\", \"data\": [16, 15, 14, 15], \"barCategoryGap\": \"4%\", \"barGap\": \"0%\", \"itemStyle\": {\"borderRadius\": [3, 3, 0, 0]}, \"emphasis\": {\"focus\": \"series\"}}], \"xAxis\": {\"type\": \"category\", \"data\": [\"20 \u2013 30\", \"30 \u2013 40\", \"40 \u2013 50\", \"50 \u2013 60\"], \"name\": \"\u00e2ge\", \"nameLocation\": \"middle\", \"nameGap\": 28, \"axisTick\": {\"show\": false}, \"axisLabel\": {\"hideOverlap\": true}}, \"yAxis\": {\"type\": \"value\", \"name\": \"effectif\", \"minInterval\": 1}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 44}}"
+      }
+    },
+    {
+      "nom": "type-boxplot",
+      "type": "outil",
+      "outil": "chart_boxplot",
+      "args": "{\"data\": [{\"\u00e9quipe\": \"A\", \"d\u00e9lai\": 1}, {\"\u00e9quipe\": \"A\", \"d\u00e9lai\": 2}, {\"\u00e9quipe\": \"A\", \"d\u00e9lai\": 3}, {\"\u00e9quipe\": \"A\", \"d\u00e9lai\": 4}, {\"\u00e9quipe\": \"A\", \"d\u00e9lai\": 9}, {\"\u00e9quipe\": \"B\", \"d\u00e9lai\": 1}, {\"\u00e9quipe\": \"B\", \"d\u00e9lai\": 2}, {\"\u00e9quipe\": \"B\", \"d\u00e9lai\": 3}, {\"\u00e9quipe\": \"B\", \"d\u00e9lai\": 4}, {\"\u00e9quipe\": \"B\", \"d\u00e9lai\": 9}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!b695b8cf411b\", \"chart_id\": \"b695b8cf411b\", \"summary\": \"boxplot \u00b7 2 groups \u00b7 medians: A 3, B 3\", \"chart_type\": \"boxplot\"}",
+      "fichiers": {
+        "alice/b695b8cf411b.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"boxplot\", \"unit\": \"\", \"table\": {\"columns\": [\"\u00e9quipe\", \"d\u00e9lai\"], \"rows\": [[\"A\", 1], [\"A\", 2], [\"A\", 3], [\"A\", 4], [\"A\", 9], [\"B\", 1], [\"B\", 2], [\"B\", 3], [\"B\", 4], [\"B\", 9]], \"truncated\": false}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"A\", \"B\"], \"axisTick\": {\"show\": false}, \"name\": \"\u00e9quipe\", \"jitter\": 22, \"jitterOverlap\": false}, \"yAxis\": {\"type\": \"value\", \"scale\": true, \"_fmt\": true, \"name\": \"d\u00e9lai\"}, \"series\": [{\"type\": \"boxplot\", \"name\": \"Distribution\", \"data\": [[1.0, 2.0, 3.0, 4.0, 4.0], [1.0, 2.0, 3.0, 4.0, 4.0]], \"boxWidth\": [12, 46], \"itemStyle\": {\"color\": \"@series1a\", \"borderColor\": \"@series1\", \"borderWidth\": 1.5}}, {\"type\": \"scatter\", \"name\": \"Valeurs\", \"data\": [[0, 1.0], [0, 2.0], [0, 3.0], [0, 4.0], [0, 9.0], [1, 1.0], [1, 2.0], [1, 3.0], [1, 4.0], [1, 9.0]], \"symbolSize\": 5, \"itemStyle\": {\"color\": \"@ink2\", \"opacity\": 0.35}, \"z\": 3}, {\"type\": \"scatter\", \"name\": \"Valeurs atypiques\", \"data\": [[0, 9.0], [1, 9.0]], \"symbolSize\": 7, \"itemStyle\": {\"color\": \"@down\"}, \"z\": 4}], \"tooltip\": {\"trigger\": \"item\"}, \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 36}}"
+      }
+    },
+    {
+      "nom": "type-scatter",
+      "type": "outil",
+      "outil": "chart_scatter",
+      "args": "{\"data\": [{\"surface\": 30, \"prix\": 120}, {\"surface\": 45, \"prix\": 180}, {\"surface\": 60, \"prix\": 240}, {\"surface\": 90, \"prix\": 360}], \"trend\": true}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!1492d9571e06\", \"chart_id\": \"1492d9571e06\", \"summary\": \"scatter \u00b7 4 points \u00b7 x=surface \u00b7 y=prix\", \"chart_type\": \"scatter\", \"fixes\": [\"trend: y = 4*x + 0 (R\u00b2 = 1.00)\"]}",
+      "fichiers": {
+        "alice/1492d9571e06.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"scatter\", \"unit\": \"\", \"table\": {\"columns\": [\"surface\", \"prix\"], \"rows\": [[30, 120], [45, 180], [60, 240], [90, 360]], \"truncated\": false}, \"axes\": [\"surface\", \"prix\"]}, \"series\": [{\"type\": \"scatter\", \"name\": \"prix\", \"data\": [{\"value\": [30.0, 120.0]}, {\"value\": [45.0, 180.0]}, {\"value\": [60.0, 240.0]}, {\"value\": [90.0, 360.0]}], \"symbolSize\": 9, \"emphasis\": {\"focus\": \"series\"}, \"itemStyle\": {\"opacity\": 0.8, \"borderColor\": \"@surface\", \"borderWidth\": 1}}, {\"type\": \"line\", \"name\": \"Tendance (R\u00b2 = 1.00)\", \"symbol\": \"none\", \"data\": [[30.0, 120.0], [90.0, 360.0]], \"lineStyle\": {\"type\": \"dashed\", \"width\": 1.5, \"color\": \"@ink2\"}, \"itemStyle\": {\"color\": \"@ink2\"}, \"tooltip\": {\"show\": false}, \"silent\": true}], \"xAxis\": {\"type\": \"value\", \"scale\": true, \"name\": \"surface\", \"nameLocation\": \"middle\", \"nameGap\": 26, \"_fmt\": true, \"splitLine\": {\"show\": true}}, \"yAxis\": {\"type\": \"value\", \"scale\": true, \"name\": \"prix\", \"_fmt\": true}, \"tooltip\": {\"trigger\": \"item\"}, \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 40}}"
+      }
+    },
+    {
+      "nom": "type-bubble",
+      "type": "outil",
+      "outil": "chart_bubble",
+      "args": "{\"data\": [{\"surface\": 30, \"prix\": 120, \"pi\u00e8ces\": 1}, {\"surface\": 45, \"prix\": 180, \"pi\u00e8ces\": 2}, {\"surface\": 60, \"prix\": 240, \"pi\u00e8ces\": 3}, {\"surface\": 90, \"prix\": 360, \"pi\u00e8ces\": 4}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!6b410f9a5878\", \"chart_id\": \"6b410f9a5878\", \"summary\": \"bubble \u00b7 4 points \u00b7 x=surface \u00b7 y=prix \u00b7 taille=pi\u00e8ces\", \"chart_type\": \"bubble\"}",
+      "fichiers": {
+        "alice/6b410f9a5878.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bubble\", \"unit\": \"\", \"table\": {\"columns\": [\"surface\", \"prix\", \"pi\u00e8ces\"], \"rows\": [[30, 120, 1], [45, 180, 2], [60, 240, 3], [90, 360, 4]], \"truncated\": false}, \"axes\": [\"surface\", \"prix\", \"pi\u00e8ces\"]}, \"series\": [{\"type\": \"scatter\", \"name\": \"prix\", \"data\": [{\"value\": [30.0, 120.0, 1.0], \"symbolSize\": 28.0}, {\"value\": [45.0, 180.0, 2.0], \"symbolSize\": 36.3}, {\"value\": [60.0, 240.0, 3.0], \"symbolSize\": 42.6}, {\"value\": [90.0, 360.0, 4.0], \"symbolSize\": 48.0}], \"symbolSize\": 9, \"emphasis\": {\"focus\": \"series\"}, \"itemStyle\": {\"opacity\": 0.6, \"borderColor\": \"@surface\", \"borderWidth\": 1}}], \"xAxis\": {\"type\": \"value\", \"scale\": true, \"name\": \"surface\", \"nameLocation\": \"middle\", \"nameGap\": 26, \"_fmt\": true, \"splitLine\": {\"show\": true}}, \"yAxis\": {\"type\": \"value\", \"scale\": true, \"name\": \"prix\", \"_fmt\": true}, \"tooltip\": {\"trigger\": \"item\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 40}}"
+      }
+    },
+    {
+      "nom": "type-heatmap",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"heure\": \"9 h\", \"appels\": 0}, {\"jour\": \"lun.\", \"heure\": \"14 h\", \"appels\": 1}, {\"jour\": \"mar.\", \"heure\": \"9 h\", \"appels\": 1}, {\"jour\": \"mar.\", \"heure\": \"14 h\", \"appels\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!81d28fd07dd3\", \"chart_id\": \"81d28fd07dd3\", \"summary\": \"heatmap \u00b7 2x2 cells \u00b7 max 2 (mar., 14 h)\", \"chart_type\": \"heatmap\"}",
+      "fichiers": {
+        "alice/81d28fd07dd3.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"heatmap\", \"unit\": \"\", \"table\": {\"columns\": [\"jour\", \"heure\", \"appels\"], \"rows\": [[\"lun.\", \"9 h\", 0], [\"lun.\", \"14 h\", 1], [\"mar.\", \"9 h\", 1], [\"mar.\", \"14 h\", 2]], \"truncated\": false}}, \"visualMap\": {\"min\": 0.0, \"max\": 2.0, \"calculable\": true, \"orient\": \"horizontal\", \"left\": \"center\", \"bottom\": 2, \"itemWidth\": 12, \"itemHeight\": 160, \"inRange\": {\"color\": \"@seq\"}, \"textStyle\": {\"color\": \"@ink2\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"lun.\", \"mar.\"], \"splitArea\": {\"show\": false}, \"axisTick\": {\"show\": false}, \"axisLine\": {\"show\": false}}, \"yAxis\": {\"type\": \"category\", \"data\": [\"9 h\", \"14 h\"], \"inverse\": true, \"axisTick\": {\"show\": false}, \"axisLine\": {\"show\": false}}, \"series\": [{\"type\": \"heatmap\", \"data\": [{\"value\": [0, 0, 0.0], \"name\": \"lun. \u00b7 9 h : 0\", \"label\": {\"color\": \"@onlo\"}}, {\"value\": [0, 1, 1.0], \"name\": \"lun. \u00b7 14 h : 1\", \"label\": {\"color\": \"@onlo\"}}, {\"value\": [1, 0, 1.0], \"name\": \"mar. \u00b7 9 h : 1\", \"label\": {\"color\": \"@onlo\"}}, {\"value\": [1, 1, 2.0], \"name\": \"mar. \u00b7 14 h : 2\", \"label\": {\"color\": \"@onhi\"}}], \"label\": {\"show\": true, \"fontSize\": 10}, \"_lbl\": {\"v\": 2}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"borderRadius\": 3}, \"emphasis\": {\"itemStyle\": {\"borderColor\": \"@ink\", \"borderWidth\": 1}}, \"tooltip\": {\"formatter\": \"{b}\"}}], \"tooltip\": {\"trigger\": \"item\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 64}}"
+      }
+    },
+    {
+      "nom": "type-calendar",
+      "type": "outil",
+      "outil": "chart_calendar",
+      "args": "{\"data\": [{\"date\": \"2026-01-01\", \"commits\": 1}, {\"date\": \"2026-01-02\", \"commits\": 2}, {\"date\": \"2026-01-03\", \"commits\": 3}, {\"date\": \"2026-01-04\", \"commits\": 4}, {\"date\": \"2026-01-05\", \"commits\": 0}, {\"date\": \"2026-01-06\", \"commits\": 1}, {\"date\": \"2026-01-07\", \"commits\": 2}, {\"date\": \"2026-01-08\", \"commits\": 3}, {\"date\": \"2026-01-09\", \"commits\": 4}, {\"date\": \"2026-01-10\", \"commits\": 0}, {\"date\": \"2026-01-11\", \"commits\": 1}, {\"date\": \"2026-01-12\", \"commits\": 2}, {\"date\": \"2026-01-13\", \"commits\": 3}, {\"date\": \"2026-01-14\", \"commits\": 4}, {\"date\": \"2026-01-15\", \"commits\": 0}, {\"date\": \"2026-01-16\", \"commits\": 1}, {\"date\": \"2026-01-17\", \"commits\": 2}, {\"date\": \"2026-01-18\", \"commits\": 3}, {\"date\": \"2026-01-19\", \"commits\": 4}, {\"date\": \"2026-01-20\", \"commits\": 0}, {\"date\": \"2026-01-21\", \"commits\": 1}, {\"date\": \"2026-01-22\", \"commits\": 2}, {\"date\": \"2026-01-23\", \"commits\": 3}, {\"date\": \"2026-01-24\", \"commits\": 4}, {\"date\": \"2026-01-25\", \"commits\": 0}, {\"date\": \"2026-01-26\", \"commits\": 1}, {\"date\": \"2026-01-27\", \"commits\": 2}, {\"date\": \"2026-01-28\", \"commits\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!b11d84d3f73f\", \"chart_id\": \"b11d84d3f73f\", \"summary\": \"calendar \u00b7 28 days \u00b7 2026 \u00b7 max 4 on 2026-01-04\", \"chart_type\": \"calendar\"}",
+      "fichiers": {
+        "alice/b11d84d3f73f.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"calendar\", \"unit\": \"\", \"table\": {\"columns\": [\"date\", \"commits\"], \"rows\": [[\"2026-01-01\", 1], [\"2026-01-02\", 2], [\"2026-01-03\", 3], [\"2026-01-04\", 4], [\"2026-01-05\", 0], [\"2026-01-06\", 1], [\"2026-01-07\", 2], [\"2026-01-08\", 3], [\"2026-01-09\", 4], [\"2026-01-10\", 0], [\"2026-01-11\", 1], [\"2026-01-12\", 2], [\"2026-01-13\", 3], [\"2026-01-14\", 4], [\"2026-01-15\", 0], [\"2026-01-16\", 1], [\"2026-01-17\", 2], [\"2026-01-18\", 3], [\"2026-01-19\", 4], [\"2026-01-20\", 0], [\"2026-01-21\", 1], [\"2026-01-22\", 2], [\"2026-01-23\", 3], [\"2026-01-24\", 4], [\"2026-01-25\", 0], [\"2026-01-26\", 1], [\"2026-01-27\", 2], [\"2026-01-28\", 3]], \"truncated\": false}, \"height\": 210}, \"calendar\": [{\"range\": \"2026\", \"top\": 40, \"left\": 36, \"right\": 12, \"cellSize\": [\"auto\", 15], \"splitLine\": {\"show\": false}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"color\": \"@track\"}, \"yearLabel\": {\"show\": false, \"color\": \"@ink2\"}, \"dayLabel\": {\"firstDay\": 1, \"nameMap\": [\"D\", \"L\", \"M\", \"M\", \"J\", \"V\", \"S\"], \"color\": \"@ink2\", \"fontSize\": 10}, \"monthLabel\": {\"nameMap\": [\"janv.\", \"f\u00e9vr.\", \"mars\", \"avr.\", \"mai\", \"juin\", \"juil.\", \"ao\u00fbt\", \"sept.\", \"oct.\", \"nov.\", \"d\u00e9c.\"], \"color\": \"@ink2\", \"fontSize\": 11}}], \"series\": [{\"type\": \"heatmap\", \"coordinateSystem\": \"calendar\", \"calendarIndex\": 0, \"tooltip\": {\"formatter\": \"{b}\"}, \"data\": [{\"value\": [\"2026-01-01\", 1.0], \"name\": \"1 janv. 2026 : 1\"}, {\"value\": [\"2026-01-02\", 2.0], \"name\": \"2 janv. 2026 : 2\"}, {\"value\": [\"2026-01-03\", 3.0], \"name\": \"3 janv. 2026 : 3\"}, {\"value\": [\"2026-01-04\", 4.0], \"name\": \"4 janv. 2026 : 4\"}, {\"value\": [\"2026-01-05\", 0.0], \"name\": \"5 janv. 2026 : 0\"}, {\"value\": [\"2026-01-06\", 1.0], \"name\": \"6 janv. 2026 : 1\"}, {\"value\": [\"2026-01-07\", 2.0], \"name\": \"7 janv. 2026 : 2\"}, {\"value\": [\"2026-01-08\", 3.0], \"name\": \"8 janv. 2026 : 3\"}, {\"value\": [\"2026-01-09\", 4.0], \"name\": \"9 janv. 2026 : 4\"}, {\"value\": [\"2026-01-10\", 0.0], \"name\": \"10 janv. 2026 : 0\"}, {\"value\": [\"2026-01-11\", 1.0], \"name\": \"11 janv. 2026 : 1\"}, {\"value\": [\"2026-01-12\", 2.0], \"name\": \"12 janv. 2026 : 2\"}, {\"value\": [\"2026-01-13\", 3.0], \"name\": \"13 janv. 2026 : 3\"}, {\"value\": [\"2026-01-14\", 4.0], \"name\": \"14 janv. 2026 : 4\"}, {\"value\": [\"2026-01-15\", 0.0], \"name\": \"15 janv. 2026 : 0\"}, {\"value\": [\"2026-01-16\", 1.0], \"name\": \"16 janv. 2026 : 1\"}, {\"value\": [\"2026-01-17\", 2.0], \"name\": \"17 janv. 2026 : 2\"}, {\"value\": [\"2026-01-18\", 3.0], \"name\": \"18 janv. 2026 : 3\"}, {\"value\": [\"2026-01-19\", 4.0], \"name\": \"19 janv. 2026 : 4\"}, {\"value\": [\"2026-01-20\", 0.0], \"name\": \"20 janv. 2026 : 0\"}, {\"value\": [\"2026-01-21\", 1.0], \"name\": \"21 janv. 2026 : 1\"}, {\"value\": [\"2026-01-22\", 2.0], \"name\": \"22 janv. 2026 : 2\"}, {\"value\": [\"2026-01-23\", 3.0], \"name\": \"23 janv. 2026 : 3\"}, {\"value\": [\"2026-01-24\", 4.0], \"name\": \"24 janv. 2026 : 4\"}, {\"value\": [\"2026-01-25\", 0.0], \"name\": \"25 janv. 2026 : 0\"}, {\"value\": [\"2026-01-26\", 1.0], \"name\": \"26 janv. 2026 : 1\"}, {\"value\": [\"2026-01-27\", 2.0], \"name\": \"27 janv. 2026 : 2\"}, {\"value\": [\"2026-01-28\", 3.0], \"name\": \"28 janv. 2026 : 3\"}]}], \"visualMap\": {\"min\": 0.0, \"max\": 4.0, \"calculable\": false, \"orient\": \"horizontal\", \"left\": \"center\", \"top\": 166, \"itemWidth\": 12, \"itemHeight\": 140, \"inRange\": {\"color\": \"@seq\"}, \"textStyle\": {\"color\": \"@ink2\"}}, \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-parallel",
+      "type": "outil",
+      "outil": "chart_parallel",
+      "args": "{\"data\": [{\"gamme\": \"E\", \"c\u0153urs\": 8, \"RAM\": 32}, {\"gamme\": \"H\", \"c\u0153urs\": 64, \"RAM\": 512}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!1ce16d1d97f6\", \"chart_id\": \"1ce16d1d97f6\", \"summary\": \"parallel \u00b7 2 rows \u00b7 2 axes\", \"chart_type\": \"parallel\"}",
+      "fichiers": {
+        "alice/1ce16d1d97f6.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"parallel\", \"unit\": \"\", \"table\": {\"columns\": [\"gamme\", \"c\u0153urs\", \"RAM\"], \"rows\": [[\"E\", 8, 32], [\"H\", 64, 512]], \"truncated\": false}}, \"parallelAxis\": [{\"dim\": 0, \"name\": \"c\u0153urs\", \"nameTextStyle\": {\"color\": \"@ink2\"}, \"_fmt\": true}, {\"dim\": 1, \"name\": \"RAM\", \"nameTextStyle\": {\"color\": \"@ink2\"}, \"_fmt\": true}], \"parallel\": {\"left\": 40, \"right\": 60, \"top\": 46, \"bottom\": 40, \"parallelAxisDefault\": {\"nameLocation\": \"end\", \"nameGap\": 14, \"axisLine\": {\"lineStyle\": {\"color\": \"@grid\"}}, \"axisLabel\": {\"color\": \"@ink2\"}, \"splitLine\": {\"show\": false}}}, \"series\": [{\"type\": \"parallel\", \"name\": \"E\", \"data\": [[8.0, 32.0]], \"smooth\": false, \"lineStyle\": {\"width\": 1.6, \"opacity\": 0.55}, \"emphasis\": {\"lineStyle\": {\"width\": 3, \"opacity\": 1}}}, {\"type\": \"parallel\", \"name\": \"H\", \"data\": [[64.0, 512.0]], \"smooth\": false, \"lineStyle\": {\"width\": 1.6, \"opacity\": 0.55}, \"emphasis\": {\"lineStyle\": {\"width\": 3, \"opacity\": 1}}}], \"legend\": {\"type\": \"scroll\", \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8, \"bottom\": 0}}"
+      }
+    },
+    {
+      "nom": "type-sankey",
+      "type": "outil",
+      "outil": "chart_sankey",
+      "args": "{\"data\": [{\"source\": \"Budget\", \"target\": \"Salaires\", \"value\": 62}, {\"source\": \"Budget\", \"target\": \"Locaux\", \"value\": 18}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!db68935168cd\", \"chart_id\": \"db68935168cd\", \"summary\": \"sankey \u00b7 3 nodes \u00b7 2 flows \u00b7 source -> target\", \"chart_type\": \"sankey\"}",
+      "fichiers": {
+        "alice/db68935168cd.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"sankey\", \"unit\": \"\", \"table\": {\"columns\": [\"source\", \"target\", \"value\"], \"rows\": [[\"Budget\", \"Salaires\", 62], [\"Budget\", \"Locaux\", 18]], \"truncated\": false}}, \"series\": [{\"type\": \"sankey\", \"data\": [{\"name\": \"Budget\"}, {\"name\": \"Salaires\"}, {\"name\": \"Locaux\"}], \"links\": [{\"source\": \"Budget\", \"target\": \"Salaires\", \"value\": 62.0}, {\"source\": \"Budget\", \"target\": \"Locaux\", \"value\": 18.0}], \"top\": 16, \"bottom\": 16, \"left\": 8, \"right\": 110, \"nodeWidth\": 14, \"nodeGap\": 12, \"layoutIterations\": 64, \"draggable\": true, \"emphasis\": {\"focus\": \"adjacency\"}, \"lineStyle\": {\"color\": \"gradient\", \"curveness\": 0.5, \"opacity\": 0.32}, \"itemStyle\": {\"borderWidth\": 0, \"borderRadius\": 2}, \"label\": {\"color\": \"@ink\", \"fontSize\": 12}}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-chord",
+      "type": "outil",
+      "outil": "chart_chord",
+      "args": "{\"data\": [{\"source\": \"RH\", \"target\": \"Finances\", \"value\": 30}, {\"source\": \"Finances\", \"target\": \"RH\", \"value\": 12}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!37cab06f59ed\", \"chart_id\": \"37cab06f59ed\", \"summary\": \"chord \u00b7 2 nodes \u00b7 2 links\", \"chart_type\": \"chord\"}",
+      "fichiers": {
+        "alice/37cab06f59ed.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"chord\", \"unit\": \"\", \"table\": {\"columns\": [\"source\", \"target\", \"value\"], \"rows\": [[\"RH\", \"Finances\", 30], [\"Finances\", \"RH\", 12]], \"truncated\": false}}, \"series\": [{\"type\": \"chord\", \"data\": [{\"name\": \"RH\"}, {\"name\": \"Finances\"}], \"links\": [{\"source\": \"RH\", \"target\": \"Finances\", \"value\": 30.0}, {\"source\": \"Finances\", \"target\": \"RH\", \"value\": 12.0}], \"center\": [\"50%\", \"55%\"], \"radius\": [\"70%\", \"80%\"], \"padAngle\": 3, \"minAngle\": 6, \"clockwise\": true, \"lineStyle\": {\"color\": \"gradient\", \"opacity\": 0.45}, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 1}, \"emphasis\": {\"focus\": \"adjacency\"}, \"label\": {\"show\": true, \"color\": \"@ink\", \"fontSize\": 12, \"distance\": 6}}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-graph",
+      "type": "outil",
+      "outil": "chart_graph",
+      "args": "{\"data\": [{\"source\": \"Portail\", \"target\": \"Annuaire\"}, {\"source\": \"Portail\", \"target\": \"GED\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!07e12877ff17\", \"chart_id\": \"07e12877ff17\", \"summary\": \"graph \u00b7 3 nodes \u00b7 2 links \u00b7 most connected: Portail (2), Annuaire (1), GED (1)\", \"chart_type\": \"graph\"}",
+      "fichiers": {
+        "alice/07e12877ff17.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"graph\", \"unit\": \"\", \"table\": {\"columns\": [\"source\", \"target\"], \"rows\": [[\"Portail\", \"Annuaire\"], [\"Portail\", \"GED\"]], \"truncated\": false}}, \"series\": [{\"type\": \"graph\", \"layout\": \"force\", \"data\": [{\"name\": \"Portail\", \"symbolSize\": 36.0, \"value\": 2.0}, {\"name\": \"Annuaire\", \"symbolSize\": 28.4, \"value\": 1.0}, {\"name\": \"GED\", \"symbolSize\": 28.4, \"value\": 1.0}], \"links\": [{\"source\": \"Portail\", \"target\": \"Annuaire\", \"value\": 1.0, \"lineStyle\": {\"width\": 5.0}}, {\"source\": \"Portail\", \"target\": \"GED\", \"value\": 1.0, \"lineStyle\": {\"width\": 5.0}}], \"roam\": true, \"draggable\": true, \"force\": {\"repulsion\": 220, \"edgeLength\": [40, 110], \"gravity\": 0.16}, \"edgeSymbol\": [\"none\", \"arrow\"], \"edgeSymbolSize\": 6, \"label\": {\"show\": true, \"position\": \"right\", \"fontSize\": 11, \"color\": \"@ink\"}, \"lineStyle\": {\"color\": \"source\", \"opacity\": 0.45, \"curveness\": 0.12}, \"emphasis\": {\"focus\": \"adjacency\", \"lineStyle\": {\"width\": 3, \"opacity\": 0.9}}, \"top\": 20}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "type-tree",
+      "type": "outil",
+      "outil": "chart_tree",
+      "args": "{\"data\": [{\"nom\": \"DSI\", \"parent\": \"\"}, {\"nom\": \"\u00c9tudes\", \"parent\": \"DSI\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!5f67945c3941\", \"chart_id\": \"5f67945c3941\", \"summary\": \"tree \u00b7 2 nodes \u00b7 depth 2\", \"chart_type\": \"tree\"}",
+      "fichiers": {
+        "alice/5f67945c3941.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"tree\", \"unit\": \"\", \"table\": {\"columns\": [\"nom\", \"parent\"], \"rows\": [[\"DSI\", \"\"], [\"\u00c9tudes\", \"DSI\"]], \"truncated\": false}}, \"series\": [{\"type\": \"tree\", \"data\": [{\"name\": \"DSI\", \"children\": [{\"name\": \"\u00c9tudes\", \"value\": 1}], \"value\": 1}], \"orient\": \"LR\", \"roam\": true, \"top\": 30, \"bottom\": 30, \"left\": 90, \"right\": 160, \"symbol\": \"circle\", \"symbolSize\": 9, \"initialTreeDepth\": 3, \"expandAndCollapse\": true, \"itemStyle\": {\"color\": \"@series1\", \"borderColor\": \"@series1\"}, \"lineStyle\": {\"color\": \"@grid\", \"width\": 1.5, \"curveness\": 0.5}, \"label\": {\"position\": \"left\", \"verticalAlign\": \"middle\", \"align\": \"right\", \"fontSize\": 12, \"color\": \"@ink\"}, \"leaves\": {\"label\": {\"position\": \"right\", \"align\": \"left\"}}, \"animationDurationUpdate\": 500}], \"tooltip\": {\"trigger\": \"item\", \"triggerOn\": \"mousemove\"}}"
+      }
+    },
+    {
+      "nom": "type-gantt",
+      "type": "outil",
+      "outil": "chart_gantt",
+      "args": "{\"data\": [{\"t\u00e2che\": \"Cadrage\", \"d\u00e9but\": \"2020-09-01\", \"fin\": \"2020-09-12\"}, {\"t\u00e2che\": \"Pilote\", \"d\u00e9but\": \"2020-10-05\", \"fin\": \"2020-10-23\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!32d16ba490e0\", \"chart_id\": \"32d16ba490e0\", \"summary\": \"gantt \u00b7 2 tasks \u00b7 from 2020-09-01 to 2020-10-23 (53 days)\", \"chart_type\": \"gantt\"}",
+      "fichiers": {
+        "alice/32d16ba490e0.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"gantt\", \"unit\": \"\", \"table\": {\"columns\": [\"t\u00e2che\", \"d\u00e9but\", \"fin\"], \"rows\": [[\"Cadrage\", \"2020-09-01\", \"2020-09-12\"], [\"Pilote\", \"2020-10-05\", \"2020-10-23\"]], \"truncated\": false}, \"height\": 260}, \"series\": [{\"type\": \"bar\", \"stack\": \"g\", \"data\": [1598911200000, 1601848800000], \"silent\": true, \"itemStyle\": {\"color\": \"transparent\"}, \"emphasis\": {\"disabled\": true}, \"tooltip\": {\"show\": false}, \"barGap\": \"-100%\", \"name\": \"_base\"}, {\"type\": \"bar\", \"stack\": \"g\", \"name\": \"T\u00e2ches\", \"data\": [{\"value\": 1036800000, \"tooltip\": {\"formatter\": \"Cadrage<br/>1 sept. \u2192 12 sept. (12 j)\"}}, {\"value\": 1641600000, \"tooltip\": {\"formatter\": \"Pilote<br/>5 oct. \u2192 23 oct. (19 j)\"}}], \"barGap\": \"-100%\", \"barMaxWidth\": 18, \"itemStyle\": {\"borderRadius\": 4}, \"emphasis\": {\"focus\": \"series\"}}], \"xAxis\": {\"type\": \"value\", \"min\": 1598819616000, \"max\": 1603581984000, \"position\": \"top\", \"splitLine\": {\"show\": true}, \"axisLabel\": {\"hideOverlap\": true}, \"_date\": true, \"splitNumber\": 6, \"axisLine\": {\"show\": false}, \"axisTick\": {\"show\": false}}, \"yAxis\": {\"type\": \"category\", \"data\": [\"Cadrage\", \"Pilote\"], \"inverse\": true, \"axisTick\": {\"show\": false}}, \"tooltip\": {\"trigger\": \"item\"}, \"grid\": {\"top\": 58, \"left\": 12, \"right\": 20, \"bottom\": 12}}"
+      }
+    },
+    {
+      "nom": "type-candlestick",
+      "type": "outil",
+      "outil": "chart_candlestick",
+      "args": "{\"data\": [{\"date\": \"2026-03-01\", \"open\": 101, \"high\": 105, \"low\": 100, \"close\": 103}, {\"date\": \"2026-03-02\", \"open\": 102, \"high\": 106, \"low\": 101, \"close\": 104}, {\"date\": \"2026-03-03\", \"open\": 103, \"high\": 107, \"low\": 102, \"close\": 105}, {\"date\": \"2026-03-04\", \"open\": 104, \"high\": 108, \"low\": 103, \"close\": 106}, {\"date\": \"2026-03-05\", \"open\": 105, \"high\": 109, \"low\": 104, \"close\": 107}, {\"date\": \"2026-03-06\", \"open\": 106, \"high\": 110, \"low\": 105, \"close\": 108}], \"trend\": true}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!4cd4ec955ef0\", \"chart_id\": \"4cd4ec955ef0\", \"summary\": \"candlestick \u00b7 6 periods \u00b7 change +6.9 %\", \"chart_type\": \"candlestick\", \"fixes\": [\"trend on prices: 5-period moving average\"]}",
+      "fichiers": {
+        "alice/4cd4ec955ef0.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"candlestick\", \"unit\": \"\", \"table\": {\"columns\": [\"date\", \"open\", \"high\", \"low\", \"close\"], \"rows\": [[\"2026-03-01\", 101, 105, 100, 103], [\"2026-03-02\", 102, 106, 101, 104], [\"2026-03-03\", 103, 107, 102, 105], [\"2026-03-04\", 104, 108, 103, 106], [\"2026-03-05\", 105, 109, 104, 107], [\"2026-03-06\", 106, 110, 105, 108]], \"truncated\": false}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"2026-03-01\", \"2026-03-02\", \"2026-03-03\", \"2026-03-04\", \"2026-03-05\", \"2026-03-06\"], \"boundaryGap\": true, \"axisTick\": {\"show\": false}}, \"yAxis\": {\"type\": \"value\", \"scale\": true, \"_fmt\": true}, \"series\": [{\"type\": \"candlestick\", \"name\": \"Cours\", \"data\": [[101.0, 103.0, 100.0, 105.0], [102.0, 104.0, 101.0, 106.0], [103.0, 105.0, 102.0, 107.0], [104.0, 106.0, 103.0, 108.0], [105.0, 107.0, 104.0, 109.0], [106.0, 108.0, 105.0, 110.0]], \"barMaxWidth\": 14, \"itemStyle\": {\"color\": \"@surface\", \"borderColor\": \"@gain\", \"color0\": \"@loss\", \"borderColor0\": \"@loss\", \"borderWidth\": 1.5}}, {\"type\": \"line\", \"name\": \"Moyenne mobile 5\", \"data\": [\"-\", \"-\", \"-\", \"-\", 105.0, 106.0], \"symbol\": \"none\", \"smooth\": true, \"lineStyle\": {\"width\": 1.5, \"color\": \"@series1\"}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"cross\"}}, \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-gauge",
+      "type": "outil",
+      "outil": "chart_gauge",
+      "args": "{\"data\": [{\"indicateur\": \"Disponibilit\u00e9\", \"valeur\": 99.2, \"max\": 100}], \"unit\": \"%\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!2621eea6e93f\", \"chart_id\": \"2621eea6e93f\", \"summary\": \"gauge \u00b7 Disponibilit\u00e9 = 99,2\u202f% of 100\u202f% (99 %)\", \"chart_type\": \"gauge\"}",
+      "fichiers": {
+        "alice/2621eea6e93f.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"gauge\", \"unit\": \"%\", \"table\": {\"columns\": [\"indicateur\", \"valeur\", \"max\"], \"rows\": [[\"Disponibilit\u00e9\", 99.2, 100]], \"truncated\": false}}, \"series\": [{\"type\": \"gauge\", \"startAngle\": 210, \"endAngle\": -30, \"min\": 0, \"max\": 100.0, \"radius\": \"88%\", \"center\": [\"50%\", \"58%\"], \"progress\": {\"show\": true, \"width\": 16, \"roundCap\": true, \"itemStyle\": {\"color\": \"@series1\"}}, \"axisLine\": {\"roundCap\": true, \"lineStyle\": {\"width\": 16, \"color\": [[1, \"@track\"]]}}, \"pointer\": {\"show\": false}, \"axisTick\": {\"show\": false}, \"splitLine\": {\"show\": false}, \"axisLabel\": {\"show\": false}, \"anchor\": {\"show\": false}, \"title\": {\"offsetCenter\": [0, \"34%\"], \"color\": \"@ink2\", \"fontSize\": 13}, \"detail\": {\"valueAnimation\": true, \"offsetCenter\": [0, \"0%\"], \"fontSize\": 30, \"fontWeight\": 600, \"color\": \"@ink\", \"formatter\": \"99,2\u202f%\\n{sub|sur 100\u202f%}\", \"rich\": {\"sub\": {\"fontSize\": 12, \"color\": \"@ink2\", \"padding\": [6, 0, 0, 0]}}}, \"data\": [{\"value\": 99.2, \"name\": \"Disponibilit\u00e9\"}]}]}"
+      }
+    },
+    {
+      "nom": "type-progress",
+      "type": "outil",
+      "outil": "chart_progress",
+      "args": "{\"data\": [{\"chantier\": \"MFA\", \"fait\": 1210, \"total\": 1500}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!23169c317ec9\", \"chart_id\": \"23169c317ec9\", \"summary\": \"progress \u00b7 1 bars \u00b7 MFA 81 %\", \"chart_type\": \"progress\"}",
+      "fichiers": {
+        "alice/23169c317ec9.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"progress\", \"unit\": \"%\", \"table\": {\"columns\": [\"chantier\", \"fait\", \"total\"], \"rows\": [[\"MFA\", 1210, 1500]], \"truncated\": false}}, \"xAxis\": {\"type\": \"value\", \"max\": 100, \"show\": false}, \"yAxis\": {\"type\": \"category\", \"data\": [\"MFA\"], \"inverse\": true, \"axisLine\": {\"show\": false}, \"axisTick\": {\"show\": false}, \"axisLabel\": {\"color\": \"@ink2\", \"fontSize\": 12}}, \"series\": [{\"type\": \"bar\", \"data\": [{\"value\": 80.7, \"label\": {\"formatter\": \"1\u202f210 / 1\u202f500  (81 %)\"}}], \"barWidth\": 14, \"showBackground\": true, \"backgroundStyle\": {\"color\": \"@track\", \"borderRadius\": 7}, \"itemStyle\": {\"borderRadius\": 7}, \"label\": {\"show\": true, \"position\": \"right\", \"color\": \"@ink2\", \"fontSize\": 11}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"none\"}}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 150, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "type-kpi",
+      "type": "outil",
+      "outil": "chart_kpi",
+      "args": "{\"data\": [{\"indicateur\": \"Tickets\", \"valeur\": 1284, \"pr\u00e9c\u00e9dent\": 1190}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!96a50da620ae\", \"chart_id\": \"96a50da620ae\", \"summary\": \"kpi \u00b7 Tickets 1\u202f284\", \"chart_type\": \"kpi\"}",
+      "fichiers": {
+        "alice/96a50da620ae.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"kpi\", \"unit\": \"\", \"table\": {\"columns\": [\"indicateur\", \"valeur\", \"pr\u00e9c\u00e9dent\"], \"rows\": [[\"Tickets\", 1284, 1190]], \"truncated\": false}, \"render\": \"kpi\", \"kpi\": [{\"label\": \"Tickets\", \"value\": \"1\u202f284\", \"delta\": \"+7,9\u202f%\", \"sign\": \"up\", \"ref\": \"vs 1\u202f190\"}]}}"
+      }
+    },
+    {
+      "nom": "type-table",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"mesure\": \"Latence\", \"valeur\": 8, \"unit\u00e9\": \"ms\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!771a37ca5ba9\", \"chart_id\": \"771a37ca5ba9\", \"summary\": \"table \u00b7 1 rows \u00b7 3 columns\", \"chart_type\": \"table\"}",
+      "fichiers": {
+        "alice/771a37ca5ba9.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"table\", \"unit\": \"\", \"table\": {\"columns\": [\"mesure\", \"valeur\", \"unit\u00e9\"], \"rows\": [[\"Latence\", 8, \"ms\"]], \"truncated\": false}, \"render\": \"table\"}}"
+      }
+    },
+    {
+      "nom": "bar-titre",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"T\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!abc53bd62331\", \"chart_id\": \"abc53bd62331\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/abc53bd62331.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-meme-appel-deja-ecrit",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"T\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!abc53bd62331\", \"chart_id\": \"abc53bd62331\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "bar-sans-identite",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"T\"}",
+      "meta": null,
+      "resultat": "{\"ok\": true, \"ref\": \"!abc53bd62331\", \"chart_id\": \"abc53bd62331\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "guest/abc53bd62331.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-autre-compte",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"T\"}",
+      "meta": {
+        "username": "bob/../\u00e9",
+        "chat_id": "c 1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!abc53bd62331\", \"chart_id\": \"abc53bd62331\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "bob/abc53bd62331.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-valeurs-par-defaut",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"\", \"x\": null, \"unit\": \"\", \"stack\": \"none\", \"sort\": \"none\", \"top\": null, \"lines\": null, \"horizontal\": false}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!581a0995b70b\", \"chart_id\": \"581a0995b70b\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/581a0995b70b.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-stacked-casse",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"stack\": \"Stacked\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!2e07654b9633\", \"chart_id\": \"2e07654b9633\", \"summary\": \"bar stacked \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/2e07654b9633.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0], \"borderColor\": \"@surface\", \"borderWidth\": 1}, \"stack\": \"total\"}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-colonnes-casse",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"x\": \"MOIS\", \"y\": [\"Ventes\"], \"data\": [{\"mois\": \"a\", \"ventes\": \"1 200 \u20ac\"}, {\"mois\": \"b\", \"ventes\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!fc1763b322e0\", \"chart_id\": \"fc1763b322e0\", \"summary\": \"bar \u00b7 x=mois (2) \u00b7 series: ventes\", \"chart_type\": \"bar\", \"fixes\": [\"x 'MOIS' read as column 'mois'\", \"y 'Ventes' read as column 'ventes'\", \"1 value(s) written as text read as numbers ('1 200 \u20ac' -> 1200)\"]}",
+      "fichiers": {
+        "alice/fc1763b322e0.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\u20ac\", \"table\": {\"columns\": [\"mois\", \"ventes\"], \"rows\": [[\"a\", \"1 200 \u20ac\"], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"ventes\", \"data\": [1200.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"mois\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"ventes\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-top-sort",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"k\": \"a\", \"v\": 5}, {\"k\": \"b\", \"v\": 9}, {\"k\": \"c\", \"v\": 1}, {\"k\": \"d\", \"v\": 7}], \"top\": 2, \"sort\": \"desc\", \"unit\": \"\u20ac\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!36addf841fbd\", \"chart_id\": \"36addf841fbd\", \"summary\": \"bar \u00b7 x=k (3) \u00b7 series: v\", \"chart_type\": \"bar\", \"fixes\": [\"top 2: 2 categories folded into 'Autres'\"]}",
+      "fichiers": {
+        "alice/36addf841fbd.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\u20ac\", \"table\": {\"columns\": [\"k\", \"v\"], \"rows\": [[\"a\", 5], [\"b\", 9], [\"c\", 1], [\"d\", 7]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [9.0, 7.0, 6.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"b\", \"d\", \"Autres\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"k\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-csv",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": \"mois;ventes\\nA;1\\nB;2\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!a953d33ac5f8\", \"chart_id\": \"a953d33ac5f8\", \"summary\": \"bar \u00b7 x=mois (2) \u00b7 series: ventes\", \"chart_type\": \"bar\", \"fixes\": [\"CSV text read as data\", \"2 value(s) written as text read as numbers ('1' -> 1)\"]}",
+      "fichiers": {
+        "alice/a953d33ac5f8.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"mois\", \"ventes\"], \"rows\": [[\"A\", \"1\"], [\"B\", \"2\"]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"ventes\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"A\", \"B\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"mois\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"ventes\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-markdown",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": \"| r | v |\\n|---|---|\\n| A | 1 |\\n| B | 2 |\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!08c7e462fa52\", \"chart_id\": \"08c7e462fa52\", \"summary\": \"bar \u00b7 x=r (2) \u00b7 series: v\", \"chart_type\": \"bar\", \"fixes\": [\"Markdown table read as data\", \"2 value(s) written as text read as numbers ('1' -> 1)\"]}",
+      "fichiers": {
+        "alice/08c7e462fa52.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"r\", \"v\"], \"rows\": [[\"A\", \"1\"], [\"B\", \"2\"]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"A\", \"B\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"r\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-json-texte",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": \"[{\\\"a\\\": 1.0, \\\"b\\\": 2}, {\\\"a\\\": 3.0, \\\"b\\\": 4}]\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!d16b4b186ea2\", \"chart_id\": \"d16b4b186ea2\", \"summary\": \"bar \u00b7 x=row number (2) \u00b7 series: a, b\", \"chart_type\": \"bar\", \"fixes\": [\"data sent as a JSON string: decoded\"]}",
+      "fichiers": {
+        "alice/d16b4b186ea2.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"a\", \"b\"], \"rows\": [[1.0, 2], [3.0, 4]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"a\", \"data\": [1.0, 3.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}, {\"type\": \"bar\", \"name\": \"b\", \"data\": [2.0, 4.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"#1\", \"#2\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-colonnes",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": {\"a\": [1, 2], \"b\": [3, 4]}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!bd389d931f90\", \"chart_id\": \"bd389d931f90\", \"summary\": \"bar \u00b7 x=row number (2) \u00b7 series: a, b\", \"chart_type\": \"bar\", \"fixes\": [\"{column: [values]} converted to rows\"]}",
+      "fichiers": {
+        "alice/bd389d931f90.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"a\", \"b\"], \"rows\": [[1, 3], [2, 4]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"a\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}, {\"type\": \"bar\", \"name\": \"b\", \"data\": [3.0, 4.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"#1\", \"#2\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-liste-de-listes",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [[\"x\", \"y\"], [\"a\", 1], [\"b\", 2]]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!22a91d749742\", \"chart_id\": \"22a91d749742\", \"summary\": \"bar \u00b7 x=x (2) \u00b7 series: y\", \"chart_type\": \"bar\", \"fixes\": [\"first row used as header\"]}",
+      "fichiers": {
+        "alice/22a91d749742.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"x\", \"y\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"y\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"x\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"y\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-chartjs",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"label\": \"s\", \"data\": [1, 2]}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!8d9d9ccb70c1\", \"chart_id\": \"8d9d9ccb70c1\", \"summary\": \"bar \u00b7 x=libell\u00e9 (2) \u00b7 series: s\", \"chart_type\": \"bar\", \"fixes\": [\"legacy labels + datasets converted to rows\"]}",
+      "fichiers": {
+        "alice/8d9d9ccb70c1.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"s\"], \"rows\": [[\"#1\", 1], [\"#2\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"s\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"#1\", \"#2\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"libell\u00e9\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"s\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-unicode",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"\u00e9t\u00e9\": \"\u00e0\", \"prix \u20ac\": 3}, {\"\u00e9t\u00e9\": \"\u00e9\", \"prix \u20ac\": 4}], \"title\": \"\u00c7a va ? \ud83d\ude00\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!a197284b2aaf\", \"chart_id\": \"a197284b2aaf\", \"summary\": \"bar \u00b7 x=\u00e9t\u00e9 (2) \u00b7 series: prix \u20ac\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/a197284b2aaf.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"\u00c7a va ? \ud83d\ude00\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"\u00e9t\u00e9\", \"prix \u20ac\"], \"rows\": [[\"\u00e0\", 3], [\"\u00e9\", 4]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"prix \u20ac\", \"data\": [3.0, 4.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"\u00e0\", \"\u00e9\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"\u00e9t\u00e9\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"prix \u20ac\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-cles-entieres",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"2\": \"a\", \"1\": 5, \"b\": 4}, {\"2\": \"b\", \"1\": 7, \"b\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!020fdb315895\", \"chart_id\": \"020fdb315895\", \"summary\": \"bar \u00b7 x=2 (2) \u00b7 series: 1, b\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/020fdb315895.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"2\", \"1\", \"b\"], \"rows\": [[\"a\", 5, 4], [\"b\", 7, 3]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"1\", \"data\": [5.0, 7.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}, {\"type\": \"bar\", \"name\": \"b\", \"data\": [4.0, 3.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"2\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "bar-donnees-nulles",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": null}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"data is empty or unreadable\", \"fix\": \"data = a list of rows, one per category or point.\", \"example\": {\"data\": [{\"month\": \"Jan\", \"sales\": 120}, {\"month\": \"Feb\", \"sales\": 135}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "table-lignes-vides",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"data has no values (empty rows)\", \"fix\": \"each row is an object with the SAME keys, all filled\", \"example\": {\"data\": [{\"name\": \"Throughput\", \"value\": 120, \"unit\": \"MB/s\"}, {\"name\": \"Latency\", \"value\": 8, \"unit\": \"ms\"}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-1",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-2",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"repeated_call\", \"message\": \"SAME call as before, already refused 1 time(s) for the same reason: do not send it again unchanged. heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}, \"repeated\": 2, \"next_action\": \"Change the call as `fix` says (use `example` as a model), or tell the user what is missing and answer without a chart.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-3",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"repeated_call\", \"message\": \"SAME call as before, already refused 2 time(s) for the same reason: do not send it again unchanged. heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}, \"repeated\": 3, \"next_action\": \"Change the call as `fix` says (use `example` as a model), or tell the user what is missing and answer without a chart.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-autre-chat",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c2"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-autre-compte",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": {
+        "username": "carol",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "refus-sans-identite",
+      "type": "outil",
+      "outil": "chart_heatmap",
+      "args": "{\"data\": [{\"jour\": \"lun.\", \"appels\": 3}]}",
+      "meta": null,
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"heatmap: needs two category columns (x, y) and a value; received: jour:text, appels:number\", \"fix\": \"one row per cell: row name, column name and value (NAMES, not indexes)\", \"example\": {\"data\": [{\"day\": \"Mon\", \"hour\": \"9am\", \"calls\": 12}, {\"day\": \"Mon\", \"hour\": \"10am\", \"calls\": 18}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "cascade-incoherente",
+      "type": "outil",
+      "outil": "chart_waterfall",
+      "args": "{\"data\": [{\"poste\": \"Budget initial\", \"variation\": 0, \"total\": 1200}, {\"poste\": \"Recrutements\", \"variation\": -180, \"total\": 1020}, {\"poste\": \"\u00c9nergie\", \"variation\": -75, \"total\": 945}, {\"poste\": \"R\u00e9alis\u00e9\", \"variation\": -300, \"total\": 900}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!6cf914a052c4\", \"chart_id\": \"6cf914a052c4\", \"summary\": \"waterfall \u00b7 4 steps \u00b7 final total 900\", \"chart_type\": \"waterfall\", \"warnings\": [\"'R\u00e9alis\u00e9' = 900 but the steps add up to 945: check the data\"]}",
+      "fichiers": {
+        "alice/6cf914a052c4.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"waterfall\", \"unit\": \"\", \"table\": {\"columns\": [\"poste\", \"variation\", \"total\"], \"rows\": [[\"Budget initial\", 0, 1200], [\"Recrutements\", -180, 1020], [\"\u00c9nergie\", -75, 945], [\"R\u00e9alis\u00e9\", -300, 900]], \"truncated\": false}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"Budget initial\", \"Recrutements\", \"\u00c9nergie\", \"R\u00e9alis\u00e9\"], \"axisTick\": {\"show\": false}, \"axisLabel\": {\"interval\": 0, \"width\": 96, \"overflow\": \"break\", \"lineHeight\": 14}}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"series\": [{\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"_base\", \"data\": [\"-\", 1020.0, 945.0, \"-\"], \"itemStyle\": {\"color\": \"transparent\"}, \"emphasis\": {\"disabled\": true}, \"tooltip\": {\"show\": false}, \"silent\": true}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Hausse\", \"data\": [\"-\", \"-\", \"-\", \"-\"], \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@up\", \"borderRadius\": [3, 3, 0, 0]}}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Baisse\", \"data\": [\"-\", {\"value\": 180.0, \"label\": {\"formatter\": \"\u2212180\"}}, {\"value\": 75.0, \"label\": {\"formatter\": \"\u221275\"}}, \"-\"], \"label\": {\"show\": true, \"position\": \"bottom\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@down\", \"borderRadius\": [3, 3, 0, 0]}}, {\"type\": \"bar\", \"stack\": \"w\", \"barMaxWidth\": 52, \"name\": \"Total\", \"data\": [{\"value\": 1200.0, \"label\": {\"formatter\": \"1\u202f200\"}}, \"-\", \"-\", {\"value\": 900.0, \"label\": {\"formatter\": \"900\"}}], \"label\": {\"show\": true, \"position\": \"top\", \"color\": \"@ink2\", \"fontSize\": 11}, \"itemStyle\": {\"color\": \"@neutral\", \"borderRadius\": [3, 3, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"legend\": {\"data\": [\"Hausse\", \"Baisse\", \"Total\"], \"top\": 4, \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "flottants-1.0",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1.0}, {\"m\": \"b\", \"v\": 2.0}], \"title\": \"flottants\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!450ecef6f78d\", \"chart_id\": \"450ecef6f78d\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/450ecef6f78d.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"flottants\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1.0], [\"b\", 2.0]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "flottants-100.0-et-exposants",
+      "type": "outil",
+      "outil": "chart_line",
+      "args": "{\"data\": [{\"x\": \"a\", \"v\": 100.0, \"w\": 1e2}, {\"x\": \"b\", \"v\": -0.0, \"w\": 2.50}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!cbbe6e355606\", \"chart_id\": \"cbbe6e355606\", \"summary\": \"line \u00b7 x=x (2) \u00b7 series: v, w\", \"chart_type\": \"line\"}",
+      "fichiers": {
+        "alice/cbbe6e355606.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"line\", \"unit\": \"\", \"table\": {\"columns\": [\"x\", \"v\", \"w\"], \"rows\": [[\"a\", 100.0, 100.0], [\"b\", -0.0, 2.5]], \"truncated\": false}}, \"series\": [{\"type\": \"line\", \"name\": \"v\", \"data\": [100.0, -0.0], \"emphasis\": {\"focus\": \"series\"}, \"showSymbol\": true, \"symbolSize\": 7, \"lineStyle\": {\"width\": 2}, \"smooth\": false, \"connectNulls\": false}, {\"type\": \"line\", \"name\": \"w\", \"data\": [100.0, 2.5], \"emphasis\": {\"focus\": \"series\"}, \"showSymbol\": true, \"symbolSize\": 7, \"lineStyle\": {\"width\": 2}, \"smooth\": false, \"connectNulls\": false}], \"legend\": {\"type\": \"scroll\", \"top\": 4, \"left\": \"center\", \"icon\": \"roundRect\", \"itemWidth\": 12, \"itemHeight\": 8}, \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"line\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": false, \"name\": \"x\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "entier-long",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 12345678901234567890}, {\"m\": \"b\", \"v\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!7eda7a7e023d\", \"chart_id\": \"7eda7a7e023d\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/7eda7a7e023d.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 12345678901234567890], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.2345678901234567e+19, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "entier-2^53+1",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 9007199254740993}, {\"m\": \"b\", \"v\": 1.5}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!a64ac9709f61\", \"chart_id\": \"a64ac9709f61\", \"summary\": \"table \u00b7 2 rows \u00b7 2 columns\", \"chart_type\": \"table\"}",
+      "fichiers": {
+        "alice/a64ac9709f61.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"table\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 9007199254740993], [\"b\", 1.5]], \"truncated\": false}, \"render\": \"table\"}}"
+      }
+    },
+    {
+      "nom": "lignes-de-reference-flottantes",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 3}, {\"m\": \"b\", \"v\": 4}], \"lines\": [{\"value\": 3.0, \"label\": \"cible\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!088f44480930\", \"chart_id\": \"088f44480930\", \"summary\": \"bar \u00b7 x=m (2) \u00b7 series: v\", \"chart_type\": \"bar\"}",
+      "fichiers": {
+        "alice/088f44480930.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 3], [\"b\", 4]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [3.0, 4.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}, \"markLine\": {\"symbol\": \"none\", \"silent\": false, \"lineStyle\": {\"type\": \"dashed\", \"color\": \"@ink2\", \"width\": 1.5}, \"label\": {\"position\": \"insideEndTop\", \"color\": \"@ink2\", \"fontSize\": 11}, \"data\": [{\"yAxis\": 3.0, \"name\": \"cible\", \"label\": {\"formatter\": \"cible\"}}]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 34, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+      }
+    },
+    {
+      "nom": "jauge-flottants",
+      "type": "outil",
+      "outil": "chart_gauge",
+      "args": "{\"data\": [{\"indicateur\": \"Dispo\", \"valeur\": 99.0, \"max\": 100.0}], \"unit\": \"%\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!4e65db84cd69\", \"chart_id\": \"4e65db84cd69\", \"summary\": \"gauge \u00b7 Dispo = 99\u202f% of 100\u202f% (99 %)\", \"chart_type\": \"gauge\"}",
+      "fichiers": {
+        "alice/4e65db84cd69.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"gauge\", \"unit\": \"%\", \"table\": {\"columns\": [\"indicateur\", \"valeur\", \"max\"], \"rows\": [[\"Dispo\", 99.0, 100.0]], \"truncated\": false}}, \"series\": [{\"type\": \"gauge\", \"startAngle\": 210, \"endAngle\": -30, \"min\": 0, \"max\": 100.0, \"radius\": \"88%\", \"center\": [\"50%\", \"58%\"], \"progress\": {\"show\": true, \"width\": 16, \"roundCap\": true, \"itemStyle\": {\"color\": \"@series1\"}}, \"axisLine\": {\"roundCap\": true, \"lineStyle\": {\"width\": 16, \"color\": [[1, \"@track\"]]}}, \"pointer\": {\"show\": false}, \"axisTick\": {\"show\": false}, \"splitLine\": {\"show\": false}, \"axisLabel\": {\"show\": false}, \"anchor\": {\"show\": false}, \"title\": {\"offsetCenter\": [0, \"34%\"], \"color\": \"@ink2\", \"fontSize\": 13}, \"detail\": {\"valueAnimation\": true, \"offsetCenter\": [0, \"0%\"], \"fontSize\": 30, \"fontWeight\": 600, \"color\": \"@ink\", \"formatter\": \"99\u202f%\\n{sub|sur 100\u202f%}\", \"rich\": {\"sub\": {\"fontSize\": 12, \"color\": \"@ink2\", \"padding\": [6, 0, 0, 0]}}}, \"data\": [{\"value\": 99.0, \"name\": \"Dispo\"}]}]}"
+      }
+    },
+    {
+      "nom": "nan-dans-les-donnees",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": NaN}, {\"m\": \"b\", \"v\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"no numeric column to plot (columns: m, v)\", \"fix\": \"add a column of numbers, or name it with y=[\\\"column\\\"]\", \"example\": {\"data\": [{\"category\": \"A\", \"value\": 12}, {\"category\": \"B\", \"value\": 7}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "infini-non-fini-a-l-ecriture",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": Infinity}, {\"m\": \"b\", \"v\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"chart contains non-finite numbers (NaN/Infinity)\", \"fix\": \"All numeric values must be finite.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "histogramme-nan",
+      "type": "outil",
+      "outil": "chart_histogram",
+      "args": "{\"data\": [{\"v\": NaN}, {\"v\": 1}, {\"v\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"histogram: needs a column of raw values\", \"example\": {\"data\": [{\"age\": 34}, {\"age\": 41}, {\"age\": 29}]}}",
+      "fichiers": {}
+    },
+    {
+      "nom": "jauge-maximum-flottant",
+      "type": "outil",
+      "outil": "chart_gauge",
+      "args": "{\"data\": [{\"label\": \"x\", \"value\": 1.7976931348623157e+308}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"exception\": \"OverflowError\", \"message\": \"cannot convert float infinity to integer\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "gantt-duree-flottante-geante",
+      "type": "outil",
+      "outil": "chart_gantt",
+      "args": "{\"data\": [{\"t\": \"A\", \"start\": \"2020-01-01\", \"days\": 1000000000000.0}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"exception\": \"OverflowError\", \"message\": \"Python int too large to convert to C int\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "gantt-duree-entiere-geante",
+      "type": "outil",
+      "outil": "chart_gantt",
+      "args": "{\"data\": [{\"t\": \"A\", \"start\": \"2020-01-01\", \"days\": 2000000000}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"exception\": \"OverflowError\", \"message\": \"days=2000000000; must have magnitude <= 999999999\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "gantt-annee-0100",
+      "type": "outil",
+      "outil": "chart_gantt",
+      "args": "{\"data\": [{\"t\": \"A\", \"start\": \"0100-01-01\", \"end\": \"0100-01-05\"}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!3b4e0936f4c0\", \"chart_id\": \"3b4e0936f4c0\", \"summary\": \"gantt \u00b7 1 tasks \u00b7 from 0100-01-01 to 0100-01-05 (5 days)\", \"chart_type\": \"gantt\"}",
+      "fichiers": {
+        "alice/3b4e0936f4c0.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"gantt\", \"unit\": \"\", \"table\": {\"columns\": [\"t\", \"start\", \"end\"], \"rows\": [[\"A\", \"0100-01-01\", \"0100-01-05\"]], \"truncated\": false}, \"height\": 260}, \"series\": [{\"type\": \"bar\", \"stack\": \"g\", \"data\": [-59011459761000], \"silent\": true, \"itemStyle\": {\"color\": \"transparent\"}, \"emphasis\": {\"disabled\": true}, \"tooltip\": {\"show\": false}, \"barGap\": \"-100%\", \"name\": \"_base\"}, {\"type\": \"bar\", \"stack\": \"g\", \"name\": \"T\u00e2ches\", \"data\": [{\"value\": 432000000, \"tooltip\": {\"formatter\": \"A<br/>1 janv. \u2192 5 janv. (5 j)\"}}], \"barGap\": \"-100%\", \"barMaxWidth\": 18, \"itemStyle\": {\"borderRadius\": 4}, \"emphasis\": {\"focus\": \"series\"}}], \"xAxis\": {\"type\": \"value\", \"min\": -59011546161000, \"max\": -59010941361000, \"position\": \"top\", \"splitLine\": {\"show\": true}, \"axisLabel\": {\"hideOverlap\": true}, \"_date\": true, \"splitNumber\": 6, \"axisLine\": {\"show\": false}, \"axisTick\": {\"show\": false}}, \"yAxis\": {\"type\": \"category\", \"data\": [\"A\"], \"inverse\": true, \"axisTick\": {\"show\": false}}, \"tooltip\": {\"trigger\": \"item\"}, \"grid\": {\"top\": 58, \"left\": 12, \"right\": 20, \"bottom\": 12}}"
+      }
+    },
+    {
+      "nom": "trop-de-lignes",
+      "type": "outil",
+      "outil": "chart_line",
+      "args": "{\"data\": [{\"x\": 0, \"y\": 0}, {\"x\": 1, \"y\": 1}, {\"x\": 2, \"y\": 2}, {\"x\": 3, \"y\": 3}, {\"x\": 4, \"y\": 4}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "limites": {
+        "rows": 3,
+        "cells": 60000
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"data is too large (max 3 rows / 60000 cells)\", \"fix\": \"Aggregate or downsample the rows before charting.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "trop-de-cellules",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"c0\": 0, \"c1\": 1, \"c2\": 2, \"c3\": 3, \"c4\": 4, \"c5\": 5, \"c6\": 6, \"c7\": 7, \"c8\": 8}, {\"c0\": 0, \"c1\": 1, \"c2\": 2, \"c3\": 3, \"c4\": 4, \"c5\": 5, \"c6\": 6, \"c7\": 7, \"c8\": 8}, {\"c0\": 0, \"c1\": 1, \"c2\": 2, \"c3\": 3, \"c4\": 4, \"c5\": 5, \"c6\": 6, \"c7\": 7, \"c8\": 8}, {\"c0\": 0, \"c1\": 1, \"c2\": 2, \"c3\": 3, \"c4\": 4, \"c5\": 5, \"c6\": 6, \"c7\": 7, \"c8\": 8}, {\"c0\": 0, \"c1\": 1, \"c2\": 2, \"c3\": 3, \"c4\": 4, \"c5\": 5, \"c6\": 6, \"c7\": 7, \"c8\": 8}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "limites": {
+        "rows": 99,
+        "cells": 40
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"data is too large (max 99 rows / 40 cells)\", \"fix\": \"Aggregate or downsample the rows before charting.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "limites-respectees",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"a\": 0, \"b\": 0}, {\"a\": 1, \"b\": 1}, {\"a\": 2, \"b\": 2}, {\"a\": 3, \"b\": 3}, {\"a\": 4, \"b\": 4}, {\"a\": 5, \"b\": 5}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "limites": {
+        "rows": 6,
+        "cells": 12
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!b08ab5216e4a\", \"chart_id\": \"b08ab5216e4a\", \"summary\": \"table \u00b7 6 rows \u00b7 2 columns\", \"chart_type\": \"table\"}",
+      "fichiers": {
+        "alice/b08ab5216e4a.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"table\", \"unit\": \"\", \"table\": {\"columns\": [\"a\", \"b\"], \"rows\": [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]], \"truncated\": false}, \"render\": \"table\"}}"
+      }
+    },
+    {
+      "nom": "limites-minimales",
+      "type": "outil",
+      "outil": "chart_table",
+      "args": "{\"data\": [{\"a\": 1}, {\"a\": 2}]}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "limites": {
+        "rows": 1,
+        "cells": 1
+      },
+      "resultat": "{\"ok\": false, \"error\": \"invalid_chart_spec\", \"message\": \"data is too large (max 1 rows / 1 cells)\", \"fix\": \"Aggregate or downsample the rows before charting.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "donnees-dict-jamais-trop-grandes",
+      "type": "outil",
+      "outil": "chart_pie",
+      "args": "{\"data\": {\"k0\": 1, \"k1\": 2, \"k2\": 3, \"k3\": 4, \"k4\": 5, \"k5\": 6, \"k6\": 7, \"k7\": 8, \"k8\": 9, \"k9\": 10, \"k10\": 11, \"k11\": 12, \"k12\": 13, \"k13\": 14, \"k14\": 15, \"k15\": 16, \"k16\": 17, \"k17\": 18, \"k18\": 19, \"k19\": 20, \"k20\": 21, \"k21\": 22, \"k22\": 23, \"k23\": 24, \"k24\": 25, \"k25\": 26, \"k26\": 27, \"k27\": 28, \"k28\": 29, \"k29\": 30}}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "limites": {
+        "rows": 1,
+        "cells": 1
+      },
+      "resultat": "{\"ok\": true, \"ref\": \"!c5b32480b240\", \"chart_id\": \"c5b32480b240\", \"summary\": \"pie \u00b7 8 slices \u00b7 total 465 \u00b7 k29 6 %, k28 6 %, k27 6 %, k26 6 %\", \"chart_type\": \"pie\", \"fixes\": [\"{label: value} converted to rows\", \"23 small slices folded into 'Autres'\"]}",
+      "fichiers": {
+        "alice/c5b32480b240.json": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"_elpis\": {\"kind\": \"pie\", \"unit\": \"\", \"table\": {\"columns\": [\"libell\u00e9\", \"valeur\"], \"rows\": [[\"k0\", 1], [\"k1\", 2], [\"k2\", 3], [\"k3\", 4], [\"k4\", 5], [\"k5\", 6], [\"k6\", 7], [\"k7\", 8], [\"k8\", 9], [\"k9\", 10], [\"k10\", 11], [\"k11\", 12], [\"k12\", 13], [\"k13\", 14], [\"k14\", 15], [\"k15\", 16], [\"k16\", 17], [\"k17\", 18], [\"k18\", 19], [\"k19\", 20], [\"k20\", 21], [\"k21\", 22], [\"k22\", 23], [\"k23\", 24], [\"k24\", 25], [\"k25\", 26], [\"k26\", 27], [\"k27\", 28], [\"k28\", 29], [\"k29\", 30]], \"truncated\": false}}, \"series\": [{\"type\": \"pie\", \"name\": \"valeur\", \"data\": [{\"name\": \"k29\", \"value\": 30.0}, {\"name\": \"k28\", \"value\": 29.0}, {\"name\": \"k27\", \"value\": 28.0}, {\"name\": \"k26\", \"value\": 27.0}, {\"name\": \"k25\", \"value\": 26.0}, {\"name\": \"k24\", \"value\": 25.0}, {\"name\": \"k23\", \"value\": 24.0}, {\"name\": \"Autres\", \"value\": 276.0, \"itemStyle\": {\"color\": \"@muted\"}}], \"center\": [\"50%\", \"56%\"], \"avoidLabelOverlap\": true, \"itemStyle\": {\"borderColor\": \"@surface\", \"borderWidth\": 2, \"borderRadius\": 0}, \"label\": {\"formatter\": \"{b}\\n{d} %\", \"color\": \"@ink2\", \"fontSize\": 11, \"lineHeight\": 15}, \"_lbl\": {\"pct\": true}, \"labelLine\": {\"length\": 8, \"length2\": 10}, \"emphasis\": {\"scale\": true, \"scaleSize\": 4}, \"radius\": [\"0%\", \"68%\"]}], \"tooltip\": {\"trigger\": \"item\"}}"
+      }
+    },
+    {
+      "nom": "ecriture-impossible",
+      "type": "outil",
+      "outil": "chart_bar",
+      "args": "{\"data\": [{\"m\": \"a\", \"v\": 1}, {\"m\": \"b\", \"v\": 2}], \"title\": \"sans dossier\"}",
+      "meta": {
+        "username": "alice",
+        "chat_id": "c1"
+      },
+      "dossier": "fichier/sous",
+      "resultat": "{\"ok\": false, \"error\": \"chart_write_failed\", \"message\": \"Could not save the chart: [Errno 20] Not a directory: '<RACINE>/fichier/sous/alice'\", \"fix\": \"Retry; if it persists, an admin should check that the chart cache directory is writable by the tool process.\"}",
+      "fichiers": {}
+    },
+    {
+      "nom": "ressource-existante",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "abc53bd62331",
+      "resultat": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+    },
+    {
+      "nom": "ressource-existante-guest",
+      "type": "ressource",
+      "username": "guest",
+      "chart_id": "abc53bd62331",
+      "resultat": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+    },
+    {
+      "nom": "ressource-autre-compte",
+      "type": "ressource",
+      "username": "bob",
+      "chart_id": "abc53bd62331",
+      "resultat": "{\"animationDuration\": 500, \"animationEasing\": \"cubicOut\", \"title\": {\"text\": \"T\", \"subtext\": \"\", \"left\": 4, \"top\": 2}, \"_elpis\": {\"kind\": \"bar\", \"unit\": \"\", \"table\": {\"columns\": [\"m\", \"v\"], \"rows\": [[\"a\", 1], [\"b\", 2]], \"truncated\": false}}, \"series\": [{\"type\": \"bar\", \"name\": \"v\", \"data\": [1.0, 2.0], \"emphasis\": {\"focus\": \"series\"}, \"barMaxWidth\": 44, \"itemStyle\": {\"borderRadius\": [4, 4, 0, 0]}}], \"tooltip\": {\"trigger\": \"axis\", \"axisPointer\": {\"type\": \"shadow\"}}, \"xAxis\": {\"type\": \"category\", \"data\": [\"a\", \"b\"], \"axisTick\": {\"show\": false}, \"boundaryGap\": true, \"name\": \"m\"}, \"yAxis\": {\"type\": \"value\", \"_fmt\": true, \"name\": \"v\"}, \"grid\": {\"top\": 60, \"left\": 12, \"right\": 20, \"bottom\": 28}}"
+    },
+    {
+      "nom": "ressource-absente",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "zzzzzzzzzzzz",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"zzzzzzzzzzzz\"}"
+    },
+    {
+      "nom": "ressource-id-majuscules",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "ABC",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"ABC\"}"
+    },
+    {
+      "nom": "ressource-remontee",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "../../etc/passwd",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"../../etc/passwd\"}"
+    },
+    {
+      "nom": "ressource-vide",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"\"}"
+    },
+    {
+      "nom": "ressource-espace",
+      "type": "ressource",
+      "username": "alice",
+      "chart_id": "ab c",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"ab c\"}"
+    },
+    {
+      "nom": "ressource-compte-unicode",
+      "type": "ressource",
+      "username": "\u00e9",
+      "chart_id": "abc",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"abc\"}"
+    },
+    {
+      "nom": "ressource-compte-chemin",
+      "type": "ressource",
+      "username": "a/b",
+      "chart_id": "abc",
+      "resultat": "{\"ok\": false, \"error\": \"chart_not_found\", \"chart_id\": \"abc\"}"
+    }
+  ]
+}

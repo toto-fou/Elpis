@@ -1,0 +1,1119 @@
+{
+  "source": "migration-kit/vecteurs/routines.py",
+  "constantes": {
+    "keep_max": 500,
+    "notify_on": [
+      "all",
+      "error",
+      "none"
+    ],
+    "fichiers_max": 40,
+    "chemin_max": 400,
+    "cles_secretes": [
+      "auth",
+      "authorization",
+      "headers",
+      "token",
+      "api_key",
+      "apikey",
+      "password",
+      "secret",
+      "basic_auth",
+      "bearer",
+      "auth_secret",
+      "auth_enc",
+      "key_scheme",
+      "headers_enc",
+      "env",
+      "env_enc",
+      "extra_scheme"
+    ]
+  },
+  "cron": [
+    {
+      "expr": "* * * * *",
+      "ok": "* * * * *"
+    },
+    {
+      "expr": "0 9 * * *",
+      "ok": "0 9 * * *"
+    },
+    {
+      "expr": " 0 9 * * * ",
+      "ok": "0 9 * * *"
+    },
+    {
+      "expr": "0  9 * * *",
+      "ok": "0  9 * * *"
+    },
+    {
+      "expr": "\t*/15\t*\t*\t*\t*\n",
+      "ok": "*/15\t*\t*\t*\t*"
+    },
+    {
+      "expr": "0\u00a09 * * *",
+      "ok": "0\u00a09 * * *"
+    },
+    {
+      "expr": "0\u20039 * * *",
+      "ok": "0\u20039 * * *"
+    },
+    {
+      "expr": "0\u200b9 * * *",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "   ",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "* * * *",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "* * * * * *",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "garbage",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "*/5 * * * *",
+      "ok": "*/5 * * * *"
+    },
+    {
+      "expr": "5/5 * * * *",
+      "ok": "5/5 * * * *"
+    },
+    {
+      "expr": "*/0 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : pas (step) doit \u00eatre \u2265 1"
+    },
+    {
+      "expr": "5/0 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : pas (step) doit \u00eatre \u2265 1"
+    },
+    {
+      "expr": "*/-1 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : pas (step) doit \u00eatre \u2265 1"
+    },
+    {
+      "expr": "-1/2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : -1"
+    },
+    {
+      "expr": "60/2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 60"
+    },
+    {
+      "expr": "/5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab /5 \u00bb"
+    },
+    {
+      "expr": "*/ * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab */ \u00bb"
+    },
+    {
+      "expr": "*/5/2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab */5/2 \u00bb"
+    },
+    {
+      "expr": "a/5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab a/5 \u00bb"
+    },
+    {
+      "expr": "*/a * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab */a \u00bb"
+    },
+    {
+      "expr": "0-59 * * * *",
+      "ok": "0-59 * * * *"
+    },
+    {
+      "expr": "0-60 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 60"
+    },
+    {
+      "expr": "5-3 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : plage invers\u00e9e 5-3"
+    },
+    {
+      "expr": "5--3 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : -3"
+    },
+    {
+      "expr": "1-2-3 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1-2-3 \u00bb"
+    },
+    {
+      "expr": "-5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab -5 \u00bb"
+    },
+    {
+      "expr": "-0 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab -0 \u00bb"
+    },
+    {
+      "expr": "1- * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1- \u00bb"
+    },
+    {
+      "expr": "- * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab - \u00bb"
+    },
+    {
+      "expr": "*-5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab *-5 \u00bb"
+    },
+    {
+      "expr": "1,2,3 * * * *",
+      "ok": "1,2,3 * * * *"
+    },
+    {
+      "expr": "1,,2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : liste malform\u00e9e"
+    },
+    {
+      "expr": ",1 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : liste malform\u00e9e"
+    },
+    {
+      "expr": "1, * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : liste malform\u00e9e"
+    },
+    {
+      "expr": ", * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb : liste malform\u00e9e"
+    },
+    {
+      "expr": "1,60 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 60"
+    },
+    {
+      "expr": "*,5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab *,5 \u00bb"
+    },
+    {
+      "expr": "60 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 60"
+    },
+    {
+      "expr": "59 23 31 12 7",
+      "ok": "59 23 31 12 7"
+    },
+    {
+      "expr": "0 0 1 1 1",
+      "ok": "0 0 1 1 1"
+    },
+    {
+      "expr": "* 24 * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab heure \u00bb hors plage [0-23] : 24"
+    },
+    {
+      "expr": "* * 0 * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour du mois \u00bb hors plage [1-31] : 0"
+    },
+    {
+      "expr": "* * 32 * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour du mois \u00bb hors plage [1-31] : 32"
+    },
+    {
+      "expr": "* * * 0 *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab mois \u00bb hors plage [1-12] : 0"
+    },
+    {
+      "expr": "* * * 13 *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab mois \u00bb hors plage [1-12] : 13"
+    },
+    {
+      "expr": "* * * * 0",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour de semaine \u00bb hors plage [1-7] : 0"
+    },
+    {
+      "expr": "* * * * 8",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour de semaine \u00bb hors plage [1-7] : 8"
+    },
+    {
+      "expr": "*/1 */1 */1 */1 */1",
+      "ok": "*/1 */1 */1 */1 */1"
+    },
+    {
+      "expr": "05 007 01 01 01",
+      "ok": "05 007 01 01 01"
+    },
+    {
+      "expr": "+5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab +5 \u00bb"
+    },
+    {
+      "expr": "0x5 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 0x5 \u00bb"
+    },
+    {
+      "expr": "5. * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 5. \u00bb"
+    },
+    {
+      "expr": "5e1 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 5e1 \u00bb"
+    },
+    {
+      "expr": "\uff15 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab \uff15 \u00bb"
+    },
+    {
+      "expr": "\u0663 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab \u0663 \u00bb"
+    },
+    {
+      "expr": "\u00b2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab \u00b2 \u00bb"
+    },
+    {
+      "expr": "99999999999999999999 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 99999999999999999999"
+    },
+    {
+      "expr": "0-99999999999999999999 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb hors plage [0-59] : 99999999999999999999"
+    },
+    {
+      "expr": "*/99999999999999999999 * * * *",
+      "ok": "*/99999999999999999999 * * * *"
+    },
+    {
+      "expr": "1_0 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1_0 \u00bb"
+    },
+    {
+      "expr": "** * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab ** \u00bb"
+    },
+    {
+      "expr": "? * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab ? \u00bb"
+    },
+    {
+      "expr": "L * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab L \u00bb"
+    },
+    {
+      "expr": "0 0 * * MON",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour de semaine \u00bb invalide : \u00ab MON \u00bb"
+    },
+    {
+      "expr": "@daily",
+      "statut": 400,
+      "detail": "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)"
+    },
+    {
+      "expr": "0 0-23/2 * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab heure \u00bb invalide : \u00ab 0-23/2 \u00bb"
+    },
+    {
+      "expr": "1-5/2 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1-5/2 \u00bb"
+    },
+    {
+      "expr": "1,2-3 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1,2-3 \u00bb"
+    },
+    {
+      "expr": "1/2,3 * * * *",
+      "statut": 400,
+      "detail": "Champ cron \u00ab minute \u00bb invalide : \u00ab 1/2,3 \u00bb"
+    },
+    {
+      "expr": "0\n0 * * *",
+      "ok": "0\n0 * * *"
+    },
+    {
+      "expr": "0 0 * * 1-5",
+      "ok": "0 0 * * 1-5"
+    },
+    {
+      "expr": "0 0 * * 7-1",
+      "statut": 400,
+      "detail": "Champ cron \u00ab jour de semaine \u00bb : plage invers\u00e9e 7-1"
+    },
+    {
+      "expr": "0 0 31 2 *",
+      "ok": "0 0 31 2 *"
+    }
+  ],
+  "skills": [
+    {
+      "entree": null,
+      "sortie": []
+    },
+    {
+      "entree": "a",
+      "sortie": []
+    },
+    {
+      "entree": 5,
+      "sortie": []
+    },
+    {
+      "entree": {},
+      "sortie": []
+    },
+    {
+      "entree": [],
+      "sortie": []
+    },
+    {
+      "entree": [
+        "a",
+        " b ",
+        "a",
+        "",
+        "  ",
+        3,
+        null,
+        true,
+        [
+          "x"
+        ],
+        "b"
+      ],
+      "sortie": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "entree": [
+        "\u00e9t\u00e9",
+        "\u00e9t\u00e9 "
+      ],
+      "sortie": [
+        "\u00e9t\u00e9"
+      ]
+    },
+    {
+      "entree": [
+        " \u00a0x\u2003 "
+      ],
+      "sortie": [
+        "x"
+      ]
+    },
+    {
+      "entree": [
+        "pkg/child",
+        "PKG/child"
+      ],
+      "sortie": [
+        "pkg/child",
+        "PKG/child"
+      ]
+    }
+  ],
+  "keep": [
+    {
+      "entree": null,
+      "sortie": 0
+    },
+    {
+      "entree": 0,
+      "sortie": 0
+    },
+    {
+      "entree": 1,
+      "sortie": 1
+    },
+    {
+      "entree": 499,
+      "sortie": 499
+    },
+    {
+      "entree": 500,
+      "sortie": 500
+    },
+    {
+      "entree": 501,
+      "sortie": 500
+    },
+    {
+      "entree": 9999,
+      "sortie": 500
+    },
+    {
+      "entree": -1,
+      "sortie": 0
+    },
+    {
+      "entree": -500,
+      "sortie": 0
+    },
+    {
+      "entree": true,
+      "sortie": 0
+    },
+    {
+      "entree": false,
+      "sortie": 0
+    },
+    {
+      "entree": 2.7,
+      "sortie": 2
+    },
+    {
+      "entree": -2.7,
+      "sortie": 0
+    },
+    {
+      "entree": "12",
+      "sortie": 12
+    },
+    {
+      "entree": " 12 ",
+      "sortie": 12
+    },
+    {
+      "entree": "1_000",
+      "sortie": 500
+    },
+    {
+      "entree": "2.7",
+      "sortie": 0
+    },
+    {
+      "entree": "abc",
+      "sortie": 0
+    },
+    {
+      "entree": "",
+      "sortie": 0
+    },
+    {
+      "entree": "\u0661\u0662",
+      "sortie": 12
+    },
+    {
+      "entree": "+3",
+      "sortie": 3
+    },
+    {
+      "entree": "-3",
+      "sortie": 0
+    },
+    {
+      "entree": [],
+      "sortie": 0
+    },
+    {
+      "entree": {},
+      "sortie": 0
+    },
+    {
+      "entree": 1000000000000000000000000000000,
+      "sortie": 500
+    }
+  ],
+  "notify_on": [
+    {
+      "entree": null,
+      "sortie": "all"
+    },
+    {
+      "entree": "",
+      "sortie": "all"
+    },
+    {
+      "entree": "all",
+      "sortie": "all"
+    },
+    {
+      "entree": "error",
+      "sortie": "error"
+    },
+    {
+      "entree": "none",
+      "sortie": "none"
+    },
+    {
+      "entree": "ERROR ",
+      "sortie": "error"
+    },
+    {
+      "entree": " None",
+      "sortie": "none"
+    },
+    {
+      "entree": "maybe",
+      "sortie": "all"
+    },
+    {
+      "entree": 5,
+      "sortie": "all"
+    },
+    {
+      "entree": 0,
+      "sortie": "all"
+    },
+    {
+      "entree": true,
+      "sortie": "all"
+    },
+    {
+      "entree": false,
+      "sortie": "all"
+    },
+    {
+      "entree": [],
+      "sortie": "all"
+    },
+    {
+      "entree": {
+        "a": 1
+      },
+      "sortie": "all"
+    },
+    {
+      "entree": "\u00a0error\u2003",
+      "sortie": "error"
+    },
+    {
+      "entree": "ERROR\n",
+      "sortie": "error"
+    }
+  ],
+  "titres": [
+    {
+      "entree": [
+        "Veille",
+        3,
+        true
+      ],
+      "sortie": "Routine \u00ab Veille \u00bb termin\u00e9e"
+    },
+    {
+      "entree": [
+        "Veille",
+        3,
+        false
+      ],
+      "sortie": "Routine \u00ab Veille \u00bb en \u00e9chec"
+    },
+    {
+      "entree": [
+        "  Veille ",
+        12,
+        false
+      ],
+      "sortie": "Routine \u00ab Veille \u00bb en \u00e9chec"
+    },
+    {
+      "entree": [
+        "",
+        12,
+        true
+      ],
+      "sortie": "Routine \u00ab Routine #12 \u00bb termin\u00e9e"
+    },
+    {
+      "entree": [
+        "   ",
+        7,
+        false
+      ],
+      "sortie": "Routine \u00ab Routine #7 \u00bb en \u00e9chec"
+    },
+    {
+      "entree": [
+        null,
+        9,
+        true
+      ],
+      "sortie": "Routine \u00ab Routine #9 \u00bb termin\u00e9e"
+    },
+    {
+      "entree": [
+        "\u00a0Nom\u2003",
+        4,
+        true
+      ],
+      "sortie": "Routine \u00ab Nom \u00bb termin\u00e9e"
+    },
+    {
+      "entree": [
+        "\ud83d\ude00 emoji",
+        1,
+        false
+      ],
+      "sortie": "Routine \u00ab \ud83d\ude00 emoji \u00bb en \u00e9chec"
+    }
+  ],
+  "fichiers": [
+    {
+      "entree": null,
+      "tuple": false,
+      "sortie": []
+    },
+    {
+      "entree": "pas une liste",
+      "tuple": false,
+      "sortie": []
+    },
+    {
+      "entree": [
+        "/work/a.md",
+        " /work/a.md ",
+        "",
+        "/work/b.md",
+        5,
+        null,
+        "  "
+      ],
+      "tuple": false,
+      "sortie": [
+        "/work/a.md",
+        "/work/b.md"
+      ]
+    },
+    {
+      "entree": [
+        "tuple",
+        "tuple",
+        "x"
+      ],
+      "tuple": true,
+      "sortie": [
+        "tuple",
+        "x"
+      ]
+    },
+    {
+      "entree": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+        "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      ],
+      "tuple": false,
+      "sortie": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      ]
+    },
+    {
+      "entree": [
+        "/w/f0",
+        "/w/f1",
+        "/w/f2",
+        "/w/f3",
+        "/w/f4",
+        "/w/f5",
+        "/w/f6",
+        "/w/f7",
+        "/w/f8",
+        "/w/f9",
+        "/w/f10",
+        "/w/f11",
+        "/w/f12",
+        "/w/f13",
+        "/w/f14",
+        "/w/f15",
+        "/w/f16",
+        "/w/f17",
+        "/w/f18",
+        "/w/f19",
+        "/w/f20",
+        "/w/f21",
+        "/w/f22",
+        "/w/f23",
+        "/w/f24",
+        "/w/f25",
+        "/w/f26",
+        "/w/f27",
+        "/w/f28",
+        "/w/f29",
+        "/w/f30",
+        "/w/f31",
+        "/w/f32",
+        "/w/f33",
+        "/w/f34",
+        "/w/f35",
+        "/w/f36",
+        "/w/f37",
+        "/w/f38",
+        "/w/f39",
+        "/w/f40",
+        "/w/f41",
+        "/w/f42",
+        "/w/f43",
+        "/w/f44",
+        "/w/f45",
+        "/w/f46",
+        "/w/f47",
+        "/w/f48",
+        "/w/f49",
+        "/w/f50",
+        "/w/f51",
+        "/w/f52",
+        "/w/f53",
+        "/w/f54",
+        "/w/f55",
+        "/w/f56",
+        "/w/f57",
+        "/w/f58",
+        "/w/f59"
+      ],
+      "tuple": false,
+      "sortie": [
+        "/w/f0",
+        "/w/f1",
+        "/w/f2",
+        "/w/f3",
+        "/w/f4",
+        "/w/f5",
+        "/w/f6",
+        "/w/f7",
+        "/w/f8",
+        "/w/f9",
+        "/w/f10",
+        "/w/f11",
+        "/w/f12",
+        "/w/f13",
+        "/w/f14",
+        "/w/f15",
+        "/w/f16",
+        "/w/f17",
+        "/w/f18",
+        "/w/f19",
+        "/w/f20",
+        "/w/f21",
+        "/w/f22",
+        "/w/f23",
+        "/w/f24",
+        "/w/f25",
+        "/w/f26",
+        "/w/f27",
+        "/w/f28",
+        "/w/f29",
+        "/w/f30",
+        "/w/f31",
+        "/w/f32",
+        "/w/f33",
+        "/w/f34",
+        "/w/f35",
+        "/w/f36",
+        "/w/f37",
+        "/w/f38",
+        "/w/f39"
+      ]
+    },
+    {
+      "entree": [
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "d",
+        "e"
+      ],
+      "tuple": false,
+      "sortie": [
+        "d",
+        "e"
+      ]
+    },
+    {
+      "entree": [
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/0",
+        "/w/1",
+        "/w/fin"
+      ],
+      "tuple": false,
+      "sortie": [
+        "/w/0",
+        "/w/1",
+        "/w/2",
+        "/w/fin"
+      ]
+    }
+  ],
+  "serveurs": [
+    {
+      "entree": null,
+      "sortie": "[]"
+    },
+    {
+      "entree": "x",
+      "sortie": "[]"
+    },
+    {
+      "entree": {},
+      "sortie": "[]"
+    },
+    {
+      "entree": [
+        1,
+        "a",
+        null,
+        {
+          "type": "sse",
+          "name": "x",
+          "url": "http://h",
+          "auth": "Bearer S",
+          "headers": {
+            "k": "v"
+          },
+          "filter_categories": [
+            "a"
+          ],
+          "token": "t",
+          "api_key": "k",
+          "apikey": "k2",
+          "password": "p",
+          "secret": "s",
+          "basic_auth": {
+            "u": 1
+          },
+          "bearer": "b",
+          "auth_secret": "x",
+          "auth_enc": "gAAA",
+          "key_scheme": "fernet",
+          "headers_enc": "h",
+          "env": {
+            "A": "1"
+          },
+          "env_enc": "e",
+          "extra_scheme": "x",
+          "authorization": "Basic x",
+          "families": [
+            "fs"
+          ],
+          "id": "s1"
+        }
+      ],
+      "sortie": "[{\"type\": \"sse\", \"name\": \"x\", \"url\": \"http://h\", \"filter_categories\": [\"a\"], \"families\": [\"fs\"], \"id\": \"s1\"}]"
+    },
+    {
+      "entree": [
+        {
+          "Auth": "garde la casse",
+          "AUTH": "x",
+          "type": "http"
+        }
+      ],
+      "sortie": "[{\"Auth\": \"garde la casse\", \"AUTH\": \"x\", \"type\": \"http\"}]"
+    }
+  ],
+  "lignes": [
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 2, \"enabled\": 0, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 1, \"webhook_secret\": \"abc\", \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 1, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": true, \"enabled\": false, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": true, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": true, \"connector_id\": null, \"webhook_has_secret\": true}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"{\", \"skills\": \"nope\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": \"\", \"webhook_filter\": \"x\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"null\", \"skills\": \"{\\\"x\\\": 1}\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"[1]\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": null, \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"\", \"skills\": \"\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[{\\\"type\\\": \\\"http\\\", \\\"id\\\": \\\"h1\\\", \\\"n\\\": 1.0, \\\"big\\\": 123456789012345678901234567890, \\\"10\\\": \\\"dix\\\", \\\"2\\\": \\\"deux\\\"}]\", \"skills\": \"[\\\"a\\\", \\\" b \\\", \\\"a\\\", 3, \\\"\\\"]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{\\\"events\\\": [\\\"push\\\"], \\\"branch\\\": \\\"main\\\", \\\"repo\\\": \\\"\\\", \\\"x\\\": 2.50}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [{\"type\": \"http\", \"id\": \"h1\", \"n\": 1.0, \"big\": 123456789012345678901234567890, \"10\": \"dix\", \"2\": \"deux\"}], \"skills\": [\"a\", \"b\"], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {\"events\": [\"push\"], \"branch\": \"main\", \"repo\": \"\", \"x\": 2.5}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": 0, \"trigger_after_on\": \"\", \"agents_enabled\": 0, \"connector_id\": 0}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": 3, \"trigger_after_on\": \"error\", \"agents_enabled\": 0, \"connector_id\": 5}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": 3, \"trigger_after_on\": \"error\", \"agents_enabled\": false, \"connector_id\": 5, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": \"x\", \"trigger_after_on\": null, \"agents_enabled\": 0, \"connector_id\": \"7\"}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": 7, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": true, \"notify_on\": \"ERROR \", \"notify_keep\": \"12\", \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"error\", \"notify_keep\": 12, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 9999, \"notify_on\": \"maybe\", \"notify_keep\": -4, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 500, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 2.7, \"notify_on\": null, \"notify_keep\": \"abc\", \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 2, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": null, \"notify_on\": 5, \"notify_keep\": null, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1.0, \"updated_at\": 2.0, \"last_fire_minute\": \"2026-06-04T10:00\", \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1.0, \"updated_at\": 2.0, \"last_fire_minute\": \"2026-06-04T10:00\", \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"skills\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": 0, \"webhook_secret\": null, \"webhook_filter\": \"{}\", \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": 0, \"connector_id\": null, \"webhook_mode\": \"client\", \"webhook_url\": \"http://x\"}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"Veille\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"skills\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"agents_enabled\": false, \"connector_id\": null, \"webhook_has_secret\": false}"
+    },
+    {
+      "entree": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"ancienne\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": \"[]\", \"thinking_mode\": 0, \"enabled\": 1, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null}",
+      "sortie": "{\"id\": 1, \"owner_user_id\": 2, \"name\": \"ancienne\", \"cron_expr\": \"0 9 * * *\", \"model\": null, \"system_prompt\": \"\", \"task_prompt\": \"t\u00e2che\", \"mcp_snapshot\": [], \"thinking_mode\": false, \"enabled\": true, \"created_at\": 1700000000.0, \"updated_at\": 1700000000.5, \"last_fire_minute\": null, \"skills\": [], \"connector_id\": null, \"agents_enabled\": false, \"webhook_has_secret\": false, \"webhook_enabled\": false, \"webhook_filter\": {}, \"trigger_after_id\": null, \"trigger_after_on\": \"ok\", \"runs_keep\": 0, \"notify_on\": \"all\", \"notify_keep\": 0}"
+    }
+  ]
+}

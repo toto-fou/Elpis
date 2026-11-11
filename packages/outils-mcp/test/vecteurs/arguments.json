@@ -1,0 +1,1573 @@
+{
+  "source": "migration-kit/vecteurs/outils_mcp_arguments.py",
+  "cas": [
+    {
+      "signature": "simple",
+      "args": {},
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument",
+      "erreurs": [
+        {
+          "type": "missing_argument",
+          "loc": [
+            "a"
+          ],
+          "msg": "Missing required argument",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1
+      },
+      "ok": {
+        "a": 1,
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": "7",
+        "b": "y",
+        "c": "3",
+        "d": "yes",
+        "e": [
+          "p"
+        ],
+        "g": "y",
+        "h": "2.5",
+        "i": {
+          "k": 1
+        }
+      },
+      "ok": {
+        "a": 7,
+        "b": "y",
+        "c": 3,
+        "d": true,
+        "e": [
+          "p"
+        ],
+        "g": "y",
+        "h": {
+          "$f": "2.5"
+        },
+        "i": {
+          "k": 1
+        }
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": {
+          "$f": "1.0"
+        }
+      },
+      "ok": {
+        "a": 1,
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": {
+          "$f": "1.5"
+        }
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=1.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_from_float",
+      "erreurs": [
+        {
+          "type": "int_from_float",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer, got a number with a fractional part",
+          "input": {
+            "$f": "1.5"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": "x"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "x"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": true
+      },
+      "ok": {
+        "a": 1,
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": null
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_type",
+      "erreurs": [
+        {
+          "type": "int_type",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer",
+          "input": null
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": [
+          1
+        ]
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer [type=int_type, input_value=[1], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_type",
+      "erreurs": [
+        {
+          "type": "int_type",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer",
+          "input": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "b": 2
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nb\n  Input should be a valid string [type=string_type, input_value=2, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "b"
+          ],
+          "msg": "Input should be a valid string",
+          "input": 2
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "b": null
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nb\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "b"
+          ],
+          "msg": "Input should be a valid string",
+          "input": null
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "c": "z"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nc\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='z', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "c"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "z"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "d": "peut-\u00eatre"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nd\n  Input should be a valid boolean, unable to interpret input [type=bool_parsing, input_value='peut-\u00eatre', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/bool_parsing",
+      "erreurs": [
+        {
+          "type": "bool_parsing",
+          "loc": [
+            "d"
+          ],
+          "msg": "Input should be a valid boolean, unable to interpret input",
+          "input": "peut-\u00eatre"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "d": 2
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nd\n  Input should be a valid boolean, unable to interpret input [type=bool_parsing, input_value=2, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/bool_parsing",
+      "erreurs": [
+        {
+          "type": "bool_parsing",
+          "loc": [
+            "d"
+          ],
+          "msg": "Input should be a valid boolean, unable to interpret input",
+          "input": 2
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "e": "p"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\ne\n  Input should be a valid list [type=list_type, input_value='p', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type",
+      "erreurs": [
+        {
+          "type": "list_type",
+          "loc": [
+            "e"
+          ],
+          "msg": "Input should be a valid list",
+          "input": "p"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "e": [
+          1,
+          "x"
+        ]
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\ne.0\n  Input should be a valid string [type=string_type, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "e",
+            0
+          ],
+          "msg": "Input should be a valid string",
+          "input": 1
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "g": "z"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\ng\n  Input should be 'x' or 'y' [type=literal_error, input_value='z', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/literal_error",
+      "erreurs": [
+        {
+          "type": "literal_error",
+          "loc": [
+            "g"
+          ],
+          "msg": "Input should be 'x' or 'y'",
+          "input": "z",
+          "ctx": {
+            "expected": "'x' or 'y'"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "h": "abc"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nh\n  Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='abc', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/float_parsing",
+      "erreurs": [
+        {
+          "type": "float_parsing",
+          "loc": [
+            "h"
+          ],
+          "msg": "Input should be a valid number, unable to parse string as a number",
+          "input": "abc"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "i": []
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\ni\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type",
+      "erreurs": [
+        {
+          "type": "dict_type",
+          "loc": [
+            "i"
+          ],
+          "msg": "Input should be a valid dictionary",
+          "input": []
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "zz": 1,
+        "a": "q",
+        "yy": 2
+      },
+      "titre": "call[simple]",
+      "texte": "3 validation errors for call[simple]\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='q', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing\nzz\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/unexpected_keyword_argument\nyy\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=2, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/unexpected_keyword_argument",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "q"
+        },
+        {
+          "type": "unexpected_keyword_argument",
+          "loc": [
+            "zz"
+          ],
+          "msg": "Unexpected keyword argument",
+          "input": 1
+        },
+        {
+          "type": "unexpected_keyword_argument",
+          "loc": [
+            "yy"
+          ],
+          "msg": "Unexpected keyword argument",
+          "input": 2
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "ctx": {}
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\nctx\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/unexpected_keyword_argument",
+      "erreurs": [
+        {
+          "type": "unexpected_keyword_argument",
+          "loc": [
+            "ctx"
+          ],
+          "msg": "Unexpected keyword argument",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9...zzzzzzzzzzzzzzzzzzzzzzz', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": 1,
+        "b": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      },
+      "ok": {
+        "a": 1,
+        "b": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": {
+          "k": [
+            1,
+            2,
+            {
+              "z": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+            }
+          ]
+        }
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer [type=int_type, input_value={'k': [1, 2, {'z': 'vvvvv...vvvvvvvvvvvvvvvvvvvv'}]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_type",
+      "erreurs": [
+        {
+          "type": "int_type",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer",
+          "input": {
+            "k": [
+              1,
+              2,
+              {
+                "z": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": " 42 "
+      },
+      "ok": {
+        "a": 42,
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": "1_000"
+      },
+      "ok": {
+        "a": 1000,
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": "0x1"
+      },
+      "titre": "call[simple]",
+      "texte": "1 validation error for call[simple]\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='0x1', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "a"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "0x1"
+        }
+      ]
+    },
+    {
+      "signature": "simple",
+      "args": {
+        "a": {
+          "$i": "9007199254740993"
+        }
+      },
+      "ok": {
+        "a": {
+          "$i": "9007199254740993"
+        },
+        "b": "x",
+        "c": null,
+        "d": false,
+        "e": [],
+        "g": "x",
+        "h": {
+          "$f": "1.0"
+        },
+        "i": {}
+      }
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": []
+      },
+      "ok": {
+        "items": [],
+        "tags": null
+      }
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "content": "a"
+          }
+        ]
+      },
+      "ok": {
+        "items": [
+          {
+            "content": "a",
+            "status": "",
+            "n": 0
+          }
+        ],
+        "tags": null
+      }
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "content": "a",
+            "status": null,
+            "n": "3"
+          }
+        ]
+      },
+      "ok": {
+        "items": [
+          {
+            "content": "a",
+            "status": null,
+            "n": 3
+          }
+        ],
+        "tags": null
+      }
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": "x"
+      },
+      "titre": "call[liste]",
+      "texte": "1 validation error for call[liste]\nitems\n  Input should be a valid list [type=list_type, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type",
+      "erreurs": [
+        {
+          "type": "list_type",
+          "loc": [
+            "items"
+          ],
+          "msg": "Input should be a valid list",
+          "input": "x"
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "status": "x"
+          }
+        ]
+      },
+      "titre": "call[liste]",
+      "texte": "1 validation error for call[liste]\nitems.0.content\n  Field required [type=missing, input_value={'status': 'x'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "erreurs": [
+        {
+          "type": "missing",
+          "loc": [
+            "items",
+            0,
+            "content"
+          ],
+          "msg": "Field required",
+          "input": {
+            "status": "x"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "content": "a",
+            "extra": 1
+          }
+        ]
+      },
+      "titre": "call[liste]",
+      "texte": "1 validation error for call[liste]\nitems.0.extra\n  Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden",
+      "erreurs": [
+        {
+          "type": "extra_forbidden",
+          "loc": [
+            "items",
+            0,
+            "extra"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "input": 1
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          1,
+          {
+            "content": 2
+          },
+          "s"
+        ]
+      },
+      "titre": "call[liste]",
+      "texte": "3 validation errors for call[liste]\nitems.0\n  Input should be a valid dictionary or instance of Item [type=model_type, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type\nitems.1.content\n  Input should be a valid string [type=string_type, input_value=2, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nitems.2\n  Input should be a valid dictionary or instance of Item [type=model_type, input_value='s', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type",
+      "erreurs": [
+        {
+          "type": "model_type",
+          "loc": [
+            "items",
+            0
+          ],
+          "msg": "Input should be a valid dictionary or instance of Item",
+          "input": 1,
+          "ctx": {
+            "class_name": "Item"
+          }
+        },
+        {
+          "type": "string_type",
+          "loc": [
+            "items",
+            1,
+            "content"
+          ],
+          "msg": "Input should be a valid string",
+          "input": 2
+        },
+        {
+          "type": "model_type",
+          "loc": [
+            "items",
+            2
+          ],
+          "msg": "Input should be a valid dictionary or instance of Item",
+          "input": "s",
+          "ctx": {
+            "class_name": "Item"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "content": "a"
+          }
+        ],
+        "tags": "t"
+      },
+      "titre": "call[liste]",
+      "texte": "1 validation error for call[liste]\ntags\n  Input should be a valid list [type=list_type, input_value='t', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type",
+      "erreurs": [
+        {
+          "type": "list_type",
+          "loc": [
+            "tags"
+          ],
+          "msg": "Input should be a valid list",
+          "input": "t"
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "tags": [
+          "a"
+        ]
+      },
+      "titre": "call[liste]",
+      "texte": "1 validation error for call[liste]\nitems\n  Missing required argument [type=missing_argument, input_value={'tags': ['a']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument",
+      "erreurs": [
+        {
+          "type": "missing_argument",
+          "loc": [
+            "items"
+          ],
+          "msg": "Missing required argument",
+          "input": {
+            "tags": [
+              "a"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "signature": "liste",
+      "args": {
+        "items": [
+          {
+            "content": "a",
+            "n": {
+              "$f": "1.5"
+            }
+          }
+        ],
+        "tags": [
+          null
+        ]
+      },
+      "titre": "call[liste]",
+      "texte": "2 validation errors for call[liste]\nitems.0.n\n  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=1.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_from_float\ntags.0\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "int_from_float",
+          "loc": [
+            "items",
+            0,
+            "n"
+          ],
+          "msg": "Input should be a valid integer, got a number with a fractional part",
+          "input": {
+            "$f": "1.5"
+          }
+        },
+        {
+          "type": "string_type",
+          "loc": [
+            "tags",
+            0
+          ],
+          "msg": "Input should be a valid string",
+          "input": null
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {},
+      "ok": {
+        "n": 5,
+        "s": "q",
+        "x": {
+          "$f": "1.0"
+        }
+      }
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "n": 0
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\nn\n  Input should be greater than or equal to 1 [type=greater_than_equal, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than_equal",
+      "erreurs": [
+        {
+          "type": "greater_than_equal",
+          "loc": [
+            "n"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "input": 0,
+          "ctx": {
+            "ge": 1
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "n": 21
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\nn\n  Input should be less than or equal to 20 [type=less_than_equal, input_value=21, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/less_than_equal",
+      "erreurs": [
+        {
+          "type": "less_than_equal",
+          "loc": [
+            "n"
+          ],
+          "msg": "Input should be less than or equal to 20",
+          "input": 21,
+          "ctx": {
+            "le": 20
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "n": "20"
+      },
+      "ok": {
+        "n": 20,
+        "s": "q",
+        "x": {
+          "$f": "1.0"
+        }
+      }
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "s": ""
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\ns\n  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_short",
+      "erreurs": [
+        {
+          "type": "string_too_short",
+          "loc": [
+            "s"
+          ],
+          "msg": "String should have at least 1 character",
+          "input": "",
+          "ctx": {
+            "min_length": 1
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "s": "abcdef"
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\ns\n  String should have at most 5 characters [type=string_too_long, input_value='abcdef', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long",
+      "erreurs": [
+        {
+          "type": "string_too_long",
+          "loc": [
+            "s"
+          ],
+          "msg": "String should have at most 5 characters",
+          "input": "abcdef",
+          "ctx": {
+            "max_length": 5
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "s": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      },
+      "ok": {
+        "n": 5,
+        "s": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+        "x": {
+          "$f": "1.0"
+        }
+      }
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "x": 0
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\nx\n  Input should be greater than 0 [type=greater_than, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than",
+      "erreurs": [
+        {
+          "type": "greater_than",
+          "loc": [
+            "x"
+          ],
+          "msg": "Input should be greater than 0",
+          "input": 0,
+          "ctx": {
+            "gt": {
+              "$f": "0.0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "x": {
+          "$f": "-1.5"
+        }
+      },
+      "titre": "call[bornes]",
+      "texte": "1 validation error for call[bornes]\nx\n  Input should be greater than 0 [type=greater_than, input_value=-1.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than",
+      "erreurs": [
+        {
+          "type": "greater_than",
+          "loc": [
+            "x"
+          ],
+          "msg": "Input should be greater than 0",
+          "input": {
+            "$f": "-1.5"
+          },
+          "ctx": {
+            "gt": {
+              "$f": "0.0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "x": "inf"
+      },
+      "ok": {
+        "n": 5,
+        "s": "q",
+        "x": {
+          "$f": "inf"
+        }
+      }
+    },
+    {
+      "signature": "bornes",
+      "args": {
+        "n": 0,
+        "s": "",
+        "x": 0
+      },
+      "titre": "call[bornes]",
+      "texte": "3 validation errors for call[bornes]\nn\n  Input should be greater than or equal to 1 [type=greater_than_equal, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than_equal\ns\n  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_short\nx\n  Input should be greater than 0 [type=greater_than, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than",
+      "erreurs": [
+        {
+          "type": "greater_than_equal",
+          "loc": [
+            "n"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "input": 0,
+          "ctx": {
+            "ge": 1
+          }
+        },
+        {
+          "type": "string_too_short",
+          "loc": [
+            "s"
+          ],
+          "msg": "String should have at least 1 character",
+          "input": "",
+          "ctx": {
+            "min_length": 1
+          }
+        },
+        {
+          "type": "greater_than",
+          "loc": [
+            "x"
+          ],
+          "msg": "Input should be greater than 0",
+          "input": 0,
+          "ctx": {
+            "gt": {
+              "$f": "0.0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": "tout",
+      "args": {},
+      "ok": {
+        "x": null,
+        "y": {}
+      }
+    },
+    {
+      "signature": "tout",
+      "args": {
+        "x": [
+          1,
+          {
+            "a": null
+          }
+        ]
+      },
+      "ok": {
+        "x": [
+          1,
+          {
+            "a": null
+          }
+        ],
+        "y": {}
+      }
+    },
+    {
+      "signature": "tout",
+      "args": {
+        "y": {
+          "a": "1"
+        }
+      },
+      "ok": {
+        "x": null,
+        "y": {
+          "a": 1
+        }
+      }
+    },
+    {
+      "signature": "tout",
+      "args": {
+        "y": {
+          "a": "b"
+        }
+      },
+      "titre": "call[tout]",
+      "texte": "1 validation error for call[tout]\ny.a\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='b', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "y",
+            "a"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "b"
+        }
+      ]
+    },
+    {
+      "signature": "tout",
+      "args": {
+        "y": []
+      },
+      "titre": "call[tout]",
+      "texte": "1 validation error for call[tout]\ny\n  Input should be a valid dictionary [type=dict_type, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/dict_type",
+      "erreurs": [
+        {
+          "type": "dict_type",
+          "loc": [
+            "y"
+          ],
+          "msg": "Input should be a valid dictionary",
+          "input": []
+        }
+      ]
+    },
+    {
+      "signature": "tout",
+      "args": {
+        "y": {
+          "a": {
+            "$f": "1.5"
+          }
+        }
+      },
+      "titre": "call[tout]",
+      "texte": "1 validation error for call[tout]\ny.a\n  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=1.5, input_type=float]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_from_float",
+      "erreurs": [
+        {
+          "type": "int_from_float",
+          "loc": [
+            "y",
+            "a"
+          ],
+          "msg": "Input should be a valid integer, got a number with a fractional part",
+          "input": {
+            "$f": "1.5"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {},
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\ntodos\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument",
+      "erreurs": [
+        {
+          "type": "missing_argument",
+          "loc": [
+            "todos"
+          ],
+          "msg": "Missing required argument",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": []
+      },
+      "ok": null
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": "x"
+      },
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\ntodos\n  Input should be a valid list [type=list_type, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type",
+      "erreurs": [
+        {
+          "type": "list_type",
+          "loc": [
+            "todos"
+          ],
+          "msg": "Input should be a valid list",
+          "input": "x"
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          "a",
+          {
+            "content": "b",
+            "status": "pending"
+          }
+        ]
+      },
+      "ok": null
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          {
+            "status": "pending"
+          }
+        ]
+      },
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\ntodos.0.content\n  Field required [type=missing, input_value={'status': 'pending'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "erreurs": [
+        {
+          "type": "missing",
+          "loc": [
+            "todos",
+            0,
+            "content"
+          ],
+          "msg": "Field required",
+          "input": {
+            "status": "pending"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          {
+            "content": "a",
+            "status": 3
+          }
+        ]
+      },
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\ntodos.0.status\n  Input should be a valid string [type=string_type, input_value=3, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "todos",
+            0,
+            "status"
+          ],
+          "msg": "Input should be a valid string",
+          "input": 3
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          {
+            "content": "a"
+          }
+        ],
+        "extra": 1
+      },
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\nextra\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/unexpected_keyword_argument",
+      "erreurs": [
+        {
+          "type": "unexpected_keyword_argument",
+          "loc": [
+            "extra"
+          ],
+          "msg": "Unexpected keyword argument",
+          "input": 1
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "extra": 1,
+        "todos": "x"
+      },
+      "titre": "call[todowrite]",
+      "texte": "2 validation errors for call[todowrite]\ntodos\n  Input should be a valid list [type=list_type, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type\nextra\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value=1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/unexpected_keyword_argument",
+      "erreurs": [
+        {
+          "type": "list_type",
+          "loc": [
+            "todos"
+          ],
+          "msg": "Input should be a valid list",
+          "input": "x"
+        },
+        {
+          "type": "unexpected_keyword_argument",
+          "loc": [
+            "extra"
+          ],
+          "msg": "Unexpected keyword argument",
+          "input": 1
+        }
+      ]
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          {
+            "content": "a",
+            "priority": "high"
+          }
+        ]
+      },
+      "ok": null
+    },
+    {
+      "signature": "todowrite",
+      "args": {
+        "todos": [
+          null
+        ]
+      },
+      "titre": "call[todowrite]",
+      "texte": "1 validation error for call[todowrite]\ntodos.0\n  Input should be a valid dictionary or instance of TodoItem [type=model_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type",
+      "erreurs": [
+        {
+          "type": "model_type",
+          "loc": [
+            "todos",
+            0
+          ],
+          "msg": "Input should be a valid dictionary or instance of TodoItem",
+          "input": null,
+          "ctx": {
+            "class_name": "TodoItem"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "memory",
+      "args": {},
+      "titre": "call[memory]",
+      "texte": "2 validation errors for call[memory]\naction\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument\nstore\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument",
+      "erreurs": [
+        {
+          "type": "missing_argument",
+          "loc": [
+            "action"
+          ],
+          "msg": "Missing required argument",
+          "input": {}
+        },
+        {
+          "type": "missing_argument",
+          "loc": [
+            "store"
+          ],
+          "msg": "Missing required argument",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "signature": "memory",
+      "args": {
+        "action": "add"
+      },
+      "titre": "call[memory]",
+      "texte": "1 validation error for call[memory]\nstore\n  Missing required argument [type=missing_argument, input_value={'action': 'add'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing_argument",
+      "erreurs": [
+        {
+          "type": "missing_argument",
+          "loc": [
+            "store"
+          ],
+          "msg": "Missing required argument",
+          "input": {
+            "action": "add"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "memory",
+      "args": {
+        "action": "add",
+        "store": "memory"
+      },
+      "ok": null
+    },
+    {
+      "signature": "memory",
+      "args": {
+        "action": "ajouter",
+        "store": "x"
+      },
+      "titre": "call[memory]",
+      "texte": "2 validation errors for call[memory]\naction\n  Input should be 'add', 'replace', 'remove' or 'rewrite' [type=literal_error, input_value='ajouter', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/literal_error\nstore\n  Input should be 'memory' or 'user' [type=literal_error, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/literal_error",
+      "erreurs": [
+        {
+          "type": "literal_error",
+          "loc": [
+            "action"
+          ],
+          "msg": "Input should be 'add', 'replace', 'remove' or 'rewrite'",
+          "input": "ajouter",
+          "ctx": {
+            "expected": "'add', 'replace', 'remove' or 'rewrite'"
+          }
+        },
+        {
+          "type": "literal_error",
+          "loc": [
+            "store"
+          ],
+          "msg": "Input should be 'memory' or 'user'",
+          "input": "x",
+          "ctx": {
+            "expected": "'memory' or 'user'"
+          }
+        }
+      ]
+    },
+    {
+      "signature": "memory",
+      "args": {
+        "action": "add",
+        "store": "user",
+        "content": 5
+      },
+      "titre": "call[memory]",
+      "texte": "1 validation error for call[memory]\ncontent\n  Input should be a valid string [type=string_type, input_value=5, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "content"
+          ],
+          "msg": "Input should be a valid string",
+          "input": 5
+        }
+      ]
+    },
+    {
+      "signature": "memory",
+      "args": {
+        "action": "add",
+        "store": "user",
+        "target": null
+      },
+      "ok": null
+    },
+    {
+      "signature": "session_search",
+      "args": {},
+      "ok": null
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "query": "q",
+        "limit": "3"
+      },
+      "ok": null
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "limit": "beaucoup"
+      },
+      "titre": "call[session_search]",
+      "texte": "1 validation error for call[session_search]\nlimit\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='beaucoup', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "limit"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "beaucoup"
+        }
+      ]
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "ref": "x"
+      },
+      "titre": "call[session_search]",
+      "texte": "1 validation error for call[session_search]\nref\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing",
+      "erreurs": [
+        {
+          "type": "int_parsing",
+          "loc": [
+            "ref"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "input": "x"
+        }
+      ]
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "ref": {
+          "$f": "1.0"
+        }
+      },
+      "ok": null
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "query": null
+      },
+      "titre": "call[session_search]",
+      "texte": "1 validation error for call[session_search]\nquery\n  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "erreurs": [
+        {
+          "type": "string_type",
+          "loc": [
+            "query"
+          ],
+          "msg": "Input should be a valid string",
+          "input": null
+        }
+      ]
+    },
+    {
+      "signature": "session_search",
+      "args": {
+        "limit": true
+      },
+      "ok": null
+    }
+  ]
+}

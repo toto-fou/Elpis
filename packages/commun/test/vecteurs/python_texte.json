@@ -1,0 +1,2468 @@
+{
+  "source": "migration-kit/vecteurs/commun_python_texte.py",
+  "textes": [
+    {
+      "texte": "",
+      "suffixes": {
+        "0": "",
+        "1": "",
+        "2": "",
+        "5": "",
+        "-1": "",
+        "-2": "",
+        "100": ""
+      },
+      "find": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      },
+      "rfind": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      }
+    },
+    {
+      "texte": "abc",
+      "suffixes": {
+        "0": "abc",
+        "1": "c",
+        "2": "bc",
+        "5": "abc",
+        "-1": "bc",
+        "-2": "c",
+        "100": "abc"
+      },
+      "find": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      },
+      "rfind": {
+        "": 3,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      }
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\ud83d\ude00y",
+      "suffixes": {
+        "0": "\u00e9\ud83d\ude00x\ud83d\ude00y",
+        "1": "y",
+        "2": "\ud83d\ude00y",
+        "5": "\u00e9\ud83d\ude00x\ud83d\ude00y",
+        "-1": "\ud83d\ude00x\ud83d\ude00y",
+        "-2": "x\ud83d\ude00y",
+        "100": "\u00e9\ud83d\ude00x\ud83d\ude00y"
+      },
+      "find": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": 1,
+        "x\ud83d\ude00": 2,
+        "zz": -1,
+        "z": -1
+      },
+      "rfind": {
+        "": 5,
+        "X": -1,
+        "\ud83d\ude00": 3,
+        "x\ud83d\ude00": 2,
+        "zz": -1,
+        "z": -1
+      }
+    },
+    {
+      "texte": "aXbXc",
+      "suffixes": {
+        "0": "aXbXc",
+        "1": "c",
+        "2": "Xc",
+        "5": "aXbXc",
+        "-1": "XbXc",
+        "-2": "bXc",
+        "100": "aXbXc"
+      },
+      "find": {
+        "": 0,
+        "X": 1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      },
+      "rfind": {
+        "": 5,
+        "X": 3,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      }
+    },
+    {
+      "texte": "\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "suffixes": {
+        "0": "\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+        "1": "\ud83d\ude00",
+        "2": "\ud83d\ude00\ud83d\ude00",
+        "5": "\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+        "-1": "\ud83d\ude00\ud83d\ude00",
+        "-2": "\ud83d\ude00",
+        "100": "\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      },
+      "find": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": 0,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      },
+      "rfind": {
+        "": 3,
+        "X": -1,
+        "\ud83d\ude00": 2,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": -1
+      }
+    },
+    {
+      "texte": "\ud800z",
+      "suffixes": {
+        "0": "\ud800z",
+        "1": "z",
+        "2": "\ud800z",
+        "5": "\ud800z",
+        "-1": "z",
+        "-2": "",
+        "100": "\ud800z"
+      },
+      "find": {
+        "": 0,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": 1
+      },
+      "rfind": {
+        "": 2,
+        "X": -1,
+        "\ud83d\ude00": -1,
+        "x\ud83d\ude00": -1,
+        "zz": -1,
+        "z": 1
+      }
+    }
+  ],
+  "valeurs": [
+    {
+      "valeur": null,
+      "flottant": false,
+      "entier": false,
+      "non_vide": false
+    },
+    {
+      "valeur": "",
+      "flottant": false,
+      "entier": false,
+      "non_vide": false
+    },
+    {
+      "valeur": [],
+      "flottant": false,
+      "entier": false,
+      "non_vide": false
+    },
+    {
+      "valeur": {},
+      "flottant": false,
+      "entier": false,
+      "non_vide": false
+    },
+    {
+      "valeur": 0,
+      "flottant": false,
+      "entier": true,
+      "non_vide": true
+    },
+    {
+      "valeur": false,
+      "flottant": false,
+      "entier": true,
+      "non_vide": true
+    },
+    {
+      "valeur": 0.0,
+      "flottant": true,
+      "entier": false,
+      "non_vide": true
+    },
+    {
+      "valeur": "0",
+      "flottant": false,
+      "entier": false,
+      "non_vide": true
+    },
+    {
+      "valeur": [
+        0
+      ],
+      "flottant": false,
+      "entier": false,
+      "non_vide": true
+    },
+    {
+      "valeur": {
+        "a": 1
+      },
+      "flottant": false,
+      "entier": false,
+      "non_vide": true
+    },
+    {
+      "valeur": true,
+      "flottant": false,
+      "entier": true,
+      "non_vide": true
+    },
+    {
+      "valeur": 1.5,
+      "flottant": true,
+      "entier": false,
+      "non_vide": true
+    },
+    {
+      "valeur": 18446744073709551616,
+      "flottant": false,
+      "entier": true,
+      "non_vide": true
+    },
+    {
+      "valeur": "x",
+      "flottant": false,
+      "entier": false,
+      "non_vide": true
+    }
+  ],
+  "decoupes": [
+    {
+      "texte": "",
+      "sep": null,
+      "max": -1,
+      "morceaux": []
+    },
+    {
+      "texte": "",
+      "sep": null,
+      "max": 0,
+      "morceaux": []
+    },
+    {
+      "texte": "",
+      "sep": null,
+      "max": 1,
+      "morceaux": []
+    },
+    {
+      "texte": "",
+      "sep": null,
+      "max": 2,
+      "morceaux": []
+    },
+    {
+      "texte": "",
+      "sep": null,
+      "max": 10,
+      "morceaux": []
+    },
+    {
+      "texte": "",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        ""
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "a",
+        "b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "a",
+        "b",
+        "c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "  a  ",
+        "  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "  a  ",
+        "  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "  a  ",
+        "  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "  a  ",
+        "  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "  a  b  c  ",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "  a  b  c  "
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "a",
+        "b",
+        "",
+        "c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "a",
+        "b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "a",
+        "b",
+        ",c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "a",
+        "b",
+        "",
+        "c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "a,",
+        ",,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "a,",
+        ",,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "a,",
+        ",,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "a,",
+        ",,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": "a,b,,c",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "a,b,,c"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "",
+        "a",
+        ""
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "",
+        "a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "",
+        "a",
+        ""
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "",
+        "a",
+        ""
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": ",a,",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": ",a,",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": ",a,",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": ",a,",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": ",a,",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": ",a,",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        ",a,"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "a",
+        "b\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "a",
+        "b",
+        "c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "a\u001c",
+        "\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "a\u001c",
+        "\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "a\u001c",
+        "\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "a\u001c",
+        "\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "a\u001cb\u0085c\u3000d",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "a\u001cb\u0085c\u3000d"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "\ud83d\ude00",
+        "\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "\ud83d\ude00",
+        "\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "\ud83d\ude00",
+        "\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "\ud83d\ude00",
+        "\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "",
+        ",",
+        ""
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "\ud83d\ude00,\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "",
+        ",\ud83d\ude00"
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "",
+        ",",
+        ""
+      ]
+    },
+    {
+      "texte": "\ud83d\ude00,\ud83d\ude00",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "",
+        ",",
+        ""
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "abc",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "abc",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "abc",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "abc",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "abc",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "a",
+        "c"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "a",
+        "c"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "a",
+        "c"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "a",
+        "c"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "abc",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "abc"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": null,
+      "max": -1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": null,
+      "max": 0,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": null,
+      "max": 1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": null,
+      "max": 2,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": null,
+      "max": 10,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": ",",
+      "max": -1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": ",",
+      "max": 0,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": ",",
+      "max": 1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": ",",
+      "max": 2,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": ",",
+      "max": 10,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "::",
+      "max": -1,
+      "morceaux": [
+        "a",
+        "b",
+        "c",
+        ""
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "::",
+      "max": 0,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "::",
+      "max": 1,
+      "morceaux": [
+        "a",
+        "b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "::",
+      "max": 2,
+      "morceaux": [
+        "a",
+        "b",
+        "c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "::",
+      "max": 10,
+      "morceaux": [
+        "a",
+        "b",
+        "c",
+        ""
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "",
+      "max": -1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "",
+      "max": 0,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "",
+      "max": 1,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "",
+      "max": 2,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "",
+      "max": 10,
+      "erreur": "empty separator"
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "b",
+      "max": -1,
+      "morceaux": [
+        "a::",
+        "::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "b",
+      "max": 0,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "b",
+      "max": 1,
+      "morceaux": [
+        "a::",
+        "::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "b",
+      "max": 2,
+      "morceaux": [
+        "a::",
+        "::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "b",
+      "max": 10,
+      "morceaux": [
+        "a::",
+        "::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "\ud83d\ude00",
+      "max": -1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "\ud83d\ude00",
+      "max": 0,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "\ud83d\ude00",
+      "max": 1,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "\ud83d\ude00",
+      "max": 2,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    },
+    {
+      "texte": "a::b::c::",
+      "sep": "\ud83d\ude00",
+      "max": 10,
+      "morceaux": [
+        "a::b::c::"
+      ]
+    }
+  ],
+  "formats": [
+    {
+      "gabarit": "",
+      "sortie": ""
+    },
+    {
+      "gabarit": "bonjour {username}",
+      "sortie": "bonjour b\u00f6b\ud83d\ude00"
+    },
+    {
+      "gabarit": "{root}/{username}",
+      "sortie": "/srv/r/b\u00f6b\ud83d\ude00"
+    },
+    {
+      "gabarit": "{{x}} {username!r} {root!s}",
+      "sortie": "{x} 'b\u00f6b\ud83d\ude00' /srv/r"
+    },
+    {
+      "gabarit": "}",
+      "erreur": "ValueError",
+      "message": "Single '}' encountered in format string"
+    },
+    {
+      "gabarit": "{",
+      "erreur": "ValueError",
+      "message": "Single '{' encountered in format string"
+    },
+    {
+      "gabarit": "a {username",
+      "erreur": "ValueError",
+      "message": "expected '}' before end of string"
+    },
+    {
+      "gabarit": "{username",
+      "erreur": "ValueError",
+      "message": "expected '}' before end of string"
+    },
+    {
+      "gabarit": "{}",
+      "erreur": "IndexError",
+      "message": "Replacement index 0 out of range for positional args tuple"
+    },
+    {
+      "gabarit": "{0}",
+      "erreur": "IndexError",
+      "message": "Replacement index 0 out of range for positional args tuple"
+    },
+    {
+      "gabarit": "{absent}",
+      "erreur": "KeyError",
+      "message": "'absent'"
+    },
+    {
+      "gabarit": "{username:>8}|",
+      "sortie": "    b\u00f6b\ud83d\ude00|"
+    },
+    {
+      "gabarit": "{username:*^9}",
+      "sortie": "**b\u00f6b\ud83d\ude00***"
+    },
+    {
+      "gabarit": "{username:.2}",
+      "sortie": "b\u00f6"
+    },
+    {
+      "gabarit": "{username:+}",
+      "erreur": "ValueError",
+      "message": "Sign not allowed in string format specifier"
+    },
+    {
+      "gabarit": "{username:=5}",
+      "erreur": "ValueError",
+      "message": "'=' alignment not allowed in string format specifier"
+    },
+    {
+      "gabarit": "{username:d}",
+      "erreur": "ValueError",
+      "message": "Unknown format code 'd' for object of type 'str'"
+    },
+    {
+      "gabarit": "{username!a}",
+      "sortie": "'b\\xf6b\\U0001f600'"
+    },
+    {
+      "gabarit": "{username!x}",
+      "erreur": "ValueError",
+      "message": "Unknown conversion specifier x"
+    },
+    {
+      "gabarit": "{username!}",
+      "erreur": "ValueError",
+      "message": "unmatched '{' in format spec"
+    },
+    {
+      "gabarit": "{username.x}",
+      "erreur": "AttributeError",
+      "message": "'str' object has no attribute 'x'"
+    },
+    {
+      "gabarit": "{username[0]}",
+      "sortie": "b"
+    },
+    {
+      "gabarit": "{username:{root}}",
+      "erreur": "ValueError",
+      "message": "Invalid format specifier '/srv/r' for object of type 'str'"
+    },
+    {
+      "gabarit": "x}}y{{z",
+      "sortie": "x}y{z"
+    },
+    {
+      "gabarit": "{ username}",
+      "erreur": "KeyError",
+      "message": "' username'"
+    },
+    {
+      "gabarit": "{username }",
+      "erreur": "KeyError",
+      "message": "'username '"
+    },
+    {
+      "gabarit": "{root!r:>12}",
+      "sortie": "    '/srv/r'"
+    },
+    {
+      "gabarit": "{username:}",
+      "sortie": "b\u00f6b\ud83d\ude00"
+    },
+    {
+      "gabarit": "{username:#}",
+      "erreur": "ValueError",
+      "message": "Alternate form (#) not allowed in string format specifier"
+    },
+    {
+      "gabarit": "{username:z}",
+      "erreur": "ValueError",
+      "message": "Negative zero coercion (z) not allowed in string format specifier"
+    },
+    {
+      "gabarit": "{username:,}",
+      "erreur": "ValueError",
+      "message": "Cannot specify ',' with 's'."
+    },
+    {
+      "gabarit": "{username:_s}",
+      "erreur": "ValueError",
+      "message": "Cannot specify '_' with 's'."
+    },
+    {
+      "gabarit": "{username:05}",
+      "sortie": "b\u00f6b\ud83d\ude000"
+    },
+    {
+      "gabarit": "{username:.}",
+      "erreur": "ValueError",
+      "message": "Format specifier missing precision"
+    },
+    {
+      "gabarit": "{username:10.3s}",
+      "sortie": "b\u00f6b       "
+    },
+    {
+      "gabarit": "{username:<}",
+      "sortie": "b\u00f6b\ud83d\ude00"
+    },
+    {
+      "gabarit": "{username:\ud83d\ude42^7}",
+      "sortie": "\ud83d\ude42b\u00f6b\ud83d\ude00\ud83d\ude42\ud83d\ude42"
+    },
+    {
+      "gabarit": "{username:ss}",
+      "erreur": "ValueError",
+      "message": "Invalid format specifier 'ss' for object of type 'str'"
+    },
+    {
+      "gabarit": "{username:x<3.1}",
+      "sortie": "bxx"
+    },
+    {
+      "gabarit": "{username[1]}",
+      "sortie": "\u00f6"
+    },
+    {
+      "gabarit": "{username[9]}",
+      "erreur": "IndexError",
+      "message": "string index out of range"
+    },
+    {
+      "gabarit": "{username[a]}",
+      "erreur": "TypeError",
+      "message": "string indices must be integers, not 'str'"
+    },
+    {
+      "gabarit": "{username!r:}",
+      "sortie": "'b\u00f6b\ud83d\ude00'"
+    },
+    {
+      "gabarit": "{username!rr}",
+      "erreur": "ValueError",
+      "message": "expected ':' after conversion specifier"
+    },
+    {
+      "gabarit": "{0:x}",
+      "erreur": "IndexError",
+      "message": "Replacement index 0 out of range for positional args tuple"
+    },
+    {
+      "gabarit": "{:}",
+      "erreur": "IndexError",
+      "message": "Replacement index 0 out of range for positional args tuple"
+    }
+  ],
+  "cles": {
+    "valeurs": [
+      true,
+      1,
+      1.0,
+      false,
+      0,
+      0.0,
+      -0.0,
+      18446744073709551616,
+      1.8446744073709552e+19,
+      9007199254740993,
+      9007199254740992.0,
+      9007199254740992,
+      "1",
+      null,
+      1.5
+    ],
+    "egales": [
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        3,
+        4,
+        5,
+        6
+      ],
+      [
+        3,
+        4,
+        5,
+        6
+      ],
+      [
+        3,
+        4,
+        5,
+        6
+      ],
+      [
+        3,
+        4,
+        5,
+        6
+      ],
+      [
+        7,
+        8
+      ],
+      [
+        7,
+        8
+      ],
+      [
+        9
+      ],
+      [
+        10,
+        11
+      ],
+      [
+        10,
+        11
+      ],
+      [
+        12
+      ],
+      [
+        13
+      ],
+      [
+        14
+      ]
+    ]
+  }
+}

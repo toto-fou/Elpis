@@ -1,0 +1,85 @@
+{
+ "scenario": "c_open_longchat",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4
+ },
+ "run": 3,
+ "label": "frontend-ts-baseline",
+ "commit": "3247582",
+ "ts": "2026-10-12T21:16:09.789Z",
+ "durationMs": 2162,
+ "longTasks": {
+  "count": 4,
+  "p50": 149,
+  "p95": 375,
+  "max": 375,
+  "tbtMs": 442
+ },
+ "fps": null,
+ "inputEvents": {
+  "countOver50ms": 18,
+  "p95": 72
+ },
+ "cls": 0,
+ "markdown": {
+  "parseCalls": 30,
+  "parseMs": 76,
+  "parseMaxMs": 45,
+  "hljsCalls": 0,
+  "hljsAutoCalls": 0,
+  "hljsMs": 0
+ },
+ "cdp": {
+  "ScriptDuration": 0.11,
+  "LayoutDuration": 0.07,
+  "RecalcStyleDuration": 0.16,
+  "TaskDuration": 0.99,
+  "JSHeapUsedMB": 19.92
+ },
+ "intervals": [
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at /:18825:12"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  }
+ ],
+ "_window": [
+  1791839767528,
+  1791839769690
+ ],
+ "openMs": 939,
+ "settleMs": 2148,
+ "requests": {
+  "total": 6,
+  "byUrl": {
+   "/api/saved/chats/long100": 1,
+   "/api/llm/models": 1,
+   "/api/chat/long100/generation-status": 1,
+   "/api/chat/long100/compression-state": 1,
+   "/static/vendor/highlight.min.js": 1,
+   "/api/llm/models/m1/props": 1
+  }
+ },
+ "errors": [],
+ "chat": "long100"
+}

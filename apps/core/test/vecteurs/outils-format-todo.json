@@ -1,0 +1,6695 @@
+{
+  "cas": [
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": ""
+        },
+        {
+          "status": "pending",
+          "content": ""
+        },
+        {
+          "status": "completed",
+          "content": 0
+        },
+        {
+          "status": "cancelled",
+          "content": true
+        },
+        {
+          "status": "pending",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] \n3. [completed] \n4. [cancelled] True\n5. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 2,
+        "open": 2
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": true
+        },
+        {
+          "status": "PENDING",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "completed"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] True\n3. [PENDING] ['a']\n4. [pending] \ud83d\ude00 multi\nligne\n5. [completed] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "completed",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [PENDING] {'k': 1}\n2. [pending] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [completed] ",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": "pending"
+        },
+        {
+          "status": "",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "completed",
+          "content": "\u00e9crire les tests"
+        },
+        "brut",
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [completed] \ud83d\ude00 multi\nligne\n2. [pending] \ud83d\ude00 multi\nligne\n3. [completed] \u00e9crire les tests\n4. [in_progress] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 2,
+        "open": 1
+      },
+      "en_cours": "['a']"
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": ""
+        },
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "",
+          "content": ""
+        },
+        {
+          "status": "cancelled",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [completed] \ud83d\ude00 multi\nligne\n3. [pending] ['a']\n4. [pending] \n5. [cancelled] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": [],
+          "content": {
+            "k": 1
+          }
+        },
+        "brut",
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        5
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] {'k': 1}\n3. [cancelled] \ud83d\ude00 multi\nligne\n4. [PENDING] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \n2. [cancelled] 3.5",
+      "comptes": {
+        "total": 2,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        5,
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [cancelled] ['a']\n5. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0
+        },
+        {
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [pending] ['a']",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed"
+        }
+      ],
+      "checklist": "1. [completed] ",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": {},
+          "content": null
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [pending] {'k': 1}\n3. [pending] \n4. [PENDING] {'k': 1}\n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [completed] ",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": ""
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [completed] ['a']\n2. [pending] \n3. [cancelled] \n4. [in_progress] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "['a']"
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": null
+        },
+        {
+          "status": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "in_progress",
+          "content": 3.5
+        },
+        {
+          "status": null
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [in_progress] 3.5\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "3.5"
+    },
+    {
+      "todos": [
+        5,
+        {
+          "status": "cancelled",
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": []
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": "completed",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": []
+        }
+      ],
+      "checklist": "1. [completed] \u00e9crire les tests\n2. [pending] \u00e9crire les tests\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [completed] ",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": ""
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [pending] \n4. [cancelled] \n5. [in_progress] {'k': 1}",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": []
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] ['a']\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "cancelled"
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [cancelled] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [pending] \n3. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": {},
+          "content": []
+        },
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": {}
+        },
+        "brut"
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] \n3. [pending] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": {}
+        },
+        {
+          "status": "in_progress",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] \n3. [in_progress] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\ud83d\ude00 multi\nligne"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        5,
+        {
+          "status": "cancelled"
+        }
+      ],
+      "checklist": "1. [cancelled] {'k': 1}\n2. [cancelled] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": "completed",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [completed] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": null
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [cancelled] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": 0
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \n3. [in_progress] {'k': 1}",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": []
+        },
+        null,
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [PENDING] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": 0
+        },
+        {
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] True",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": null,
+          "content": {}
+        },
+        "brut"
+      ],
+      "checklist": "1. [cancelled] 3.5\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [in_progress] \n3. [PENDING] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": true
+        },
+        {
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": [],
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [pending] ['a']\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending"
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        {
+          "status": 0,
+          "content": null
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \n4. [PENDING] {'k': 1}\n5. [cancelled] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] \ud83d\ude00 multi\nligne\n3. [in_progress] {'k': 1}\n4. [pending] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        null,
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [in_progress] True",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        5,
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "cancelled",
+          "content": []
+        },
+        "brut",
+        {
+          "status": "in_progress",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [cancelled] \n3. [in_progress] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": ""
+        },
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "completed",
+          "content": null
+        },
+        {
+          "status": {},
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ['a']\n3. [completed] \n4. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": null
+        },
+        {
+          "content": true
+        },
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": 0,
+          "content": null
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [cancelled] \n3. [pending] True\n4. [completed] \ud83d\ude00 multi\nligne\n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [PENDING] ['a']",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": true
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        "brut",
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] True\n3. [pending] {'k': 1}\n4. [in_progress] True",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        5,
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] ['a']",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": 3.5
+        },
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [completed] 3.5\n2. [pending] \n3. [completed] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 3,
+        "done": 2,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [PENDING] \ud83d\ude00 multi\nligne\n3. [pending] {'k': 1}\n4. [pending] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": 0
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [PENDING] {'k': 1}\n2. [pending] \n3. [pending] \n4. [pending] ['a']\n5. [pending] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": "pending",
+          "content": null
+        },
+        5,
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [cancelled] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [pending] 3.5\n3. [in_progress] \n4. [pending] \ud83d\ude00 multi\nligne\n5. [in_progress] True",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [in_progress] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "completed",
+          "content": 0
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "PENDING",
+          "content": ""
+        },
+        {
+          "status": "completed",
+          "content": null
+        }
+      ],
+      "checklist": "1. [completed] {'k': 1}\n2. [completed] \n3. [pending] ['a']\n4. [PENDING] \n5. [completed] ",
+      "comptes": {
+        "total": 5,
+        "done": 3,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": null
+        },
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": ""
+        },
+        "brut"
+      ],
+      "checklist": "1. [pending] \n2. [pending] ['a']\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        null,
+        {
+          "status": "cancelled",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] \ud83d\ude00 multi\nligne\n3. [in_progress] ['a']\n4. [cancelled] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": null,
+          "content": []
+        },
+        {
+          "status": "",
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [pending] 3.5\n4. [in_progress] \n5. [pending] \n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": "",
+          "content": {}
+        },
+        5,
+        {
+          "status": "in_progress",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] \n3. [in_progress] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": []
+        },
+        5
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": null
+        },
+        {
+          "status": 0,
+          "content": {}
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": 3.5
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": {},
+          "content": []
+        },
+        {
+          "status": {},
+          "content": 3.5
+        },
+        {
+          "status": "pending",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "cancelled",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [in_progress] \u00e9crire les tests\n3. [pending] \n4. [pending] 3.5\n5. [pending] \u00e9crire les tests\n6. [cancelled] ",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "pending"
+        },
+        {
+          "status": null
+        },
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": 0
+        },
+        {
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \n3. [pending] \n4. [cancelled] 3.5\n5. [PENDING] \n6. [pending] 3.5",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": []
+        },
+        5,
+        {
+          "status": "PENDING",
+          "content": 3.5
+        },
+        5,
+        {
+          "status": "in_progress",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [PENDING] 3.5\n3. [in_progress] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        5
+      ],
+      "checklist": "1. [in_progress] \ud83d\ude00 multi\nligne\n2. [in_progress] \u00e9crire les tests",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "\ud83d\ude00 multi\nligne"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": []
+        },
+        {
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [PENDING] \n3. [pending] \n4. [pending] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] 3.5",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": []
+        },
+        {
+          "content": 0
+        },
+        {
+          "status": "in_progress",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [in_progress] \n4. [pending] ['a']\n5. [cancelled] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": []
+        },
+        {
+          "content": []
+        },
+        null,
+        {
+          "status": "PENDING",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] \n3. [PENDING] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": null
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 2,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": null
+        },
+        {
+          "status": null,
+          "content": ""
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": 0,
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        null,
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [cancelled] {'k': 1}",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] {'k': 1}",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0,
+          "content": []
+        },
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [PENDING] True\n3. [pending] \u00e9crire les tests\n4. [pending] {'k': 1}\n5. [pending] \n6. [pending] {'k': 1}",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": null
+        },
+        {
+          "status": "pending",
+          "content": true
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] True\n3. [pending] ['a']",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING"
+        },
+        {
+          "status": "",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] \ud83d\ude00 multi\nligne\n3. [pending] {'k': 1}",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] True",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        5,
+        {
+          "status": "in_progress",
+          "content": null
+        },
+        {
+          "status": "completed",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": {}
+        },
+        {
+          "status": "completed",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [completed] ['a']\n3. [in_progress] ['a']\n4. [pending] \n5. [completed] 3.5",
+      "comptes": {
+        "total": 5,
+        "done": 2,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "pending",
+          "content": 3.5
+        },
+        {
+          "status": null,
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] ['a']\n4. [pending] 3.5\n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": null
+        },
+        {
+          "status": "PENDING",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": 0
+        },
+        {
+          "status": 0
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [PENDING] \ud83d\ude00 multi\nligne\n3. [pending] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": ""
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [in_progress] {'k': 1}\n4. [in_progress] ['a']\n5. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending"
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        5,
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": [],
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [cancelled] \n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        null,
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [in_progress] \u00e9crire les tests\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": true
+        },
+        "brut",
+        {
+          "status": "",
+          "content": 3.5
+        },
+        {
+          "status": "",
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [cancelled] True\n2. [pending] 3.5\n3. [pending] 3.5\n4. [PENDING] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \n2. [in_progress] True",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled"
+        },
+        {
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": 0
+        },
+        {
+          "status": [],
+          "content": 0
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] {'k': 1}\n3. [pending] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [completed] ",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        "brut",
+        {
+          "status": "",
+          "content": ""
+        },
+        "brut",
+        {
+          "status": "PENDING",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [cancelled] {'k': 1}\n2. [pending] \ud83d\ude00 multi\nligne\n3. [pending] \n4. [PENDING] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] True",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": true
+        },
+        {
+          "status": [],
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        },
+        null
+      ],
+      "checklist": "1. [pending] True\n2. [pending] 3.5\n3. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": 3.5
+        },
+        {
+          "status": "pending"
+        },
+        {
+          "status": "pending"
+        },
+        null,
+        {
+          "status": "",
+          "content": []
+        }
+      ],
+      "checklist": "1. [in_progress] 3.5\n2. [pending] \n3. [pending] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 3
+      },
+      "en_cours": "3.5"
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": {}
+        },
+        {
+          "status": "pending",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": null
+        },
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": 0,
+          "content": ""
+        }
+      ],
+      "checklist": "1. [PENDING] {'k': 1}\n2. [pending] \n3. [pending] {'k': 1}\n4. [pending] \n5. [pending] \n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": {},
+          "content": 3.5
+        },
+        {
+          "status": "",
+          "content": null
+        },
+        {
+          "status": ""
+        },
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [PENDING] \n3. [pending] 3.5\n4. [pending] \n5. [pending] \n6. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": "completed",
+          "content": []
+        },
+        {
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": {}
+        }
+      ],
+      "checklist": "1. [in_progress] True\n2. [completed] \n3. [pending] \n4. [pending] \n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": null
+        },
+        {
+          "status": {},
+          "content": {}
+        },
+        {
+          "status": "completed",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        {
+          "status": "cancelled",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [completed] {'k': 1}\n4. [PENDING] True\n5. [cancelled] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "PENDING",
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [PENDING] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] {'k': 1}\n3. [pending] \n4. [pending] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": "completed",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": [],
+          "content": ""
+        },
+        {
+          "status": {},
+          "content": true
+        },
+        {
+          "status": {},
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [completed] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] \n5. [pending] True\n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] \ud83d\ude00 multi\nligne\n3. [in_progress] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": ""
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "",
+          "content": null
+        },
+        {
+          "status": {},
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] \n5. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": []
+        },
+        {
+          "status": "completed",
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] \n2. [completed] 3.5\n3. [cancelled] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": []
+        },
+        {
+          "status": 0,
+          "content": true
+        }
+      ],
+      "checklist": "1. [in_progress] True\n2. [pending] \n3. [pending] True",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "pending",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [cancelled] {'k': 1}\n2. [pending] \ud83d\ude00 multi\nligne\n3. [PENDING] {'k': 1}\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] ['a']",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": 0
+        },
+        {
+          "status": "in_progress",
+          "content": ""
+        },
+        {
+          "status": "completed"
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "",
+          "content": ""
+        },
+        {
+          "status": "completed",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [in_progress] \n3. [completed] \n4. [in_progress] ['a']\n5. [pending] \n6. [completed] ",
+      "comptes": {
+        "total": 6,
+        "done": 2,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        5,
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [cancelled] 3.5\n2. [pending] \n3. [pending] ['a']\n4. [pending] 3.5\n5. [pending] {'k': 1}",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": {},
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [completed] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [PENDING] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        {
+          "status": "in_progress"
+        }
+      ],
+      "checklist": "1. [cancelled] ['a']\n2. [PENDING] True\n3. [in_progress] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": []
+        },
+        {
+          "status": ""
+        },
+        {
+          "status": 0,
+          "content": true
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] True\n4. [PENDING] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "content": true
+        },
+        {
+          "status": {},
+          "content": {
+            "k": 1
+          }
+        },
+        5,
+        {
+          "status": "in_progress",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [cancelled] \u00e9crire les tests\n3. [pending] True\n4. [pending] {'k': 1}\n5. [in_progress] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": {},
+          "content": true
+        }
+      ],
+      "checklist": "1. [PENDING] {'k': 1}\n2. [pending] True",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        null,
+        {
+          "content": 3.5
+        },
+        {
+          "content": 0
+        },
+        {
+          "status": "cancelled",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] \n3. [cancelled] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "content": []
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [PENDING] True\n2. [pending] \n3. [pending] \n4. [pending] \u00e9crire les tests\n5. [in_progress] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \ud83d\ude00 multi\nligne\n3. [PENDING] {'k': 1}\n4. [PENDING] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": 3.5
+        },
+        {
+          "status": {},
+          "content": 3.5
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] 3.5\n3. [pending] \n4. [in_progress] ['a']\n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "['a']"
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": {},
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \u00e9crire les tests\n3. [pending] \u00e9crire les tests\n4. [cancelled] {'k': 1}\n5. [pending] \n6. [cancelled] True",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [pending] \n3. [pending] \n4. [cancelled] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": "completed",
+          "content": ""
+        },
+        {
+          "status": "",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": null
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] 3.5",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": null
+        },
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        },
+        "brut",
+        {
+          "status": "PENDING"
+        },
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [pending] {'k': 1}\n3. [PENDING] \n4. [pending] 3.5\n5. [pending] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": null,
+          "content": true
+        },
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] True\n3. [cancelled] \n4. [pending] \u00e9crire les tests\n5. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": 0
+        },
+        5,
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        null,
+        {
+          "status": "pending",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \n2. [pending] \n3. [PENDING] True\n4. [pending] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING"
+        },
+        {
+          "status": "cancelled",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [cancelled] \ud83d\ude00 multi\nligne\n3. [PENDING] \n4. [cancelled] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": 3.5
+        },
+        {
+          "content": {}
+        },
+        {
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "completed",
+          "content": {}
+        },
+        {
+          "status": "pending",
+          "content": null
+        },
+        {
+          "status": {},
+          "content": true
+        },
+        {
+          "status": {}
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [completed] \n3. [pending] \n4. [pending] True\n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "cancelled",
+          "content": 0
+        },
+        {
+          "status": null,
+          "content": null
+        },
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": null,
+          "content": 3.5
+        },
+        null
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [cancelled] \n3. [pending] \n4. [in_progress] \n5. [pending] 3.5",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        5,
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [PENDING] \n3. [pending] 3.5\n4. [cancelled] {'k': 1}\n5. [in_progress] True",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": ""
+        },
+        {
+          "status": null,
+          "content": null
+        },
+        null,
+        {
+          "status": "in_progress",
+          "content": []
+        },
+        {
+          "status": {},
+          "content": 0
+        },
+        {
+          "status": "in_progress"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [in_progress] \n4. [pending] \n5. [in_progress] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        5,
+        null,
+        {
+          "status": "completed"
+        },
+        {
+          "status": "completed",
+          "content": 3.5
+        },
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": {},
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \n2. [completed] 3.5\n3. [pending] 3.5\n4. [pending] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 2,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [cancelled] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": {},
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [PENDING] \u00e9crire les tests\n2. [pending] 3.5\n3. [pending] \n4. [pending] ['a']\n5. [cancelled] {'k': 1}\n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        },
+        "brut"
+      ],
+      "checklist": "1. [pending] {'k': 1}",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": ""
+        },
+        {
+          "status": "completed",
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] ['a']\n3. [pending] \n4. [completed] 3.5\n5. [PENDING] \u00e9crire les tests\n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "content": true
+        },
+        {
+          "status": "completed",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \ud83d\ude00 multi\nligne\n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] True\n5. [completed] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": 0
+        },
+        {
+          "status": "",
+          "content": 0
+        },
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": {},
+          "content": 3.5
+        },
+        5,
+        {
+          "status": [],
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [cancelled] \n4. [pending] 3.5\n5. [pending] True",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": [],
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": 3.5
+        },
+        {
+          "status": "completed",
+          "content": ""
+        },
+        {
+          "status": "pending",
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": null
+        },
+        {
+          "status": "pending",
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [completed] \n3. [pending] \n4. [pending] \n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 2
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": []
+        },
+        "brut"
+      ],
+      "checklist": "1. [completed] ",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": null
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "pending",
+          "content": []
+        },
+        {
+          "status": "pending",
+          "content": true
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [cancelled] ['a']\n3. [pending] \n4. [pending] True",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": []
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [in_progress] \ud83d\ude00 multi\nligne\n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] \n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\ud83d\ude00 multi\nligne"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [in_progress] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": true
+        },
+        {
+          "content": {}
+        },
+        {
+          "status": "PENDING",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [pending] \n3. [PENDING] 3.5",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {},
+        {
+          "status": 0,
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] 3.5",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": "",
+          "content": null
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [completed] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": []
+        },
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": null
+        }
+      ],
+      "checklist": "1. [pending] \n2. [in_progress] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": null
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] \n3. [pending] 3.5",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        5
+      ],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": {}
+        },
+        {
+          "content": 3.5
+        },
+        null
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] 3.5",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        5,
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "content": {}
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \n3. [pending] {'k': 1}\n4. [in_progress] \n5. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": {}
+        },
+        {
+          "status": null,
+          "content": ""
+        },
+        {
+          "status": {},
+          "content": {}
+        },
+        {
+          "status": "pending",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": [],
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \n4. [pending] {'k': 1}\n5. [pending] 3.5",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [cancelled] 3.5",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": []
+        },
+        {
+          "status": "",
+          "content": []
+        },
+        {
+          "status": "cancelled",
+          "content": 0
+        },
+        {
+          "status": "PENDING",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [cancelled] \n4. [PENDING] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": {},
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] {'k': 1}\n3. [cancelled] 3.5\n4. [pending] \n5. [cancelled] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] True",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [completed] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 1,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": true
+        },
+        {
+          "status": "pending",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": {}
+        },
+        5
+      ],
+      "checklist": "1. [pending] True\n2. [pending] \u00e9crire les tests\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "PENDING"
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [PENDING] \n3. [PENDING] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending",
+          "content": {}
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] \n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 0
+        },
+        null,
+        {
+          "status": {},
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] 3.5",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {}
+        },
+        {
+          "status": "PENDING",
+          "content": []
+        },
+        {
+          "status": null,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [PENDING] \n3. [pending] ['a']",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [PENDING] {'k': 1}",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "in_progress"
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "pending",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [in_progress] \n3. [pending] ['a']\n4. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [cancelled] 3.5",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {}
+        },
+        {
+          "status": []
+        },
+        {
+          "status": 0,
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \n4. [cancelled] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": ""
+        },
+        5,
+        {
+          "status": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": []
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": null,
+          "content": null
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [cancelled] ['a']\n2. [pending] \n3. [in_progress] \u00e9crire les tests\n4. [pending] \n5. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "content": 3.5
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": null
+        },
+        {
+          "status": "cancelled",
+          "content": []
+        },
+        5
+      ],
+      "checklist": "1. [pending] \n2. [pending] 3.5\n3. [pending] \u00e9crire les tests\n4. [pending] \n5. [cancelled] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": ""
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": null,
+          "content": true
+        },
+        {
+          "content": 0
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [in_progress] True\n3. [pending] True\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "content": 0
+        },
+        {
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \n4. [pending] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": 3.5
+        },
+        null,
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": 3.5
+        },
+        {
+          "status": "completed",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [cancelled] \ud83d\ude00 multi\nligne\n3. [in_progress] 3.5\n4. [completed] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "3.5"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [cancelled] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": "",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [in_progress] 3.5",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "3.5"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": []
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [cancelled] 3.5\n2. [cancelled] \n3. [in_progress] \u00e9crire les tests",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "completed",
+          "content": true
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [completed] True\n3. [in_progress] {'k': 1}",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 2
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending"
+        },
+        {
+          "status": "PENDING",
+          "content": true
+        },
+        {
+          "status": "PENDING",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [PENDING] True\n3. [PENDING] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": true
+        },
+        5,
+        {
+          "status": 0,
+          "content": {}
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [pending] \n3. [in_progress] True\n4. [pending] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        5
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": true
+        },
+        {
+          "status": [],
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "content": 3.5
+        },
+        {
+          "status": "PENDING",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [pending] {'k': 1}\n3. [pending] 3.5\n4. [pending] 3.5\n5. [PENDING] ['a']",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": []
+        },
+        {
+          "status": "completed",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": null,
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": {}
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [in_progress] \u00e9crire les tests\n2. [pending] \n3. [completed] {'k': 1}\n4. [pending] \n5. [pending] \n6. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 6,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        null,
+        "brut",
+        {},
+        {
+          "status": "in_progress",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] \n2. [in_progress] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": true
+        },
+        {
+          "status": "",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        }
+      ],
+      "checklist": "1. [completed] True\n2. [pending] \u00e9crire les tests\n3. [pending] \n4. [in_progress] True",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": {}
+        },
+        {
+          "status": "completed",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [completed] \u00e9crire les tests\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": {}
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [cancelled] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": {},
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] {'k': 1}",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": "",
+          "content": 0
+        },
+        {
+          "status": "",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] ['a']\n4. [pending] \u00e9crire les tests",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "completed"
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": [],
+          "content": {}
+        },
+        {
+          "status": "",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [completed] \n3. [pending] \n4. [pending] \n5. [pending] ",
+      "comptes": {
+        "total": 5,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "completed"
+        },
+        {
+          "content": {}
+        }
+      ],
+      "checklist": "1. [cancelled] {'k': 1}\n2. [completed] \n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": []
+        },
+        {
+          "status": null,
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": [],
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] ['a']\n3. [pending] \u00e9crire les tests\n4. [pending] \ud83d\ude00 multi\nligne\n5. [PENDING] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": []
+        },
+        {
+          "status": "pending",
+          "content": []
+        },
+        null,
+        null,
+        {
+          "status": 0,
+          "content": []
+        },
+        {}
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] \n3. [pending] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": ""
+        },
+        {},
+        "brut",
+        {
+          "status": ""
+        },
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [pending] \n4. [pending] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": true
+        }
+      ],
+      "checklist": "1. [PENDING] True",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null
+        },
+        {
+          "status": "",
+          "content": 3.5
+        },
+        "brut",
+        {
+          "status": "in_progress",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "PENDING",
+          "content": []
+        },
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] 3.5\n3. [in_progress] ['a']\n4. [PENDING] \n5. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "['a']"
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": []
+        },
+        {
+          "status": "completed",
+          "content": 3.5
+        },
+        {
+          "content": {}
+        },
+        {
+          "status": "PENDING",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [completed] 3.5\n3. [pending] \n4. [PENDING] ['a']",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        {
+          "content": ""
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "",
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [in_progress] {'k': 1}\n3. [PENDING] {'k': 1}\n4. [pending] {'k': 1}",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] ",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": null,
+          "content": null
+        },
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        },
+        {
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] ['a']\n2. [pending] \n3. [pending] ['a']\n4. [pending] 3.5\n5. [pending] True",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": true
+        },
+        5,
+        {
+          "status": "in_progress",
+          "content": 0
+        },
+        {
+          "content": 3.5
+        },
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [in_progress] \n3. [pending] 3.5\n4. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [
+        "brut"
+      ],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": {}
+        },
+        null,
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "pending",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] \ud83d\ude00 multi\nligne\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": true
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": "PENDING",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] True\n2. [in_progress] True\n3. [PENDING] \u00e9crire les tests\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "pending",
+          "content": ""
+        },
+        "brut",
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": 0,
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [pending] \n2. [PENDING] {'k': 1}\n3. [pending] 3.5",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": null,
+          "content": true
+        },
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "pending",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] \u00e9crire les tests\n2. [pending] True\n3. [pending] ['a']\n4. [pending] \u00e9crire les tests\n5. [pending] {'k': 1}\n6. [pending] ",
+      "comptes": {
+        "total": 6,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": [],
+          "content": 0
+        },
+        {
+          "status": {},
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \ud83d\ude00 multi\nligne\n2. [in_progress] \u00e9crire les tests\n3. [pending] \n4. [pending] 3.5",
+      "comptes": {
+        "total": 4,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": [],
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [in_progress] \u00e9crire les tests\n2. [pending] 3.5",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": ""
+        },
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] ['a']",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": [],
+          "content": {}
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        "brut",
+        {
+          "status": [],
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "pending",
+          "content": {}
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [pending] ['a']\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": {},
+          "content": true
+        },
+        {
+          "status": "pending",
+          "content": {}
+        },
+        {
+          "status": "PENDING",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "PENDING",
+          "content": null
+        }
+      ],
+      "checklist": "1. [pending] {'k': 1}\n2. [pending] True\n3. [pending] \n4. [PENDING] \ud83d\ude00 multi\nligne\n5. [PENDING] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "in_progress",
+          "content": []
+        },
+        {
+          "status": "",
+          "content": []
+        },
+        {
+          "status": "PENDING",
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [in_progress] \n2. [pending] \n3. [PENDING] ['a']",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": ""
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": []
+        },
+        {
+          "status": "cancelled",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \n2. [cancelled] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": 3.5
+        },
+        5,
+        {
+          "status": "cancelled",
+          "content": 3.5
+        },
+        {
+          "status": "",
+          "content": true
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [cancelled] 3.5\n3. [pending] True",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        null,
+        {
+          "content": 0
+        },
+        {
+          "status": [],
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": null,
+          "content": ""
+        },
+        {
+          "status": null,
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \u00e9crire les tests\n3. [pending] \ud83d\ude00 multi\nligne\n4. [pending] \n5. [pending] {'k': 1}",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": {
+            "k": 1
+          }
+        },
+        "brut",
+        {
+          "status": "completed",
+          "content": ""
+        },
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "in_progress",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "PENDING",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [completed] {'k': 1}\n2. [completed] \n3. [PENDING] {'k': 1}\n4. [in_progress] {'k': 1}\n5. [PENDING] \u00e9crire les tests",
+      "comptes": {
+        "total": 5,
+        "done": 2,
+        "open": 1
+      },
+      "en_cours": "{'k': 1}"
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": 0
+        },
+        null,
+        {
+          "status": "pending",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [PENDING] \n2. [pending] \u00e9crire les tests\n3. [pending] {'k': 1}",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": []
+        },
+        {
+          "status": [],
+          "content": ""
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": 0,
+          "content": [
+            "a"
+          ]
+        }
+      ],
+      "checklist": "1. [pending] ['a']",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": [],
+          "content": ""
+        },
+        {
+          "status": "in_progress",
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": {},
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "cancelled",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne\n2. [pending] \n3. [in_progress] \u00e9crire les tests\n4. [pending] \u00e9crire les tests\n5. [cancelled] ",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "\u00e9crire les tests"
+    },
+    {
+      "todos": [],
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": null,
+          "content": 3.5
+        },
+        {
+          "status": "pending"
+        },
+        {
+          "status": null,
+          "content": []
+        },
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "completed",
+          "content": 0
+        },
+        {
+          "status": "cancelled",
+          "content": "\u00e9crire les tests"
+        }
+      ],
+      "checklist": "1. [pending] 3.5\n2. [pending] \n3. [pending] \n4. [cancelled] ['a']\n5. [completed] \n6. [cancelled] \u00e9crire les tests",
+      "comptes": {
+        "total": 6,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "completed",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "pending",
+          "content": true
+        },
+        {
+          "content": 3.5
+        }
+      ],
+      "checklist": "1. [completed] \ud83d\ude00 multi\nligne\n2. [pending] True\n3. [pending] 3.5",
+      "comptes": {
+        "total": 3,
+        "done": 1,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        null,
+        {
+          "status": "cancelled",
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": 0,
+          "content": []
+        }
+      ],
+      "checklist": "1. [cancelled] ['a']\n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled"
+        },
+        {
+          "status": 0,
+          "content": "\u00e9crire les tests"
+        },
+        {
+          "status": "pending",
+          "content": ""
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] \u00e9crire les tests\n3. [pending] ",
+      "comptes": {
+        "total": 3,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        "brut",
+        5,
+        {
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [pending] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 1,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": {}
+        },
+        {
+          "status": {},
+          "content": [
+            "a"
+          ]
+        },
+        {
+          "status": "in_progress",
+          "content": true
+        },
+        {
+          "status": {},
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ['a']\n3. [in_progress] True\n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": "True"
+    },
+    {
+      "todos": [
+        {
+          "status": "cancelled",
+          "content": {}
+        },
+        null,
+        {
+          "status": {},
+          "content": {
+            "k": 1
+          }
+        },
+        null,
+        {
+          "status": "PENDING"
+        },
+        {
+          "status": "",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [cancelled] \n2. [pending] {'k': 1}\n3. [PENDING] \n4. [pending] ",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "PENDING",
+          "content": {
+            "k": 1
+          }
+        },
+        5,
+        {
+          "status": "cancelled",
+          "content": {
+            "k": 1
+          }
+        },
+        {
+          "status": "in_progress",
+          "content": "\ud83d\ude00 multi\nligne"
+        },
+        {
+          "status": "in_progress",
+          "content": "\ud83d\ude00 multi\nligne"
+        }
+      ],
+      "checklist": "1. [PENDING] {'k': 1}\n2. [cancelled] {'k': 1}\n3. [in_progress] \ud83d\ude00 multi\nligne\n4. [in_progress] \ud83d\ude00 multi\nligne",
+      "comptes": {
+        "total": 4,
+        "done": 0,
+        "open": 2
+      },
+      "en_cours": "\ud83d\ude00 multi\nligne"
+    },
+    {
+      "todos": [
+        {
+          "status": {},
+          "content": null
+        },
+        {
+          "status": "pending",
+          "content": 0
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] ",
+      "comptes": {
+        "total": 2,
+        "done": 0,
+        "open": 1
+      },
+      "en_cours": null
+    },
+    {
+      "todos": [
+        {
+          "status": "",
+          "content": []
+        },
+        {
+          "status": 0,
+          "content": 0
+        },
+        {
+          "status": "cancelled",
+          "content": ""
+        },
+        {
+          "status": "PENDING",
+          "content": null
+        },
+        {
+          "status": 0,
+          "content": {
+            "k": 1
+          }
+        }
+      ],
+      "checklist": "1. [pending] \n2. [pending] \n3. [cancelled] \n4. [PENDING] \n5. [pending] {'k': 1}",
+      "comptes": {
+        "total": 5,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    },
+    {
+      "todos": null,
+      "checklist": "",
+      "comptes": {
+        "total": 0,
+        "done": 0,
+        "open": 0
+      },
+      "en_cours": null
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT
+# Intégration continue du dépôt public : installation, typage, lint et construction sur Node 24.
+# La suite de tests vit dans le dépôt de développement des mainteneurs, qui la passent avant de fusionner.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build

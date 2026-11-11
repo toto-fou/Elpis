@@ -1,0 +1,163 @@
+{
+  "base_apres": [
+    {
+      "cles": [
+        "content",
+        "role"
+      ],
+      "content": "q",
+      "role": "user"
+    },
+    {
+      "cles": [
+        "content",
+        "metrics",
+        "role",
+        "run_ids"
+      ],
+      "content": "Bonjour.",
+      "role": "assistant"
+    }
+  ],
+  "entrees": {
+    "base": [
+      {
+        "chat_id": "c9",
+        "horodatage": 100,
+        "messages": [],
+        "titre": "t"
+      }
+    ],
+    "file": {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1
+    },
+    "harnais": "flux_route",
+    "moteur": {
+      "evenements": [
+        {
+          "text": "je réfléchis",
+          "type": "thinking_token"
+        },
+        {
+          "args": {
+            "chemin": "a.docx"
+          },
+          "id": "c1",
+          "name": "docx_lire",
+          "type": "tool_call"
+        },
+        {
+          "id": "c1",
+          "name": "docx_lire",
+          "ok": true,
+          "result": "contenu",
+          "type": "tool_result"
+        },
+        {
+          "text": "Bonj",
+          "type": "content_token"
+        },
+        {
+          "text": "our.",
+          "type": "content_token"
+        }
+      ],
+      "final": "Bonjour.",
+      "metrics": {
+        "last_prompt_tokens": 2048,
+        "model": "stub",
+        "thinking": "je réfléchis",
+        "tool_limit_reached": false
+      },
+      "type": "outils"
+    },
+    "n_ctx": 8192,
+    "pendant": "deconnexion",
+    "reglages_compte": {
+      "enable_mcp": true,
+      "mcp_servers": [
+        {
+          "auth_enc": "",
+          "auth_mode": "",
+          "auth_user": "",
+          "command": "",
+          "id": "server_docx",
+          "key_scheme": "plain",
+          "name": "docx",
+          "type": "sse",
+          "url": "http://127.0.0.1:1/sse",
+          "visible": true
+        }
+      ]
+    },
+    "requete": {
+      "active_mcp_servers": [
+        {
+          "id": "server_docx",
+          "name": "docx",
+          "type": "sse"
+        }
+      ],
+      "chat_id": "c9",
+      "messages": [
+        {
+          "content": "q",
+          "role": "user"
+        }
+      ],
+      "resumable": false,
+      "use_rag": false
+    }
+  },
+  "evenements_avant_depart": [
+    {
+      "text": "MCP: docx, elpis-tools",
+      "type": "mode"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status",
+      "waited_ms": 250
+    },
+    {
+      "type": "queue_cleared"
+    },
+    {
+      "text": "Outils prêts…",
+      "type": "mode"
+    },
+    {
+      "text": "je réfléchis",
+      "type": "thinking_token"
+    },
+    {
+      "args": {
+        "chemin": "a.docx"
+      },
+      "id": "c1",
+      "name": "docx_lire",
+      "type": "tool_call"
+    },
+    {
+      "id": "c1",
+      "name": "docx_lire",
+      "ok": true,
+      "result": "contenu",
+      "type": "tool_result"
+    },
+    {
+      "text": "Bonj",
+      "type": "content_token"
+    }
+  ]
+}

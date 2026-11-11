@@ -1,0 +1,4485 @@
+{
+  "entrees": {
+    "scenarios": [
+      {
+        "nom": "moteur_coupe",
+        "config": {
+          "enabled": false
+        },
+        "corps": {
+          "chat_id": "pv-1",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "case_decochee",
+        "uid": 2,
+        "corps": {
+          "chat_id": "pv-2",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "hors_groupe",
+        "config": {
+          "groups": [
+            99
+          ]
+        },
+        "corps": {
+          "chat_id": "pv-3",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "admin_hors_groupe",
+        "uid": 3,
+        "config": {
+          "groups": [
+            99
+          ]
+        },
+        "corps": {
+          "chat_id": "pv-4",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "options_pas_objet",
+        "corps": {
+          "chat_id": "pv-5",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": "x",
+          "resumable": true
+        }
+      },
+      {
+        "nom": "messages_pas_liste",
+        "corps": {
+          "chat_id": "pv-6",
+          "messages": "x",
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "chat_trop_long",
+        "corps": {
+          "chat_id": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "dernier_pas_user",
+        "corps": {
+          "chat_id": "pv-7",
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "a"
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "sans_message",
+        "corps": {
+          "chat_id": "pv-8",
+          "messages": [],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "trop_d_images",
+        "corps": {
+          "chat_id": "pv-9",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 9,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "sans_description",
+        "corps": {
+          "chat_id": "pv-10",
+          "messages": [
+            {
+              "role": "user",
+              "content": "   ",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "image_inconnue",
+        "corps": {
+          "chat_id": "pv-11",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "ref_image_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "injoignable",
+        "panne": true,
+        "corps": {
+          "chat_id": "pv-12",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "jointe_svg",
+        "corps": {
+          "chat_id": "pv-13",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "en bleu"
+                },
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:image/svg+xml;base64,PHN2Zz4="
+                  }
+                }
+              ],
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "enrichi_connecteur_absent",
+        "config": {
+          "enhance_enabled": true
+        },
+        "corps": {
+          "chat_id": "pv-14",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "enhance": true
+          },
+          "resumable": true,
+          "connector_id": 999
+        }
+      },
+      {
+        "nom": "compression_en_cours",
+        "avant": [
+          [
+            "compression",
+            "pv-15"
+          ]
+        ],
+        "corps": {
+          "chat_id": "pv-15",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "generation_en_cours",
+        "avant": [
+          [
+            "verrou",
+            "pv-16"
+          ]
+        ],
+        "corps": {
+          "chat_id": "pv-16",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "complet",
+        "etats": [
+          {
+            "status": "queued",
+            "queue_position": 1
+          },
+          {
+            "status": "generating",
+            "started": "{maintenant}"
+          }
+        ],
+        "corps": {
+          "chat_id": "t-1",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "modifier",
+        "corps": {
+          "chat_id": "t-1",
+          "messages": [
+            "{chat}",
+            {
+              "role": "user",
+              "content": "Plus sombre",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "ref_image_id": "{img:complet}"
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "echec",
+        "etats": [
+          {
+            "status": "failed",
+            "error": {
+              "message": "CUDA OOM"
+            }
+          }
+        ],
+        "corps": {
+          "chat_id": "t-2",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "stop",
+        "etats": [
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          },
+          {
+            "status": "generating"
+          }
+        ],
+        "stop": 2,
+        "corps": {
+          "chat_id": "t-3",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "jointe",
+        "corps": {
+          "chat_id": "t-4",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "La m\u00eame en bleu"
+                },
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "{source}"
+                  }
+                }
+              ],
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "strength": 0.5
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "ephemere",
+        "corps": {
+          "chat_id": "",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true,
+          "ephemeral": true
+        }
+      },
+      {
+        "nom": "enrichi",
+        "config": {
+          "enhance_enabled": true
+        },
+        "enrichi": "A lighthouse in a storm, engraving",
+        "corps": {
+          "chat_id": "t-5",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "enhance": true
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "enrichi_en_panne",
+        "config": {
+          "enhance_enabled": true
+        },
+        "enrichi": null,
+        "corps": {
+          "chat_id": "t-6",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024,
+            "enhance": true
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "greffe",
+        "avant": [
+          [
+            "chat",
+            "t-7",
+            "t",
+            [
+              {
+                "role": "user",
+                "content": "\u00e9cris a"
+              },
+              {
+                "role": "assistant",
+                "content": "",
+                "isTruncated": true,
+                "tool_history": [
+                  {
+                    "name": "write_file",
+                    "args": {
+                      "path": "a"
+                    },
+                    "result": "ok"
+                  }
+                ]
+              }
+            ]
+          ]
+        ],
+        "corps": {
+          "chat_id": "t-7",
+          "messages": [
+            {
+              "role": "user",
+              "content": "\u00e9cris a"
+            },
+            {
+              "role": "assistant",
+              "content": "",
+              "isTruncated": true
+            },
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "compaction_reportee",
+        "avant": [
+          [
+            "chat",
+            "t-8",
+            "Mon titre",
+            [
+              {
+                "role": "user",
+                "content": "avant"
+              },
+              {
+                "role": "assistant",
+                "content": "ok"
+              }
+            ],
+            3
+          ]
+        ],
+        "corps": {
+          "chat_id": "t-8",
+          "messages": [
+            {
+              "role": "user",
+              "content": "avant"
+            },
+            {
+              "role": "assistant",
+              "content": "ok"
+            },
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "graine_et_negatif",
+        "corps": {
+          "chat_id": "t-9",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 2,
+            "ratio": "16:9",
+            "side": 1024,
+            "seed": 42,
+            "negative_prompt": "flou",
+            "steps": 12
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "conflit",
+        "pendant": [
+          "Autre onglet",
+          [
+            {
+              "role": "user",
+              "content": "r\u00e9\u00e9crit ailleurs"
+            }
+          ]
+        ],
+        "corps": {
+          "chat_id": "t-11",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      },
+      {
+        "nom": "titre_par_defaut",
+        "avant": [
+          [
+            "chat",
+            "t-10",
+            "Nouveau chat",
+            [
+              {
+                "role": "user",
+                "content": "q"
+              },
+              {
+                "role": "assistant",
+                "content": "r"
+              }
+            ]
+          ]
+        ],
+        "corps": {
+          "chat_id": "t-10",
+          "messages": [
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            },
+            {
+              "role": "user",
+              "content": "  Un   chat\troux sur un toit de Paris  ",
+              "image_request": {
+                "size": "1024x576"
+              }
+            }
+          ],
+          "image_gen": {
+            "size": "1024x576",
+            "n": 1,
+            "ratio": "16:9",
+            "side": 1024
+          },
+          "resumable": true
+        }
+      }
+    ],
+    "outil": [
+      {
+        "nom": "plafonds",
+        "config": {
+          "tool_max_calls": 2,
+          "max_n": 4
+        },
+        "appels": [
+          {
+            "prompt": "a cat",
+            "n": 3
+          },
+          {
+            "prompt": "a dog",
+            "n": 5
+          },
+          {
+            "prompt": "a bird"
+          }
+        ]
+      },
+      {
+        "nom": "images_epuisees",
+        "config": {
+          "tool_max_calls": 5,
+          "max_n": 2
+        },
+        "appels": [
+          {
+            "prompt": "a cat",
+            "n": 2
+          },
+          {
+            "prompt": "a dog"
+          }
+        ]
+      },
+      {
+        "nom": "references",
+        "appels": [
+          {
+            "prompt": "x",
+            "ref_image_id": "zz"
+          },
+          {
+            "prompt": "x",
+            "ref_image_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "prompt": "un phare",
+            "n": "deux",
+            "aspect_ratio": "16:9"
+          }
+        ]
+      },
+      {
+        "nom": "arguments",
+        "prefs": {
+          "side": 768,
+          "ratio": "4:3"
+        },
+        "appels": [
+          [
+            "pas",
+            "un",
+            "objet"
+          ],
+          {
+            "prompt": "  "
+          },
+          {
+            "prompt": "a lighthouse",
+            "aspect_ratio": "7:3",
+            "n": 2.7
+          }
+        ]
+      },
+      {
+        "nom": "formats",
+        "appels": [
+          {
+            "prompt": "wide",
+            "aspect_ratio": "21:9"
+          },
+          {
+            "prompt": "tall",
+            "aspect_ratio": "9:16"
+          }
+        ]
+      },
+      {
+        "nom": "liberees",
+        "config": {
+          "max_n": 2
+        },
+        "appels": [
+          {
+            "prompt": " ",
+            "n": 2
+          },
+          {
+            "prompt": "a cat",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "nom": "coupe_en_cours",
+        "appels": [
+          {
+            "prompt": "a cat"
+          },
+          [
+            "config",
+            {
+              "enabled": false
+            }
+          ],
+          {
+            "prompt": "a dog"
+          }
+        ]
+      },
+      {
+        "nom": "moteur_coupe",
+        "config": {
+          "enabled": false
+        },
+        "appels": []
+      }
+    ],
+    "tailles": [
+      [
+        {},
+        "1:1",
+        1024
+      ],
+      [
+        {},
+        "16:9",
+        1024
+      ],
+      [
+        {
+          "max_side": 768
+        },
+        "16:9",
+        1536
+      ],
+      [
+        {},
+        "9:21",
+        512
+      ],
+      [
+        {
+          "size_policy": "fixed",
+          "sizes": [
+            "1024x1024"
+          ]
+        },
+        "16:9",
+        1024
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "1024x1024",
+            "1792x1024"
+          ]
+        },
+        "16:9",
+        1024
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "1024x1024",
+            "1792x1024"
+          ]
+        },
+        "3:4",
+        1024
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "pas une taille"
+          ]
+        },
+        "4:3",
+        1024
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "1024x1024",
+            "1024x1024"
+          ]
+        },
+        "1:1",
+        2048
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "512x512",
+            "1024x1024"
+          ]
+        },
+        "1:1",
+        1024
+      ],
+      [
+        {
+          "provider": "openai",
+          "size_policy": "fixed",
+          "sizes": [
+            "1024x1792",
+            "1792x1024"
+          ]
+        },
+        "1:1",
+        1024
+      ]
+    ],
+    "sources": [
+      "texte",
+      [],
+      [
+        {
+          "type": "text",
+          "text": "x"
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "http://x/a.png"
+          }
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/gif;base64,R0lGOD"
+          }
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/PNG;base64,iVBORw0KGgo="
+          }
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/webp,UklGRg=="
+          }
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": null
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/jpeg;base64,/9j/"
+          }
+        }
+      ],
+      [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,@@"
+          }
+        }
+      ]
+    ],
+    "etat_compaction": "<summary>r\u00e9sum\u00e9</summary>"
+  },
+  "sorties": {
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAIAAAAuKetIAAAAU0lEQVR4nO3PQQ3AIADAQEAIwlCH1IngcVnSU9DOfc/4s6UDXjWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaA1oDWgNaB9gfYBeCMAmoUAAAAASUVORK5CYII=",
+    "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAIAAAD2HxkiAAADWElEQVR4nO3TIQEAIADAMECi6Z+HWMS4YEtw87nPHUBn1QHwOxNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEHuTHAM+o42CQAAAAABJRU5ErkJggg==",
+    "scenarios": [
+      {
+        "statut": 503,
+        "corps": "{\"detail\":{\"code\":\"unavailable\",\"message\":\"Aucun moteur d'images n'est configur\u00e9.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":{\"code\":\"forbidden\",\"message\":\"La g\u00e9n\u00e9ration d'images est d\u00e9sactiv\u00e9e dans vos Param\u00e8tres.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":{\"code\":\"forbidden\",\"message\":\"La g\u00e9n\u00e9ration d'images n'est pas ouverte \u00e0 votre compte.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img1>",
+                "url": "/api/images/<img1>",
+                "thumb_url": "/api/images/<img1>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "pv-4",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img1>",
+                "url": "/api/images/<img1>",
+                "thumb_url": "/api/images/<img1>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img1>",
+                  "url": "/api/images/<img1>",
+                  "thumb_url": "/api/images/<img1>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "pv-4",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "pv-4",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"image_gen doit \u00eatre un objet\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"messages doit \u00eatre une liste\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Conversation invalide.\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"messages: le dernier message doit \u00eatre la demande\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"messages: le dernier message doit \u00eatre la demande\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":{\"code\":\"invalid\",\"message\":\"Nombre d'images entre 1 et 4.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":{\"code\":\"invalid\",\"message\":\"D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 404,
+        "corps": "{\"detail\":{\"code\":\"invalid\",\"message\":\"Image \u00e0 modifier introuvable ou expir\u00e9e.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 503,
+        "corps": "{\"detail\":{\"code\":\"unavailable\",\"message\":\"Moteur d'images injoignable. V\u00e9rifiez Administration \u203a Mod\u00e8les et services \u203a Images.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":{\"code\":\"invalid\",\"message\":\"Image jointe : PNG, JPEG ou WEBP seulement.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":{\"code\":\"engine_unavailable\",\"reason\":\"missing\",\"message\":\"Le serveur s\u00e9lectionn\u00e9 n'existe plus.\"}}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":\"compression_running\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 409,
+        "corps": "{\"detail\":\"generation_running\"}",
+        "evenements": null,
+        "chat": null,
+        "soumissions": [],
+        "annule": false,
+        "run": null,
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": 1,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_progress",
+            "state": "generating",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img2>",
+                "url": "/api/images/<img2>",
+                "thumb_url": "/api/images/<img2>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-1",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img2>",
+                "url": "/api/images/<img2>",
+                "thumb_url": "/api/images/<img2>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img2>",
+                  "url": "/api/images/<img2>",
+                  "thumb_url": "/api/images/<img2>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-1",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-1",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img3>",
+                "url": "/api/images/<img3>",
+                "thumb_url": "/api/images/<img3>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Plus sombre"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Plus sombre \u00bb]",
+            "chat_id": "t-1",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img3>",
+                "url": "/api/images/<img3>",
+                "thumb_url": "/api/images/<img3>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            }
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "run_ids": [
+                "<run>"
+              ],
+              "generated_images": [
+                {
+                  "id": "<img2>",
+                  "url": "/api/images/<img2>",
+                  "thumb_url": "/api/images/<img2>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "seed": "<seed>",
+                  "mime": "image/png"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "user",
+              "content": "Plus sombre",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "ref_image_id": "<img2>",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Plus sombre \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img3>",
+                  "url": "/api/images/<img3>",
+                  "thumb_url": "/api/images/<img3>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Plus sombre",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png",
+            "init_image": "<image>",
+            "strength": 0.75
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-1",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-1",
+            "Plus sombre",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": true,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_error",
+            "code": "refused",
+            "message": "Le moteur n'a pas pu g\u00e9n\u00e9rer l'image.",
+            "retryable": false
+          },
+          {
+            "type": "final",
+            "assistant": "[\u00c9chec de la g\u00e9n\u00e9ration d'image : Le moteur n'a pas pu g\u00e9n\u00e9rer l'image.]",
+            "chat_id": "t-2",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {},
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "image_error": {
+              "code": "refused",
+              "message": "Le moteur n'a pas pu g\u00e9n\u00e9rer l'image.",
+              "retryable": false
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[\u00c9chec de la g\u00e9n\u00e9ration d'image : Le moteur n'a pas pu g\u00e9n\u00e9rer l'image.]",
+              "image_error": {
+                "code": "refused",
+                "message": "Le moteur n'a pas pu g\u00e9n\u00e9rer l'image.",
+                "retryable": false
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "error",
+          "refused",
+          "t-2",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_progress",
+            "state": "generating",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_error",
+            "code": "cancelled",
+            "message": "G\u00e9n\u00e9ration arr\u00eat\u00e9e.",
+            "retryable": true
+          },
+          {
+            "type": "final",
+            "assistant": "[G\u00e9n\u00e9ration d'image arr\u00eat\u00e9e]",
+            "chat_id": "t-3",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {},
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "image_error": {
+              "code": "cancelled",
+              "message": "G\u00e9n\u00e9ration arr\u00eat\u00e9e.",
+              "retryable": true
+            },
+            "cancelled": true,
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[G\u00e9n\u00e9ration d'image arr\u00eat\u00e9e]",
+              "image_error": {
+                "code": "cancelled",
+                "message": "G\u00e9n\u00e9ration arr\u00eat\u00e9e.",
+                "retryable": true
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": true,
+        "run": [
+          "image",
+          "cancelled",
+          "cancelled",
+          "t-3",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": []
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img4>",
+                "url": "/api/images/<img4>",
+                "thumb_url": "/api/images/<img4>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "La m\u00eame en bleu"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab La m\u00eame en bleu \u00bb]",
+            "chat_id": "t-4",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img4>",
+                "url": "/api/images/<img4>",
+                "thumb_url": "/api/images/<img4>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "La m\u00eame en bleu"
+          }
+        ],
+        "chat": {
+          "title": "La m\u00eame en bleu",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "La m\u00eame en bleu"
+                },
+                {
+                  "type": "image_url",
+                  "image_url": {
+                    "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAIAAAD2HxkiAAADWElEQVR4nO3TIQEAIADAMECi6Z+HWMS4YEtw87nPHUBn1QHwOxNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEDMhxEwIMRNCzIQQMyHETAgxE0LMhBAzIcRMCDETQsyEEHuTHAM+o42CQAAAAABJRU5ErkJggg=="
+                  }
+                }
+              ],
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "strength": 0.5,
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab La m\u00eame en bleu \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img4>",
+                  "url": "/api/images/<img4>",
+                  "thumb_url": "/api/images/<img4>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "La m\u00eame en bleu",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png",
+            "init_image": "<image>",
+            "strength": 0.5
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-4",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-4",
+            "La m\u00eame en bleu",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": true,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img5>",
+                "url": "/api/images/<img5>",
+                "thumb_url": "/api/images/<img5>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "<chat>",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img5>",
+                "url": "/api/images/<img5>",
+                "thumb_url": "/api/images/<img5>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": null,
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "<chat>",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            null,
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_progress",
+            "state": "enhancing",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_prompt",
+            "text": "A lighthouse in a storm, engraving"
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img6>",
+                "url": "/api/images/<img6>",
+                "thumb_url": "/api/images/<img6>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-5",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img6>",
+                "url": "/api/images/<img6>",
+                "thumb_url": "/api/images/<img6>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "A lighthouse in a storm, engraving",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "enhance": true,
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img6>",
+                  "url": "/api/images/<img6>",
+                  "thumb_url": "/api/images/<img6>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              },
+              "revised_prompt": "A lighthouse in a storm, engraving"
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "A lighthouse in a storm, engraving",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-5",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-5",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "revised_prompt": "A lighthouse in a storm, engraving",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image_progress",
+            "state": "enhancing",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "info",
+            "text": "Description non enrichie (mod\u00e8le indisponible) : envoy\u00e9e telle quelle."
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img7>",
+                "url": "/api/images/<img7>",
+                "thumb_url": "/api/images/<img7>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-6",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img7>",
+                "url": "/api/images/<img7>",
+                "thumb_url": "/api/images/<img7>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "enhance": true,
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img7>",
+                  "url": "/api/images/<img7>",
+                  "thumb_url": "/api/images/<img7>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-6",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-6",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img8>",
+                "url": "/api/images/<img8>",
+                "thumb_url": "/api/images/<img8>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-7",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img8>",
+                "url": "/api/images/<img8>",
+                "thumb_url": "/api/images/<img8>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            }
+          }
+        ],
+        "chat": {
+          "title": "t",
+          "messages": [
+            {
+              "role": "user",
+              "content": "\u00e9cris a"
+            },
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_history": [
+                {
+                  "name": "write_file",
+                  "args": {
+                    "path": "a"
+                  },
+                  "result": "ok"
+                }
+              ],
+              "isTruncated": true
+            },
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img8>",
+                  "url": "/api/images/<img8>",
+                  "thumb_url": "/api/images/<img8>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-7",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-7",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img9>",
+                "url": "/api/images/<img9>",
+                "thumb_url": "/api/images/<img9>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-8",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img9>",
+                "url": "/api/images/<img9>",
+                "thumb_url": "/api/images/<img9>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            }
+          }
+        ],
+        "chat": {
+          "title": "Mon titre",
+          "messages": [
+            {
+              "role": "system",
+              "content": "[COMPRESSION_META v=1 round=3 covered_turns=2]\n[COMPRESSED_SUMMARY_V1]\n<summary>r\u00e9sum\u00e9</summary>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 2 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)"
+            },
+            {
+              "role": "user",
+              "content": "avant"
+            },
+            {
+              "role": "assistant",
+              "content": "ok"
+            },
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img9>",
+                  "url": "/api/images/<img9>",
+                  "thumb_url": "/api/images/<img9>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-8",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-8",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 2
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img10>",
+                "url": "/api/images/<img10>",
+                "thumb_url": "/api/images/<img10>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": 42
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-9",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img10>",
+                "url": "/api/images/<img10>",
+                "thumb_url": "/api/images/<img10>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": 42
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Un phare sous l'orage",
+          "messages": [
+            {
+              "role": "user",
+              "content": "Un phare sous l'orage",
+              "image_request": {
+                "size": "1024x576",
+                "n": 2,
+                "seed": 42,
+                "steps": 12,
+                "side": 1024,
+                "ratio": "16:9",
+                "negative_prompt": "flou",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img10>",
+                  "url": "/api/images/<img10>",
+                  "thumb_url": "/api/images/<img10>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": 42
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": 42,
+            "batch_count": 2,
+            "output_format": "png",
+            "negative_prompt": "flou",
+            "sample_params": {
+              "sample_steps": 12
+            }
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-9",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-9",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "flou",
+              "steps": 12,
+              "edit": false,
+              "seed": 42
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img11>",
+                "url": "/api/images/<img11>",
+                "thumb_url": "/api/images/<img11>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un phare sous l'orage"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un phare sous l'orage \u00bb]",
+            "chat_id": "t-11",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img11>",
+                "url": "/api/images/<img11>",
+                "thumb_url": "/api/images/<img11>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": false,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "persist_error": "conflict",
+            "title": "Un phare sous l'orage"
+          }
+        ],
+        "chat": {
+          "title": "Autre onglet",
+          "messages": [
+            {
+              "role": "user",
+              "content": "r\u00e9\u00e9crit ailleurs"
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un phare sous l'orage",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-11",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-11",
+            "Un phare sous l'orage",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "statut": 200,
+        "corps": null,
+        "evenements": [
+          {
+            "type": "mode",
+            "kind": "image",
+            "text": "G\u00e9n\u00e9ration d'image\u2026"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1
+          },
+          {
+            "type": "image",
+            "items": [
+              {
+                "id": "<img12>",
+                "url": "/api/images/<img12>",
+                "thumb_url": "/api/images/<img12>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "Un   chat\troux sur un toit de Paris"
+          },
+          {
+            "type": "final",
+            "assistant": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un chat roux sur un toit de Paris \u00bb]",
+            "chat_id": "t-10",
+            "run_ids": [
+              "<run>"
+            ],
+            "generated_images": [
+              {
+                "id": "<img12>",
+                "url": "/api/images/<img12>",
+                "thumb_url": "/api/images/<img12>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "image": true,
+            "revised_prompt": "",
+            "image_meta": {
+              "model": "qwen-image"
+            },
+            "persisted": true,
+            "metrics": {
+              "model": "qwen-image"
+            },
+            "title": "Un chat roux sur un toit de "
+          }
+        ],
+        "chat": {
+          "title": "Un chat roux sur un toit de ",
+          "messages": [
+            {
+              "role": "user",
+              "content": "q"
+            },
+            {
+              "role": "assistant",
+              "content": "r"
+            },
+            {
+              "role": "user",
+              "content": "  Un   chat\troux sur un toit de Paris  ",
+              "image_request": {
+                "size": "1024x576",
+                "n": 1,
+                "side": 1024,
+                "ratio": "16:9",
+                "model": "qwen-image"
+              }
+            },
+            {
+              "role": "assistant",
+              "run_ids": [
+                "<run>"
+              ],
+              "content": "[Image g\u00e9n\u00e9r\u00e9e : \u00ab Un chat roux sur un toit de Paris \u00bb]",
+              "generated_images": [
+                {
+                  "id": "<img12>",
+                  "url": "/api/images/<img12>",
+                  "thumb_url": "/api/images/<img12>?thumb=1",
+                  "width": 64,
+                  "height": 48,
+                  "mime": "image/png",
+                  "seed": "<seed>"
+                }
+              ],
+              "image_meta": {
+                "model": "qwen-image"
+              }
+            }
+          ]
+        },
+        "soumissions": [
+          {
+            "prompt": "Un   chat\troux sur un toit de Paris",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "annule": false,
+        "run": [
+          "image",
+          "ok",
+          "",
+          "t-10",
+          "qwen-image"
+        ],
+        "verrou": false,
+        "images": [
+          [
+            "t-10",
+            "Un   chat\troux sur un toit de Paris",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      }
+    ],
+    "outil": [
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": true, \"images\": [{\"id\": \"<img13>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}",
+          "{\"ok\": true, \"images\": [{\"id\": \"<img14>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}",
+          "{\"ok\": false, \"error\": \"Limit reached: at most 2 image generations per turn. Show the user what you have.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 1024,
+            "n": 3,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img13>",
+                "url": "/api/images/<img13>",
+                "thumb_url": "/api/images/<img13>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a cat"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 1024,
+            "n": 1,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img14>",
+                "url": "/api/images/<img14>",
+                "thumb_url": "/api/images/<img14>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a dog"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img13>",
+              "url": "/api/images/<img13>",
+              "thumb_url": "/api/images/<img13>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            },
+            {
+              "id": "<img14>",
+              "url": "/api/images/<img14>",
+              "thumb_url": "/api/images/<img14>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "a cat",
+            "width": 1024,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 3,
+            "output_format": "png"
+          },
+          {
+            "prompt": "a dog",
+            "width": 1024,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "a cat",
+            "qwen-image",
+            {
+              "size": "1024x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ],
+          [
+            "chat-outil",
+            "a dog",
+            "qwen-image",
+            {
+              "size": "1024x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": true, \"images\": [{\"id\": \"<img15>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}",
+          "{\"ok\": false, \"error\": \"Limit reached: at most 2 images per turn. Show the user what you have.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 1024,
+            "n": 2,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img15>",
+                "url": "/api/images/<img15>",
+                "thumb_url": "/api/images/<img15>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a cat"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img15>",
+              "url": "/api/images/<img15>",
+              "thumb_url": "/api/images/<img15>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "a cat",
+            "width": 1024,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 2,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "a cat",
+            "qwen-image",
+            {
+              "size": "1024x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": false, \"error\": \"Unknown ref_image_id.\"}",
+          "{\"ok\": false, \"error\": \"Image to modify not found or expired.\"}",
+          "{\"ok\": true, \"images\": [{\"id\": \"<img16>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_error",
+            "source": "tool",
+            "code": "invalid",
+            "message": "Unknown ref_image_id.",
+            "retryable": false
+          },
+          {
+            "type": "image_error",
+            "source": "tool",
+            "code": "invalid",
+            "message": "Image to modify not found or expired.",
+            "retryable": false
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 576,
+            "n": 1,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img16>",
+                "url": "/api/images/<img16>",
+                "thumb_url": "/api/images/<img16>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "un phare"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img16>",
+              "url": "/api/images/<img16>",
+              "thumb_url": "/api/images/<img16>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "un phare",
+            "width": 1024,
+            "height": 576,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "un phare",
+            "qwen-image",
+            {
+              "size": "1024x576",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": false, \"error\": \"D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.\"}",
+          "{\"ok\": false, \"error\": \"D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.\"}",
+          "{\"ok\": true, \"images\": [{\"id\": \"<img17>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_error",
+            "source": "tool",
+            "code": "invalid",
+            "message": "D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.",
+            "retryable": false
+          },
+          {
+            "type": "image_error",
+            "source": "tool",
+            "code": "invalid",
+            "message": "D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.",
+            "retryable": false
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 768,
+            "height": 768,
+            "n": 2,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img17>",
+                "url": "/api/images/<img17>",
+                "thumb_url": "/api/images/<img17>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a lighthouse"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img17>",
+              "url": "/api/images/<img17>",
+              "thumb_url": "/api/images/<img17>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "a lighthouse",
+            "width": 768,
+            "height": 768,
+            "seed": "<seed>",
+            "batch_count": 2,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "a lighthouse",
+            "qwen-image",
+            {
+              "size": "768x768",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": true, \"images\": [{\"id\": \"<img18>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}",
+          "{\"ok\": true, \"images\": [{\"id\": \"<img19>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 448,
+            "n": 1,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img18>",
+                "url": "/api/images/<img18>",
+                "thumb_url": "/api/images/<img18>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "wide"
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 576,
+            "height": 1024,
+            "n": 1,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img19>",
+                "url": "/api/images/<img19>",
+                "thumb_url": "/api/images/<img19>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "tall"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img18>",
+              "url": "/api/images/<img18>",
+              "thumb_url": "/api/images/<img18>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            },
+            {
+              "id": "<img19>",
+              "url": "/api/images/<img19>",
+              "thumb_url": "/api/images/<img19>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "wide",
+            "width": 1024,
+            "height": 448,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          },
+          {
+            "prompt": "tall",
+            "width": 576,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "wide",
+            "qwen-image",
+            {
+              "size": "1024x448",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ],
+          [
+            "chat-outil",
+            "tall",
+            "qwen-image",
+            {
+              "size": "576x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": false, \"error\": \"D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.\"}",
+          "{\"ok\": true, \"images\": [{\"id\": \"<img20>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_error",
+            "source": "tool",
+            "code": "invalid",
+            "message": "D\u00e9crivez l'image \u00e0 g\u00e9n\u00e9rer.",
+            "retryable": false
+          },
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 1024,
+            "n": 2,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img20>",
+                "url": "/api/images/<img20>",
+                "thumb_url": "/api/images/<img20>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a cat"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img20>",
+              "url": "/api/images/<img20>",
+              "thumb_url": "/api/images/<img20>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "a cat",
+            "width": 1024,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 2,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "a cat",
+            "qwen-image",
+            {
+              "size": "1024x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": {
+          "type": "function",
+          "function": {
+            "name": "generate_image",
+            "description": "Generate images from a text description with the image engine and show them to the user in the chat. Use it when the user asks for a picture, an illustration, a logo, a mock-up or any visual. The images appear under your message automatically: do not describe links or paste URLs. To modify an image generated earlier, pass its id as ref_image_id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "description": "Detailed visual description in English: subject, setting, style, lighting, composition. Text to render goes in double quotes, verbatim."
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "4:3",
+                    "3:4",
+                    "3:2",
+                    "2:3",
+                    "16:9",
+                    "9:16",
+                    "21:9",
+                    "9:21"
+                  ],
+                  "description": "Width:height (default 1:1)."
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "Number of images (default 1)."
+                },
+                "ref_image_id": {
+                  "type": "string",
+                  "description": "Id of an image generated earlier, to modify it."
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          }
+        },
+        "resultats": [
+          "{\"ok\": true, \"images\": [{\"id\": \"<img21>\", \"width\": 64, \"height\": 48}], \"note\": \"Displayed to the user under your message.\"}",
+          "{\"ok\": false, \"error\": \"Image engine disabled.\"}"
+        ],
+        "evenements": [
+          {
+            "type": "image_progress",
+            "state": "queued",
+            "queue_position": null,
+            "elapsed_s": "<t>",
+            "eta_s": "<t>",
+            "pct": null,
+            "pct_real": false,
+            "width": 1024,
+            "height": 1024,
+            "n": 1,
+            "source": "tool"
+          },
+          {
+            "type": "image",
+            "source": "tool",
+            "items": [
+              {
+                "id": "<img21>",
+                "url": "/api/images/<img21>",
+                "thumb_url": "/api/images/<img21>?thumb=1",
+                "width": 64,
+                "height": 48,
+                "mime": "image/png",
+                "seed": "<seed>"
+              }
+            ],
+            "prompt": "a cat"
+          }
+        ],
+        "sink": {
+          "images": [
+            {
+              "id": "<img21>",
+              "url": "/api/images/<img21>",
+              "thumb_url": "/api/images/<img21>?thumb=1",
+              "width": 64,
+              "height": 48,
+              "mime": "image/png",
+              "seed": "<seed>"
+            }
+          ],
+          "meta": {
+            "model": "qwen-image"
+          }
+        },
+        "soumissions": [
+          {
+            "prompt": "a cat",
+            "width": 1024,
+            "height": 1024,
+            "seed": "<seed>",
+            "batch_count": 1,
+            "output_format": "png"
+          }
+        ],
+        "images": [
+          [
+            "chat-outil",
+            "a cat",
+            "qwen-image",
+            {
+              "size": "1024x1024",
+              "provider": "sdcpp",
+              "negative_prompt": "",
+              "steps": 0,
+              "edit": false,
+              "source": "tool",
+              "seed": "<seed>"
+            }
+          ]
+        ]
+      },
+      {
+        "definition": null,
+        "resultats": [],
+        "evenements": [],
+        "sink": {},
+        "soumissions": [],
+        "images": []
+      }
+    ],
+    "tailles": [
+      "1024x1024",
+      "1024x576",
+      "768x448",
+      "192x512",
+      "1024x576",
+      "1792x1024",
+      "1024x1024",
+      "1536x1024",
+      "1024x1024",
+      "512x512",
+      "1024x1792"
+    ],
+    "sources": [
+      null,
+      null,
+      null,
+      null,
+      {
+        "erreur": [
+          "invalid",
+          "Image jointe : PNG, JPEG ou WEBP seulement.",
+          400
+        ]
+      },
+      {
+        "octets": "iVBORw0KGgo="
+      },
+      {
+        "octets": "UklGRg=="
+      },
+      {
+        "octets": "/9j/"
+      },
+      {
+        "octets": ""
+      }
+    ]
+  }
+}

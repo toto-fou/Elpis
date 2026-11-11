@@ -1,0 +1,233 @@
+{
+  "entrees": {
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 2,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 3,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F4",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 4,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F5",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 6,
+        "etapes": [
+          {
+            "generer": 1
+          }
+        ],
+        "id": "R6",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 22,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F7",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 24,
+        "etapes": [
+          {
+            "generer": 1
+          }
+        ],
+        "id": "R8",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 45,
+        "etapes": [
+          {
+            "generer": 1
+          }
+        ],
+        "id": "R9",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 47,
+        "etapes": [
+          {
+            "generer": 1
+          }
+        ],
+        "id": "R10",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 49,
+        "etapes": [
+          {
+            "echec_transport": true
+          }
+        ],
+        "id": "F11",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 50,
+        "etapes": [
+          {
+            "generer": 1
+          }
+        ],
+        "id": "R12",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      10,
+      30,
+      53
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 4,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=10": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "R6"
+      ]
+    },
+    "t=30": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "R6",
+        "F7",
+        "R8"
+      ]
+    },
+    "t=53": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "R6",
+        "F7",
+        "R8",
+        "R9",
+        "R10",
+        "F11",
+        "R12"
+      ]
+    }
+  },
+  "ordre": [
+    "t=0 F1 admis",
+    "t=0 F1 echec_transport",
+    "t=1 F2 admis",
+    "t=1 F2 echec_transport",
+    "t=2 F3 admis",
+    "t=2 F3 echec_transport",
+    "t=3 F4 admis",
+    "t=3 F4 echec_transport",
+    "t=4 F5 admis",
+    "t=4 F5 echec_transport",
+    "t=6 R6 refus_disjoncteur",
+    "t=22 F7 admis",
+    "t=22 F7 echec_transport",
+    "t=24 R8 refus_disjoncteur",
+    "t=45 R9 admis",
+    "t=46 R9 fin",
+    "t=47 R10 admis",
+    "t=48 R10 fin",
+    "t=49 F11 admis",
+    "t=49 F11 echec_transport",
+    "t=50 R12 admis",
+    "t=51 R12 fin"
+  ]
+}

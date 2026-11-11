@@ -1,0 +1,872 @@
+{
+  "source": "migration-kit/vecteurs/mcp_panneau.py",
+  "arbres": [
+    {
+      "arbre": {
+        "package.json": "7b2273637269707473223a207b227374617274223a20226e6f64652078227d7d",
+        "main.py": ""
+      },
+      "commande": "npm start"
+    },
+    {
+      "arbre": {
+        "package.json": "7b2273637269707473223a207b226275696c64223a202278227d7d",
+        "server.py": ""
+      },
+      "commande": "python server.py"
+    },
+    {
+      "arbre": {
+        "package.json": "7b2273637269707473223a205b227374617274225d7d"
+      },
+      "commande": "npm start"
+    },
+    {
+      "arbre": {
+        "package.json": "7b2273637269707473223a202272657374617274227d"
+      },
+      "commande": "npm start"
+    },
+    {
+      "arbre": {
+        "package.json": "7b2273637269707473223a20357d",
+        "index.js": ""
+      },
+      "commande": "node index.js"
+    },
+    {
+      "arbre": {
+        "package.json": "efbbbf7b2273637269707473223a207b227374617274223a20317d7d",
+        "app.js": ""
+      },
+      "commande": "node app.js"
+    },
+    {
+      "arbre": {
+        "package.json": "706173206475206a736f6e",
+        "app.py": ""
+      },
+      "commande": "python app.py"
+    },
+    {
+      "arbre": {
+        "package.json": "5b2273637269707473225d",
+        "__main__.py": ""
+      },
+      "commande": "python __main__.py"
+    },
+    {
+      "arbre": {
+        "package.json": "ff7b2273637269707473223a207b227374617274223a20317d7d",
+        "main.py": ""
+      },
+      "commande": "python main.py"
+    },
+    {
+      "arbre": {
+        "start.sh": "23212f62696e2f73680a2320636f6d6d656e74616972650a0a202020707974686f6e202d6d2073657276657572202d2d706f7274203920200a"
+      },
+      "commande": "python -m serveur --port 9"
+    },
+    {
+      "arbre": {
+        "START.TXT": "6e7078207372760a"
+      },
+      "commande": "npx srv"
+    },
+    {
+      "arbre": {
+        "start": "efbbbf2320630d0a6e6f646520732e6a730d0a"
+      },
+      "commande": "node s.js"
+    },
+    {
+      "arbre": {
+        "start": "efbbbffffe",
+        "main.py": ""
+      },
+      "commande": "python main.py"
+    },
+    {
+      "arbre": {
+        "start.bat": "ff707974686f6e8020782e70790ae282"
+      },
+      "commande": "python x.py"
+    },
+    {
+      "arbre": {
+        "start.txt": "23207269656e0a0a",
+        "server.js": ""
+      },
+      "commande": "node server.js"
+    },
+    {
+      "arbre": {
+        "sous/dossier/main.py": ""
+      },
+      "commande": "python sous/dossier/main.py"
+    },
+    {
+      "arbre": {
+        "node_modules/pkg/index.js": ""
+      },
+      "commande": ""
+    },
+    {
+      "arbre": {
+        "main.py": "",
+        "server.py": ""
+      },
+      "commande": "python main.py"
+    },
+    {
+      "arbre": {
+        "Main.PY": ""
+      },
+      "commande": "python Main.PY"
+    },
+    {
+      "arbre": {
+        "start": "",
+        "start.sh": "676f0a"
+      },
+      "commande": "go"
+    },
+    {
+      "arbre": {
+        "a/start.sh": "72756e20610a",
+        "main.py": ""
+      },
+      "commande": "run a"
+    },
+    {
+      "arbre": {},
+      "commande": ""
+    },
+    {
+      "arbre": {
+        "vide/": ""
+      },
+      "commande": ""
+    },
+    {
+      "arbre": {
+        "start": "20200b0c6e706d202072756e1c2069676e6f72c3a90a"
+      },
+      "commande": "npm  run"
+    },
+    {
+      "arbre": {
+        "start": "c2a0707974686f6ec2a0782e7079c2a00a"
+      },
+      "commande": "python\u00a0x.py"
+    },
+    {
+      "arbre": {
+        "start": "e280a8232063e280a9636d6420e280a8780a"
+      },
+      "commande": "cmd"
+    },
+    {
+      "arbre": {
+        "src/node_modules/app.js": "",
+        "lib/index.js": ""
+      },
+      "commande": "node lib/index.js"
+    }
+  ],
+  "noms": [
+    {
+      "nom": "mon-serveur_v2",
+      "assaini": "mon-serveur_v2"
+    },
+    {
+      "nom": "Mon Serveur!",
+      "assaini": "MonServeur"
+    },
+    {
+      "nom": "\u00e9\u4e2d\u0663\u00b2\u216b\u2153\u3007",
+      "assaini": "\u00e9\u4e2d\u0663\u00b2\u216b\u2153\u3007"
+    },
+    {
+      "nom": "a\u0301b",
+      "assaini": "ab"
+    },
+    {
+      "nom": "emoji\ud83d\ude00x",
+      "assaini": "emojix"
+    },
+    {
+      "nom": "\uff46\uff55\uff4c\uff4c",
+      "assaini": "\uff46\uff55\uff4c\uff4c"
+    },
+    {
+      "nom": ".cache",
+      "assaini": "cache"
+    },
+    {
+      "nom": "../..",
+      "assaini": ""
+    },
+    {
+      "nom": "",
+      "assaini": ""
+    },
+    {
+      "nom": "--__",
+      "assaini": "--__"
+    },
+    {
+      "nom": "tab\tnew\nline",
+      "assaini": "tabnewline"
+    },
+    {
+      "nom": "\u01c5\u02b0",
+      "assaini": "\u01c5\u02b0"
+    },
+    {
+      "nom": "\ud835\udfd8\u0660\u24b6",
+      "assaini": "\ud835\udfd8\u0660"
+    },
+    {
+      "nom": "x/y",
+      "assaini": "xy"
+    },
+    {
+      "nom": "mcp_server",
+      "assaini": "mcp_server"
+    }
+  ],
+  "chemins": [
+    {
+      "chemin": "a/b/c",
+      "parties": [
+        "a",
+        "b",
+        "c"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "/abs/x",
+      "parties": [
+        "/",
+        "abs",
+        "x"
+      ],
+      "absolu": true
+    },
+    {
+      "chemin": "//net/x",
+      "parties": [
+        "//",
+        "net",
+        "x"
+      ],
+      "absolu": true
+    },
+    {
+      "chemin": "///x",
+      "parties": [
+        "/",
+        "x"
+      ],
+      "absolu": true
+    },
+    {
+      "chemin": "a//b",
+      "parties": [
+        "a",
+        "b"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "./a/b",
+      "parties": [
+        "a",
+        "b"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "a/./b",
+      "parties": [
+        "a",
+        "b"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "a/../b",
+      "parties": [
+        "a",
+        "..",
+        "b"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": ".",
+      "parties": [],
+      "absolu": false
+    },
+    {
+      "chemin": "",
+      "parties": [],
+      "absolu": false
+    },
+    {
+      "chemin": "a",
+      "parties": [
+        "a"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "a/",
+      "parties": [
+        "a"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "../x",
+      "parties": [
+        "..",
+        "x"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "srv/sub/",
+      "parties": [
+        "srv",
+        "sub"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "x\\y/z",
+      "parties": [
+        "x\\y",
+        "z"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "dossier/fichier.py",
+      "parties": [
+        "dossier",
+        "fichier.py"
+      ],
+      "absolu": false
+    },
+    {
+      "chemin": "./",
+      "parties": [],
+      "absolu": false
+    },
+    {
+      "chemin": "a/b/",
+      "parties": [
+        "a",
+        "b"
+      ],
+      "absolu": false
+    }
+  ],
+  "corps": [
+    {
+      "corps": {},
+      "http": [
+        400,
+        "URL requise pour un serveur SSE/HTTP"
+      ]
+    },
+    {
+      "corps": {
+        "name": " Docs ",
+        "type": "HTTP",
+        "url": " http://intra.lan:9000/mcp "
+      },
+      "valeur": {
+        "name": "Docs",
+        "type": "http",
+        "url": "http://intra.lan:9000/mcp",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "ftp",
+        "url": "u"
+      },
+      "http": [
+        400,
+        "type doit \u00eatre 'sse', 'http' ou 'stdio'"
+      ]
+    },
+    {
+      "corps": {
+        "type": "stdio"
+      },
+      "http": [
+        400,
+        "Commande requise pour un serveur stdio"
+      ]
+    },
+    {
+      "corps": {
+        "type": "stdio",
+        "command": "npx srv"
+      },
+      "valeur": {
+        "name": "",
+        "type": "stdio",
+        "url": "",
+        "command": "npx srv",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": null,
+        "url": "u"
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": " SSE ",
+        "url": "u",
+        "auth_mode": "Bearer",
+        "auth_secret": " jeton "
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "bearer",
+        "auth_user": "",
+        "auth_secret": " jeton ",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "auth_mode": "oauth"
+      },
+      "http": [
+        400,
+        "auth_mode doit \u00eatre '', 'basic', 'bearer', 'raw' ou 'header'"
+      ]
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "auth_mode": "header"
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "header",
+        "auth_user": "X-API-Key",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "auth_mode": "header",
+        "auth_user": "Bad Header"
+      },
+      "http": [
+        400,
+        "Nom d'en-t\u00eate invalide : Bad Header"
+      ]
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "auth_mode": "header",
+        "auth_user": " X-Cle "
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "header",
+        "auth_user": "X-Cle",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "headers": [
+          {
+            "name": "Host",
+            "value": "x"
+          }
+        ]
+      },
+      "http": [
+        400,
+        "Nom refus\u00e9 (r\u00e9serv\u00e9 ou mal form\u00e9) : Host"
+      ]
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "env": [
+          {
+            "name": "PYTHONPATH",
+            "value": "x"
+          }
+        ]
+      },
+      "http": [
+        400,
+        "Nom refus\u00e9 (r\u00e9serv\u00e9 ou mal form\u00e9) : PYTHONPATH"
+      ]
+    },
+    {
+      "corps": {
+        "type": "http",
+        "url": "u",
+        "headers": [
+          {
+            "name": "X-A",
+            "value": " v "
+          },
+          {
+            "name": "X-A",
+            "value": "w"
+          },
+          {
+            "name": "",
+            "value": "z"
+          },
+          "pas un dict"
+        ],
+        "env": [
+          {
+            "name": "A",
+            "value": "1"
+          }
+        ]
+      },
+      "valeur": {
+        "name": "",
+        "type": "http",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [
+          {
+            "name": "X-A",
+            "value": "w"
+          }
+        ],
+        "env": [
+          {
+            "name": "A",
+            "value": "1"
+          }
+        ],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "name": 12,
+        "type": "sse",
+        "url": [
+          "a"
+        ],
+        "command": {
+          "c": 1
+        },
+        "auth_user": true
+      },
+      "valeur": {
+        "name": "12",
+        "type": "sse",
+        "url": "['a']",
+        "command": "{'c': 1}",
+        "auth_mode": "",
+        "auth_user": "True",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+        "type": "sse",
+        "url": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+      },
+      "valeur": {
+        "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+        "type": "sse",
+        "url": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "enabled": 0
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": false
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "enabled": null
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": false
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "headers": {
+          "a": 1
+        }
+      },
+      "erreur": "KeyError"
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "headers": 5
+      },
+      "erreur": "TypeError"
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "headers": "texte"
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "sse",
+        "url": "u",
+        "auth_secret": 5
+      },
+      "valeur": {
+        "name": "",
+        "type": "sse",
+        "url": "u",
+        "command": "",
+        "auth_mode": "",
+        "auth_user": "",
+        "auth_secret": "5",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    },
+    {
+      "corps": {
+        "type": "http",
+        "url": "u",
+        "auth_mode": "basic",
+        "auth_user": "  moi  ",
+        "auth_secret": "pw"
+      },
+      "valeur": {
+        "name": "",
+        "type": "http",
+        "url": "u",
+        "command": "",
+        "auth_mode": "basic",
+        "auth_user": "moi",
+        "auth_secret": "pw",
+        "headers": [],
+        "env": [],
+        "enabled": true
+      }
+    }
+  ],
+  "decodages": [
+    {
+      "hex": "",
+      "texte": ""
+    },
+    {
+      "hex": "616263",
+      "texte": "abc"
+    },
+    {
+      "hex": "ff616263",
+      "texte": "abc"
+    },
+    {
+      "hex": "e282",
+      "texte": ""
+    },
+    {
+      "hex": "e28241",
+      "texte": "A"
+    },
+    {
+      "hex": "f0808080",
+      "texte": ""
+    },
+    {
+      "hex": "eda080",
+      "texte": ""
+    },
+    {
+      "hex": "c0af",
+      "texte": ""
+    },
+    {
+      "hex": "e282ac",
+      "texte": "\u20ac"
+    },
+    {
+      "hex": "f09f9880",
+      "texte": "\ud83d\ude00"
+    },
+    {
+      "hex": "f09f98",
+      "texte": ""
+    },
+    {
+      "hex": "ffefbbbf41",
+      "texte": "\ufeffA"
+    },
+    {
+      "hex": "efbfbd",
+      "texte": "\ufffd"
+    },
+    {
+      "hex": "80ffe2",
+      "texte": ""
+    }
+  ],
+  "erreurs_os": [
+    {
+      "code": "ENOENT",
+      "message": "[Errno 2] No such file or directory: '/a/b'"
+    },
+    {
+      "code": "ENOTDIR",
+      "message": "[Errno 20] Not a directory: '/a/b'"
+    },
+    {
+      "code": "EEXIST",
+      "message": "[Errno 17] File exists: '/a/b'"
+    },
+    {
+      "code": "ENOTEMPTY",
+      "message": "[Errno 39] Directory not empty: '/a/b'"
+    },
+    {
+      "code": "EBUSY",
+      "message": "[Errno 16] Device or resource busy: '/a/b'"
+    },
+    {
+      "code": "ENOSPC",
+      "message": "[Errno 28] No space left on device: '/a/b'"
+    },
+    {
+      "code": "EROFS",
+      "message": "[Errno 30] Read-only file system: '/a/b'"
+    }
+  ]
+}

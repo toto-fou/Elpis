@@ -1,0 +1,462 @@
+{
+  "entrees": {
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 5,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 10,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 15,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H4",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 20,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H5",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 25,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H6",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 30,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H7",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 35,
+        "etapes": [
+          {
+            "generer": 4
+          }
+        ],
+        "id": "H8",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "L1",
+        "modele": "m2",
+        "priorite": "low",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 9
+          }
+        ],
+        "id": "BH1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 12,
+        "etapes": [
+          {
+            "generer": 9
+          }
+        ],
+        "id": "BH2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 24,
+        "etapes": [
+          {
+            "generer": 9
+          }
+        ],
+        "id": "BH3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 36,
+        "etapes": [
+          {
+            "generer": 9
+          }
+        ],
+        "id": "BH4",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 48,
+        "etapes": [
+          {
+            "generer": 9
+          }
+        ],
+        "id": "BH5",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "BL1",
+        "modele": "m2",
+        "priorite": "low",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CH0",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CL1",
+        "modele": "m1",
+        "priorite": "low",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 2,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CH2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 12,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CH3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 22,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CH4",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 32,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CH5",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "C"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      27,
+      37,
+      41,
+      47,
+      70
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 1,
+        "max_models": 1
+      },
+      "B": {
+        "max_concurrency": 1,
+        "max_models": 1
+      },
+      "C": {
+        "max_concurrency": 1,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=27": {
+      "en_attente": [
+        "L1",
+        "BL1",
+        "CL1",
+        "CH4"
+      ],
+      "en_cours": [
+        "H6",
+        "BH3",
+        "CH3"
+      ],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "BH1",
+        "BH2",
+        "CH0",
+        "CH2"
+      ]
+    },
+    "t=37": {
+      "en_attente": [
+        "H8",
+        "BL1",
+        "CL1",
+        "CH5"
+      ],
+      "en_cours": [
+        "L1",
+        "BH4",
+        "CH4"
+      ],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "BH1",
+        "BH2",
+        "BH3",
+        "CH0",
+        "CH2",
+        "CH3"
+      ]
+    },
+    "t=41": {
+      "en_attente": [
+        "BL1",
+        "CH5"
+      ],
+      "en_cours": [
+        "H8",
+        "BH4",
+        "CL1"
+      ],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "L1",
+        "BH1",
+        "BH2",
+        "BH3",
+        "CH0",
+        "CH2",
+        "CH3",
+        "CH4"
+      ]
+    },
+    "t=47": {
+      "en_attente": [
+        "CH5"
+      ],
+      "en_cours": [
+        "BL1",
+        "CL1"
+      ],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "H8",
+        "L1",
+        "BH1",
+        "BH2",
+        "BH3",
+        "BH4",
+        "CH0",
+        "CH2",
+        "CH3",
+        "CH4"
+      ]
+    },
+    "t=70": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "H8",
+        "L1",
+        "BH1",
+        "BH2",
+        "BH3",
+        "BH4",
+        "BH5",
+        "BL1",
+        "CH0",
+        "CL1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ]
+    }
+  },
+  "ordre": [
+    "t=0 H1 admis",
+    "t=0 BH1 admis",
+    "t=0 CH0 admis",
+    "t=4 H1 fin",
+    "t=5 H2 admis",
+    "t=9 H2 fin",
+    "t=9 BH1 fin",
+    "t=10 H3 admis",
+    "t=10 CH0 fin",
+    "t=10 CH2 admis",
+    "t=12 BH2 admis",
+    "t=14 H3 fin",
+    "t=15 H4 admis",
+    "t=19 H4 fin",
+    "t=20 H5 admis",
+    "t=20 CH2 fin",
+    "t=20 CH3 admis",
+    "t=21 BH2 fin",
+    "t=24 H5 fin",
+    "t=24 BH3 admis",
+    "t=25 H6 admis",
+    "t=29 H6 fin",
+    "t=30 H7 admis",
+    "t=30 CH3 fin",
+    "t=30 CH4 admis",
+    "t=33 BH3 fin",
+    "t=34 H7 fin",
+    "t=34 L1 admis",
+    "t=36 BH4 admis",
+    "t=39 H8 admis",
+    "t=39 L1 fin",
+    "t=40 CL1 admis",
+    "t=40 CH4 fin",
+    "t=43 H8 fin",
+    "t=45 BH4 fin",
+    "t=45 BL1 admis",
+    "t=50 BH5 admis",
+    "t=50 BL1 fin",
+    "t=50 CL1 fin",
+    "t=50 CH5 admis",
+    "t=59 BH5 fin",
+    "t=60 CH5 fin"
+  ]
+}

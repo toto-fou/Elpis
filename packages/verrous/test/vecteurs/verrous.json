@@ -1,0 +1,879 @@
+{
+  "source": "migration-kit/vecteurs/verrous.py",
+  "lignes": [
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 1234,
+      "debut": 1759830000000,
+      "proc": "main",
+      "peremption_s": 120.0,
+      "ligne": "{\"v\":1,\"pid\":1234,\"hote\":\"mcp\",\"debut\":1759830000000,\"proc\":\"main\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":120000}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 2147483647,
+      "debut": 1,
+      "proc": "toolhost",
+      "peremption_s": 0.05,
+      "ligne": "{\"v\":1,\"pid\":2147483647,\"hote\":\"mcp\",\"debut\":1,\"proc\":\"toolhost\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":50}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 7,
+      "debut": 1759830000123,
+      "proc": "admin",
+      "peremption_s": 3600.0,
+      "ligne": "{\"v\":1,\"pid\":7,\"hote\":\"mcp\",\"debut\":1759830000123,\"proc\":\"admin\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":3600000}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 42,
+      "debut": 5,
+      "proc": "\u00e9\u2028x",
+      "peremption_s": 0.3,
+      "ligne": "{\"v\":1,\"pid\":42,\"hote\":\"mcp\",\"debut\":5,\"proc\":\"\u00e9\u2028x\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":300}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 1,
+      "debut": 2,
+      "proc": "",
+      "peremption_s": 10.0,
+      "ligne": "{\"v\":1,\"pid\":1,\"hote\":\"mcp\",\"debut\":2,\"proc\":\"\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":10000}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 99,
+      "debut": 3,
+      "proc": "appmcp",
+      "peremption_s": 0.6,
+      "ligne": "{\"v\":1,\"pid\":99,\"hote\":\"mcp\",\"debut\":3,\"proc\":\"appmcp\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":600}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 100,
+      "debut": 4,
+      "proc": "test-python",
+      "peremption_s": 0.001,
+      "ligne": "{\"v\":1,\"pid\":100,\"hote\":\"mcp\",\"debut\":4,\"proc\":\"test-python\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":1}\n"
+    },
+    {
+      "machine": [
+        "mcp",
+        "dd3ef00d-4f6b-43b6-9fb3-20d44277f62b",
+        "pid:[4026531836]"
+      ],
+      "pid": 101,
+      "debut": 6,
+      "proc": "q",
+      "peremption_s": 7.0001,
+      "ligne": "{\"v\":1,\"pid\":101,\"hote\":\"mcp\",\"debut\":6,\"proc\":\"q\",\"boot\":\"dd3ef00d-4f6b-43b6-9fb3-20d44277f62b\",\"nspid\":\"pid:[4026531836]\",\"peremption\":7000}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 1234,
+      "debut": 1759830000000,
+      "proc": "main",
+      "peremption_s": 120.0,
+      "ligne": "{\"v\":1,\"pid\":1234,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":1759830000000,\"proc\":\"main\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":120000}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 2147483647,
+      "debut": 1,
+      "proc": "toolhost",
+      "peremption_s": 0.05,
+      "ligne": "{\"v\":1,\"pid\":2147483647,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":1,\"proc\":\"toolhost\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":50}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 7,
+      "debut": 1759830000123,
+      "proc": "admin",
+      "peremption_s": 3600.0,
+      "ligne": "{\"v\":1,\"pid\":7,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":1759830000123,\"proc\":\"admin\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":3600000}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 42,
+      "debut": 5,
+      "proc": "\u00e9\u2028x",
+      "peremption_s": 0.3,
+      "ligne": "{\"v\":1,\"pid\":42,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":5,\"proc\":\"\u00e9\u2028x\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":300}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 1,
+      "debut": 2,
+      "proc": "",
+      "peremption_s": 10.0,
+      "ligne": "{\"v\":1,\"pid\":1,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":2,\"proc\":\"\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":10000}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 99,
+      "debut": 3,
+      "proc": "appmcp",
+      "peremption_s": 0.6,
+      "ligne": "{\"v\":1,\"pid\":99,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":3,\"proc\":\"appmcp\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":600}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 100,
+      "debut": 4,
+      "proc": "test-python",
+      "peremption_s": 0.001,
+      "ligne": "{\"v\":1,\"pid\":100,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":4,\"proc\":\"test-python\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":1}\n"
+    },
+    {
+      "machine": [
+        "h\u00f4te-\u00e9\ud83d\ude00",
+        "",
+        ""
+      ],
+      "pid": 101,
+      "debut": 6,
+      "proc": "q",
+      "peremption_s": 7.0001,
+      "ligne": "{\"v\":1,\"pid\":101,\"hote\":\"h\u00f4te-\u00e9\ud83d\ude00\",\"debut\":6,\"proc\":\"q\",\"boot\":\"\",\"nspid\":\"\",\"peremption\":7000}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 1234,
+      "debut": 1759830000000,
+      "proc": "main",
+      "peremption_s": 120.0,
+      "ligne": "{\"v\":1,\"pid\":1234,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":1759830000000,\"proc\":\"main\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":120000}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 2147483647,
+      "debut": 1,
+      "proc": "toolhost",
+      "peremption_s": 0.05,
+      "ligne": "{\"v\":1,\"pid\":2147483647,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":1,\"proc\":\"toolhost\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":50}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 7,
+      "debut": 1759830000123,
+      "proc": "admin",
+      "peremption_s": 3600.0,
+      "ligne": "{\"v\":1,\"pid\":7,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":1759830000123,\"proc\":\"admin\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":3600000}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 42,
+      "debut": 5,
+      "proc": "\u00e9\u2028x",
+      "peremption_s": 0.3,
+      "ligne": "{\"v\":1,\"pid\":42,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":5,\"proc\":\"\u00e9\u2028x\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":300}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 1,
+      "debut": 2,
+      "proc": "",
+      "peremption_s": 10.0,
+      "ligne": "{\"v\":1,\"pid\":1,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":2,\"proc\":\"\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":10000}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 99,
+      "debut": 3,
+      "proc": "appmcp",
+      "peremption_s": 0.6,
+      "ligne": "{\"v\":1,\"pid\":99,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":3,\"proc\":\"appmcp\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":600}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 100,
+      "debut": 4,
+      "proc": "test-python",
+      "peremption_s": 0.001,
+      "ligne": "{\"v\":1,\"pid\":100,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":4,\"proc\":\"test-python\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":1}\n"
+    },
+    {
+      "machine": [
+        "h\"\\\n\t\u007f\u0085\u2028",
+        "b",
+        "n"
+      ],
+      "pid": 101,
+      "debut": 6,
+      "proc": "q",
+      "peremption_s": 7.0001,
+      "ligne": "{\"v\":1,\"pid\":101,\"hote\":\"h\\\"\\\\\\n\\t\u007f\u0085\u2028\",\"debut\":6,\"proc\":\"q\",\"boot\":\"b\",\"nspid\":\"n\",\"peremption\":7000}\n"
+    }
+  ],
+  "contenus": [
+    {
+      "hex": "",
+      "contenu": null
+    },
+    {
+      "hex": "202020",
+      "contenu": null
+    },
+    {
+      "hex": "0a",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a",
+      "contenu": null
+    },
+    {
+      "hex": "706173206475206a736f6e",
+      "contenu": null
+    },
+    {
+      "hex": "5b5d",
+      "contenu": null
+    },
+    {
+      "hex": "31",
+      "contenu": null
+    },
+    {
+      "hex": "6e756c6c",
+      "contenu": null
+    },
+    {
+      "hex": "22746578746522",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a322c22706964223a312c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a302c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a747275652c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a313039393531313632373737362c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a4e614e7d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d0a",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "200a207b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d200d0a",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a226d61696e222c22626f6f74223a2262222c226e73706964223a226e222c22706572656d7074696f6e223a3132303030307d0a",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "main",
+        "boot": "b",
+        "nspid": "n",
+        "peremption": 120000
+      }
+    },
+    {
+      "hex": "7b2276223a20312c2022706964223a20352c2022686f7465223a202268222c20226465627574223a20313735393833303030303030302c202270726f63223a20226175747265222c2022626f6f74223a202262222c20226e73706964223a20226e227d0a",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1759830000000,
+        "proc": "autre",
+        "boot": "b",
+        "nspid": "n",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312e302c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a3165302c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a2231222c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a2d302c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a2d312c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a323134373438333634372c22686f7465223a2268222c226465627574223a317d",
+      "contenu": {
+        "pid": 2147483647,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a323134373438333634382c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352e302c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a747275652c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a2235222c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a2d302c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a352c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a6e756c6c2c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a496e66696e6974797d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a2d496e66696e6974797d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a31653430307d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312e357d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1.5,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a2231227d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a747275657d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a6e756c6c7d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268227d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a313030303030303030303030303030303030303030303030303030303030307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1000000000000000000000000000000,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a31652d3430307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 0.0,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a2d337d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": -3,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22626f6f74223a6e756c6c2c226e73706964223a357d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "",
+        "nspid": "",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22626f6f74223a22222c226e73706964223a22227d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "",
+        "nspid": "",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22626f6f74223a5b2278225d2c226e73706964223a7b2261223a317d7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "",
+        "nspid": "",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22626f6f74223a66616c73657d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a22313230303030227d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a747275657d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a6e756c6c7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a4e614e7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a312e3565337d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": 1500.0
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a2d357d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": -5
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": 0
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22706572656d7074696f6e223a333630303030302e307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": 3600000.0
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a6e756c6c7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a357d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "5",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a7b2261223a5b312c322e302c6e756c6c2c747275655d7d7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "{'a': [1, 2.0, None, True]}",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a312e307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "1.0",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c2270726f63223a22c3a95c75303065395c75643833645c7564653030227d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "\u00e9\u00e9\ud83d\ude00",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22706964223a362c22686f7465223a2268222c226465627574223a317d",
+      "contenu": {
+        "pid": 6,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c226465627574223a2278227d",
+      "contenu": null
+    },
+    {
+      "hex": "efbbbf7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a22ff222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d2078",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d7b7d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a225c75303065395c7564383030222c226465627574223a317d",
+      "contenu": {
+        "pid": 5,
+        "hote": "\u00e9\ud800",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268c3b47465222c226465627574223a317d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h\u00f4te",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a22610162222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c22696e636f6e6e75223a5b312c7b7d5d7d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b225f5f70726f746f5f5f223a7b2276223a317d2c2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    },
+    {
+      "hex": "7b2276223a312c22706964223a30352c22686f7465223a2268222c226465627574223a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312c7d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2776273a317d",
+      "contenu": null
+    },
+    {
+      "hex": "7b2276223a312c22706964223a352c22686f7465223a2268222c226465627574223a312e307d",
+      "contenu": {
+        "pid": 5,
+        "hote": "h",
+        "debut": 1.0,
+        "proc": "None",
+        "boot": "$absent",
+        "nspid": "$absent",
+        "peremption": "$absent"
+      }
+    }
+  ],
+  "constantes": {
+    "version": 1,
+    "peremption_defaut_s": 120.0,
+    "suffixe_reprise": ".reprise",
+    "suffixe_perime": ".perime.",
+    "reprise_peremption_s": 10.0,
+    "illisible_s": 5.0
+  }
+}

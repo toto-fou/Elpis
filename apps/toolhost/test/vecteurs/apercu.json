@@ -1,0 +1,1308 @@
+{
+  "max_rewrite_bytes": 4194304,
+  "html": [
+    {
+      "texte": "",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script>"
+    },
+    {
+      "texte": "",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script>"
+    },
+    {
+      "texte": "",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script>"
+    },
+    {
+      "texte": "<p>x</p>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><p>x</p>"
+    },
+    {
+      "texte": "<p>x</p>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><p>x</p>"
+    },
+    {
+      "texte": "<p>x</p>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><p>x</p>"
+    },
+    {
+      "texte": "<html><head><title>t</title></head><body></body></html>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<html><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><title>t</title></head><body></body></html>"
+    },
+    {
+      "texte": "<html><head><title>t</title></head><body></body></html>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<html><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><title>t</title></head><body></body></html>"
+    },
+    {
+      "texte": "<html><head><title>t</title></head><body></body></html>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<html><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><title>t</title></head><body></body></html>"
+    },
+    {
+      "texte": "<HTML><HEAD lang=fr><LINK HREF=\"/style.css\"></HEAD></HTML>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<HTML><HEAD lang=fr><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><LINK HREF=\"/api/sandbox/pv/7-1-abc/~r/d/style.css\"></HEAD></HTML>"
+    },
+    {
+      "texte": "<HTML><HEAD lang=fr><LINK HREF=\"/style.css\"></HEAD></HTML>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<HTML><HEAD lang=fr><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><LINK HREF=\"/api/sandbox/pv/t/~r/dsite%2Fpages/style.css\"></HEAD></HTML>"
+    },
+    {
+      "texte": "<HTML><HEAD lang=fr><LINK HREF=\"/style.css\"></HEAD></HTML>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<HTML><HEAD lang=fr><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><LINK HREF=\"/p/~r/d\u00e9 \"$1\\/style.css\"></HEAD></HTML>"
+    },
+    {
+      "texte": "<head><img src='/a.png'><img src=/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><img src='/api/sandbox/pv/7-1-abc/~r/d/a.png'><img src=/api/sandbox/pv/7-1-abc/~r/d/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>"
+    },
+    {
+      "texte": "<head><img src='/a.png'><img src=/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><img src='/api/sandbox/pv/t/~r/dsite%2Fpages/a.png'><img src=/api/sandbox/pv/t/~r/dsite%2Fpages/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>"
+    },
+    {
+      "texte": "<head><img src='/a.png'><img src=/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><img src='/p/~r/d\u00e9 \"$1\\/a.png'><img src=/p/~r/d\u00e9 \"$1\\/b.png><img src=\"//cdn/x.png\"><img src=\"/\\x.png\"></head>"
+    },
+    {
+      "texte": "<a href = \"/x\" data-href=\"/y\" xhref=\"/z\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a href = \"/api/sandbox/pv/7-1-abc/~r/d/x\" data-href=\"/y\" xhref=\"/z\">"
+    },
+    {
+      "texte": "<a href = \"/x\" data-href=\"/y\" xhref=\"/z\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a href = \"/api/sandbox/pv/t/~r/dsite%2Fpages/x\" data-href=\"/y\" xhref=\"/z\">"
+    },
+    {
+      "texte": "<a href = \"/x\" data-href=\"/y\" xhref=\"/z\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a href = \"/p/~r/d\u00e9 \"$1\\/x\" data-href=\"/y\" xhref=\"/z\">"
+    },
+    {
+      "texte": "<form action=\"/envoi\" formaction='/f'><video poster=/p.jpg>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><form action=\"/api/sandbox/pv/7-1-abc/~r/d/envoi\" formaction='/api/sandbox/pv/7-1-abc/~r/d/f'><video poster=/api/sandbox/pv/7-1-abc/~r/d/p.jpg>"
+    },
+    {
+      "texte": "<form action=\"/envoi\" formaction='/f'><video poster=/p.jpg>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><form action=\"/api/sandbox/pv/t/~r/dsite%2Fpages/envoi\" formaction='/api/sandbox/pv/t/~r/dsite%2Fpages/f'><video poster=/api/sandbox/pv/t/~r/dsite%2Fpages/p.jpg>"
+    },
+    {
+      "texte": "<form action=\"/envoi\" formaction='/f'><video poster=/p.jpg>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><form action=\"/p/~r/d\u00e9 \"$1\\/envoi\" formaction='/p/~r/d\u00e9 \"$1\\/f'><video poster=/p/~r/d\u00e9 \"$1\\/p.jpg>"
+    },
+    {
+      "texte": "<object data=\"/o.svg\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><object data=\"/api/sandbox/pv/7-1-abc/~r/d/o.svg\">"
+    },
+    {
+      "texte": "<object data=\"/o.svg\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><object data=\"/api/sandbox/pv/t/~r/dsite%2Fpages/o.svg\">"
+    },
+    {
+      "texte": "<object data=\"/o.svg\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><object data=\"/p/~r/d\u00e9 \"$1\\/o.svg\">"
+    },
+    {
+      "texte": "<a\u001chref=\"/sep\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a\u001chref=\"/api/sandbox/pv/7-1-abc/~r/d/sep\">"
+    },
+    {
+      "texte": "<a\u001chref=\"/sep\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a\u001chref=\"/api/sandbox/pv/t/~r/dsite%2Fpages/sep\">"
+    },
+    {
+      "texte": "<a\u001chref=\"/sep\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a\u001chref=\"/p/~r/d\u00e9 \"$1\\/sep\">"
+    },
+    {
+      "texte": "<a\u3000href=\"/ideo\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a\u3000href=\"/api/sandbox/pv/7-1-abc/~r/d/ideo\">"
+    },
+    {
+      "texte": "<a\u3000href=\"/ideo\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a\u3000href=\"/api/sandbox/pv/t/~r/dsite%2Fpages/ideo\">"
+    },
+    {
+      "texte": "<a\u3000href=\"/ideo\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a\u3000href=\"/p/~r/d\u00e9 \"$1\\/ideo\">"
+    },
+    {
+      "texte": "<a\ufeffhref=\"/bom\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a\ufeffhref=\"/bom\">"
+    },
+    {
+      "texte": "<a\ufeffhref=\"/bom\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a\ufeffhref=\"/bom\">"
+    },
+    {
+      "texte": "<a\ufeffhref=\"/bom\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a\ufeffhref=\"/bom\">"
+    },
+    {
+      "texte": "<a\nHREF\n=\n'/nl'>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a\nHREF\n=\n'/api/sandbox/pv/7-1-abc/~r/d/nl'>"
+    },
+    {
+      "texte": "<a\nHREF\n=\n'/nl'>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a\nHREF\n=\n'/api/sandbox/pv/t/~r/dsite%2Fpages/nl'>"
+    },
+    {
+      "texte": "<a\nHREF\n=\n'/nl'>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a\nHREF\n=\n'/p/~r/d\u00e9 \"$1\\/nl'>"
+    },
+    {
+      "texte": "<a SRC=\"/maj\" \u0130mport>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a SRC=\"/api/sandbox/pv/7-1-abc/~r/d/maj\" \u0130mport>"
+    },
+    {
+      "texte": "<a SRC=\"/maj\" \u0130mport>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a SRC=\"/api/sandbox/pv/t/~r/dsite%2Fpages/maj\" \u0130mport>"
+    },
+    {
+      "texte": "<a SRC=\"/maj\" \u0130mport>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a SRC=\"/p/~r/d\u00e9 \"$1\\/maj\" \u0130mport>"
+    },
+    {
+      "texte": "<header><p>pas une t\u00eate</p></header><head>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<header><p>pas une t\u00eate</p></header><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script>"
+    },
+    {
+      "texte": "<header><p>pas une t\u00eate</p></header><head>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<header><p>pas une t\u00eate</p></header><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script>"
+    },
+    {
+      "texte": "<header><p>pas une t\u00eate</p></header><head>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<header><p>pas une t\u00eate</p></header><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script>"
+    },
+    {
+      "texte": "<head\u00e9><head>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<head\u00e9><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script>"
+    },
+    {
+      "texte": "<head\u00e9><head>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<head\u00e9><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script>"
+    },
+    {
+      "texte": "<head\u00e9><head>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<head\u00e9><head><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script>"
+    },
+    {
+      "texte": "<head\u0301><x>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<head\u0301><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><x>"
+    },
+    {
+      "texte": "<head\u0301><x>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<head\u0301><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><x>"
+    },
+    {
+      "texte": "<head\u0301><x>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<head\u0301><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><x>"
+    },
+    {
+      "texte": "<head",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><head"
+    },
+    {
+      "texte": "<head",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><head"
+    },
+    {
+      "texte": "<head",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><head"
+    },
+    {
+      "texte": "<style>body{background:url( '/bg.png' )}@import \"/a.css\";</style>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><style>body{background:url( '/api/sandbox/pv/7-1-abc/~r/d/bg.png' )}@import \"/api/sandbox/pv/7-1-abc/~r/d/a.css\";</style>"
+    },
+    {
+      "texte": "<style>body{background:url( '/bg.png' )}@import \"/a.css\";</style>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><style>body{background:url( '/api/sandbox/pv/t/~r/dsite%2Fpages/bg.png' )}@import \"/api/sandbox/pv/t/~r/dsite%2Fpages/a.css\";</style>"
+    },
+    {
+      "texte": "<style>body{background:url( '/bg.png' )}@import \"/a.css\";</style>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><style>body{background:url( '/p/~r/d\u00e9 \"$1\\/bg.png' )}@import \"/p/~r/d\u00e9 \"$1\\/a.css\";</style>"
+    },
+    {
+      "texte": "<p style=\"background:URL(/u.png)\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><p style=\"background:URL(/api/sandbox/pv/7-1-abc/~r/d/u.png)\">"
+    },
+    {
+      "texte": "<p style=\"background:URL(/u.png)\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><p style=\"background:URL(/api/sandbox/pv/t/~r/dsite%2Fpages/u.png)\">"
+    },
+    {
+      "texte": "<p style=\"background:URL(/u.png)\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><p style=\"background:URL(/p/~r/d\u00e9 \"$1\\/u.png)\">"
+    },
+    {
+      "texte": "<a href=\"/$1\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a href=\"/api/sandbox/pv/7-1-abc/~r/d/$1\">"
+    },
+    {
+      "texte": "<a href=\"/$1\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a href=\"/api/sandbox/pv/t/~r/dsite%2Fpages/$1\">"
+    },
+    {
+      "texte": "<a href=\"/$1\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a href=\"/p/~r/d\u00e9 \"$1\\/$1\">"
+    },
+    {
+      "texte": "aucune t\u00eate mais <a href=\"/x\">",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script>aucune t\u00eate mais <a href=\"/api/sandbox/pv/7-1-abc/~r/d/x\">"
+    },
+    {
+      "texte": "aucune t\u00eate mais <a href=\"/x\">",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script>aucune t\u00eate mais <a href=\"/api/sandbox/pv/t/~r/dsite%2Fpages/x\">"
+    },
+    {
+      "texte": "aucune t\u00eate mais <a href=\"/x\">",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script>aucune t\u00eate mais <a href=\"/p/~r/d\u00e9 \"$1\\/x\">"
+    },
+    {
+      "texte": "<HEAD>deux<head>t\u00eates",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<HEAD><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script>deux<head>t\u00eates"
+    },
+    {
+      "texte": "<HEAD>deux<head>t\u00eates",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<HEAD><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script>deux<head>t\u00eates"
+    },
+    {
+      "texte": "<HEAD>deux<head>t\u00eates",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<HEAD><script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script>deux<head>t\u00eates"
+    },
+    {
+      "texte": "<a href='/'>racine</a>",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/7-1-abc/~r/d/\");</script><a href='/api/sandbox/pv/7-1-abc/~r/d/'>racine</a>"
+    },
+    {
+      "texte": "<a href='/'>racine</a>",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/api/sandbox/pv/t/~r/dsite%2Fpages/\");</script><a href='/api/sandbox/pv/t/~r/dsite%2Fpages/'>racine</a>"
+    },
+    {
+      "texte": "<a href='/'>racine</a>",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "<script>(function(b){function f(u){return(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/')?b+u.slice(1):u}var F=window.fetch;if(F)window.fetch=function(u,o){return F.call(this,f(u),o)};var X=window.XMLHttpRequest;if(X){var O=X.prototype.open;X.prototype.open=function(m,u){arguments[1]=f(u);return O.apply(this,arguments)}}})(\"/p/~r/d\\u00e9 \\\"$1\\\\/\");</script><a href='/p/~r/d\u00e9 \"$1\\/'>racine</a>"
+    }
+  ],
+  "css": [
+    {
+      "texte": "",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": ""
+    },
+    {
+      "texte": "",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": ""
+    },
+    {
+      "texte": "",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": ""
+    },
+    {
+      "texte": "a{color:red}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "a{color:red}"
+    },
+    {
+      "texte": "a{color:red}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "a{color:red}"
+    },
+    {
+      "texte": "a{color:red}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "a{color:red}"
+    },
+    {
+      "texte": "body{background:url(/bg.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "body{background:url(/api/sandbox/pv/7-1-abc/~r/d/bg.png)}"
+    },
+    {
+      "texte": "body{background:url(/bg.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "body{background:url(/api/sandbox/pv/t/~r/dsite%2Fpages/bg.png)}"
+    },
+    {
+      "texte": "body{background:url(/bg.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "body{background:url(/p/~r/d\u00e9 \"$1\\/bg.png)}"
+    },
+    {
+      "texte": "x{background:url( \"/a b.png\" )}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "x{background:url( \"/api/sandbox/pv/7-1-abc/~r/d/a b.png\" )}"
+    },
+    {
+      "texte": "x{background:url( \"/a b.png\" )}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "x{background:url( \"/api/sandbox/pv/t/~r/dsite%2Fpages/a b.png\" )}"
+    },
+    {
+      "texte": "x{background:url( \"/a b.png\" )}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "x{background:url( \"/p/~r/d\u00e9 \"$1\\/a b.png\" )}"
+    },
+    {
+      "texte": "@import \"/base.css\";",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@import \"/api/sandbox/pv/7-1-abc/~r/d/base.css\";"
+    },
+    {
+      "texte": "@import \"/base.css\";",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@import \"/api/sandbox/pv/t/~r/dsite%2Fpages/base.css\";"
+    },
+    {
+      "texte": "@import \"/base.css\";",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@import \"/p/~r/d\u00e9 \"$1\\/base.css\";"
+    },
+    {
+      "texte": "@import '/q.css' screen;",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@import '/api/sandbox/pv/7-1-abc/~r/d/q.css' screen;"
+    },
+    {
+      "texte": "@import '/q.css' screen;",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@import '/api/sandbox/pv/t/~r/dsite%2Fpages/q.css' screen;"
+    },
+    {
+      "texte": "@import '/q.css' screen;",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@import '/p/~r/d\u00e9 \"$1\\/q.css' screen;"
+    },
+    {
+      "texte": "@import url(/u.css);",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@import url(/api/sandbox/pv/7-1-abc/~r/d/u.css);"
+    },
+    {
+      "texte": "@import url(/u.css);",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@import url(/api/sandbox/pv/t/~r/dsite%2Fpages/u.css);"
+    },
+    {
+      "texte": "@import url(/u.css);",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@import url(/p/~r/d\u00e9 \"$1\\/u.css);"
+    },
+    {
+      "texte": "@IMPORT\t\"/tab.css\";",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@IMPORT\t\"/api/sandbox/pv/7-1-abc/~r/d/tab.css\";"
+    },
+    {
+      "texte": "@IMPORT\t\"/tab.css\";",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@IMPORT\t\"/api/sandbox/pv/t/~r/dsite%2Fpages/tab.css\";"
+    },
+    {
+      "texte": "@IMPORT\t\"/tab.css\";",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@IMPORT\t\"/p/~r/d\u00e9 \"$1\\/tab.css\";"
+    },
+    {
+      "texte": "@import\u3000'/ideo.css';",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@import\u3000'/api/sandbox/pv/7-1-abc/~r/d/ideo.css';"
+    },
+    {
+      "texte": "@import\u3000'/ideo.css';",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@import\u3000'/api/sandbox/pv/t/~r/dsite%2Fpages/ideo.css';"
+    },
+    {
+      "texte": "@import\u3000'/ideo.css';",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@import\u3000'/p/~r/d\u00e9 \"$1\\/ideo.css';"
+    },
+    {
+      "texte": "@import\"/coll\u00e9.css\";",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@import\"/coll\u00e9.css\";"
+    },
+    {
+      "texte": "@import\"/coll\u00e9.css\";",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@import\"/coll\u00e9.css\";"
+    },
+    {
+      "texte": "@import\"/coll\u00e9.css\";",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@import\"/coll\u00e9.css\";"
+    },
+    {
+      "texte": "u{b:url(//cdn/x.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:url(//cdn/x.png)}"
+    },
+    {
+      "texte": "u{b:url(//cdn/x.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:url(//cdn/x.png)}"
+    },
+    {
+      "texte": "u{b:url(//cdn/x.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:url(//cdn/x.png)}"
+    },
+    {
+      "texte": "u{b:url(/\\x.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:url(/\\x.png)}"
+    },
+    {
+      "texte": "u{b:url(/\\x.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:url(/\\x.png)}"
+    },
+    {
+      "texte": "u{b:url(/\\x.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:url(/\\x.png)}"
+    },
+    {
+      "texte": "u{b:Url(/maj.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:Url(/api/sandbox/pv/7-1-abc/~r/d/maj.png)}"
+    },
+    {
+      "texte": "u{b:Url(/maj.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:Url(/api/sandbox/pv/t/~r/dsite%2Fpages/maj.png)}"
+    },
+    {
+      "texte": "u{b:Url(/maj.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:Url(/p/~r/d\u00e9 \"$1\\/maj.png)}"
+    },
+    {
+      "texte": "u{b:url(\u001c/sep.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:url(\u001c/api/sandbox/pv/7-1-abc/~r/d/sep.png)}"
+    },
+    {
+      "texte": "u{b:url(\u001c/sep.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:url(\u001c/api/sandbox/pv/t/~r/dsite%2Fpages/sep.png)}"
+    },
+    {
+      "texte": "u{b:url(\u001c/sep.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:url(\u001c/p/~r/d\u00e9 \"$1\\/sep.png)}"
+    },
+    {
+      "texte": "u{b:url(/$&.png)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:url(/api/sandbox/pv/7-1-abc/~r/d/$&.png)}"
+    },
+    {
+      "texte": "u{b:url(/$&.png)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:url(/api/sandbox/pv/t/~r/dsite%2Fpages/$&.png)}"
+    },
+    {
+      "texte": "u{b:url(/$&.png)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:url(/p/~r/d\u00e9 \"$1\\/$&.png)}"
+    },
+    {
+      "texte": "u{b:ur\u0130(/x)}",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "u{b:ur\u0130(/x)}"
+    },
+    {
+      "texte": "u{b:ur\u0130(/x)}",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "u{b:ur\u0130(/x)}"
+    },
+    {
+      "texte": "u{b:ur\u0130(/x)}",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "u{b:ur\u0130(/x)}"
+    },
+    {
+      "texte": "@\u0131mport '/dotless.css';",
+      "base": "/api/sandbox/pv/7-1-abc/~r/d/",
+      "sortie": "@\u0131mport '/api/sandbox/pv/7-1-abc/~r/d/dotless.css';"
+    },
+    {
+      "texte": "@\u0131mport '/dotless.css';",
+      "base": "/api/sandbox/pv/t/~r/dsite%2Fpages/",
+      "sortie": "@\u0131mport '/api/sandbox/pv/t/~r/dsite%2Fpages/dotless.css';"
+    },
+    {
+      "texte": "@\u0131mport '/dotless.css';",
+      "base": "/p/~r/d\u00e9 \"$1\\/",
+      "sortie": "@\u0131mport '/p/~r/d\u00e9 \"$1\\/dotless.css';"
+    }
+  ],
+  "resolver_base": [
+    {
+      "prefixe": "",
+      "dossier": "",
+      "sortie": "~r/d/"
+    },
+    {
+      "prefixe": "",
+      "dossier": ".",
+      "sortie": "~r/d./"
+    },
+    {
+      "prefixe": "",
+      "dossier": "a",
+      "sortie": "~r/da/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "a/b",
+      "sortie": "~r/da%2Fb/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "/a/b/",
+      "sortie": "~r/da%2Fb/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "//a//",
+      "sortie": "~r/da/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "\u00e9 x",
+      "sortie": "~r/d%C3%A9%20x/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "a%2Fb",
+      "sortie": "~r/da%252Fb/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "a?b#c",
+      "sortie": "~r/da%3Fb%23c/"
+    },
+    {
+      "prefixe": "",
+      "dossier": "~r/d",
+      "sortie": "~r/d~r%2Fd/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "",
+      "sortie": "/api/sandbox/pv/tok/~r/d/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": ".",
+      "sortie": "/api/sandbox/pv/tok/~r/d./"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "a",
+      "sortie": "/api/sandbox/pv/tok/~r/da/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "a/b",
+      "sortie": "/api/sandbox/pv/tok/~r/da%2Fb/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "/a/b/",
+      "sortie": "/api/sandbox/pv/tok/~r/da%2Fb/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "//a//",
+      "sortie": "/api/sandbox/pv/tok/~r/da/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "\u00e9 x",
+      "sortie": "/api/sandbox/pv/tok/~r/d%C3%A9%20x/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "a%2Fb",
+      "sortie": "/api/sandbox/pv/tok/~r/da%252Fb/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "a?b#c",
+      "sortie": "/api/sandbox/pv/tok/~r/da%3Fb%23c/"
+    },
+    {
+      "prefixe": "/api/sandbox/pv/tok/",
+      "dossier": "~r/d",
+      "sortie": "/api/sandbox/pv/tok/~r/d~r%2Fd/"
+    }
+  ],
+  "split_resolver": [
+    {
+      "reste": "d/x",
+      "sortie": [
+        "",
+        "x"
+      ]
+    },
+    {
+      "reste": "d/x/y",
+      "sortie": [
+        "",
+        "x/y"
+      ]
+    },
+    {
+      "reste": "dabc/x/y",
+      "sortie": [
+        "abc",
+        "x/y"
+      ]
+    },
+    {
+      "reste": "d",
+      "sortie": null
+    },
+    {
+      "reste": "dabc",
+      "sortie": null
+    },
+    {
+      "reste": "dabc/",
+      "sortie": null
+    },
+    {
+      "reste": "x/y",
+      "sortie": null
+    },
+    {
+      "reste": "/x",
+      "sortie": null
+    },
+    {
+      "reste": "da%2Fb/c",
+      "sortie": [
+        "a/b",
+        "c"
+      ]
+    },
+    {
+      "reste": "d%ZZ/c",
+      "sortie": [
+        "%ZZ",
+        "c"
+      ]
+    },
+    {
+      "reste": "d%C3%A9/c",
+      "sortie": [
+        "\u00e9",
+        "c"
+      ]
+    },
+    {
+      "reste": "d%FF/c",
+      "sortie": [
+        "\ufffd",
+        "c"
+      ]
+    },
+    {
+      "reste": "D/x",
+      "sortie": null
+    },
+    {
+      "reste": "d%2E%2E/x",
+      "sortie": [
+        "..",
+        "x"
+      ]
+    }
+  ],
+  "plage": [
+    {
+      "entete": null,
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": null,
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": null,
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "",
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": "",
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": "",
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=0-0",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=0-0",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=0-0",
+      "taille": 10,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=0-9",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=0-9",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=0-9",
+      "taille": 10,
+      "sortie": [
+        0,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=5-",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=5-",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=5-",
+      "taille": 10,
+      "sortie": [
+        5,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=-3",
+      "taille": 0,
+      "sortie": [
+        0,
+        0
+      ]
+    },
+    {
+      "entete": "bytes=-3",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=-3",
+      "taille": 10,
+      "sortie": [
+        7,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=-0",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=-0",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=-0",
+      "taille": 10,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=-20",
+      "taille": 0,
+      "sortie": [
+        0,
+        0
+      ]
+    },
+    {
+      "entete": "bytes=-20",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=-20",
+      "taille": 10,
+      "sortie": [
+        0,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=9-",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=9-",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=9-",
+      "taille": 10,
+      "sortie": [
+        9,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=10-",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=10-",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=10-",
+      "taille": 10,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=3-2",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=3-2",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=3-2",
+      "taille": 10,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=2-100",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=2-100",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=2-100",
+      "taille": 10,
+      "sortie": [
+        2,
+        10
+      ]
+    },
+    {
+      "entete": " bytes=1-2 ",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": " bytes=1-2 ",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": " bytes=1-2 ",
+      "taille": 10,
+      "sortie": [
+        1,
+        3
+      ]
+    },
+    {
+      "entete": "bytes=1-2,4-5",
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=1-2,4-5",
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=1-2,4-5",
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=-",
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=-",
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=-",
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "items=0-1",
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": "items=0-1",
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": "items=0-1",
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "bytes = 0-1",
+      "taille": 0,
+      "sortie": null
+    },
+    {
+      "entete": "bytes = 0-1",
+      "taille": 1,
+      "sortie": null
+    },
+    {
+      "entete": "bytes = 0-1",
+      "taille": 10,
+      "sortie": null
+    },
+    {
+      "entete": "bytes=01-02",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=01-02",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=01-02",
+      "taille": 10,
+      "sortie": [
+        1,
+        3
+      ]
+    },
+    {
+      "entete": "bytes=0-99999999999999999999",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=0-99999999999999999999",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=0-99999999999999999999",
+      "taille": 10,
+      "sortie": [
+        0,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=99999999999999999999-",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=99999999999999999999-",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=99999999999999999999-",
+      "taille": 10,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=-99999999999999999999",
+      "taille": 0,
+      "sortie": [
+        0,
+        0
+      ]
+    },
+    {
+      "entete": "bytes=-99999999999999999999",
+      "taille": 1,
+      "sortie": [
+        0,
+        1
+      ]
+    },
+    {
+      "entete": "bytes=-99999999999999999999",
+      "taille": 10,
+      "sortie": [
+        0,
+        10
+      ]
+    },
+    {
+      "entete": "bytes=\uff11-2",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=\uff11-2",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=\uff11-2",
+      "taille": 10,
+      "sortie": [
+        1,
+        3
+      ]
+    },
+    {
+      "entete": "bytes=1-2\n",
+      "taille": 0,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=1-2\n",
+      "taille": 1,
+      "sortie": "invalide"
+    },
+    {
+      "entete": "bytes=1-2\n",
+      "taille": 10,
+      "sortie": [
+        1,
+        3
+      ]
+    }
+  ],
+  "versions": [
+    {
+      "taille": 0,
+      "mtime_ns": 0,
+      "ino": null,
+      "mtime": "0.0",
+      "etag": "\"a8a95aba13cec69a86a0a14ddd966cea\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT"
+    },
+    {
+      "taille": 10,
+      "mtime_ns": 1700000000123456789,
+      "ino": 1234,
+      "mtime": "1700000000.1234567",
+      "etag": "\"cd8aa786ad695af2ffd23d1f810b64c6\"",
+      "last_modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+    },
+    {
+      "taille": 1,
+      "mtime_ns": 1700000000000000000,
+      "ino": null,
+      "mtime": "1700000000.0",
+      "etag": "\"e8d3267e7c4202d7b9a6bc5c1053c24e\"",
+      "last_modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+    },
+    {
+      "taille": 5,
+      "mtime_ns": 999999999,
+      "ino": 0,
+      "mtime": "0.999999999",
+      "etag": "\"a1826eab4ac8adb811a5bd3dc9fb98f8\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:01 GMT"
+    },
+    {
+      "taille": 1099511627776,
+      "mtime_ns": 4611686018427387904,
+      "ino": 9223372036854775813,
+      "mtime": "4611686018.427388",
+      "etag": "\"cf6fc0c8e92d7e31411882fbf7d0f7be\"",
+      "last_modified": "Thu, 20 Feb 2116 23:53:38 GMT"
+    },
+    {
+      "taille": 3,
+      "mtime_ns": -1500000000,
+      "ino": 7,
+      "mtime": "-1.5",
+      "etag": "\"3d19d4bb41ae1796bacdf7ab1942436b\"",
+      "last_modified": "Wed, 31 Dec 1969 23:59:58 GMT"
+    },
+    {
+      "taille": 7,
+      "mtime_ns": 1,
+      "ino": 18446744073709551615,
+      "mtime": "1e-09",
+      "etag": "\"de8936fe29df5e9e6d0fd6796cc563dc\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT"
+    },
+    {
+      "taille": 0,
+      "mtime_ns": 253402300799999999999,
+      "ino": 2,
+      "mtime": "253402300800.0",
+      "etag": "\"4b05c897b6e9a8c4e4e4b46505fb0e1f\"",
+      "last_modified": {
+        "erreur": "ValueError"
+      }
+    },
+    {
+      "taille": 0,
+      "mtime_ns": 253402300799000000000,
+      "ino": 2,
+      "mtime": "253402300799.0",
+      "etag": "\"3eb0c7d2aac571b8d47982c794ebe9f9\"",
+      "last_modified": "Fri, 31 Dec 9999 23:59:59 GMT"
+    },
+    {
+      "taille": 0,
+      "mtime_ns": -62135596800000000000,
+      "ino": 1,
+      "mtime": "-62135596800.0",
+      "etag": "\"6ea7bd31cc925024584a40cefe02c520\"",
+      "last_modified": "Mon, 01 Jan 0001 00:00:00 GMT"
+    },
+    {
+      "taille": 0,
+      "mtime_ns": -62135596801000000000,
+      "ino": 1,
+      "mtime": "-62135596801.0",
+      "etag": "\"9c594bd9210350a97be06c8450c0a812\"",
+      "last_modified": {
+        "erreur": "ValueError"
+      }
+    },
+    {
+      "taille": 0,
+      "mtime_ns": 633825300114114700748351602688,
+      "ino": null,
+      "mtime": "6.338253001141147e+20",
+      "etag": "\"b1160a98017cbca8710ae53ad970f6d4\"",
+      "last_modified": {
+        "erreur": "OverflowError"
+      }
+    }
+  ]
+}

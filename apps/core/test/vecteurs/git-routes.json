@@ -1,0 +1,1865 @@
+{
+  "source": "migration-kit/vecteurs/core_git_routes.py",
+  "serveur": {
+    "/api/v1/user": "auth",
+    "/api/v1/user/repos?limit=50": [
+      200,
+      "OK",
+      {},
+      "[{\"full_name\": \"bob/a\", \"clone_url\": \"http://h/bob/a.git\", \"private\": false, \"description\": \"d\", \"updated_at\": \"2026-01-01\", \"html_url\": \"http://h/bob/a\"}, {\"full_name\": \"bob/b\", \"clone_url\": \"\"}]"
+    ],
+    "/redir/user": [
+      302,
+      "Found",
+      {
+        "Location": "/api/v1/user"
+      },
+      ""
+    ],
+    "/meta/user": [
+      302,
+      "Found",
+      {
+        "Location": "http://169.254.169.254/latest"
+      },
+      "meta"
+    ],
+    "/boucle/user": [
+      302,
+      "Found",
+      {
+        "Location": "/boucle/user"
+      },
+      "x"
+    ],
+    "/ftp/user": [
+      301,
+      "Moved Permanently",
+      {
+        "Location": "ftp://ailleurs/y"
+      },
+      ""
+    ],
+    "/file/user": [
+      302,
+      "Found",
+      {
+        "Location": "file:///etc/passwd"
+      },
+      ""
+    ],
+    "/sans/user": [
+      302,
+      "Found",
+      {},
+      "pas de Location"
+    ],
+    "/uri/user": [
+      307,
+      "Temporary Redirect",
+      {
+        "URI": "/api/v1/user"
+      },
+      ""
+    ],
+    "/absent/user": [
+      404,
+      "Not Found",
+      {},
+      "pas trouv\u00e9 \u00e9"
+    ],
+    "/texte/user": [
+      200,
+      "OK",
+      {},
+      "pas du json"
+    ],
+    "/nan/user": [
+      200,
+      "OK",
+      {},
+      "{\"login\": NaN}"
+    ],
+    "/vide/user": [
+      200,
+      "OK",
+      {},
+      ""
+    ],
+    "/flottant/user": [
+      200,
+      "OK",
+      {},
+      "{\"login\": 1.0, \"x\": 18446744073709551617}"
+    ]
+  },
+  "bon": "Basic Ym9iOnB3",
+  "etapes": [
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "http://bob:pw@10.168.1.50:3000/team/repo.git",
+        "provider_type": "gitea"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "https://github.com/o/r.git"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "git@gitlab.acme.io:g/r.git"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "http://git.lan:3000/o/r",
+        "provider_type": "GitHub"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "http://intranet/o/r",
+        "provider_type": "gitlab"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "   "
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": null
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "/"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": 5
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      {
+        "url": "http://[::1"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/parse",
+      [
+        1
+      ]
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "username": "bob"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": " mauvais ",
+        "label": "faux",
+        "username": "bob"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "redir",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/redir/"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "meta",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/meta"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "boucle",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/boucle"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "ftp",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/ftp"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "file",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/file"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "sans",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/sans"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "uri",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/uri"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "absent",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/absent"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "texte",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/texte"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "nan",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/nan"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "vide",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/vide"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:<PORT>",
+        "token": "pw",
+        "label": "flottant",
+        "username": "bob",
+        "api_base": "http://127.0.0.1:<PORT>/flottant"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "GitHub.com",
+        "token": "t",
+        "label": "meta",
+        "api_base": "https://169.254.169.254/x"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "github.com",
+        "token": "t",
+        "label": "http",
+        "api_base": "http://127.0.0.1:<PORT>/x"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "generic",
+        "host": "git.acme.io",
+        "token": "t"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "gitea",
+        "host": "127.0.0.1:1",
+        "token": "t"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "nope",
+        "host": "x",
+        "token": "t"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "",
+        "token": "t"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "h"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "h",
+        "token": 5
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "https://u:p@Gh.example:8443/o/r.git",
+        "token": "t",
+        "label": "colle"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      {
+        "provider_type": "github",
+        "host": "https://u:p@Gh.example:8443/o/r.git",
+        "token": "t",
+        "label": "colle"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors",
+      "<<{>>"
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c0}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c1}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c2}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c3}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c4}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c5}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c6}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c7}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c8}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c9}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c10}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c11}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c12}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c13}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c14}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c15}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c16}/test",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/git/connectors/{c17}/test",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/{c0}/repos",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/{c1}/repos?q=x",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/{c14}/repos",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/{c16}/repos",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/git/connectors/{c0}/repos",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/git/connectors/{c0}/test",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/abc/repos",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors/999/repos",
+      null
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "label": "  Renomm\u00e9  ",
+        "host": "http://X:y@NOUVEL.hote:1/o",
+        "token": "  "
+      }
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "provider_type": "nope"
+      }
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "provider_type": ""
+      }
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {}
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "token": "neuf",
+        "username": null,
+        "api_base": "x/"
+      }
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      [
+        "host"
+      ]
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      [
+        1
+      ]
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      "<<\"label\">>"
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "token": 7
+      }
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/git/connectors/{c1}",
+      {
+        "label": "pirate"
+      }
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/git/connectors/abc",
+      {
+        "label": "x"
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/git/connectors",
+      null
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/git/connectors/{c0}",
+      null
+    ],
+    [
+      "bob",
+      "DELETE",
+      "/api/git/connectors/{c0}",
+      null
+    ],
+    [
+      "bob",
+      "DELETE",
+      "/api/git/connectors/{c0}",
+      null
+    ],
+    [
+      "bob",
+      "DELETE",
+      "/api/git/connectors/abc",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/git/connectors",
+      null
+    ]
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2
+  },
+  "crees": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "reponses": [
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[],\"provider_types\":[\"github\",\"gitlab\",\"bitbucket-cloud\",\"bitbucket-server\",\"gitea\",\"generic\"]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"10.168.1.50:3000\",\"detected_provider_type\":\"generic\",\"api_base\":\"http://10.168.1.50:3000/api/v1\",\"scheme\":\"http\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"github.com\",\"detected_provider_type\":\"github\",\"api_base\":\"https://api.github.com\",\"scheme\":\"https\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"gitlab.acme.io\",\"detected_provider_type\":\"gitlab\",\"api_base\":\"https://gitlab.acme.io/api/v4\",\"scheme\":\"https\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"git.lan:3000\",\"detected_provider_type\":\"generic\",\"api_base\":\"http://git.lan:3000/api/v3\",\"scheme\":\"http\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"intranet\",\"detected_provider_type\":\"generic\",\"api_base\":\"http://intranet/api/v4\",\"scheme\":\"http\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"host\":\"5\",\"detected_provider_type\":\"generic\",\"api_base\":\"\",\"scheme\":\"https\"}",
+      "audits": []
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":1}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 1,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":2}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 2,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":3}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 3,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":4}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 4,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":5}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 5,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":6}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 6,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":7}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 7,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":8}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 8,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":9}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 9,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":10}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 10,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":11}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 11,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":12}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 12,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":13}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 13,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":14}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 14,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:<PORT>"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":15}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 15,
+            "provider_type": "github",
+            "host": "github.com"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":16}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 16,
+            "provider_type": "github",
+            "host": "github.com"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":17}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 17,
+            "provider_type": "generic",
+            "host": "git.acme.io"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":18}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 18,
+            "provider_type": "gitea",
+            "host": "127.0.0.1:1"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"provider_type invalide (un de ['github', 'gitlab', 'bitbucket-cloud', 'bitbucket-server', 'gitea', 'generic'])\"}",
+      "audits": []
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"host requis (ex. github.com, gitlab.acme.internal)\"}",
+      "audits": []
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"token requis\"}",
+      "audits": []
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":19}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.create",
+          "details": {
+            "connector_id": 19,
+            "provider_type": "github",
+            "host": "gh.example:8443"
+          }
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[{\"id\":18,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:1\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000290.5,\"updated_at\":1800000290.5,\"last_used\":null,\"has_token\":true},{\"id\":1,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"\",\"label\":\"\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000120.5,\"updated_at\":1800000120.5,\"last_used\":null,\"has_token\":true},{\"id\":10,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/absent\",\"label\":\"absent\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000210.5,\"updated_at\":1800000210.5,\"last_used\":null,\"has_token\":true},{\"id\":5,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/boucle\",\"label\":\"boucle\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000160.5,\"updated_at\":1800000160.5,\"last_used\":null,\"has_token\":true},{\"id\":2,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"\",\"label\":\"faux\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000130.5,\"updated_at\":1800000130.5,\"last_used\":null,\"has_token\":true},{\"id\":7,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/file\",\"label\":\"file\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000180.5,\"updated_at\":1800000180.5,\"last_used\":null,\"has_token\":true},{\"id\":14,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/flottant\",\"label\":\"flottant\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000250.5,\"updated_at\":1800000250.5,\"last_used\":null,\"has_token\":true},{\"id\":6,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/ftp\",\"label\":\"ftp\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000170.5,\"updated_at\":1800000170.5,\"last_used\":null,\"has_token\":true},{\"id\":4,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/meta\",\"label\":\"meta\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000150.5,\"updated_at\":1800000150.5,\"last_used\":null,\"has_token\":true},{\"id\":12,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/nan\",\"label\":\"nan\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000230.5,\"updated_at\":1800000230.5,\"last_used\":null,\"has_token\":true},{\"id\":3,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/redir/\",\"label\":\"redir\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000140.5,\"updated_at\":1800000140.5,\"last_used\":null,\"has_token\":true},{\"id\":8,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/sans\",\"label\":\"sans\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000190.5,\"updated_at\":1800000190.5,\"last_used\":null,\"has_token\":true},{\"id\":11,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/texte\",\"label\":\"texte\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000220.5,\"updated_at\":1800000220.5,\"last_used\":null,\"has_token\":true},{\"id\":9,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/uri\",\"label\":\"uri\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000200.5,\"updated_at\":1800000200.5,\"last_used\":null,\"has_token\":true},{\"id\":13,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/vide\",\"label\":\"vide\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000240.5,\"updated_at\":1800000240.5,\"last_used\":null,\"has_token\":true},{\"id\":19,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"gh.example:8443\",\"api_base\":\"\",\"label\":\"colle\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000340.5,\"updated_at\":1800000340.5,\"last_used\":null,\"has_token\":true},{\"id\":17,\"owner_user_id\":2,\"provider_type\":\"generic\",\"host\":\"git.acme.io\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000280.5,\"updated_at\":1800000280.5,\"last_used\":null,\"has_token\":true},{\"id\":16,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"http://127.0.0.1:<PORT>/x\",\"label\":\"http\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000270.5,\"updated_at\":1800000270.5,\"last_used\":null,\"has_token\":true},{\"id\":15,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"https://169.254.169.254/x\",\"label\":\"meta\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000260.5,\"updated_at\":1800000260.5,\"last_used\":null,\"has_token\":true}],\"provider_types\":[\"github\",\"gitlab\",\"bitbucket-cloud\",\"bitbucket-server\",\"gitea\",\"generic\"]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":\"bob\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/api/v1\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 1,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 401: Unauthorized\",\"status\":401,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/api/v1\",\"hint\":\"401/403 : identifiants refus\u00e9s par l'API. Pour GitLab/GitHub un Personal Access Token est OBLIGATOIRE (le mot de passe ne marche pas pour l'API). Pour Gitea, v\u00e9rifie le login/mot de passe, ou utilise un token si 2FA.\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 2,
+            "ok": false,
+            "status": 401
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":\"bob\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/redir\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 3,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 302: SSRF blocked redirect: scheme_not_allowed (http)\",\"status\":302,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/meta\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 4,
+            "ok": false,
+            "status": 302
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 302: The HTTP server returned a redirect error that would lead to an infinite loop.\\nThe last 30x error message was:\\nFound\",\"status\":302,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/boucle\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 5,
+            "ok": false,
+            "status": 302
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 301: SSRF blocked redirect: scheme_not_allowed (ftp)\",\"status\":301,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/ftp\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 6,
+            "ok": false,
+            "status": 301
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 302: Found - Redirection to url 'file:///etc/passwd' is not allowed\",\"status\":302,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/file\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 7,
+            "ok": false,
+            "status": 302
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 302: Found\",\"status\":302,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/sans\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 8,
+            "ok": false,
+            "status": 302
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":\"bob\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/uri\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 9,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 404: Not Found\",\"status\":404,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/absent\",\"hint\":\"404 : api_base probablement faux (v\u00e9rifie le chemin /api/v1, /api/v4\u2026).\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 10,
+            "ok": false,
+            "status": 404
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":null,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/texte\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 11,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 12,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":null,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/vide\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 13,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"login\":1.0,\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/flottant\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 14,
+            "ok": true,
+            "status": null
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"blocked: blocked_ip (169.254.169.254)\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"blocked: scheme_not_allowed (http)\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"no_api\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"Network: [Errno 111] Connection refused\",\"status\":0,\"host\":\"127.0.0.1:1\",\"api_base\":\"http://127.0.0.1:1/api/v1\",\"hint\":\"Pas de r\u00e9ponse de http://127.0.0.1:1/api/v1 : host/scheme/port erron\u00e9s (Gitea en HTTP ? api_base doit \u00eatre http://host:port/api/v1) ou service injoignable depuis l'app.\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.test",
+          "details": {
+            "connector_id": 18,
+            "ok": false,
+            "status": 0
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"repos\":[{\"full_name\":\"bob/a\",\"clone_url\":\"http://h/bob/a.git\",\"private\":false,\"description\":\"d\",\"updated_at\":\"2026-01-01\",\"web_url\":\"http://h/bob/a\"}],\"host\":\"127.0.0.1:<PORT>\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.list_repos",
+          "details": {
+            "connector_id": 1,
+            "ok": true,
+            "count": 1
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"repos\":[{\"full_name\":\"bob/a\",\"clone_url\":\"http://h/bob/a.git\",\"private\":false,\"description\":\"d\",\"updated_at\":\"2026-01-01\",\"web_url\":\"http://h/bob/a\"}],\"host\":\"127.0.0.1:<PORT>\"}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.list_repos",
+          "details": {
+            "connector_id": 2,
+            "ok": true,
+            "count": 1
+          }
+        }
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"blocked: blocked_ip (169.254.169.254)\",\"repos\":[]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"no_api\",\"repos\":[]}",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "audits": []
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.update",
+          "details": {
+            "connector_id": 2
+          }
+        }
+      ]
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"provider_type invalide\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.update",
+          "details": {
+            "connector_id": 2
+          }
+        }
+      ]
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.update",
+          "details": {
+            "connector_id": 2
+          }
+        }
+      ]
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "audits": []
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "audits": []
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[{\"id\":18,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:1\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000290.5,\"updated_at\":1800000290.5,\"last_used\":null,\"has_token\":true},{\"id\":1,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"\",\"label\":\"\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000120.5,\"updated_at\":1800000120.5,\"last_used\":null,\"has_token\":true},{\"id\":10,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/absent\",\"label\":\"absent\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000210.5,\"updated_at\":1800000210.5,\"last_used\":null,\"has_token\":true},{\"id\":5,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/boucle\",\"label\":\"boucle\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000160.5,\"updated_at\":1800000160.5,\"last_used\":null,\"has_token\":true},{\"id\":7,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/file\",\"label\":\"file\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000180.5,\"updated_at\":1800000180.5,\"last_used\":null,\"has_token\":true},{\"id\":14,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/flottant\",\"label\":\"flottant\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000250.5,\"updated_at\":1800000250.5,\"last_used\":null,\"has_token\":true},{\"id\":6,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/ftp\",\"label\":\"ftp\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000170.5,\"updated_at\":1800000170.5,\"last_used\":null,\"has_token\":true},{\"id\":4,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/meta\",\"label\":\"meta\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000150.5,\"updated_at\":1800000150.5,\"last_used\":null,\"has_token\":true},{\"id\":12,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/nan\",\"label\":\"nan\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000230.5,\"updated_at\":1800000230.5,\"last_used\":null,\"has_token\":true},{\"id\":3,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/redir/\",\"label\":\"redir\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000140.5,\"updated_at\":1800000140.5,\"last_used\":null,\"has_token\":true},{\"id\":8,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/sans\",\"label\":\"sans\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000190.5,\"updated_at\":1800000190.5,\"last_used\":null,\"has_token\":true},{\"id\":11,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/texte\",\"label\":\"texte\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000220.5,\"updated_at\":1800000220.5,\"last_used\":null,\"has_token\":true},{\"id\":9,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/uri\",\"label\":\"uri\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000200.5,\"updated_at\":1800000200.5,\"last_used\":null,\"has_token\":true},{\"id\":13,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/vide\",\"label\":\"vide\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000240.5,\"updated_at\":1800000240.5,\"last_used\":null,\"has_token\":true},{\"id\":19,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"gh.example:8443\",\"api_base\":\"\",\"label\":\"colle\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000340.5,\"updated_at\":1800000340.5,\"last_used\":null,\"has_token\":true},{\"id\":17,\"owner_user_id\":2,\"provider_type\":\"generic\",\"host\":\"git.acme.io\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000280.5,\"updated_at\":1800000280.5,\"last_used\":null,\"has_token\":true},{\"id\":16,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"http://127.0.0.1:<PORT>/x\",\"label\":\"http\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000270.5,\"updated_at\":1800000270.5,\"last_used\":null,\"has_token\":true},{\"id\":15,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"https://169.254.169.254/x\",\"label\":\"meta\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000260.5,\"updated_at\":1800000260.5,\"last_used\":null,\"has_token\":true},{\"id\":2,\"owner_user_id\":2,\"provider_type\":\"\",\"host\":\"nouvel.hote:1\",\"api_base\":\"x/\",\"label\":\"Renomm\u00e9\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000130.5,\"updated_at\":1800000680.5,\"last_used\":null,\"has_token\":true}],\"provider_types\":[\"github\",\"gitlab\",\"bitbucket-cloud\",\"bitbucket-server\",\"gitea\",\"generic\"]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[],\"provider_types\":[\"github\",\"gitlab\",\"bitbucket-cloud\",\"bitbucket-server\",\"gitea\",\"generic\"]}",
+      "audits": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "audits": [
+        {
+          "user_id": 2,
+          "username": null,
+          "action": "git.connector.delete",
+          "details": {
+            "connector_id": 1
+          }
+        }
+      ]
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "audits": []
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "audits": []
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[{\"id\":18,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:1\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000290.5,\"updated_at\":1800000290.5,\"last_used\":null,\"has_token\":true},{\"id\":10,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/absent\",\"label\":\"absent\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000210.5,\"updated_at\":1800000210.5,\"last_used\":null,\"has_token\":true},{\"id\":5,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/boucle\",\"label\":\"boucle\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000160.5,\"updated_at\":1800000160.5,\"last_used\":null,\"has_token\":true},{\"id\":7,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/file\",\"label\":\"file\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000180.5,\"updated_at\":1800000180.5,\"last_used\":null,\"has_token\":true},{\"id\":14,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/flottant\",\"label\":\"flottant\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000250.5,\"updated_at\":1800000250.5,\"last_used\":null,\"has_token\":true},{\"id\":6,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/ftp\",\"label\":\"ftp\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000170.5,\"updated_at\":1800000170.5,\"last_used\":null,\"has_token\":true},{\"id\":4,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/meta\",\"label\":\"meta\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000150.5,\"updated_at\":1800000150.5,\"last_used\":null,\"has_token\":true},{\"id\":12,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/nan\",\"label\":\"nan\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000230.5,\"updated_at\":1800000230.5,\"last_used\":null,\"has_token\":true},{\"id\":3,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/redir/\",\"label\":\"redir\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000140.5,\"updated_at\":1800000140.5,\"last_used\":null,\"has_token\":true},{\"id\":8,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/sans\",\"label\":\"sans\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000190.5,\"updated_at\":1800000190.5,\"last_used\":null,\"has_token\":true},{\"id\":11,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/texte\",\"label\":\"texte\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000220.5,\"updated_at\":1800000220.5,\"last_used\":null,\"has_token\":true},{\"id\":9,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/uri\",\"label\":\"uri\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000200.5,\"updated_at\":1800000200.5,\"last_used\":null,\"has_token\":true},{\"id\":13,\"owner_user_id\":2,\"provider_type\":\"gitea\",\"host\":\"127.0.0.1:<PORT>\",\"api_base\":\"http://127.0.0.1:<PORT>/vide\",\"label\":\"vide\",\"username\":\"bob\",\"token_scheme\":\"plain\",\"created_at\":1800000240.5,\"updated_at\":1800000240.5,\"last_used\":null,\"has_token\":true},{\"id\":19,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"gh.example:8443\",\"api_base\":\"\",\"label\":\"colle\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000340.5,\"updated_at\":1800000340.5,\"last_used\":null,\"has_token\":true},{\"id\":17,\"owner_user_id\":2,\"provider_type\":\"generic\",\"host\":\"git.acme.io\",\"api_base\":\"\",\"label\":\"\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000280.5,\"updated_at\":1800000280.5,\"last_used\":null,\"has_token\":true},{\"id\":16,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"http://127.0.0.1:<PORT>/x\",\"label\":\"http\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000270.5,\"updated_at\":1800000270.5,\"last_used\":null,\"has_token\":true},{\"id\":15,\"owner_user_id\":2,\"provider_type\":\"github\",\"host\":\"github.com\",\"api_base\":\"https://169.254.169.254/x\",\"label\":\"meta\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000260.5,\"updated_at\":1800000260.5,\"last_used\":null,\"has_token\":true},{\"id\":2,\"owner_user_id\":2,\"provider_type\":\"\",\"host\":\"nouvel.hote:1\",\"api_base\":\"x/\",\"label\":\"Renomm\u00e9\",\"username\":\"\",\"token_scheme\":\"plain\",\"created_at\":1800000130.5,\"updated_at\":1800000680.5,\"last_used\":null,\"has_token\":true}],\"provider_types\":[\"github\",\"gitlab\",\"bitbucket-cloud\",\"bitbucket-server\",\"gitea\",\"generic\"]}",
+      "audits": []
+    }
+  ],
+  "lignes": [
+    {
+      "id": 2,
+      "owner_user_id": 2,
+      "provider_type": "",
+      "host": "nouvel.hote:1",
+      "api_base": "x/",
+      "label": "Renomm\u00e9",
+      "username": "",
+      "token_enc": "neuf",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 3,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/redir/",
+      "label": "redir",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 4,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/meta",
+      "label": "meta",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 5,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/boucle",
+      "label": "boucle",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 6,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/ftp",
+      "label": "ftp",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 7,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/file",
+      "label": "file",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 8,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/sans",
+      "label": "sans",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 9,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/uri",
+      "label": "uri",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 10,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/absent",
+      "label": "absent",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 11,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/texte",
+      "label": "texte",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 12,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/nan",
+      "label": "nan",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 13,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/vide",
+      "label": "vide",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 14,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:<PORT>",
+      "api_base": "http://127.0.0.1:<PORT>/flottant",
+      "label": "flottant",
+      "username": "bob",
+      "token_enc": "pw",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 15,
+      "owner_user_id": 2,
+      "provider_type": "github",
+      "host": "github.com",
+      "api_base": "https://169.254.169.254/x",
+      "label": "meta",
+      "username": "",
+      "token_enc": "t",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 16,
+      "owner_user_id": 2,
+      "provider_type": "github",
+      "host": "github.com",
+      "api_base": "http://127.0.0.1:<PORT>/x",
+      "label": "http",
+      "username": "",
+      "token_enc": "t",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 17,
+      "owner_user_id": 2,
+      "provider_type": "generic",
+      "host": "git.acme.io",
+      "api_base": "",
+      "label": "",
+      "username": "",
+      "token_enc": "t",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 18,
+      "owner_user_id": 2,
+      "provider_type": "gitea",
+      "host": "127.0.0.1:1",
+      "api_base": "",
+      "label": "",
+      "username": "",
+      "token_enc": "t",
+      "token_scheme": "plain",
+      "utilise": 0
+    },
+    {
+      "id": 19,
+      "owner_user_id": 2,
+      "provider_type": "github",
+      "host": "gh.example:8443",
+      "api_base": "",
+      "label": "colle",
+      "username": "",
+      "token_enc": "t",
+      "token_scheme": "plain",
+      "utilise": 0
+    }
+  ]
+}

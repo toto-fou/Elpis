@@ -1,0 +1,1583 @@
+{
+  "requetes": [
+    [
+      "simple admise",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "simple admise avec cookie",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "cookie",
+          "s=1"
+        ]
+      ]
+    ],
+    [
+      "simple refus\u00e9e",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://intrus.lan"
+        ]
+      ]
+    ],
+    [
+      "simple sans Origin",
+      "GET",
+      "/api/x",
+      []
+    ],
+    [
+      "POST admis",
+      "POST",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ]
+      ]
+    ],
+    [
+      "erreur 401 admise",
+      "GET",
+      "/api/refus",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "origine \u00e0 la casse chang\u00e9e",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "HTTP://OUTIL.LAN:3000"
+        ]
+      ]
+    ],
+    [
+      "origine avec / final",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000/"
+        ]
+      ]
+    ],
+    [
+      "origine null",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "null"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight admise",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "POST"
+        ],
+        [
+          "access-control-request-headers",
+          "content-type, x-elpis-token"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight sans en-t\u00eates demand\u00e9s",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "DELETE"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight avec cookie",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "PUT"
+        ],
+        [
+          "cookie",
+          "s=1"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight refus\u00e9e (origine)",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://intrus.lan"
+        ],
+        [
+          "access-control-request-method",
+          "POST"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight refus\u00e9e (m\u00e9thode)",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "PROPFIND"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight refus\u00e9e (origine et m\u00e9thode)",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://intrus.lan"
+        ],
+        [
+          "access-control-request-method",
+          "TRACE"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight sur route inconnue",
+      "OPTIONS",
+      "/api/absente",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "GET"
+        ]
+      ]
+    ],
+    [
+      "OPTIONS sans demande de m\u00e9thode",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight r\u00e9seau priv\u00e9 (Chrome)",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "GET"
+        ],
+        [
+          "access-control-request-private-network",
+          "true"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight en-t\u00eates demand\u00e9s vides",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "GET"
+        ],
+        [
+          "access-control-request-headers",
+          ""
+        ]
+      ]
+    ],
+    [
+      "erreur 500 admise",
+      "GET",
+      "/api/panne",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "Vary pos\u00e9 par la route",
+      "GET",
+      "/api/vary",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "deux Vary pos\u00e9s par la route",
+      "GET",
+      "/api/vary2",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ]
+      ]
+    ],
+    [
+      "Origin en double",
+      "GET",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "origin",
+          "http://intrus.lan"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight Origin en double",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "origin",
+          "http://intrus.lan"
+        ],
+        [
+          "access-control-request-method",
+          "POST"
+        ]
+      ]
+    ],
+    [
+      "pr\u00e9flight m\u00e9thode en double",
+      "OPTIONS",
+      "/api/x",
+      [
+        [
+          "origin",
+          "http://outil.lan:3000"
+        ],
+        [
+          "access-control-request-method",
+          "POST"
+        ],
+        [
+          "access-control-request-method",
+          "PUT"
+        ]
+      ]
+    ]
+  ],
+  "configs": {
+    "liste": {
+      "origines": [
+        "http://outil.lan:3000",
+        "https://autre.lan"
+      ],
+      "reponses": [
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 401,
+          "corps": "{\"detail\":\"not logged in\"}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-headers",
+              "content-type, x-elpis-token"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS origin",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS method",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS origin, method",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 405,
+          "corps": "{\"detail\":\"Method Not Allowed\"}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "allow",
+              "GET"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS private-network",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-headers",
+              ""
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 500,
+          "corps": "Internal Server Error",
+          "entetes": [
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Accept-Encoding, Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Accept-Encoding, Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        }
+      ]
+    },
+    "joker": {
+      "origines": [
+        "*"
+      ],
+      "reponses": [
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://intrus.lan"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "content-type",
+              "application/json"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 401,
+          "corps": "{\"detail\":\"not logged in\"}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "HTTP://OUTIL.LAN:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000/"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "null"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-headers",
+              "content-type, x-elpis-token"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://intrus.lan"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS method",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS method",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://intrus.lan"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 405,
+          "corps": "{\"detail\":\"Method Not Allowed\"}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "allow",
+              "GET"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 400,
+          "corps": "Disallowed CORS private-network",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-headers",
+              ""
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 500,
+          "corps": "Internal Server Error",
+          "entetes": [
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Accept-Encoding, Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Accept-Encoding, Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "{\"ok\":true}",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        },
+        {
+          "statut": 200,
+          "corps": "OK",
+          "entetes": [
+            [
+              "access-control-allow-credentials",
+              "true"
+            ],
+            [
+              "access-control-allow-methods",
+              "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+            ],
+            [
+              "access-control-allow-origin",
+              "http://outil.lan:3000"
+            ],
+            [
+              "access-control-max-age",
+              "600"
+            ],
+            [
+              "content-type",
+              "text/plain; charset=utf-8"
+            ],
+            [
+              "vary",
+              "Origin"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

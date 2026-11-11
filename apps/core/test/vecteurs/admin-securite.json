@@ -1,0 +1,1868 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_securite.py",
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      2
+    ],
+    [
+      "dave",
+      0
+    ]
+  ],
+  "t0": 1800000000.0,
+  "entetes": [
+    "content-type",
+    "cache-control"
+  ],
+  "etapes": [
+    {
+      "config": {
+        "app_info": {
+          "name": "Elpis",
+          "version": "1.0.0"
+        },
+        "metrics": {
+          "scrape_token": "jeton-actuel"
+        },
+        "security": {
+          "https": {
+            "enabled": false,
+            "main_port": 443,
+            "admin_port": "8443"
+          },
+          "session": {
+            "https_only": false,
+            "max_age_sec": 3600,
+            "cookie_name": "ck",
+            "global_min_ts": 12.5
+          },
+          "password_policy": {
+            "min_length": 8
+          }
+        },
+        "database": {
+          "backend": "sqlite"
+        },
+        "image": {
+          "api_key_enc": "enc-1",
+          "url": "http://img"
+        },
+        "llm": {
+          "compression": {
+            "enabled": true,
+            "keep_recent_turns": 6,
+            "keep_bridge_turns": 2,
+            "external_model": "",
+            "endpoint_url": "",
+            "endpoint_model": "",
+            "endpoint_timeout_sec": 120,
+            "max_per_chat": 3,
+            "pct_of_ctx": 70
+          },
+          "compaction": {
+            "buffer_tokens": 0,
+            "partial_target_ratio": 0.6,
+            "threshold_pct": 0,
+            "threshold_tokens": 0
+          },
+          "scheduling_mode": "fair"
+        },
+        "executors": {
+          "memory_mb": 512
+        },
+        "backup": {}
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "bob"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "carol"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-user/2",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-user/99",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-user/abc",
+      "compte": "alice"
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_tokens(user_id, kind, token_hash, created_at) VALUES(?,?,?,?)",
+        [
+          4,
+          "tools",
+          "h",
+          1800000000.0
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-user/4",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/clear-user-revocation/2",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/clear-user-revocation/99",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-all",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "entetes": {
+        "x-forwarded-proto": "HTTPS, http",
+        "x-forwarded-host": " app.lan:8443 , autre"
+      },
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "entetes": {
+        "x-forwarded-proto": "ftp",
+        "host": "[::1]:9000"
+      },
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "local": true,
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "{\"enabled\": true}"
+    },
+    {
+      "caddy": [
+        443
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "{\"enabled\": true}"
+    },
+    {
+      "caddy": [
+        443,
+        8443
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "carol",
+      "corps": "{\"enabled\": true}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "{\"enabled\": 1}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{\"listen\": \"lan\"}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"security.session.same_site\", \"to\": \"None\"}]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/https",
+      "compte": "alice",
+      "corps": "[]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{\"listen\": \" LAN \"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{\"listen\": \"local\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "local": true,
+      "entetes": {
+        "x-forwarded-for": "10.0.0.9"
+      },
+      "compte": "alice",
+      "corps": "{\"listen\": \"local\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "local": true,
+      "compte": "alice",
+      "corps": "{\"listen\": \"local\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{\"listen\": \"x\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/listen",
+      "compte": "alice",
+      "corps": "{\"listen\": 5}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/compression-config",
+      "compte": "carol"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/compression-config",
+      "compte": "bob"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "carol",
+      "corps": "{\"enabled\": false}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"enabled\": 0, \"keep_recent_turns\": 100, \"keep_bridge_turns\": true, \"external_model\": \"  petit \", \"endpoint_url\": \" http://h:8081/ \", \"endpoint_model\": \"m\", \"endpoint_timeout_sec\": \"30\", \"max_per_chat\": 7.9, \"buffer_tokens\": -5, \"partial_target_ratio\": \"0.5\", \"threshold_pct\": 10, \"threshold_tokens\": 1000}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/compression-config",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"keep_recent_turns\": \"abc\", \"endpoint_url\": \"http://h/V1/Chat/Completions\", \"partial_target_ratio\": null, \"threshold_pct\": 0, \"threshold_tokens\": 5000000.0, \"endpoint_timeout_sec\": [1]}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"partial_target_ratio\": NaN, \"threshold_pct\": -5}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"enabled\": true, \"external_model\": 5}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/compression-config",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"keep_recent_turns\": Infinity}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file?type=main",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file?type=x",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file?type=main",
+      "compte": "carol"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"{\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"[1]\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": null}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"x\", \"content\": \"{}\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"{\\n  \\\"app_info\\\": {\\n    \\\"name\\\": \\\"Elpis\\\",\\n    \\\"version\\\": \\\"1.0.0\\\"\\n  },\\n  \\\"metrics\\\": {\\n    \\\"scrape_token\\\": \\\"ancien\\\"\\n  },\\n  \\\"security\\\": {\\n    \\\"https\\\": {\\n      \\\"enabled\\\": false\\n    },\\n    \\\"session\\\": {\\n      \\\"https_only\\\": false,\\n      \\\"global_min_ts\\\": 0\\n    }\\n  },\\n  \\\"llm\\\": {\\n    \\\"compression\\\": {}\\n  },\\n  \\\"executors\\\": {},\\n  \\\"rag\\\": {\\n    \\\"service_url\\\": \\\"http://r\\\"\\n  }\\n}\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"{\\\"security\\\": {\\\"https\\\": {\\\"enabled\\\": true}}, \\\"llm\\\": \\\"x\\\", \\\"skins\\\": {\\\"enabled\\\": {}}}\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"{\\\"llm\\\": {\\\"compression\\\": {\\\"enabled\\\": false, \\\"keep_recent_turns\\\": 4}}, \\\"backup\\\": {\\\"r\\\": 1}, \\\"n\\\": 1.0, \\\"g\\\": 18446744073709551616, \\\"z\\\": \\\"\u00e9\u2028\\\"}\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file?type=main",
+      "compte": "alice"
+    },
+    {
+      "config": {
+        "app_info": {
+          "name": "Elpis",
+          "version": "1.0.0"
+        },
+        "metrics": {
+          "scrape_token": "jeton-actuel"
+        },
+        "security": {
+          "https": {
+            "enabled": false,
+            "main_port": 443,
+            "admin_port": "8443"
+          },
+          "session": {
+            "https_only": false,
+            "max_age_sec": 3600,
+            "cookie_name": "ck",
+            "global_min_ts": 12.5
+          },
+          "password_policy": {
+            "min_length": 8
+          }
+        },
+        "database": {
+          "backend": "sqlite"
+        },
+        "image": {
+          "api_key_enc": "enc-1",
+          "url": "http://img"
+        },
+        "llm": {
+          "compression": {
+            "enabled": true,
+            "keep_recent_turns": 6,
+            "keep_bridge_turns": 2,
+            "external_model": "",
+            "endpoint_url": "",
+            "endpoint_model": "",
+            "endpoint_timeout_sec": 120,
+            "max_per_chat": 3,
+            "pct_of_ctx": 70
+          },
+          "compaction": {
+            "buffer_tokens": 0,
+            "partial_target_ratio": 0.6,
+            "threshold_pct": 0,
+            "threshold_tokens": 0
+          },
+          "scheduling_mode": "fair"
+        },
+        "executors": {
+          "memory_mb": 512
+        },
+        "backup": {}
+      }
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"metrics.scrape_token\", \"from\": \"jeton-actuel\", \"to\": \"nouveau\"}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"metrics.scrape_token\", \"from\": \"jeton-actuel\", \"to\": \"autre\"}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"maintenance.daily_digest_enabled\", \"from_absent\": true, \"to\": true}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"maintenance.daily_digest_enabled\", \"from_absent\": true, \"to\": false}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"metrics.scrape_token\", \"from\": \"jeton-actuel\", \"to\": \"force\"}], \"force\": true}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"security.session.max_age_sec\", \"from\": 3600.0, \"to\": 7200}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"security.session.max_age_sec\", \"from\": true, \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a.b.c\", \"to\": {\"x\": [1, 2.0]}}, {\"path\": \"metrics\", \"from\": {\"scrape_token\": \"force\"}, \"to\": null}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"metrics.scrape_token\", \"delete\": true}, {\"path\": \"x.y\", \"delete\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"security.https.enabled\", \"to\": true}, {\"path\": \"database\", \"to\": {}}, {\"path\": \"security\", \"to\": {}}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"security.sessions\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a..b\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a b\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": null, \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a.b.c.d.e.f.g.h.i\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a\"}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a\", \"delete\": false}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [1]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": []}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": \"x\"}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}, {\"path\": \"a\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "[1]"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "carol",
+      "corps": "{\"changes\": [{\"path\": \"a\", \"to\": 1}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"nan.v\", \"to\": 1}, {\"path\": \"big\", \"to\": 18446744073709551617}]}"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"big\", \"from\": 18446744073709551617, \"to\": 1.5}, {\"path\": \"nan.v\", \"from\": 1.0, \"to\": null}]}"
+    },
+    {
+      "config_brut": "{ pas du json"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a\", \"to\": 1}]}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/config-file?type=main",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/config-file",
+      "compte": "alice",
+      "corps": "{\"type\": \"main\", \"content\": \"{\\\"app_info\\\": {\\\"name\\\": \\\"Remis\\\"}}\"}"
+    },
+    {
+      "config_brut": "[1, 2]"
+    },
+    {
+      "m": "PATCH",
+      "u": "/api/admin/config",
+      "compte": "alice",
+      "corps": "{\"changes\": [{\"path\": \"a.b\", \"to\": 1}]}"
+    },
+    {
+      "config": {
+        "llm": [
+          1
+        ],
+        "security": "x"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/compression-config",
+      "compte": "alice",
+      "corps": "{\"enabled\": true}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/sessions",
+      "compte": "alice"
+    },
+    {
+      "m": "POST",
+      "u": "/api/admin/security/sessions/revoke-all",
+      "compte": "alice"
+    },
+    {
+      "m": "GET",
+      "u": "/api/admin/security/https",
+      "compte": "alice"
+    }
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2,
+    "carol": 3,
+    "dave": 4
+  },
+  "sorties": [
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"session_cfg\":{\"max_age_sec\":3600,\"idle_timeout_sec\":0,\"cookie_name\":\"ck\",\"same_site\":\"lax\",\"https_only\":false,\"global_min_ts\":12.5},\"revoked_user_count\":0,\"revoked_users\":[]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2,\"session_min_ts\":1800000000.0,\"username\":\"bob\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.security.sessions.revoke_user\", \"details\": {\"oauth_revoked\": 0, \"session_min_ts\": 1800000000.0, \"target_user_id\": 2, \"tokens_revoked\": 0}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "evenements": [
+        [
+          "session_revoked",
+          2
+        ]
+      ],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Utilisateur introuvable\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":4,\"session_min_ts\":1800000000.0,\"username\":\"dave\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.security.sessions.revoke_user\", \"details\": {\"oauth_revoked\": 0, \"session_min_ts\": 1800000000.0, \"target_user_id\": 4, \"tokens_revoked\": 1}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "evenements": [
+        [
+          "session_revoked",
+          4
+        ]
+      ],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"session_cfg\":{\"max_age_sec\":3600,\"idle_timeout_sec\":0,\"cookie_name\":\"ck\",\"same_site\":\"lax\",\"https_only\":false,\"global_min_ts\":12.5},\"revoked_user_count\":2,\"revoked_users\":[{\"user_id\":2,\"username\":\"bob\",\"session_min_ts\":1800000000.0},{\"user_id\":4,\"username\":\"dave\",\"session_min_ts\":1800000000.0}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":99}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"global_min_ts\":1800000000.0}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [
+        "{\"action\": \"admin.security.sessions.revoke_all\", \"details\": {\"global_min_ts\": 1800000000.0}, \"service\": \"admin\", \"ts\": 1800000000.0, \"user_id\": 1, \"username\": \"alice\"}"
+      ],
+      "evenements": [
+        [
+          "session_revoked",
+          null
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"session_cfg\":{\"max_age_sec\":3600,\"idle_timeout_sec\":0,\"cookie_name\":\"ck\",\"same_site\":\"lax\",\"https_only\":false,\"global_min_ts\":1800000000.0},\"revoked_user_count\":1,\"revoked_users\":[{\"user_id\":4,\"username\":\"dave\",\"session_min_ts\":1800000000.0}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":false,\"admin\":false,\"rag\":false},\"current_scheme\":\"http\",\"urls\":{\"main\":\"http://testserver:8001/\",\"admin\":\"http://testserver:8002/admin\"},\"listen\":\"lan\",\"client_local\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":false,\"admin\":false,\"rag\":false},\"current_scheme\":\"https\",\"urls\":{\"main\":\"http://app.lan:8001/\",\"admin\":\"http://app.lan:8002/admin\"},\"listen\":\"lan\",\"client_local\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":false,\"admin\":false,\"rag\":false},\"current_scheme\":\"http\",\"urls\":{\"main\":\"http://[::1]:8001/\",\"admin\":\"http://[::1]:8002/admin\"},\"listen\":\"lan\",\"client_local\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":false,\"admin\":false,\"rag\":false},\"current_scheme\":\"http\",\"urls\":{\"main\":\"http://testserver:8001/\",\"admin\":\"http://testserver:8002/admin\"},\"listen\":\"lan\",\"client_local\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Caddy n'\u00e9coute pas sur le(s) port(s) :443, :8443 \u2014 installez/d\u00e9marrez le reverse proxy (deploy/caddy/install_caddy.sh) avant d'activer le HTTPS.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Caddy n'\u00e9coute pas sur le(s) port(s) :8443 \u2014 installez/d\u00e9marrez le reverse proxy (deploy/caddy/install_caddy.sh) avant d'activer le HTTPS.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"enabled\":true,\"urls\":{\"main\":\"https://testserver/\",\"admin\":\"https://testserver:8443/admin\"},\"main_restarted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "restart",
+          "Le serveur red\u00e9marre pour changer de mode d'acc\u00e8s (HTTPS). Reconnexion automatique..."
+        ],
+        [
+          "recharger",
+          5.0
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": true,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": true,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":true,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":true,\"admin\":true,\"rag\":false},\"current_scheme\":\"http\",\"urls\":{\"main\":\"https://testserver/\",\"admin\":\"https://testserver:8443/admin\"},\"listen\":\"lan\",\"client_local\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"HTTPS actif : l'application \u00e9coute d\u00e9j\u00e0 en local derri\u00e8re Caddy.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": true,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": true,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"None\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": true,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": true,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"enabled\":false,\"urls\":{\"main\":\"http://testserver:8001/\",\"admin\":\"http://testserver:8002/admin\"},\"main_restarted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "restart",
+          "Le serveur red\u00e9marre pour changer de mode d'acc\u00e8s (HTTP direct). Reconnexion automatique..."
+        ],
+        [
+          "recharger",
+          5.0
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"enabled\":false,\"urls\":{\"main\":\"http://testserver:8001/\",\"admin\":\"http://testserver:8002/admin\"},\"main_restarted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "restart",
+          "Le serveur red\u00e9marre pour changer de mode d'acc\u00e8s (HTTP direct). Reconnexion automatique..."
+        ],
+        [
+          "recharger",
+          5.0
+        ]
+      ],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"listen\":\"lan\",\"main_restarted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "restart",
+          "Le serveur red\u00e9marre pour changer d'\u00e9coute (r\u00e9seau local). Reconnexion automatique..."
+        ],
+        [
+          "recharger",
+          5.0
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"lan\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Passer en \u00e9coute locale depuis le r\u00e9seau vous couperait l'acc\u00e8s : faites-le depuis le serveur (http://127.0.0.1:8002/admin) ou ./elpis configure --listen local.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Passer en \u00e9coute locale depuis le r\u00e9seau vous couperait l'acc\u00e8s : faites-le depuis le serveur (http://127.0.0.1:8002/admin) ou ./elpis configure --listen local.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"listen\":\"local\",\"main_restarted\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "restart",
+          "Le serveur red\u00e9marre pour changer d'\u00e9coute (ce serveur seulement). Reconnexion automatique..."
+        ],
+        [
+          "recharger",
+          5.0
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"listen : \u00ab local \u00bb ou \u00ab lan \u00bb\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"listen : \u00ab local \u00bb ou \u00ab lan \u00bb\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"listen : \u00ab local \u00bb ou \u00ab lan \u00bb\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"listen : \u00ab local \u00bb ou \u00ab lan \u00bb\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"ports\":{\"main\":443,\"admin\":8443,\"rag\":8444},\"caddy\":{\"main\":true,\"admin\":true,\"rag\":false},\"current_scheme\":\"http\",\"urls\":{\"main\":\"http://testserver:8001/\",\"admin\":\"http://testserver:8002/admin\"},\"listen\":\"local\",\"client_local\":false}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":true,\"keep_recent_turns\":6,\"keep_bridge_turns\":2,\"external_model\":\"\",\"endpoint_url\":\"\",\"endpoint_model\":\"\",\"endpoint_timeout_sec\":120,\"max_per_chat\":3,\"buffer_tokens\":0,\"partial_target_ratio\":0.6,\"threshold_pct\":0,\"threshold_tokens\":0}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-cache"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Staff required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"JSON body requis\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"petit\",\"endpoint_url\":\"http://h:8081/v1/chat/completions\",\"endpoint_model\":\"m\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.5,\"threshold_pct\":30,\"threshold_tokens\":2048}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "fermer_client"
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"petit\",\n      \"endpoint_url\": \"http://h:8081/v1/chat/completions\",\n      \"endpoint_model\": \"m\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.5,\n      \"threshold_pct\": 30,\n      \"threshold_tokens\": 2048\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"petit\",\"endpoint_url\":\"http://h:8081/v1/chat/completions\",\"endpoint_model\":\"m\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.5,\"threshold_pct\":30,\"threshold_tokens\":2048}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-cache"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"\",\"endpoint_url\":\"http://h/V1/Chat/Completions\",\"endpoint_model\":\"\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.5,\"threshold_pct\":0,\"threshold_tokens\":4000000}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "fermer_client"
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"http://h/V1/Chat/Completions\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.5,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 4000000\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"\",\"endpoint_url\":\"\",\"endpoint_model\":\"\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.9,\"threshold_pct\":0,\"threshold_tokens\":4000000}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "fermer_client"
+        ]
+      ],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.9,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 4000000\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":false,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"\",\"endpoint_url\":\"\",\"endpoint_model\":\"\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.9,\"threshold_pct\":0,\"threshold_tokens\":4000000}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-cache"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"content\":\"{\\n  \\\"app_info\\\": {\\n    \\\"name\\\": \\\"Elpis\\\",\\n    \\\"version\\\": \\\"1.0.0\\\"\\n  },\\n  \\\"metrics\\\": {\\n    \\\"scrape_token\\\": \\\"jeton-actuel\\\"\\n  },\\n  \\\"security\\\": {\\n    \\\"https\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"main_port\\\": 443,\\n      \\\"admin_port\\\": \\\"8443\\\",\\n      \\\"rag_port\\\": 8444\\n    },\\n    \\\"session\\\": {\\n      \\\"https_only\\\": false,\\n      \\\"max_age_sec\\\": 3600,\\n      \\\"cookie_name\\\": \\\"ck\\\",\\n      \\\"global_min_ts\\\": 1800000000.0,\\n      \\\"same_site\\\": \\\"lax\\\"\\n    },\\n    \\\"password_policy\\\": {\\n      \\\"min_length\\\": 8\\n    },\\n    \\\"listen\\\": \\\"local\\\"\\n  },\\n  \\\"database\\\": {\\n    \\\"backend\\\": \\\"sqlite\\\"\\n  },\\n  \\\"image\\\": {\\n    \\\"api_key_enc\\\": \\\"enc-1\\\",\\n    \\\"url\\\": \\\"http://img\\\"\\n  },\\n  \\\"llm\\\": {\\n    \\\"compression\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"keep_recent_turns\\\": 50,\\n      \\\"keep_bridge_turns\\\": 1,\\n      \\\"external_model\\\": \\\"\\\",\\n      \\\"endpoint_url\\\": \\\"\\\",\\n      \\\"endpoint_model\\\": \\\"\\\",\\n      \\\"endpoint_timeout_sec\\\": 30,\\n      \\\"max_per_chat\\\": 7\\n    },\\n    \\\"compaction\\\": {\\n      \\\"buffer_tokens\\\": 0,\\n      \\\"partial_target_ratio\\\": 0.9,\\n      \\\"threshold_pct\\\": 0,\\n      \\\"threshold_tokens\\\": 4000000\\n    },\\n    \\\"scheduling_mode\\\": \\\"fair\\\"\\n  },\\n  \\\"executors\\\": {\\n    \\\"memory_mb\\\": 512\\n  },\\n  \\\"backup\\\": {}\\n}\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Unknown config type\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"type\"],\"msg\":\"Field required\",\"input\":null}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Syntaxe JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le contenu doit \u00eatre un objet JSON.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Unknown config type\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"ancien\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"global_min_ts\": 1800000000.0\n    },\n    \"listen\": \"local\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"rag\": {\n    \"service_url\": \"http://r\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\"\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 1800000000.0,\n      \"same_site\": \"lax\"\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.9,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 4000000\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"global_min_ts\": 1800000000.0\n    },\n    \"listen\": \"local\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"skins\": {\n    \"enabled\": {}\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"ancien\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"global_min_ts\": 1800000000.0\n    },\n    \"listen\": \"local\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"rag\": {\n    \"service_url\": \"http://r\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\"\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 4\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"backup\": {\n    \"r\": 1\n  },\n  \"n\": 1.0,\n  \"g\": 18446744073709551616,\n  \"z\": \"\u00e9\u2028\",\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"global_min_ts\": 1800000000.0\n    },\n    \"listen\": \"local\"\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"skins\": {\n    \"enabled\": {}\n  }\n}",
+      "bak": "{\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\",\n      \"rag_port\": 8444\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"global_min_ts\": 1800000000.0\n    },\n    \"listen\": \"local\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": false,\n      \"keep_recent_turns\": 50,\n      \"keep_bridge_turns\": 1,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 30,\n      \"max_per_chat\": 7\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"skins\": {\n    \"enabled\": {}\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"content\":\"{\\n  \\\"llm\\\": {\\n    \\\"compression\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"keep_recent_turns\\\": 4\\n    },\\n    \\\"scheduling_mode\\\": \\\"fair\\\"\\n  },\\n  \\\"backup\\\": {\\n    \\\"r\\\": 1\\n  },\\n  \\\"n\\\": 1.0,\\n  \\\"g\\\": 18446744073709551616,\\n  \\\"z\\\": \\\"\u00e9\u2028\\\",\\n  \\\"security\\\": {\\n    \\\"https\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"main_port\\\": 443,\\n      \\\"admin_port\\\": \\\"8443\\\",\\n      \\\"rag_port\\\": 8444\\n    },\\n    \\\"session\\\": {\\n      \\\"https_only\\\": false,\\n      \\\"global_min_ts\\\": 1800000000.0\\n    },\\n    \\\"listen\\\": \\\"local\\\"\\n  },\\n  \\\"database\\\": {\\n    \\\"backend\\\": \\\"sqlite\\\"\\n  },\\n  \\\"image\\\": {\\n    \\\"api_key_enc\\\": \\\"enc-1\\\"\\n  },\\n  \\\"executors\\\": {\\n    \\\"memory_mb\\\": 512\\n  },\\n  \\\"skins\\\": {\\n    \\\"enabled\\\": {}\\n  }\\n}\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"nouveau\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"jeton-actuel\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}"
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Modifi\u00e9 ailleurs entre-temps.\",\"conflicts\":[{\"path\":\"metrics.scrape_token\",\"current\":\"nouveau\",\"absent\":false}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"nouveau\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"nouveau\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {}\n}"
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Modifi\u00e9 ailleurs entre-temps.\",\"conflicts\":[{\"path\":\"maintenance.daily_digest_enabled\",\"current\":true}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"force\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"nouveau\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"force\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"force\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 3600,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}"
+    },
+    {
+      "statut": 409,
+      "corps": "{\"detail\":\"Modifi\u00e9 ailleurs entre-temps.\",\"conflicts\":[{\"path\":\"security.session.max_age_sec\",\"current\":7200,\"absent\":false}]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  }\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": {\n    \"scrape_token\": \"force\"\n  },\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    }\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  }\n}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"R\u00e9gl\u00e9 par un autre \u00e9cran : security.https.enabled, database, security.\",\"paths\":[\"security.https.enabled\",\"database\",\"security\"]}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"sessions\": 1\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  }\n}",
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Chemin de r\u00e9glage invalide : 'a..b'\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Chemin de r\u00e9glage invalide : 'a b'\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Chemin de r\u00e9glage invalide : None\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Chemin de r\u00e9glage invalide : 'a.b.c.d.e.f.g.h.i'\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Valeur manquante pour a.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Valeur manquante pour a.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Modification mal form\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Aucune modification \u00e0 enregistrer.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Aucune modification \u00e0 enregistrer.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Trop de modifications en une fois.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le contenu doit \u00eatre un objet JSON.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"sessions\": 1\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  },\n  \"nan\": {\n    \"v\": 1\n  },\n  \"big\": 18446744073709551617\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"sessions\": 1\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  }\n}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":2}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"sessions\": 1\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  },\n  \"nan\": {\n    \"v\": null\n  },\n  \"big\": 1.5\n}",
+      "bak": "{\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"version\": \"1.0.0\"\n  },\n  \"metrics\": null,\n  \"security\": {\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": \"8443\"\n    },\n    \"session\": {\n      \"https_only\": false,\n      \"max_age_sec\": 7200,\n      \"cookie_name\": \"ck\",\n      \"global_min_ts\": 12.5\n    },\n    \"password_policy\": {\n      \"min_length\": 8\n    },\n    \"sessions\": 1\n  },\n  \"database\": {\n    \"backend\": \"sqlite\"\n  },\n  \"image\": {\n    \"api_key_enc\": \"enc-1\",\n    \"url\": \"http://img\"\n  },\n  \"llm\": {\n    \"compression\": {\n      \"enabled\": true,\n      \"keep_recent_turns\": 6,\n      \"keep_bridge_turns\": 2,\n      \"external_model\": \"\",\n      \"endpoint_url\": \"\",\n      \"endpoint_model\": \"\",\n      \"endpoint_timeout_sec\": 120,\n      \"max_per_chat\": 3,\n      \"pct_of_ctx\": 70\n    },\n    \"compaction\": {\n      \"buffer_tokens\": 0,\n      \"partial_target_ratio\": 0.6,\n      \"threshold_pct\": 0,\n      \"threshold_tokens\": 0\n    },\n    \"scheduling_mode\": \"fair\"\n  },\n  \"executors\": {\n    \"memory_mb\": 512\n  },\n  \"backup\": {},\n  \"maintenance\": {\n    \"daily_digest_enabled\": true\n  },\n  \"a\": {\n    \"b\": {\n      \"c\": {\n        \"x\": [\n          1,\n          2.0\n        ]\n      }\n    }\n  },\n  \"nan\": {\n    \"v\": 1\n  },\n  \"big\": 18446744073709551617\n}"
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"config.json est illisible : corrigez-le avant d'enregistrer.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"content\":\"{ pas du json\"}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"app_info\": {\n    \"name\": \"Remis\"\n  }\n}",
+      "bak": "{ pas du json"
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"applied\":1}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": "{\n  \"a\": {\n    \"b\": 1\n  }\n}",
+      "bak": "[1, 2]"
+    },
+    {
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 200,
+      "corps": "{\"enabled\":true,\"keep_recent_turns\":50,\"keep_bridge_turns\":1,\"external_model\":\"\",\"endpoint_url\":\"\",\"endpoint_model\":\"\",\"endpoint_timeout_sec\":30,\"max_per_chat\":7,\"buffer_tokens\":0,\"partial_target_ratio\":0.9,\"threshold_pct\":0,\"threshold_tokens\":4000000}",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "audit": [],
+      "evenements": [
+        [
+          "fermer_client"
+        ]
+      ],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8"
+      },
+      "audit": [],
+      "evenements": [],
+      "config": null,
+      "bak": null
+    }
+  ]
+}

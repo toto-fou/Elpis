@@ -1,0 +1,55 @@
+{
+  "entrees": {
+    "appels": [
+      [
+        "data: {\"choices\": [{\"delta\": {\"content\": \"Bonj\"}}]}",
+        "data: {\"choices\": [{\"delta\": {\"content\": \"our !\"}}]}",
+        "data: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 150, \"completion_tokens\": 8}, \"timings\": {\"prompt_n\": 150}}",
+        "data: [DONE]"
+      ]
+    ],
+    "chemin": "classique",
+    "harnais": "boucle",
+    "messages": [
+      {
+        "content": "SOCLE GOLDEN — identité de test stable, ne pas reformuler.",
+        "role": "system"
+      },
+      {
+        "content": "salut",
+        "role": "user"
+      }
+    ],
+    "releve": "payloads"
+  },
+  "sortie": [
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE GOLDEN — identité de test stable, ne pas reformuler.",
+          "role": "system"
+        },
+        {
+          "content": "salut",
+          "role": "user"
+        }
+      ],
+      "model": "local-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "user": "guest"
+    }
+  ]
+}

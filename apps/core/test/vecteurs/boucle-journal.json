@@ -1,0 +1,923 @@
+{
+  "source": "migration-kit/vecteurs/boucle_journal.py",
+  "comptes": [
+    [
+      1,
+      "alice"
+    ],
+    [
+      2,
+      "bob"
+    ]
+  ],
+  "reglages": {
+    "LLM_DEBUG_ENABLED": true,
+    "LLM_DEBUG_MAX_ENTRIES": 1000,
+    "LLM_DEBUG_MAX_BODY_CHARS": 1000
+  },
+  "captures": [
+    {
+      "kwargs_json": "{\"req_id\": \"a1\", \"user_id\": \"alice\", \"chat_id\": \"c1\", \"model\": \"qwen\", \"path\": \"classic\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"bonjour\", \"usage\": {\"prompt_tokens\": 5, \"completion_tokens\": 2}, \"timings\": {\"prompt_ms\": 10.4, \"predicted_ms\": 40.7}, \"finish_reason\": \"stop\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a1",
+          "user_id": 1,
+          "chat_id": "c1",
+          "model": "qwen",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": "stop",
+          "prompt_tokens": 5,
+          "completion_tokens": 2,
+          "duration_ms": 51,
+          "n_messages": 2,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"bonjour\", \"tool_calls\": [], \"usage\": {\"prompt_tokens\": 5, \"completion_tokens\": 2}, \"timings\": {\"prompt_ms\": 10.4, \"predicted_ms\": 40.7}, \"finish_reason\": \"stop\"}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a2\", \"user_id\": 7, \"chat_id\": \"c1\", \"model\": \"qwen\", \"path\": \"tools\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"\", \"tool_calls\": [{\"id\": \"c1\", \"type\": \"function\", \"function\": {\"name\": \"lire\", \"arguments\": \"{\\\"p\\\": 1}\"}}, {\"id\": \"c2\", \"type\": \"function\", \"function\": {\"name\": \"\u00e9crire\", \"arguments\": \"{}\"}}], \"usage\": {\"prompt_tokens\": 120, \"completion_tokens\": 15}, \"timings\": {\"prompt_ms\": 3, \"predicted_ms\": 4}, \"finish_reason\": \"tool_calls\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a2",
+          "user_id": 7,
+          "chat_id": "c1",
+          "model": "qwen",
+          "path": "tools",
+          "status": "ok",
+          "finish_reason": "tool_calls",
+          "prompt_tokens": 120,
+          "completion_tokens": 15,
+          "duration_ms": 7,
+          "n_messages": 2,
+          "n_tool_calls": 2,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"\", \"tool_calls\": [{\"id\": \"c1\", \"type\": \"function\", \"function\": {\"name\": \"lire\", \"arguments\": \"{\\\"p\\\": 1}\"}}, {\"id\": \"c2\", \"type\": \"function\", \"function\": {\"name\": \"\u00e9crire\", \"arguments\": \"{}\"}}], \"usage\": {\"prompt_tokens\": 120, \"completion_tokens\": 15}, \"timings\": {\"prompt_ms\": 3, \"predicted_ms\": 4}, \"finish_reason\": \"tool_calls\"}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a3\", \"user_id\": \"bob\", \"model\": \"qwen\", \"path\": \"classic\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"\", \"usage\": {\"prompt_tokens\": 100, \"completion_tokens\": 50}, \"timings\": {}, \"finish_reason\": \"length\", \"status\": \"resumed_think\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a3",
+          "user_id": 2,
+          "chat_id": null,
+          "model": "qwen",
+          "path": "classic",
+          "status": "resumed_think",
+          "finish_reason": "length",
+          "prompt_tokens": 100,
+          "completion_tokens": 50,
+          "duration_ms": null,
+          "n_messages": 2,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {\"prompt_tokens\": 100, \"completion_tokens\": 50}, \"timings\": {}, \"finish_reason\": \"length\"}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a4\", \"user_id\": \" 7 \", \"model\": \"qwen\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"partiel\", \"usage\": {\"prompt_tokens\": 9}, \"finish_reason\": \"partial\", \"status\": \"partial\", \"error\": \"ReadError: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a4",
+          "user_id": 7,
+          "chat_id": null,
+          "model": "qwen",
+          "path": "classic",
+          "status": "partial",
+          "finish_reason": "partial",
+          "prompt_tokens": 9,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": 2,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"partiel\", \"tool_calls\": [], \"usage\": {\"prompt_tokens\": 9}, \"timings\": {}, \"finish_reason\": \"partial\"}",
+          "error": "ReadError: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a5\", \"user_id\": null, \"model\": \"qwen\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"\", \"status\": \"error\", \"error\": \"\"}",
+      "ctx": 42,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a5",
+          "user_id": 42,
+          "chat_id": null,
+          "model": "qwen",
+          "path": "classic",
+          "status": "error",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": 2,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a6\", \"user_id\": \"inconnu\", \"model\": \"m\"}",
+      "ctx": 43,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a6",
+          "user_id": 43,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a7\", \"user_id\": \"inconnu\", \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a7",
+          "user_id": null,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a8\", \"user_id\": \"\", \"model\": \"m\"}",
+      "ctx": 44,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a8",
+          "user_id": 44,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"a9\", \"user_id\": \"   \", \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "a9",
+          "user_id": null,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b1\", \"user_id\": true, \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b1",
+          "user_id": 1,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b2\", \"user_id\": 7.9, \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b2",
+          "user_id": 7,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b3\", \"user_id\": \"7.0\", \"model\": \"m\"}",
+      "ctx": 45,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b3",
+          "user_id": 45,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b4\", \"user_id\": NaN, \"model\": \"m\"}",
+      "ctx": 46,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b4",
+          "user_id": 46,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b5\", \"user_id\": Infinity, \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": []
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b6\", \"request_payload\": null}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b6",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b7\", \"request_payload\": {\"messages\": \"pas une liste\", \"x\": [1, 2.5, null]}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b7",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": "{\"messages\": \"pas une liste\", \"x\": [1, 2.5, null]}",
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b8\", \"request_payload\": [{\"role\": \"user\"}]}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b8",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"b9\", \"request_payload\": {\"model\": \"m\", \"messages\": [{\"role\": \"user\", \"content\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}, \"content\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "b9",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": 1,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"m\", \"messages\": [{\"role\": \"user\", \"content\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+          "response_json": "{\"content\": \"ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c1\", \"content\": null, \"tool_calls\": null, \"usage\": null, \"timings\": null, \"finish_reason\": null}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c1",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c2\", \"usage\": {\"prompt_tokens\": \"12\", \"completion_tokens\": \"x\"}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c2",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": 12,
+          "completion_tokens": "x",
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {\"prompt_tokens\": \"12\", \"completion_tokens\": \"x\"}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c3\", \"usage\": {\"prompt_tokens\": 5.5, \"completion_tokens\": true}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c3",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": 5.5,
+          "completion_tokens": 1,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {\"prompt_tokens\": 5.5, \"completion_tokens\": true}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c4\", \"usage\": {\"prompt_tokens\": {\"a\": 1}}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": []
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c5\", \"timings\": {\"prompt_ms\": \"10\", \"predicted_ms\": null}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c5",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": 10,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {\"prompt_ms\": \"10\", \"predicted_ms\": null}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c6\", \"timings\": {\"prompt_ms\": \"abc\"}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c6",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {\"prompt_ms\": \"abc\"}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c7\", \"timings\": {\"prompt_ms\": 0.4, \"predicted_ms\": 0.5}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c7",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": 0,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {\"prompt_ms\": 0.4, \"predicted_ms\": 0.5}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c8\", \"timings\": {\"prompt_ms\": -5, \"predicted_ms\": 3}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "c8",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {\"prompt_ms\": -5, \"predicted_ms\": 3}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"c9\", \"timings\": {\"prompt_ms\": Infinity}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": []
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"d1\", \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {
+        "LLM_DEBUG_ENABLED": false
+      },
+      "lignes": []
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"d2\", \"finish_reason\": 5, \"chat_id\": 12, \"model\": null, \"path\": \"tools\", \"status\": \"ok\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "d2",
+          "user_id": null,
+          "chat_id": "12",
+          "model": null,
+          "path": "tools",
+          "status": "ok",
+          "finish_reason": "5",
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": 5}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"d3\", \"request_payload\": {\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}, \"content\": \"court\"}",
+      "ctx": null,
+      "reglages": {
+        "LLM_DEBUG_MAX_BODY_CHARS": 1200
+      },
+      "lignes": [
+        {
+          "req_id": "d3",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": 2,
+          "n_tool_calls": 0,
+          "request_json": "{\"model\": \"qwen\", \"messages\": [{\"role\": \"system\", \"content\": \"Tu es Elpis.\"}, {\"role\": \"user\", \"content\": \"salut \u00e9 \ud83d\ude00 \\\"guillemets\\\" \\\\ \\n\\t\u2028 fin\"}], \"temperature\": 0.7, \"top_p\": 1.0, \"min_p\": 1e-07, \"stream\": true, \"max_tokens\": 16384, \"stream_options\": {\"include_usage\": true}, \"chat_template_kwargs\": {\"enable_thinking\": false}, \"id_slot\": -1}",
+          "response_json": "{\"content\": \"court\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": null, \"user_id\": 0, \"chat_id\": null, \"model\": \"m\", \"content\": \"z\u00e9ro\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": null,
+          "user_id": 0,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"z\u00e9ro\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"e1\", \"user_id\": \"\ud806\udff7\", \"model\": \"m\"}",
+      "ctx": 47,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "e1",
+          "user_id": 47,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"e2\", \"user_id\": \"\u0661\u0662\", \"model\": \"m\"}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "e2",
+          "user_id": 12,
+          "chat_id": null,
+          "model": "m",
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    },
+    {
+      "kwargs_json": "{\"req_id\": \"e3\", \"timings\": {\"prompt_ms\": \"\ud806\udff7\", \"predicted_ms\": 5}}",
+      "ctx": null,
+      "reglages": {},
+      "lignes": [
+        {
+          "req_id": "e3",
+          "user_id": null,
+          "chat_id": null,
+          "model": null,
+          "path": "classic",
+          "status": "ok",
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "duration_ms": null,
+          "n_messages": null,
+          "n_tool_calls": 0,
+          "request_json": null,
+          "response_json": "{\"content\": \"\", \"tool_calls\": [], \"usage\": {}, \"timings\": {\"prompt_ms\": \"\ud806\udff7\", \"predicted_ms\": 5}, \"finish_reason\": null}",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "durees": [
+    {
+      "timings": null,
+      "valeur": null
+    },
+    {
+      "timings": {},
+      "valeur": null
+    },
+    {
+      "timings": [],
+      "valeur": null
+    },
+    {
+      "timings": "x",
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": 10.4,
+        "predicted_ms": 40.7
+      },
+      "valeur": 51
+    },
+    {
+      "timings": {
+        "prompt_ms": 3,
+        "predicted_ms": 4
+      },
+      "valeur": 7
+    },
+    {
+      "timings": {
+        "prompt_ms": "10",
+        "predicted_ms": null
+      },
+      "valeur": 10
+    },
+    {
+      "timings": {
+        "prompt_ms": " 12.5 "
+      },
+      "valeur": 12
+    },
+    {
+      "timings": {
+        "prompt_ms": "abc"
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": [
+          1
+        ]
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": {
+          "a": 1
+        }
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": []
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": true,
+        "predicted_ms": true
+      },
+      "valeur": 2
+    },
+    {
+      "timings": {
+        "prompt_ms": 0.4,
+        "predicted_ms": 0.5
+      },
+      "valeur": 0
+    },
+    {
+      "timings": {
+        "prompt_ms": -5,
+        "predicted_ms": 3
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "predicted_ms": 1e+18
+      },
+      "valeur": 1000000000000000000
+    },
+    {
+      "timings": {
+        "prompt_ms": "1e3"
+      },
+      "valeur": 1000
+    },
+    {
+      "timings": {
+        "prompt_ms": "nan"
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": "inf"
+      },
+      "erreur": "OverflowError"
+    },
+    {
+      "timings": {
+        "prompt_ms": 0,
+        "predicted_ms": 0
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": 999.999
+      },
+      "valeur": 999
+    },
+    {
+      "timings": {
+        "prompt_ms": "1_000"
+      },
+      "valeur": 1000
+    },
+    {
+      "timings": {
+        "prompt_ms": "\ud806\udff7"
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": "\u0661\u0662\u066b\u0665"
+      },
+      "valeur": null
+    },
+    {
+      "timings": {
+        "prompt_ms": "\u0661\u0662"
+      },
+      "valeur": 12
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+ "scenario": "c_open_longchat",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4
+ },
+ "run": 2,
+ "label": "frontend-ts-candidat-perf",
+ "commit": "8f46021",
+ "ts": "2026-10-14T08:42:42.379Z",
+ "durationMs": 2323,
+ "longTasks": {
+  "count": 3,
+  "p50": 211,
+  "p95": 462,
+  "max": 462,
+  "tbtMs": 609
+ },
+ "fps": null,
+ "inputEvents": {
+  "countOver50ms": 18,
+  "p95": 64
+ },
+ "cls": 0.03,
+ "markdown": {
+  "parseCalls": 30,
+  "parseMs": 117,
+  "parseMaxMs": 61,
+  "hljsCalls": 0,
+  "hljsAutoCalls": 0,
+  "hljsMs": 0
+ },
+ "cdp": {
+  "ScriptDuration": 0.16,
+  "LayoutDuration": 0.09,
+  "RecalcStyleDuration": 0.15,
+  "TaskDuration": 1.08,
+  "JSHeapUsedMB": 33.38
+ },
+ "intervals": [
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at /:15988:12"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1369:27)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.setInterval (/static/dist/assets/pont-legacy-B0WvcaoC.js:105:19409)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L09/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1369:27)"
+  }
+ ],
+ "_window": [
+  1791967359957,
+  1791967362280
+ ],
+ "openMs": 1090,
+ "settleMs": 2309,
+ "requests": {
+  "total": 6,
+  "byUrl": {
+   "/api/saved/chats/long100": 1,
+   "/api/llm/models": 1,
+   "/api/chat/long100/generation-status": 1,
+   "/api/chat/long100/compression-state": 1,
+   "/static/dist/assets/highlight.min-CHXK3mpW.js": 1,
+   "/api/llm/models/m1/props": 1
+  }
+ },
+ "errors": [],
+ "chat": "long100"
+}

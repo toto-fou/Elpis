@@ -1,0 +1,222 @@
+{
+  "entrees": {
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "H0",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "L1",
+        "modele": "m2",
+        "priorite": "low",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 2,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "H2",
+        "modele": "m2",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "P0",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "Q1",
+        "modele": "m1",
+        "priorite": "low",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 2,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "P2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "B"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "CL0",
+        "modele": "m1",
+        "priorite": "low",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "CL1",
+        "modele": "m2",
+        "priorite": "low",
+        "serveur": "C"
+      },
+      {
+        "arrivee": 2,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "CH2",
+        "modele": "m2",
+        "priorite": "high",
+        "serveur": "C"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      5,
+      12,
+      18,
+      40
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 1,
+        "max_models": 1
+      },
+      "B": {
+        "max_concurrency": 1,
+        "max_models": 1
+      },
+      "C": {
+        "max_concurrency": 1,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=12": {
+      "en_attente": [
+        "L1",
+        "Q1",
+        "CL1"
+      ],
+      "en_cours": [
+        "H2",
+        "P2",
+        "CH2"
+      ],
+      "terminees": [
+        "H0",
+        "P0",
+        "CL0"
+      ]
+    },
+    "t=18": {
+      "en_attente": [],
+      "en_cours": [
+        "L1",
+        "Q1",
+        "CL1"
+      ],
+      "terminees": [
+        "H0",
+        "H2",
+        "P0",
+        "P2",
+        "CL0",
+        "CH2"
+      ]
+    },
+    "t=40": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "H0",
+        "L1",
+        "H2",
+        "P0",
+        "Q1",
+        "P2",
+        "CL0",
+        "CL1",
+        "CH2"
+      ]
+    },
+    "t=5": {
+      "en_attente": [
+        "L1",
+        "H2",
+        "Q1",
+        "P2",
+        "CL1",
+        "CH2"
+      ],
+      "en_cours": [
+        "H0",
+        "P0",
+        "CL0"
+      ],
+      "terminees": []
+    }
+  },
+  "ordre": [
+    "t=0 H0 admis",
+    "t=0 P0 admis",
+    "t=0 CL0 admis",
+    "t=10 H0 fin",
+    "t=10 H2 admis",
+    "t=10 P0 fin",
+    "t=10 P2 admis",
+    "t=10 CL0 fin",
+    "t=10 CH2 admis",
+    "t=15 L1 admis",
+    "t=15 H2 fin",
+    "t=15 Q1 admis",
+    "t=15 P2 fin",
+    "t=15 CL1 admis",
+    "t=15 CH2 fin",
+    "t=20 L1 fin",
+    "t=20 Q1 fin",
+    "t=20 CL1 fin"
+  ]
+}

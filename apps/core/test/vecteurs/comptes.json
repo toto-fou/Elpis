@@ -1,0 +1,2569 @@
+{
+  "source": "migration-kit/vecteurs/core_comptes.py",
+  "maintenant": 1791331200.0,
+  "inter_site": [
+    {
+      "entetes": {},
+      "refus": false
+    },
+    {
+      "entetes": {
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "null"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": " NULL "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://H:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://autre:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://h"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "pas-une-url"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "//h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "origin": "http://[::1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "null"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": " NULL "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://H:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://autre:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "pas-une-url"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "//h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://[::1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "null"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": " NULL "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://H:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://autre:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "pas-une-url"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "//h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://[::1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-origin",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "null"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": " NULL "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://H:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://autre:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "pas-une-url"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "//h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://[::1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": " Same-Origin ",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": ""
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "null"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": " NULL "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://H:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://autre:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "pas-une-url"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "//h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://[::1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "same-site",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": ""
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "null"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": " NULL "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://H:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://autre:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "pas-une-url"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "//h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://[::1"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "cross-site",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": true
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": ""
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "null"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "null",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "null",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": " NULL "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": " NULL ",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": " NULL ",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://H:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://H:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://H:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "https://h:8000/x?q=1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "https://h:8000/x?q=1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "https://h:8000/x?q=1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://autre:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://autre:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://autre:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://h",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "pas-une-url"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "pas-une-url",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "pas-une-url",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "//h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "//h:8000",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "//h:8000",
+        "host": " H:8000 "
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://[::1"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://[::1",
+        "host": "h:8000"
+      },
+      "refus": false
+    },
+    {
+      "entetes": {
+        "sec-fetch-site": "none",
+        "origin": "http://[::1",
+        "host": " H:8000 "
+      },
+      "refus": false
+    }
+  ],
+  "effacements": [
+    {
+      "attributs": {
+        "cookie_name": "mcpwebui_session",
+        "same_site": "lax",
+        "https_only": false
+      },
+      "entete": "mcpwebui_session=\"\"; expires=Wed, 07 Oct 2026 00:00:00 GMT; Max-Age=0; Path=/; SameSite=lax"
+    },
+    {
+      "attributs": {
+        "cookie_name": "autre",
+        "same_site": "strict",
+        "https_only": true
+      },
+      "entete": "autre=\"\"; expires=Wed, 07 Oct 2026 00:00:00 GMT; Max-Age=0; Path=/; SameSite=strict; Secure"
+    },
+    {
+      "attributs": {
+        "cookie_name": "x",
+        "same_site": "none",
+        "https_only": true
+      },
+      "entete": "x=\"\"; expires=Wed, 07 Oct 2026 00:00:00 GMT; Max-Age=0; Path=/; SameSite=none; Secure"
+    }
+  ],
+  "images": [
+    {
+      "tete": "",
+      "extension": null
+    },
+    {
+      "tete": "ffd8",
+      "extension": null
+    },
+    {
+      "tete": "ffd8ffe0",
+      "extension": ".jpg"
+    },
+    {
+      "tete": "89504e470d0a1a0a2e2e2e",
+      "extension": ".png"
+    },
+    {
+      "tete": "89504e470d0a",
+      "extension": null
+    },
+    {
+      "tete": "474946383761",
+      "extension": ".gif"
+    },
+    {
+      "tete": "47494638396121",
+      "extension": ".gif"
+    },
+    {
+      "tete": "474946383861",
+      "extension": null
+    },
+    {
+      "tete": "52494646000000005745425056503820",
+      "extension": ".webp"
+    },
+    {
+      "tete": "524946460000000057454258",
+      "extension": null
+    },
+    {
+      "tete": "5249464631323334574542",
+      "extension": null
+    },
+    {
+      "tete": "3c737667",
+      "extension": null
+    },
+    {
+      "tete": "424d0000",
+      "extension": null
+    }
+  ],
+  "mots_de_passe": [
+    {
+      "politique": {},
+      "mot": "",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "abc",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "abcdefgh",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdefg1",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "ABCDEF1!",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdefgh!",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1_",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1\\",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1\u00e9",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1 ",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1/",
+      "ok": true
+    },
+    {
+      "politique": {},
+      "mot": "Abcdef1`",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "",
+      "statut": 400,
+      "detail": "Le mot de passe doit faire au moins 8 caract\u00e8res."
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "abc",
+      "statut": 400,
+      "detail": "Le mot de passe doit faire au moins 8 caract\u00e8res."
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "abcdefgh",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdefg1",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "ABCDEF1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdefgh!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1_",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1\\",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1\u00e9",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1 ",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1/",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": 8
+      },
+      "mot": "Abcdef1`",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "",
+      "statut": 400,
+      "detail": "Le mot de passe doit faire au moins 6 caract\u00e8res."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "abc",
+      "statut": 400,
+      "detail": "Le mot de passe doit faire au moins 6 caract\u00e8res."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "abcdefgh",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins une majuscule (A-Z)."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdefg1",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "ABCDEF1!",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins une minuscule (a-z)."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "abcdef1!",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins une majuscule (A-Z)."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdefgh!",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un chiffre (0-9)."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1_",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1\\",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1\u00e9",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins une majuscule (A-Z)."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1 ",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1/",
+      "ok": true
+    },
+    {
+      "politique": {
+        "min_length": "6",
+        "require_uppercase": true,
+        "require_lowercase": 1,
+        "require_numbers": true,
+        "require_special": true
+      },
+      "mot": "Abcdef1`",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "abc",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "abcdefgh",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdefg1",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "ABCDEF1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "abcdef1!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdefgh!",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1_",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1\\",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1\u00e9",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1 ",
+      "statut": 400,
+      "detail": "Le mot de passe doit contenir au moins un caract\u00e8re sp\u00e9cial."
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1/",
+      "ok": true
+    },
+    {
+      "politique": {
+        "require_special": "x"
+      },
+      "mot": "Abcdef1`",
+      "ok": true
+    }
+  ],
+  "bases": [
+    {
+      "url": "http://h",
+      "valide": true
+    },
+    {
+      "url": "https://h.lan:8443",
+      "valide": true
+    },
+    {
+      "url": "http://10.0.0.1:8000",
+      "valide": true
+    },
+    {
+      "url": "http://[::1]:8000",
+      "valide": false
+    },
+    {
+      "url": "http://h:123456",
+      "valide": false
+    },
+    {
+      "url": "ftp://h",
+      "valide": false
+    },
+    {
+      "url": "http://h/x",
+      "valide": false
+    },
+    {
+      "url": "http://h_x",
+      "valide": false
+    },
+    {
+      "url": "http://h:",
+      "valide": false
+    },
+    {
+      "url": "HTTP://h",
+      "valide": false
+    },
+    {
+      "url": "http://h:80;rm",
+      "valide": false
+    }
+  ],
+  "decodages": [
+    {
+      "hex": "616263",
+      "texte": "abc"
+    },
+    {
+      "hex": "c3a974c3a920f09f9880",
+      "texte": "\u00e9t\u00e9 \ud83d\ude00"
+    },
+    {
+      "hex": "efbbbf626f6d",
+      "texte": "\ufeffbom"
+    },
+    {
+      "hex": "ff",
+      "erreur": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+    },
+    {
+      "hex": "616280",
+      "erreur": "'utf-8' codec can't decode byte 0x80 in position 2: invalid start byte"
+    },
+    {
+      "hex": "e974",
+      "erreur": "'utf-8' codec can't decode byte 0xe9 in position 0: invalid continuation byte"
+    },
+    {
+      "hex": "e28258",
+      "erreur": "'utf-8' codec can't decode bytes in position 0-1: invalid continuation byte"
+    },
+    {
+      "hex": "78e282",
+      "erreur": "'utf-8' codec can't decode bytes in position 1-2: unexpected end of data"
+    },
+    {
+      "hex": "e08080",
+      "erreur": "'utf-8' codec can't decode byte 0xe0 in position 0: invalid continuation byte"
+    },
+    {
+      "hex": "eda080",
+      "erreur": "'utf-8' codec can't decode byte 0xed in position 0: invalid continuation byte"
+    },
+    {
+      "hex": "f09080",
+      "erreur": "'utf-8' codec can't decode bytes in position 0-2: unexpected end of data"
+    },
+    {
+      "hex": "f4908080",
+      "erreur": "'utf-8' codec can't decode byte 0xf4 in position 0: invalid continuation byte"
+    },
+    {
+      "hex": "c0af",
+      "erreur": "'utf-8' codec can't decode byte 0xc0 in position 0: invalid start byte"
+    },
+    {
+      "hex": "f580",
+      "erreur": "'utf-8' codec can't decode byte 0xf5 in position 0: invalid start byte"
+    },
+    {
+      "hex": "6f6bc3",
+      "erreur": "'utf-8' codec can't decode byte 0xc3 in position 2: unexpected end of data"
+    },
+    {
+      "hex": "e282ace2",
+      "erreur": "'utf-8' codec can't decode byte 0xe2 in position 3: unexpected end of data"
+    }
+  ],
+  "erreurs_os": [
+    {
+      "code": "EACCES",
+      "message": "[Errno 13] Permission denied: '/a/b'"
+    },
+    {
+      "code": "EISDIR",
+      "message": "[Errno 21] Is a directory: '/a/b'"
+    },
+    {
+      "code": "ELOOP",
+      "message": "[Errno 40] Too many levels of symbolic links: '/a/b'"
+    },
+    {
+      "code": "EIO",
+      "message": "[Errno 5] Input/output error: '/a/b'"
+    },
+    {
+      "code": "ENAMETOOLONG",
+      "message": "[Errno 36] File name too long: '/a/b'"
+    },
+    {
+      "code": "EPERM",
+      "message": "[Errno 1] Operation not permitted: '/a/b'"
+    }
+  ]
+}

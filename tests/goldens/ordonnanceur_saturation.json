@@ -1,0 +1,94 @@
+{
+  "entrees": {
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "H1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "H2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "H3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      5,
+      15,
+      30
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 2,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=15": {
+      "en_attente": [],
+      "en_cours": [
+        "H3"
+      ],
+      "terminees": [
+        "H1",
+        "H2"
+      ]
+    },
+    "t=30": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3"
+      ]
+    },
+    "t=5": {
+      "en_attente": [
+        "H3"
+      ],
+      "en_cours": [
+        "H1",
+        "H2"
+      ],
+      "terminees": []
+    }
+  },
+  "ordre": [
+    "t=0 H1 admis",
+    "t=0 H2 admis",
+    "t=10 H1 fin",
+    "t=10 H2 fin",
+    "t=10 H3 admis",
+    "t=20 H3 fin"
+  ]
+}

@@ -1,0 +1,462 @@
+{
+  "reponses_main": [
+    [
+      200,
+      "{\"ok\": true, \"scheduled_in_sec\": 5, \"active_generations\": 2, \"drain_max_s\": 300}"
+    ],
+    [
+      200,
+      "pas du json"
+    ],
+    [
+      200,
+      "[]"
+    ],
+    [
+      200,
+      "{}"
+    ],
+    [
+      200,
+      "0"
+    ],
+    [
+      200,
+      "null"
+    ],
+    [
+      200,
+      "{\"active_generations\": 0}"
+    ],
+    [
+      200,
+      "[1]"
+    ],
+    [
+      200,
+      "\"texte\""
+    ],
+    [
+      503,
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    [
+      404,
+      "{\"detail\": \"Not Found\"}"
+    ],
+    [
+      401,
+      "{\"detail\": \"jeton interne requis\"}"
+    ],
+    null
+  ],
+  "ids": {
+    "admin": 1,
+    "alice": 2,
+    "modo": 3
+  },
+  "sortie": {
+    "gardes": [
+      [
+        null,
+        {
+          "statut": 401,
+          "corps": {
+            "detail": "not logged in"
+          }
+        },
+        {
+          "statut": 401,
+          "corps": {
+            "detail": "not logged in"
+          }
+        }
+      ],
+      [
+        "alice",
+        {
+          "statut": 403,
+          "corps": {
+            "detail": "Admin required"
+          }
+        },
+        {
+          "statut": 403,
+          "corps": {
+            "detail": "Admin required"
+          }
+        }
+      ],
+      [
+        "modo",
+        {
+          "statut": 403,
+          "corps": {
+            "detail": "Admin required"
+          }
+        },
+        {
+          "statut": 403,
+          "corps": {
+            "detail": "Admin required"
+          }
+        }
+      ]
+    ],
+    "restart": [
+      {
+        "main": [
+          200,
+          "{\"ok\": true, \"scheduled_in_sec\": 5, \"active_generations\": 2, \"drain_max_s\": 300}"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": 2,
+            "drain_max_s": 300
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "pas du json"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": null,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "[]"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": null,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "{}"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": null,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "0"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": null,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "null"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": null,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "{\"active_generations\": 0}"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "target": "main",
+            "main_url": "http://127.0.0.1:<port>",
+            "active_generations": 0,
+            "drain_max_s": null
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "[1]"
+        ],
+        "reponse": {
+          "statut": 500,
+          "corps": "Internal Server Error"
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          200,
+          "\"texte\""
+        ],
+        "reponse": {
+          "statut": 500,
+          "corps": "Internal Server Error"
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          503,
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": false,
+            "target": "main",
+            "main_status": 503
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          404,
+          "{\"detail\": \"Not Found\"}"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": false,
+            "target": "main",
+            "main_status": 404
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": [
+          401,
+          "{\"detail\": \"jeton interne requis\"}"
+        ],
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": false,
+            "target": "main",
+            "main_status": 401
+          }
+        },
+        "recues": [
+          [
+            "POST",
+            "/api/admin/internal/restart-self"
+          ]
+        ]
+      },
+      {
+        "main": null,
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": false,
+            "target": "main",
+            "error": "<erreur>"
+          }
+        },
+        "recues": []
+      }
+    ],
+    "restart_self": [
+      {
+        "hote": "testclient",
+        "entetes": null,
+        "reponse": {
+          "statut": 403,
+          "corps": {
+            "detail": "Endpoint restricted to loopback"
+          }
+        },
+        "planifie": 0
+      },
+      {
+        "hote": "127.0.0.1",
+        "entetes": null,
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "scheduled_in_sec": 5,
+            "pid": "<pid>",
+            "method": "sighup",
+            "active_generations": 0,
+            "drain_max_s": "<drain>"
+          }
+        },
+        "planifie": 1
+      },
+      {
+        "hote": "::1",
+        "entetes": null,
+        "reponse": {
+          "statut": 200,
+          "corps": {
+            "ok": true,
+            "scheduled_in_sec": 5,
+            "pid": "<pid>",
+            "method": "sighup",
+            "active_generations": 0,
+            "drain_max_s": "<drain>"
+          }
+        },
+        "planifie": 1
+      },
+      {
+        "hote": "127.0.0.1",
+        "entetes": {
+          "x-forwarded-for": "1.2.3.4"
+        },
+        "reponse": {
+          "statut": 403,
+          "corps": {
+            "detail": "Endpoint restricted to loopback"
+          }
+        },
+        "planifie": 0
+      },
+      {
+        "hote": "10.0.0.2",
+        "entetes": null,
+        "reponse": {
+          "statut": 403,
+          "corps": {
+            "detail": "Endpoint restricted to loopback"
+          }
+        },
+        "planifie": 0
+      }
+    ],
+    "cache": [
+      {
+        "statut": 200,
+        "corps": {
+          "ok": true,
+          "cleared": {
+            "context_size_was_cached": false,
+            "context_size_entries_cleared": 0,
+            "total_slots_was_cached": false,
+            "total_slots_entries_cleared": 0,
+            "llm_params_entries_cleared": 0,
+            "vision_entries_cleared": 0,
+            "ctx_window_entries_cleared": 0
+          }
+        }
+      }
+    ],
+    "restart_public": {
+      "statut": 200,
+      "ok": false,
+      "cles": [
+        "error",
+        "ok",
+        "target"
+      ]
+    }
+  }
+}

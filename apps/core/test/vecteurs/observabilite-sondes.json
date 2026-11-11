@@ -1,0 +1,571 @@
+{
+  "source": "migration-kit/vecteurs/observabilite_sondes.py",
+  "entrees": {
+    "scenarios": [
+      {
+        "nom": "moderne",
+        "pid": 4242,
+        "fichiers": {
+          "proc/stat": "cpu  10132153 290696 3084719 46828483 16683 0 25195 0 175628 0\ncpu0 2533038 72674 771179 11707120 4170 0 6298 0 43907 0\ncpu1 2533038 72674 771180 11707121 4171 0 6299 0 43907 0\ncpu2 2533038 72674 771180 11707121 4171 0 6299 0 43907 0\ncpu3 2533039 72674 771180 11707121 4171 0 6299 0 43907 0\nintr 12345 0 0\nctxt 98765\nbtime 1767225600\nprocesses 4321\nprocs_running 2\n",
+          "proc/meminfo": "MemTotal:       16303216 kB\nMemFree:         1048244 kB\nMemAvailable:    9876544 kB\nBuffers:          402100 kB\nCached:          7012345 kB\nSwapCached:            0 kB\nActive:          6543210 kB\nInactive:        5432109 kB\nActive(file):   3000000 kB\nInactive(file):  2500000 kB\nShmem:            321098 kB\nSlab:             812345 kB\nSReclaimable:     600001 kB\nHugePages_Total:       0\n",
+          "proc/self/smaps": "55a0c0000000-55a0c0001000 r--p 00000000 08:01 1 /usr/bin/node\nSize:                  4 kB\nKernelPageSize:        4 kB\nMMUPageSize:           4 kB\n",
+          "proc/diskstats": "   7       0 loop0 52 0 2210 13 0 0 0 0 0 40 13 0 0 0 0 0 0\n   8       0 sda 230101 12013 18001234 101234 450123 300456 26012345 512345 0 345678 650123 1200 0 3456 70 9000 1234\n   8       1 sda1 220000 12000 17000000 100000 440000 300000 26000000 510000 0 340000 640000 1200 0 3456 70 0 0\n 259       0 nvme0n1 98765 4321 7654321 23456 87654 3210 6543210 34567 2 45678 58023 0 0 0 0\n 259       1 nvme0n1p1 98000 4300 7600000 23000 87000 3200 6500000 34000 0 45000 57000 0 0 0 0\n 104       0 cciss/c0d0 10 1 80 2 20 3 160 4 0 5 6 0 0 0 0 0 0\n 253       0 dm-0 5000 0 400000 3000 6000 0 480000 7000 0 8000 10000 0 0 0 0 0 0\n",
+          "proc/cpuinfo": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu MHz\t: 2400.000\nphysical id\t: 0\ncore id\t: 0\ncpu cores\t: 2\n\nprocessor\t: 1\nvendor_id\t: GenuineIntel\ncpu MHz\t: 2399.998\nphysical id\t: 0\ncore id\t: 0\ncpu cores\t: 2\n\nprocessor\t: 2\nvendor_id\t: GenuineIntel\ncpu MHz\t: 3100.5\nphysical id\t: 0\ncore id\t: 1\ncpu cores\t: 2\n\nprocessor\t: 3\nvendor_id\t: GenuineIntel\ncpu MHz\t: 800.000\nphysical id\t: 0\ncore id\t: 1\ncpu cores\t: 2\n\n",
+          "sys/devices/system/cpu/online": "0-3\n",
+          "sys/devices/system/cpu/cpu0/topology/core_cpus_list": "0-1\n",
+          "sys/devices/system/cpu/cpu1/topology/core_cpus_list": "0-1\n",
+          "sys/devices/system/cpu/cpu2/topology/core_cpus_list": "2-3\n",
+          "sys/devices/system/cpu/cpu3/topology/core_cpus_list": "2-3\n",
+          "sys/devices/system/cpu/cpu0/topology/thread_siblings_list": "x\n",
+          "sys/devices/system/cpu/cpu1/topology/thread_siblings_list": "x\n",
+          "sys/devices/system/cpu/cpu2/topology/thread_siblings_list": "x\n",
+          "sys/devices/system/cpu/cpu3/topology/thread_siblings_list": "x\n",
+          "sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq": "1000000\n",
+          "sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq": "400000\n",
+          "sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq": "4700000\n",
+          "sys/devices/system/cpu/cpufreq/policy1/scaling_cur_freq": "1000001\n",
+          "sys/devices/system/cpu/cpufreq/policy1/scaling_min_freq": "400000\n",
+          "sys/devices/system/cpu/cpufreq/policy1/scaling_max_freq": "4700000\n",
+          "sys/devices/system/cpu/cpufreq/policy2/scaling_cur_freq": "1000002\n",
+          "sys/devices/system/cpu/cpufreq/policy2/scaling_min_freq": "400000\n",
+          "sys/devices/system/cpu/cpufreq/policy2/scaling_max_freq": "4700000\n",
+          "sys/devices/system/cpu/cpufreq/policy3/scaling_cur_freq": "1000003\n",
+          "sys/devices/system/cpu/cpufreq/policy3/scaling_min_freq": "400000\n",
+          "sys/devices/system/cpu/cpufreq/policy3/scaling_max_freq": "4700000\n",
+          "proc/4242/stat": "4242 (node (x) y) S 1 4242 4242 0 -1 4194560 1500 0 3 0 120 45 0 0 20 0 11 0 123456 1234567890 25000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+          "proc/4242/statm": "123456 7890 1234 12 0 3456 0\n",
+          "proc/4242/status": "Name:\tnode (x) y\nUmask:\t0022\nState:\tS (sleeping)\nPid:\t4242\nThreads:\t11\nVmRSS:\t  1 kB\n",
+          "proc/4242/fd/0": "",
+          "proc/4242/fd/1": "",
+          "proc/4242/fd/2": "",
+          "proc/4242/fd/3": "",
+          "proc/4242/fd/4": "",
+          "proc/4242/fd/5": "",
+          "proc/4242/fd/6": ""
+        },
+        "dossiers": [
+          "sys/block/sda",
+          "sys/block/sdb",
+          "sys/block/nvme0n1",
+          "sys/block/loop0",
+          "sys/block/cciss!c0d0",
+          "sys/block/dm-0"
+        ],
+        "liens": {}
+      },
+      {
+        "nom": "ancien",
+        "pid": 77,
+        "fichiers": {
+          "proc/stat": "cpu  500 0 300 9000 100 0 7 0 0 0\ncpu0 500 0 300 9000 100 0 7 0 0 0\nintr 12345 0 0\nctxt 98765\nbtime 1600000000\nprocesses 4321\nprocs_running 2\n",
+          "proc/meminfo": "MemTotal:        2048000 kB\nMemFree:          100000 kB\nCached:           500000 kB\nActive:           900000 kB\nInact_dirty:      100000 kB\nInact_clean:       50000 kB\nInact_laundry:     25000 kB\nActive(file):     300000 kB\nInactive(file):   200000 kB\nMemShared:         12345 kB\nSReclaimable:      80001 kB\n",
+          "proc/zoneinfo": "Node 0, zone      DMA\n  pages free     3975\n        min      33\n        low      41\n        high     49\nNode 0, zone    DMA32\n  pages free     95000\n        min      7000\n        low      8751\n        high     10500\n   lowmem_reserve: 0 0\n",
+          "proc/self/smaps": "55a0c0000000-55a0c0001000 r--p 00000000 08:01 1 /usr/bin/node\nSize:                  4 kB\nKernelPageSize:        4 kB\nMMUPageSize:           4 kB\n",
+          "proc/diskstats": "   3     0   8 hda 8 8 8 8 8 8 8 8 8 8 8\n   3     1   hda1 4 6 2 3\n   3     64  hdb 100 2 3000 40 50 6 700 80 0 90 100\n",
+          "proc/cpuinfo": "processor\t: 0\ncpu MHz\t: 1800.123\nphysical id\t: 0\ncpu cores\t: 4\n\nprocessor\t: 1\ncpu MHz\t: 1800.5\nphysical id\t: 1\ncpu cores\t: 4\n\nprocessor\t: 2\ncpu MHz\t: 1700\nphysical id\t: 1\ncpu cores\t: 4\n\nprocessor\t: 3\ncpu MHz\t: 1600.75\nphysical id\t: 2\ncpu cores\t: 16\n",
+          "sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq": "1200000\n",
+          "sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq": "800000\n",
+          "sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq": "2400000\n",
+          "sys/devices/system/cpu/cpu1/cpufreq/cpuinfo_cur_freq": "1333333\n",
+          "sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq": "800000\n",
+          "sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq": "2400001\n",
+          "sys/devices/system/cpu/cpu2/online": "0\n",
+          "proc/77/stat": "77 (python3) S 1 77 77 0 -1 4194560 1500 0 3 0 120 45 0 0 20 0 11 0 9000001 1234567890 25000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+          "proc/77/statm": "999 512 100 1 0 200 0\n",
+          "proc/77/status": "Name:\tpython3\nUmask:\t0022\nState:\tS (sleeping)\nPid:\t77\nThreads:\t3\nVmRSS:\t  1 kB\n"
+        },
+        "dossiers": [
+          "sys/block/hda",
+          "sys/block/hdb",
+          "sys/devices/system/cpu/cpu2/cpufreq",
+          "proc/77/fd"
+        ],
+        "liens": {}
+      },
+      {
+        "nom": "sysfs",
+        "pid": 1,
+        "fichiers": {
+          "proc/stat": "cpu  1 2 3 4 5 6 7 8 9 10\nintr 12345 0 0\nctxt 98765\nbtime 1767225600\nprocesses 4321\nprocs_running 2\n",
+          "proc/meminfo": "MemTotal:        1000000 kB\nMemFree:          300000 kB\nMemAvailable:          0 kB\nCached:           200000 kB\nActive(file):     1000 kB\nInactive(file):   1000 kB\nSReclaimable:     10 kB\n",
+          "proc/cpuinfo": "processor\t: 0\ncpu MHz\t: 999.999\n\nprocessor\t: 1\ncpu MHz\t: 1000.001\n\n",
+          "sys/block/sda/stat": "    1000       10    80000      300     2000       20   160000      600        0      700      900        0        0        0        0\n",
+          "sys/block/sda/sda1/stat": "     900        9    70000      200     1900       19   150000      500        0      600      800\n",
+          "sys/block/loop1/stat": "      12        0       96        1        0        0        0        0        0        2        1\n",
+          "sys/block/zram0/queue/stat": "5 0 40 1 6 0 48 2 0 3 3\n",
+          "sys/autres/x/stat": "99999 0 0 0 0 0 0 0 0 0 0\n",
+          "sys/devices/system/cpu/cpu0/topology/thread_siblings_list": "0-1\n",
+          "sys/devices/system/cpu/cpu1/topology/thread_siblings_list": "0-1\n",
+          "sys/devices/system/cpu/cpu2/topology/thread_siblings_list": "2\n",
+          "proc/1/stat": "1 (init) S 1 1 1 0 -1 4194560 1500 0 3 0 120 45 0 0 20 0 11 0 1 1234567890 25000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+          "proc/1/statm": "100 50 10 1 0 20 0\n",
+          "proc/1/status": "Name:\tinit\nUmask:\t0022\nState:\tS (sleeping)\nPid:\t1\nThreads:\t1\nVmRSS:\t  1 kB\n",
+          "proc/1/fd/0": "",
+          "proc/1/fd/1": ""
+        },
+        "dossiers": [],
+        "liens": {
+          "sys/block/sda/device": "../../autres/x"
+        }
+      },
+      {
+        "nom": "limites",
+        "pid": null,
+        "fichiers": {
+          "proc/stat": "cpu  0 0 0 0 0 0 0 0 0 0\nintr 12345 0 0\nctxt 98765\nbtime 1767225600\nprocesses 4321\nprocs_running 2\n",
+          "proc/meminfo": "MemTotal:        1000 kB\nMemFree:          400 kB\nMemAvailable:    2000 kB\n",
+          "proc/self/smaps": "55a0c0000000-55a0c0001000 r--p 00000000 08:01 1 /usr/bin/node\nSize:                  4 kB\nKernelPageSize:        4 kB\nMMUPageSize:           4 kB\n",
+          "proc/cpuinfo": "processor\t: 0\nmodel name\t: ARMv8\n\n",
+          "proc/diskstats": "   8       1 sda1 220000 12000 17000000 100000 440000 300000 26000000 510000 0 340000 640000\n"
+        },
+        "dossiers": [
+          "sys/block"
+        ],
+        "liens": {}
+      },
+      {
+        "nom": "erreurs",
+        "pid": null,
+        "fichiers": {
+          "proc/stat": "cpu  1 1 1 1 1 1 1 0 0 0\nintr 12345 0 0\nctxt 98765\nprocesses 4321\nprocs_running 2\n",
+          "proc/meminfo": "MemFree:          400 kB\n",
+          "proc/cpuinfo": "processor\t: 0\nphysical id\t: 0\ncpu cores\t: deux\n\n",
+          "proc/diskstats": "   8       0 sda 1 2 3 4 5 6\n"
+        },
+        "dossiers": [
+          "sys/block/sda"
+        ],
+        "liens": {}
+      }
+    ],
+    "sequence_cpu": [
+      "cpu  10132153 290696 3084719 46828483 16683 0 25195 0 175628 0",
+      "cpu  10132153 290696 3084719 46828483 16683 0 25195 0 175628 0",
+      "cpu  10132253 290696 3084769 46828683 16683 0 25195 0 175628 0",
+      "cpu  10132353 290700 3084800 46828700 16900 3 25200 1 175700 1",
+      "cpu  10132300 290700 3084900 46829700 16950 3 25200 1 175650 1",
+      "cpu  10132301 290700 3084900 46829700 16950 3 25200 1 175651 1",
+      "cpu  10132301 290700 3084900 46829700 16950 3 25200 1 175651 1",
+      "cpu  10199999 290701 3099999 46900000 17000 4 25300 2 175652 2"
+    ],
+    "sequence_disques": [
+      "   8       0 sda 100 0 1000 10 200 0 2000 20 0 30 40\n   8      16 sdb 5 0 50 1 6 0 60 2 0 3 4\n",
+      "   8       0 sda 150 0 1500 15 250 0 2500 25 0 35 45\n   8      16 sdb 3 0 70 1 2 0 80 2 0 3 4\n",
+      "   8       0 sda 10 0 100 1 20 0 200 2 0 3 4\n",
+      "   8       0 sda 20 0 200 2 30 0 300 3 0 4 5\n   8      16 sdb 1 0 1 1 1 0 1 1 0 1 1\n",
+      "   8       0 sda 5 0 50 1 6 0 60 1 0 1 1\n   8      16 sdb 0 0 0 0 0 0 0 0 0 0 0\n"
+    ],
+    "statvfs": [
+      [
+        61255664,
+        25000000,
+        21871000,
+        4096
+      ],
+      [
+        100,
+        100,
+        100,
+        1024
+      ],
+      [
+        0,
+        0,
+        0,
+        4096
+      ],
+      [
+        1000,
+        50,
+        0,
+        512
+      ],
+      [
+        3,
+        1,
+        1,
+        4096
+      ],
+      [
+        244190646,
+        122095323,
+        109885790,
+        4096
+      ]
+    ]
+  },
+  "sorties": {
+    "pagesize": 4096,
+    "scenarios": [
+      {
+        "temps": [
+          101321.53,
+          2906.96,
+          30847.19,
+          468284.83,
+          166.83,
+          0.0,
+          251.95,
+          0.0,
+          1756.28,
+          0.0
+        ],
+        "memoire": {
+          "total": 16694493184,
+          "available": 10113581056,
+          "percent": 39.4,
+          "used": 6580912128,
+          "free": 1073401856,
+          "active": 6700247040,
+          "inactive": 5562479616,
+          "buffers": 411750400,
+          "cached": 7795042304,
+          "shared": 328804352,
+          "slab": 831841280
+        },
+        "disques": {
+          "read_count": 333928,
+          "write_count": 543797,
+          "read_bytes": 13341616640,
+          "write_bytes": 16914286080,
+          "read_time": 127705,
+          "write_time": 553916,
+          "read_merged_count": 16335,
+          "write_merged_count": 303669,
+          "busy_time": 399401
+        },
+        "demarrage": 1767225600.0,
+        "coeurs": 2,
+        "frequence": {
+          "current": 2175.1245,
+          "min": 400.0,
+          "max": 4700.0
+        },
+        "frequences": [
+          {
+            "current": 2400.0,
+            "min": 400.0,
+            "max": 4700.0
+          },
+          {
+            "current": 2399.998,
+            "min": 400.0,
+            "max": 4700.0
+          },
+          {
+            "current": 3100.5,
+            "min": 400.0,
+            "max": 4700.0
+          },
+          {
+            "current": 800.0,
+            "min": 400.0,
+            "max": 4700.0
+          }
+        ],
+        "processus": {
+          "rss": 32317440,
+          "fds": 7,
+          "threads": 11,
+          "creation": 1767226834.56
+        }
+      },
+      {
+        "temps": [
+          5.0,
+          0.0,
+          3.0,
+          90.0,
+          1.0,
+          0.0,
+          0.07,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "memoire": {
+          "total": 2097152000,
+          "available": 588284928,
+          "percent": 71.9,
+          "used": 1508867072,
+          "free": 102400000,
+          "active": 921600000,
+          "inactive": 179200000,
+          "buffers": 0,
+          "cached": 593921024,
+          "shared": 12641280,
+          "slab": 0
+        },
+        "disques": {
+          "read_count": 108,
+          "write_count": 58,
+          "read_bytes": 1540096,
+          "write_bytes": 362496,
+          "read_time": 48,
+          "write_time": 88,
+          "read_merged_count": 10,
+          "write_merged_count": 14,
+          "busy_time": 98
+        },
+        "demarrage": 1600000000.0,
+        "coeurs": 8,
+        "frequence": {
+          "current": 844.4443333333334,
+          "min": 533.3333333333334,
+          "max": 1600.0003333333334
+        },
+        "frequences": [
+          {
+            "current": 1200.0,
+            "min": 800.0,
+            "max": 2400.0
+          },
+          {
+            "current": 1333.333,
+            "min": 800.0,
+            "max": 2400.001
+          },
+          {
+            "current": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          }
+        ],
+        "processus": {
+          "rss": 2097152,
+          "fds": 0,
+          "threads": 3,
+          "creation": 1600090000.01
+        }
+      },
+      {
+        "temps": [
+          0.01,
+          0.02,
+          0.03,
+          0.04,
+          0.05,
+          0.06,
+          0.07,
+          0.08,
+          0.09,
+          0.1
+        ],
+        "memoire": {
+          "total": 1024000000,
+          "available": 512000000,
+          "percent": 50.0,
+          "used": 512000000,
+          "free": 307200000,
+          "active": 0,
+          "inactive": 0,
+          "buffers": 0,
+          "cached": 204810240,
+          "shared": 0,
+          "slab": 0
+        },
+        "disques": {
+          "read_count": 1012,
+          "write_count": 2000,
+          "read_bytes": 41009152,
+          "write_bytes": 81920000,
+          "read_time": 301,
+          "write_time": 600,
+          "read_merged_count": 10,
+          "write_merged_count": 20,
+          "busy_time": 702
+        },
+        "demarrage": 1767225600.0,
+        "coeurs": 2,
+        "frequence": {
+          "current": 1000.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "frequences": [
+          {
+            "current": 999.999,
+            "min": 0.0,
+            "max": 0.0
+          },
+          {
+            "current": 1000.001,
+            "min": 0.0,
+            "max": 0.0
+          }
+        ],
+        "processus": {
+          "rss": 204800,
+          "fds": 2,
+          "threads": 1,
+          "creation": 1767225600.01
+        }
+      },
+      {
+        "temps": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "memoire": {
+          "total": 1024000,
+          "available": 409600,
+          "percent": 60.0,
+          "used": 614400,
+          "free": 409600,
+          "active": 0,
+          "inactive": 0,
+          "buffers": 0,
+          "cached": 0,
+          "shared": 0,
+          "slab": 0
+        },
+        "disques": null,
+        "demarrage": 1767225600.0,
+        "coeurs": null,
+        "frequence": null,
+        "frequences": []
+      },
+      {
+        "temps": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "memoire": {
+          "erreur": "KeyError"
+        },
+        "disques": {
+          "erreur": "ValueError"
+        },
+        "demarrage": {
+          "erreur": "RuntimeError"
+        },
+        "coeurs": {
+          "erreur": "ValueError"
+        },
+        "frequence": null,
+        "frequences": []
+      }
+    ],
+    "cpu": [
+      0.0,
+      0.0,
+      42.9,
+      38.1,
+      8.7,
+      100.0,
+      0.0,
+      54.1
+    ],
+    "disques": [
+      {
+        "read_count": 105,
+        "write_count": 206,
+        "read_bytes": 537600,
+        "write_bytes": 1054720,
+        "read_time": 11,
+        "write_time": 22,
+        "read_merged_count": 0,
+        "write_merged_count": 0,
+        "busy_time": 33
+      },
+      {
+        "read_count": 158,
+        "write_count": 258,
+        "read_bytes": 803840,
+        "write_bytes": 1320960,
+        "read_time": 16,
+        "write_time": 27,
+        "read_merged_count": 0,
+        "write_merged_count": 0,
+        "busy_time": 38
+      },
+      {
+        "read_count": 160,
+        "write_count": 270,
+        "read_bytes": 819200,
+        "write_bytes": 1382400,
+        "read_time": 16,
+        "write_time": 27,
+        "read_merged_count": 0,
+        "write_merged_count": 0,
+        "busy_time": 38
+      },
+      {
+        "read_count": 171,
+        "write_count": 281,
+        "read_bytes": 870912,
+        "write_bytes": 1434112,
+        "read_time": 18,
+        "write_time": 29,
+        "read_merged_count": 0,
+        "write_merged_count": 0,
+        "busy_time": 40
+      },
+      {
+        "read_count": 176,
+        "write_count": 287,
+        "read_bytes": 896512,
+        "write_bytes": 1464832,
+        "read_time": 19,
+        "write_time": 30,
+        "read_merged_count": 0,
+        "write_merged_count": 0,
+        "busy_time": 41
+      }
+    ],
+    "statvfs": [
+      {
+        "total": 250903199744,
+        "used": 148503199744,
+        "free": 89583616000,
+        "percent": 62.4
+      },
+      {
+        "total": 102400,
+        "used": 0,
+        "free": 102400,
+        "percent": 0.0
+      },
+      {
+        "total": 0,
+        "used": 0,
+        "free": 0,
+        "percent": 0.0
+      },
+      {
+        "total": 512000,
+        "used": 486400,
+        "free": 0,
+        "percent": 100.0
+      },
+      {
+        "total": 12288,
+        "used": 8192,
+        "free": 4096,
+        "percent": 66.7
+      },
+      {
+        "total": 1000204886016,
+        "used": 500102443008,
+        "free": 450092195840,
+        "percent": 52.6
+      }
+    ]
+  }
+}

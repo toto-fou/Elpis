@@ -1,0 +1,560 @@
+{
+  "source": "migration-kit/vecteurs/outils_fs_yaml.py",
+  "pyyaml": "6.0.3",
+  "cas": [
+    {
+      "texte": "",
+      "dump": "null\n...\n"
+    },
+    {
+      "texte": "~",
+      "dump": "null\n...\n"
+    },
+    {
+      "texte": "null",
+      "dump": "null\n...\n"
+    },
+    {
+      "texte": "a",
+      "dump": "a\n...\n"
+    },
+    {
+      "texte": "'a'",
+      "dump": "a\n...\n"
+    },
+    {
+      "texte": "\"a\\tb\"",
+      "dump": "\"a\\tb\"\n"
+    },
+    {
+      "texte": "42",
+      "dump": "42\n...\n"
+    },
+    {
+      "texte": "0x1F",
+      "dump": "31\n...\n"
+    },
+    {
+      "texte": "0o17",
+      "dump": "0o17\n...\n"
+    },
+    {
+      "texte": "017",
+      "dump": "15\n...\n"
+    },
+    {
+      "texte": "0b101",
+      "dump": "5\n...\n"
+    },
+    {
+      "texte": "1_000",
+      "dump": "1000\n...\n"
+    },
+    {
+      "texte": "-0",
+      "dump": "0\n...\n"
+    },
+    {
+      "texte": "+12",
+      "dump": "12\n...\n"
+    },
+    {
+      "texte": "190:20:30",
+      "dump": "685230\n...\n"
+    },
+    {
+      "texte": "3.14",
+      "dump": "3.14\n...\n"
+    },
+    {
+      "texte": "1e3",
+      "dump": "1e3\n...\n"
+    },
+    {
+      "texte": "1.5e-7",
+      "dump": "1.5e-07\n...\n"
+    },
+    {
+      "texte": ".inf",
+      "dump": ".inf\n...\n"
+    },
+    {
+      "texte": "-.Inf",
+      "dump": "-.inf\n...\n"
+    },
+    {
+      "texte": ".nan",
+      "dump": ".nan\n...\n"
+    },
+    {
+      "texte": "1.",
+      "dump": "1.0\n...\n"
+    },
+    {
+      "texte": ".5",
+      "dump": "0.5\n...\n"
+    },
+    {
+      "texte": "6.8523015e+5",
+      "dump": "685230.15\n...\n"
+    },
+    {
+      "texte": "685_230.15",
+      "dump": "685230.15\n...\n"
+    },
+    {
+      "texte": "190:20:30.15",
+      "dump": "685230.15\n...\n"
+    },
+    {
+      "texte": "yes",
+      "dump": "true\n...\n"
+    },
+    {
+      "texte": "No",
+      "dump": "false\n...\n"
+    },
+    {
+      "texte": "ON",
+      "dump": "true\n...\n"
+    },
+    {
+      "texte": "off",
+      "dump": "false\n...\n"
+    },
+    {
+      "texte": "y",
+      "dump": "y\n...\n"
+    },
+    {
+      "texte": "n",
+      "dump": "n\n...\n"
+    },
+    {
+      "texte": "true",
+      "dump": "true\n...\n"
+    },
+    {
+      "texte": "False",
+      "dump": "false\n...\n"
+    },
+    {
+      "texte": "2001-12-14",
+      "dump": "2001-12-14\n...\n"
+    },
+    {
+      "texte": "2001-12-14t21:59:43.10-05:00",
+      "dump": "2001-12-14 21:59:43.100000-05:00\n...\n"
+    },
+    {
+      "texte": "2001-12-14 21:59:43.10",
+      "dump": "2001-12-14 21:59:43.100000\n...\n"
+    },
+    {
+      "texte": "2002-12-14T00:00:00Z",
+      "dump": "2002-12-14 00:00:00+00:00\n...\n"
+    },
+    {
+      "texte": "2001-12-15 2:59:43.10",
+      "dump": "2001-12-15 02:59:43.100000\n...\n"
+    },
+    {
+      "texte": "2020-13-01",
+      "erreur": "month must be in 1..12"
+    },
+    {
+      "texte": "a: 1\nb: 2\n",
+      "dump": "a: 1\nb: 2\n"
+    },
+    {
+      "texte": "- 1\n- [2, 3]\n- {x: y}\n",
+      "dump": "- 1\n- - 2\n  - 3\n- x: y\n"
+    },
+    {
+      "texte": "a:\n  b:\n    c: [1, {d: e}]\n",
+      "dump": "a:\n  b:\n    c:\n    - 1\n    - d: e\n"
+    },
+    {
+      "texte": "[]",
+      "dump": "[]\n"
+    },
+    {
+      "texte": "{}",
+      "dump": "{}\n"
+    },
+    {
+      "texte": "a: []\nb: {}\n",
+      "dump": "a: []\nb: {}\n"
+    },
+    {
+      "texte": "a: &x [1, 2]\nb: *x\n",
+      "dump": "a: &id001\n- 1\n- 2\nb: *id001\n"
+    },
+    {
+      "texte": "base: &b {x: 1, y: 2}\nd:\n  <<: *b\n  y: 3\n",
+      "dump": "base:\n  x: 1\n  y: 2\nd:\n  x: 1\n  y: 3\n"
+    },
+    {
+      "texte": "a: 1\na: 2\n",
+      "dump": "a: 2\n"
+    },
+    {
+      "texte": "? [1, 2]\n: v\n",
+      "erreur": "while constructing a mapping\n  in \"<unicode string>\", line 1, column 1:\n    ? [1, 2]\n    ^\nfound unhashable key\n  in \"<unicode string>\", line 1, column 3:\n    ? [1, 2]\n      ^"
+    },
+    {
+      "texte": "? a\n",
+      "dump": "a: null\n"
+    },
+    {
+      "texte": "!!str 12",
+      "dump": "'12'\n"
+    },
+    {
+      "texte": "!!int '7'",
+      "dump": "7\n...\n"
+    },
+    {
+      "texte": "!!float 3",
+      "dump": "3.0\n...\n"
+    },
+    {
+      "texte": "!!binary aGVsbG8=",
+      "dump": "!!binary |\n  aGVsbG8=\n"
+    },
+    {
+      "texte": "!!set {a}",
+      "dump": "!!set\na: null\n"
+    },
+    {
+      "texte": "!!omap [a: 1, b: 2]",
+      "dump": "- - a\n  - 1\n- - b\n  - 2\n"
+    },
+    {
+      "texte": "!!pairs [a: 1, a: 2]",
+      "dump": "- - a\n  - 1\n- - a\n  - 2\n"
+    },
+    {
+      "texte": "!!python/name:os.system",
+      "erreur": "could not determine a constructor for the tag 'tag:yaml.org,2002:python/name:os.system'\n  in \"<unicode string>\", line 1, column 1:\n    !!python/name:os.system\n    ^"
+    },
+    {
+      "texte": "!custom x",
+      "erreur": "could not determine a constructor for the tag '!custom'\n  in \"<unicode string>\", line 1, column 1:\n    !custom x\n    ^"
+    },
+    {
+      "texte": "s: ' lead'\nt: 'trail '\nu: ''\nv: 'yes'\nw: '123'\nx: 'a: b'\ny: '#c'\nz: '- d'\n",
+      "dump": "s: ' lead'\nt: 'trail '\nu: ''\nv: 'yes'\nw: '123'\nx: 'a: b'\ny: '#c'\nz: '- d'\n"
+    },
+    {
+      "texte": "m: |\n  un\n  deux\n",
+      "dump": "m: 'un\n\n  deux\n\n  '\n"
+    },
+    {
+      "texte": "f: >\n  pli\u00e9\n  ici\n\n  para\n",
+      "dump": "f: 'pli\u00e9 ici\n\n  para\n\n  '\n"
+    },
+    {
+      "texte": "k: |-\n  x\n",
+      "dump": "k: x\n"
+    },
+    {
+      "texte": "k: |+\n  x\n\n",
+      "dump": "k: 'x\n\n\n  '\n"
+    },
+    {
+      "texte": "u: caf\u00e9 \u2615 \u65e5\u672c\n",
+      "dump": "u: caf\u00e9 \u2615 \u65e5\u672c\n"
+    },
+    {
+      "texte": "e: \"\\u00e9\\x01\\ud83d\"\n",
+      "dump": "e: \"\u00e9\\x01\\uD83D\"\n"
+    },
+    {
+      "texte": "c: \"a\\x07b\"\n",
+      "dump": "c: \"a\\ab\"\n"
+    },
+    {
+      "texte": "nl: \"a\\nb\"\n",
+      "dump": "nl: 'a\n\n  b'\n"
+    },
+    {
+      "texte": "tab: \"a\\tb\"\n",
+      "dump": "tab: \"a\\tb\"\n"
+    },
+    {
+      "texte": "long: mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot \n",
+      "dump": "long: mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot\n  mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot mot\n  mot\n"
+    },
+    {
+      "texte": "longue: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+      "dump": "longue: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+    },
+    {
+      "texte": "q: \"abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def \"\n",
+      "dump": "q: 'abc def abc def abc def abc def abc def abc def abc def abc def abc def abc def\n  abc def abc def abc def abc def abc def '\n"
+    },
+    {
+      "texte": "- a\n-\n- c\n",
+      "dump": "- a\n- null\n- c\n"
+    },
+    {
+      "texte": "a:\n- 1\n- 2\nb: x\n",
+      "dump": "a:\n- 1\n- 2\nb: x\n"
+    },
+    {
+      "texte": "1: un\n2.5: deux\nnull: trois\ntrue: quatre\n",
+      "dump": "1: quatre\n2.5: deux\nnull: trois\n"
+    },
+    {
+      "texte": "'a b': 1\n\"c\\td\": 2\n",
+      "dump": "a b: 1\n\"c\\td\": 2\n"
+    },
+    {
+      "texte": "? |\n  bloc\n: v\n",
+      "dump": "? 'bloc\n\n  '\n: v\n"
+    },
+    {
+      "texte": "a: !!null ''\n",
+      "dump": "a: null\n"
+    },
+    {
+      "texte": "a: -\n",
+      "erreur": "sequence entries are not allowed here\n  in \"<unicode string>\", line 1, column 4:\n    a: -\n       ^"
+    },
+    {
+      "texte": "a: '\n",
+      "erreur": "while scanning a quoted scalar\n  in \"<unicode string>\", line 1, column 4:\n    a: '\n       ^\nfound unexpected end of stream\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^"
+    },
+    {
+      "texte": "a: [1, 2\n",
+      "erreur": "while parsing a flow sequence\n  in \"<unicode string>\", line 1, column 4:\n    a: [1, 2\n       ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^"
+    },
+    {
+      "texte": "a:\n\tb: 1\n",
+      "erreur": "while scanning for the next token\nfound character '\\t' that cannot start any token\n  in \"<unicode string>\", line 2, column 1:\n    \tb: 1\n    ^"
+    },
+    {
+      "texte": "a: b: c\n",
+      "erreur": "mapping values are not allowed here\n  in \"<unicode string>\", line 1, column 5:\n    a: b: c\n        ^"
+    },
+    {
+      "texte": "- a\nb: c\n",
+      "erreur": "while parsing a block collection\n  in \"<unicode string>\", line 1, column 1:\n    - a\n    ^\nexpected <block end>, but found '?'\n  in \"<unicode string>\", line 2, column 1:\n    b: c\n    ^"
+    },
+    {
+      "texte": "--- 1\n--- 2\n",
+      "erreur": "expected a single document in the stream\n  in \"<unicode string>\", line 1, column 5:\n    --- 1\n        ^\nbut found another document\n  in \"<unicode string>\", line 2, column 1:\n    --- 2\n    ^"
+    },
+    {
+      "texte": "---\na: 1\n...\n",
+      "dump": "a: 1\n"
+    },
+    {
+      "texte": "%YAML 1.1\n--- x\n",
+      "dump": "x\n...\n"
+    },
+    {
+      "texte": "a: *inconnu\n",
+      "erreur": "found undefined alias 'inconnu'\n  in \"<unicode string>\", line 1, column 4:\n    a: *inconnu\n       ^"
+    },
+    {
+      "texte": "&a [*a]",
+      "dump": "&id001\n- *id001\n"
+    },
+    {
+      "texte": "key: @x\n",
+      "erreur": "while scanning for the next token\nfound character '@' that cannot start any token\n  in \"<unicode string>\", line 1, column 6:\n    key: @x\n         ^"
+    },
+    {
+      "texte": "key: `x`\n",
+      "erreur": "while scanning for the next token\nfound character '`' that cannot start any token\n  in \"<unicode string>\", line 1, column 6:\n    key: `x`\n         ^"
+    },
+    {
+      "texte": "x: !!timestamp 2001-12-14\n",
+      "dump": "x: 2001-12-14\n"
+    },
+    {
+      "texte": "x: 1:2:3\n",
+      "dump": "x: 3723\n"
+    },
+    {
+      "texte": "x: 0o\n",
+      "dump": "x: 0o\n"
+    },
+    {
+      "texte": "x: 0x\n",
+      "dump": "x: 0x\n"
+    },
+    {
+      "texte": "x: 1__2\n",
+      "dump": "x: 12\n"
+    },
+    {
+      "texte": "x: _1\n",
+      "dump": "x: _1\n"
+    },
+    {
+      "texte": "x: 1e\n",
+      "dump": "x: 1e\n"
+    },
+    {
+      "texte": "x: +.inf\n",
+      "dump": "x: .inf\n"
+    },
+    {
+      "texte": "x: ''\n",
+      "dump": "x: ''\n"
+    },
+    {
+      "texte": "x: ' '\n",
+      "dump": "x: ' '\n"
+    },
+    {
+      "texte": "x: \"\\\\\"\n",
+      "dump": "x: \\\n"
+    },
+    {
+      "texte": "x: \"'\"\n",
+      "dump": "x: ''''\n"
+    },
+    {
+      "texte": "x: \"\\\"\"\n",
+      "dump": "x: '\"'\n"
+    },
+    {
+      "texte": "x: '''\n",
+      "erreur": "while scanning a quoted scalar\n  in \"<unicode string>\", line 1, column 4:\n    x: '''\n       ^\nfound unexpected end of stream\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^"
+    },
+    {
+      "texte": "- - - a\n",
+      "dump": "- - - a\n"
+    },
+    {
+      "texte": "a:\n  - b:\n      c: d\n",
+      "dump": "a:\n- b:\n    c: d\n"
+    },
+    {
+      "texte": "x: \u2028y\n",
+      "erreur": "while scanning a simple key\n  in \"<unicode string>\", line 2, column 1:\n    y\n    ^\ncould not find expected ':'\n  in \"<unicode string>\", line 3, column 1:\n    \n    ^"
+    },
+    {
+      "texte": "x: \"\\u2028\\u0085\\ufeff\"\n",
+      "dump": "x: \"\\L\\N\\uFEFF\"\n"
+    },
+    {
+      "texte": "x: |\n  \u00a0lead\n",
+      "dump": "x: '\u00a0lead\n\n  '\n"
+    },
+    {
+      "texte": "x: 2001-12-14 21:59:43.10 +5\n",
+      "dump": "x: 2001-12-14 21:59:43.100000+05:00\n"
+    },
+    {
+      "texte": "x: 1_2_3.4_5\n",
+      "dump": "x: 123.45\n"
+    },
+    {
+      "texte": "x: -1_0\n",
+      "dump": "x: -10\n"
+    },
+    {
+      "texte": "x: 0b1_0\n",
+      "dump": "x: 2\n"
+    },
+    {
+      "texte": "x: 0x_1F\n",
+      "dump": "x: 31\n"
+    },
+    {
+      "texte": "x: 1:20\n",
+      "dump": "x: 80\n"
+    },
+    {
+      "texte": "x: -1:20\n",
+      "dump": "x: -80\n"
+    },
+    {
+      "texte": "x: .NaN\n",
+      "dump": "x: .nan\n"
+    },
+    {
+      "texte": "x: True\ny: TRUE\nz: tRUE\n",
+      "dump": "x: true\ny: true\nz: tRUE\n"
+    },
+    {
+      "texte": "x: NULL\ny: Null\nz: nULL\n",
+      "dump": "x: null\ny: null\nz: nULL\n"
+    },
+    {
+      "texte": "[a, b]: c\n",
+      "erreur": "while constructing a mapping\nfound unhashable key\n  in \"<unicode string>\", line 1, column 1:\n    [a, b]: c\n    ^"
+    },
+    {
+      "texte": "{a: b}: c\n",
+      "erreur": "while constructing a mapping\nfound unhashable key\n  in \"<unicode string>\", line 1, column 1:\n    {a: b}: c\n    ^"
+    },
+    {
+      "texte": "a: &a {b: 1, <<: *a}\n",
+      "dump": "a:\n  b: 1\n"
+    },
+    {
+      "texte": "x: &x {a: 1}\ny: &y {a: 2, b: 2}\nz:\n  <<: [*x, *y]\n  c: 3\n",
+      "dump": "x:\n  a: 1\ny:\n  a: 2\n  b: 2\nz:\n  a: 1\n  b: 2\n  c: 3\n"
+    },
+    {
+      "texte": "x: &x {a: 1}\nz:\n  <<: [*x, 3]\n",
+      "erreur": "while constructing a mapping\n  in \"<unicode string>\", line 3, column 3:\n      <<: [*x, 3]\n      ^\nexpected a mapping for merging, but found scalar\n  in \"<unicode string>\", line 3, column 12:\n      <<: [*x, 3]\n               ^"
+    },
+    {
+      "texte": "z:\n  <<: 3\n",
+      "erreur": "while constructing a mapping\n  in \"<unicode string>\", line 2, column 3:\n      <<: 3\n      ^\nexpected a mapping or list of mappings for merging, but found scalar\n  in \"<unicode string>\", line 2, column 7:\n      <<: 3\n          ^"
+    },
+    {
+      "texte": "a: &a x\nb: &a y\nc: *a\n",
+      "erreur": "found duplicate anchor 'a'; first occurrence\n  in \"<unicode string>\", line 1, column 4:\n    a: &a x\n       ^\nsecond occurrence\n  in \"<unicode string>\", line 2, column 4:\n    b: &a y\n       ^"
+    }
+  ],
+  "corpus": [
+    {
+      "chemin": ".github/ISSUE_TEMPLATE/config.yml",
+      "sha256": "4e372f63a3ead21a98c6b99688a37e56eef3a384c9e2d78c6bb9868c683502ed",
+      "dump": "blank_issues_enabled: false\ncontact_links:\n- name: Faille de s\u00e9curit\u00e9\n  url: https://github.com/toto-fou/Elpis/security/advisories/new\n  about: Signalement priv\u00e9 (voir SECURITY.md), jamais en ticket public.\n"
+    },
+    {
+      "chemin": ".github/workflows/ci-ts.yml",
+      "source": "apps/toolhost/test/vecteurs/fs-yaml-corpus/.github/workflows/ci-ts.yml.txt",
+      "sha256": "3820aa248f5cacda4aa7faadd04403765d70bf9e7b0abdadbe014ce52b7bb86f",
+      "dump": "name: CI TypeScript\ntrue:\n  workflow_dispatch: null\npermissions:\n  contents: read\nconcurrency:\n  group: ci-ts-${{ github.ref }}\n  cancel-in-progress: true\njobs:\n  verifier:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 15\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-node@v5\n      with:\n        node-version: '24'\n        cache: npm\n    - run: npm ci\n    - run: npm run verifier\n  dependances-npm:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: '3.13'\n    - name: Paquets npm retenus contre le registre (licence, fra\u00eecheur, d\u00e9pr\u00e9ciation,\n        t\u00e9l\u00e9chargements)\n      run: python3 migration-kit/check_npm_deps.py --sortie \"$RUNNER_TEMP/npm_report.txt\"\n  vecteurs:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: '3.13'\n        cache: pip\n        cache-dependency-path: requirements*.txt\n    - run: pip install -r requirements.txt -r requirements-dev.txt\n    - name: Vecteurs de parit\u00e9 \u00e0 jour\n      run: python -m pytest -q -p no:cacheprovider -n0 tests/migration\n"
+    },
+    {
+      "chemin": ".github/workflows/ci.yml",
+      "source": "apps/toolhost/test/vecteurs/fs-yaml-corpus/.github/workflows/ci.yml.txt",
+      "sha256": "99b8eeb52a1b81da34d7bb71646cf6adfb0452399120272e0a796481420decec",
+      "dump": "name: CI\ntrue:\n  workflow_dispatch: null\npermissions:\n  contents: read\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\nenv:\n  LLAMA_IP: 127.0.0.1\n  LLAMA_PORT: '1'\n  PIP_DISABLE_PIP_VERSION_CHECK: '1'\njobs:\n  lint:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: '3.13'\n        cache: pip\n        cache-dependency-path: requirements*.txt\n    - name: Ruff, \u00e0 la version de requirements.txt\n      run: pip install \"$(grep -oE '^ruff==[0-9.]+' requirements.txt)\"\n    - run: ruff check .\n  typage:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 15\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: '3.13'\n        cache: pip\n        cache-dependency-path: requirements*.txt\n    - run: pip install -r requirements.txt -r requirements-dev.txt\n    - name: mypy (p\u00e9rim\u00e8tre de pyproject.toml)\n      run: mypy\n  tests:\n    name: tests (SQLite, Python ${{ matrix.python }})\n    runs-on: ubuntu-24.04\n    timeout-minutes: 30\n    strategy:\n      fail-fast: false\n      matrix:\n        python:\n        - '3.11'\n        - '3.13'\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: ${{ matrix.python }}\n        cache: pip\n        cache-dependency-path: requirements*.txt\n    - uses: actions/setup-node@v5\n      with:\n        node-version: '20'\n    - name: Prison bubblewrap (aper\u00e7us Office)\n      run: 'sudo apt-get update -qq\n\n        sudo apt-get install -y -qq bubblewrap\n\n        # Ubuntu 24.04 r\u00e9serve les user namespaces aux profils AppArmor.\n\n        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\n\n        '\n    - run: pip install -r requirements-rag.txt -r requirements-dev.txt\n    - run: python -m pytest -q -p no:cacheprovider\n    - name: Service navigateur (tests Node purs, sans Playwright)\n      run: node --test browser-service/test/\n  tests-serveur:\n    name: tests (${{ matrix.name }})\n    runs-on: ubuntu-24.04\n    timeout-minutes: 30\n    strategy:\n      fail-fast: false\n      matrix:\n        include:\n        - name: PostgreSQL 17\n          image: postgres:17\n          backend: postgres\n          port: 5432\n          user: elpis\n          var: ELPIS_TEST_PG\n          options: --tmpfs /var/lib/postgresql/data --health-cmd \"pg_isready -U elpis\"\n            --health-interval 5s --health-timeout 5s --health-retries 20\n    services:\n      db:\n        image: ${{ matrix.image }}\n        env:\n          POSTGRES_USER: elpis\n          POSTGRES_PASSWORD: elpis\n          POSTGRES_DB: elpis\n        ports:\n        - ${{ matrix.port }}:${{ matrix.port }}\n        options: ${{ matrix.options }}\n    env:\n      ELPIS_TEST_DB: '1'\n      APP_DB_BACKEND: ${{ matrix.backend }}\n      APP_DB_HOST: 127.0.0.1\n      APP_DB_PORT: ${{ matrix.port }}\n      APP_DB_NAME: elpis\n      APP_DB_USER: ${{ matrix.user }}\n      APP_DB_PASSWORD: elpis\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-python@v6\n      with:\n        python-version: '3.13'\n        cache: pip\n        cache-dependency-path: requirements*.txt\n    - name: Prison bubblewrap (aper\u00e7us Office)\n      run: 'sudo apt-get update -qq\n\n        sudo apt-get install -y -qq bubblewrap\n\n        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\n\n        '\n    - run: pip install -r requirements-rag.txt -r requirements-dev.txt\n    - name: Tests\n      run: '# Tests propres aux moteurs serveur (tests/db\u2026) sur le m\u00eame serveur.\n\n        export ${{ matrix.var }}=\"127.0.0.1:${{ matrix.port }}:elpis:${{ matrix.user\n        }}:elpis\"\n\n        python -m pytest -q -p no:cacheprovider\n\n        '\n"
+    },
+    {
+      "chemin": "deploy/qdrant/config.yaml",
+      "sha256": "663de8ee8cc0aa8ab9d7ff510a50b1780fb35c3c41e7c8e2ff430d9ad836fd07",
+      "dump": "log_level: INFO\nstorage:\n  storage_path: ./storage\n  snapshots_path: ./storage/snapshots\nservice:\n  host: 127.0.0.1\n  http_port: 6333\n  grpc_port: 6334\n  enable_cors: false\ncluster:\n  enabled: false\ntelemetry_disabled: true\n"
+    },
+    {
+      "chemin": "skills/ansible/ansible-inventory-vault/references/inventory.example.yml",
+      "source": "apps/toolhost/test/vecteurs/fs-code-corpus/skills/ansible/ansible-inventory-vault/references/inventory.example.yml.txt",
+      "sha256": "890f4ebdfae9448dcdab637b5a19f38d1162cddebbe1108d0cd759afe9fcef3e",
+      "dump": "all:\n  vars:\n    ansible_user: deploy\n    ansible_python_interpreter: /usr/bin/python3\n  children:\n    web:\n      hosts:\n        web1:\n          ansible_host: 10.0.1.11\n        web2:\n          ansible_host: 10.0.1.12\n      vars:\n        app_port: 8080\n    workers:\n      hosts:\n        worker[1:3]:\n          ansible_host: 10.0.2.1\n    db:\n      hosts:\n        db1:\n          ansible_host: 10.0.3.10\n          ansible_port: 2222\n    production:\n      children:\n        web: null\n        workers: null\n        db: null\n    staging:\n      hosts:\n        staging1:\n          ansible_host: 10.9.0.5\n"
+    },
+    {
+      "chemin": "skills/ansible/ansible-write-playbook/references/playbook.example.yml",
+      "source": "apps/toolhost/test/vecteurs/fs-code-corpus/skills/ansible/ansible-write-playbook/references/playbook.example.yml.txt",
+      "sha256": "e9ffd3de4fb952365ee36ddca34033ca48a6cedfc13a20d5f9c379909bd38099",
+      "dump": "- name: D\u00e9ployer le service web\n  hosts: web\n  become: true\n  vars:\n    app_user: webapp\n    app_port: 8080\n    app_dir: /opt/webapp\n  tasks:\n  - name: Paquets requis pr\u00e9sents\n    ansible.builtin.apt:\n      name:\n      - nginx\n      - python3-venv\n      state: present\n      update_cache: true\n      cache_valid_time: 3600\n  - name: Utilisateur applicatif pr\u00e9sent\n    ansible.builtin.user:\n      name: '{{ app_user }}'\n      system: true\n      home: '{{ app_dir }}'\n      create_home: false\n  - name: Arborescence applicative\n    ansible.builtin.file:\n      path: '{{ item }}'\n      state: directory\n      owner: '{{ app_user }}'\n      mode: '0755'\n    loop:\n    - '{{ app_dir }}'\n    - '{{ app_dir }}/releases'\n  - name: Initialisation one-shot (gard\u00e9e par un marqueur)\n    ansible.builtin.command: '{{ app_dir }}/bin/init.sh'\n    args:\n      creates: '{{ app_dir }}/.initialized'\n  - name: Config nginx \u00e0 jour (valid\u00e9e AVANT remplacement)\n    ansible.builtin.template:\n      src: templates/nginx-site.conf.j2\n      dest: /etc/nginx/sites-available/webapp.conf\n      mode: '0644'\n      validate: nginx -t -c %s\n    notify: Recharger nginx\n  - name: Service nginx d\u00e9marr\u00e9 et activ\u00e9 au boot\n    ansible.builtin.service:\n      name: nginx\n      state: started\n      enabled: true\n  handlers:\n  - name: Recharger nginx\n    ansible.builtin.service:\n      name: nginx\n      state: reloaded\n- name: Poser la crontab de purge sur les workers\n  hosts: workers\n  become: true\n  tasks:\n  - name: Purge nocturne des artefacts\n    ansible.builtin.cron:\n      name: purge-artifacts\n      minute: '0'\n      hour: '3'\n      job: find /var/lib/worker/artifacts -mtime +7 -delete\n"
+    },
+    {
+      "chemin": "tools/release/surcharges/.github/workflows/ci.yml",
+      "source": "apps/toolhost/test/vecteurs/fs-yaml-corpus/tools/release/surcharges/.github/workflows/ci.yml.txt",
+      "sha256": "a4e0be045d9ab1eb2a21a9910a523d8c3f2451aa42f57e63c6104f8328eeaa1c",
+      "dump": "name: CI\ntrue:\n  push:\n    branches:\n    - main\n  pull_request: null\n  workflow_dispatch: null\npermissions:\n  contents: read\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\njobs:\n  construction:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 30\n    steps:\n    - uses: actions/checkout@v5\n    - uses: actions/setup-node@v5\n      with:\n        node-version-file: .nvmrc\n        cache: npm\n    - run: npm ci\n    - run: npm run typecheck\n    - run: npm run lint\n    - run: npm run build\n"
+    }
+  ]
+}

@@ -1,0 +1,1399 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_vue.py",
+  "t0": 1800000000.0,
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      2
+    ]
+  ],
+  "scenarios": [
+    {
+      "sondes": {
+        "llm": {
+          "id": "llm",
+          "label": "Moteur local",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "inference"
+        },
+        "connecteurs": [],
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "",
+          "state": "same",
+          "detail": "",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "rag"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "ok",
+          "detail": "",
+          "page": "mcp"
+        },
+        "bac": {
+          "id": "sandbox",
+          "label": "sandbox",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "sandbox-containers"
+        },
+        "base": {
+          "id": "database",
+          "label": "database",
+          "target": "SQLite",
+          "state": "ok",
+          "detail": "12,0 Mo",
+          "page": "data"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 0,
+          "tool_failures": 0
+        },
+        "sauvegarde": {
+          "at": 1799996400.0,
+          "remote_enabled": true,
+          "remote_failed": false,
+          "remote_error": ""
+        },
+        "securite": {
+          "https": true,
+          "policy_empty": false,
+          "admin_must_change": 0,
+          "instance_named": true
+        },
+        "attente": []
+      }
+    },
+    {
+      "sondes": {
+        "llm": {
+          "id": "llm",
+          "label": "Moteur local",
+          "target": "h:1",
+          "state": "down",
+          "detail": "Injoignable",
+          "page": "inference"
+        },
+        "connecteurs": [
+          {
+            "id": "conn-1",
+            "label": "Groq",
+            "target": "h:1",
+            "state": "ok",
+            "detail": "3 mod\u00e8les",
+            "page": "inference"
+          },
+          {
+            "id": "conn-2",
+            "label": "Mistral",
+            "target": "",
+            "state": "down",
+            "detail": "cl\u00e9 refus\u00e9e",
+            "page": "inference"
+          }
+        ],
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "",
+          "state": "same",
+          "detail": "",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "down",
+          "detail": "Acc\u00e8s refus\u00e9",
+          "page": "rag",
+          "hint": "401"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "h:1",
+          "state": "warn",
+          "detail": "Transcription joignable \u00b7 Synth\u00e8se injoignable",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "warn",
+          "detail": "2 erreurs de configuration",
+          "page": "mcp"
+        },
+        "bac": {
+          "leve": "sonde en panne"
+        },
+        "base": {
+          "id": "database",
+          "label": "database",
+          "target": "SQLite",
+          "state": "ok",
+          "detail": "12,0 Mo",
+          "page": "data"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 20,
+          "tool_failures": 5
+        },
+        "sauvegarde": {
+          "at": null,
+          "remote_enabled": false,
+          "remote_failed": true,
+          "remote_error": "connexion refus\u00e9e"
+        },
+        "securite": {
+          "https": false,
+          "policy_empty": true,
+          "admin_must_change": 2,
+          "instance_named": false
+        },
+        "attente": [
+          "a.b",
+          "c"
+        ]
+      }
+    },
+    {
+      "sondes": {
+        "llm": {
+          "leve": "sonde en panne"
+        },
+        "connecteurs": {
+          "leve": "sonde en panne"
+        },
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "",
+          "state": "same",
+          "detail": "",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "rag"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "ok",
+          "detail": "",
+          "page": "mcp"
+        },
+        "bac": {
+          "id": "sandbox",
+          "label": "sandbox",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "sandbox-containers"
+        },
+        "base": {
+          "leve": "sonde en panne"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 49,
+          "tool_failures": 5
+        },
+        "sauvegarde": {
+          "at": 1799092800.0,
+          "remote_enabled": true,
+          "remote_failed": false,
+          "remote_error": ""
+        },
+        "securite": {
+          "https": true,
+          "policy_empty": false,
+          "admin_must_change": 0,
+          "instance_named": true
+        },
+        "attente": []
+      }
+    },
+    {
+      "sondes": {
+        "llm": {
+          "id": "llm",
+          "label": "Moteur local",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "inference"
+        },
+        "connecteurs": [],
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "h:1",
+          "state": "down",
+          "detail": "Injoignable",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "rag"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "warn",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "ok",
+          "detail": "",
+          "page": "mcp"
+        },
+        "bac": {
+          "id": "sandbox",
+          "label": "sandbox",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "sandbox-containers"
+        },
+        "base": {
+          "id": "database",
+          "label": "database",
+          "target": "SQLite",
+          "state": "ok",
+          "detail": "12,0 Mo",
+          "page": "data"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 40,
+          "tool_failures": 5
+        },
+        "sauvegarde": {
+          "at": 1800000000.0,
+          "remote_enabled": true,
+          "remote_failed": false,
+          "remote_error": ""
+        },
+        "securite": {
+          "https": true,
+          "policy_empty": false,
+          "admin_must_change": 0,
+          "instance_named": true
+        },
+        "attente": [
+          "x"
+        ]
+      }
+    },
+    {
+      "sondes": {
+        "llm": {
+          "id": "llm",
+          "label": "Moteur local",
+          "target": "h:1",
+          "state": "down",
+          "detail": "",
+          "page": "inference"
+        },
+        "connecteurs": [
+          {
+            "id": "conn-4",
+            "label": "A",
+            "target": "h:1",
+            "state": "ok",
+            "detail": "",
+            "page": "inference"
+          }
+        ],
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "",
+          "state": "same",
+          "detail": "",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "rag"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "ok",
+          "detail": "",
+          "page": "mcp"
+        },
+        "bac": {
+          "id": "sandbox",
+          "label": "sandbox",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "sandbox-containers"
+        },
+        "base": {
+          "id": "database",
+          "label": "database",
+          "target": "SQLite",
+          "state": "ok",
+          "detail": "12,0 Mo",
+          "page": "data"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 4,
+          "tool_failures": 4
+        },
+        "sauvegarde": {
+          "at": 1800259200.0,
+          "remote_enabled": true,
+          "remote_failed": false,
+          "remote_error": ""
+        },
+        "securite": {
+          "https": true,
+          "policy_empty": false,
+          "admin_must_change": 0,
+          "instance_named": true
+        },
+        "attente": []
+      }
+    },
+    {
+      "sondes": {
+        "llm": {
+          "id": "llm",
+          "label": "Moteur local",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "inference"
+        },
+        "connecteurs": [],
+        "compression": {
+          "id": "compression",
+          "label": "compression",
+          "target": "",
+          "state": "same",
+          "detail": "",
+          "page": "compression"
+        },
+        "rag": {
+          "id": "rag",
+          "label": "rag",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "rag"
+        },
+        "vision": {
+          "id": "vision",
+          "label": "vision",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "vision"
+        },
+        "voix": {
+          "id": "voice",
+          "label": "voice",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "voice"
+        },
+        "images": {
+          "id": "images",
+          "label": "images",
+          "target": "",
+          "state": "off",
+          "detail": "",
+          "page": "images"
+        },
+        "mcp": {
+          "id": "mcp",
+          "label": "mcp",
+          "target": "",
+          "state": "ok",
+          "detail": "",
+          "page": "mcp"
+        },
+        "bac": {
+          "id": "sandbox",
+          "label": "sandbox",
+          "target": "h:1",
+          "state": "ok",
+          "detail": "",
+          "page": "sandbox-containers"
+        },
+        "base": {
+          "id": "database",
+          "label": "database",
+          "target": "SQLite",
+          "state": "ok",
+          "detail": "12,0 Mo",
+          "page": "data"
+        }
+      },
+      "faits": {
+        "kpis": {
+          "users": 3,
+          "turns": 40,
+          "tokens": 12000,
+          "failures": 1,
+          "tool_calls": 10,
+          "tool_failures": 5
+        },
+        "sauvegarde": {
+          "at": 1799395200.0,
+          "remote_enabled": true,
+          "remote_failed": false,
+          "remote_error": ""
+        },
+        "securite": {
+          "https": true,
+          "policy_empty": false,
+          "admin_must_change": 0,
+          "instance_named": true
+        },
+        "attente": []
+      }
+    }
+  ],
+  "courts": [
+    "",
+    "http://10.0.0.5:8081/v1/chat/completions",
+    "10.0.0.5:8081",
+    "https://Hote.Example/x",
+    "http://h:0/",
+    "http://[::1]:8080/",
+    "http://[::1/",
+    "http://h:99999/",
+    "http://h:abc/",
+    "ftp://u:p@h:21/x",
+    "sans-port",
+    "http://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:abc/"
+  ],
+  "octets": [
+    0,
+    1,
+    1023,
+    1024,
+    1536,
+    1048575,
+    1048576,
+    12635341,
+    2684354560.0,
+    5497558138880,
+    3377699720527872,
+    1023.5,
+    2047.5,
+    0.5,
+    1075.2
+  ],
+  "etapes_faits": [
+    {
+      "faits": true
+    },
+    {
+      "sql": [
+        "INSERT INTO usage_events(ts, user_id, input_tokens, output_tokens, status) VALUES(?,?,?,?,?)",
+        [
+          1799999900.0,
+          1,
+          10,
+          20,
+          "ok"
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO usage_events(ts, user_id, input_tokens, output_tokens, status) VALUES(?,?,?,?,?)",
+        [
+          1799999800.0,
+          2,
+          5,
+          0,
+          "error"
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO usage_events(ts, user_id, input_tokens, output_tokens, status) VALUES(?,?,?,?,?)",
+        [
+          1799910000.0,
+          3,
+          1000,
+          1000,
+          "ok"
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO usage_events(ts, user_id, input_tokens, output_tokens, status) VALUES(?,?,?,?,?)",
+        [
+          1799913600.0,
+          3,
+          7,
+          7,
+          "ok"
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_call_metrics(run_id, user_id, tool_name, status, ts) VALUES(?,?,?,?,?)",
+        [
+          "r",
+          1,
+          "fs",
+          "success",
+          1799999990.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_call_metrics(run_id, user_id, tool_name, status, ts) VALUES(?,?,?,?,?)",
+        [
+          "r",
+          1,
+          "fs",
+          "error",
+          1799999980.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO tool_call_metrics(run_id, user_id, tool_name, status, ts) VALUES(?,?,?,?,?)",
+        [
+          "r",
+          1,
+          "fs",
+          "timeout",
+          1799910000.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO metric_events(event_type, created_at) VALUES(?,?)",
+        [
+          "backup_created",
+          1799995000.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO metric_events(event_type, created_at) VALUES(?,?)",
+        [
+          "backup_created",
+          1799996000.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "INSERT INTO metric_events(event_type, created_at) VALUES(?,?)",
+        [
+          "autre",
+          1800000000.0
+        ]
+      ]
+    },
+    {
+      "sql": [
+        "UPDATE users SET must_change_pwd=1 WHERE id IN (1, 2)",
+        []
+      ]
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "security": {
+          "password_policy": {
+            "min_length": 0,
+            "require_numbers": false
+          }
+        },
+        "app_info": {
+          "name": "  "
+        },
+        "backup": {
+          "remote": {
+            "enabled": 1,
+            "last_send": {
+              "ok": false,
+              "ok_at": 1799999900.0,
+              "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          }
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "security": {
+          "password_policy": {
+            "min_length": "4"
+          }
+        },
+        "app_info": {
+          "name": "Elpis"
+        },
+        "backup": {
+          "remote": {
+            "enabled": true,
+            "timeout_sec": "abc",
+            "last_send": {
+              "ok_at": 1800000000.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "security": {
+          "password_policy": {
+            "require_special": "oui"
+          },
+          "https": {
+            "enabled": true
+          }
+        },
+        "backup": {
+          "remote": {
+            "enabled": true,
+            "schedule_enabled": true,
+            "last_send": {
+              "at": "abc"
+            }
+          }
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "backup": {
+          "remote": {
+            "last_send": {
+              "ok": false,
+              "error": [
+                "a",
+                "b"
+              ],
+              "ok_at": 1799999999.0
+            }
+          }
+        },
+        "app_info": {
+          "name": 5
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "backup": {
+          "remote": {
+            "last_send": {
+              "ok": false,
+              "error": 7
+            }
+          }
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "backup": {
+          "remote": {
+            "last_send": {
+              "ok_at": "abc"
+            }
+          }
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "backup": "x",
+        "security": {
+          "password_policy": []
+        },
+        "app_info": {
+          "name": []
+        }
+      }
+    },
+    {
+      "faits": true
+    },
+    {
+      "config": {
+        "security": "x"
+      }
+    },
+    {
+      "faits": true
+    }
+  ],
+  "etapes_routes": [
+    {
+      "compte": "bob",
+      "u": "/api/admin/overview"
+    },
+    {
+      "u": "/api/admin/overview"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/overview"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/overview"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/overview?refresh=1"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/overview?refresh=1"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/overview?refresh=abc"
+    },
+    {
+      "avancer": 14
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/overview"
+    },
+    {
+      "avancer": 2
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/overview?refresh=0"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/restart-status"
+    },
+    {
+      "compte": "bob",
+      "u": "/api/admin/restart-status"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/restart-status"
+    },
+    {
+      "compte": "bob",
+      "u": "/api/admin/logs/recent"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/logs/recent"
+    },
+    {
+      "journal": [
+        "{\"ts\": 1799999950.0, \"service\": \"main\", \"level\": \"INFO\", \"category\": \"http\", \"message\": \"a\"}",
+        "{\"ts\": 1799999960.0, \"service\": \"Admin\", \"level\": \"warning\", \"category\": \"Admin\", \"message\": \"b\"}",
+        "pas du json",
+        "{\"ts\": 1799999970.0, \"service\": \"main\", \"level\": \"ERROR\", \"category\": \"app\", \"message\": \"c\", \"x\": 1.0}",
+        "[1, 2]",
+        "{\"ts\": 1799999980.0, \"service\": \"admin\", \"level\": \"INFO\", \"category\": \"auth\", \"message\": \"d \u00e9\"}"
+      ],
+      "fichier": ""
+    },
+    {
+      "journal": [
+        "{\"ts\": 1799999500.0, \"service\": \"main\", \"level\": \"DEBUG\", \"category\": \"system\", \"message\": \"ancien\"}"
+      ],
+      "fichier": ".1"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/logs/recent"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?limit=2"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?limit=abc&services=,%20,"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?limit=-3"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?limit=99999&levels=info,Warning"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?services=ADMIN&categories=admin,auth"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?since_ts=1799999965"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?since_ts=abc&limit=%201_0%20"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?since_ts=nan"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?limit=1&limit=3"
+    },
+    {
+      "journal": [
+        "{\"ts\": \"x\", \"service\": \"main\", \"level\": \"INFO\", \"category\": \"app\"}"
+      ],
+      "fichier": ""
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?since_ts=1"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent"
+    },
+    {
+      "journal": [
+        "{\"service\": 5}",
+        "",
+        "  "
+      ],
+      "fichier": ""
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/logs/recent?services=main"
+    },
+    {
+      "compte": "carol",
+      "u": "/api/admin/terminal/stats"
+    },
+    {
+      "compte": "alice",
+      "u": "/api/admin/terminal/stats"
+    }
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2,
+    "carol": 3
+  },
+  "collectes": [
+    "{\"generated_at\": 1800000000.0, \"alerts\": [], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"Via le moteur local\", \"page\": \"compression\", \"inherited\": true}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"rag\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"sandbox\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"sandbox-containers\"}, {\"id\": \"database\", \"label\": \"database\", \"target\": \"SQLite\", \"state\": \"ok\", \"detail\": \"12,0 Mo\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 0, \"tool_failures\": 0}, \"backup\": {\"at\": 1799996400.0, \"remote_enabled\": true}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": true, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": true, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": true, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": true, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": true, \"page\": \"data\"}], \"restart\": {\"pending\": []}}",
+    "{\"generated_at\": 1800000000.0, \"alerts\": [{\"id\": \"restart\", \"level\": \"warn\", \"title\": \"Red\u00e9marrage n\u00e9cessaire\", \"detail\": \"2 r\u00e9glages en attente\", \"paths\": [\"a.b\", \"c\"], \"action\": \"restart\"}, {\"id\": \"svc-llm\", \"level\": \"danger\", \"title\": \"Moteur local injoignable\", \"detail\": \"h:1\", \"page\": \"inference\", \"action\": \"page\"}, {\"id\": \"svc-conn-2\", \"level\": \"danger\", \"title\": \"Mistral injoignable\", \"detail\": \"cl\u00e9 refus\u00e9e\", \"page\": \"inference\", \"action\": \"page\"}, {\"id\": \"svc-rag\", \"level\": \"danger\", \"title\": \"rag injoignable\", \"detail\": \"h:1\", \"page\": \"rag\", \"action\": \"page\"}, {\"id\": \"svc-voice\", \"level\": \"warn\", \"title\": \"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\", \"detail\": \"h:1\", \"page\": \"voice\", \"action\": \"page\"}, {\"id\": \"svc-mcp\", \"level\": \"warn\", \"title\": \"mcp : 2 erreurs de configuration\", \"detail\": \"\", \"page\": \"mcp\", \"action\": \"page\"}, {\"id\": \"admin-pwd\", \"level\": \"danger\", \"title\": \"Mot de passe administrateur provisoire\", \"detail\": \"\u00c0 changer \u00e0 la prochaine connexion\", \"page\": \"accounts\", \"action\": \"page\"}, {\"id\": \"backup\", \"level\": \"warn\", \"title\": \"Aucune sauvegarde enregistr\u00e9e\", \"detail\": \"\", \"page\": \"data\", \"action\": \"backup\"}, {\"id\": \"backup-remote\", \"level\": \"warn\", \"title\": \"Dernier envoi distant en \u00e9chec\", \"detail\": \"connexion refus\u00e9e\", \"page\": \"data\", \"action\": \"page\"}, {\"id\": \"tools\", \"level\": \"warn\", \"title\": \"Appels d\u2019outils : 25 % en \u00e9chec\", \"detail\": \"5 sur 20 en 24 h\", \"page\": \"tool-calls\", \"action\": \"page\"}, {\"id\": \"https\", \"level\": \"warn\", \"title\": \"HTTPS d\u00e9sactiv\u00e9\", \"detail\": \"Mots de passe et cookies circulent en clair\", \"page\": \"https\", \"action\": \"page\"}, {\"id\": \"pwd-policy\", \"level\": \"warn\", \"title\": \"Aucune r\u00e8gle de mot de passe\", \"detail\": \"\", \"page\": \"sessions\", \"action\": \"page\"}], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"h:1\", \"state\": \"down\", \"detail\": \"Injoignable\", \"page\": \"inference\"}, {\"id\": \"conn-1\", \"label\": \"Groq\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"3 mod\u00e8les\", \"page\": \"inference\"}, {\"id\": \"conn-2\", \"label\": \"Mistral\", \"target\": \"\", \"state\": \"down\", \"detail\": \"cl\u00e9 refus\u00e9e\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"\", \"state\": \"down\", \"detail\": \"Via le moteur local\", \"page\": \"compression\", \"inherited\": true}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"down\", \"detail\": \"Acc\u00e8s refus\u00e9\", \"page\": \"rag\", \"hint\": \"401\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"h:1\", \"state\": \"warn\", \"detail\": \"Transcription joignable \u00b7 Synth\u00e8se injoignable\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"warn\", \"detail\": \"2 erreurs de configuration\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"Sandbox\", \"target\": \"\", \"state\": \"unknown\", \"detail\": \"Sonde sans r\u00e9ponse\", \"page\": \"sandbox-limits\"}, {\"id\": \"database\", \"label\": \"database\", \"target\": \"SQLite\", \"state\": \"ok\", \"detail\": \"12,0 Mo\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 20, \"tool_failures\": 5}, \"backup\": {\"at\": null, \"remote_enabled\": false}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": false, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": true, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": false, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": false, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": false, \"page\": \"data\"}], \"restart\": {\"pending\": [\"a.b\", \"c\"]}}",
+    "{\"generated_at\": 1800000000.0, \"alerts\": [{\"id\": \"backup\", \"level\": \"warn\", \"title\": \"Aucune sauvegarde depuis 10 jours\", \"detail\": \"\", \"page\": \"data\", \"action\": \"backup\"}, {\"id\": \"tools\", \"level\": \"warn\", \"title\": \"Appels d\u2019outils : 10 % en \u00e9chec\", \"detail\": \"5 sur 49 en 24 h\", \"page\": \"tool-calls\", \"action\": \"page\"}], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"\", \"state\": \"unknown\", \"detail\": \"Sonde sans r\u00e9ponse\", \"page\": \"inference\"}, {\"id\": \"connectors\", \"label\": \"Connecteurs\", \"target\": \"\", \"state\": \"unknown\", \"detail\": \"Sonde sans r\u00e9ponse\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"\", \"state\": \"unknown\", \"detail\": \"Via le moteur local\", \"page\": \"compression\", \"inherited\": true}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"rag\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"sandbox\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"sandbox-containers\"}, {\"id\": \"database\", \"label\": \"Base\", \"target\": \"\", \"state\": \"unknown\", \"detail\": \"Sonde sans r\u00e9ponse\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 49, \"tool_failures\": 5}, \"backup\": {\"at\": 1799092800.0, \"remote_enabled\": true}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": true, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": false, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": true, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": true, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": true, \"page\": \"data\"}], \"restart\": {\"pending\": []}}",
+    "{\"generated_at\": 1800000000.0, \"alerts\": [{\"id\": \"restart\", \"level\": \"warn\", \"title\": \"Red\u00e9marrage n\u00e9cessaire\", \"detail\": \"1 r\u00e9glage en attente\", \"paths\": [\"x\"], \"action\": \"restart\"}, {\"id\": \"svc-compression\", \"level\": \"danger\", \"title\": \"compression injoignable\", \"detail\": \"h:1\", \"page\": \"compression\", \"action\": \"page\"}, {\"id\": \"svc-images\", \"level\": \"warn\", \"title\": \"images : \u00e0 v\u00e9rifier\", \"detail\": \"\", \"page\": \"images\", \"action\": \"page\"}, {\"id\": \"tools\", \"level\": \"warn\", \"title\": \"Appels d\u2019outils : 12 % en \u00e9chec\", \"detail\": \"5 sur 40 en 24 h\", \"page\": \"tool-calls\", \"action\": \"page\"}], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"h:1\", \"state\": \"down\", \"detail\": \"Injoignable\", \"page\": \"compression\"}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"rag\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"warn\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"sandbox\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"sandbox-containers\"}, {\"id\": \"database\", \"label\": \"database\", \"target\": \"SQLite\", \"state\": \"ok\", \"detail\": \"12,0 Mo\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 40, \"tool_failures\": 5}, \"backup\": {\"at\": 1800000000.0, \"remote_enabled\": true}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": true, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": true, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": true, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": true, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": true, \"page\": \"data\"}], \"restart\": {\"pending\": [\"x\"]}}",
+    "{\"generated_at\": 1800000000.0, \"alerts\": [{\"id\": \"svc-llm\", \"level\": \"danger\", \"title\": \"Moteur local injoignable\", \"detail\": \"h:1\", \"page\": \"inference\", \"action\": \"page\"}], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"h:1\", \"state\": \"down\", \"detail\": \"\", \"page\": \"inference\"}, {\"id\": \"conn-4\", \"label\": \"A\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"\", \"state\": \"down\", \"detail\": \"Via le moteur local\", \"page\": \"compression\", \"inherited\": true}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"rag\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"sandbox\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"sandbox-containers\"}, {\"id\": \"database\", \"label\": \"database\", \"target\": \"SQLite\", \"state\": \"ok\", \"detail\": \"12,0 Mo\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 4, \"tool_failures\": 4}, \"backup\": {\"at\": 1800259200.0, \"remote_enabled\": true}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": true, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": true, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": true, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": true, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": true, \"page\": \"data\"}], \"restart\": {\"pending\": []}}",
+    "{\"generated_at\": 1800000000.0, \"alerts\": [{\"id\": \"tools\", \"level\": \"warn\", \"title\": \"Appels d\u2019outils : 50 % en \u00e9chec\", \"detail\": \"5 sur 10 en 24 h\", \"page\": \"tool-calls\", \"action\": \"page\"}], \"services\": [{\"id\": \"llm\", \"label\": \"Moteur local\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"inference\"}, {\"id\": \"compression\", \"label\": \"compression\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"Via le moteur local\", \"page\": \"compression\", \"inherited\": true}, {\"id\": \"rag\", \"label\": \"rag\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"rag\"}, {\"id\": \"vision\", \"label\": \"vision\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"vision\"}, {\"id\": \"voice\", \"label\": \"voice\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"voice\"}, {\"id\": \"images\", \"label\": \"images\", \"target\": \"\", \"state\": \"off\", \"detail\": \"\", \"page\": \"images\"}, {\"id\": \"mcp\", \"label\": \"mcp\", \"target\": \"\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"mcp\"}, {\"id\": \"sandbox\", \"label\": \"sandbox\", \"target\": \"h:1\", \"state\": \"ok\", \"detail\": \"\", \"page\": \"sandbox-containers\"}, {\"id\": \"database\", \"label\": \"database\", \"target\": \"SQLite\", \"state\": \"ok\", \"detail\": \"12,0 Mo\", \"page\": \"data\"}], \"kpis\": {\"users\": 3, \"turns\": 40, \"tokens\": 12000, \"failures\": 1, \"tool_calls\": 10, \"tool_failures\": 5}, \"backup\": {\"at\": 1799395200.0, \"remote_enabled\": true}, \"setup\": [{\"id\": \"name\", \"label\": \"Nommer l\u2019instance\", \"done\": true, \"page\": \"instance\"}, {\"id\": \"engine\", \"label\": \"Un moteur joignable\", \"done\": true, \"page\": \"inference\"}, {\"id\": \"admin-pwd\", \"label\": \"Mot de passe administrateur d\u00e9finitif\", \"done\": true, \"page\": \"accounts\"}, {\"id\": \"https\", \"label\": \"Acc\u00e8s HTTPS\", \"done\": true, \"page\": \"https\"}, {\"id\": \"backup\", \"label\": \"Sauvegarde distante\", \"done\": true, \"page\": \"data\"}], \"restart\": {\"pending\": []}}"
+  ],
+  "faits": [
+    {
+      "kpis": "{\"users\": 0, \"turns\": 0, \"tokens\": 0, \"failures\": 0, \"tool_calls\": 0, \"tool_failures\": 0}",
+      "sauvegarde": "{\"at\": null, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 0, \"instance_named\": false}"
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799996000.0, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799999900.0, \"remote_enabled\": true, \"remote_failed\": true, \"remote_error\": \"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}",
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799996000.0, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": "{\"https\": false, \"policy_empty\": false, \"admin_must_change\": 1, \"instance_named\": true}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799996000.0, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": "{\"https\": true, \"policy_empty\": false, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799999999.0, \"remote_enabled\": false, \"remote_failed\": true, \"remote_error\": [\"a\", \"b\"]}",
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": true}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": {
+        "erreur": "TypeError"
+      },
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": {
+        "erreur": "ValueError"
+      },
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799996000.0, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": "{\"https\": false, \"policy_empty\": true, \"admin_must_change\": 1, \"instance_named\": false}"
+    },
+    null,
+    {
+      "kpis": "{\"users\": 2, \"turns\": 2, \"tokens\": 35, \"failures\": 1, \"tool_calls\": 2, \"tool_failures\": 1}",
+      "sauvegarde": "{\"at\": 1799996000.0, \"remote_enabled\": false, \"remote_failed\": false, \"remote_error\": \"\"}",
+      "securite": {
+        "erreur": "AttributeError"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Staff required\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000000.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"restart\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"page\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"page\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"page\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"page\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"backup\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"page\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"page\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"page\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"page\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"admin\"}",
+      "cache": null,
+      "sondes": 1
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000000.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"moderator\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000000.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"moderator\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000000.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"restart\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"page\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"page\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"page\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"page\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"backup\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"page\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"page\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"page\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"page\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"admin\"}",
+      "cache": null,
+      "sondes": 1
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"refresh\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "cache": null,
+      "sondes": 0
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000000.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"restart\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"page\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"page\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"page\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"page\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"backup\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"page\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"page\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"page\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"page\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"admin\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"generated_at\":1800000016.0,\"alerts\":[{\"id\":\"restart\",\"level\":\"warn\",\"title\":\"Red\u00e9marrage n\u00e9cessaire\",\"detail\":\"2 r\u00e9glages en attente\",\"paths\":[\"a.b\",\"c\"],\"action\":\"restart\"},{\"id\":\"svc-llm\",\"level\":\"danger\",\"title\":\"Moteur local injoignable\",\"detail\":\"h:1\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-conn-2\",\"level\":\"danger\",\"title\":\"Mistral injoignable\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\",\"action\":\"page\"},{\"id\":\"svc-rag\",\"level\":\"danger\",\"title\":\"rag injoignable\",\"detail\":\"h:1\",\"page\":\"rag\",\"action\":\"page\"},{\"id\":\"svc-voice\",\"level\":\"warn\",\"title\":\"voice : Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"detail\":\"h:1\",\"page\":\"voice\",\"action\":\"page\"},{\"id\":\"svc-mcp\",\"level\":\"warn\",\"title\":\"mcp : 2 erreurs de configuration\",\"detail\":\"\",\"page\":\"mcp\",\"action\":\"page\"},{\"id\":\"admin-pwd\",\"level\":\"danger\",\"title\":\"Mot de passe administrateur provisoire\",\"detail\":\"\u00c0 changer \u00e0 la prochaine connexion\",\"page\":\"accounts\",\"action\":\"page\"},{\"id\":\"backup\",\"level\":\"warn\",\"title\":\"Aucune sauvegarde enregistr\u00e9e\",\"detail\":\"\",\"page\":\"data\",\"action\":\"backup\"},{\"id\":\"backup-remote\",\"level\":\"warn\",\"title\":\"Dernier envoi distant en \u00e9chec\",\"detail\":\"connexion refus\u00e9e\",\"page\":\"data\",\"action\":\"page\"},{\"id\":\"tools\",\"level\":\"warn\",\"title\":\"Appels d\u2019outils : 25 % en \u00e9chec\",\"detail\":\"5 sur 20 en 24 h\",\"page\":\"tool-calls\",\"action\":\"page\"},{\"id\":\"https\",\"level\":\"warn\",\"title\":\"HTTPS d\u00e9sactiv\u00e9\",\"detail\":\"Mots de passe et cookies circulent en clair\",\"page\":\"https\",\"action\":\"page\"},{\"id\":\"pwd-policy\",\"level\":\"warn\",\"title\":\"Aucune r\u00e8gle de mot de passe\",\"detail\":\"\",\"page\":\"sessions\",\"action\":\"page\"}],\"services\":[{\"id\":\"llm\",\"label\":\"Moteur local\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Injoignable\",\"page\":\"inference\"},{\"id\":\"conn-1\",\"label\":\"Groq\",\"target\":\"h:1\",\"state\":\"ok\",\"detail\":\"3 mod\u00e8les\",\"page\":\"inference\"},{\"id\":\"conn-2\",\"label\":\"Mistral\",\"target\":\"\",\"state\":\"down\",\"detail\":\"cl\u00e9 refus\u00e9e\",\"page\":\"inference\"},{\"id\":\"compression\",\"label\":\"compression\",\"target\":\"\",\"state\":\"down\",\"detail\":\"Via le moteur local\",\"page\":\"compression\",\"inherited\":true},{\"id\":\"rag\",\"label\":\"rag\",\"target\":\"h:1\",\"state\":\"down\",\"detail\":\"Acc\u00e8s refus\u00e9\",\"page\":\"rag\",\"hint\":\"401\"},{\"id\":\"vision\",\"label\":\"vision\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"vision\"},{\"id\":\"voice\",\"label\":\"voice\",\"target\":\"h:1\",\"state\":\"warn\",\"detail\":\"Transcription joignable \u00b7 Synth\u00e8se injoignable\",\"page\":\"voice\"},{\"id\":\"images\",\"label\":\"images\",\"target\":\"\",\"state\":\"off\",\"detail\":\"\",\"page\":\"images\"},{\"id\":\"mcp\",\"label\":\"mcp\",\"target\":\"\",\"state\":\"warn\",\"detail\":\"2 erreurs de configuration\",\"page\":\"mcp\"},{\"id\":\"sandbox\",\"label\":\"Sandbox\",\"target\":\"\",\"state\":\"unknown\",\"detail\":\"Sonde sans r\u00e9ponse\",\"page\":\"sandbox-limits\"},{\"id\":\"database\",\"label\":\"database\",\"target\":\"SQLite\",\"state\":\"ok\",\"detail\":\"12,0 Mo\",\"page\":\"data\"}],\"kpis\":{\"users\":3,\"turns\":40,\"tokens\":12000,\"failures\":1,\"tool_calls\":20,\"tool_failures\":5},\"backup\":{\"at\":null,\"remote_enabled\":false},\"setup\":[{\"id\":\"name\",\"label\":\"Nommer l\u2019instance\",\"done\":false,\"page\":\"instance\"},{\"id\":\"engine\",\"label\":\"Un moteur joignable\",\"done\":true,\"page\":\"inference\"},{\"id\":\"admin-pwd\",\"label\":\"Mot de passe administrateur d\u00e9finitif\",\"done\":false,\"page\":\"accounts\"},{\"id\":\"https\",\"label\":\"Acc\u00e8s HTTPS\",\"done\":false,\"page\":\"https\"},{\"id\":\"backup\",\"label\":\"Sauvegarde distante\",\"done\":false,\"page\":\"data\"}],\"restart\":{\"pending\":[\"a.b\",\"c\"]},\"role\":\"admin\"}",
+      "cache": null,
+      "sondes": 1
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Staff required\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"paths\":[\"llama.port\",\"z.a\"],\"pending\":[\"a.b\",\"c\"]}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Staff required\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":500,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    null,
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999500.0,\"service\":\"main\",\"level\":\"DEBUG\",\"category\":\"system\",\"message\":\"ancien\"},{\"ts\":1799999950.0,\"service\":\"main\",\"level\":\"INFO\",\"category\":\"http\",\"message\":\"a\"},{\"ts\":1799999960.0,\"service\":\"Admin\",\"level\":\"warning\",\"category\":\"Admin\",\"message\":\"b\"},{\"ts\":1799999970.0,\"service\":\"main\",\"level\":\"ERROR\",\"category\":\"app\",\"message\":\"c\",\"x\":1.0},[1,2],{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":500,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[[1,2],{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":2,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999500.0,\"service\":\"main\",\"level\":\"DEBUG\",\"category\":\"system\",\"message\":\"ancien\"},{\"ts\":1799999950.0,\"service\":\"main\",\"level\":\"INFO\",\"category\":\"http\",\"message\":\"a\"},{\"ts\":1799999960.0,\"service\":\"Admin\",\"level\":\"warning\",\"category\":\"Admin\",\"message\":\"b\"},{\"ts\":1799999970.0,\"service\":\"main\",\"level\":\"ERROR\",\"category\":\"app\",\"message\":\"c\",\"x\":1.0},[1,2],{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":500,\"services\":[],\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":1,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":5000,\"services\":null,\"levels\":[\"info\",\"Warning\"],\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":500,\"services\":[\"ADMIN\"],\"levels\":null,\"categories\":[\"admin\",\"auth\"],\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":500,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":1799999965.0},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999500.0,\"service\":\"main\",\"level\":\"DEBUG\",\"category\":\"system\",\"message\":\"ancien\"},{\"ts\":1799999950.0,\"service\":\"main\",\"level\":\"INFO\",\"category\":\"http\",\"message\":\"a\"},{\"ts\":1799999960.0,\"service\":\"Admin\",\"level\":\"warning\",\"category\":\"Admin\",\"message\":\"b\"},{\"ts\":1799999970.0,\"service\":\"main\",\"level\":\"ERROR\",\"category\":\"app\",\"message\":\"c\",\"x\":1.0},[1,2],{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":10,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999970.0,\"service\":\"main\",\"level\":\"ERROR\",\"category\":\"app\",\"message\":\"c\",\"x\":1.0},[1,2],{\"ts\":1799999980.0,\"service\":\"admin\",\"level\":\"INFO\",\"category\":\"auth\",\"message\":\"d \u00e9\"}],\"filters_applied\":{\"limit\":3,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":500,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":1.0},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[{\"ts\":1799999500.0,\"service\":\"main\",\"level\":\"DEBUG\",\"category\":\"system\",\"message\":\"ancien\"},{\"ts\":\"x\",\"service\":\"main\",\"level\":\"INFO\",\"category\":\"app\"}],\"filters_applied\":{\"limit\":500,\"services\":null,\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"logs\":[{\"id\":1.0,\"message\":\"12:00:00 - INFO - m\",\"level\":\"INFO\"},{\"id\":2.5,\"message\":\"x\",\"level\":\"WARNING\"}],\"events\":[],\"filters_applied\":{\"limit\":500,\"services\":[\"main\"],\"levels\":null,\"categories\":null,\"since_ts\":null},\"available_services\":[\"main\",\"admin\"],\"available_levels\":[\"DEBUG\",\"INFO\",\"WARNING\",\"ERROR\",\"CRITICAL\"],\"available_categories\":[\"http\",\"auth\",\"admin\",\"security\",\"system\",\"app\"]}",
+      "cache": "no-cache",
+      "sondes": 0
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "cache": null,
+      "sondes": 0
+    },
+    {
+      "statut": 200,
+      "corps": "{\"worker_pid\":0,\"count\":0,\"idle_timeout_sec\":1800,\"max_sessions_per_user\":4,\"sessions\":[]}",
+      "cache": null,
+      "sondes": 0
+    }
+  ],
+  "courts_sortie": [
+    "",
+    "10.0.0.5:8081",
+    "10.0.0.5:8081",
+    "hote.example",
+    "h",
+    "::1:8080",
+    "http://[::1/",
+    "http://h:99999/",
+    "http://h:abc/",
+    "h:21",
+    "sans-port",
+    "http://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ],
+  "octets_sortie": [
+    "0 o",
+    "1 o",
+    "1023 o",
+    "1 Ko",
+    "2 Ko",
+    "1024 Ko",
+    "1,0 Mo",
+    "12,1 Mo",
+    "2,5 Go",
+    "5,0 To",
+    "3072,0 To",
+    "1024 o",
+    "2 Ko",
+    "0 o",
+    "1 Ko"
+  ]
+}

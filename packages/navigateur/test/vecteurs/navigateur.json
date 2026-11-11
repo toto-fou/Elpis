@@ -1,0 +1,1262 @@
+{
+  "proprietaires": [
+    {
+      "nom": null,
+      "pw_owner": "guest",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "",
+      "pw_owner": "guest",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "  ",
+      "pw_owner": "guest",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "alice",
+      "pw_owner": "alice",
+      "proprietaire": "alice"
+    },
+    {
+      "nom": "Alice_B-2",
+      "pw_owner": "Alice_B-2",
+      "proprietaire": "Alice_B-2"
+    },
+    {
+      "nom": "ren\u00e9",
+      "pw_owner": "u_adf75813ef1c30be4ff9c922b56ec96a",
+      "proprietaire": "ren"
+    },
+    {
+      "nom": "ren",
+      "pw_owner": "ren",
+      "proprietaire": "ren"
+    },
+    {
+      "nom": "a b",
+      "pw_owner": "u_c8687a08aa5d6ed2044328fa6a697ab8",
+      "proprietaire": "ab"
+    },
+    {
+      "nom": "ab",
+      "pw_owner": "ab",
+      "proprietaire": "ab"
+    },
+    {
+      "nom": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "pw_owner": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "proprietaire": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "nom": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "pw_owner": "u_9537c5fdf120482f7d58d25e9ed583f5",
+      "proprietaire": "u_9537c5fdf120482f7d58d25e9ed583f5"
+    },
+    {
+      "nom": " alice ",
+      "pw_owner": "alice",
+      "proprietaire": "alice"
+    },
+    {
+      "nom": "\u00a0bob\u00a0",
+      "pw_owner": "bob",
+      "proprietaire": "bob"
+    },
+    {
+      "nom": "\u2177",
+      "pw_owner": "u_c68b4def889ec01b8da9dc0ff8b2d457",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "a.b",
+      "pw_owner": "u_2e7336dc8eba87ef472df568c35482ab",
+      "proprietaire": "ab"
+    },
+    {
+      "nom": "a@b",
+      "pw_owner": "u_7508d8b5018ea640b85269861a101203",
+      "proprietaire": "ab"
+    },
+    {
+      "nom": "\ud83d\ude00",
+      "pw_owner": "u_f0443a342c5ef54783a111b51ba56c93",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "guest",
+      "pw_owner": "guest",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "Jean.Dupont",
+      "pw_owner": "u_76cb08baa634562c723f4eeaa14068a3",
+      "proprietaire": "JeanDupont"
+    },
+    {
+      "nom": "jean-dupont",
+      "pw_owner": "jean-dupont",
+      "proprietaire": "jean-dupont"
+    },
+    {
+      "nom": "\u3000",
+      "pw_owner": "guest",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "pw_owner": "u_84fe2e03d50dd3a18b630669d7d5e361",
+      "proprietaire": "guest"
+    },
+    {
+      "nom": "-",
+      "pw_owner": "-",
+      "proprietaire": "-"
+    },
+    {
+      "nom": "_",
+      "pw_owner": "_",
+      "proprietaire": "_"
+    }
+  ],
+  "verbes": [
+    {
+      "outil": "pw_session",
+      "args": {
+        "action": "start"
+      },
+      "valeur": "start"
+    },
+    {
+      "outil": "pw_session",
+      "args": {
+        "op": "stop"
+      },
+      "valeur": ""
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "op": " inspect "
+      },
+      "valeur": "inspect"
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "action": "",
+        "op": "click"
+      },
+      "valeur": "click"
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "action": "a",
+        "op": "b"
+      },
+      "valeur": "a"
+    },
+    {
+      "outil": "pw_act",
+      "args": {
+        "do": "click"
+      },
+      "valeur": "click"
+    },
+    {
+      "outil": "pw_expect",
+      "args": {
+        "assertion": "visible"
+      },
+      "valeur": "visible"
+    },
+    {
+      "outil": "pw_observe",
+      "args": {
+        "mode": "dom"
+      },
+      "valeur": "dom"
+    },
+    {
+      "outil": "pw_inconnu",
+      "args": {
+        "op": "x"
+      },
+      "valeur": ""
+    },
+    {
+      "outil": "pw_inconnu",
+      "args": {
+        "action": "x"
+      },
+      "valeur": "x"
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "op": 5
+      },
+      "valeur": ""
+    },
+    {
+      "outil": "pw_page",
+      "args": "args",
+      "valeur": ""
+    },
+    {
+      "outil": "pw_memory",
+      "args": {
+        "op": "save"
+      },
+      "valeur": "save"
+    },
+    {
+      "outil": "pw_mock",
+      "args": {
+        "action": "  "
+      },
+      "valeur": ""
+    },
+    {
+      "outil": "pw_recorder",
+      "args": {
+        "action": "go"
+      },
+      "valeur": "go"
+    },
+    {
+      "outil": "pw_act",
+      "args": {
+        "action": null,
+        "do": "\tfill\n"
+      },
+      "valeur": "fill"
+    },
+    {
+      "outil": "constructor",
+      "args": {
+        "action": "x"
+      },
+      "valeur": "x"
+    },
+    {
+      "outil": "pw_page",
+      "args": null,
+      "valeur": ""
+    }
+  ],
+  "captures": [
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": {
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_3.png?t=1700000000123",
+        "step": 3,
+        "session_id": "sessAAAA1111"
+      }
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "sid": "sess_AAAA-11"
+      },
+      "resultat": "{\"screenshot_step\": 1}",
+      "valeur": {
+        "url": "/api/playwright/screenshot/step_sess_AAAA-11_1.png?t=1700000000123",
+        "step": 1,
+        "session_id": "sess_AAAA-11"
+      }
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "court"
+      },
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": 0}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": -1}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": \"3\"}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": 3.0}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": true}",
+      "valeur": {
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_True.png?t=1700000000123",
+        "step": true,
+        "session_id": "sessAAAA1111"
+      }
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "pas json",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "[1]",
+      "valeur": null
+    },
+    {
+      "outil": "desktop_act",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": "x",
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": 12345678
+      },
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "",
+        "sid": "sessBBBB2222"
+      },
+      "resultat": "{\"screenshot_step\": 2}",
+      "valeur": {
+        "url": "/api/playwright/screenshot/step_sessBBBB2222_2.png?t=1700000000123",
+        "step": 2,
+        "session_id": "sessBBBB2222"
+      }
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111\n"
+      },
+      "resultat": "{\"screenshot_step\": 3}",
+      "valeur": null
+    },
+    {
+      "outil": null,
+      "args": {},
+      "resultat": "{}",
+      "valeur": null
+    },
+    {
+      "outil": "pw_page",
+      "args": {
+        "session_id": "sessAAAA1111"
+      },
+      "resultat": "{\"screenshot_step\": 12345678901234567890}",
+      "valeur": {
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_12345678901234567890.png?t=1700000000123",
+        "step": 12345678901234567890,
+        "session_id": "sessAAAA1111"
+      }
+    }
+  ],
+  "chemins": [
+    {
+      "sid": "sessAAAA1111",
+      "valeur": "/srv/proprietaires/sessAAAA1111.owner"
+    },
+    {
+      "sid": "abc",
+      "valeur": null
+    },
+    {
+      "sid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valeur": "/srv/proprietaires/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.owner"
+    },
+    {
+      "sid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valeur": null
+    },
+    {
+      "sid": "abc_defgh",
+      "valeur": null
+    },
+    {
+      "sid": "../../etc",
+      "valeur": null
+    },
+    {
+      "sid": "abcdefgh\n",
+      "valeur": null
+    },
+    {
+      "sid": null,
+      "valeur": null
+    },
+    {
+      "sid": 12345678,
+      "valeur": "/srv/proprietaires/12345678.owner"
+    },
+    {
+      "sid": "",
+      "valeur": null
+    },
+    {
+      "sid": "sess-1234",
+      "valeur": "/srv/proprietaires/sess-1234.owner"
+    }
+  ],
+  "suivis": [
+    [
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": \"sessAAAA1111\"}",
+        "memoire": [
+          [
+            "sessAAAA1111",
+            "alice"
+          ]
+        ],
+        "fichiers": {
+          "sessAAAA1111.owner": "alice"
+        },
+        "proprietaires": {
+          "sessAAAA1111": "alice",
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "bob",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"sid\": \"sessBBBB2222\"}",
+        "memoire": [
+          [
+            "sessAAAA1111",
+            "alice"
+          ],
+          [
+            "sessBBBB2222",
+            "bob"
+          ]
+        ],
+        "fichiers": {
+          "sessAAAA1111.owner": "alice",
+          "sessBBBB2222.owner": "bob"
+        },
+        "proprietaires": {
+          "sessAAAA1111": "alice",
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "bob",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "sessAAAA1111"
+        },
+        "resultat": "{\"ok\": true}",
+        "memoire": [
+          [
+            "sessAAAA1111",
+            "alice"
+          ],
+          [
+            "sessBBBB2222",
+            "bob"
+          ]
+        ],
+        "fichiers": {
+          "sessAAAA1111.owner": "alice",
+          "sessBBBB2222.owner": "bob"
+        },
+        "proprietaires": {
+          "sessAAAA1111": "alice",
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "sessAAAA1111"
+        },
+        "resultat": "{\"ok\": true}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": \"sessCCCC3333\"}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ],
+          [
+            "sessCCCC3333",
+            "alice"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob",
+          "sessCCCC3333.owner": "alice"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": "alice",
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "sessCCCC3333"
+        },
+        "resultat": "{\"ok\": false}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ],
+          [
+            "sessCCCC3333",
+            "alice"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob",
+          "sessCCCC3333.owner": "alice"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": "alice",
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "sessCCCC3333"
+        },
+        "resultat": "{\"error\": \"x\"}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ],
+          [
+            "sessCCCC3333",
+            "alice"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob",
+          "sessCCCC3333.owner": "alice"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": "alice",
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "cleanup"
+        },
+        "resultat": "{}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob",
+          "sessCCCC3333.owner": "alice"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": "alice",
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "sessCCCC3333"
+        },
+        "resultat": "{}",
+        "memoire": [
+          [
+            "sessBBBB2222",
+            "bob"
+          ]
+        ],
+        "fichiers": {
+          "sessBBBB2222.owner": "bob"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": "bob",
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": null,
+          "12345678": null
+        }
+      }
+    ],
+    [
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": \"court\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": 12345678}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "pas json",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_page",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": \"sessDDDD4444\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": "args",
+        "resultat": "{\"session_id\": \"sessDDDD4444\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "alice",
+        "outil": "pw_session",
+        "args": {
+          "op": "start"
+        },
+        "resultat": "{\"session_id\": \"sessDDDD4444\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ]
+        ],
+        "fichiers": {},
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": null,
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "ren\u00e9",
+        "outil": "pw_session",
+        "args": {
+          "action": " start "
+        },
+        "resultat": "{\"session_id\": \"sessEEEE5555\", \"sid\": \"autre123\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": null,
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "ren\u00e9",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "{\"session_id\": \"\", \"sid\": \"sessFFFF6666\"}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ],
+          [
+            "sessFFFF6666",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9",
+          "sessFFFF6666.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": "ren\u00e9",
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "ren\u00e9",
+        "outil": "pw_session",
+        "args": {
+          "action": "stop",
+          "session_id": "inconnu1"
+        },
+        "resultat": "{}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ],
+          [
+            "sessFFFF6666",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9",
+          "sessFFFF6666.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": "ren\u00e9",
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "ren\u00e9",
+        "outil": "pw_session",
+        "args": {
+          "action": "STOP",
+          "session_id": "sessEEEE5555"
+        },
+        "resultat": "{}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ],
+          [
+            "sessFFFF6666",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9",
+          "sessFFFF6666.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": "ren\u00e9",
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "ren\u00e9",
+        "outil": "pw_session",
+        "args": {
+          "action": "start"
+        },
+        "resultat": "[1, 2]",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ],
+          [
+            "sessFFFF6666",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9",
+          "sessFFFF6666.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": "ren\u00e9",
+          "court": "alice",
+          "12345678": null
+        }
+      },
+      {
+        "utilisateur": "bob",
+        "outil": "pw_session",
+        "args": {
+          "action": "cleanup"
+        },
+        "resultat": "{}",
+        "memoire": [
+          [
+            "court",
+            "alice"
+          ],
+          [
+            "sessEEEE5555",
+            "ren\u00e9"
+          ],
+          [
+            "sessFFFF6666",
+            "ren\u00e9"
+          ]
+        ],
+        "fichiers": {
+          "sessEEEE5555.owner": "ren\u00e9",
+          "sessFFFF6666.owner": "ren\u00e9"
+        },
+        "proprietaires": {
+          "sessAAAA1111": null,
+          "sessBBBB2222": null,
+          "sessCCCC3333": null,
+          "sessEEEE5555": "ren\u00e9",
+          "sessFFFF6666": "ren\u00e9",
+          "court": "alice",
+          "12345678": null
+        }
+      }
+    ]
+  ],
+  "enregistrements": [
+    {
+      "sid": "sessAAAA1111",
+      "utilisateur": "alice",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "alice"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "alice"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "alice",
+        "sessBBBB2222": null,
+        "sessCCCC3333": null,
+        "../../etc/x": null,
+        "": null
+      }
+    },
+    {
+      "sid": "",
+      "utilisateur": "alice",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "alice"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "alice"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "alice",
+        "sessBBBB2222": null,
+        "sessCCCC3333": null,
+        "../../etc/x": null,
+        "": null
+      }
+    },
+    {
+      "sid": "sessBBBB2222",
+      "utilisateur": "",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "alice"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "alice"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "alice",
+        "sessBBBB2222": null,
+        "sessCCCC3333": null,
+        "../../etc/x": null,
+        "": null
+      }
+    },
+    {
+      "sid": "../../etc/x",
+      "utilisateur": "bob",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "alice"
+        ],
+        [
+          "../../etc/x",
+          "bob"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "alice"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "alice",
+        "sessBBBB2222": null,
+        "sessCCCC3333": null,
+        "../../etc/x": "bob",
+        "": null
+      }
+    },
+    {
+      "sid": "sessAAAA1111",
+      "utilisateur": "bob",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "bob"
+        ],
+        [
+          "../../etc/x",
+          "bob"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "bob"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "bob",
+        "sessBBBB2222": null,
+        "sessCCCC3333": null,
+        "../../etc/x": "bob",
+        "": null
+      }
+    },
+    {
+      "sid": "sessCCCC3333",
+      "utilisateur": "ren\u00e9",
+      "memoire": [
+        [
+          "sessAAAA1111",
+          "bob"
+        ],
+        [
+          "../../etc/x",
+          "bob"
+        ],
+        [
+          "sessCCCC3333",
+          "ren\u00e9"
+        ]
+      ],
+      "fichiers": {
+        "sessAAAA1111.owner": "bob",
+        "sessCCCC3333.owner": "ren\u00e9"
+      },
+      "proprietaires": {
+        "sessAAAA1111": "bob",
+        "sessBBBB2222": null,
+        "sessCCCC3333": "ren\u00e9",
+        "../../etc/x": "bob",
+        "": null
+      }
+    }
+  ],
+  "alias": {
+    "pw_session": [
+      "action"
+    ],
+    "pw_mock": [
+      "action"
+    ],
+    "pw_recorder": [
+      "action"
+    ],
+    "pw_act": [
+      "action",
+      "do"
+    ],
+    "pw_page": [
+      "action",
+      "op"
+    ],
+    "pw_memory": [
+      "action",
+      "op"
+    ],
+    "pw_expect": [
+      "action",
+      "assertion"
+    ],
+    "pw_observe": [
+      "action",
+      "mode"
+    ]
+  },
+  "constantes": {
+    "max": 500,
+    "ttl": 86400
+  }
+}

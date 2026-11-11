@@ -1,0 +1,830 @@
+{
+  "racine": "/elpis-vecteurs-absent",
+  "montages": {
+    "local": "/dev/sda1 / ext4 rw 0 0\ntmpfs /elpis-vecteurs-absent/tmp tmpfs rw 0 0\n",
+    "nfs_racine": "/dev/sda1 / ext4 rw 0 0\nsrv:/x /elpis-vecteurs-absent nfs4 rw 0 0\n",
+    "nfs_dessous": "/dev/sda1 / ext4 rw 0 0\nsrv:/x /elpis-vecteurs-absent/data/sb nfs rw 0 0\nsrv:/y /elpis-vecteurs-absent/data/sb/alice cifs rw 0 0\n",
+    "local_sur_nfs": "/dev/sda1 / ext4 rw 0 0\nsrv:/x /elpis-vecteurs-absent/data nfs rw 0 0\n/dev/sdb /elpis-vecteurs-absent/data/local ext4 rw 0 0\n",
+    "echappes": "/dev/sda1 / ext4 rw 0 0\nsrv:/x /elpis-vecteurs-absent/mon\\040dossier fuse.sshfs rw 0 0\nsrv:/z /elpis-vecteurs-absent/tab\\011x 9p rw 0 0\n",
+    "lignes_courtes": "rien\n\n/dev/sda1 /\nsrv:/x /elpis-vecteurs-absent/data glusterfs rw\n",
+    "separateurs": "/dev/sda1\t/\text4 rw 0 0\r\nsrv:/x  /elpis-vecteurs-absent/data   fuse.rclone rw 0 0\u000bsrv:/w /elpis-vecteurs-absent/w davfs rw\u2028srv:/v /elpis-vecteurs-absent/v afs rw\n",
+    "meme_longueur": "srv:/a /elpis-vecteurs-absent/aa nfs rw 0 0\nsrv:/b /elpis-vecteurs-absent/aa ext4 rw 0 0\n",
+    "racine_nfs": "srv:/ / nfs rw 0 0\n",
+    "vide": ""
+  },
+  "systemes": [
+    "9p",
+    "afs",
+    "ceph",
+    "cifs",
+    "davfs",
+    "fuse.ceph-fuse",
+    "fuse.davfs2",
+    "fuse.gcsfuse",
+    "fuse.glusterfs",
+    "fuse.rclone",
+    "fuse.s3fs",
+    "fuse.sshfs",
+    "fuse.vmhgfs-fuse",
+    "glusterfs",
+    "gpfs",
+    "lustre",
+    "nfs",
+    "nfs4",
+    "smb3",
+    "smbfs",
+    "vboxsf"
+  ],
+  "cas": [
+    {
+      "montages": "local",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/user_db",
+          "nfs4"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/local/x",
+          "nfs4"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/mon",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/mon dossier/a",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/tab\tx",
+          "nfs4"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/v",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/w/x",
+          "nfs4"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/aa/b",
+          "nfs4"
+        ],
+        [
+          "/elpis-vecteurs-absent/aab",
+          "nfs4"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_racine",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice",
+          "cifs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "cifs"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice",
+          "cifs"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice",
+          "cifs"
+        ]
+      ]
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "nfs_dessous",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/user_db",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "local_sur_nfs",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "echappes",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "echappes",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "echappes",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/mon dossier/a",
+          "fuse.sshfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/tab\tx",
+          "9p"
+        ]
+      ]
+    },
+    {
+      "montages": "echappes",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/mon dossier",
+          "fuse.sshfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/tab\tx",
+          "9p"
+        ]
+      ]
+    },
+    {
+      "montages": "echappes",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "echappes",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "glusterfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "glusterfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/user_db",
+          "glusterfs"
+        ]
+      ]
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "glusterfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "glusterfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/local/x",
+          "glusterfs"
+        ]
+      ]
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data",
+          "glusterfs"
+        ]
+      ]
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "lignes_courtes",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "fuse.rclone"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "fuse.rclone"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/user_db",
+          "fuse.rclone"
+        ]
+      ]
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "fuse.rclone"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "fuse.rclone"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/local/x",
+          "fuse.rclone"
+        ]
+      ]
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data",
+          "fuse.rclone"
+        ],
+        [
+          "/elpis-vecteurs-absent/v",
+          "afs"
+        ],
+        [
+          "/elpis-vecteurs-absent/w",
+          "davfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/w/x",
+          "davfs"
+        ]
+      ]
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "separateurs",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/aa",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/aa/b",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "meme_longueur",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/data/sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/sb/alice/work",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/user_db",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent//data//sb",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/./sb/../sb/",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/data/local/x",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/mon",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/mon dossier/a",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/tab\tx",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": [
+        [
+          "/",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/v",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/w/x",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": [
+        [
+          "/elpis-vecteurs-absent/aa/b",
+          "nfs"
+        ],
+        [
+          "/elpis-vecteurs-absent/aab",
+          "nfs"
+        ]
+      ]
+    },
+    {
+      "montages": "racine_nfs",
+      "chemins": [],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/user_db",
+        "/elpis-vecteurs-absent/data/sb",
+        "/elpis-vecteurs-absent/data/sb/alice/work"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [
+        "/elpis-vecteurs-absent/data/local/x",
+        "/elpis-vecteurs-absent/data/./sb/../sb/",
+        "/elpis-vecteurs-absent//data//sb"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [
+        "/elpis-vecteurs-absent/mon dossier/a",
+        "/elpis-vecteurs-absent/tab\tx",
+        "/elpis-vecteurs-absent/mon"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [
+        "/elpis-vecteurs-absent",
+        "/",
+        "/elpis-vecteurs-absent/w/x",
+        "/elpis-vecteurs-absent/v"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [
+        "/elpis-vecteurs-absent/aa/b",
+        "/elpis-vecteurs-absent/aab"
+      ],
+      "distants": []
+    },
+    {
+      "montages": "vide",
+      "chemins": [],
+      "distants": []
+    }
+  ]
+}

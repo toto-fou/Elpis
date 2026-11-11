@@ -1,0 +1,9095 @@
+{
+  "source": "migration-kit/vecteurs/outils_mcp_boite.py",
+  "budgets": {
+    "texte": 6000,
+    "liste": 50
+  },
+  "ok": [
+    {
+      "ok": true
+    },
+    {
+      "ok": true,
+      "todos": [
+        1
+      ],
+      "total": 3
+    },
+    {
+      "ok": false,
+      "x": null
+    }
+  ],
+  "err": [
+    {
+      "ok": false,
+      "error": "bad_path",
+      "message": "path is outside"
+    },
+    {
+      "ok": false,
+      "error": "c",
+      "message": "m",
+      "fix": "f",
+      "next_action": "n",
+      "retryable": true
+    },
+    {
+      "ok": false,
+      "error": "c",
+      "message": "m",
+      "valid_choices": [
+        "a"
+      ],
+      "did_you_mean": "x"
+    },
+    {
+      "ok": true,
+      "error": "autre",
+      "message": "m"
+    }
+  ],
+  "clip": [
+    {
+      "texte": null,
+      "max": null,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": null,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 0,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 0,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 3,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 3,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 5,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 5,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 10,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "max": 10,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": null,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": null,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 0,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 0,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 3,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 3,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 5,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 5,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 10,
+      "label": "content",
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "max": 10,
+      "label": "output",
+      "ok": ""
+    },
+    {
+      "texte": "abc",
+      "max": null,
+      "label": "content",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": null,
+      "label": "output",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 0,
+      "label": "content",
+      "ok": "\n\u2026[content truncated: 3 characters omitted out of 3 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "abc",
+      "max": 0,
+      "label": "output",
+      "ok": "\n\u2026[output truncated: 3 characters omitted out of 3 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "abc",
+      "max": 3,
+      "label": "content",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 3,
+      "label": "output",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 5,
+      "label": "content",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 5,
+      "label": "output",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 10,
+      "label": "content",
+      "ok": "abc"
+    },
+    {
+      "texte": "abc",
+      "max": 10,
+      "label": "output",
+      "ok": "abc"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": null,
+      "label": "content",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": null,
+      "label": "output",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 0,
+      "label": "content",
+      "ok": "\n\u2026[content truncated: 12 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 0,
+      "label": "output",
+      "ok": "\n\u2026[output truncated: 12 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 3,
+      "label": "content",
+      "ok": "\u00e9\ud83d\ude00x\n\u2026[content truncated: 9 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 3,
+      "label": "output",
+      "ok": "\u00e9\ud83d\ude00x\n\u2026[output truncated: 9 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 5,
+      "label": "content",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00\n\u2026[content truncated: 7 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 5,
+      "label": "output",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00\n\u2026[output truncated: 7 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 10,
+      "label": "content",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\n\u2026[content truncated: 2 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x",
+      "max": 10,
+      "label": "output",
+      "ok": "\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\ud83d\ude00x\u00e9\n\u2026[output truncated: 2 characters omitted out of 12 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": null,
+      "label": "content",
+      "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": null,
+      "label": "output",
+      "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 0,
+      "label": "content",
+      "ok": "\n\u2026[content truncated: 30 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 0,
+      "label": "output",
+      "ok": "\n\u2026[output truncated: 30 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 3,
+      "label": "content",
+      "ok": "aaa\n\u2026[content truncated: 27 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 3,
+      "label": "output",
+      "ok": "aaa\n\u2026[output truncated: 27 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 5,
+      "label": "content",
+      "ok": "aaaaa\n\u2026[content truncated: 25 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 5,
+      "label": "output",
+      "ok": "aaaaa\n\u2026[output truncated: 25 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 10,
+      "label": "content",
+      "ok": "aaaaaaaaaa\n\u2026[content truncated: 20 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max": 10,
+      "label": "output",
+      "ok": "aaaaaaaaaa\n\u2026[output truncated: 20 characters omitted out of 30 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": 12345,
+      "max": null,
+      "label": "content",
+      "ok": "12345"
+    },
+    {
+      "texte": 12345,
+      "max": null,
+      "label": "output",
+      "ok": "12345"
+    },
+    {
+      "texte": 12345,
+      "max": 0,
+      "label": "content",
+      "ok": "\n\u2026[content truncated: 5 characters omitted out of 5 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": 12345,
+      "max": 0,
+      "label": "output",
+      "ok": "\n\u2026[output truncated: 5 characters omitted out of 5 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": 12345,
+      "max": 3,
+      "label": "content",
+      "ok": "123\n\u2026[content truncated: 2 characters omitted out of 5 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": 12345,
+      "max": 3,
+      "label": "output",
+      "ok": "123\n\u2026[output truncated: 2 characters omitted out of 5 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": 12345,
+      "max": 5,
+      "label": "content",
+      "ok": "12345"
+    },
+    {
+      "texte": 12345,
+      "max": 5,
+      "label": "output",
+      "ok": "12345"
+    },
+    {
+      "texte": 12345,
+      "max": 10,
+      "label": "content",
+      "ok": "12345"
+    },
+    {
+      "texte": 12345,
+      "max": 10,
+      "label": "output",
+      "ok": "12345"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": null,
+      "label": "content",
+      "ok": "ligne\nligne\nligne\n"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": null,
+      "label": "output",
+      "ok": "ligne\nligne\nligne\n"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 0,
+      "label": "content",
+      "ok": "\n\u2026[content truncated: 18 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 0,
+      "label": "output",
+      "ok": "\n\u2026[output truncated: 18 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 3,
+      "label": "content",
+      "ok": "lig\n\u2026[content truncated: 15 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 3,
+      "label": "output",
+      "ok": "lig\n\u2026[output truncated: 15 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 5,
+      "label": "content",
+      "ok": "ligne\n\u2026[content truncated: 13 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 5,
+      "label": "output",
+      "ok": "ligne\n\u2026[output truncated: 13 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 10,
+      "label": "content",
+      "ok": "ligne\nlign\n\u2026[content truncated: 8 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    },
+    {
+      "texte": "ligne\nligne\nligne\n",
+      "max": 10,
+      "label": "output",
+      "ok": "ligne\nlign\n\u2026[output truncated: 8 characters omitted out of 18 \u2014 narrow the query (range, filter) to see the rest]"
+    }
+  ],
+  "head_tail": [
+    {
+      "texte": "",
+      "tete": 40,
+      "queue": 20,
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "tete": 2,
+      "queue": 1,
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "tete": 0,
+      "queue": 0,
+      "ok": ""
+    },
+    {
+      "texte": "",
+      "tete": 1,
+      "queue": 0,
+      "ok": ""
+    },
+    {
+      "texte": "a",
+      "tete": 40,
+      "queue": 20,
+      "ok": "a"
+    },
+    {
+      "texte": "a",
+      "tete": 2,
+      "queue": 1,
+      "ok": "a"
+    },
+    {
+      "texte": "a",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 1 middle lines omitted out of 1]\na"
+    },
+    {
+      "texte": "a",
+      "tete": 1,
+      "queue": 0,
+      "ok": "a"
+    },
+    {
+      "texte": "a\nb\nc",
+      "tete": 40,
+      "queue": 20,
+      "ok": "a\nb\nc"
+    },
+    {
+      "texte": "a\nb\nc",
+      "tete": 2,
+      "queue": 1,
+      "ok": "a\nb\nc"
+    },
+    {
+      "texte": "a\nb\nc",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 3 middle lines omitted out of 3]\na\nb\nc"
+    },
+    {
+      "texte": "a\nb\nc",
+      "tete": 1,
+      "queue": 0,
+      "ok": "a\n\u2026[output: 2 middle lines omitted out of 3]\na\nb\nc"
+    },
+    {
+      "texte": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69",
+      "tete": 40,
+      "queue": 20,
+      "ok": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\n\u2026[output: 10 middle lines omitted out of 70]\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69"
+    },
+    {
+      "texte": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69",
+      "tete": 2,
+      "queue": 1,
+      "ok": "l0\nl1\n\u2026[output: 67 middle lines omitted out of 70]\nl69"
+    },
+    {
+      "texte": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 70 middle lines omitted out of 70]\nl0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69"
+    },
+    {
+      "texte": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69",
+      "tete": 1,
+      "queue": 0,
+      "ok": "l0\n\u2026[output: 69 middle lines omitted out of 70]\nl0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64\nl65\nl66\nl67\nl68\nl69"
+    },
+    {
+      "texte": "l0\r\nl1\r\nl2\r\nl3\r\nl4\r\nl5\r\nl6\r\nl7\r\nl8\r\nl9\r\nl10\r\nl11\r\nl12\r\nl13\r\nl14\r\nl15\r\nl16\r\nl17\r\nl18\r\nl19\r\nl20\r\nl21\r\nl22\r\nl23\r\nl24\r\nl25\r\nl26\r\nl27\r\nl28\r\nl29\r\nl30\r\nl31\r\nl32\r\nl33\r\nl34\r\nl35\r\nl36\r\nl37\r\nl38\r\nl39\r\nl40\r\nl41\r\nl42\r\nl43\r\nl44\r\nl45\r\nl46\r\nl47\r\nl48\r\nl49\r\nl50\r\nl51\r\nl52\r\nl53\r\nl54\r\nl55\r\nl56\r\nl57\r\nl58\r\nl59\r\nl60\r\nl61\r\nl62\r\nl63\r\nl64",
+      "tete": 40,
+      "queue": 20,
+      "ok": "l0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\n\u2026[output: 5 middle lines omitted out of 65]\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64"
+    },
+    {
+      "texte": "l0\r\nl1\r\nl2\r\nl3\r\nl4\r\nl5\r\nl6\r\nl7\r\nl8\r\nl9\r\nl10\r\nl11\r\nl12\r\nl13\r\nl14\r\nl15\r\nl16\r\nl17\r\nl18\r\nl19\r\nl20\r\nl21\r\nl22\r\nl23\r\nl24\r\nl25\r\nl26\r\nl27\r\nl28\r\nl29\r\nl30\r\nl31\r\nl32\r\nl33\r\nl34\r\nl35\r\nl36\r\nl37\r\nl38\r\nl39\r\nl40\r\nl41\r\nl42\r\nl43\r\nl44\r\nl45\r\nl46\r\nl47\r\nl48\r\nl49\r\nl50\r\nl51\r\nl52\r\nl53\r\nl54\r\nl55\r\nl56\r\nl57\r\nl58\r\nl59\r\nl60\r\nl61\r\nl62\r\nl63\r\nl64",
+      "tete": 2,
+      "queue": 1,
+      "ok": "l0\nl1\n\u2026[output: 62 middle lines omitted out of 65]\nl64"
+    },
+    {
+      "texte": "l0\r\nl1\r\nl2\r\nl3\r\nl4\r\nl5\r\nl6\r\nl7\r\nl8\r\nl9\r\nl10\r\nl11\r\nl12\r\nl13\r\nl14\r\nl15\r\nl16\r\nl17\r\nl18\r\nl19\r\nl20\r\nl21\r\nl22\r\nl23\r\nl24\r\nl25\r\nl26\r\nl27\r\nl28\r\nl29\r\nl30\r\nl31\r\nl32\r\nl33\r\nl34\r\nl35\r\nl36\r\nl37\r\nl38\r\nl39\r\nl40\r\nl41\r\nl42\r\nl43\r\nl44\r\nl45\r\nl46\r\nl47\r\nl48\r\nl49\r\nl50\r\nl51\r\nl52\r\nl53\r\nl54\r\nl55\r\nl56\r\nl57\r\nl58\r\nl59\r\nl60\r\nl61\r\nl62\r\nl63\r\nl64",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 65 middle lines omitted out of 65]\nl0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64"
+    },
+    {
+      "texte": "l0\r\nl1\r\nl2\r\nl3\r\nl4\r\nl5\r\nl6\r\nl7\r\nl8\r\nl9\r\nl10\r\nl11\r\nl12\r\nl13\r\nl14\r\nl15\r\nl16\r\nl17\r\nl18\r\nl19\r\nl20\r\nl21\r\nl22\r\nl23\r\nl24\r\nl25\r\nl26\r\nl27\r\nl28\r\nl29\r\nl30\r\nl31\r\nl32\r\nl33\r\nl34\r\nl35\r\nl36\r\nl37\r\nl38\r\nl39\r\nl40\r\nl41\r\nl42\r\nl43\r\nl44\r\nl45\r\nl46\r\nl47\r\nl48\r\nl49\r\nl50\r\nl51\r\nl52\r\nl53\r\nl54\r\nl55\r\nl56\r\nl57\r\nl58\r\nl59\r\nl60\r\nl61\r\nl62\r\nl63\r\nl64",
+      "tete": 1,
+      "queue": 0,
+      "ok": "l0\n\u2026[output: 64 middle lines omitted out of 65]\nl0\nl1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nl9\nl10\nl11\nl12\nl13\nl14\nl15\nl16\nl17\nl18\nl19\nl20\nl21\nl22\nl23\nl24\nl25\nl26\nl27\nl28\nl29\nl30\nl31\nl32\nl33\nl34\nl35\nl36\nl37\nl38\nl39\nl40\nl41\nl42\nl43\nl44\nl45\nl46\nl47\nl48\nl49\nl50\nl51\nl52\nl53\nl54\nl55\nl56\nl57\nl58\nl59\nl60\nl61\nl62\nl63\nl64"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\n",
+      "tete": 40,
+      "queue": 20,
+      "ok": "a\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\n\u2026[output: 3 middle lines omitted out of 63]\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\n",
+      "tete": 2,
+      "queue": 1,
+      "ok": "a\nb\n\u2026[output: 60 middle lines omitted out of 63]\ng"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\n",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 63 middle lines omitted out of 63]\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng"
+    },
+    {
+      "texte": "a\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\na\u001cb\u0085c\u2028d\re\u000bf\fg\n",
+      "tete": 1,
+      "queue": 0,
+      "ok": "a\n\u2026[output: 62 middle lines omitted out of 63]\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng\na\nb\nc\nd\ne\nf\ng"
+    },
+    {
+      "texte": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n",
+      "tete": 40,
+      "queue": 20,
+      "ok": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n\u2026[output: 1 middle lines omitted out of 61]\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx"
+    },
+    {
+      "texte": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n",
+      "tete": 2,
+      "queue": 1,
+      "ok": "x\nx\n\u2026[output: 58 middle lines omitted out of 61]\nx"
+    },
+    {
+      "texte": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n",
+      "tete": 0,
+      "queue": 0,
+      "ok": "\u2026[output: 61 middle lines omitted out of 61]\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx"
+    },
+    {
+      "texte": "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n",
+      "tete": 1,
+      "queue": 0,
+      "ok": "x\n\u2026[output: 60 middle lines omitted out of 61]\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx"
+    },
+    {
+      "texte": null,
+      "tete": 40,
+      "queue": 20,
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "tete": 2,
+      "queue": 1,
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "tete": 0,
+      "queue": 0,
+      "ok": ""
+    },
+    {
+      "texte": null,
+      "tete": 1,
+      "queue": 0,
+      "ok": ""
+    }
+  ],
+  "page": [
+    {
+      "items": [],
+      "offset": null,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": null,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 0,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": -3,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 2.7,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 2,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": "3",
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 3,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": 50,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 50,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [],
+      "offset": true,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 0,
+        "offset": 1,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": null,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": 0,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": 1,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": 3,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": -2,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": "2",
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": null,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": null,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": 0,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": 1,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": 3,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": -2,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": "2",
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 0,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": null,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": 0,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": 1,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": 3,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": -2,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": "2",
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": -3,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 2.7,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 2,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": "3",
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 3,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": 50,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 50,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        1
+      ],
+      "offset": true,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 1,
+        "offset": 1,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": null,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": 0,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": 1,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": 3,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": -2,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": "2",
+      "ok": {
+        "items": [
+          0,
+          1
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": null,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": null,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": 0,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": 1,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": 3,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": -2,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": "2",
+      "ok": {
+        "items": [
+          0,
+          1
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 0,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": null,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": 0,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": 1,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": 3,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": -2,
+      "ok": {
+        "items": [
+          0
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": "2",
+      "ok": {
+        "items": [
+          0,
+          1
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": -3,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": null,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": 0,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": 1,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": 3,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": -2,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": "2",
+      "ok": {
+        "items": [
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": null,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": 0,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": 1,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": 3,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": -2,
+      "ok": {
+        "items": [
+          2
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": "2",
+      "ok": {
+        "items": [
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 2.7,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "total": 7,
+        "offset": 2,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": null,
+      "ok": {
+        "items": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": 0,
+      "ok": {
+        "items": [
+          3
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": 1,
+      "ok": {
+        "items": [
+          3
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": 3,
+      "ok": {
+        "items": [
+          3,
+          4,
+          5
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": -2,
+      "ok": {
+        "items": [
+          3
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": "2",
+      "ok": {
+        "items": [
+          3,
+          4
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": "3",
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 3,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": 50,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 7,
+        "offset": 50,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": null,
+      "ok": {
+        "items": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": 0,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": 1,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": 3,
+      "ok": {
+        "items": [
+          1,
+          2,
+          3
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": -2,
+      "ok": {
+        "items": [
+          1
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": "2",
+      "ok": {
+        "items": [
+          1,
+          2
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "offset": true,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "total": 7,
+        "offset": 1,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": null,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "a",
+          "b"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": null,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": null,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "a",
+          "b"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 0,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": null,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "a"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 1
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "a",
+          "b"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": -3,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 0,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": null,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": null,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "c"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 2.7,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "total": 10,
+        "offset": 2,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": null,
+      "ok": {
+        "items": [
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": 0,
+      "ok": {
+        "items": [
+          "d"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": 1,
+      "ok": {
+        "items": [
+          "d"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": 3,
+      "ok": {
+        "items": [
+          "d",
+          "e",
+          "f"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 6
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": -2,
+      "ok": {
+        "items": [
+          "d"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": "2",
+      "ok": {
+        "items": [
+          "d",
+          "e"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 5
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": "3",
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "d",
+          "e",
+          "f",
+          "g"
+        ],
+        "total": 10,
+        "offset": 3,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 7
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": null,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": 0,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": 1,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": 3,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 3,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": -2,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 1,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": "2",
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 2,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": 50,
+      "limit": 4.9,
+      "ok": {
+        "items": [],
+        "total": 10,
+        "offset": 50,
+        "limit": 4,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": null,
+      "ok": {
+        "items": [
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 50,
+        "has_more": false,
+        "next_offset": null
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": 0,
+      "ok": {
+        "items": [
+          "b"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": 1,
+      "ok": {
+        "items": [
+          "b"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": 3,
+      "ok": {
+        "items": [
+          "b",
+          "c",
+          "d"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 3,
+        "has_more": true,
+        "next_offset": 4
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": -2,
+      "ok": {
+        "items": [
+          "b"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 1,
+        "has_more": true,
+        "next_offset": 2
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": "2",
+      "ok": {
+        "items": [
+          "b",
+          "c"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 2,
+        "has_more": true,
+        "next_offset": 3
+      }
+    },
+    {
+      "items": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j"
+      ],
+      "offset": true,
+      "limit": 4.9,
+      "ok": {
+        "items": [
+          "b",
+          "c",
+          "d",
+          "e"
+        ],
+        "total": 10,
+        "offset": 1,
+        "limit": 4,
+        "has_more": true,
+        "next_offset": 5
+      }
+    }
+  ],
+  "quelconques": [
+    {
+      "v": null,
+      "unquote": {
+        "ok": ""
+      },
+      "as_str": {
+        "ok": "def"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": []
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": true,
+      "unquote": {
+        "ok": "True"
+      },
+      "as_str": {
+        "ok": "True"
+      },
+      "as_int": {
+        "ok": 1
+      },
+      "as_int_none": {
+        "ok": 1
+      },
+      "as_bool": {
+        "ok": true
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          true
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": false,
+      "unquote": {
+        "ok": "False"
+      },
+      "as_str": {
+        "ok": "False"
+      },
+      "as_int": {
+        "ok": 0
+      },
+      "as_int_none": {
+        "ok": 0
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": [
+          false
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": 0,
+      "unquote": {
+        "ok": "0"
+      },
+      "as_str": {
+        "ok": "0"
+      },
+      "as_int": {
+        "ok": 0
+      },
+      "as_int_none": {
+        "ok": 0
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": [
+          0
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "unquote": {
+        "ok": "1"
+      },
+      "as_str": {
+        "ok": "1"
+      },
+      "as_int": {
+        "ok": 1
+      },
+      "as_int_none": {
+        "ok": 1
+      },
+      "as_bool": {
+        "ok": true
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          1
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": -3,
+      "unquote": {
+        "ok": "-3"
+      },
+      "as_str": {
+        "ok": "-3"
+      },
+      "as_int": {
+        "ok": -3
+      },
+      "as_int_none": {
+        "ok": -3
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          -3
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {
+        "$f": "5.0"
+      },
+      "unquote": {
+        "ok": "5.0"
+      },
+      "as_str": {
+        "ok": "5.0"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {
+            "$f": "5.0"
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {
+        "$f": "5.5"
+      },
+      "unquote": {
+        "ok": "5.5"
+      },
+      "as_str": {
+        "ok": "5.5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {
+            "$f": "5.5"
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {
+        "$f": "-0.5"
+      },
+      "unquote": {
+        "ok": "-0.5"
+      },
+      "as_str": {
+        "ok": "-0.5"
+      },
+      "as_int": {
+        "ok": 0
+      },
+      "as_int_none": {
+        "ok": 0
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {
+            "$f": "-0.5"
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {
+        "$i": "1180591620717411303424"
+      },
+      "unquote": {
+        "ok": "1180591620717411303424"
+      },
+      "as_str": {
+        "ok": "1180591620717411303424"
+      },
+      "as_int": {
+        "ok": {
+          "$i": "1180591620717411303424"
+        }
+      },
+      "as_int_none": {
+        "ok": {
+          "$i": "1180591620717411303424"
+        }
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {
+            "$i": "1180591620717411303424"
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "",
+      "unquote": {
+        "ok": ""
+      },
+      "as_str": {
+        "ok": ""
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": []
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": " ",
+      "unquote": {
+        "ok": ""
+      },
+      "as_str": {
+        "ok": ""
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": []
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "5",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "5"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": " 5 ",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          " 5 "
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\"5\"",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\"5\""
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "'\"5\"'",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "'\"5\"'"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\u201c5\u201d",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\u201c5\u201d"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\u20185\u2019",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\u20185\u2019"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "5.9",
+      "unquote": {
+        "ok": "5.9"
+      },
+      "as_str": {
+        "ok": "5.9"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "5.9"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "-0.5",
+      "unquote": {
+        "ok": "-0.5"
+      },
+      "as_str": {
+        "ok": "-0.5"
+      },
+      "as_int": {
+        "ok": 0
+      },
+      "as_int_none": {
+        "ok": 0
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "-0.5"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "1e3",
+      "unquote": {
+        "ok": "1e3"
+      },
+      "as_str": {
+        "ok": "1e3"
+      },
+      "as_int": {
+        "ok": 1000
+      },
+      "as_int_none": {
+        "ok": 1000
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "1e3"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "1_000",
+      "unquote": {
+        "ok": "1_000"
+      },
+      "as_str": {
+        "ok": "1_000"
+      },
+      "as_int": {
+        "ok": 1000
+      },
+      "as_int_none": {
+        "ok": 1000
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "1_000"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "abc",
+      "unquote": {
+        "ok": "abc"
+      },
+      "as_str": {
+        "ok": "abc"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "abc"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "nan",
+      "unquote": {
+        "ok": "nan"
+      },
+      "as_str": {
+        "ok": "nan"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "nan"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "0x10",
+      "unquote": {
+        "ok": "0x10"
+      },
+      "as_str": {
+        "ok": "0x10"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "0x10"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\u0665",
+      "unquote": {
+        "ok": "\u0665"
+      },
+      "as_str": {
+        "ok": "\u0665"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\u0665"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\u00a05\u3000",
+      "unquote": {
+        "ok": "5"
+      },
+      "as_str": {
+        "ok": "5"
+      },
+      "as_int": {
+        "ok": 5
+      },
+      "as_int_none": {
+        "ok": 5
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\u00a05\u3000"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "true",
+      "unquote": {
+        "ok": "true"
+      },
+      "as_str": {
+        "ok": "true"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": true
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "true"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "Oui",
+      "unquote": {
+        "ok": "Oui"
+      },
+      "as_str": {
+        "ok": "Oui"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": true
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "Oui"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "NON",
+      "unquote": {
+        "ok": "NON"
+      },
+      "as_str": {
+        "ok": "NON"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": [
+          "NON"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "y",
+      "unquote": {
+        "ok": "y"
+      },
+      "as_str": {
+        "ok": "y"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": true
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "y"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "off",
+      "unquote": {
+        "ok": "off"
+      },
+      "as_str": {
+        "ok": "off"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": [
+          "off"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "2",
+      "unquote": {
+        "ok": "2"
+      },
+      "as_str": {
+        "ok": "2"
+      },
+      "as_int": {
+        "ok": 2
+      },
+      "as_int_none": {
+        "ok": 2
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "2"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "[1, 2]",
+      "unquote": {
+        "ok": "[1, 2]"
+      },
+      "as_str": {
+        "ok": "[1, 2]"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          1,
+          2
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": " [1,\"a\"] ",
+      "unquote": {
+        "ok": "[1,\"a\"]"
+      },
+      "as_str": {
+        "ok": "[1,\"a\"]"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          1,
+          "a"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "[]",
+      "unquote": {
+        "ok": "[]"
+      },
+      "as_str": {
+        "ok": "[]"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": []
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "[1,",
+      "unquote": {
+        "ok": "[1,"
+      },
+      "as_str": {
+        "ok": "[1,"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "[1,"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "{\"a\": 1}",
+      "unquote": {
+        "ok": "{\"a\": 1}"
+      },
+      "as_str": {
+        "ok": "{\"a\": 1}"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "{\"a\": 1}"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "[\"x\", [2], {\"k\": null}]",
+      "unquote": {
+        "ok": "[\"x\", [2], {\"k\": null}]"
+      },
+      "as_str": {
+        "ok": "[\"x\", [2], {\"k\": null}]"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "x",
+          [
+            2
+          ],
+          {
+            "k": null
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": [
+        1,
+        "a"
+      ],
+      "unquote": {
+        "ok": "[1, 'a']"
+      },
+      "as_str": {
+        "ok": "[1, 'a']"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          1,
+          "a"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": [],
+      "unquote": {
+        "ok": "[]"
+      },
+      "as_str": {
+        "ok": "[]"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": []
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {
+        "a": 1
+      },
+      "unquote": {
+        "ok": "{'a': 1}"
+      },
+      "as_str": {
+        "ok": "{'a': 1}"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {
+            "a": 1
+          }
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": {},
+      "unquote": {
+        "ok": "{}"
+      },
+      "as_str": {
+        "ok": "{}"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          {}
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\"\"",
+      "unquote": {
+        "ok": ""
+      },
+      "as_str": {
+        "ok": ""
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": false
+      },
+      "as_list": {
+        "ok": [
+          "\"\""
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "'",
+      "unquote": {
+        "ok": "'"
+      },
+      "as_str": {
+        "ok": "'"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "'"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\"",
+      "unquote": {
+        "ok": "\""
+      },
+      "as_str": {
+        "ok": "\""
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\""
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\"'x'\"",
+      "unquote": {
+        "ok": "x"
+      },
+      "as_str": {
+        "ok": "x"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\"'x'\""
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\u201cIn Progress\u201d",
+      "unquote": {
+        "ok": "In Progress"
+      },
+      "as_str": {
+        "ok": "In Progress"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\u201cIn Progress\u201d"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "in_progress"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "in-progress",
+      "unquote": {
+        "ok": "in-progress"
+      },
+      "as_str": {
+        "ok": "in-progress"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "in-progress"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "in_progress"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "IN PROGRESS",
+      "unquote": {
+        "ok": "IN PROGRESS"
+      },
+      "as_str": {
+        "ok": "IN PROGRESS"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "IN PROGRESS"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "in_progress"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "done",
+      "unquote": {
+        "ok": "done"
+      },
+      "as_str": {
+        "ok": "done"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "done"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    },
+    {
+      "v": "\ud83d\ude00",
+      "unquote": {
+        "ok": "\ud83d\ude00"
+      },
+      "as_str": {
+        "ok": "\ud83d\ude00"
+      },
+      "as_int": {
+        "ok": -1
+      },
+      "as_int_none": {
+        "ok": null
+      },
+      "as_bool": {
+        "ok": false
+      },
+      "as_bool_vrai": {
+        "ok": true
+      },
+      "as_list": {
+        "ok": [
+          "\ud83d\ude00"
+        ]
+      },
+      "as_enum": [
+        {
+          "ok": "def"
+        },
+        {
+          "ok": "def"
+        }
+      ],
+      "as_enum_strict": [
+        {
+          "ok": null
+        },
+        {
+          "ok": null
+        }
+      ]
+    }
+  ],
+  "politiques": [
+    {
+      "politique": {},
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x"
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "timeout_s": 330
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "timeout_s": 330
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x",
+              "timeout_s": 330
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "serial": true
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": true,
+              "replay_safe": false
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x",
+              "serial": true,
+              "replay_safe": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "serial": false,
+        "replay_safe": true
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "serial": false,
+              "replay_safe": true
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x",
+              "serial": false,
+              "replay_safe": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "deny_for": [
+          "routine",
+          "subagent",
+          "routine"
+        ]
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x",
+              "deny_for": [
+                "routine",
+                "subagent"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "prune": "diff",
+        "timeout_s": null
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "prune": "diff"
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "diff"
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "bogus": 1
+      },
+      "tool_kw": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "readonly": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "destructive": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "idempotent": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "mutating": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "openworld": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      },
+      "with_policy": {
+        "erreur": "ValueError",
+        "message": "cl\u00e9 de politique inconnue : ['bogus']"
+      }
+    },
+    {
+      "politique": {
+        "deny_for": null
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {}
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x"
+            }
+          }
+        }
+      }
+    },
+    {
+      "politique": {
+        "deny_for": []
+      },
+      "tool_kw": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          }
+        }
+      },
+      "readonly": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false,
+            "title": "Lire"
+          }
+        }
+      },
+      "destructive": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      },
+      "idempotent": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        }
+      },
+      "mutating": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      },
+      "openworld": {
+        "ok": {
+          "tags": [
+            "fs"
+          ],
+          "meta": {
+            "category": {
+              "name": "fs",
+              "label": "Fichiers",
+              "icon": "ph-folder",
+              "color": "orange"
+            },
+            "policy": {
+              "deny_for": []
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          }
+        }
+      },
+      "with_policy": {
+        "ok": {
+          "tags": [
+            "x"
+          ],
+          "meta": {
+            "policy": {
+              "prune": "x",
+              "deny_for": []
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tag_kw": {
+    "tags": [
+      "fs"
+    ]
+  },
+  "glob": [
+    {
+      "rel": "main.py",
+      "motif": "*.py",
+      "ok": true
+    },
+    {
+      "rel": "src/main.py",
+      "motif": "*.py",
+      "ok": true
+    },
+    {
+      "rel": "src/main.py",
+      "motif": "**/*.py",
+      "ok": true
+    },
+    {
+      "rel": "main.py",
+      "motif": "**/*.py",
+      "ok": true
+    },
+    {
+      "rel": "src/a/b/x.ts",
+      "motif": "src/**/*.ts",
+      "ok": true
+    },
+    {
+      "rel": "src/x.ts",
+      "motif": "src/**/*.ts",
+      "ok": true
+    },
+    {
+      "rel": "src/x.ts",
+      "motif": "./src/*.ts",
+      "ok": true
+    },
+    {
+      "rel": "src/a/x.ts",
+      "motif": "src/*.ts",
+      "ok": false
+    },
+    {
+      "rel": "a/b",
+      "motif": "",
+      "ok": true
+    },
+    {
+      "rel": "a/b",
+      "motif": "a",
+      "ok": false
+    },
+    {
+      "rel": "a/b",
+      "motif": "b",
+      "ok": true
+    },
+    {
+      "rel": "a/b",
+      "motif": "a/",
+      "ok": false
+    },
+    {
+      "rel": "a/b",
+      "motif": "/a/b/",
+      "ok": true
+    },
+    {
+      "rel": "a/B",
+      "motif": "a/b",
+      "ok": false
+    },
+    {
+      "rel": "README.md",
+      "motif": "readme*",
+      "ok": false
+    },
+    {
+      "rel": "x/[ab].py",
+      "motif": "x/[ab].py",
+      "ok": false
+    },
+    {
+      "rel": "x/a.py",
+      "motif": "x/[ab].py",
+      "ok": true
+    },
+    {
+      "rel": "deep/er/nest/f.c",
+      "motif": "**/nest/**",
+      "ok": true
+    },
+    {
+      "rel": "deep/er/nest/f.c",
+      "motif": "**/nest/**/*.c",
+      "ok": true
+    },
+    {
+      "rel": "f.c",
+      "motif": "**",
+      "ok": true
+    },
+    {
+      "rel": "a//b.py",
+      "motif": "a/*.py",
+      "ok": true
+    },
+    {
+      "rel": "\u00e9/\u00fc.txt",
+      "motif": "*/*.txt",
+      "ok": true
+    },
+    {
+      "rel": "a/b/c",
+      "motif": "**/**/c",
+      "ok": true
+    },
+    {
+      "rel": "abc",
+      "motif": "a?c",
+      "ok": true
+    },
+    {
+      "rel": "a/c",
+      "motif": "a?c",
+      "ok": true
+    }
+  ],
+  "replis": [
+    {
+      "nom": "",
+      "pli": ""
+    },
+    {
+      "nom": "abc",
+      "pli": "abc"
+    },
+    {
+      "nom": "Proj\u00e9t-Devinette",
+      "pli": "projet-devinette"
+    },
+    {
+      "nom": "\u00c9COLE",
+      "pli": "ecole"
+    },
+    {
+      "nom": "\ufb01chier",
+      "pli": "fichier"
+    },
+    {
+      "nom": "Stra\u00dfe",
+      "pli": "strasse"
+    },
+    {
+      "nom": "\u1f48\u03b4\u03c5\u03c3\u03c3\u03b5\u03cd\u03c2",
+      "pli": "\u03bf\u03b4\u03c5\u03c3\u03c3\u03b5\u03c5\u03c3"
+    },
+    {
+      "nom": "a\u0301",
+      "pli": "a"
+    },
+    {
+      "nom": "\u216b",
+      "pli": "xii"
+    },
+    {
+      "nom": "x\ud835\udc00",
+      "pli": "xa"
+    }
+  ],
+  "jumeaux": [
+    {
+      "paires": [],
+      "message": null
+    },
+    {
+      "paires": [
+        [
+          "projet",
+          "proj\u00e9t"
+        ]
+      ],
+      "message": "Probable unicode twin: 'proj\u00e9t' \u2248 existing 'projet' \u2014 the names differ only by accents or case. On accent/case-insensitive filesystems they are the SAME path. Double-check you are not creating a duplicate of the existing file/folder."
+    },
+    {
+      "paires": [
+        [
+          "a",
+          "A"
+        ],
+        [
+          "b",
+          "B"
+        ],
+        [
+          "c",
+          "C"
+        ],
+        [
+          "d",
+          "D"
+        ]
+      ],
+      "message": "Probable unicode twin: 'A' \u2248 existing 'a'; 'B' \u2248 existing 'b'; 'C' \u2248 existing 'c' \u2014 the names differ only by accents or case. On accent/case-insensitive filesystems they are the SAME path. Double-check you are not creating a duplicate of the existing file/folder."
+    }
+  ],
+  "titres": [
+    {
+      "nom": "",
+      "titre": ""
+    },
+    {
+      "nom": "todowrite",
+      "titre": "Todowrite"
+    },
+    {
+      "nom": "git_rf",
+      "titre": "Git Rf"
+    },
+    {
+      "nom": "pw_a11y",
+      "titre": "Pw A11Y"
+    },
+    {
+      "nom": "chart_polar_bar",
+      "titre": "Chart Polar Bar"
+    },
+    {
+      "nom": "_x_",
+      "titre": "X"
+    },
+    {
+      "nom": "a1b2c",
+      "titre": "A1B2C"
+    },
+    {
+      "nom": "x__y",
+      "titre": "X  Y"
+    },
+    {
+      "nom": "\u00c9T\u00c9_\u00e9t\u00e9",
+      "titre": "\u00c9t\u00e9 \u00c9t\u00e9"
+    },
+    {
+      "nom": "desktop_run_automation",
+      "titre": "Desktop Run Automation"
+    },
+    {
+      "nom": "  ",
+      "titre": "  "
+    },
+    {
+      "nom": "skill_run_script",
+      "titre": "Skill Run Script"
+    },
+    {
+      "nom": "o'neil",
+      "titre": "O'Neil"
+    },
+    {
+      "nom": "camelCase",
+      "titre": "Camelcase"
+    },
+    {
+      "nom": "3d_view",
+      "titre": "3D View"
+    }
+  ],
+  "chats": [
+    {
+      "v": null,
+      "id": "default"
+    },
+    {
+      "v": "",
+      "id": "default"
+    },
+    {
+      "v": "abc",
+      "id": "abc"
+    },
+    {
+      "v": "a/b..c",
+      "id": "abc"
+    },
+    {
+      "v": "\u00e9",
+      "id": "default"
+    },
+    {
+      "v": "chat-1_X",
+      "id": "chat-1_X"
+    },
+    {
+      "v": 42,
+      "id": "42"
+    },
+    {
+      "v": "\ud83d\ude00",
+      "id": "default"
+    }
+  ],
+  "json": [
+    {
+      "v": {
+        "a": {
+          "$f": "1.0"
+        },
+        "b": {
+          "$f": "1e+16"
+        },
+        "c": {
+          "$f": "1e-07"
+        },
+        "d": {
+          "$f": "inf"
+        },
+        "n": {
+          "$f": "nan"
+        },
+        "z": {
+          "$f": "-0.0"
+        }
+      },
+      "texte": "{\"a\":1.0,\"b\":1e+16,\"c\":1e-7,\"d\":Infinity,\"n\":NaN,\"z\":-0.0}"
+    },
+    {
+      "v": [
+        "\u00e9\u2014x\u2028\"\\",
+        "\u0000\u001f\u007f",
+        {
+          "$f": "0.30000000000000004"
+        },
+        {
+          "$f": "100.0"
+        },
+        {
+          "$f": "1000000000000000.0"
+        },
+        {
+          "$f": "12345678.9"
+        },
+        {
+          "$f": "1e+22"
+        },
+        {
+          "$f": "1.5e+300"
+        }
+      ],
+      "texte": "[\"\u00e9\u2014x\u2028\\\"\\\\\",\"\\u0000\\u001f\u007f\",0.30000000000000004,100.0,1000000000000000.0,12345678.9,1e+22,1.5e+300]"
+    },
+    {
+      "v": {
+        "ok": true,
+        "todos": [
+          {
+            "content": "a",
+            "status": "pending"
+          }
+        ],
+        "n": null
+      },
+      "texte": "{\"ok\":true,\"todos\":[{\"content\":\"a\",\"status\":\"pending\"}],\"n\":null}"
+    },
+    {
+      "v": {
+        "$i": "1180591620717411303424"
+      },
+      "texte": "1180591620717411303424"
+    },
+    {
+      "v": {
+        "$i": "-18446744073709551616"
+      },
+      "texte": "-18446744073709551616"
+    },
+    {
+      "v": {
+        "$f": "5e-324"
+      },
+      "texte": "5e-324"
+    },
+    {
+      "v": {
+        "$f": "1.7976931348623157e+308"
+      },
+      "texte": "1.7976931348623157e+308"
+    },
+    {
+      "v": {
+        "$f": "1.23456e-08"
+      },
+      "texte": "1.23456e-8"
+    },
+    {
+      "v": {
+        "$f": "0.000123"
+      },
+      "texte": "0.000123"
+    },
+    {
+      "v": [],
+      "texte": "[]"
+    },
+    {
+      "v": {},
+      "texte": "{}"
+    },
+    {
+      "v": "x",
+      "texte": "\"x\""
+    }
+  ]
+}

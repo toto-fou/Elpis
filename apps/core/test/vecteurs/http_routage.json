@@ -1,0 +1,1456 @@
+{
+  "source": "migration-kit/vecteurs/http_routage.py",
+  "main": [
+    {
+      "id": "sante",
+      "methode": "GET",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "sante-barre",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-barres",
+      "methode": "GET",
+      "cible": "/api/health///",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-head",
+      "methode": "HEAD",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "sante-head-barre",
+      "methode": "HEAD",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-post",
+      "methode": "POST",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "sante-post-barre",
+      "methode": "POST",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-options",
+      "methode": "OPTIONS",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "sante-requete",
+      "methode": "GET",
+      "cible": "/api/health/?a=1&b=%20x&c=\"q\"",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health?a=1&b=%20x&c=%22q%22"
+    },
+    {
+      "id": "sante-requete-vide",
+      "methode": "GET",
+      "cible": "/api/health/?",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-fragment",
+      "methode": "GET",
+      "cible": "/api/health/#f",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-encode",
+      "methode": "GET",
+      "cible": "/api/heal%74h/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-barre-encodee",
+      "methode": "GET",
+      "cible": "/api/health%2F",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-casse",
+      "methode": "GET",
+      "cible": "/API/health/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "sante-hote",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "Host": "exemple.lan:8443"
+      },
+      "statut": 307,
+      "location": "http://exemple.lan:8443/api/health"
+    },
+    {
+      "id": "sante-proto-boucle",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "X-Forwarded-Proto": "https"
+      },
+      "statut": 307,
+      "location": "https://t/api/health"
+    },
+    {
+      "id": "sante-proto-invalide",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "X-Forwarded-Proto": "javascript"
+      },
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "config-publique-barre",
+      "methode": "GET",
+      "cible": "/api/public-config/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/public-config"
+    },
+    {
+      "id": "racine",
+      "methode": "GET",
+      "cible": "/",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "racine-double",
+      "methode": "GET",
+      "cible": "//",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "racine-head",
+      "methode": "HEAD",
+      "cible": "/",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "racine-post",
+      "methode": "POST",
+      "cible": "/",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "admin",
+      "methode": "GET",
+      "cible": "/admin",
+      "entetes": {},
+      "statut": 302,
+      "location": "http://t/admin"
+    },
+    {
+      "id": "admin-barre",
+      "methode": "GET",
+      "cible": "/admin/",
+      "entetes": {},
+      "statut": 302,
+      "location": "http://t/admin"
+    },
+    {
+      "id": "admin-barres",
+      "methode": "GET",
+      "cible": "/admin//",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/admin"
+    },
+    {
+      "id": "admin-head",
+      "methode": "HEAD",
+      "cible": "/admin",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "statique-sans-barre",
+      "methode": "GET",
+      "cible": "/static",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/static/"
+    },
+    {
+      "id": "statique-barre",
+      "methode": "GET",
+      "cible": "/static/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "statique-fichier",
+      "methode": "GET",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-fichier-barre",
+      "methode": "GET",
+      "cible": "/static/elpis-256.png/",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-head",
+      "methode": "HEAD",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-post",
+      "methode": "POST",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-absent",
+      "methode": "GET",
+      "cible": "/static/absent.js",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills",
+      "methode": "GET",
+      "cible": "/api/skills",
+      "entetes": {},
+      "statut": 401,
+      "json": {
+        "detail": "not logged in"
+      }
+    },
+    {
+      "id": "skills-barre",
+      "methode": "GET",
+      "cible": "/api/skills/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills"
+    },
+    {
+      "id": "skills-nom-barre",
+      "methode": "GET",
+      "cible": "/api/skills/x/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/x"
+    },
+    {
+      "id": "skills-nom-put",
+      "methode": "PUT",
+      "cible": "/api/skills/x",
+      "entetes": {},
+      "statut": 401,
+      "json": {
+        "detail": "not logged in"
+      }
+    },
+    {
+      "id": "skills-nom-head",
+      "methode": "HEAD",
+      "cible": "/api/skills/x",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "skills-nom-interrogation",
+      "methode": "GET",
+      "cible": "/api/skills/a%3Fb/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/a?b"
+    },
+    {
+      "id": "skills-nom-utf8",
+      "methode": "GET",
+      "cible": "/api/skills/%C3%A9t%C3%A9/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/%C3%A9t%C3%A9"
+    },
+    {
+      "id": "skills-nom-guillemet",
+      "methode": "GET",
+      "cible": "/api/skills/a%20b%22%3C/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/a%20b%22%3C"
+    },
+    {
+      "id": "skills-nom-pourcent",
+      "methode": "GET",
+      "cible": "/api/skills/%25/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/%"
+    },
+    {
+      "id": "skills-nom-octet-invalide",
+      "methode": "GET",
+      "cible": "/api/skills/%ff/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/%EF%BF%BD"
+    },
+    {
+      "id": "skills-nom-barre-encodee",
+      "methode": "GET",
+      "cible": "/api/skills/a%2Fb/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-export-barre",
+      "methode": "GET",
+      "cible": "/api/skills/x/export/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/skills/x/export"
+    },
+    {
+      "id": "chats-barre",
+      "methode": "GET",
+      "cible": "/api/saved/chats/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/saved/chats"
+    },
+    {
+      "id": "chats-id-barre",
+      "methode": "GET",
+      "cible": "/api/saved/chats/12/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/saved/chats/12"
+    },
+    {
+      "id": "chats-id-patch",
+      "methode": "PATCH",
+      "cible": "/api/saved/chats/12",
+      "entetes": {},
+      "statut": 401,
+      "json": {
+        "detail": "not logged in"
+      }
+    },
+    {
+      "id": "jetons-barre",
+      "methode": "GET",
+      "cible": "/api/tokens/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/tokens"
+    },
+    {
+      "id": "jetons-id-get",
+      "methode": "GET",
+      "cible": "/api/tokens/3",
+      "entetes": {},
+      "statut": 405,
+      "allow": "DELETE",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "avatars-barre",
+      "methode": "GET",
+      "cible": "/avatars/a.png/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/avatars/a.png"
+    },
+    {
+      "id": "me-lite-barre",
+      "methode": "GET",
+      "cible": "/api/me-lite/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/me-lite"
+    },
+    {
+      "id": "login-lite-get",
+      "methode": "GET",
+      "cible": "/api/login-lite",
+      "entetes": {},
+      "statut": 405,
+      "allow": "POST",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "login-lite-barre",
+      "methode": "POST",
+      "cible": "/api/login-lite/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/login-lite"
+    },
+    {
+      "id": "admin-api-barre",
+      "methode": "GET",
+      "cible": "/api/admin/users/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "admin-api-head",
+      "methode": "HEAD",
+      "cible": "/api/admin/users",
+      "entetes": {},
+      "statut": 404
+    },
+    {
+      "id": "interne-barre",
+      "methode": "GET",
+      "cible": "/api/admin/internal/status/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "bac-a-sable",
+      "methode": "GET",
+      "cible": "/api/sandbox",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "terminal",
+      "methode": "GET",
+      "cible": "/api/terminal",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "pont-mcp-head",
+      "methode": "HEAD",
+      "cible": "/api/mcp-bridge/git",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET, DELETE, POST"
+    },
+    {
+      "id": "pont-mcp-barre",
+      "methode": "GET",
+      "cible": "/api/mcp-bridge/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/mcp-bridge"
+    },
+    {
+      "id": "oauth-decouverte-barre",
+      "methode": "GET",
+      "cible": "/.well-known/oauth-authorization-server/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/.well-known/oauth-authorization-server"
+    },
+    {
+      "id": "inconnu",
+      "methode": "GET",
+      "cible": "/inconnu/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "inconnu-sans-barre",
+      "methode": "GET",
+      "cible": "/api/inconnu",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-modeles-barre",
+      "methode": "GET",
+      "cible": "/api/llm/models/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/llm/models"
+    },
+    {
+      "id": "llm-charger-get",
+      "methode": "GET",
+      "cible": "/api/llm/models/load",
+      "entetes": {},
+      "statut": 405,
+      "allow": "POST",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "llm-modele-get",
+      "methode": "GET",
+      "cible": "/api/llm/models/x",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-modele-post",
+      "methode": "POST",
+      "cible": "/api/llm/models/x",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-props",
+      "methode": "GET",
+      "cible": "/api/llm/models/a/b/props",
+      "entetes": {},
+      "statut": 401,
+      "json": {
+        "detail": "not logged in"
+      }
+    },
+    {
+      "id": "llm-props-barre",
+      "methode": "GET",
+      "cible": "/api/llm/models/x/props/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/llm/models/x/props"
+    },
+    {
+      "id": "llm-props-delete",
+      "methode": "DELETE",
+      "cible": "/api/llm/models/x/props",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "llm-params-head",
+      "methode": "HEAD",
+      "cible": "/api/llm/models/x/effective-params",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "llm-progression",
+      "methode": "GET",
+      "cible": "/api/llm/models/load-progress",
+      "entetes": {},
+      "statut": 401,
+      "json": {
+        "detail": "not logged in"
+      }
+    },
+    {
+      "id": "llm-progression-post",
+      "methode": "POST",
+      "cible": "/api/llm/models/load-progress",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "cible-etoile",
+      "methode": "OPTIONS",
+      "cible": "*",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "cible-absolue-sans-chemin",
+      "methode": "GET",
+      "cible": "http://t",
+      "entetes": {},
+      "statut": 400
+    },
+    {
+      "id": "cible-absolue",
+      "methode": "GET",
+      "cible": "http://t/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "statique-trace",
+      "methode": "TRACE",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-propfind",
+      "methode": "PROPFIND",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-sans-barre-post",
+      "methode": "POST",
+      "cible": "/static",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/static/"
+    },
+    {
+      "id": "sante-saut-de-ligne",
+      "methode": "GET",
+      "cible": "/api/health%0A",
+      "entetes": {},
+      "statut": 200
+    }
+  ],
+  "admin": [
+    {
+      "id": "sante",
+      "methode": "GET",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "sante-barre",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-barres",
+      "methode": "GET",
+      "cible": "/api/health///",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-head",
+      "methode": "HEAD",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "sante-head-barre",
+      "methode": "HEAD",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-post",
+      "methode": "POST",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "sante-post-barre",
+      "methode": "POST",
+      "cible": "/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-options",
+      "methode": "OPTIONS",
+      "cible": "/api/health",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "sante-requete",
+      "methode": "GET",
+      "cible": "/api/health/?a=1&b=%20x&c=\"q\"",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health?a=1&b=%20x&c=%22q%22"
+    },
+    {
+      "id": "sante-requete-vide",
+      "methode": "GET",
+      "cible": "/api/health/?",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-fragment",
+      "methode": "GET",
+      "cible": "/api/health/#f",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-encode",
+      "methode": "GET",
+      "cible": "/api/heal%74h/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-barre-encodee",
+      "methode": "GET",
+      "cible": "/api/health%2F",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "sante-casse",
+      "methode": "GET",
+      "cible": "/API/health/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "sante-hote",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "Host": "exemple.lan:8443"
+      },
+      "statut": 307,
+      "location": "http://exemple.lan:8443/api/health"
+    },
+    {
+      "id": "sante-proto-boucle",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "X-Forwarded-Proto": "https"
+      },
+      "statut": 307,
+      "location": "https://t/api/health"
+    },
+    {
+      "id": "sante-proto-invalide",
+      "methode": "GET",
+      "cible": "/api/health/",
+      "entetes": {
+        "X-Forwarded-Proto": "javascript"
+      },
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "config-publique-barre",
+      "methode": "GET",
+      "cible": "/api/public-config/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/public-config"
+    },
+    {
+      "id": "racine",
+      "methode": "GET",
+      "cible": "/",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "racine-double",
+      "methode": "GET",
+      "cible": "//",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "racine-head",
+      "methode": "HEAD",
+      "cible": "/",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "racine-post",
+      "methode": "POST",
+      "cible": "/",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "admin",
+      "methode": "GET",
+      "cible": "/admin",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "admin-barre",
+      "methode": "GET",
+      "cible": "/admin/",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "admin-barres",
+      "methode": "GET",
+      "cible": "/admin//",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/admin"
+    },
+    {
+      "id": "admin-head",
+      "methode": "HEAD",
+      "cible": "/admin",
+      "entetes": {},
+      "statut": 405,
+      "allow": "GET"
+    },
+    {
+      "id": "statique-sans-barre",
+      "methode": "GET",
+      "cible": "/static",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/static/"
+    },
+    {
+      "id": "statique-barre",
+      "methode": "GET",
+      "cible": "/static/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "statique-fichier",
+      "methode": "GET",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-fichier-barre",
+      "methode": "GET",
+      "cible": "/static/elpis-256.png/",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-head",
+      "methode": "HEAD",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 200
+    },
+    {
+      "id": "statique-post",
+      "methode": "POST",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-absent",
+      "methode": "GET",
+      "cible": "/static/absent.js",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills",
+      "methode": "GET",
+      "cible": "/api/skills",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-barre",
+      "methode": "GET",
+      "cible": "/api/skills/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-barre",
+      "methode": "GET",
+      "cible": "/api/skills/x/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-put",
+      "methode": "PUT",
+      "cible": "/api/skills/x",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-head",
+      "methode": "HEAD",
+      "cible": "/api/skills/x",
+      "entetes": {},
+      "statut": 404
+    },
+    {
+      "id": "skills-nom-interrogation",
+      "methode": "GET",
+      "cible": "/api/skills/a%3Fb/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-utf8",
+      "methode": "GET",
+      "cible": "/api/skills/%C3%A9t%C3%A9/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-guillemet",
+      "methode": "GET",
+      "cible": "/api/skills/a%20b%22%3C/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-pourcent",
+      "methode": "GET",
+      "cible": "/api/skills/%25/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-octet-invalide",
+      "methode": "GET",
+      "cible": "/api/skills/%ff/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-nom-barre-encodee",
+      "methode": "GET",
+      "cible": "/api/skills/a%2Fb/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "skills-export-barre",
+      "methode": "GET",
+      "cible": "/api/skills/x/export/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "chats-barre",
+      "methode": "GET",
+      "cible": "/api/saved/chats/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "chats-id-barre",
+      "methode": "GET",
+      "cible": "/api/saved/chats/12/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "chats-id-patch",
+      "methode": "PATCH",
+      "cible": "/api/saved/chats/12",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "jetons-barre",
+      "methode": "GET",
+      "cible": "/api/tokens/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "jetons-id-get",
+      "methode": "GET",
+      "cible": "/api/tokens/3",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "avatars-barre",
+      "methode": "GET",
+      "cible": "/avatars/a.png/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/avatars/a.png"
+    },
+    {
+      "id": "me-lite-barre",
+      "methode": "GET",
+      "cible": "/api/me-lite/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/me-lite"
+    },
+    {
+      "id": "login-lite-get",
+      "methode": "GET",
+      "cible": "/api/login-lite",
+      "entetes": {},
+      "statut": 405,
+      "allow": "POST",
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "login-lite-barre",
+      "methode": "POST",
+      "cible": "/api/login-lite/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/login-lite"
+    },
+    {
+      "id": "admin-api-barre",
+      "methode": "GET",
+      "cible": "/api/admin/users/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "admin-api-head",
+      "methode": "HEAD",
+      "cible": "/api/admin/users",
+      "entetes": {},
+      "statut": 404
+    },
+    {
+      "id": "interne-barre",
+      "methode": "GET",
+      "cible": "/api/admin/internal/status/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "bac-a-sable",
+      "methode": "GET",
+      "cible": "/api/sandbox",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "terminal",
+      "methode": "GET",
+      "cible": "/api/terminal",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "pont-mcp-head",
+      "methode": "HEAD",
+      "cible": "/api/mcp-bridge/git",
+      "entetes": {},
+      "statut": 404
+    },
+    {
+      "id": "pont-mcp-barre",
+      "methode": "GET",
+      "cible": "/api/mcp-bridge/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "oauth-decouverte-barre",
+      "methode": "GET",
+      "cible": "/.well-known/oauth-authorization-server/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "inconnu",
+      "methode": "GET",
+      "cible": "/inconnu/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "inconnu-sans-barre",
+      "methode": "GET",
+      "cible": "/api/inconnu",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-modeles-barre",
+      "methode": "GET",
+      "cible": "/api/llm/models/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-charger-get",
+      "methode": "GET",
+      "cible": "/api/llm/models/load",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-modele-get",
+      "methode": "GET",
+      "cible": "/api/llm/models/x",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-modele-post",
+      "methode": "POST",
+      "cible": "/api/llm/models/x",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-props",
+      "methode": "GET",
+      "cible": "/api/llm/models/a/b/props",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-props-barre",
+      "methode": "GET",
+      "cible": "/api/llm/models/x/props/",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-props-delete",
+      "methode": "DELETE",
+      "cible": "/api/llm/models/x/props",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-params-head",
+      "methode": "HEAD",
+      "cible": "/api/llm/models/x/effective-params",
+      "entetes": {},
+      "statut": 404
+    },
+    {
+      "id": "llm-progression",
+      "methode": "GET",
+      "cible": "/api/llm/models/load-progress",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "llm-progression-post",
+      "methode": "POST",
+      "cible": "/api/llm/models/load-progress",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "cible-etoile",
+      "methode": "OPTIONS",
+      "cible": "*",
+      "entetes": {},
+      "statut": 404,
+      "json": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "id": "cible-absolue-sans-chemin",
+      "methode": "GET",
+      "cible": "http://t",
+      "entetes": {},
+      "statut": 400
+    },
+    {
+      "id": "cible-absolue",
+      "methode": "GET",
+      "cible": "http://t/api/health/",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/api/health"
+    },
+    {
+      "id": "statique-trace",
+      "methode": "TRACE",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-propfind",
+      "methode": "PROPFIND",
+      "cible": "/static/elpis-256.png",
+      "entetes": {},
+      "statut": 405,
+      "json": {
+        "detail": "Method Not Allowed"
+      }
+    },
+    {
+      "id": "statique-sans-barre-post",
+      "methode": "POST",
+      "cible": "/static",
+      "entetes": {},
+      "statut": 307,
+      "location": "http://t/static/"
+    },
+    {
+      "id": "sante-saut-de-ligne",
+      "methode": "GET",
+      "cible": "/api/health%0A",
+      "entetes": {},
+      "statut": 200
+    }
+  ]
+}

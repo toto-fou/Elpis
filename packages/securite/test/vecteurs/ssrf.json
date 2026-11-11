@@ -1,0 +1,3858 @@
+{
+  "source": "migration-kit/vecteurs/securite_ssrf.py",
+  "adresses": [
+    {
+      "texte": "0.0.0.0",
+      "str": "0.0.0.0",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": true,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "127.0.0.1",
+      "str": "127.0.0.1",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "127.255.255.254",
+      "str": "127.255.255.254",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "10.1.2.3",
+      "str": "10.1.2.3",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "172.16.0.1",
+      "str": "172.16.0.1",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "172.32.0.1",
+      "str": "172.32.0.1",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.168.0.1",
+      "str": "192.168.0.1",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "169.254.169.254",
+      "str": "169.254.169.254",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": true,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "100.64.0.1",
+      "str": "100.64.0.1",
+      "version": 4,
+      "is_private": false,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "100.128.0.1",
+      "str": "100.128.0.1",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.0.0.9",
+      "str": "192.0.0.9",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.0.0.10",
+      "str": "192.0.0.10",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.0.0.8",
+      "str": "192.0.0.8",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.0.0.171",
+      "str": "192.0.0.171",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "192.0.2.5",
+      "str": "192.0.2.5",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "198.18.0.1",
+      "str": "198.18.0.1",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "198.51.100.7",
+      "str": "198.51.100.7",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "203.0.113.9",
+      "str": "203.0.113.9",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "224.0.0.1",
+      "str": "224.0.0.1",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": true,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "239.255.255.250",
+      "str": "239.255.255.250",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": true,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "240.0.0.1",
+      "str": "240.0.0.1",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "255.255.255.255",
+      "str": "255.255.255.255",
+      "version": 4,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "8.8.8.8",
+      "str": "8.8.8.8",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "1.1.1.1",
+      "str": "1.1.1.1",
+      "version": 4,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "::",
+      "str": "::",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": true,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "::1",
+      "str": "::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "::2",
+      "str": "::2",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "fe80::1",
+      "str": "fe80::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": true,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "fe80::1%eth0",
+      "str": "fe80::1%eth0",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": true,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "febf::1",
+      "str": "febf::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": true,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "fec0::1",
+      "str": "fec0::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "fc00::1",
+      "str": "fc00::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "fd12:3456::1",
+      "str": "fd12:3456::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "ff02::1",
+      "str": "ff02::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": true,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:db8::1",
+      "str": "2001:db8::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001::1",
+      "str": "2001::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:1::1",
+      "str": "2001:1::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:1::3",
+      "str": "2001:1::3",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:3::1",
+      "str": "2001:3::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:4:112::1",
+      "str": "2001:4:112::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:20::1",
+      "str": "2001:20::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:30::1",
+      "str": "2001:30::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:40::1",
+      "str": "2001:40::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2002::1",
+      "str": "2002::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "64:ff9b::808:808",
+      "str": "64:ff9b::808:808",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "64:ff9b:1::1",
+      "str": "64:ff9b:1::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "100::1",
+      "str": "100::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "3fff::1",
+      "str": "3fff::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2606:4700::1111",
+      "str": "2606:4700::1111",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2a00:1450:4007:80b::200e",
+      "str": "2a00:1450:4007:80b::200e",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "::ffff:127.0.0.1",
+      "str": "::ffff:127.0.0.1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "127.0.0.1"
+    },
+    {
+      "texte": "::ffff:8.8.8.8",
+      "str": "::ffff:8.8.8.8",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "8.8.8.8"
+    },
+    {
+      "texte": "::ffff:10.0.0.1",
+      "str": "::ffff:10.0.0.1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "10.0.0.1"
+    },
+    {
+      "texte": "::ffff:169.254.1.1",
+      "str": "::ffff:169.254.1.1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": true,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "169.254.1.1"
+    },
+    {
+      "texte": "::ffff:0.0.0.0",
+      "str": "::ffff:0.0.0.0",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": true,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "0.0.0.0"
+    },
+    {
+      "texte": "::ffff:224.0.0.1",
+      "str": "::ffff:224.0.0.1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": true,
+      "is_reserved": false,
+      "ipv4_mapped": "224.0.0.1"
+    },
+    {
+      "texte": "::ffff:7f00:1",
+      "str": "::ffff:127.0.0.1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": "127.0.0.1"
+    },
+    {
+      "texte": "::127.0.0.1",
+      "str": "::7f00:1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "0:0:0:0:0:0:0:1",
+      "str": "::1",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": true,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "2001:0db8:0000:0000:0000:ff00:0042:8329",
+      "str": "2001:db8::ff00:42:8329",
+      "version": 6,
+      "is_private": true,
+      "is_global": false,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": false,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "1:0:0:2:0:0:0:3",
+      "str": "1:0:0:2::3",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "1:0:0:2:0:0:3:4",
+      "str": "1::2:0:0:3:4",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "0:0:1::",
+      "str": "0:0:1::",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "1::",
+      "str": "1::",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "::1:2:3:4:5:6:7",
+      "str": "0:1:2:3:4:5:6:7",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "ABCD:EF01::1",
+      "str": "abcd:ef01::1",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "1:2:3:4:5:6:7:8",
+      "str": "1:2:3:4:5:6:7:8",
+      "version": 6,
+      "is_private": false,
+      "is_global": true,
+      "is_loopback": false,
+      "is_link_local": false,
+      "is_unspecified": false,
+      "is_multicast": false,
+      "is_reserved": true,
+      "ipv4_mapped": null
+    },
+    {
+      "texte": "",
+      "erreur": "'' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "1.2.3",
+      "erreur": "'1.2.3' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "1.2.3.4.5",
+      "erreur": "'1.2.3.4.5' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "01.2.3.4",
+      "erreur": "'01.2.3.4' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "256.1.1.1",
+      "erreur": "'256.1.1.1' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "1.2.3.4/24",
+      "erreur": "'1.2.3.4/24' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": " 1.2.3.4",
+      "erreur": "' 1.2.3.4' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "1.2.3.04",
+      "erreur": "'1.2.3.04' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "::1::",
+      "erreur": "'::1::' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "1:2:3:4:5:6:7:8:9",
+      "erreur": "'1:2:3:4:5:6:7:8:9' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "12345::",
+      "erreur": "'12345::' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "g::1",
+      "erreur": "'g::1' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "fe80::1%",
+      "erreur": "'fe80::1%' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "fe80::1%a%b",
+      "erreur": "'fe80::1%a%b' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "::ffff:1.2.3",
+      "erreur": "'::ffff:1.2.3' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "localhost",
+      "erreur": "'localhost' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "2130706433",
+      "erreur": "'2130706433' does not appear to be an IPv4 or IPv6 address"
+    },
+    {
+      "texte": "\u0663.1.1.1",
+      "erreur": "'\u0663.1.1.1' does not appear to be an IPv4 or IPv6 address"
+    }
+  ],
+  "resolutions": {
+    "public.example": [
+      "93.184.216.34"
+    ],
+    "interne.example": [
+      "10.0.0.5"
+    ],
+    "mixte.example": [
+      "93.184.216.34",
+      "127.0.0.1"
+    ],
+    "v6.example": [
+      "2606:4700::1111"
+    ],
+    "v6local.example": [
+      "fe80::1%eth0"
+    ],
+    "meta.example": [
+      "169.254.169.254"
+    ],
+    "partage.example": [
+      "100.64.1.1"
+    ],
+    "mappe.example": [
+      "::ffff:127.0.0.1"
+    ],
+    "lan.example": [
+      "192.168.0.10"
+    ],
+    "multi.example": [
+      "224.0.0.1"
+    ],
+    "zero.example": [
+      "0.0.0.0"
+    ]
+  },
+  "gardes": [
+    {
+      "url": "",
+      "options": {},
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {},
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "   ",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "empty_url"
+    },
+    {
+      "url": "https://public.example/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:8443/x?y=1",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "http://public.example/",
+      "options": {},
+      "motif": "scheme_not_allowed (http)"
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "scheme_not_allowed (http)"
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "scheme_not_allowed (http)"
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "scheme_not_allowed (http)"
+    },
+    {
+      "url": "http://public.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "scheme_not_allowed (http)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {},
+      "motif": "scheme_not_allowed (git)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "scheme_not_allowed (git)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "scheme_not_allowed (git)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "scheme_not_allowed (git)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "scheme_not_allowed (git)"
+    },
+    {
+      "url": "git://public.example/r",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {},
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {},
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "ssh://public.example/r",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "scheme_not_allowed (ssh)"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {},
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user:pass@public.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {},
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://user@public.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {},
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:///chemin",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (10.0.0.5)"
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (10.0.0.5)"
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (10.0.0.5)"
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (10.0.0.5)"
+    },
+    {
+      "url": "https://interne.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://mixte.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://v6local.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (fe80::1%eth0)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://meta.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (169.254.169.254)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (100.64.1.1)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (100.64.1.1)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (100.64.1.1)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (100.64.1.1)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (100.64.1.1)"
+    },
+    {
+      "url": "https://partage.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://mappe.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (192.168.0.10)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (192.168.0.10)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (192.168.0.10)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (192.168.0.10)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (192.168.0.10)"
+    },
+    {
+      "url": "https://lan.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (224.0.0.1)"
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://multi.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (224.0.0.1)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {},
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://zero.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "resolves_to_blocked (0.0.0.0)"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {},
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://inconnu.example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {},
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://127.0.0.1/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (127.0.0.1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {},
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::1]/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (::1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {},
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://[::ffff:127.0.0.1]/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (::ffff:127.0.0.1)"
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://8.8.8.8/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[2606:4700::1111]:443/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {},
+      "motif": "blocked_ip (10.0.0.1)"
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_ip (10.0.0.1)"
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_ip (10.0.0.1)"
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_ip (10.0.0.1)"
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_ip (10.0.0.1)"
+    },
+    {
+      "url": "https://10.0.0.1/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://localhost/",
+      "options": {},
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://localhost/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {},
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://LOCALHOST:443/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {},
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://ip6-localhost/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "blocked_host (ip6-localhost)"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {},
+      "motif": "internal_suffix (.internal)"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.internal)"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.internal)"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.internal)"
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://srv.internal/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {},
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://x.lan/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://lan/",
+      "options": {},
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.lan)"
+    },
+    {
+      "url": "https://lan/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {},
+      "motif": "internal_suffix (.home)"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.home)"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.home)"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.home)"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.home)"
+    },
+    {
+      "url": "https://box.home/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {},
+      "motif": "internal_suffix (.corp)"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.corp)"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.corp)"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.corp)"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.corp)"
+    },
+    {
+      "url": "https://a.corp/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {},
+      "motif": "internal_suffix (.intranet)"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.intranet)"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.intranet)"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.intranet)"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.intranet)"
+    },
+    {
+      "url": "https://intranet/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {},
+      "motif": "internal_suffix (.local)"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "internal_suffix (.local)"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "internal_suffix (.local)"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "internal_suffix (.local)"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "internal_suffix (.local)"
+    },
+    {
+      "url": "https://y.local/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "unresolvable_host"
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "HTTPS://Public.Example/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://[::1",
+      "options": {},
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://[::1",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "malformed_url"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {},
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "critical_only": true
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:abc/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {},
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "critical_only": true
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:99999/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "erreur": "ValueError"
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {},
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https://public.example:0/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": null
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {},
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https:\\\\public.example\\",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "no_host"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {},
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "allow_schemes": [
+          "http",
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "critical_only": true
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "allow_hosts": [
+          "interne.example"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "allow_hosts": [
+          "lan.example:8443",
+          "srv.internal"
+        ]
+      },
+      "motif": "credentials_in_url"
+    },
+    {
+      "url": "https://pub@lic.example@x/",
+      "options": {
+        "critical_only": true,
+        "allow_schemes": [
+          "https",
+          "git"
+        ]
+      },
+      "motif": "credentials_in_url"
+    }
+  ],
+  "reelles": [
+    {
+      "url": "https://2130706433/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://0x7f.1/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://127.1/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://0177.0.0.1/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://017700000001/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://0x7f000001/",
+      "options": {},
+      "motif": "resolves_to_blocked (127.0.0.1)"
+    },
+    {
+      "url": "https://1.1.1.1/",
+      "options": {},
+      "motif": null
+    }
+  ]
+}

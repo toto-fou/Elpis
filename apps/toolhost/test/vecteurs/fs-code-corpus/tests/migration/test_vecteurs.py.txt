@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+"""tests/migration/test_vecteurs.py — les vecteurs relus par les tests TS disent ce que le Python fait aujourd'hui."""
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+RACINE = Path(__file__).resolve().parents[2]
+_GENERER = RACINE / "migration-kit" / "vecteurs" / "generer.py"
+
+
+def _generateur():
+    spec = importlib.util.spec_from_file_location("vecteurs_generer", _GENERER)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_MOD = _generateur()
+_DOMAINES = list(_MOD.modules())
+
+
+def test_au_moins_un_domaine():
+    assert _DOMAINES, "aucun module de vecteurs dans migration-kit/vecteurs"
+
+
+@pytest.mark.parametrize("nom,module", _DOMAINES, ids=[nom for nom, _ in _DOMAINES])
+def test_vecteurs_a_jour(nom, module):
+    cible = RACINE / module.CIBLE
+    assert cible.is_file(), f"{module.CIBLE} absent : lancer migration-kit/vecteurs/generer.py {nom}"
+    assert cible.read_text(encoding="utf-8") == _MOD.serialiser(module.generer()), (
+        f"{module.CIBLE} ne correspond plus au Python : regénérer et reporter le changement en TypeScript"
+    )

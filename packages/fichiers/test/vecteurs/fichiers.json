@@ -1,0 +1,4827 @@
+{
+  "chemins": {
+    "strip_work_prefix": [
+      [
+        "",
+        ""
+      ],
+      [
+        "  /work  ",
+        ""
+      ],
+      [
+        "/work",
+        ""
+      ],
+      [
+        "work",
+        ""
+      ],
+      [
+        "./work",
+        ""
+      ],
+      [
+        "/work/",
+        ""
+      ],
+      [
+        "work/a",
+        "a"
+      ],
+      [
+        "./work/a/b",
+        "a/b"
+      ],
+      [
+        "/workx",
+        "/workx"
+      ],
+      [
+        "works/a",
+        "works/a"
+      ],
+      [
+        "/work/../x",
+        "../x"
+      ],
+      [
+        "\twork/x ",
+        "x"
+      ],
+      [
+        "\u00a0/work/x\u3000",
+        "x"
+      ],
+      [
+        "~",
+        "~"
+      ],
+      [
+        "a\\b",
+        "a\\b"
+      ],
+      [
+        "work",
+        ""
+      ],
+      [
+        " work/",
+        ""
+      ],
+      [
+        "/work//a",
+        "/a"
+      ],
+      [
+        "\u2028work/z\u2029",
+        "z"
+      ],
+      [
+        "./work",
+        ""
+      ]
+    ],
+    "to_container": [
+      [
+        "",
+        "/work"
+      ],
+      [
+        ".",
+        "/work"
+      ],
+      [
+        " / ",
+        "/work"
+      ],
+      [
+        "src/x",
+        "/work/src/x"
+      ],
+      [
+        "/src/x/",
+        "/work/src/x"
+      ],
+      [
+        " a b ",
+        "/work/a b"
+      ],
+      [
+        "\u2003x",
+        "/work/x"
+      ],
+      [
+        "//",
+        "/work"
+      ],
+      [
+        "./",
+        "/work"
+      ],
+      [
+        "a//b",
+        "/work/a//b"
+      ]
+    ],
+    "lexical_rel": [
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": null,
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": null,
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": null,
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": null,
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": ".",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": ".",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": ".",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": ".",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work/a/../b",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work/a/../b",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work/a/../b",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/work/a/../b",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/../../x",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'a/../../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/../../x",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'a/../../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/../../x",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'a/../../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/../../x",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'a/../../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "~"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "~"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/a",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/a",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "~/a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/a",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/a",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "~/a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~x",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "~x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~x",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "~x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~x",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "~x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~x",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "~x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/../x",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '~/../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/../x",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/../x",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '~/../x'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "~/../x",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/a",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/a",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/a",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/a",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/workx/a",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/workx/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/workx/a",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/workx/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/workx/a",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/workx/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/workx/a",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/workx/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/../work/a",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/work/../work/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/../work/a",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/work/../work/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/../work/a",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/work/../work/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/nexiste-elpis/sb/u/work/../work/a",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/work/../work/a'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/etc/passwd",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/etc/passwd'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/etc/passwd",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/etc/passwd'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/etc/passwd",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/etc/passwd'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "/etc/passwd",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/etc/passwd'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\u0000b",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "null byte in path"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\u0000b",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "null byte in path"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\u0000b",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "null byte in path"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\u0000b",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "null byte in path"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "./a/./b//c/",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a/b/c"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "./a/./b//c/",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "a/b/c"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "./a/./b//c/",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "a/b/c"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "./a/./b//c/",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "a/b/c"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "..",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "..",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "..",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "..",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/..",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/..",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": ""
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/..",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a/..",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "operation requires a path inside the sandbox, not its root"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "work/../..",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'work/../..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "work/../..",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'work/../..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "work/../..",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'work/../..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "work/../..",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: 'work/../..'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\\..\\b",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a\\..\\b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\\..\\b",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "a\\..\\b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\\..\\b",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "a\\..\\b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "a\\..\\b",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "a\\..\\b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\u00e9/\u00fc \ud83d\ude00",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "\u00e9/\u00fc \ud83d\ude00"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\u00e9/\u00fc \ud83d\ude00",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "\u00e9/\u00fc \ud83d\ude00"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\u00e9/\u00fc \ud83d\ude00",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "\u00e9/\u00fc \ud83d\ude00"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\u00e9/\u00fc \ud83d\ude00",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "\u00e9/\u00fc \ud83d\ude00"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\ud800x",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "\ud800x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\ud800x",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "\ud800x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\ud800x",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "\ud800x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": "\ud800x",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "\ud800x"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": " /work/a ",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": " /work/a ",
+        "allow_root": true,
+        "tilde": false,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": " /work/a ",
+        "allow_root": false,
+        "tilde": true,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "chemin": " /work/a ",
+        "allow_root": false,
+        "tilde": false,
+        "sortie": {
+          "rel": "a"
+        }
+      },
+      {
+        "base": "/",
+        "chemin": "/a",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/a'"
+        }
+      },
+      {
+        "base": "/",
+        "chemin": "a/b",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "a/b"
+        }
+      },
+      {
+        "base": "/nexiste-elpis//x",
+        "chemin": "//nexiste-elpis/x/y",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '//nexiste-elpis/x/y'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/x/",
+        "chemin": "/nexiste-elpis/x/y",
+        "allow_root": true,
+        "tilde": true,
+        "sortie": {
+          "rel": "y"
+        }
+      }
+    ],
+    "rel_under": [
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "x/y",
+        "sortie": {
+          "rel": "x/y"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "./x//y/",
+        "sortie": {
+          "rel": "x/y"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "",
+        "sortie": {
+          "rel": "."
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "/nexiste-elpis/sb/u/work",
+        "sortie": {
+          "rel": "."
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "/nexiste-elpis/sb/u/work/c",
+        "sortie": {
+          "rel": "c"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "/nexiste-elpis/sb/u/workc",
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/nexiste-elpis/sb/u/workc'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "/autre",
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '/autre'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "//nexiste-elpis/sb/u/work/c",
+        "sortie": {
+          "erreur": "SandboxPathError",
+          "message": "path outside the sandbox root: '//nexiste-elpis/sb/u/work/c'"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "..",
+        "sortie": {
+          "rel": ".."
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "/nexiste-elpis/sb/u/work/../work/c",
+        "sortie": {
+          "rel": "../work/c"
+        }
+      },
+      {
+        "base": "/",
+        "cible": "/a/b",
+        "sortie": {
+          "rel": "a/b"
+        }
+      },
+      {
+        "base": "/",
+        "cible": "/",
+        "sortie": {
+          "rel": "."
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work/",
+        "cible": "/nexiste-elpis/sb/u/work/d",
+        "sortie": {
+          "rel": "d"
+        }
+      },
+      {
+        "base": "/nexiste-elpis/sb/u/work",
+        "cible": "a\\b/../c",
+        "sortie": {
+          "rel": "a\\b/../c"
+        }
+      }
+    ],
+    "short_leaf": [
+      {
+        "nom": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "max": 120,
+        "sortie": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "nom": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+        "max": 120,
+        "sortie": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+      },
+      {
+        "nom": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+        "max": 120,
+        "sortie": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      },
+      {
+        "nom": "\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57",
+        "max": 120,
+        "sortie": "\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57\u6f22\u5b57"
+      },
+      {
+        "nom": "ab\ud83d\ude00",
+        "max": 5,
+        "sortie": "ab"
+      },
+      {
+        "nom": "ab\ud83d\ude00",
+        "max": 6,
+        "sortie": "ab\ud83d\ude00"
+      },
+      {
+        "nom": "",
+        "max": 120,
+        "sortie": ""
+      },
+      {
+        "nom": "x",
+        "max": 0,
+        "sortie": ""
+      },
+      {
+        "nom": "\u00e9",
+        "max": 1,
+        "sortie": ""
+      }
+    ]
+  },
+  "historique": {
+    "norm_rel": [
+      [
+        "",
+        ""
+      ],
+      [
+        null,
+        ""
+      ],
+      [
+        " ",
+        ""
+      ],
+      [
+        "/",
+        ""
+      ],
+      [
+        "a",
+        "a"
+      ],
+      [
+        "/a",
+        "a"
+      ],
+      [
+        "///a//b/",
+        "a/b"
+      ],
+      [
+        "./a",
+        "a"
+      ],
+      [
+        "work",
+        ""
+      ],
+      [
+        "work/",
+        ""
+      ],
+      [
+        "/work/a",
+        "a"
+      ],
+      [
+        "work/work/a",
+        "work/a"
+      ],
+      [
+        "../x",
+        ""
+      ],
+      [
+        "a/../b",
+        ""
+      ],
+      [
+        "a\\b",
+        "a\\b"
+      ],
+      [
+        "a/./b",
+        "a/b"
+      ],
+      [
+        " /./work/a//b/ ",
+        "a/b"
+      ],
+      [
+        "works/a",
+        "works/a"
+      ],
+      [
+        "\u00e9/\u00fc \ud83d\ude00.txt",
+        "\u00e9/\u00fc \ud83d\ude00.txt"
+      ],
+      [
+        "a/..",
+        ""
+      ],
+      [
+        "..",
+        ""
+      ]
+    ],
+    "lock_name": [
+      [
+        "/srv/sb/u/work/a.txt",
+        "7c5cbaecafb428c23fbecf161a865863c14cc263.lock"
+      ],
+      [
+        "",
+        "da39a3ee5e6b4b0d3255bfef95601890afd80709.lock"
+      ],
+      [
+        "\u00e9",
+        "bf15be717ac1b080b4f1c456692825891ff5073d.lock"
+      ],
+      [
+        "\ud800",
+        "5bab61eb53176449e25c2c82f172b82cb13ffb9d.lock"
+      ],
+      [
+        "a\ud83d\ude00b",
+        "d8f2abf43e7fb847e1ea01b8422ea7e47baf2dbe.lock"
+      ],
+      [
+        "\ud83d\ude00",
+        "9c533688a979a858cbd6a43c9f91aba624651f18.lock"
+      ],
+      [
+        "/x/yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "f8b322fd5087d3b1e72764fa143cef6d6cf0ce46.lock"
+      ]
+    ],
+    "sha_of": [
+      [
+        "",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      ],
+      [
+        "616263",
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      ],
+      [
+        "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+        "09ecb6ebc8bcefc733f6f2ec44f791abeed6a99edf0cc31519637898aebd52d8"
+      ]
+    ],
+    "max_file": 5242880,
+    "max_versions": 100,
+    "sources": [
+      "editor",
+      "assistant",
+      "replace",
+      "upload",
+      "restore",
+      "git",
+      "shell",
+      "other"
+    ]
+  },
+  "agent": {
+    "rel_sous": [
+      [
+        "a",
+        "",
+        true
+      ],
+      [
+        "a/b",
+        "a",
+        true
+      ],
+      [
+        "a/b",
+        "a/",
+        true
+      ],
+      [
+        "ab",
+        "a",
+        false
+      ],
+      [
+        "",
+        "",
+        false
+      ],
+      [
+        "/a",
+        "",
+        false
+      ],
+      [
+        "a//b",
+        "",
+        false
+      ],
+      [
+        "a/./b",
+        "",
+        false
+      ],
+      [
+        "a/../b",
+        "",
+        false
+      ],
+      [
+        "a\u0000",
+        "",
+        false
+      ],
+      [
+        5,
+        "",
+        false
+      ],
+      [
+        null,
+        "",
+        false
+      ],
+      [
+        "a/b",
+        "a//",
+        true
+      ],
+      [
+        "a",
+        "a",
+        false
+      ],
+      [
+        "\u00e9/\u00fc",
+        "\u00e9",
+        true
+      ]
+    ],
+    "entree_valide": [
+      {
+        "entree": {
+          "entry": "a/b",
+          "kind": "file",
+          "size": 3,
+          "mtime_ns": 1180591620717411303424,
+          "mode": 420
+        },
+        "max": 0,
+        "sortie": {
+          "ok": {
+            "entry": "a/b",
+            "kind": "file",
+            "size": 3,
+            "mtime_ns": 1180591620717411303424,
+            "mode": 420
+          }
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "dir"
+        },
+        "max": 10,
+        "sortie": {
+          "ok": {
+            "entry": "a",
+            "kind": "dir",
+            "size": 0,
+            "mtime_ns": 0,
+            "mode": 0
+          }
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "size": 11
+        },
+        "max": 10,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "size": true
+        },
+        "max": 10,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "size": 1.0
+        },
+        "max": 10,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "link"
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "genre d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "/a",
+          "kind": "file"
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "nom d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "../a",
+          "kind": "file"
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "nom d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": 3,
+          "kind": "file"
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "nom d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "kind": "file"
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "nom d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "kind": "file"
+        },
+        "max": 0,
+        "sortie": {
+          "ok": {
+            "entry": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+            "kind": "file",
+            "size": 0,
+            "mtime_ns": 0,
+            "mode": 0
+          }
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "mtime_ns": -1267650600228229401496703205377
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "mode": 4096
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "size": 1125899906842624
+        },
+        "max": 0,
+        "sortie": {
+          "ok": {
+            "entry": "a",
+            "kind": "file",
+            "size": 1125899906842624,
+            "mtime_ns": 0,
+            "mode": 0
+          }
+        }
+      },
+      {
+        "entree": {
+          "entry": "a",
+          "kind": "file",
+          "size": 1125899906842625
+        },
+        "max": 0,
+        "sortie": {
+          "code": "bad_response",
+          "message": "valeur d'entr\u00e9e invalide"
+        }
+      }
+    ],
+    "bilan": [
+      {
+        "entree": {
+          "done": true
+        },
+        "sortie": {
+          "done": true,
+          "skipped": [],
+          "truncated": false,
+          "files": 0,
+          "dirs": 0,
+          "bytes": 0,
+          "omitted": 0
+        }
+      },
+      {
+        "entree": {
+          "files": 3,
+          "dirs": true,
+          "bytes": -1,
+          "omitted": 2.0,
+          "truncated": 1
+        },
+        "sortie": {
+          "done": true,
+          "skipped": [],
+          "truncated": false,
+          "files": 3,
+          "dirs": 0,
+          "bytes": 0,
+          "omitted": 0
+        }
+      },
+      {
+        "entree": {
+          "truncated": true,
+          "skipped": [
+            {
+              "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            },
+            "x",
+            {
+              "path": null
+            },
+            {
+              "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            },
+            "x",
+            {
+              "path": null
+            }
+          ]
+        },
+        "sortie": {
+          "done": true,
+          "skipped": [
+            {
+              "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            },
+            {
+              "path": "",
+              "error": ""
+            },
+            {
+              "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            },
+            {
+              "path": "",
+              "error": ""
+            }
+          ],
+          "truncated": true,
+          "files": 0,
+          "dirs": 0,
+          "bytes": 0,
+          "omitted": 0
+        }
+      },
+      {
+        "entree": {
+          "skipped": "non",
+          "files": 1152921504606846976
+        },
+        "sortie": {
+          "done": true,
+          "skipped": [],
+          "truncated": false,
+          "files": 1152921504606846976,
+          "dirs": 0,
+          "bytes": 0,
+          "omitted": 0
+        }
+      }
+    ],
+    "lignes": [
+      {
+        "blocs": [
+          "7b2261223a2278787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+          "787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+          "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878227d0a7b227469636b223a747275657d0a7b2262223a317d0a"
+        ],
+        "maxi": 1048576,
+        "ligne_max": 32768,
+        "sortie": {
+          "ok": [
+            {
+              "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "b": 1
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "7b2261223a227878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878227d0a"
+        ],
+        "maxi": 1048576,
+        "ligne_max": 1000,
+        "sortie": {
+          "code": "bad_response",
+          "message": "ligne NDJSON trop longue"
+        }
+      },
+      {
+        "blocs": [
+          "7b2261223a317d0a0a20200a7b2262223a327d"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "ok": [
+            {
+              "a": 1
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "7b2261223a317d0a",
+          "7b226222"
+        ],
+        "maxi": 1048576,
+        "ligne_max": 100,
+        "sortie": {
+          "ok": [
+            {
+              "a": 1
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "5b315d0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "ligne NDJSON invalide"
+        }
+      },
+      {
+        "blocs": [
+          "706173206475206a736f6e0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "ligne NDJSON invalide"
+        }
+      },
+      {
+        "blocs": [
+          "7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a7b2261223a317d0a"
+        ],
+        "maxi": 30,
+        "ligne_max": 100,
+        "sortie": {
+          "code": "too_large",
+          "message": "r\u00e9ponse de plus de 30 octets"
+        }
+      },
+      {
+        "blocs": [
+          "7b226e223a31323334353637383930313233343536373839307d0a7b2266223a312e307d0a"
+        ],
+        "maxi": 1000,
+        "ligne_max": 1000,
+        "sortie": {
+          "ok": [
+            {
+              "n": 12345678901234567890
+            },
+            {
+              "f": 1.0
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "efbbbf7b22626f6d223a317d0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "ok": [
+            {
+              "bom": 1
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "7b2278223a22c3a9227d0a",
+          "7b2279223a22ff227d0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "ligne NDJSON invalide"
+        }
+      },
+      {
+        "blocs": [
+          "7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878"
+        ],
+        "maxi": 1000,
+        "ligne_max": 40,
+        "sortie": {
+          "code": "bad_response",
+          "message": "ligne NDJSON trop longue"
+        }
+      },
+      {
+        "blocs": [
+          "7b2261223a317d0d0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "ok": [
+            {
+              "a": 1
+            }
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "7b227469636b223a317d0a7b226572726f72223a2265227d0a"
+        ],
+        "maxi": 100,
+        "ligne_max": 100,
+        "sortie": {
+          "ok": [
+            {
+              "error": "e"
+            }
+          ]
+        }
+      }
+    ],
+    "trames": [
+      {
+        "blocs": [
+          "4a0000000e7b227374617274223a747275657d44000000036162634a0000000d7b22646f6e65223a747275657d"
+        ],
+        "maxi": 100,
+        "sortie": {
+          "ok": [
+            [
+              "J",
+              "7b227374617274223a747275657d"
+            ],
+            [
+              "D",
+              "616263"
+            ],
+            [
+              "J",
+              "7b22646f6e65223a747275657d"
+            ]
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "4a",
+          "00",
+          "00",
+          "00",
+          "0e",
+          "7b",
+          "22",
+          "73",
+          "74",
+          "61",
+          "72",
+          "74",
+          "22",
+          "3a",
+          "74",
+          "72",
+          "75",
+          "65",
+          "7d",
+          "44",
+          "00",
+          "00",
+          "00",
+          "03",
+          "61",
+          "62",
+          "63",
+          "4a",
+          "00",
+          "00",
+          "00",
+          "0d",
+          "7b",
+          "22",
+          "64",
+          "6f",
+          "6e",
+          "65",
+          "22",
+          "3a",
+          "74",
+          "72",
+          "75",
+          "65",
+          "7d"
+        ],
+        "maxi": 100,
+        "sortie": {
+          "ok": [
+            [
+              "J",
+              "7b227374617274223a747275657d"
+            ],
+            [
+              "D",
+              "616263"
+            ],
+            [
+              "J",
+              "7b22646f6e65223a747275657d"
+            ]
+          ]
+        }
+      },
+      {
+        "blocs": [
+          "440000000a78787878787878787878"
+        ],
+        "maxi": 5,
+        "sortie": {
+          "code": "too_large",
+          "message": "archive de plus de 5 octets"
+        }
+      },
+      {
+        "blocs": [
+          "5800000000"
+        ],
+        "maxi": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "trame invalide"
+        }
+      },
+      {
+        "blocs": [
+          "440000"
+        ],
+        "maxi": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "trame tronqu\u00e9e"
+        }
+      },
+      {
+        "blocs": [
+          "4400400001"
+        ],
+        "maxi": 1073741824,
+        "sortie": {
+          "code": "bad_response",
+          "message": "trame invalide"
+        }
+      },
+      {
+        "blocs": [
+          "4a00040001"
+        ],
+        "maxi": 1073741824,
+        "sortie": {
+          "code": "bad_response",
+          "message": "trame invalide"
+        }
+      },
+      {
+        "blocs": [
+          "4a0000000a787878787878787878"
+        ],
+        "maxi": 100,
+        "sortie": {
+          "code": "bad_response",
+          "message": "trame tronqu\u00e9e"
+        }
+      },
+      {
+        "blocs": [],
+        "maxi": 0,
+        "sortie": {
+          "ok": []
+        }
+      }
+    ],
+    "base64": [
+      [
+        "",
+        ""
+      ],
+      [
+        "QQ==",
+        "41"
+      ],
+      [
+        "QUI=",
+        "4142"
+      ],
+      [
+        "QUJD",
+        "414243"
+      ],
+      [
+        "QQ",
+        null
+      ],
+      [
+        "QQ=",
+        null
+      ],
+      [
+        "QQ===",
+        null
+      ],
+      [
+        "Q===",
+        null
+      ],
+      [
+        "QU JD",
+        null
+      ],
+      [
+        "QUJD\n",
+        null
+      ],
+      [
+        "QUJ-",
+        null
+      ],
+      [
+        "QUJ_",
+        null
+      ],
+      [
+        "=QQ=",
+        null
+      ],
+      [
+        "QQ==QQ==",
+        null
+      ],
+      [
+        "Zg==",
+        "66"
+      ],
+      [
+        "Zm9v",
+        "666f6f"
+      ],
+      [
+        "4pyT",
+        "e29c93"
+      ],
+      [
+        "////",
+        "ffffff"
+      ],
+      [
+        "Q",
+        null
+      ],
+      [
+        "QUJDRA==",
+        "41424344"
+      ]
+    ],
+    "decalages": [
+      {
+        "tz": "UTC",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            null,
+            0
+          ]
+        ]
+      },
+      {
+        "tz": "Europe/Paris",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            323830800,
+            3600
+          ],
+          [
+            338950800,
+            7200
+          ],
+          [
+            354675600,
+            3600
+          ],
+          [
+            370400400,
+            7200
+          ],
+          [
+            386125200,
+            3600
+          ],
+          [
+            401850000,
+            7200
+          ],
+          [
+            417574800,
+            3600
+          ],
+          [
+            433299600,
+            7200
+          ],
+          [
+            449024400,
+            3600
+          ],
+          [
+            465354000,
+            7200
+          ],
+          [
+            481078800,
+            3600
+          ],
+          [
+            496803600,
+            7200
+          ],
+          [
+            512528400,
+            3600
+          ],
+          [
+            528253200,
+            7200
+          ],
+          [
+            543978000,
+            3600
+          ],
+          [
+            559702800,
+            7200
+          ],
+          [
+            575427600,
+            3600
+          ],
+          [
+            591152400,
+            7200
+          ],
+          [
+            606877200,
+            3600
+          ],
+          [
+            622602000,
+            7200
+          ],
+          [
+            638326800,
+            3600
+          ],
+          [
+            654656400,
+            7200
+          ],
+          [
+            670381200,
+            3600
+          ],
+          [
+            686106000,
+            7200
+          ],
+          [
+            701830800,
+            3600
+          ],
+          [
+            717555600,
+            7200
+          ],
+          [
+            733280400,
+            3600
+          ],
+          [
+            749005200,
+            7200
+          ],
+          [
+            764730000,
+            3600
+          ],
+          [
+            780454800,
+            7200
+          ],
+          [
+            796179600,
+            3600
+          ],
+          [
+            811904400,
+            7200
+          ],
+          [
+            828234000,
+            3600
+          ],
+          [
+            846378000,
+            7200
+          ],
+          [
+            859683600,
+            3600
+          ],
+          [
+            877827600,
+            7200
+          ],
+          [
+            891133200,
+            3600
+          ],
+          [
+            909277200,
+            7200
+          ],
+          [
+            922582800,
+            3600
+          ],
+          [
+            941331600,
+            7200
+          ],
+          [
+            954032400,
+            3600
+          ],
+          [
+            972781200,
+            7200
+          ],
+          [
+            985482000,
+            3600
+          ],
+          [
+            1004230800,
+            7200
+          ],
+          [
+            1017536400,
+            3600
+          ],
+          [
+            1035680400,
+            7200
+          ],
+          [
+            1048986000,
+            3600
+          ],
+          [
+            1067130000,
+            7200
+          ],
+          [
+            1080435600,
+            3600
+          ],
+          [
+            1099184400,
+            7200
+          ],
+          [
+            1111885200,
+            3600
+          ],
+          [
+            1130634000,
+            7200
+          ],
+          [
+            1143334800,
+            3600
+          ],
+          [
+            1162083600,
+            7200
+          ],
+          [
+            1174784400,
+            3600
+          ],
+          [
+            1193533200,
+            7200
+          ],
+          [
+            1206838800,
+            3600
+          ],
+          [
+            1224982800,
+            7200
+          ],
+          [
+            1238288400,
+            3600
+          ],
+          [
+            1256432400,
+            7200
+          ],
+          [
+            1269738000,
+            3600
+          ],
+          [
+            1288486800,
+            7200
+          ],
+          [
+            1301187600,
+            3600
+          ],
+          [
+            1319936400,
+            7200
+          ],
+          [
+            1332637200,
+            3600
+          ],
+          [
+            1351386000,
+            7200
+          ],
+          [
+            1364691600,
+            3600
+          ],
+          [
+            1382835600,
+            7200
+          ],
+          [
+            1396141200,
+            3600
+          ],
+          [
+            1414285200,
+            7200
+          ],
+          [
+            1427590800,
+            3600
+          ],
+          [
+            1445734800,
+            7200
+          ],
+          [
+            1459040400,
+            3600
+          ],
+          [
+            1477789200,
+            7200
+          ],
+          [
+            1490490000,
+            3600
+          ],
+          [
+            1509238800,
+            7200
+          ],
+          [
+            1521939600,
+            3600
+          ],
+          [
+            1540688400,
+            7200
+          ],
+          [
+            1553994000,
+            3600
+          ],
+          [
+            1572138000,
+            7200
+          ],
+          [
+            1585443600,
+            3600
+          ],
+          [
+            1603587600,
+            7200
+          ],
+          [
+            1616893200,
+            3600
+          ],
+          [
+            1635642000,
+            7200
+          ],
+          [
+            1648342800,
+            3600
+          ],
+          [
+            1667091600,
+            7200
+          ],
+          [
+            1679792400,
+            3600
+          ],
+          [
+            1698541200,
+            7200
+          ],
+          [
+            1711846800,
+            3600
+          ],
+          [
+            1729990800,
+            7200
+          ],
+          [
+            1743296400,
+            3600
+          ],
+          [
+            1761440400,
+            7200
+          ],
+          [
+            1774746000,
+            3600
+          ],
+          [
+            1792890000,
+            7200
+          ],
+          [
+            1806195600,
+            3600
+          ],
+          [
+            1824944400,
+            7200
+          ],
+          [
+            1837645200,
+            3600
+          ],
+          [
+            null,
+            7200
+          ]
+        ]
+      },
+      {
+        "tz": "America/New_York",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            325666800,
+            -18000
+          ],
+          [
+            341388000,
+            -14400
+          ],
+          [
+            357116400,
+            -18000
+          ],
+          [
+            372837600,
+            -14400
+          ],
+          [
+            388566000,
+            -18000
+          ],
+          [
+            404892000,
+            -14400
+          ],
+          [
+            420015600,
+            -18000
+          ],
+          [
+            436341600,
+            -14400
+          ],
+          [
+            452070000,
+            -18000
+          ],
+          [
+            467791200,
+            -14400
+          ],
+          [
+            483519600,
+            -18000
+          ],
+          [
+            499240800,
+            -14400
+          ],
+          [
+            514969200,
+            -18000
+          ],
+          [
+            530690400,
+            -14400
+          ],
+          [
+            544604400,
+            -18000
+          ],
+          [
+            562140000,
+            -14400
+          ],
+          [
+            576054000,
+            -18000
+          ],
+          [
+            594194400,
+            -14400
+          ],
+          [
+            607503600,
+            -18000
+          ],
+          [
+            625644000,
+            -14400
+          ],
+          [
+            638953200,
+            -18000
+          ],
+          [
+            657093600,
+            -14400
+          ],
+          [
+            671007600,
+            -18000
+          ],
+          [
+            688543200,
+            -14400
+          ],
+          [
+            702457200,
+            -18000
+          ],
+          [
+            719992800,
+            -14400
+          ],
+          [
+            733906800,
+            -18000
+          ],
+          [
+            752047200,
+            -14400
+          ],
+          [
+            765356400,
+            -18000
+          ],
+          [
+            783496800,
+            -14400
+          ],
+          [
+            796806000,
+            -18000
+          ],
+          [
+            814946400,
+            -14400
+          ],
+          [
+            828860400,
+            -18000
+          ],
+          [
+            846396000,
+            -14400
+          ],
+          [
+            860310000,
+            -18000
+          ],
+          [
+            877845600,
+            -14400
+          ],
+          [
+            891759600,
+            -18000
+          ],
+          [
+            909295200,
+            -14400
+          ],
+          [
+            923209200,
+            -18000
+          ],
+          [
+            941349600,
+            -14400
+          ],
+          [
+            954658800,
+            -18000
+          ],
+          [
+            972799200,
+            -14400
+          ],
+          [
+            986108400,
+            -18000
+          ],
+          [
+            1004248800,
+            -14400
+          ],
+          [
+            1018162800,
+            -18000
+          ],
+          [
+            1035698400,
+            -14400
+          ],
+          [
+            1049612400,
+            -18000
+          ],
+          [
+            1067148000,
+            -14400
+          ],
+          [
+            1081062000,
+            -18000
+          ],
+          [
+            1099202400,
+            -14400
+          ],
+          [
+            1112511600,
+            -18000
+          ],
+          [
+            1130652000,
+            -14400
+          ],
+          [
+            1143961200,
+            -18000
+          ],
+          [
+            1162101600,
+            -14400
+          ],
+          [
+            1173596400,
+            -18000
+          ],
+          [
+            1194156000,
+            -14400
+          ],
+          [
+            1205046000,
+            -18000
+          ],
+          [
+            1225605600,
+            -14400
+          ],
+          [
+            1236495600,
+            -18000
+          ],
+          [
+            1257055200,
+            -14400
+          ],
+          [
+            1268550000,
+            -18000
+          ],
+          [
+            1289109600,
+            -14400
+          ],
+          [
+            1299999600,
+            -18000
+          ],
+          [
+            1320559200,
+            -14400
+          ],
+          [
+            1331449200,
+            -18000
+          ],
+          [
+            1352008800,
+            -14400
+          ],
+          [
+            1362898800,
+            -18000
+          ],
+          [
+            1383458400,
+            -14400
+          ],
+          [
+            1394348400,
+            -18000
+          ],
+          [
+            1414908000,
+            -14400
+          ],
+          [
+            1425798000,
+            -18000
+          ],
+          [
+            1446357600,
+            -14400
+          ],
+          [
+            1457852400,
+            -18000
+          ],
+          [
+            1478412000,
+            -14400
+          ],
+          [
+            1489302000,
+            -18000
+          ],
+          [
+            1509861600,
+            -14400
+          ],
+          [
+            1520751600,
+            -18000
+          ],
+          [
+            1541311200,
+            -14400
+          ],
+          [
+            1552201200,
+            -18000
+          ],
+          [
+            1572760800,
+            -14400
+          ],
+          [
+            1583650800,
+            -18000
+          ],
+          [
+            1604210400,
+            -14400
+          ],
+          [
+            1615705200,
+            -18000
+          ],
+          [
+            1636264800,
+            -14400
+          ],
+          [
+            1647154800,
+            -18000
+          ],
+          [
+            1667714400,
+            -14400
+          ],
+          [
+            1678604400,
+            -18000
+          ],
+          [
+            1699164000,
+            -14400
+          ],
+          [
+            1710054000,
+            -18000
+          ],
+          [
+            1730613600,
+            -14400
+          ],
+          [
+            1741503600,
+            -18000
+          ],
+          [
+            1762063200,
+            -14400
+          ],
+          [
+            1772953200,
+            -18000
+          ],
+          [
+            1793512800,
+            -14400
+          ],
+          [
+            1805007600,
+            -18000
+          ],
+          [
+            1825567200,
+            -14400
+          ],
+          [
+            1836457200,
+            -18000
+          ],
+          [
+            null,
+            -14400
+          ]
+        ]
+      },
+      {
+        "tz": "Australia/Lord_Howe",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            352216800,
+            36000
+          ],
+          [
+            372785400,
+            37800
+          ],
+          [
+            384273000,
+            41400
+          ],
+          [
+            404839800,
+            37800
+          ],
+          [
+            415722600,
+            41400
+          ],
+          [
+            436289400,
+            37800
+          ],
+          [
+            447172200,
+            41400
+          ],
+          [
+            467739000,
+            37800
+          ],
+          [
+            478621800,
+            41400
+          ],
+          [
+            499188600,
+            37800
+          ],
+          [
+            511282800,
+            39600
+          ],
+          [
+            530033400,
+            37800
+          ],
+          [
+            542732400,
+            39600
+          ],
+          [
+            562087800,
+            37800
+          ],
+          [
+            574786800,
+            39600
+          ],
+          [
+            594142200,
+            37800
+          ],
+          [
+            606236400,
+            39600
+          ],
+          [
+            625591800,
+            37800
+          ],
+          [
+            636476400,
+            39600
+          ],
+          [
+            657041400,
+            37800
+          ],
+          [
+            667926000,
+            39600
+          ],
+          [
+            688491000,
+            37800
+          ],
+          [
+            699375600,
+            39600
+          ],
+          [
+            719940600,
+            37800
+          ],
+          [
+            731430000,
+            39600
+          ],
+          [
+            751995000,
+            37800
+          ],
+          [
+            762879600,
+            39600
+          ],
+          [
+            783444600,
+            37800
+          ],
+          [
+            794329200,
+            39600
+          ],
+          [
+            814894200,
+            37800
+          ],
+          [
+            828198000,
+            39600
+          ],
+          [
+            846343800,
+            37800
+          ],
+          [
+            859647600,
+            39600
+          ],
+          [
+            877793400,
+            37800
+          ],
+          [
+            891097200,
+            39600
+          ],
+          [
+            909243000,
+            37800
+          ],
+          [
+            922546800,
+            39600
+          ],
+          [
+            941297400,
+            37800
+          ],
+          [
+            953996400,
+            39600
+          ],
+          [
+            967303800,
+            37800
+          ],
+          [
+            985446000,
+            39600
+          ],
+          [
+            1004196600,
+            37800
+          ],
+          [
+            1017500400,
+            39600
+          ],
+          [
+            1035646200,
+            37800
+          ],
+          [
+            1048950000,
+            39600
+          ],
+          [
+            1067095800,
+            37800
+          ],
+          [
+            1080399600,
+            39600
+          ],
+          [
+            1099150200,
+            37800
+          ],
+          [
+            1111849200,
+            39600
+          ],
+          [
+            1130599800,
+            37800
+          ],
+          [
+            1143903600,
+            39600
+          ],
+          [
+            1162049400,
+            37800
+          ],
+          [
+            1174748400,
+            39600
+          ],
+          [
+            1193499000,
+            37800
+          ],
+          [
+            1207407600,
+            39600
+          ],
+          [
+            1223134200,
+            37800
+          ],
+          [
+            1238857200,
+            39600
+          ],
+          [
+            1254583800,
+            37800
+          ],
+          [
+            1270306800,
+            39600
+          ],
+          [
+            1286033400,
+            37800
+          ],
+          [
+            1301756400,
+            39600
+          ],
+          [
+            1317483000,
+            37800
+          ],
+          [
+            1333206000,
+            39600
+          ],
+          [
+            1349537400,
+            37800
+          ],
+          [
+            1365260400,
+            39600
+          ],
+          [
+            1380987000,
+            37800
+          ],
+          [
+            1396710000,
+            39600
+          ],
+          [
+            1412436600,
+            37800
+          ],
+          [
+            1428159600,
+            39600
+          ],
+          [
+            1443886200,
+            37800
+          ],
+          [
+            1459609200,
+            39600
+          ],
+          [
+            1475335800,
+            37800
+          ],
+          [
+            1491058800,
+            39600
+          ],
+          [
+            1506785400,
+            37800
+          ],
+          [
+            1522508400,
+            39600
+          ],
+          [
+            1538839800,
+            37800
+          ],
+          [
+            1554562800,
+            39600
+          ],
+          [
+            1570289400,
+            37800
+          ],
+          [
+            1586012400,
+            39600
+          ],
+          [
+            1601739000,
+            37800
+          ],
+          [
+            1617462000,
+            39600
+          ],
+          [
+            1633188600,
+            37800
+          ],
+          [
+            1648911600,
+            39600
+          ],
+          [
+            1664638200,
+            37800
+          ],
+          [
+            1680361200,
+            39600
+          ],
+          [
+            1696087800,
+            37800
+          ],
+          [
+            1712415600,
+            39600
+          ],
+          [
+            1728142200,
+            37800
+          ],
+          [
+            1743865200,
+            39600
+          ],
+          [
+            1759591800,
+            37800
+          ],
+          [
+            1775314800,
+            39600
+          ],
+          [
+            1791041400,
+            37800
+          ],
+          [
+            1806764400,
+            39600
+          ],
+          [
+            1822491000,
+            37800
+          ],
+          [
+            1838214000,
+            39600
+          ],
+          [
+            1853940600,
+            37800
+          ],
+          [
+            null,
+            39600
+          ]
+        ]
+      },
+      {
+        "tz": "Asia/Kolkata",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            null,
+            19800
+          ]
+        ]
+      },
+      {
+        "tz": "America/Sao_Paulo",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            499748400,
+            -10800
+          ],
+          [
+            511236000,
+            -7200
+          ],
+          [
+            530593200,
+            -10800
+          ],
+          [
+            540266400,
+            -7200
+          ],
+          [
+            562129200,
+            -10800
+          ],
+          [
+            571197600,
+            -7200
+          ],
+          [
+            592974000,
+            -10800
+          ],
+          [
+            602042400,
+            -7200
+          ],
+          [
+            624423600,
+            -10800
+          ],
+          [
+            634701600,
+            -7200
+          ],
+          [
+            656478000,
+            -10800
+          ],
+          [
+            666756000,
+            -7200
+          ],
+          [
+            687927600,
+            -10800
+          ],
+          [
+            697600800,
+            -7200
+          ],
+          [
+            719982000,
+            -10800
+          ],
+          [
+            728445600,
+            -7200
+          ],
+          [
+            750826800,
+            -10800
+          ],
+          [
+            761709600,
+            -7200
+          ],
+          [
+            782276400,
+            -10800
+          ],
+          [
+            793159200,
+            -7200
+          ],
+          [
+            813726000,
+            -10800
+          ],
+          [
+            824004000,
+            -7200
+          ],
+          [
+            844570800,
+            -10800
+          ],
+          [
+            856058400,
+            -7200
+          ],
+          [
+            876106800,
+            -10800
+          ],
+          [
+            888717600,
+            -7200
+          ],
+          [
+            908074800,
+            -10800
+          ],
+          [
+            919562400,
+            -7200
+          ],
+          [
+            938919600,
+            -10800
+          ],
+          [
+            951616800,
+            -7200
+          ],
+          [
+            970974000,
+            -10800
+          ],
+          [
+            982461600,
+            -7200
+          ],
+          [
+            1003028400,
+            -10800
+          ],
+          [
+            1013911200,
+            -7200
+          ],
+          [
+            1036292400,
+            -10800
+          ],
+          [
+            1045360800,
+            -7200
+          ],
+          [
+            1066532400,
+            -10800
+          ],
+          [
+            1076810400,
+            -7200
+          ],
+          [
+            1099364400,
+            -10800
+          ],
+          [
+            1108864800,
+            -7200
+          ],
+          [
+            1129431600,
+            -10800
+          ],
+          [
+            1140314400,
+            -7200
+          ],
+          [
+            1162695600,
+            -10800
+          ],
+          [
+            1172368800,
+            -7200
+          ],
+          [
+            1192330800,
+            -10800
+          ],
+          [
+            1203213600,
+            -7200
+          ],
+          [
+            1224385200,
+            -10800
+          ],
+          [
+            1234663200,
+            -7200
+          ],
+          [
+            1255834800,
+            -10800
+          ],
+          [
+            1266717600,
+            -7200
+          ],
+          [
+            1287284400,
+            -10800
+          ],
+          [
+            1298167200,
+            -7200
+          ],
+          [
+            1318734000,
+            -10800
+          ],
+          [
+            1330221600,
+            -7200
+          ],
+          [
+            1350788400,
+            -10800
+          ],
+          [
+            1361066400,
+            -7200
+          ],
+          [
+            1382238000,
+            -10800
+          ],
+          [
+            1392516000,
+            -7200
+          ],
+          [
+            1413687600,
+            -10800
+          ],
+          [
+            1424570400,
+            -7200
+          ],
+          [
+            1445137200,
+            -10800
+          ],
+          [
+            1456020000,
+            -7200
+          ],
+          [
+            1476586800,
+            -10800
+          ],
+          [
+            1487469600,
+            -7200
+          ],
+          [
+            1508036400,
+            -10800
+          ],
+          [
+            1518919200,
+            -7200
+          ],
+          [
+            1541300400,
+            -10800
+          ],
+          [
+            1550368800,
+            -7200
+          ],
+          [
+            null,
+            -10800
+          ]
+        ]
+      },
+      {
+        "tz": "Pacific/Chatham",
+        "maintenant": 1791331200.25,
+        "sortie": [
+          [
+            320767200,
+            49500
+          ],
+          [
+            341330400,
+            45900
+          ],
+          [
+            352216800,
+            49500
+          ],
+          [
+            372780000,
+            45900
+          ],
+          [
+            384271200,
+            49500
+          ],
+          [
+            404834400,
+            45900
+          ],
+          [
+            415720800,
+            49500
+          ],
+          [
+            436284000,
+            45900
+          ],
+          [
+            447170400,
+            49500
+          ],
+          [
+            467733600,
+            45900
+          ],
+          [
+            478620000,
+            49500
+          ],
+          [
+            499183200,
+            45900
+          ],
+          [
+            510069600,
+            49500
+          ],
+          [
+            530632800,
+            45900
+          ],
+          [
+            541519200,
+            49500
+          ],
+          [
+            562082400,
+            45900
+          ],
+          [
+            573573600,
+            49500
+          ],
+          [
+            594136800,
+            45900
+          ],
+          [
+            605023200,
+            49500
+          ],
+          [
+            623772000,
+            45900
+          ],
+          [
+            637682400,
+            49500
+          ],
+          [
+            655221600,
+            45900
+          ],
+          [
+            669132000,
+            49500
+          ],
+          [
+            686671200,
+            45900
+          ],
+          [
+            700581600,
+            49500
+          ],
+          [
+            718120800,
+            45900
+          ],
+          [
+            732636000,
+            49500
+          ],
+          [
+            749570400,
+            45900
+          ],
+          [
+            764085600,
+            49500
+          ],
+          [
+            781020000,
+            45900
+          ],
+          [
+            795535200,
+            49500
+          ],
+          [
+            812469600,
+            45900
+          ],
+          [
+            826984800,
+            49500
+          ],
+          [
+            844524000,
+            45900
+          ],
+          [
+            858434400,
+            49500
+          ],
+          [
+            875973600,
+            45900
+          ],
+          [
+            889884000,
+            49500
+          ],
+          [
+            907423200,
+            45900
+          ],
+          [
+            921938400,
+            49500
+          ],
+          [
+            938872800,
+            45900
+          ],
+          [
+            953388000,
+            49500
+          ],
+          [
+            970322400,
+            45900
+          ],
+          [
+            984837600,
+            49500
+          ],
+          [
+            1002376800,
+            45900
+          ],
+          [
+            1016287200,
+            49500
+          ],
+          [
+            1033826400,
+            45900
+          ],
+          [
+            1047736800,
+            49500
+          ],
+          [
+            1065276000,
+            45900
+          ],
+          [
+            1079791200,
+            49500
+          ],
+          [
+            1096725600,
+            45900
+          ],
+          [
+            1111240800,
+            49500
+          ],
+          [
+            1128175200,
+            45900
+          ],
+          [
+            1142690400,
+            49500
+          ],
+          [
+            1159624800,
+            45900
+          ],
+          [
+            1174140000,
+            49500
+          ],
+          [
+            1191074400,
+            45900
+          ],
+          [
+            1207404000,
+            49500
+          ],
+          [
+            1222524000,
+            45900
+          ],
+          [
+            1238853600,
+            49500
+          ],
+          [
+            1253973600,
+            45900
+          ],
+          [
+            1270303200,
+            49500
+          ],
+          [
+            1285423200,
+            45900
+          ],
+          [
+            1301752800,
+            49500
+          ],
+          [
+            1316872800,
+            45900
+          ],
+          [
+            1333202400,
+            49500
+          ],
+          [
+            1348927200,
+            45900
+          ],
+          [
+            1365256800,
+            49500
+          ],
+          [
+            1380376800,
+            45900
+          ],
+          [
+            1396706400,
+            49500
+          ],
+          [
+            1411826400,
+            45900
+          ],
+          [
+            1428156000,
+            49500
+          ],
+          [
+            1443276000,
+            45900
+          ],
+          [
+            1459605600,
+            49500
+          ],
+          [
+            1474725600,
+            45900
+          ],
+          [
+            1491055200,
+            49500
+          ],
+          [
+            1506175200,
+            45900
+          ],
+          [
+            1522504800,
+            49500
+          ],
+          [
+            1538229600,
+            45900
+          ],
+          [
+            1554559200,
+            49500
+          ],
+          [
+            1569679200,
+            45900
+          ],
+          [
+            1586008800,
+            49500
+          ],
+          [
+            1601128800,
+            45900
+          ],
+          [
+            1617458400,
+            49500
+          ],
+          [
+            1632578400,
+            45900
+          ],
+          [
+            1648908000,
+            49500
+          ],
+          [
+            1664028000,
+            45900
+          ],
+          [
+            1680357600,
+            49500
+          ],
+          [
+            1695477600,
+            45900
+          ],
+          [
+            1712412000,
+            49500
+          ],
+          [
+            1727532000,
+            45900
+          ],
+          [
+            1743861600,
+            49500
+          ],
+          [
+            1758981600,
+            45900
+          ],
+          [
+            1775311200,
+            49500
+          ],
+          [
+            1790431200,
+            45900
+          ],
+          [
+            1806760800,
+            49500
+          ],
+          [
+            1821880800,
+            45900
+          ],
+          [
+            1838210400,
+            49500
+          ],
+          [
+            1853330400,
+            45900
+          ],
+          [
+            null,
+            49500
+          ]
+        ]
+      }
+    ]
+  },
+  "relais": {
+    "amont": [
+      {
+        "url": "https://github.com/org/depot.git",
+        "ok": [
+          "https://github.com",
+          "/org/depot",
+          "https://github.com/"
+        ]
+      },
+      {
+        "url": "https://GitHub.com/Org/Depot.git",
+        "ok": [
+          "https://github.com",
+          "/Org/Depot",
+          "https://GitHub.com/"
+        ]
+      },
+      {
+        "url": "http://[FD00::1]:3000/r.git/",
+        "ok": [
+          "http://[fd00::1]:3000",
+          "/r",
+          "http://[FD00::1]:3000/"
+        ]
+      },
+      {
+        "url": "http://h:0/r",
+        "ok": [
+          "http://h",
+          "/r",
+          "http://h:0/"
+        ]
+      },
+      {
+        "url": "https://h:443/r",
+        "ok": [
+          "https://h:443",
+          "/r",
+          "https://h:443/"
+        ]
+      },
+      {
+        "url": "https://h:99999/r",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t mal form\u00e9e"
+      },
+      {
+        "url": "https://h:abc/r",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t mal form\u00e9e"
+      },
+      {
+        "url": "git://h/x.git",
+        "code": "scheme_not_relayed",
+        "message": "Sch\u00e9ma \u00ab git \u00bb : seul Git sur HTTP(S) passe par le relais."
+      },
+      {
+        "url": "ssh://h/x",
+        "code": "scheme_not_relayed",
+        "message": "Sch\u00e9ma \u00ab ssh \u00bb : seul Git sur HTTP(S) passe par le relais."
+      },
+      {
+        "url": "h:o/r.git",
+        "code": "scheme_not_relayed",
+        "message": "Sch\u00e9ma \u00ab h \u00bb : seul Git sur HTTP(S) passe par le relais."
+      },
+      {
+        "url": "https://u:p@h/x.git",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://u@h/x.git",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://:p@h/x.git",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://@h/x.git",
+        "ok": [
+          "https://h",
+          "/x",
+          "https://@h/"
+        ]
+      },
+      {
+        "url": "https:///x.git",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://h/x.git?a=1",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://h/x.git#f",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t invalide (identifiants, requ\u00eate ou h\u00f4te)"
+      },
+      {
+        "url": "https://h/",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/.git",
+        "ok": [
+          "https://h",
+          "/",
+          "https://h/"
+        ]
+      },
+      {
+        "url": "https://h/a/../b.git",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/a/%2e%2e/b",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/a/%2E./b",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/./a",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/a/.",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/a b",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "https://h/a\\b",
+        "code": "malformed_url",
+        "message": "Chemin de d\u00e9p\u00f4t invalide"
+      },
+      {
+        "url": "  https://h/x.git  ",
+        "ok": [
+          "https://h",
+          "/x",
+          "https://h/"
+        ]
+      },
+      {
+        "url": "https://h/x.git/",
+        "ok": [
+          "https://h",
+          "/x",
+          "https://h/"
+        ]
+      },
+      {
+        "url": "https://h//x//",
+        "ok": [
+          "https://h",
+          "//x",
+          "https://h/"
+        ]
+      },
+      {
+        "url": "https://[::1/x",
+        "code": "malformed_url",
+        "message": "URL de d\u00e9p\u00f4t mal form\u00e9e"
+      },
+      {
+        "url": "HTTPS://H/X",
+        "ok": [
+          "https://h",
+          "/X",
+          "https://H/"
+        ]
+      },
+      {
+        "url": "https://h/\u00e9.git",
+        "ok": [
+          "https://h",
+          "/\u00e9",
+          "https://h/"
+        ]
+      },
+      {
+        "url": "",
+        "code": "scheme_not_relayed",
+        "message": "Sch\u00e9ma \u00ab ? \u00bb : seul Git sur HTTP(S) passe par le relais."
+      },
+      {
+        "url": "https://h/a\tb",
+        "ok": [
+          "https://h",
+          "/ab",
+          "https://h/"
+        ]
+      }
+    ],
+    "basic_auth": [
+      [
+        "u",
+        "t",
+        "Basic dTp0"
+      ],
+      [
+        "",
+        "t",
+        "Basic dDp0"
+      ],
+      [
+        "\u00e9",
+        "j\u00e9ton",
+        "Basic w6k6asOpdG9u"
+      ],
+      [
+        "u",
+        "",
+        "Basic dTo="
+      ]
+    ],
+    "montrer": [
+      [
+        "https://ailleurs.lan/depot.git/info/refs?x=1",
+        "",
+        "https://ailleurs.lan/depot.git"
+      ],
+      [
+        "/autre.git/info/refs",
+        "https://h:8443",
+        "https://h:8443/autre.git"
+      ],
+      [
+        "autre.git/git-upload-pack",
+        "https://h/",
+        "https://h/autre.git"
+      ],
+      [
+        "https://u:p@[fd00::1]:3000/r/git-receive-pack",
+        "",
+        "https://[fd00::1]:3000/r"
+      ],
+      [
+        "https://[::1",
+        "",
+        "?"
+      ],
+      [
+        "http://h:abc/x",
+        "",
+        "?"
+      ],
+      [
+        "https://h/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "",
+        "https://h/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      [
+        "https://h/a/info/refs/",
+        "",
+        "https://h/a/info/refs/"
+      ],
+      [
+        "",
+        "https://h",
+        "https://h/"
+      ]
+    ],
+    "hex4": [
+      [
+        "30303030",
+        0
+      ],
+      [
+        "30306130",
+        160
+      ],
+      [
+        "30304130",
+        160
+      ],
+      [
+        "30783161",
+        26
+      ],
+      [
+        "20316120",
+        26
+      ],
+      [
+        "315f3030",
+        256
+      ],
+      [
+        "2d303031",
+        -1
+      ],
+      [
+        "2b303031",
+        1
+      ],
+      [
+        "7a7a7a7a",
+        null
+      ],
+      [
+        "0931610a",
+        26
+      ],
+      [
+        "315f5f30",
+        null
+      ],
+      [
+        "5f313030",
+        null
+      ],
+      [
+        "30785f31",
+        1
+      ],
+      [
+        "",
+        null
+      ],
+      [
+        "1c3161",
+        null
+      ],
+      [
+        "a03161",
+        null
+      ],
+      [
+        "30583146",
+        31
+      ],
+      [
+        "30623131",
+        2833
+      ],
+      [
+        "66666666",
+        65535
+      ]
+    ],
+    "commandes_push": [
+      {
+        "blocs": [
+          "3030373130303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f78007265706f72742d7374617475730a303030305041434b2e2e2e"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "ok": "3030373130303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f78007265706f72742d7374617475730a303030305041434b2e2e2e"
+        }
+      },
+      {
+        "blocs": [
+          "3030363630303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f6d61696e0a30303030"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "statut": 403,
+          "message": "Relais Git : push vers refs/heads/main hors de l'op\u00e9ration autoris\u00e9e"
+        }
+      },
+      {
+        "blocs": [
+          "3030363331313131313131313131313131313131313131313131313131313131313131313131313131313131203030303030303030303030303030303030303030303030303030303030303030303030303030303020726566732f68656164732f780a30303030"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "statut": 403,
+          "message": "Relais Git : suppression de refs/heads/x refus\u00e9e"
+        }
+      },
+      {
+        "blocs": [
+          "303033357368616c6c6f7720313131313131313131313131313131313131313131313131313131313131313131313131313131310a3030363330303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f780a303030305041434b"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "ok": "303033357368616c6c6f7720313131313131313131313131313131313131313131313131313131313131313131313131313131310a3030363330303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f780a303030305041434b"
+        }
+      },
+      {
+        "blocs": [
+          "3030363330303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f780a"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : corps de push tronqu\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "3030"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : corps de push tronqu\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "7a7a7a7a"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : push mal form\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "30303033"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : push mal form\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "30303034"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : push mal form\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "30303130707573682d6365727400780a30303030"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : push sign\u00e9 ou mal form\u00e9, non relay\u00e9"
+        }
+      },
+      {
+        "blocs": [
+          "3030363330303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732fff0a30303030"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 403,
+          "message": "Relais Git : push vers refs/heads/\ufffd hors de l'op\u00e9ration autoris\u00e9e"
+        }
+      },
+      {
+        "blocs": [
+          "3030303072657374"
+        ],
+        "permises": [],
+        "sortie": {
+          "ok": "3030303072657374"
+        }
+      },
+      {
+        "blocs": [
+          "30303633303030",
+          "30303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f780a",
+          "3030",
+          "3030",
+          "7461696c"
+        ],
+        "permises": [
+          "refs/heads/x"
+        ],
+        "sortie": {
+          "ok": "3030363330303030303030303030303030303030303030303030303030303030303030303030303030303030203131313131313131313131313131313131313131313131313131313131313131313131313131313120726566732f68656164732f780a303030307461696c"
+        }
+      },
+      {
+        "blocs": [
+          "20303561"
+        ],
+        "permises": [],
+        "sortie": {
+          "statut": 400,
+          "message": "Relais Git : corps de push tronqu\u00e9"
+        }
+      }
+    ]
+  },
+  "ecritures": {
+    "agent_http": [
+      [
+        "not_found",
+        404,
+        "Introuvable"
+      ],
+      [
+        "exists",
+        409,
+        "Un \u00e9l\u00e9ment porte d\u00e9j\u00e0 ce nom"
+      ],
+      [
+        "is_dir",
+        409,
+        {
+          "code": "is_dir",
+          "message": "Un dossier porte ce nom"
+        }
+      ],
+      [
+        "not_dir",
+        409,
+        {
+          "code": "not_dir",
+          "message": "Un \u00e9l\u00e9ment du chemin est un fichier, pas un dossier"
+        }
+      ],
+      [
+        "not_file",
+        409,
+        {
+          "code": "not_file",
+          "message": "Ce chemin n'est pas un fichier ordinaire"
+        }
+      ],
+      [
+        "outside_root",
+        403,
+        "Lien symbolique hors sandbox : \u00e9criture refus\u00e9e"
+      ],
+      [
+        "inside",
+        400,
+        "Impossible de copier ou d\u00e9placer un dossier dans lui-m\u00eame"
+      ],
+      [
+        "denied",
+        403,
+        "Acc\u00e8s refus\u00e9 dans la sandbox"
+      ],
+      [
+        "read_only",
+        403,
+        "Emplacement en lecture seule"
+      ],
+      [
+        "no_space",
+        507,
+        "Espace disque de la sandbox \u00e9puis\u00e9"
+      ],
+      [
+        "too_large",
+        413,
+        "Contenu trop volumineux"
+      ],
+      [
+        "bad_path",
+        400,
+        "Chemin invalide"
+      ],
+      [
+        "name_too_long",
+        400,
+        "Nom trop long"
+      ],
+      [
+        "invalid",
+        400,
+        "Nom ou chemin invalide"
+      ],
+      [
+        "loop",
+        400,
+        "Trop de liens symboliques imbriqu\u00e9s"
+      ],
+      [
+        "bad_regex",
+        400,
+        "Expression r\u00e9guli\u00e8re invalide"
+      ],
+      [
+        "bad_request",
+        400,
+        "Requ\u00eate invalide"
+      ],
+      [
+        "not_empty",
+        409,
+        "Dossier non vide"
+      ],
+      [
+        "cross_device",
+        409,
+        "D\u00e9placement impossible entre deux volumes"
+      ],
+      [
+        "changed",
+        412,
+        {
+          "code": "conflict",
+          "message": "Le fichier a chang\u00e9 sur le disque"
+        }
+      ],
+      [
+        "agent_unavailable",
+        503,
+        "Environnement sandbox arr\u00eat\u00e9 \u2014 nouvelle tentative dans quelques instants."
+      ],
+      [
+        "container_down",
+        503,
+        "Environnement sandbox arr\u00eat\u00e9 \u2014 nouvelle tentative dans quelques instants."
+      ],
+      [
+        "transport",
+        503,
+        "Environnement sandbox arr\u00eat\u00e9 \u2014 nouvelle tentative dans quelques instants."
+      ],
+      [
+        "bad_response",
+        502,
+        "Libell\u00e9 : r\u00e9ponse invalide de l'environnement sandbox"
+      ],
+      [
+        "timeout",
+        504,
+        "Libell\u00e9 : d\u00e9lai d\u00e9pass\u00e9"
+      ],
+      [
+        "quoi",
+        500,
+        "Libell\u00e9 : quoi"
+      ],
+      [
+        "internal",
+        500,
+        "Libell\u00e9 : internal"
+      ]
+    ],
+    "validate_rel_path": [
+      [
+        "",
+        {
+          "statut": 400,
+          "detail": "Chemin requis"
+        }
+      ],
+      [
+        " ",
+        {
+          "statut": 400,
+          "detail": "Chemin requis"
+        }
+      ],
+      [
+        "/work",
+        {
+          "statut": 400,
+          "detail": "Chemin requis"
+        }
+      ],
+      [
+        " /work/ ",
+        {
+          "statut": 400,
+          "detail": "Chemin requis"
+        }
+      ],
+      [
+        "x",
+        {
+          "ok": "x"
+        }
+      ],
+      [
+        "/work/a",
+        {
+          "ok": "a"
+        }
+      ],
+      [
+        "./work/a b",
+        {
+          "ok": "a b"
+        }
+      ],
+      [
+        "/etc",
+        {
+          "statut": 400,
+          "detail": "Chemin absolu refus\u00e9 \u2014 utiliser un chemin relatif"
+        }
+      ],
+      [
+        "\\x",
+        {
+          "statut": 400,
+          "detail": "Chemin absolu refus\u00e9 \u2014 utiliser un chemin relatif"
+        }
+      ],
+      [
+        "a/../b",
+        {
+          "statut": 403,
+          "detail": "Chemin avec '..' refus\u00e9"
+        }
+      ],
+      [
+        "a\\..\\b",
+        {
+          "statut": 403,
+          "detail": "Chemin avec '..' refus\u00e9"
+        }
+      ],
+      [
+        "..",
+        {
+          "statut": 403,
+          "detail": "Chemin avec '..' refus\u00e9"
+        }
+      ],
+      [
+        "work/..",
+        {
+          "statut": 403,
+          "detail": "Chemin avec '..' refus\u00e9"
+        }
+      ],
+      [
+        "a/./b",
+        {
+          "ok": "a/./b"
+        }
+      ],
+      [
+        "~",
+        {
+          "ok": "~"
+        }
+      ],
+      [
+        "\u00e9",
+        {
+          "ok": "\u00e9"
+        }
+      ]
+    ]
+  }
+}

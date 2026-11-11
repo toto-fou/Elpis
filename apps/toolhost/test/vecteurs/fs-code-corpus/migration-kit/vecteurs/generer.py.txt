@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: MIT
+"""migration-kit/vecteurs/generer.py — écrit ``CIBLE`` de chaque module de vecteurs (``generer.py [domaine…]``)."""
+from __future__ import annotations
+
+import atexit
+import importlib.util
+import json
+import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from types import ModuleType
+from typing import Iterator
+
+DOSSIER = Path(__file__).resolve().parent
+RACINE = DOSSIER.parents[1]
+
+
+def isoler_environnement() -> None:
+    """Même isolation que tests/conftest.py quand le script est lancé seul : ni config.json local ni moteur."""
+    tmp = Path(tempfile.mkdtemp(prefix="elpis-vecteurs-"))
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+    os.environ.setdefault("APP_CONFIG_PATH", str(tmp / "config.json"))
+    os.environ.setdefault("ELPIS_AUDIT_DIR", str(tmp / "audit"))
+    os.environ.setdefault("LLAMA_IP", "127.0.0.1")
+    os.environ.setdefault("LLAMA_PORT", "1")
+    for variable, nom in (("APP_DB_PATH", "user_db/app.db"), ("APP_SANDBOX_DIR", "user_sandboxes"),
+                          ("APP_FILE_HISTORY_DIR", "file_history"), ("APP_USER_SKILLS_DIR", "user_skills"),
+                          ("SKILLS_LOCK_PATH", ".skills_write.lock")):
+        os.environ.setdefault(variable, str(tmp / nom))
+
+
+def modules() -> Iterator[tuple[str, ModuleType]]:
+    for chemin_import in (str(DOSSIER), str(RACINE)):
+        if chemin_import not in sys.path:
+            sys.path.insert(0, chemin_import)
+    for chemin in sorted(DOSSIER.glob("*.py")):
+        if chemin.name.startswith("_") or chemin.name == "generer.py":
+            continue
+        spec = importlib.util.spec_from_file_location(f"vecteurs_{chemin.stem}", chemin)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        yield chemin.stem, module
+
+
+def serialiser(donnees: object) -> str:
+    """ASCII seulement : une demi-paire isolée s'écrit `\\udXXX`, que JSON.parse relit à l'identique."""
+    return json.dumps(donnees, ensure_ascii=True, indent=2) + "\n"
+
+
+def main(noms: list[str]) -> int:
+    isoler_environnement()
+    connus = dict(modules())
+    inconnus = [n for n in noms if n not in connus]
+    if inconnus:
+        print("domaines inconnus : " + ", ".join(inconnus), file=sys.stderr)
+        return 2
+    for nom, module in connus.items():
+        if noms and nom not in noms:
+            continue
+        cible = RACINE / module.CIBLE
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        cible.write_text(serialiser(module.generer()), encoding="utf-8")
+        print(f"{nom} → {module.CIBLE}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

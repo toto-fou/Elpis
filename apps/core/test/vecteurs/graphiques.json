@@ -1,0 +1,292 @@
+{
+  "source": "migration-kit/vecteurs/core_graphiques.py",
+  "comptes": [
+    "bob",
+    "carol"
+  ],
+  "cache": {
+    "bob": {
+      "abcdef123456.json": "7b2261223a20312e302c202232223a202278222c202231223a205b31652d30352c20316531362c202d302e305d2c202262223a2031383434363734343037333730393535313631367d",
+      "0123456789ab.json": "7b706173206475206a736f6e",
+      "bad8bad8bad8.json": "7b2261223a2022ff227d",
+      "aaaa00000000.json": "7b2276223a204e614e7d",
+      "ABCDEF123456.json": "7b226d616a223a20747275657d"
+    },
+    "carol": {}
+  },
+  "chats": [
+    [
+      "bob",
+      "c1",
+      [
+        {
+          "role": "user",
+          "content": "x"
+        },
+        "pas un message",
+        {
+          "role": "assistant",
+          "content": "!fedcba987654",
+          "charts": {
+            "fedcba987654": {
+              "t": "barres",
+              "v": [
+                1,
+                2.5
+              ]
+            },
+            "0123456789ab": {
+              "repli": true
+            }
+          }
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "charts": [
+            "fedcba987654"
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "charts": {
+            "123456789012": {
+              "entier": 1
+            },
+            "abcdef123456": null
+          }
+        }
+      ],
+      null
+    ],
+    [
+      "bob",
+      "c5",
+      [],
+      "5"
+    ],
+    [
+      "bob",
+      "c6",
+      [],
+      "\"texte\""
+    ],
+    [
+      "carol",
+      "c2",
+      [
+        {
+          "role": "assistant",
+          "content": "",
+          "charts": {
+            "cccccccccccc": {
+              "carol": 1
+            }
+          }
+        }
+      ],
+      null
+    ]
+  ],
+  "etapes": [
+    [
+      null,
+      "/api/charts/abcdef123456"
+    ],
+    [
+      "bob",
+      "/api/charts/abcdef123456"
+    ],
+    [
+      "bob",
+      "/api/charts/abcdef123456?chat_id=c1"
+    ],
+    [
+      "bob",
+      "/api/charts/ABCDEF123456"
+    ],
+    [
+      "bob",
+      "/api/charts/abc-def-123-456"
+    ],
+    [
+      "bob",
+      "/api/charts/----"
+    ],
+    [
+      "bob",
+      "/api/charts/0123456789ab"
+    ],
+    [
+      "bob",
+      "/api/charts/0123456789ab?chat_id=c1"
+    ],
+    [
+      "bob",
+      "/api/charts/fedcba987654?chat_id=c1"
+    ],
+    [
+      "bob",
+      "/api/charts/fedcba987654?chat_id=c1&chat_id=inconnu"
+    ],
+    [
+      "bob",
+      "/api/charts/fedcba987654?chat_id=inconnu"
+    ],
+    [
+      "bob",
+      "/api/charts/fedcba987654?chat_id="
+    ],
+    [
+      "bob",
+      "/api/charts/123456789012?chat_id=c1"
+    ],
+    [
+      "bob",
+      "/api/charts/bad8bad8bad8"
+    ],
+    [
+      "bob",
+      "/api/charts/aaaa00000000"
+    ],
+    [
+      "bob",
+      "/api/charts/aaaaaaaaaaaa?chat_id=c5"
+    ],
+    [
+      "bob",
+      "/api/charts/aaaaaaaaaaaa?chat_id=c6"
+    ],
+    [
+      "bob",
+      "/api/charts/cccccccccccc?chat_id=c2"
+    ],
+    [
+      "carol",
+      "/api/charts/cccccccccccc?chat_id=c2"
+    ],
+    [
+      "carol",
+      "/api/charts/fedcba987654?chat_id=c1"
+    ],
+    [
+      "carol",
+      "/api/charts/abcdef123456"
+    ],
+    [
+      99,
+      "/api/charts/abcdef123456"
+    ],
+    [
+      99,
+      "/api/charts/----"
+    ],
+    [
+      "bob",
+      "/api/charts/\u00e9t\u00e9\u0663"
+    ]
+  ],
+  "ids": {
+    "bob": 1,
+    "carol": 2
+  },
+  "reponses": [
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"abcdef123456\",\"config\":{\"a\":1.0,\"2\":\"x\",\"1\":[1e-05,1e+16,-0.0],\"b\":18446744073709551616},\"source\":\"cache\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"abcdef123456\",\"config\":{\"a\":1.0,\"2\":\"x\",\"1\":[1e-05,1e+16,-0.0],\"b\":18446744073709551616},\"source\":\"cache\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"ABCDEF123456\",\"config\":{\"maj\":true},\"source\":\"cache\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"abcdef123456\",\"config\":{\"a\":1.0,\"2\":\"x\",\"1\":[1e-05,1e+16,-0.0],\"b\":18446744073709551616},\"source\":\"cache\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"invalid chart_id\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart '0123456789ab' not found\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"0123456789ab\",\"config\":{\"repli\":true},\"source\":\"chat\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"fedcba987654\",\"config\":{\"t\":\"barres\",\"v\":[1,2.5]},\"source\":\"chat\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'fedcba987654' not found\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'fedcba987654' not found\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'fedcba987654' not found\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"123456789012\",\"config\":{\"entier\":1},\"source\":\"chat\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'bad8bad8bad8' not found\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'aaaaaaaaaaaa' not found\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'cccccccccccc' not found\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"chart_id\":\"cccccccccccc\",\"config\":{\"carol\":1},\"source\":\"chat\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'fedcba987654' not found\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart 'abcdef123456' not found\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"user record missing for authenticated session\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"user record missing for authenticated session\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chart '\u00e9t\u00e9\u0663' not found\"}"
+    }
+  ]
+}

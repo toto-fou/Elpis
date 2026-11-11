@@ -1,0 +1,1533 @@
+{
+  "source": "migration-kit/vecteurs/core_routines.py",
+  "comptes": [
+    [
+      "alice",
+      0
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      0
+    ]
+  ],
+  "global": {
+    "deploy.md": "---\nname: deploy\ndescription: D\u00e9ployer\n---\nLivrer\n",
+    "pkg/SKILL.md": "---\nname: pkg\ndescription: Paquet\n---\nRacine\n",
+    "pkg/child/SKILL.md": "---\ndescription: Enfant\n---\nEnfant du paquet\n",
+    "learned/brouillon.md": "---\nname: brouillon\ndescription: Proposition\n---\n\u00c0 relire\n"
+  },
+  "perso_bob": {
+    "perso/SKILL.md": "---\nname: perso\ndescription: Le mien\n---\nCorps perso\n"
+  },
+  "sql": [
+    [
+      "INSERT INTO llm_connectors(owner_user_id, scope, provider_type, wire, label, base_url, api_key_enc, key_scheme, default_model, models_json, enabled, created_at, updated_at) VALUES(NULL,'shared','generic','openai','s2','http://127.0.0.1:1/v1','','plain','qwen-x','',1,1.0,1.0)",
+      []
+    ],
+    [
+      "INSERT INTO llm_connectors(owner_user_id, scope, provider_type, wire, label, base_url, api_key_enc, key_scheme, default_model, models_json, enabled, created_at, updated_at) VALUES(NULL,'shared','generic','openai','off','http://127.0.0.1:1/v1','','plain','m','',0,1.0,1.0)",
+      []
+    ],
+    [
+      "INSERT INTO llm_engine_policies(principal_type, principal_id, engine_keys, can_manage_models, updated_at) VALUES('user',3,'[\"builtin\"]',NULL,1.0)",
+      []
+    ]
+  ],
+  "t0": 1900000000.25,
+  "pas": 10,
+  "cap": 2,
+  "boot_id": "b0071d0000000001",
+  "etapes": [
+    [
+      null,
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      null,
+      "GET",
+      "/api/routines/abc",
+      null,
+      401
+    ],
+    [
+      null,
+      "POST",
+      "/api/routines",
+      "{\"name\": \"x\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "[1, 2]"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "\"texte\""
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": 5}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"   \"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"cron_expr\": \"* * * * *\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"cron_expr\": \"61 * * * *\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"cron_expr\": \"\", \"cron\": 5}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"cron_expr\": \"x\", \"cron\": 5}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"cron_expr\": \"* * *\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"cron\": \"*/0 * * * *\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"mcp_servers\": \"x\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"mcp_servers\": null, \"active_mcp_servers\": {\"a\": 1}}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": \"abc\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": [1]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": Infinity}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": NaN}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": 99}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": 2.5}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": \" 1_0 \"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": 99999999999999999999}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": \"99999999999999999999\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_id\": 9007199254740993}",
+      400
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_on\": \"jamais\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"trigger_after_on\": 1}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"runs_keep\": true}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"runs_keep\": 2.0}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"runs_keep\": \"1_0x\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"runs_keep\": 501}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"runs_keep\": [3]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"notify_keep\": -1}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"notify_keep\": 1000000000000000000000000000000}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"notify_keep\": \"9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"notify_on\": 3}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"notify_on\": \"jamais\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"model\": 7}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"model\": \"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"system_prompt\": [\"x\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"connector_id\": \"x\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"connector_id\": 99}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"connector_id\": 2}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"connector_id\": null, \"task_prompt\": 1}"
+    ],
+    [
+      "carol",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"connector_id\": 1}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": \"deploy\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": [\" \"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": [3]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": [\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": [\"s0\", \"s1\", \"s2\", \"s3\", \"s4\", \"s5\", \"s6\", \"s7\", \"s8\", \"s9\", \"s10\", \"s11\", \"s12\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"A\", \"skills\": [\"deploy\", \"brouillon\", \"perso\", \"inconnu\", \"perso\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"  Veille  \", \"cron_expr\": \" 0 9 * * 1-5 \", \"task_prompt\": \"r\u00e9sume\", \"mcp_servers\": [{\"command\": \"DEFAULT_LOCAL_PYTHON\", \"name\": \"Outils\", \"type\": \"sse\", \"url\": \"http://x\", \"filter_categories\": [\"fs\", 3, \"web\"]}, {\"id\": \"srv-1\", \"shared\": 1, \"name\": \"Partag\u00e9\", \"type\": \"streamable-http-long\", \"auth\": \"Bearer SECRET\"}, {\"manifest\": \"github\", \"filter_categories\": [\"a\", {\"b\": 1}], \"token\": \"t\"}, {\"url\": \"http://h/sse\", \"name\": \"Ancien\", \"headers\": {\"Authorization\": \"x\"}}, {\"name\": \"Nom seul\"}, {\"type\": \"sse\"}, \"pas un dict\", {\"id\": 12.0, \"name\": [\"liste\"], \"type\": 5}, {\"command\": \"DEFAULT_LOCAL_PYTHON\"}], \"skills\": [\"deploy\", \"pkg/child\", \"child\", \"deploy\", \" pkg \"], \"thinking_mode\": 1, \"agents_enabled\": \"oui\", \"runs_keep\": \" 7 \", \"notify_on\": \" ERROR \", \"notify_keep\": null, \"model\": \"\", \"connector_id\": \"1\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"Aval\", \"trigger_after_id\": \"1\", \"trigger_after_on\": \" Always \", \"enabled\": false, \"cron\": \"*/15 * * * *\", \"active_mcp_servers\": [{\"id\": \"a\"}], \"model\": \"qwen-y\", \"system_prompt\": \"Sys\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00\ud83d\ude00\", \"enabled\": null, \"trigger_after_id\": 0, \"trigger_after_on\": null, \"runs_keep\": \"\", \"notify_on\": null, \"connector_id\": false, \"notify_keep\": \"\u0661\u0662\"}"
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"Bob\", \"skills\": [\"perso\", \" deploy \", \"pkg/child\", \"child\", \"deploy\"], \"trigger_after_id\": 1}"
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"Bob\", \"skills\": [\"perso\", \" deploy \", \"pkg/child\", \"child\", \"deploy\"], \"trigger_after_id\": 0.0, \"connector_id\": \"0\"}"
+    ],
+    [
+      "carol",
+      "POST",
+      "/api/routines",
+      "{\"name\": \"Carol\", \"connector_id\": 0, \"mcp_servers\": []}"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/abc",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/+1",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1.0",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/99999999999999999999",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/9007199254740993",
+      null,
+      400
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "x"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/abc",
+      "{\"name\": \"x\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"name\": \"\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"trigger_after_id\": 1}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"trigger_after_id\": \"2\", \"trigger_after_on\": \"error\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"trigger_after_on\": \"OK\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"model\": null, \"connector_id\": \"\", \"thinking_mode\": 0, \"enabled\": \"\", \"agents_enabled\": [1], \"mcp_servers\": null, \"active_mcp_servers\": [{\"name\": \"Seul\"}], \"skills\": null, \"runs_keep\": 0, \"notify_on\": \"none\", \"notify_keep\": \"500\", \"cron\": \"  \", \"system_prompt\": \"Sys\"}"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/2",
+      "{\"name\": \"Renomm\u00e9e\", \"model\": \"  \"}"
+    ],
+    [
+      "bob",
+      "PUT",
+      "/api/routines/1",
+      "{\"name\": \"vol\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/99",
+      "{}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"skills\": [\"perso\"]}"
+    ],
+    [
+      "carol",
+      "PUT",
+      "/api/routines/5",
+      "{\"connector_id\": 1}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"connector_id\": 2}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"unknown\": 1, \"notify_on\": \"ALL\", \"cron_expr\": \"*/5 * * * *\", \"enabled\": 1, \"connector_id\": 1, \"model\": \"qwen-z\"}"
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/routines/1",
+      "{\"name\": \"X\", \"cron_expr\": \"bad\"}"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/2",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/2/enable",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/2/disable",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/3/disable",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/abc/enable",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/3/run-now",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/1/run-now",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/run-now",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/run-now",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/2/run-now",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/3/enable",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/3/run-now",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?limit=1",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?limit=0&offset=-5",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?offset=1",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?limit=abc&offset=x",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/abc/runs?limit=abc",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?limit=99999999999999999999",
+      null,
+      400
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/routines/1/runs",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/runs/2/stop",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/2/runs/1/stop",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/4/runs/1/stop",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/runs/999/stop",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/runs/abc/stop",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/1/runs/1/stop",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/runs/1/stop",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs",
+      null
+    ],
+    [
+      "~",
+      "AVANCER",
+      400,
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/2/runs/3/stop",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/2/runs/3/stop",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/2/runs",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/run-now",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1/runs?limit=2",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/rotate",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/1/webhook/rotate",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/abc/webhook/rotate",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "nope"
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "nope"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": \"push\"}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": [\"Push\", \"a b\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": [{\"a\": 1}]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": [\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": [\"e0\", \"e1\", \"e2\", \"e3\", \"e4\", \"e5\", \"e6\", \"e7\", \"e8\", \"e9\", \"e10\", \"e11\", \"e12\", \"e13\", \"e14\", \"e15\", \"e16\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": [\"Push\", \" PULL_request \", \"\", null, 1.0, true, \"push\", \"\u212a\", \"issue:comment\", \"a.b-c_d\"], \"branch\": \"  main  \", \"repo\": \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\"}"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/filter",
+      "{\"events\": null, \"branch\": 0, \"repo\": [\"a\"]}"
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/disable",
+      null
+    ],
+    [
+      "carol",
+      "POST",
+      "/api/routines/1/webhook/disable",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/routines/1/webhook/rotate",
+      null
+    ],
+    [
+      "bob",
+      "DELETE",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/routines/2",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/1",
+      null
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/routines/2",
+      null
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/routines/abc",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines/2/runs",
+      null
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/routines",
+      null
+    ],
+    [
+      "carol",
+      "GET",
+      "/api/routines",
+      null
+    ]
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2,
+    "carol": 3
+  },
+  "reponses": [
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"corps JSON invalide\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"objet JSON attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"corps JSON invalide\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"objet JSON attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"name doit \u00eatre une cha\u00eene\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Champ cron \u00ab minute \u00bb hors plage [0-59] : 61\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"cron doit \u00eatre une cha\u00eene\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Champ cron \u00ab minute \u00bb : pas (step) doit \u00eatre \u2265 1\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mcp_servers doit \u00eatre une liste\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mcp_servers doit \u00eatre une liste\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trigger_after_id invalide\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trigger_after_id invalide\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trigger_after_id invalide\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine amont introuvable\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine amont introuvable\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine amont introuvable\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine amont introuvable\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trigger_after_on invalide (ok | error | always)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trigger_after_on invalide (ok | error | always)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runs_keep : entier attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runs_keep : entier attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runs_keep : entier attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runs_keep : entre 0 (tous) et 500\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runs_keep : entier attendu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"notify_keep : entre 0 (tous) et 500\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"notify_keep : entre 0 (tous) et 500\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"notify_keep : entre 0 (tous) et 500\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"notify_on invalide (all | error | none)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"notify_on invalide (all | error | none)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"model doit \u00eatre une cha\u00eene\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"model trop long (max 200 caract\u00e8res)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"system_prompt doit \u00eatre une cha\u00eene\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"connector_id invalide\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le serveur s\u00e9lectionn\u00e9 n'existe plus.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le serveur s\u00e9lectionn\u00e9 est d\u00e9sactiv\u00e9.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"task_prompt doit \u00eatre une cha\u00eene\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Ce serveur ne vous est pas ouvert.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"skills doit \u00eatre une liste d'identifiants\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"skills : identifiants (strings) non vides attendus\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"skills : identifiants (strings) non vides attendus\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"skills : identifiant trop long\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"skills : maximum 12 skills par routine\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Skill introuvable : brouillon, perso, inconnu\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":2,\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":3,\"ok\":true}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine amont introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":4,\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":5,\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":3,\"owner_user_id\":1,\"name\":\"\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[],\"thinking_mode\":false,\"enabled\":false,\"created_at\":1900000550.25,\"updated_at\":1900000550.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":12,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":null,\"running_count\":0},{\"id\":2,\"owner_user_id\":1,\"name\":\"Aval\",\"cron_expr\":\"*/15 * * * *\",\"model\":\"qwen-y\",\"system_prompt\":\"Sys\",\"task_prompt\":\"\",\"mcp_snapshot\":[{\"id\":\"a\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":false,\"created_at\":1900000540.25,\"updated_at\":1900000540.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":1,\"trigger_after_on\":\"always\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":null,\"running_count\":0},{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"0 9 * * 1-5\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"type\":\"stdio\",\"name\":\"Outils\",\"command\":\"DEFAULT_LOCAL_PYTHON\",\"filter_categories\":[\"fs\",\"web\"]},{\"id\":\"srv-1\",\"shared\":true,\"name\":\"Partag\u00e9\",\"type\":\"streamable-http-\"},{\"manifest\":\"github\",\"filter_categories\":[\"a\"]},{\"url\":\"http://h/sse\",\"name\":\"Ancien\"},{\"name\":\"Nom seul\"},{\"id\":\"12.0\",\"name\":\"['liste']\"},{\"type\":\"stdio\",\"name\":\"Outils Locaux\",\"command\":\"DEFAULT_LOCAL_PYTHON\"}],\"skills\":[\"deploy\",\"pkg/child\",\"child\",\"pkg\"],\"thinking_mode\":true,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000530.25,\"last_fire_minute\":null,\"runs_keep\":7,\"notify_on\":\"error\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false,\"last_run\":null,\"running_count\":0}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"0 9 * * 1-5\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"type\":\"stdio\",\"name\":\"Outils\",\"command\":\"DEFAULT_LOCAL_PYTHON\",\"filter_categories\":[\"fs\",\"web\"]},{\"id\":\"srv-1\",\"shared\":true,\"name\":\"Partag\u00e9\",\"type\":\"streamable-http-\"},{\"manifest\":\"github\",\"filter_categories\":[\"a\"]},{\"url\":\"http://h/sse\",\"name\":\"Ancien\"},{\"name\":\"Nom seul\"},{\"id\":\"12.0\",\"name\":\"['liste']\"},{\"type\":\"stdio\",\"name\":\"Outils Locaux\",\"command\":\"DEFAULT_LOCAL_PYTHON\"}],\"skills\":[\"deploy\",\"pkg/child\",\"child\",\"pkg\"],\"thinking_mode\":true,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000530.25,\"last_fire_minute\":null,\"runs_keep\":7,\"notify_on\":\"error\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"0 9 * * 1-5\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"type\":\"stdio\",\"name\":\"Outils\",\"command\":\"DEFAULT_LOCAL_PYTHON\",\"filter_categories\":[\"fs\",\"web\"]},{\"id\":\"srv-1\",\"shared\":true,\"name\":\"Partag\u00e9\",\"type\":\"streamable-http-\"},{\"manifest\":\"github\",\"filter_categories\":[\"a\"]},{\"url\":\"http://h/sse\",\"name\":\"Ancien\"},{\"name\":\"Nom seul\"},{\"id\":\"12.0\",\"name\":\"['liste']\"},{\"type\":\"stdio\",\"name\":\"Outils Locaux\",\"command\":\"DEFAULT_LOCAL_PYTHON\"}],\"skills\":[\"deploy\",\"pkg/child\",\"child\",\"pkg\"],\"thinking_mode\":true,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000530.25,\"last_fire_minute\":null,\"runs_keep\":7,\"notify_on\":\"error\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"0 9 * * 1-5\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"type\":\"stdio\",\"name\":\"Outils\",\"command\":\"DEFAULT_LOCAL_PYTHON\",\"filter_categories\":[\"fs\",\"web\"]},{\"id\":\"srv-1\",\"shared\":true,\"name\":\"Partag\u00e9\",\"type\":\"streamable-http-\"},{\"manifest\":\"github\",\"filter_categories\":[\"a\"]},{\"url\":\"http://h/sse\",\"name\":\"Ancien\"},{\"name\":\"Nom seul\"},{\"id\":\"12.0\",\"name\":\"['liste']\"},{\"type\":\"stdio\",\"name\":\"Outils Locaux\",\"command\":\"DEFAULT_LOCAL_PYTHON\"}],\"skills\":[\"deploy\",\"pkg/child\",\"child\",\"pkg\"],\"thinking_mode\":true,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000530.25,\"last_fire_minute\":null,\"runs_keep\":7,\"notify_on\":\"error\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"corps JSON invalide\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Nom requis\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Une routine ne peut pas s'encha\u00eener apr\u00e8s elle-m\u00eame\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":false,\"created_at\":1900000530.25,\"updated_at\":1900000730.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"none\",\"notify_keep\":500,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":null,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Skill introuvable : perso\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Ce serveur ne vous est pas ouvert.\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Le serveur s\u00e9lectionn\u00e9 est d\u00e9sactiv\u00e9.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000820.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":2,\"owner_user_id\":1,\"name\":\"Renomm\u00e9e\",\"cron_expr\":\"*/15 * * * *\",\"model\":\"  \",\"system_prompt\":\"Sys\",\"task_prompt\":\"\",\"mcp_snapshot\":[{\"id\":\"a\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":false,\"created_at\":1900000540.25,\"updated_at\":1900000750.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":1,\"trigger_after_on\":\"always\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"enabled\":true}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"enabled\":false}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Routine d\u00e9sactiv\u00e9e \u2014 r\u00e9activez-la pour l'ex\u00e9cuter\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"run_id\":1}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"skipped\":true,\"reason\":\"run d\u00e9j\u00e0 en cours pour cette routine\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"run_id\":3}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"enabled\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"skipped\":true,\"reason\":\"cap de runs simultan\u00e9s atteint\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":3,\"owner_user_id\":1,\"name\":\"\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000550.25,\"updated_at\":1900000950.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":12,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":3,\"status\":\"skipped\",\"started_at\":1900000960.25,\"ended_at\":1900000960.25,\"duration_ms\":0},\"running_count\":0},{\"id\":2,\"owner_user_id\":1,\"name\":\"Renomm\u00e9e\",\"cron_expr\":\"*/15 * * * *\",\"model\":\"  \",\"system_prompt\":\"Sys\",\"task_prompt\":\"\",\"mcp_snapshot\":[{\"id\":\"a\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000540.25,\"updated_at\":1900000860.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":1,\"trigger_after_on\":\"always\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":2,\"status\":\"running\",\"started_at\":1900000940.25,\"ended_at\":null,\"duration_ms\":null},\"running_count\":1},{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900000820.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":1,\"status\":\"skipped\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0},\"running_count\":1}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]},{\"id\":1,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900000920.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000920.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]},{\"id\":1,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900000920.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000920.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":1,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900000920.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000920.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"limit\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"},{\"type\":\"int_parsing\",\"loc\":[\"query\",\"offset\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"x\"}]}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"},{\"type\":\"int_parsing\",\"loc\":[\"query\",\"limit\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]},{\"id\":1,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900000920.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000920.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopping\":false,\"status\":\"skipped\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Run introuvable\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Run introuvable\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Run introuvable\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"run_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopping\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]},{\"id\":1,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900000920.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000920.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 0,
+      "corps": ""
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopping\":false,\"status\":\"cancelled\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopping\":false,\"status\":\"cancelled\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":3,\"routine_id\":2,\"owner_user_id\":1,\"status\":\"cancelled\",\"trigger\":\"manual\",\"started_at\":1900000940.25,\"ended_at\":1900001550.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900000940.25,\"files\":[]}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"run_id\":5}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":5,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"running\",\"trigger\":\"manual\",\"started_at\":1900001580.25,\"ended_at\":null,\"duration_ms\":null,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":null,\"tool_limit_reached\":0,\"worker_boot_id\":\"b0071d0000000001\",\"heartbeat_at\":1900001580.25,\"files\":[]},{\"id\":2,\"routine_id\":1,\"owner_user_id\":1,\"status\":\"skipped\",\"trigger\":\"manual\",\"started_at\":1900000930.25,\"ended_at\":1900000930.25,\"duration_ms\":0,\"input_tokens\":null,\"output_tokens\":null,\"summary\":null,\"error\":\"run d\u00e9j\u00e0 en cours pour cette routine\",\"tool_limit_reached\":0,\"worker_boot_id\":null,\"heartbeat_at\":null,\"files\":[]}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"secret\":\"<secret>\",\"path\":\"/api/webhooks/routines/1\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900001600.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":true,\"webhook_filter\":{},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":true}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"corps JSON invalide\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"events doit \u00eatre une liste\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"event invalide : 'a b' (minuscules, chiffres, . _ : - ; 64 car. max)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"event invalide : \\\"{'a': 1}\\\" (minuscules, chiffres, . _ : - ; 64 car. max)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"event invalide : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' (minuscules, chiffres, . _ : - ; 64 car. max)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"trop d'events (max 16)\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"webhook_filter\":{\"events\":[\"push\",\"pull_request\",\"none\",\"1.0\",\"true\",\"k\",\"issue:comment\",\"a.b-c_d\"],\"branch\":\"main\",\"repo\":\"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":3,\"owner_user_id\":1,\"name\":\"\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000550.25,\"updated_at\":1900000950.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":12,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":3,\"status\":\"skipped\",\"started_at\":1900000960.25,\"ended_at\":1900000960.25,\"duration_ms\":0},\"running_count\":0},{\"id\":2,\"owner_user_id\":1,\"name\":\"Renomm\u00e9e\",\"cron_expr\":\"*/15 * * * *\",\"model\":\"  \",\"system_prompt\":\"Sys\",\"task_prompt\":\"\",\"mcp_snapshot\":[{\"id\":\"a\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000540.25,\"updated_at\":1900000860.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":1,\"trigger_after_on\":\"always\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":2,\"status\":\"cancelled\",\"started_at\":1900000940.25,\"ended_at\":1900001550.25,\"duration_ms\":0},\"running_count\":0},{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900001710.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":true,\"webhook_filter\":{\"events\":[\"push\",\"pull_request\",\"none\",\"1.0\",\"true\",\"k\",\"issue:comment\",\"a.b-c_d\"],\"branch\":\"main\",\"repo\":\"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\"},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":true,\"last_run\":{\"routine_id\":1,\"status\":\"running\",\"started_at\":1900001580.25,\"ended_at\":null,\"duration_ms\":null},\"running_count\":2}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"webhook_filter\":{\"events\":[],\"branch\":\"\",\"repo\":\"['a']\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"webhook_enabled\":false}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900001740.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":false,\"webhook_filter\":{\"events\":[],\"branch\":\"\",\"repo\":\"['a']\"},\"trigger_after_id\":2,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"secret\":\"<secret>\",\"path\":\"/api/webhooks/routines/1\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900001790.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":true,\"webhook_filter\":{\"events\":[],\"branch\":\"\",\"repo\":\"['a']\"},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":true}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"routine_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Routine introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":3,\"owner_user_id\":1,\"name\":\"\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\ud83d\ude00\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000550.25,\"updated_at\":1900000950.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":12,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":{\"routine_id\":3,\"status\":\"skipped\",\"started_at\":1900000960.25,\"ended_at\":1900000960.25,\"duration_ms\":0},\"running_count\":0},{\"id\":1,\"owner_user_id\":1,\"name\":\"Veille\",\"cron_expr\":\"*/5 * * * *\",\"model\":\"qwen-z\",\"system_prompt\":\"Sys\",\"task_prompt\":\"r\u00e9sume\",\"mcp_snapshot\":[{\"name\":\"Seul\"}],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000530.25,\"updated_at\":1900001790.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":500,\"webhook_enabled\":true,\"webhook_filter\":{\"events\":[],\"branch\":\"\",\"repo\":\"['a']\"},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":true,\"connector_id\":1,\"webhook_has_secret\":true,\"last_run\":{\"routine_id\":1,\"status\":\"running\",\"started_at\":1900001580.25,\"ended_at\":null,\"duration_ms\":null},\"running_count\":2}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":4,\"owner_user_id\":2,\"name\":\"Bob\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[\"perso\",\"deploy\",\"pkg/child\",\"child\"],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000570.25,\"updated_at\":1900000570.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":null,\"running_count\":0}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"id\":5,\"owner_user_id\":3,\"name\":\"Carol\",\"cron_expr\":\"\",\"model\":null,\"system_prompt\":\"\",\"task_prompt\":\"\",\"mcp_snapshot\":[],\"skills\":[],\"thinking_mode\":false,\"enabled\":true,\"created_at\":1900000580.25,\"updated_at\":1900000580.25,\"last_fire_minute\":null,\"runs_keep\":0,\"notify_on\":\"all\",\"notify_keep\":0,\"webhook_enabled\":false,\"webhook_filter\":{},\"trigger_after_id\":null,\"trigger_after_on\":\"ok\",\"agents_enabled\":false,\"connector_id\":null,\"webhook_has_secret\":false,\"last_run\":null,\"running_count\":0}]}"
+    }
+  ],
+  "annules": [
+    [
+      1,
+      "routine:1:run:1"
+    ]
+  ]
+}

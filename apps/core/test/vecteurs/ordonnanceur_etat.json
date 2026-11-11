@@ -1,0 +1,8601 @@
+{
+  "source": "migration-kit/vecteurs/ordonnanceur_etat.py",
+  "defaut_ms": 15000,
+  "fenetre": 20,
+  "estimations": [
+    {
+      "durees": [],
+      "estimation": 15000
+    },
+    {
+      "durees": [
+        1000.0
+      ],
+      "estimation": 1200
+    },
+    {
+      "durees": [
+        1000.0,
+        2500.0
+      ],
+      "estimation": 2100
+    },
+    {
+      "durees": [
+        0.0,
+        -5.0,
+        1200.0
+      ],
+      "estimation": 1440
+    },
+    {
+      "durees": [
+        "nan",
+        3000.0,
+        "-inf"
+      ],
+      "estimation": 3600
+    },
+    {
+      "durees": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "estimation": 0
+    },
+    {
+      "durees": [
+        1e+16,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "estimation": 2400000000000001
+    },
+    {
+      "durees": [
+        1.0,
+        1e+16,
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "estimation": 3000000000000001
+    },
+    {
+      "durees": [
+        12345.678,
+        12345.678,
+        12345.678,
+        12345.678,
+        12345.678,
+        12345.678,
+        12345.678
+      ],
+      "estimation": 14814
+    },
+    {
+      "durees": [
+        1.0,
+        138.0,
+        275.0,
+        412.0,
+        549.0,
+        686.0,
+        823.0,
+        960.0,
+        1097.0,
+        1234.0,
+        1371.0,
+        1508.0,
+        1645.0,
+        1782.0,
+        1919.0,
+        2056.0,
+        2193.0,
+        2330.0,
+        2467.0,
+        2604.0,
+        2741.0,
+        2878.0,
+        3015.0,
+        3152.0,
+        3289.0
+      ],
+      "estimation": 2385
+    },
+    {
+      "durees": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ],
+      "estimation": 0
+    },
+    {
+      "durees": [
+        1e-300,
+        1e-300
+      ],
+      "estimation": 0
+    },
+    {
+      "durees": [
+        999.9999999999999,
+        1e-13
+      ],
+      "estimation": 600
+    },
+    {
+      "durees": [
+        5000000000000000.0,
+        5000000000000000.0,
+        3.0
+      ],
+      "estimation": 4000000000000001
+    },
+    {
+      "durees": [
+        9007199254740992.0,
+        1.0,
+        1.0
+      ],
+      "estimation": 3602879701896397
+    },
+    {
+      "durees": [
+        4.4942328371557893e+307,
+        4.4942328371557893e+307,
+        4.4942328371557893e+307
+      ],
+      "estimation": 53930794045869465256837298515351872070303031147237800777321461734574553726366834316541191982937866096588241208147211471242955865489353522913226298830280272878299578318471123662856628173859769130609596219447578634731304737439194904457311202437025837815873542517110944429258732527007665037299635516823207673856
+    }
+  ],
+  "statuts": [
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": null,
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": null,
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 2,
+        "active": 3,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 2,
+        "active": 1,
+        "est_ms": 17100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 4,
+        "active": 3,
+        "est_ms": 21300
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": null,
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "qwen",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "autre",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [],
+        "charge_connu": "",
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "autre",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "qwen",
+            "unloaded"
+          ],
+          [
+            "autre",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 1,
+        "active": 1,
+        "est_ms": 2100
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "waiting",
+        "model": "qwen",
+        "loaded": "qwen",
+        "position": 5,
+        "active": 3,
+        "est_ms": 10500
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "autre",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "loaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "ready"
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "x",
+            "loading"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 0,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 1,
+        "en_attente": 0,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 3,
+        "en_attente": 4,
+        "plein": true,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 3,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "qwen",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "123",
+            "loaded"
+          ],
+          [
+            "qwen",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 0,
+        "en_attente": 2,
+        "plein": false,
+        "durees": [
+          1000.0,
+          2500.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "qwen",
+        "loaded": "123",
+        "position": 1,
+        "active": 1,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [],
+        "chargement_ms": 42000
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": null,
+        "position": 1,
+        "active": 2,
+        "est_ms": 42000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": null,
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": null,
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          90000.0,
+          1.0
+        ],
+        "chargement_ms": 0
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": null,
+        "position": 1,
+        "active": 2,
+        "est_ms": 0
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [],
+        "chargement_ms": 42000
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "qwen",
+        "position": 3,
+        "active": 2,
+        "est_ms": 72000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "qwen",
+        "position": 3,
+        "active": 2,
+        "est_ms": 16680
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "qwen",
+        "excl_count": 2,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          90000.0,
+          1.0
+        ],
+        "chargement_ms": 0
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "qwen",
+        "position": 3,
+        "active": 2,
+        "est_ms": 108000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [],
+        "chargement_ms": 42000
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 2,
+        "active": 2,
+        "est_ms": 57000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 2,
+        "active": 2,
+        "est_ms": 15840
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 1,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          90000.0,
+          1.0
+        ],
+        "chargement_ms": 0
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 2,
+        "active": 2,
+        "est_ms": 54000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [],
+        "chargement_ms": 42000
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 87000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 17520
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "autre",
+        "excl_count": 3,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          90000.0,
+          1.0
+        ],
+        "chargement_ms": 0
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "autre",
+        "position": 4,
+        "active": 3,
+        "est_ms": 162000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [],
+        "chargement_ms": 42000
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "",
+        "position": 1,
+        "active": 2,
+        "est_ms": 42000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0,
+          700.0
+        ],
+        "chargement_ms": null
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "",
+        "position": 1,
+        "active": 2,
+        "est_ms": 15000
+      }
+    },
+    {
+      "entree": {
+        "model": "mod\u00e8le-\u00e9",
+        "excl_model": "",
+        "excl_count": 0,
+        "statuts": [
+          [
+            "mod\u00e8le-\u00e9",
+            "unloaded"
+          ]
+        ],
+        "charge_connu": null,
+        "actifs": 2,
+        "en_attente": 1,
+        "plein": true,
+        "durees": [
+          90000.0,
+          1.0
+        ],
+        "chargement_ms": 0
+      },
+      "sortie": {
+        "kind": "loading",
+        "model": "mod\u00e8le-\u00e9",
+        "loaded": "",
+        "position": 1,
+        "active": 2,
+        "est_ms": 0
+      }
+    }
+  ],
+  "modes": [
+    {
+      "valeur": "auto",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "auto",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "classic",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "classic",
+      "recommande": "optimized",
+      "mode": "classic"
+    },
+    {
+      "valeur": "optimized",
+      "recommande": "classic",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "optimized",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "CLASSIC",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "CLASSIC",
+      "recommande": "optimized",
+      "mode": "classic"
+    },
+    {
+      "valeur": "Optimized",
+      "recommande": "classic",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "Optimized",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": " classic",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": " classic",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "classic ",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "classic ",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": null,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": null,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": 0,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": 0,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": 1,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": 1,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": true,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": true,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": false,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": false,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "OPTIMISED",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "OPTIMISED",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "optimis\u00e9",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "optimis\u00e9",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "class\u0130c",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "class\u0130c",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "\uff43\uff4c\uff41\uff53\uff53\uff49\uff43",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "\uff43\uff4c\uff41\uff53\uff53\uff49\uff43",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": [
+        "classic"
+      ],
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": [
+        "classic"
+      ],
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": {
+        "mode": "classic"
+      },
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": {
+        "mode": "classic"
+      },
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": 1.5,
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": 1.5,
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "OPTIMIZED",
+      "recommande": "classic",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "OPTIMIZED",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "Classic",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "Classic",
+      "recommande": "optimized",
+      "mode": "classic"
+    },
+    {
+      "valeur": "auto ",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "auto ",
+      "recommande": "optimized",
+      "mode": "optimized"
+    },
+    {
+      "valeur": "\u212aclassic",
+      "recommande": "classic",
+      "mode": "classic"
+    },
+    {
+      "valeur": "\u212aclassic",
+      "recommande": "optimized",
+      "mode": "optimized"
+    }
+  ]
+}

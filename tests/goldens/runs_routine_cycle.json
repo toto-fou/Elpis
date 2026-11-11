@@ -1,0 +1,1061 @@
+{
+  "entrees": {
+    "harnais": "runs",
+    "operations": [
+      {
+        "a": 0,
+        "admettre": {
+          "boot": "w1",
+          "declencheur": "schedule",
+          "plafond": 2,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 1,
+        "admettre": {
+          "boot": "w1",
+          "declencheur": "manual",
+          "plafond": 2,
+          "routine": "r2"
+        }
+      },
+      {
+        "a": 2,
+        "admettre": {
+          "boot": "w1",
+          "declencheur": "webhook",
+          "plafond": 2,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 2,
+        "ignorer": {
+          "declencheur": "webhook",
+          "raison": "plafond de runs simultanés atteint",
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 3,
+        "admettre": {
+          "boot": "w2",
+          "declencheur": "schedule",
+          "plafond": 2,
+          "routine": "r3"
+        }
+      },
+      {
+        "a": 10,
+        "battement": {
+          "run": 1
+        }
+      },
+      {
+        "a": 20,
+        "terminer": {
+          "duree_ms": 20000,
+          "fichiers": [
+            "a.txt",
+            "/work/b.md"
+          ],
+          "jetons_entree": 100,
+          "jetons_sortie": 20,
+          "plafond_outils": true,
+          "resume": "fait",
+          "run": 1,
+          "statut": "ok"
+        }
+      },
+      {
+        "a": 21,
+        "terminer": {
+          "erreur": "trop tard",
+          "run": 1,
+          "statut": "error"
+        }
+      },
+      {
+        "a": 30,
+        "admettre": {
+          "boot": "w1",
+          "declencheur": "schedule",
+          "plafond": 2,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 40,
+        "terminer": {
+          "duree_ms": 10000,
+          "run": 5,
+          "statut": "cancelled"
+        }
+      },
+      {
+        "a": 41,
+        "terminer": {
+          "raison": "routine désactivée",
+          "run": 2,
+          "statut": "skipped"
+        }
+      },
+      {
+        "a": 42,
+        "terminer": {
+          "duree_ms": 39000,
+          "erreur": "moteur injoignable",
+          "fichiers": [
+            "c.txt"
+          ],
+          "jetons_entree": 10,
+          "jetons_sortie": 2,
+          "resume": "début",
+          "run": 4,
+          "statut": "error"
+        }
+      },
+      {
+        "a": 43,
+        "ignorer": {
+          "declencheur": "manual",
+          "raison": "routine désactivée",
+          "routine": "r1"
+        }
+      }
+    ],
+    "routines": [
+      {
+        "cle": "r1",
+        "compte": 1,
+        "runs_keep": 2
+      },
+      {
+        "cle": "r2",
+        "compte": 1
+      },
+      {
+        "cle": "r3",
+        "compte": 2
+      }
+    ],
+    "table": "routine"
+  },
+  "etapes": [
+    {
+      "a": 0,
+      "op": "admettre",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 1,
+      "op": "admettre",
+      "rendu": 2,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 2,
+      "op": "admettre",
+      "rendu": null,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 2,
+      "op": "ignorer",
+      "rendu": 3,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        }
+      ]
+    },
+    {
+      "a": 3,
+      "op": "admettre",
+      "rendu": 4,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 10,
+      "op": "battement",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 10,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 20,
+      "op": "terminer",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": 20000,
+          "ended_at": 20,
+          "error": null,
+          "files": [
+            "a.txt",
+            "/work/b.md"
+          ],
+          "heartbeat_at": 10,
+          "id": 1,
+          "input_tokens": 100,
+          "output_tokens": 20,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "ok",
+          "summary": "fait",
+          "tool_limit_reached": 1,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 21,
+      "op": "terminer",
+      "rendu": false,
+      "table": [
+        {
+          "duration_ms": 20000,
+          "ended_at": 20,
+          "error": null,
+          "files": [
+            "a.txt",
+            "/work/b.md"
+          ],
+          "heartbeat_at": 10,
+          "id": 1,
+          "input_tokens": 100,
+          "output_tokens": 20,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "ok",
+          "summary": "fait",
+          "tool_limit_reached": 1,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 30,
+      "op": "admettre",
+      "rendu": 5,
+      "table": [
+        {
+          "duration_ms": 20000,
+          "ended_at": 20,
+          "error": null,
+          "files": [
+            "a.txt",
+            "/work/b.md"
+          ],
+          "heartbeat_at": 10,
+          "id": 1,
+          "input_tokens": 100,
+          "output_tokens": 20,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "ok",
+          "summary": "fait",
+          "tool_limit_reached": 1,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 30,
+          "id": 5,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 30,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 40,
+      "op": "terminer",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        },
+        {
+          "duration_ms": 10000,
+          "ended_at": 40,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 30,
+          "id": 5,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 30,
+          "status": "cancelled",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 41,
+      "op": "terminer",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": 0,
+          "ended_at": 41,
+          "error": "routine désactivée",
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        },
+        {
+          "duration_ms": 10000,
+          "ended_at": 40,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 30,
+          "id": 5,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 30,
+          "status": "cancelled",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 42,
+      "op": "terminer",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": 0,
+          "ended_at": 41,
+          "error": "routine désactivée",
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 2,
+          "error": "plafond de runs simultanés atteint",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 3,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 2,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": null
+        },
+        {
+          "duration_ms": 39000,
+          "ended_at": 42,
+          "error": "moteur injoignable",
+          "files": [
+            "c.txt"
+          ],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": 10,
+          "output_tokens": 2,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "error",
+          "summary": "début",
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        },
+        {
+          "duration_ms": 10000,
+          "ended_at": 40,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 30,
+          "id": 5,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 30,
+          "status": "cancelled",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 43,
+      "op": "ignorer",
+      "rendu": 6,
+      "table": [
+        {
+          "duration_ms": 0,
+          "ended_at": 41,
+          "error": "routine désactivée",
+          "files": [],
+          "heartbeat_at": 1,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r2",
+          "started_at": 1,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 39000,
+          "ended_at": 42,
+          "error": "moteur injoignable",
+          "files": [
+            "c.txt"
+          ],
+          "heartbeat_at": 3,
+          "id": 4,
+          "input_tokens": 10,
+          "output_tokens": 2,
+          "owner_user_id": 2,
+          "routine_id": "r3",
+          "started_at": 3,
+          "status": "error",
+          "summary": "début",
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w2"
+        },
+        {
+          "duration_ms": 10000,
+          "ended_at": 40,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 30,
+          "id": 5,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 30,
+          "status": "cancelled",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": 0,
+          "ended_at": 43,
+          "error": "routine désactivée",
+          "files": [],
+          "heartbeat_at": null,
+          "id": 6,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 43,
+          "status": "skipped",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "manual",
+          "worker_boot_id": null
+        }
+      ]
+    }
+  ]
+}

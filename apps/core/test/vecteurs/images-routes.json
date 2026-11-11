@@ -1,0 +1,3542 @@
+{
+  "source": "migration-kit/vecteurs/core_images.py",
+  "noms_cas": [
+    [
+      "Caf\u00e9 \u00e0 l'aube !",
+      7,
+      "image/jpeg",
+      ""
+    ],
+    [
+      "",
+      null,
+      "image/webp",
+      "abcdef0123456789"
+    ],
+    [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      1,
+      "image/png",
+      ""
+    ],
+    [
+      "___",
+      null,
+      "image/png",
+      "0123"
+    ],
+    [
+      "--a__b--",
+      true,
+      "x/y",
+      "id"
+    ],
+    [
+      "Un phare \ud83c\udf0a sous/l'orage",
+      123456789012345678901,
+      "image/png",
+      ""
+    ],
+    [
+      "e\u0301t\u00e9",
+      3.0,
+      "image/jpeg",
+      "ffffffffffffffffffffff"
+    ],
+    [
+      "\u0661\u0662\u0663 \u00b2 \u2155 \u3007",
+      -1,
+      "image/png",
+      ""
+    ],
+    [
+      "\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8\u3001\u305d\u3057\u3066\u53e5\u8aad\u70b9\u3002",
+      0,
+      "image/png",
+      ""
+    ],
+    [
+      "\ud835\udc9c\ud835\udc9e\ud83d\ude00\ud835\udca2",
+      null,
+      "image/png",
+      ""
+    ],
+    [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u00e9b",
+      false,
+      "image/webp",
+      ""
+    ],
+    [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbb",
+      null,
+      "image/png",
+      "z"
+    ],
+    [
+      "  \t\n ",
+      null,
+      "image/png",
+      ""
+    ],
+    [
+      "\u01c4emal \u01c5 \u01c6 \u1fbc",
+      "7",
+      "image/png",
+      "12345678"
+    ],
+    [
+      "\u0e01\u0e34\u0e19",
+      null,
+      "image/png",
+      "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    ],
+    [
+      "x\u200by\u00adz",
+      5,
+      "image/png",
+      ""
+    ],
+    [
+      "\ud81b\udfe4\ud839\udcd0\ud83e\udff0",
+      null,
+      "image/png",
+      ""
+    ],
+    [
+      "%41 \"quote\" ;",
+      null,
+      "image/png",
+      ""
+    ]
+  ],
+  "dispositions_cas": [
+    [
+      "image-1.png",
+      "inline"
+    ],
+    [
+      "Caf\u00e9-7.jpg",
+      "inline"
+    ],
+    [
+      "a b.png",
+      "attachment"
+    ],
+    [
+      "a\"b.png",
+      "inline"
+    ],
+    [
+      "a/b~c_d.e-f",
+      "inline"
+    ],
+    [
+      "\ud83d\ude00.png",
+      "attachment"
+    ],
+    [
+      "",
+      "inline"
+    ]
+  ],
+  "plages_cas": [
+    [
+      "bytes=0-3",
+      10
+    ],
+    [
+      "bytes=-4",
+      10
+    ],
+    [
+      "bytes=2-",
+      10
+    ],
+    [
+      "bytes=0-1,4-5",
+      10
+    ],
+    [
+      "bytes=0-1,1-3",
+      10
+    ],
+    [
+      "bytes=4-5,0-1,5-9",
+      10
+    ],
+    [
+      "bytes=100-200",
+      10
+    ],
+    [
+      "bytes=abc",
+      10
+    ],
+    [
+      "items=0-1",
+      10
+    ],
+    [
+      "bytes",
+      10
+    ],
+    [
+      "bytes=5-2",
+      10
+    ],
+    [
+      "bytes=0-0",
+      10
+    ],
+    [
+      "bytes= 0 - 3 ,",
+      10
+    ],
+    [
+      " BYTES =0-3",
+      10
+    ],
+    [
+      "bytes=-0",
+      10
+    ],
+    [
+      "bytes=-20",
+      10
+    ],
+    [
+      "bytes=0-99",
+      10
+    ],
+    [
+      "bytes=9-",
+      10
+    ],
+    [
+      "bytes=10-",
+      10
+    ],
+    [
+      "bytes=-",
+      10
+    ],
+    [
+      "bytes=,,",
+      10
+    ],
+    [
+      "bytes=1_0-2",
+      100
+    ],
+    [
+      "bytes=+1-2",
+      10
+    ],
+    [
+      "bytes=\u0661-\u0663",
+      10
+    ],
+    [
+      "bytes=0x1-2",
+      10
+    ],
+    [
+      "bytes=--5",
+      10
+    ],
+    [
+      "bytes=1-2-3",
+      10
+    ],
+    [
+      "bytes=0-3,a-b,6-7",
+      10
+    ],
+    [
+      "bytes=0-1, 3-4, 2-2",
+      10
+    ],
+    [
+      "bytes=99999999999999999999-",
+      10
+    ],
+    [
+      "bytes=0-99999999999999999999",
+      10
+    ],
+    [
+      "bytes=\u00a00-1\u00a0",
+      10
+    ],
+    [
+      "bytes=0-1;x",
+      10
+    ],
+    [
+      "bytes=0-",
+      0
+    ],
+    [
+      "bytes==0-1",
+      10
+    ]
+  ],
+  "noms": [
+    "Caf\u00e9-\u00e0-l-aube-7.jpg",
+    "image-abcdef01.webp",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-1.png",
+    "image-0123.png",
+    "a-b-True.png",
+    "Un-phare-sous-l-orage-123456789012345678901.png",
+    "e-t\u00e9-ffffffff.jpg",
+    "\u0661\u0662\u0663-\u00b2-\u2155-\u3007--1.png",
+    "\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8-\u305d\u3057\u3066\u53e5\u8aad\u70b9-0.png",
+    "\ud835\udc9c\ud835\udc9e-\ud835\udca2.png",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u00e9-False.webp",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-z.png",
+    "image.png",
+    "\u01c4emal-\u01c5-\u01c6-\u1fbc-12345678.png",
+    "\u0e01-\u0e19-\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9.png",
+    "x-y-z-5.png",
+    "\ud839\udcd0\ud83e\udff0.png",
+    "41-quote.png"
+  ],
+  "dispositions": [
+    "inline; filename=\"image-1.png\"",
+    "inline; filename*=utf-8''Caf%C3%A9-7.jpg",
+    "attachment; filename*=utf-8''a%20b.png",
+    "inline; filename*=utf-8''a%22b.png",
+    "inline; filename=\"a/b~c_d.e-f\"",
+    "attachment; filename*=utf-8''%F0%9F%98%80.png",
+    "inline; filename=\"\""
+  ],
+  "plages": [
+    {
+      "resultat": [
+        [
+          0,
+          4
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          6,
+          10
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          2,
+          10
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          6
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          4
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          10
+        ]
+      ]
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Only support bytes range",
+      "taille": null
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Malformed range header.",
+      "taille": null
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: start must be less than end",
+      "taille": null
+    },
+    {
+      "resultat": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          4
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          4
+        ]
+      ]
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "resultat": [
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          9,
+          10
+        ]
+      ]
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: start must be less than end",
+      "taille": null
+    },
+    {
+      "resultat": [
+        [
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          1,
+          4
+        ]
+      ]
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "resultat": [
+        [
+          0,
+          4
+        ],
+        [
+          6,
+          8
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          5
+        ]
+      ]
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 10
+    },
+    {
+      "resultat": [
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "resultat": [
+        [
+          0,
+          2
+        ]
+      ]
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    },
+    {
+      "erreur": "RangeNotSatisfiable",
+      "contenu": null,
+      "taille": 0
+    },
+    {
+      "erreur": "MalformedRangeHeader",
+      "contenu": "Range header: range must be requested",
+      "taille": null
+    }
+  ],
+  "stats": [
+    {
+      "ns": "0",
+      "taille": 0,
+      "mtime": "0.0",
+      "etag": "\"a10a9b3bebddaf0fc961ceee55436513\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT",
+      "content_length": "0"
+    },
+    {
+      "ns": "1",
+      "taille": 1,
+      "mtime": "1e-09",
+      "etag": "\"6b0c74fa6a96187fa21420aec0eb590a\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT",
+      "content_length": "1"
+    },
+    {
+      "ns": "999",
+      "taille": 2,
+      "mtime": "9.99e-07",
+      "etag": "\"bdaf9dac203020843c5692f1ccf7b664\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT",
+      "content_length": "2"
+    },
+    {
+      "ns": "1700000000000000000",
+      "taille": 3,
+      "mtime": "1700000000.0",
+      "etag": "\"0da1cad39bfe4ae886f6a276fde519c5\"",
+      "last_modified": "Tue, 14 Nov 2023 22:13:20 GMT",
+      "content_length": "3"
+    },
+    {
+      "ns": "1750000000500000000",
+      "taille": 4,
+      "mtime": "1750000000.5",
+      "etag": "\"feafd308e1c0f7a1f5b34141d9f44a8c\"",
+      "last_modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+      "content_length": "4"
+    },
+    {
+      "ns": "1800000000123456789",
+      "taille": 5,
+      "mtime": "1800000000.1234567",
+      "etag": "\"54f4e45d19ea63a4498bb3e83023927b\"",
+      "last_modified": "Fri, 15 Jan 2027 08:00:00 GMT",
+      "content_length": "5"
+    },
+    {
+      "ns": "1799999999999999500",
+      "taille": 6,
+      "mtime": "1799999999.9999995",
+      "etag": "\"69e3d92ca6aa85fc3b4fc61cf94bf3b6\"",
+      "last_modified": "Fri, 15 Jan 2027 08:00:00 GMT",
+      "content_length": "6"
+    },
+    {
+      "ns": "1799999999999999499",
+      "taille": 7,
+      "mtime": "1799999999.9999995",
+      "etag": "\"ba11d870848e977a6e41fd6068cdebb1\"",
+      "last_modified": "Fri, 15 Jan 2027 08:00:00 GMT",
+      "content_length": "7"
+    },
+    {
+      "ns": "1234567890000000001",
+      "taille": 8,
+      "mtime": "1234567890.0",
+      "etag": "\"be0a32f14686b9d53f0c9f96684b372b\"",
+      "last_modified": "Fri, 13 Feb 2009 23:31:30 GMT",
+      "content_length": "8"
+    },
+    {
+      "ns": "-1500000000250000000",
+      "taille": 9,
+      "mtime": "-1500000000.25",
+      "etag": "\"70aed520f6cca9d3d1c3597c633e9882\"",
+      "last_modified": "Tue, 20 Jun 1922 21:19:59 GMT",
+      "content_length": "9"
+    },
+    {
+      "ns": "-1",
+      "taille": 10,
+      "mtime": "-9.999999717180685e-10",
+      "etag": "\"fde5617964d2907267f29c7761663ace\"",
+      "last_modified": "Thu, 01 Jan 1970 00:00:00 GMT",
+      "content_length": "10"
+    },
+    {
+      "ns": "4102444800000000000",
+      "taille": 11,
+      "mtime": "4102444800.0",
+      "etag": "\"27953e5e4e027e449978d380bb052bd1\"",
+      "last_modified": "Fri, 01 Jan 2100 00:00:00 GMT",
+      "content_length": "11"
+    },
+    {
+      "ns": "1000000000000000000",
+      "taille": 12,
+      "mtime": "1000000000.0",
+      "etag": "\"3c539da548279f3c71eccf88c08a7af5\"",
+      "last_modified": "Sun, 09 Sep 2001 01:46:40 GMT",
+      "content_length": "12"
+    }
+  ],
+  "cle_fernet": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+  "moteurs": {
+    "{sd}": "http://sd.test:8083",
+    "{oa}": "http://oa.test:8000",
+    "{panne}": "http://panne.test:9"
+  },
+  "comptes": [
+    [
+      "admin",
+      1
+    ],
+    [
+      "alice",
+      0
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "modo",
+      2
+    ],
+    [
+      "carol",
+      0
+    ]
+  ],
+  "reglages": {
+    "alice": "{\"image_prefs\": {\"ratio\": \"16:9\", \"side\": 4096, \"n\": 9, \"enhance\": true}, \"image_tool_enabled\": false}",
+    "carol": "{corrompu",
+    "modo": "{\"image_enabled\": false}"
+  },
+  "images": [
+    [
+      "00000000000000000000000000000001",
+      "alice",
+      "Caf\u00e9 \u00e0 l'aube !",
+      "{\"seed\": 7}",
+      "image/jpeg",
+      "2/i1.jpg",
+      "2/i1.thumb.webp",
+      1800000000.0
+    ],
+    [
+      "00000000000000000000000000000002",
+      "alice",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "{\"seed\": 1, \"revised_prompt\": \"r\u00e9vis\u00e9\"}",
+      "image/png",
+      "2/i2.png",
+      "",
+      1800000010.0
+    ],
+    [
+      "00000000000000000000000000000003",
+      "alice",
+      "",
+      "{}",
+      "image/webp",
+      "2/i3.webp",
+      "",
+      1800000020.0
+    ],
+    [
+      "00000000000000000000000000000004",
+      "alice",
+      "Un phare \ud83c\udf0a sous/l'orage",
+      "pas du json",
+      "image/png",
+      "2/i4.png",
+      "",
+      1800000030.5
+    ],
+    [
+      "00000000000000000000000000000005",
+      "alice",
+      "Graine vraie",
+      "{\"seed\": true}",
+      "image/png",
+      "2/i5.png",
+      "2/absente.webp",
+      1800000040.0
+    ],
+    [
+      "00000000000000000000000000000006",
+      "alice",
+      "Grande",
+      "{\"seed\": 123456789012345678901}",
+      "image/png",
+      "2/i6.png",
+      "",
+      1800000050.0
+    ],
+    [
+      "00000000000000000000000000000007",
+      "carol",
+      "Liste",
+      "[]",
+      "image/png",
+      "6/i7.png",
+      "",
+      1800000060.0
+    ],
+    [
+      "00000000000000000000000000000008",
+      "bob",
+      "De bob",
+      "{\"seed\": 3}",
+      "image/png",
+      "3/b1.png",
+      "",
+      1800000070.0
+    ],
+    [
+      "00000000000000000000000000000009",
+      "alice",
+      "Fichier perdu",
+      "{}",
+      "image/png",
+      "2/perdu.png",
+      "",
+      1800000005.0
+    ]
+  ],
+  "fichiers": [
+    [
+      "2/i1.jpg",
+      "0123456789",
+      1750000000.5
+    ],
+    [
+      "2/i1.thumb.webp",
+      "VIGNETTE",
+      1700000000
+    ],
+    [
+      "2/i2.png",
+      "deux",
+      1700000000
+    ],
+    [
+      "2/i3.webp",
+      "trois",
+      1700000000
+    ],
+    [
+      "2/i4.png",
+      "quatre",
+      1700000000
+    ],
+    [
+      "2/i5.png",
+      "cinq",
+      1700000000
+    ],
+    [
+      "2/i6.png",
+      "six",
+      1700000000
+    ],
+    [
+      "6/i7.png",
+      "sept",
+      1700000000
+    ],
+    [
+      "3/b1.png",
+      "bob",
+      1700000000
+    ]
+  ],
+  "etapes": [
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{sd}",
+        "max_n": 4
+      }
+    ],
+    [
+      "moteur",
+      {
+        "modele": "qwen_image_2.1-Q4_K.gguf",
+        "mode": "img_gen"
+      }
+    ],
+    [
+      null,
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "carol",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "moteur",
+      {
+        "modele": "autre-modele.gguf",
+        "mode": "img_gen"
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "oublier"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{sd}",
+        "model": "reste-openai",
+        "groups": [
+          100
+        ],
+        "max_side": 1000
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{panne}"
+      }
+    ],
+    [
+      "oublier"
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": false,
+        "url": "{sd}"
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{oa}",
+        "model": "dall-e-3",
+        "size_policy": "fixed"
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{sd}",
+        "keep_per_user": 7
+      }
+    ],
+    [
+      null,
+      "GET",
+      "/api/images",
+      {}
+    ],
+    [
+      null,
+      "GET",
+      "/api/images?limit=abc",
+      {},
+      401
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=2",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=2&before=1800000040.0",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=2&before=1800000030.5",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=1800000005",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=nan",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=inf",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=-Infinity",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?before=1e3&limit=x",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=0",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=1000",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=2.0",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=99999999999999999999",
+      {},
+      400
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?chat_id=",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?chat_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?chat_id=\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?chat_id=c1",
+      {}
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/images",
+      {}
+    ],
+    [
+      null,
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001?thumb=1",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001?thumb=0",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001?thumb=abc",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001?thumb=2&thumb=0",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000002",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000003",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000004",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000005?thumb=1",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000006",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000007",
+      {}
+    ],
+    [
+      "carol",
+      "GET",
+      "/api/images/00000000000000000000000000000007",
+      {}
+    ],
+    [
+      "carol",
+      "GET",
+      "/api/images",
+      {}
+    ],
+    [
+      "carol",
+      "DELETE",
+      "/api/images/00000000000000000000000000000007",
+      {}
+    ],
+    [
+      "carol",
+      "GET",
+      "/api/images",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000009",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000008",
+      {}
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/images/00000000000000000000000000000008",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000000",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/abc",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/..%2F..%2Fetc",
+      {}
+    ],
+    [
+      "alice",
+      "HEAD",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "PUT",
+      "/api/images",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-3"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=-4"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=2-"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-1,4-5"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-1,1-3"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=100-200"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=abc"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "items=0-1"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=5-2"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-3",
+          "if-range": "\"autre\""
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-3",
+          "if-range": "{etag}"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {
+        "entetes": {
+          "range": "bytes=0-3",
+          "if-range": "{lm}"
+        }
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001?thumb=1",
+      {
+        "entetes": {
+          "range": "bytes=1-2"
+        }
+      }
+    ],
+    [
+      null,
+      "DELETE",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "bob",
+      "DELETE",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/images/abc",
+      {}
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images/00000000000000000000000000000001",
+      {}
+    ],
+    [
+      "alice",
+      "DELETE",
+      "/api/images/00000000000000000000000000000009",
+      {}
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/images?limit=3",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{sd}",
+        "max_n": 4
+      }
+    ],
+    [
+      "moteur",
+      {
+        "modele": "qwen",
+        "mode": "img_gen"
+      }
+    ],
+    [
+      null,
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "alice",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "modo",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "x"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "url": ""
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "url": "{panne}"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "url": "{sd}/",
+          "model": " x "
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "corps": "pas du json"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "corps": "[1, 2]"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "corps": ""
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "provider": "inconnu",
+          "verify": "False",
+          "model": 12,
+          "timeout_sec": 900
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "ca_pem": "pas un pem"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "ca_pem": "pas un pem",
+          "verify": 0
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "provider": null,
+          "url": null,
+          "model": null,
+          "verify": null
+        }
+      }
+    ],
+    [
+      "moteur",
+      {
+        "modele": "wan",
+        "mode": "vid_gen"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "moteur",
+      {
+        "modele": "qwen",
+        "mode": "img_gen"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {
+          "url": ""
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {
+          "url": "{panne}"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "provider": " OPENAI ",
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "provider": "openai",
+          "url": "{oa}/v1",
+          "model": "absent"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "provider": "openai",
+          "url": "{oa}",
+          "model": "m1",
+          "api_key": " sk-saisie "
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {
+          "provider": "openai",
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "config",
+      {
+        "enabled": false,
+        "url": "{sd}"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{oa}",
+        "model": "m1"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": " sk-secret "
+        }
+      }
+    ],
+    [
+      "disque"
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "url": "{oa}/"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "alice",
+      "GET",
+      "/api/image/status",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{oa}/v1",
+        "model": "m1"
+      },
+      true
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{sd}",
+        "model": "m1"
+      },
+      true
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/test",
+      {
+        "json": {
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/image/models",
+      {
+        "json": {
+          "url": "{oa}",
+          "api_key": "sk-saisie"
+        }
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "sk-2",
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "disque"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+        }
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "sk",
+          "url": "ftp://h"
+        }
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "  ",
+          "url": "ftp://h"
+        }
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": 12345,
+          "url": "{oa}"
+        }
+      }
+    ],
+    [
+      "disque"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "corps": "pas du json"
+      }
+    ],
+    [
+      "disque"
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": ""
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/key",
+      {
+        "json": {
+          "api_key": "sk"
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "config",
+      {
+        "enabled": true,
+        "url": "{sd}",
+        "api_key_enc": "pas un jeton"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/image/key",
+      {}
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/image/test",
+      {
+        "json": {}
+      }
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/image/key",
+      {}
+    ]
+  ],
+  "entetes": [
+    "content-type",
+    "content-length",
+    "content-disposition",
+    "cache-control",
+    "x-content-type-options",
+    "accept-ranges",
+    "etag",
+    "last-modified",
+    "content-range",
+    "allow"
+  ],
+  "ids": {
+    "admin": 1,
+    "alice": 2,
+    "bob": 3,
+    "modo": 4,
+    "carol": 5
+  },
+  "reponses": [
+    null,
+    null,
+    {
+      "statut": 401,
+      "corps": "eyJkZXRhaWwiOiJub3QgbG9nZ2VkIGluIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "26"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6InNkY3BwIiwibW9kZWwiOiJxd2VuX2ltYWdlXzIuMS1RNF9LLmdndWYiLCJyYXRpb3MiOlsiMToxIiwiNDozIiwiMzo0IiwiMzoyIiwiMjozIiwiMTY6OSIsIjk6MTYiLCIyMTo5IiwiOToyMSJdLCJzaWRlcyI6WzUxMiw3NjgsMTAyNCwxMjgwLDE1MzYsMjA0OF0sImRlZmF1bHRfc2lkZSI6MTAyNCwibWF4X3NpZGUiOjIwNDgsInN0ZXAiOjY0LCJtYXhfbiI6NCwic2l6ZV9wb2xpY3kiOiJmcmVlIiwic2l6ZXMiOltdLCJmZWF0dXJlcyI6eyJzZWVkIjp0cnVlLCJuZWdhdGl2ZSI6dHJ1ZSwic3RlcHMiOnRydWUsInN0cmVuZ3RoIjp0cnVlLCJlZGl0Ijp0cnVlfSwiZW5oYW5jZV9lbmFibGVkIjp0cnVlLCJrZWVwX3Blcl91c2VyIjo1MCwicHJlZnMiOnsicmF0aW8iOiIxNjo5Iiwic2lkZSI6MjA0OCwibiI6NCwiZW5oYW5jZSI6dHJ1ZX0sInN0b3JlZCI6N30=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "494"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOnRydWUsInByb3ZpZGVyIjoic2RjcHAiLCJtb2RlbCI6InF3ZW5faW1hZ2VfMi4xLVE0X0suZ2d1ZiIsInJhdGlvcyI6WyIxOjEiLCI0OjMiLCIzOjQiLCIzOjIiLCIyOjMiLCIxNjo5IiwiOToxNiIsIjIxOjkiLCI5OjIxIl0sInNpZGVzIjpbNTEyLDc2OCwxMDI0LDEyODAsMTUzNiwyMDQ4XSwiZGVmYXVsdF9zaWRlIjoxMDI0LCJtYXhfc2lkZSI6MjA0OCwic3RlcCI6NjQsIm1heF9uIjo0LCJzaXplX3BvbGljeSI6ImZyZWUiLCJzaXplcyI6W10sImZlYXR1cmVzIjp7InNlZWQiOnRydWUsIm5lZ2F0aXZlIjp0cnVlLCJzdGVwcyI6dHJ1ZSwic3RyZW5ndGgiOnRydWUsImVkaXQiOnRydWV9LCJlbmhhbmNlX2VuYWJsZWQiOnRydWUsImtlZXBfcGVyX3VzZXIiOjUwLCJwcmVmcyI6eyJyYXRpbyI6IjE6MSIsInNpZGUiOjEwMjQsIm4iOjEsImVuaGFuY2UiOmZhbHNlfSwic3RvcmVkIjoxfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "493"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOnRydWUsInByb3ZpZGVyIjoic2RjcHAiLCJtb2RlbCI6InF3ZW5faW1hZ2VfMi4xLVE0X0suZ2d1ZiIsInJhdGlvcyI6WyIxOjEiLCI0OjMiLCIzOjQiLCIzOjIiLCIyOjMiLCIxNjo5IiwiOToxNiIsIjIxOjkiLCI5OjIxIl0sInNpZGVzIjpbNTEyLDc2OCwxMDI0LDEyODAsMTUzNiwyMDQ4XSwiZGVmYXVsdF9zaWRlIjoxMDI0LCJtYXhfc2lkZSI6MjA0OCwic3RlcCI6NjQsIm1heF9uIjo0LCJzaXplX3BvbGljeSI6ImZyZWUiLCJzaXplcyI6W10sImZlYXR1cmVzIjp7InNlZWQiOnRydWUsIm5lZ2F0aXZlIjp0cnVlLCJzdGVwcyI6dHJ1ZSwic3RyZW5ndGgiOnRydWUsImVkaXQiOnRydWV9LCJlbmhhbmNlX2VuYWJsZWQiOnRydWUsImtlZXBfcGVyX3VzZXIiOjUwLCJwcmVmcyI6eyJyYXRpbyI6IjE6MSIsInNpZGUiOjEwMjQsIm4iOjEsImVuaGFuY2UiOmZhbHNlfSwic3RvcmVkIjoxfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "493"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjpmYWxzZSwidG9vbF9lbmFibGVkIjpmYWxzZSwicHJvdmlkZXIiOiJzZGNwcCIsIm1vZGVsIjoicXdlbl9pbWFnZV8yLjEtUTRfSy5nZ3VmIiwicmF0aW9zIjpbIjE6MSIsIjQ6MyIsIjM6NCIsIjM6MiIsIjI6MyIsIjE2OjkiLCI5OjE2IiwiMjE6OSIsIjk6MjEiXSwic2lkZXMiOls1MTIsNzY4LDEwMjQsMTI4MCwxNTM2LDIwNDhdLCJkZWZhdWx0X3NpZGUiOjEwMjQsIm1heF9zaWRlIjoyMDQ4LCJzdGVwIjo2NCwibWF4X24iOjQsInNpemVfcG9saWN5IjoiZnJlZSIsInNpemVzIjpbXSwiZmVhdHVyZXMiOnsic2VlZCI6dHJ1ZSwibmVnYXRpdmUiOnRydWUsInN0ZXBzIjp0cnVlLCJzdHJlbmd0aCI6dHJ1ZSwiZWRpdCI6dHJ1ZX0sImVuaGFuY2VfZW5hYmxlZCI6dHJ1ZSwia2VlcF9wZXJfdXNlciI6NTAsInByZWZzIjp7InJhdGlvIjoiMToxIiwic2lkZSI6MTAyNCwibiI6MSwiZW5oYW5jZSI6ZmFsc2V9LCJzdG9yZWQiOjB9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "495"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6InNkY3BwIiwibW9kZWwiOiJxd2VuX2ltYWdlXzIuMS1RNF9LLmdndWYiLCJyYXRpb3MiOlsiMToxIiwiNDozIiwiMzo0IiwiMzoyIiwiMjozIiwiMTY6OSIsIjk6MTYiLCIyMTo5IiwiOToyMSJdLCJzaWRlcyI6WzUxMiw3NjgsMTAyNCwxMjgwLDE1MzYsMjA0OF0sImRlZmF1bHRfc2lkZSI6MTAyNCwibWF4X3NpZGUiOjIwNDgsInN0ZXAiOjY0LCJtYXhfbiI6NCwic2l6ZV9wb2xpY3kiOiJmcmVlIiwic2l6ZXMiOltdLCJmZWF0dXJlcyI6eyJzZWVkIjp0cnVlLCJuZWdhdGl2ZSI6dHJ1ZSwic3RlcHMiOnRydWUsInN0cmVuZ3RoIjp0cnVlLCJlZGl0Ijp0cnVlfSwiZW5oYW5jZV9lbmFibGVkIjp0cnVlLCJrZWVwX3Blcl91c2VyIjo1MCwicHJlZnMiOnsicmF0aW8iOiIxNjo5Iiwic2lkZSI6MjA0OCwibiI6NCwiZW5oYW5jZSI6dHJ1ZX0sInN0b3JlZCI6N30=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "494"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6InNkY3BwIiwibW9kZWwiOiJhdXRyZS1tb2RlbGUuZ2d1ZiIsInJhdGlvcyI6WyIxOjEiLCI0OjMiLCIzOjQiLCIzOjIiLCIyOjMiLCIxNjo5IiwiOToxNiIsIjIxOjkiLCI5OjIxIl0sInNpZGVzIjpbNTEyLDc2OCwxMDI0LDEyODAsMTUzNiwyMDQ4XSwiZGVmYXVsdF9zaWRlIjoxMDI0LCJtYXhfc2lkZSI6MjA0OCwic3RlcCI6NjQsIm1heF9uIjo0LCJzaXplX3BvbGljeSI6ImZyZWUiLCJzaXplcyI6W10sImZlYXR1cmVzIjp7InNlZWQiOnRydWUsIm5lZ2F0aXZlIjp0cnVlLCJzdGVwcyI6dHJ1ZSwic3RyZW5ndGgiOnRydWUsImVkaXQiOnRydWV9LCJlbmhhbmNlX2VuYWJsZWQiOnRydWUsImtlZXBfcGVyX3VzZXIiOjUwLCJwcmVmcyI6eyJyYXRpbyI6IjE2OjkiLCJzaWRlIjoyMDQ4LCJuIjo0LCJlbmhhbmNlIjp0cnVlfSwic3RvcmVkIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "487"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6ZmFsc2UsImF2YWlsYWJsZSI6ZmFsc2V9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "33"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6ZmFsc2UsImF2YWlsYWJsZSI6ZmFsc2V9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "33"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOnRydWUsInByb3ZpZGVyIjoic2RjcHAiLCJtb2RlbCI6ImF1dHJlLW1vZGVsZS5nZ3VmIiwicmF0aW9zIjpbIjE6MSIsIjQ6MyIsIjM6NCIsIjM6MiIsIjI6MyIsIjE2OjkiLCI5OjE2IiwiMjE6OSIsIjk6MjEiXSwic2lkZXMiOls1MTIsNzY4XSwiZGVmYXVsdF9zaWRlIjoxMDAwLCJtYXhfc2lkZSI6MTAwMCwic3RlcCI6NjQsIm1heF9uIjo0LCJzaXplX3BvbGljeSI6ImZyZWUiLCJzaXplcyI6W10sImZlYXR1cmVzIjp7InNlZWQiOnRydWUsIm5lZ2F0aXZlIjp0cnVlLCJzdGVwcyI6dHJ1ZSwic3RyZW5ndGgiOnRydWUsImVkaXQiOnRydWV9LCJlbmhhbmNlX2VuYWJsZWQiOnRydWUsImtlZXBfcGVyX3VzZXIiOjUwLCJwcmVmcyI6eyJyYXRpbyI6IjE6MSIsInNpZGUiOjc2OCwibiI6MSwiZW5oYW5jZSI6ZmFsc2V9LCJzdG9yZWQiOjB9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "465"
+      },
+      "moteur": []
+    },
+    null,
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6InNkY3BwIiwibW9kZWwiOiIiLCJyYXRpb3MiOlsiMToxIiwiNDozIiwiMzo0IiwiMzoyIiwiMjozIiwiMTY6OSIsIjk6MTYiLCIyMTo5IiwiOToyMSJdLCJzaWRlcyI6WzUxMiw3NjgsMTAyNCwxMjgwLDE1MzYsMjA0OF0sImRlZmF1bHRfc2lkZSI6MTAyNCwibWF4X3NpZGUiOjIwNDgsInN0ZXAiOjY0LCJtYXhfbiI6NCwic2l6ZV9wb2xpY3kiOiJmcmVlIiwic2l6ZXMiOltdLCJmZWF0dXJlcyI6eyJzZWVkIjp0cnVlLCJuZWdhdGl2ZSI6dHJ1ZSwic3RlcHMiOnRydWUsInN0cmVuZ3RoIjp0cnVlLCJlZGl0Ijp0cnVlfSwiZW5oYW5jZV9lbmFibGVkIjp0cnVlLCJrZWVwX3Blcl91c2VyIjo1MCwicHJlZnMiOnsicmF0aW8iOiIxNjo5Iiwic2lkZSI6MjA0OCwibiI6NCwiZW5oYW5jZSI6dHJ1ZX0sInN0b3JlZCI6N30=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "470"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6ZmFsc2UsImF2YWlsYWJsZSI6ZmFsc2V9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "33"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6Im9wZW5haSIsIm1vZGVsIjoiZGFsbC1lLTMiLCJyYXRpb3MiOlsiMToxIiwiNDozIiwiMzo0IiwiMzoyIiwiMjozIiwiMTY6OSIsIjk6MTYiLCIyMTo5IiwiOToyMSJdLCJzaWRlcyI6WzUxMiw3NjgsMTAyNCwxMjgwLDE1MzYsMjA0OF0sImRlZmF1bHRfc2lkZSI6MTAyNCwibWF4X3NpZGUiOjIwNDgsInN0ZXAiOjY0LCJtYXhfbiI6MSwic2l6ZV9wb2xpY3kiOiJmaXhlZCIsInNpemVzIjpbIjEwMjR4MTAyNCIsIjE1MzZ4MTAyNCIsIjEwMjR4MTUzNiJdLCJmZWF0dXJlcyI6eyJzZWVkIjpmYWxzZSwibmVnYXRpdmUiOmZhbHNlLCJzdGVwcyI6ZmFsc2UsInN0cmVuZ3RoIjpmYWxzZSwiZWRpdCI6dHJ1ZX0sImVuaGFuY2VfZW5hYmxlZCI6dHJ1ZSwia2VlcF9wZXJfdXNlciI6NTAsInByZWZzIjp7InJhdGlvIjoiMTY6OSIsInNpZGUiOjIwNDgsIm4iOjEsImVuaGFuY2UiOnRydWV9LCJzdG9yZWQiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "519"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 401,
+      "corps": "eyJkZXRhaWwiOiJub3QgbG9nZ2VkIGluIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "26"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 422,
+      "corps": "eyJkZXRhaWwiOlt7InR5cGUiOiJpbnRfcGFyc2luZyIsImxvYyI6WyJxdWVyeSIsImxpbWl0Il0sIm1zZyI6IklucHV0IHNob3VsZCBiZSBhIHZhbGlkIGludGVnZXIsIHVuYWJsZSB0byBwYXJzZSBzdHJpbmcgYXMgYW4gaW50ZWdlciIsImlucHV0IjoiYWJjIn1dfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "151"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9LHsiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA0IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDQ/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsImNoYXRfaWQiOm51bGwsInByb21wdCI6IlVuIHBoYXJlIPCfjIogc291cy9sJ29yYWdlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAzMC41fSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDMiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMyIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAzP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS93ZWJwIiwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAyMC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDIiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMiIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjoxLCJjaGF0X2lkIjoiYzEiLCJwcm9tcHQiOiJ4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHgiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDEwLjAsInJldmlzZWRfcHJvbXB0IjoicsOpdmlzw6kifSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDkiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA5P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJGaWNoaWVyIHBlcmR1IiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAwNS4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9qcGVnIiwic2VlZCI6NywiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiQ2Fmw6kgw6AgbCdhdWJlICEiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDAwLjB9XSwibmV4dF9iZWZvcmUiOm51bGwsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "2155"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9XSwibmV4dF9iZWZvcmUiOjE4MDAwMDAwNDAuMCwidG90YWwiOjcsImtlZXAiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "654"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA0IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDQ/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsImNoYXRfaWQiOm51bGwsInByb21wdCI6IlVuIHBoYXJlIPCfjIogc291cy9sJ29yYWdlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAzMC41fSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDMiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMyIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAzP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS93ZWJwIiwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAyMC4wfV0sIm5leHRfYmVmb3JlIjoxODAwMDAwMDIwLjAsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "622"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMyIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAzIiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDM/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3dlYnAiLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiIiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDIwLjB9LHsiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyIiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDI/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEsImNoYXRfaWQiOiJjMSIsInByb21wdCI6Inh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eCIsIm1vZGVsIjoibSIsImNyZWF0ZWRfYXQiOjE4MDAwMDAwMTAuMCwicmV2aXNlZF9wcm9tcHQiOiJyw6l2aXPDqSJ9XSwibmV4dF9iZWZvcmUiOjE4MDAwMDAwMTAuMCwidG90YWwiOjcsImtlZXAiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "693"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDE/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL2pwZWciLCJzZWVkIjo3LCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJDYWbDqSDDoCBsJ2F1YmUgISIsIm1vZGVsIjoibSIsImNyZWF0ZWRfYXQiOjE4MDAwMDAwMDAuMH1dLCJuZXh0X2JlZm9yZSI6bnVsbCwidG90YWwiOjcsImtlZXAiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "345"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDdXJzZXVyIGludmFsaWRlLiJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDdXJzZXVyIGludmFsaWRlLiJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDdXJzZXVyIGludmFsaWRlLiJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 422,
+      "corps": "eyJkZXRhaWwiOlt7InR5cGUiOiJmbG9hdF9wYXJzaW5nIiwibG9jIjpbInF1ZXJ5IiwiYmVmb3JlIl0sIm1zZyI6IklucHV0IHNob3VsZCBiZSBhIHZhbGlkIG51bWJlciwgdW5hYmxlIHRvIHBhcnNlIHN0cmluZyBhcyBhIG51bWJlciIsImlucHV0IjoiIn1dfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "148"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 422,
+      "corps": "eyJkZXRhaWwiOlt7InR5cGUiOiJpbnRfcGFyc2luZyIsImxvYyI6WyJxdWVyeSIsImxpbWl0Il0sIm1zZyI6IklucHV0IHNob3VsZCBiZSBhIHZhbGlkIGludGVnZXIsIHVuYWJsZSB0byBwYXJzZSBzdHJpbmcgYXMgYW4gaW50ZWdlciIsImlucHV0IjoieCJ9XX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "149"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfV0sIm5leHRfYmVmb3JlIjoxODAwMDAwMDUwLjAsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "361"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9LHsiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA0IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDQ/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsImNoYXRfaWQiOm51bGwsInByb21wdCI6IlVuIHBoYXJlIPCfjIogc291cy9sJ29yYWdlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAzMC41fSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDMiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMyIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAzP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS93ZWJwIiwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAyMC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDIiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMiIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjoxLCJjaGF0X2lkIjoiYzEiLCJwcm9tcHQiOiJ4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHgiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDEwLjAsInJldmlzZWRfcHJvbXB0IjoicsOpdmlzw6kifSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDkiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA5P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJGaWNoaWVyIHBlcmR1IiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAwNS4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9qcGVnIiwic2VlZCI6NywiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiQ2Fmw6kgw6AgbCdhdWJlICEiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDAwLjB9XSwibmV4dF9iZWZvcmUiOm51bGwsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "2155"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9XSwibmV4dF9iZWZvcmUiOjE4MDAwMDAwNDAuMCwidG90YWwiOjcsImtlZXAiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "654"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9LHsiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA0IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDQ/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsImNoYXRfaWQiOm51bGwsInByb21wdCI6IlVuIHBoYXJlIPCfjIogc291cy9sJ29yYWdlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAzMC41fSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDMiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMyIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAzP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS93ZWJwIiwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAyMC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDIiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMiIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjoxLCJjaGF0X2lkIjoiYzEiLCJwcm9tcHQiOiJ4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHgiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDEwLjAsInJldmlzZWRfcHJvbXB0IjoicsOpdmlzw6kifSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDkiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA5P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJGaWNoaWVyIHBlcmR1IiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAwNS4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxP3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9qcGVnIiwic2VlZCI6NywiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiQ2Fmw6kgw6AgbCdhdWJlICEiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDAwLjB9XSwibmV4dF9iZWZvcmUiOm51bGwsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "2155"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDb252ZXJzYXRpb24gaW52YWxpZGUuIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "35"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDb252ZXJzYXRpb24gaW52YWxpZGUuIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "35"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W10sIm5leHRfYmVmb3JlIjpudWxsLCJ0b3RhbCI6Nywia2VlcCI6N30=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "50"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyIiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDI/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEsImNoYXRfaWQiOiJjMSIsInByb21wdCI6Inh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eCIsIm1vZGVsIjoibSIsImNyZWF0ZWRfYXQiOjE4MDAwMDAwMTAuMCwicmV2aXNlZF9wcm9tcHQiOiJyw6l2aXPDqSJ9XSwibmV4dF9iZWZvcmUiOm51bGwsInRvdGFsIjo3LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "415"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA4IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjMsImNoYXRfaWQiOm51bGwsInByb21wdCI6IkRlIGJvYiIsIm1vZGVsIjoibSIsImNyZWF0ZWRfYXQiOjE4MDAwMDAwNzAuMH1dLCJuZXh0X2JlZm9yZSI6bnVsbCwidG90YWwiOjEsImtlZXAiOjd9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "333"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 401,
+      "corps": "eyJkZXRhaWwiOiJub3QgbG9nZ2VkIGluIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "26"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "MDEyMzQ1Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "10",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "VklHTkVUVEU=",
+      "entetes": {
+        "content-type": "image/webp",
+        "content-length": "8",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"77cb733741598cd12d1000c0e36a9050\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "MDEyMzQ1Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "10",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 422,
+      "corps": "eyJkZXRhaWwiOlt7InR5cGUiOiJpbnRfcGFyc2luZyIsImxvYyI6WyJxdWVyeSIsInRodW1iIl0sIm1zZyI6IklucHV0IHNob3VsZCBiZSBhIHZhbGlkIGludGVnZXIsIHVuYWJsZSB0byBwYXJzZSBzdHJpbmcgYXMgYW4gaW50ZWdlciIsImlucHV0IjoiYWJjIn1dfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "151"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "MDEyMzQ1Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "10",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "ZGV1eA==",
+      "entetes": {
+        "content-type": "image/png",
+        "content-length": "4",
+        "content-disposition": "inline; filename=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-1.png\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"4fe81da68634c67ae20f8abd11cdb111\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "dHJvaXM=",
+      "entetes": {
+        "content-type": "image/webp",
+        "content-length": "5",
+        "content-disposition": "inline; filename=\"image-00000000.webp\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"566ac90eb3f60063615e7901edfbe068\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "cXVhdHJl",
+      "entetes": {
+        "content-type": "image/png",
+        "content-length": "6",
+        "content-disposition": "inline; filename=\"Un-phare-sous-l-orage-00000000.png\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"7a7d5b4bd1e88dca4470ebf19361f0c1\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "Y2lucQ==",
+      "entetes": {
+        "content-type": "image/png",
+        "content-length": "4",
+        "content-disposition": "inline; filename=\"Graine-vraie-True.png\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"4fe81da68634c67ae20f8abd11cdb111\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "c2l4",
+      "entetes": {
+        "content-type": "image/png",
+        "content-length": "3",
+        "content-disposition": "inline; filename=\"Grande-123456789012345678901.png\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"0da1cad39bfe4ae886f6a276fde519c5\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 500,
+      "corps": "SW50ZXJuYWwgU2VydmVyIEVycm9y",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "21"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 500,
+      "corps": "SW50ZXJuYWwgU2VydmVyIEVycm9y",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "21"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "11"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W10sIm5leHRfYmVmb3JlIjpudWxsLCJ0b3RhbCI6MCwia2VlcCI6N30=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "50"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "Ym9i",
+      "entetes": {
+        "content-type": "image/png",
+        "content-length": "3",
+        "content-disposition": "inline; filename=\"De-bob-3.png\"",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"0da1cad39bfe4ae886f6a276fde519c5\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "MDEyMzQ1Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "10",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJOb3QgRm91bmQifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "22"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31",
+        "allow": "GET"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 405,
+      "corps": "eyJkZXRhaWwiOiJNZXRob2QgTm90IEFsbG93ZWQifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31",
+        "allow": "GET"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 405,
+      "corps": "eyJkZXRhaWwiOiJNZXRob2QgTm90IEFsbG93ZWQifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31",
+        "allow": "GET"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "MDEyMw==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "4",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 0-3/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "4",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 6-9/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "MjM0NTY3ODk=",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "8",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 2-9/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "LS08Qk9STkU+DQpDb250ZW50LVR5cGU6IGltYWdlL2pwZWcNCkNvbnRlbnQtUmFuZ2U6IGJ5dGVzIDAtMS8xMA0KDQowMQ0KLS08Qk9STkU+DQpDb250ZW50LVR5cGU6IGltYWdlL2pwZWcNCkNvbnRlbnQtUmFuZ2U6IGJ5dGVzIDQtNS8xMA0KDQo0NQ0KLS08Qk9STkU+LS0=",
+      "entetes": {
+        "content-type": "multipart/byteranges; boundary=<BORNE>",
+        "content-length": "212",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "MDEyMw==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "4",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 0-3/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 416,
+      "corps": "",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "0",
+        "content-range": "bytes */10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "UmFuZ2UgaGVhZGVyOiByYW5nZSBtdXN0IGJlIHJlcXVlc3RlZA==",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "37"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "T25seSBzdXBwb3J0IGJ5dGVzIHJhbmdl",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "24"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "UmFuZ2UgaGVhZGVyOiBzdGFydCBtdXN0IGJlIGxlc3MgdGhhbiBlbmQ=",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "41"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "MDEyMzQ1Njc4OQ==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "10",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "MDEyMw==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "4",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 0-3/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "MDEyMw==",
+      "entetes": {
+        "content-type": "image/jpeg",
+        "content-length": "4",
+        "content-disposition": "inline; filename*=utf-8''Caf%C3%A9-%C3%A0-l-aube-7.jpg",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"91c835cb663feaeeffc06d1a9fa31584\"",
+        "last-modified": "Sun, 15 Jun 2025 15:06:40 GMT",
+        "content-range": "bytes 0-3/10"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 206,
+      "corps": "SUc=",
+      "entetes": {
+        "content-type": "image/webp",
+        "content-length": "2",
+        "cache-control": "private, max-age=31536000, immutable",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "etag": "\"77cb733741598cd12d1000c0e36a9050\"",
+        "last-modified": "Tue, 14 Nov 2023 22:13:20 GMT",
+        "content-range": "bytes 1-2/8"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 401,
+      "corps": "eyJkZXRhaWwiOiJub3QgbG9nZ2VkIGluIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "26"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "11"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 404,
+      "corps": "eyJkZXRhaWwiOiJJbWFnZSBpbnRyb3V2YWJsZSBvdSBleHBpcsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "43"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "11"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJpdGVtcyI6W3siaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA2IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDY/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsInNlZWQiOjEyMzQ1Njc4OTAxMjM0NTY3ODkwMSwiY2hhdF9pZCI6bnVsbCwicHJvbXB0IjoiR3JhbmRlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDA1MC4wfSx7ImlkIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDUiLCJ1cmwiOiIvYXBpL2ltYWdlcy8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNSIsInRodW1iX3VybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA1P3RodW1iPTEiLCJ3aWR0aCI6NjQsImhlaWdodCI6NDgsIm1pbWUiOiJpbWFnZS9wbmciLCJzZWVkIjp0cnVlLCJjaGF0X2lkIjpudWxsLCJwcm9tcHQiOiJHcmFpbmUgdnJhaWUiLCJtb2RlbCI6Im0iLCJjcmVhdGVkX2F0IjoxODAwMDAwMDQwLjB9LHsiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNCIsInVybCI6Ii9hcGkvaW1hZ2VzLzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA0IiwidGh1bWJfdXJsIjoiL2FwaS9pbWFnZXMvMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDQ/dGh1bWI9MSIsIndpZHRoIjo2NCwiaGVpZ2h0Ijo0OCwibWltZSI6ImltYWdlL3BuZyIsImNoYXRfaWQiOm51bGwsInByb21wdCI6IlVuIHBoYXJlIPCfjIogc291cy9sJ29yYWdlIiwibW9kZWwiOiJtIiwiY3JlYXRlZF9hdCI6MTgwMDAwMDAzMC41fV0sIm5leHRfYmVmb3JlIjoxODAwMDAwMDMwLjUsInRvdGFsIjo1LCJrZWVwIjo3fQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "949"
+      },
+      "moteur": []
+    },
+    null,
+    null,
+    {
+      "statut": 401,
+      "corps": "eyJkZXRhaWwiOiJub3QgbG9nZ2VkIGluIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "26"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 403,
+      "corps": "eyJkZXRhaWwiOiJBZG1pbiByZXF1aXJlZCJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "27"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 403,
+      "corps": "eyJkZXRhaWwiOiJBZG1pbiByZXF1aXJlZCJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "27"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 403,
+      "corps": "eyJkZXRhaWwiOiJBZG1pbiByZXF1aXJlZCJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "27"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 403,
+      "corps": "eyJkZXRhaWwiOiJBZG1pbiByZXF1aXJlZCJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "27"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 403,
+      "corps": "eyJkZXRhaWwiOiJBZG1pbiByZXF1aXJlZCJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "27"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsInByb3ZpZGVyIjoic2RjcHAiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwiZXJyb3IiOiJBdWN1bmUgYWRyZXNzZSByZW5zZWlnbsOpZS4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "127"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsInByb3ZpZGVyIjoic2RjcHAiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwiZXJyb3IiOiJNb3RldXIgZCdpbWFnZXMgaW5qb2lnbmFibGUuIFbDqXJpZmlleiBBZG1pbmlzdHJhdGlvbiDigLogTW9kw6hsZXMgZXQgc2VydmljZXMg4oC6IEltYWdlcy4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "190"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbIkNvbmZpZ3VyYXRpb24gbm9uIGVucmVnaXN0csOpZSA6IGxlIHRlc3QgcG9ydGUgc3VyIGxlIGZvcm11bGFpcmUuIl19",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbIkNvbmZpZ3VyYXRpb24gbm9uIGVucmVnaXN0csOpZSA6IGxlIHRlc3QgcG9ydGUgc3VyIGxlIGZvcm11bGFpcmUuIl19",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsInByb3ZpZGVyIjoic2RjcHAiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwiZXJyb3IiOiJBdXRvcml0w6kgZGUgY2VydGlmaWNhdGlvbiBpbGxpc2libGUuIFbDqXJpZmlleiBBZG1pbmlzdHJhdGlvbiDigLogTW9kw6hsZXMgZXQgc2VydmljZXMg4oC6IEltYWdlcy4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "199"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6InF3ZW4iLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsInByb3ZpZGVyIjoic2RjcHAiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwibGF0ZW5jeV9tcyI6MCwibW9kZWwiOiJ3YW4iLCJtb2RlIjoidmlkX2dlbiIsImxpbWl0cyI6eyJtYXhfd2lkdGgiOjIwNDh9LCJkZWZhdWx0cyI6e30sImVycm9yIjoiQ2Ugc2Qtc2VydmVyIGVzdCBlbiBtb2RlIMKrIHZpZF9nZW4gwrsgOiBsYW5jZXotbGUgYXZlYyB1biBtb2TDqGxlIGQnaW1hZ2VzLiIsIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6IndhbiIsImxhYmVsIjoid2FuIn1dfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "49"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6InF3ZW4iLCJsYWJlbCI6InF3ZW4ifV19",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "51"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsIm1vZGVscyI6W10sImVycm9yIjoiQXVjdW5lIGFkcmVzc2UgcmVuc2VpZ27DqWUuIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "62"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6ZmFsc2UsIm1vZGVscyI6W10sImVycm9yIjoiTW90ZXVyIGQnaW1hZ2VzIGluam9pZ25hYmxlLiBWw6lyaWZpZXogQWRtaW5pc3RyYXRpb24g4oC6IE1vZMOobGVzIGV0IHNlcnZpY2VzIOKAuiBJbWFnZXMuIn0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "125"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJvcGVuYWkiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwibGF0ZW5jeV9tcyI6MCwibW9kZWwiOiIiLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6e30sImRlZmF1bHRzIjp7fSwid2FybmluZ3MiOlsiQ2hvaXNpc3NleiB1biBtb2TDqGxlLiIsIkNvbmZpZ3VyYXRpb24gbm9uIGVucmVnaXN0csOpZSA6IGxlIHRlc3QgcG9ydGUgc3VyIGxlIGZvcm11bGFpcmUuIl19",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJvcGVuYWkiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwibGF0ZW5jeV9tcyI6MCwibW9kZWwiOiJhYnNlbnQiLCJtb2RlIjoiaW1nX2dlbiIsImxpbWl0cyI6e30sImRlZmF1bHRzIjp7fSwid2FybmluZ3MiOlsiTW9kw6hsZSDCqyBhYnNlbnQgwrsgYWJzZW50IGRlIGxhIGxpc3RlIGR1IHNlcnZpY2UuIiwiQ29uZmlndXJhdGlvbiBub24gZW5yZWdpc3Ryw6llIDogbGUgdGVzdCBwb3J0ZSBzdXIgbGUgZm9ybXVsYWlyZS4iXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJvcGVuYWkiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlLCJlbmFibGVkIjp0cnVlLCJyZWFkeSI6dHJ1ZSwibGF0ZW5jeV9tcyI6MCwibW9kZWwiOiJtMSIsIm1vZGUiOiJpbWdfZ2VuIiwibGltaXRzIjp7fSwiZGVmYXVsdHMiOnt9LCJ3YXJuaW5ncyI6WyJDb25maWd1cmF0aW9uIG5vbiBlbnJlZ2lzdHLDqWUgOiBsZSB0ZXN0IHBvcnRlIHN1ciBsZSBmb3JtdWxhaXJlLiJdfQ==",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-saisie"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6ImRhbGwtZS0zIiwibGFiZWwiOiJkYWxsLWUtMyJ9LHsiaWQiOiJtMSIsImxhYmVsIjoibTEifV19",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "84"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          null
+        ]
+      ]
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJzZGNwcCIsImhhc19rZXkiOmZhbHNlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOmZhbHNlLCJyZWFkeSI6ZmFsc2UsImxhdGVuY3lfbXMiOjAsIm1vZGVsIjoicXdlbiIsIm1vZGUiOiJpbWdfZ2VuIiwibGltaXRzIjp7Im1heF93aWR0aCI6MjA0OH0sImRlZmF1bHRzIjp7fSwid2FybmluZ3MiOlsiR8OpbsOpcmF0aW9uIGTDqXNhY3RpdsOpZS4iXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/sdcpp/v1/capabilities",
+          null
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6dHJ1ZSwic3RhbGUiOmZhbHNlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "40"
+      },
+      "moteur": []
+    },
+    {
+      "disque": {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{oa}",
+        "model": "m1",
+        "api_key_enc": {
+          "k": "sk-secret",
+          "o": "{oa}"
+        }
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5Ijp0cnVlLCJzdGFsZSI6ZmFsc2V9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJvcGVuYWkiLCJoYXNfa2V5Ijp0cnVlLCJzdGFsZSI6ZmFsc2UsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6Im0xIiwibW9kZSI6ImltZ19nZW4iLCJsaW1pdHMiOnt9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbXX0=",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-secret"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6ImRhbGwtZS0zIiwibGFiZWwiOiJkYWxsLWUtMyJ9LHsiaWQiOiJtMSIsImxhYmVsIjoibTEifV19",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "84"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-secret"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJyZWFkeSI6dHJ1ZSwiYXZhaWxhYmxlIjp0cnVlLCJ0b29sX2VuYWJsZWQiOmZhbHNlLCJwcm92aWRlciI6Im9wZW5haSIsIm1vZGVsIjoibTEiLCJyYXRpb3MiOlsiMToxIiwiNDozIiwiMzo0IiwiMzoyIiwiMjozIiwiMTY6OSIsIjk6MTYiLCIyMTo5IiwiOToyMSJdLCJzaWRlcyI6WzUxMiw3NjgsMTAyNCwxMjgwLDE1MzYsMjA0OF0sImRlZmF1bHRfc2lkZSI6MTAyNCwibWF4X3NpZGUiOjIwNDgsInN0ZXAiOjY0LCJtYXhfbiI6NCwic2l6ZV9wb2xpY3kiOiJmcmVlIiwic2l6ZXMiOltdLCJmZWF0dXJlcyI6eyJzZWVkIjpmYWxzZSwibmVnYXRpdmUiOmZhbHNlLCJzdGVwcyI6ZmFsc2UsInN0cmVuZ3RoIjpmYWxzZSwiZWRpdCI6dHJ1ZX0sImVuaGFuY2VfZW5hYmxlZCI6dHJ1ZSwia2VlcF9wZXJfdXNlciI6NTAsInByZWZzIjp7InJhdGlvIjoiMTY6OSIsInNpZGUiOjIwNDgsIm4iOjQsImVuaGFuY2UiOnRydWV9LCJzdG9yZWQiOjV9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "477"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5Ijp0cnVlLCJzdGFsZSI6ZmFsc2V9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOnRydWV9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwicHJvdmlkZXIiOiJvcGVuYWkiLCJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOnRydWUsImVuYWJsZWQiOnRydWUsInJlYWR5Ijp0cnVlLCJsYXRlbmN5X21zIjowLCJtb2RlbCI6Im0xIiwibW9kZSI6ImltZ19nZW4iLCJsaW1pdHMiOnt9LCJkZWZhdWx0cyI6e30sIndhcm5pbmdzIjpbIkNvbmZpZ3VyYXRpb24gbm9uIGVucmVnaXN0csOpZSA6IGxlIHRlc3QgcG9ydGUgc3VyIGxlIGZvcm11bGFpcmUuIl19",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-secret"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6ImRhbGwtZS0zIiwibGFiZWwiOiJkYWxsLWUtMyJ9LHsiaWQiOiJtMSIsImxhYmVsIjoibTEifV19",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "84"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-secret"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwibW9kZWxzIjpbeyJpZCI6ImRhbGwtZS0zIiwibGFiZWwiOiJkYWxsLWUtMyJ9LHsiaWQiOiJtMSIsImxhYmVsIjoibTEifV19",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "84"
+      },
+      "moteur": [
+        [
+          "GET",
+          "/v1/models",
+          "Bearer sk-saisie"
+        ]
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6ZmFsc2UsInN0YWxlIjp0cnVlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "40"
+      },
+      "moteur": []
+    },
+    {
+      "disque": {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{sd}",
+        "model": "m1",
+        "api_key_enc": {
+          "k": "sk-2",
+          "o": "{oa}"
+        }
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJDbMOpIHRyb3AgbG9uZ3VlLiJ9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6dHJ1ZSwic3RhbGUiOmZhbHNlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "40"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJSZW5zZWlnbmV6IGQnYWJvcmQgbCdhZHJlc3NlIGR1IG1vdGV1ci4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "52"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6ZmFsc2UsInN0YWxlIjpmYWxzZX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "41"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6ZmFsc2UsInN0YWxlIjp0cnVlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "40"
+      },
+      "moteur": []
+    },
+    {
+      "disque": {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{sd}",
+        "model": "m1",
+        "api_key_enc": {
+          "k": "12345",
+          "o": "{oa}"
+        }
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "eyJvayI6dHJ1ZSwiaGFzX2tleSI6ZmFsc2UsInN0YWxlIjpmYWxzZX0=",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "41"
+      },
+      "moteur": []
+    },
+    {
+      "disque": {
+        "enabled": true,
+        "provider": "openai",
+        "url": "{sd}",
+        "model": "m1",
+        "api_key_enc": ""
+      }
+    },
+    null,
+    {
+      "statut": 400,
+      "corps": "eyJkZXRhaWwiOiJSZW5zZWlnbmV6IGQnYWJvcmQgbCdhZHJlc3NlIGR1IG1vdGV1ci4ifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "52"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOmZhbHNlfQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31"
+      },
+      "moteur": []
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "eyJoYXNfa2V5IjpmYWxzZSwic3RhbGUiOnRydWV9",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "30"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 405,
+      "corps": "eyJkZXRhaWwiOiJNZXRob2QgTm90IEFsbG93ZWQifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31",
+        "allow": "POST"
+      },
+      "moteur": []
+    },
+    {
+      "statut": 405,
+      "corps": "eyJkZXRhaWwiOiJNZXRob2QgTm90IEFsbG93ZWQifQ==",
+      "entetes": {
+        "content-type": "application/json",
+        "content-length": "31",
+        "allow": "GET"
+      },
+      "moteur": []
+    }
+  ],
+  "fichiers_restants": [
+    "2/i2.png",
+    "2/i3.webp",
+    "2/i4.png",
+    "2/i5.png",
+    "2/i6.png",
+    "3/b1.png"
+  ],
+  "config_finale": {
+    "enabled": true,
+    "url": "{sd}",
+    "api_key_enc": null
+  }
+}

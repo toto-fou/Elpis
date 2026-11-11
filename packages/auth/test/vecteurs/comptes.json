@@ -1,0 +1,551 @@
+{
+  "source": "migration-kit/vecteurs/auth_comptes.py",
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      2
+    ],
+    [
+      "dave",
+      0
+    ],
+    [
+      "eve",
+      0
+    ]
+  ],
+  "groupes": [
+    "dev",
+    "ops",
+    "rh"
+  ],
+  "membres": [
+    [
+      "alice",
+      [
+        "dev"
+      ]
+    ],
+    [
+      "bob",
+      [
+        "dev",
+        "ops"
+      ]
+    ],
+    [
+      "carol",
+      [
+        "ops"
+      ]
+    ],
+    [
+      "dave",
+      [
+        "rh"
+      ]
+    ]
+  ],
+  "noms": {
+    "existants": [
+      "alice",
+      "jean dupont",
+      "Jos\u00e9",
+      "x-y_z",
+      "Bob"
+    ],
+    "cas": [
+      {
+        "nom": "alice",
+        "ok": true
+      },
+      {
+        "nom": "jeandupont",
+        "erreur": "username en collision de dossier avec le compte existant \u00ab jean dupont \u00bb (m\u00eame forme canonique)."
+      },
+      {
+        "nom": "Jos",
+        "erreur": "username en collision de dossier avec le compte existant \u00ab Jos\u00e9 \u00bb (m\u00eame forme canonique)."
+      },
+      {
+        "nom": "jean dupont",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "",
+        "erreur": "username vide"
+      },
+      {
+        "nom": "  ",
+        "erreur": "username vide"
+      },
+      {
+        "nom": "a b",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "\u00e9",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "x-y_z",
+        "ok": true
+      },
+      {
+        "nom": "bob",
+        "ok": true
+      },
+      {
+        "nom": "Bob",
+        "ok": true
+      },
+      {
+        "nom": "a.b",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "a/b",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "A_1-",
+        "ok": true
+      },
+      {
+        "nom": "\t",
+        "erreur": "username vide"
+      },
+      {
+        "nom": "jean-dupont",
+        "ok": true
+      },
+      {
+        "nom": "Jose",
+        "ok": true
+      },
+      {
+        "nom": "\u0661",
+        "erreur": "username invalide : seuls les caract\u00e8res A-Z a-z 0-9 _ - sont autoris\u00e9s (pas d'espace ni d'accent \u2014 ils cr\u00e9eraient une collision de dossier avec un autre compte)."
+      },
+      {
+        "nom": "xyz",
+        "ok": true
+      }
+    ],
+    "canon": {
+      "alice": "alice",
+      "jeandupont": "jeandupont",
+      "Jos": "Jos",
+      "jean dupont": "jeandupont",
+      "": "",
+      "  ": "",
+      "a b": "ab",
+      "\u00e9": "",
+      "x-y_z": "x-y_z",
+      "bob": "bob",
+      "Bob": "Bob",
+      "a.b": "ab",
+      "a/b": "ab",
+      "A_1-": "A_1-",
+      "\t": "",
+      "jean-dupont": "jean-dupont",
+      "Jose": "Jose",
+      "\u0661": "",
+      "xyz": "xyz",
+      "Jos\u00e9": "Jos"
+    }
+  },
+  "reglages": {
+    "ecritures": [
+      {
+        "doc": {},
+        "json": "{}"
+      },
+      {
+        "doc": {
+          "a": 1,
+          "b": [
+            1,
+            2.5,
+            null,
+            true
+          ],
+          "\u00e9": "\u00fc\ud83d\ude00",
+          "imbrique": {
+            "z": "\n\t\"\\",
+            "y": []
+          }
+        },
+        "json": "{\"a\": 1, \"b\": [1, 2.5, null, true], \"\u00e9\": \"\u00fc\ud83d\ude00\", \"imbrique\": {\"z\": \"\\n\\t\\\"\\\\\", \"y\": []}}"
+      },
+      {
+        "doc": {
+          "skin": "kiki",
+          "dark_mode": false,
+          "editor_font_size": 14,
+          "x": 0.1,
+          "\u2028": "\u007f"
+        },
+        "json": "{\"skin\": \"kiki\", \"dark_mode\": false, \"editor_font_size\": 14, \"x\": 0.1, \"\u2028\": \"\u007f\"}"
+      }
+    ],
+    "lectures": [
+      {
+        "settings_json": "{\"a\": 1}",
+        "reglages": {
+          "a": 1
+        }
+      },
+      {
+        "settings_json": "[1]",
+        "reglages": {}
+      },
+      {
+        "settings_json": "null",
+        "reglages": {}
+      },
+      {
+        "settings_json": "",
+        "reglages": {}
+      },
+      {
+        "settings_json": null,
+        "reglages": {}
+      },
+      {
+        "settings_json": "pas du json",
+        "reglages": {}
+      },
+      {
+        "settings_json": "\"texte\"",
+        "reglages": {}
+      },
+      {
+        "settings_json": "{\"b\": {\"c\": [1, 2]}}",
+        "reglages": {
+          "b": {
+            "c": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "settings_json": "{}",
+        "reglages": {}
+      },
+      {
+        "settings_json": "{\"a\": 1, \"a\": 2}",
+        "reglages": {
+          "a": 2
+        }
+      },
+      {
+        "settings_json": " {\"a\": 1} ",
+        "reglages": {
+          "a": 1
+        }
+      },
+      {
+        "settings_json": "{\"a\": 1}\n",
+        "reglages": {
+          "a": 1
+        }
+      },
+      {
+        "absent": true,
+        "reglages": {}
+      }
+    ],
+    "fideles": [
+      {
+        "settings_json": "{\"theme\": \"dark\", \"r\": NaN, \"inf\": Infinity, \"m\": -Infinity}",
+        "relu": "{\"theme\": \"dark\", \"r\": NaN, \"inf\": Infinity, \"m\": -Infinity}",
+        "fusion": "{\"theme\": \"dark\", \"r\": NaN, \"inf\": Infinity, \"m\": -Infinity, \"assistant_avatar\": \"bot_1_2.png\"}"
+      },
+      {
+        "settings_json": "{\"a\": 1.0, \"b\": -0.0, \"c\": 1.10, \"d\": 1e400}",
+        "relu": "{\"a\": 1.0, \"b\": -0.0, \"c\": 1.1, \"d\": Infinity}",
+        "fusion": "{\"a\": 1.0, \"b\": -0.0, \"c\": 1.1, \"d\": Infinity, \"assistant_avatar\": \"bot_1_2.png\"}"
+      },
+      {
+        "settings_json": "{\"g\": 18446744073709551616, \"h\": -9007199254740993, \"i\": [1.5e300, 5e-324]}",
+        "relu": "{\"g\": 18446744073709551616, \"h\": -9007199254740993, \"i\": [1.5e+300, 5e-324]}",
+        "fusion": "{\"g\": 18446744073709551616, \"h\": -9007199254740993, \"i\": [1.5e+300, 5e-324], \"assistant_avatar\": \"bot_1_2.png\"}"
+      },
+      {
+        "settings_json": "{\"__proto__\": {\"x\": 1.0}}",
+        "relu": "{\"__proto__\": {\"x\": 1.0}}",
+        "fusion": "{\"__proto__\": {\"x\": 1.0}, \"assistant_avatar\": \"bot_1_2.png\"}"
+      },
+      {
+        "settings_json": "{\"b\": 1, \"2\": {\"10\": 1, \"9\": 2}, \"1\": \"x\", \"0\": [{\"5\": 0, \"a\": 1}]}",
+        "relu": "{\"b\": 1, \"2\": {\"10\": 1, \"9\": 2}, \"1\": \"x\", \"0\": [{\"5\": 0, \"a\": 1}]}",
+        "fusion": "{\"b\": 1, \"2\": {\"10\": 1, \"9\": 2}, \"1\": \"x\", \"0\": [{\"5\": 0, \"a\": 1}], \"assistant_avatar\": \"bot_1_2.png\"}"
+      }
+    ]
+  },
+  "base": {
+    "ids": {
+      "alice": 1,
+      "bob": 2,
+      "carol": 3,
+      "dave": 4,
+      "eve": 5
+    },
+    "lite": {
+      "alice": {
+        "restreinte": [
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev,ops"
+          }
+        ],
+        "complete": [
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev, ops"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          },
+          {
+            "id": 4,
+            "username": "dave",
+            "groups": "rh"
+          },
+          {
+            "id": 5,
+            "username": "eve",
+            "groups": ""
+          }
+        ]
+      },
+      "bob": {
+        "restreinte": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          }
+        ],
+        "complete": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          },
+          {
+            "id": 4,
+            "username": "dave",
+            "groups": "rh"
+          },
+          {
+            "id": 5,
+            "username": "eve",
+            "groups": ""
+          }
+        ]
+      },
+      "carol": {
+        "restreinte": [
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev,ops"
+          }
+        ],
+        "complete": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev, ops"
+          },
+          {
+            "id": 4,
+            "username": "dave",
+            "groups": "rh"
+          },
+          {
+            "id": 5,
+            "username": "eve",
+            "groups": ""
+          }
+        ]
+      },
+      "dave": {
+        "restreinte": [],
+        "complete": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev, ops"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          },
+          {
+            "id": 5,
+            "username": "eve",
+            "groups": ""
+          }
+        ]
+      },
+      "eve": {
+        "restreinte": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev, ops"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          },
+          {
+            "id": 4,
+            "username": "dave",
+            "groups": "rh"
+          }
+        ],
+        "complete": [
+          {
+            "id": 1,
+            "username": "alice",
+            "groups": "dev"
+          },
+          {
+            "id": 2,
+            "username": "bob",
+            "groups": "dev, ops"
+          },
+          {
+            "id": 3,
+            "username": "carol",
+            "groups": "ops"
+          },
+          {
+            "id": 4,
+            "username": "dave",
+            "groups": "rh"
+          }
+        ]
+      }
+    },
+    "groupes": {
+      "alice": [
+        {
+          "id": 1,
+          "name": "dev",
+          "description": "desc dev"
+        }
+      ],
+      "bob": [
+        {
+          "id": 1,
+          "name": "dev",
+          "description": "desc dev"
+        },
+        {
+          "id": 2,
+          "name": "ops",
+          "description": "desc ops"
+        }
+      ],
+      "carol": [
+        {
+          "id": 2,
+          "name": "ops",
+          "description": "desc ops"
+        }
+      ],
+      "dave": [
+        {
+          "id": 3,
+          "name": "rh",
+          "description": "desc rh"
+        }
+      ],
+      "eve": []
+    },
+    "verif": [
+      2,
+      null,
+      null,
+      null
+    ],
+    "tous": [
+      {
+        "id": 1,
+        "username": "alice",
+        "is_admin": 1,
+        "avatar": null
+      },
+      {
+        "id": 2,
+        "username": "bob",
+        "is_admin": 0,
+        "avatar": null
+      },
+      {
+        "id": 3,
+        "username": "carol",
+        "is_admin": 2,
+        "avatar": null
+      },
+      {
+        "id": 4,
+        "username": "dave",
+        "is_admin": 0,
+        "avatar": null
+      },
+      {
+        "id": 5,
+        "username": "eve",
+        "is_admin": 0,
+        "avatar": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,360 @@
+{
+  "source": "migration-kit/vecteurs/contracts_erreurs.py",
+  "cas": [
+    {
+      "nom": "corps_valide",
+      "statut": 200,
+      "corps": {
+        "ok": true
+      }
+    },
+    {
+      "nom": "corps_absent",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "corps_vide",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "Field required",
+            "input": {}
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "age"
+            ],
+            "msg": "Field required",
+            "input": {}
+          }
+        ]
+      }
+    },
+    {
+      "nom": "corps_types",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "string_type",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "Input should be a valid string",
+            "input": 5
+          },
+          {
+            "type": "int_parsing",
+            "loc": [
+              "body",
+              "age"
+            ],
+            "msg": "Input should be a valid integer, unable to parse string as an integer",
+            "input": "x"
+          },
+          {
+            "type": "float_parsing",
+            "loc": [
+              "body",
+              "ratio"
+            ],
+            "msg": "Input should be a valid number, unable to parse string as a number",
+            "input": "y"
+          },
+          {
+            "type": "bool_parsing",
+            "loc": [
+              "body",
+              "actif"
+            ],
+            "msg": "Input should be a valid boolean, unable to interpret input",
+            "input": "peut-\u00eatre"
+          },
+          {
+            "type": "literal_error",
+            "loc": [
+              "body",
+              "mode"
+            ],
+            "msg": "Input should be 'a' or 'b'",
+            "input": "c",
+            "ctx": {
+              "expected": "'a' or 'b'"
+            }
+          },
+          {
+            "type": "list_type",
+            "loc": [
+              "body",
+              "tags"
+            ],
+            "msg": "Input should be a valid list",
+            "input": "t"
+          },
+          {
+            "type": "dict_type",
+            "loc": [
+              "body",
+              "options"
+            ],
+            "msg": "Input should be a valid dictionary",
+            "input": []
+          }
+        ]
+      }
+    },
+    {
+      "nom": "corps_bornes",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "string_too_short",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "String should have at least 2 characters",
+            "input": "a",
+            "ctx": {
+              "min_length": 2
+            }
+          },
+          {
+            "type": "less_than_equal",
+            "loc": [
+              "body",
+              "age"
+            ],
+            "msg": "Input should be less than or equal to 150",
+            "input": 151,
+            "ctx": {
+              "le": 150
+            }
+          },
+          {
+            "type": "too_long",
+            "loc": [
+              "body",
+              "tags"
+            ],
+            "msg": "List should have at most 2 items after validation, not 3",
+            "input": [
+              "1",
+              "2",
+              "3"
+            ],
+            "ctx": {
+              "field_type": "List",
+              "max_length": 2,
+              "actual_length": 3
+            }
+          },
+          {
+            "type": "int_parsing",
+            "loc": [
+              "body",
+              "options",
+              "k"
+            ],
+            "msg": "Input should be a valid integer, unable to parse string as an integer",
+            "input": "v"
+          }
+        ]
+      }
+    },
+    {
+      "nom": "corps_bornes_basses",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "string_too_long",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "String should have at most 5 characters",
+            "input": "abcdef",
+            "ctx": {
+              "max_length": 5
+            }
+          },
+          {
+            "type": "greater_than_equal",
+            "loc": [
+              "body",
+              "age"
+            ],
+            "msg": "Input should be greater than or equal to 0",
+            "input": -1,
+            "ctx": {
+              "ge": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nom": "corps_liste",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "model_attributes_type",
+            "loc": [
+              "body"
+            ],
+            "msg": "Input should be a valid dictionary or object to extract fields from",
+            "input": [
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "nom": "requete_manquants",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "int_parsing",
+            "loc": [
+              "path",
+              "ident"
+            ],
+            "msg": "Input should be a valid integer, unable to parse string as an integer",
+            "input": "abc"
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "header",
+              "x-jeton"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "requete_borne",
+      "statut": 422,
+      "corps": {
+        "detail": [
+          {
+            "type": "greater_than_equal",
+            "loc": [
+              "query",
+              "limite"
+            ],
+            "msg": "Input should be greater than or equal to 1",
+            "input": "0",
+            "ctx": {
+              "ge": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nom": "http_texte",
+      "statut": 409,
+      "corps": {
+        "detail": "Refus\u00e9."
+      }
+    },
+    {
+      "nom": "http_objet",
+      "statut": 409,
+      "corps": {
+        "detail": {
+          "code": "generation_running",
+          "message": "g\u00e9n\u00e9ration en cours"
+        }
+      }
+    },
+    {
+      "nom": "http_liste",
+      "statut": 400,
+      "corps": {
+        "detail": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "nom": "http_422_texte",
+      "statut": 422,
+      "corps": {
+        "detail": "Refus\u00e9."
+      }
+    },
+    {
+      "nom": "champs_supplementaires",
+      "statut": 409,
+      "corps": {
+        "detail": "Conflit.",
+        "conflicts": [
+          "a"
+        ],
+        "paths": [
+          "x"
+        ]
+      }
+    },
+    {
+      "nom": "http_sans_detail_404",
+      "statut": 404,
+      "corps": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "nom": "http_sans_detail_503",
+      "statut": 503,
+      "corps": {
+        "detail": "Service Unavailable"
+      }
+    },
+    {
+      "nom": "route_inconnue",
+      "statut": 404,
+      "corps": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "nom": "methode_refusee",
+      "statut": 405,
+      "corps": {
+        "detail": "Method Not Allowed"
+      }
+    }
+  ]
+}

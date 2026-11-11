@@ -1,0 +1,110 @@
+{
+  "entrees": {
+    "actions": [
+      {
+        "a": 3.1,
+        "annuler": "H2"
+      }
+    ],
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 10
+          }
+        ],
+        "id": "H1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 1,
+        "etapes": [
+          {
+            "generer": 3
+          }
+        ],
+        "id": "H2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 4,
+        "etapes": [
+          {
+            "generer": 3
+          }
+        ],
+        "id": "H3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      2,
+      6,
+      11.5,
+      20
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 1,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=11.5": {
+      "en_attente": [],
+      "en_cours": [
+        "H3"
+      ],
+      "terminees": [
+        "H1",
+        "H2"
+      ]
+    },
+    "t=2": {
+      "en_attente": [
+        "H2"
+      ],
+      "en_cours": [
+        "H1"
+      ],
+      "terminees": []
+    },
+    "t=20": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3"
+      ]
+    },
+    "t=6": {
+      "en_attente": [
+        "H3"
+      ],
+      "en_cours": [
+        "H1"
+      ],
+      "terminees": [
+        "H2"
+      ]
+    }
+  },
+  "ordre": [
+    "t=0 H1 admis",
+    "t=3.25 H2 abandon",
+    "t=10 H1 fin",
+    "t=10 H3 admis",
+    "t=13 H3 fin"
+  ]
+}

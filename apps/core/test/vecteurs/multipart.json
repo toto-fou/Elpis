@@ -1,0 +1,921 @@
+{
+  "source": "migration-kit/vecteurs/core_multipart.py",
+  "boundary": "XyZ",
+  "cas": [
+    {
+      "nom": "sans_corps",
+      "url": "/f",
+      "entetes": {},
+      "brut": "",
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "json",
+      "url": "/f",
+      "entetes": {
+        "content-type": "application/json"
+      },
+      "brut": "{\"a\":1}",
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "urlencode",
+      "url": "/f",
+      "entetes": {
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      "brut": "file=x",
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "value_error",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Value error, Expected UploadFile, received: <class 'str'>",
+            "input": "x",
+            "ctx": {
+              "error": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nom": "sans_boundary",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "x",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 400,
+      "reponse": {
+        "detail": "Missing boundary in multipart."
+      }
+    },
+    {
+      "nom": "charabia",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut": "n'importe quoi",
+      "statut": 400,
+      "reponse": {
+        "detail": "There was an error parsing the body"
+      }
+    },
+    {
+      "nom": "sauts_de_ligne_en_tete",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "prefixe": "\r\n\r\n",
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "sans_fin",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "fin": false,
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "sans_fin_apres_partie_complete",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "fin": false,
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": "z",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "champ_texte",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "pas un fichier",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "value_error",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Value error, Expected UploadFile, received: <class 'str'>",
+            "input": "pas un fichier",
+            "ctx": {
+              "error": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "nom": "fichier_ok",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "\u0089PNG abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "content_type": "image/png",
+        "taille": 9,
+        "debut": "wolQTkcgYWJj"
+      }
+    },
+    {
+      "nom": "chemin_windows",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "C:\\x\\a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "chemin_unix",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "../../etc/a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "../../etc/a.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "nom_vide",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "",
+          "filename": "",
+          "ct": "application/octet-stream",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "",
+        "content_type": "application/octet-stream",
+        "taille": 0,
+        "debut": ""
+      }
+    },
+    {
+      "nom": "nom_vide_opt",
+      "url": "/opt",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "",
+          "filename": "",
+          "ct": "application/octet-stream",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "file": ""
+      }
+    },
+    {
+      "nom": "opt_absent",
+      "url": "/opt",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "autre",
+          "valeur": "v",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "file": null
+      }
+    },
+    {
+      "nom": "deux_fichiers",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "un",
+          "filename": "1.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "file",
+          "valeur": "deux",
+          "filename": "2.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "2.png",
+        "content_type": "image/png",
+        "taille": 4,
+        "debut": "ZGV1eA=="
+      }
+    },
+    {
+      "nom": "rfc5987",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": null,
+          "ct": "image/png",
+          "extra": "; filename*=UTF-8''%C3%A9t%C3%A9.png",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "\u00e9t\u00e9.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "form_manquant",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "nom"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "form_ok",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": "z\u00e9",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "nom": "z\u00e9",
+        "taille_nom": 2
+      }
+    },
+    {
+      "nom": "form_deux_valeurs",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": "un",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": "deux",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "nom": "deux",
+        "taille_nom": 4
+      }
+    },
+    {
+      "nom": "mille_champs",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "c{i}",
+          "valeur": "v",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 999
+        },
+        {
+          "nom": "nom",
+          "valeur": "z",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "nom": "z",
+        "taille_nom": 1
+      }
+    },
+    {
+      "nom": "trop_champs",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "c{i}",
+          "valeur": "v",
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1001
+        },
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 400,
+      "reponse": {
+        "detail": "Too many fields. Maximum number of fields is 1000."
+      }
+    },
+    {
+      "nom": "mille_fichiers",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "f{i}",
+          "valeur": "v",
+          "filename": "{i}.png",
+          "ct": null,
+          "extra": "",
+          "fois": 999
+        },
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "content_type": null,
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "trop_fichiers",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "f{i}",
+          "valeur": "v",
+          "filename": "{i}.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1001
+        }
+      ],
+      "statut": 400,
+      "reponse": {
+        "detail": "Too many files. Maximum number of files is 1000."
+      }
+    },
+    {
+      "nom": "champ_1mo_pile",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": {
+            "motif": "x",
+            "fois": 1048576
+          },
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "nom": "xxxxxxxxxxxxxxxxxxxx",
+        "taille_nom": 1048576
+      }
+    },
+    {
+      "nom": "champ_1mo_plus_un",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        },
+        {
+          "nom": "nom",
+          "valeur": {
+            "motif": "x",
+            "fois": 1048577
+          },
+          "filename": null,
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 400,
+      "reponse": {
+        "detail": "Part exceeded maximum size of 1024KB."
+      }
+    },
+    {
+      "nom": "fichier_2mo",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": {
+            "motif": "y",
+            "fois": 2097152
+          },
+          "filename": "big.bin",
+          "ct": "application/octet-stream",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "big.bin",
+        "content_type": "application/octet-stream",
+        "taille": 2097152,
+        "debut": "eXl5eXl5eXl5eXl5eXl5eQ=="
+      }
+    },
+    {
+      "nom": "mixed",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/mixed; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "type_majuscules",
+      "url": "/f",
+      "entetes": {
+        "content-type": "Multipart/Form-Data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 422,
+      "reponse": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "nom": "type_majuscules_sans_parametre",
+      "url": "/f",
+      "entetes": {
+        "content-type": "Multipart/Form-Data"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "a.png",
+          "ct": null,
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 400,
+      "reponse": {
+        "detail": "Missing boundary in multipart."
+      }
+    },
+    {
+      "nom": "partie_sans_nom",
+      "url": "/opt",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut_hex": "2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174610d0a0d0a780d0a2d2d58795a2d2d0d0a",
+      "statut": 400,
+      "reponse": {
+        "detail": "The Content-Disposition header field \"name\" must be provided."
+      }
+    },
+    {
+      "nom": "nom_fichier_utf8",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "parties": [
+        {
+          "nom": "file",
+          "valeur": "abc",
+          "filename": "\u00e9t\u00e9.png",
+          "ct": "image/png",
+          "extra": "",
+          "fois": 1
+        }
+      ],
+      "statut": 200,
+      "reponse": {
+        "filename": "\u00e9t\u00e9.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "nom_fichier_latin1",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut_hex": "2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22e974e92e706e67220d0a436f6e74656e742d547970653a20696d6167652f706e670d0a0d0a6162630d0a2d2d58795a2d2d0d0a",
+      "statut": 200,
+      "reponse": {
+        "filename": "\u00e9t\u00e9.png",
+        "content_type": "image/png",
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "champ_latin1",
+      "url": "/f2",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut_hex": "2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22612e706e67220d0a436f6e74656e742d547970653a20696d6167652f706e670d0a0d0a6162630d0a2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d226e6f6d220d0a0d0ae974e90d0a2d2d58795a2d2d0d0a",
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "nom": "\u00e9t\u00e9",
+        "taille_nom": 3
+      }
+    },
+    {
+      "nom": "attachment",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut_hex": "2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a206174746163686d656e743b206e616d653d2266696c65223b2066696c656e616d653d22612e706e67220d0a0d0a6162630d0a2d2d58795a2d2d0d0a",
+      "statut": 200,
+      "reponse": {
+        "filename": "a.png",
+        "content_type": null,
+        "taille": 3,
+        "debut": "YWJj"
+      }
+    },
+    {
+      "nom": "preambule",
+      "url": "/f",
+      "entetes": {
+        "content-type": "multipart/form-data; boundary=XyZ"
+      },
+      "brut_hex": "707265616d62756c650d0a2d2d58795a0d0a436f6e74656e742d446973706f736974696f6e3a20666f726d2d646174613b206e616d653d2266696c65223b2066696c656e616d653d22612e706e67220d0a436f6e74656e742d547970653a20696d6167652f706e670d0a0d0a6162630d0a2d2d58795a2d2d0d0a",
+      "statut": 400,
+      "reponse": {
+        "detail": "There was an error parsing the body"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1466 @@
+{
+  "prometheus": [
+    {
+      "texte": "",
+      "metriques": {}
+    },
+    {
+      "texte": "# HELP x\n# TYPE x gauge\n",
+      "metriques": {}
+    },
+    {
+      "texte": "llamacpp:kv_cache_tokens 1234\nllamacpp:n_ctx_total 8192\nllamacpp:requests_processing 2\n",
+      "metriques": {
+        "llamacpp_kv_cache_tokens": 1234.0,
+        "llamacpp_n_ctx_total": 8192.0,
+        "llamacpp_requests_processing": 2.0
+      }
+    },
+    {
+      "texte": "llamacpp:prompt_tokens_total{model=\"a b\"} 10\nmetric{l=\"x\"} 3.5\n  spaced   7  \nbad value\nonly\n",
+      "metriques": {
+        "metric": 3.5,
+        "spaced": 7.0
+      }
+    },
+    {
+      "texte": "x 1e3\ny +Inf\nz NaN\nw -0.5\nv 0x10\nu 1_000\n",
+      "metriques": {
+        "x": 1000.0,
+        "y": {
+          "$flottant": "inf"
+        },
+        "z": {
+          "$flottant": "nan"
+        },
+        "w": -0.5,
+        "u": 1000.0
+      }
+    },
+    {
+      "texte": "a 1\r\nb 2\rc 3\u000bd 4\u001ce 5\u2028f 6\n",
+      "metriques": {
+        "a": 1.0,
+        "b": 2.0,
+        "c": 3.0,
+        "d": 4.0,
+        "e": 5.0,
+        "f": 6.0
+      }
+    },
+    {
+      "texte": "dup 1\ndup 2\n",
+      "metriques": {
+        "dup": 2.0
+      }
+    },
+    {
+      "texte": "llamacpp:kv_cache_tokens 50\nllamacpp:n_ctx_total 0\n",
+      "metriques": {
+        "llamacpp_kv_cache_tokens": 50.0,
+        "llamacpp_n_ctx_total": 0.0
+      }
+    }
+  ],
+  "routeur": [
+    {
+      "modeles": null,
+      "chemin": "/metrics"
+    },
+    {
+      "modeles": {},
+      "chemin": "/metrics"
+    },
+    {
+      "modeles": [],
+      "chemin": "/metrics"
+    },
+    {
+      "modeles": {
+        "data": "x"
+      },
+      "chemin": "/metrics"
+    },
+    {
+      "modeles": {
+        "data": [
+          {
+            "id": "a"
+          }
+        ]
+      },
+      "chemin": "/metrics"
+    },
+    {
+      "modeles": {
+        "data": [
+          {
+            "id": "a",
+            "status": {
+              "value": "unloaded"
+            }
+          },
+          {
+            "id": "b",
+            "status": {
+              "value": "loaded"
+            }
+          }
+        ]
+      },
+      "chemin": "/metrics?model=b&autoload=false"
+    },
+    {
+      "modeles": {
+        "data": [
+          {
+            "id": "x y/\u00e9",
+            "status": "loaded"
+          }
+        ]
+      },
+      "chemin": "/metrics?model=x%20y%2F%C3%A9&autoload=false"
+    },
+    {
+      "modeles": {
+        "data": [
+          {
+            "status": {
+              "value": "loaded"
+            }
+          },
+          {
+            "id": "",
+            "status": "loaded"
+          },
+          "z",
+          {
+            "id": 5,
+            "status": "loaded"
+          }
+        ]
+      },
+      "chemin": "/metrics?model=5&autoload=false"
+    },
+    {
+      "modeles": {
+        "data": [
+          {
+            "id": "a",
+            "status": {
+              "value": "loading"
+            }
+          }
+        ]
+      },
+      "chemin": null
+    }
+  ],
+  "fenetres_slots": [
+    {
+      "props": null,
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {},
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": [],
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": "x",
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "default_generation_settings": {
+          "n_ctx": 4096
+        }
+      },
+      "fenetre": 4096,
+      "slots": 0
+    },
+    {
+      "props": {
+        "default_generation_settings": {
+          "n_ctx": 0,
+          "params": {
+            "n_ctx": 2048
+          }
+        }
+      },
+      "fenetre": 2048,
+      "slots": 0
+    },
+    {
+      "props": {
+        "default_generation_settings": {
+          "params": {
+            "n_ctx": "1024"
+          }
+        },
+        "n_ctx": 99
+      },
+      "fenetre": 1024,
+      "slots": 0
+    },
+    {
+      "props": {
+        "default_generation_settings": null,
+        "n_ctx": 512
+      },
+      "fenetre": 512,
+      "slots": 0
+    },
+    {
+      "props": {
+        "default_generation_settings": "x",
+        "n_ctx": 512
+      },
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "n_ctx": 8192.9
+      },
+      "fenetre": 8192,
+      "slots": 0
+    },
+    {
+      "props": {
+        "n_ctx": "abc"
+      },
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "n_ctx": true
+      },
+      "fenetre": 1,
+      "slots": 0
+    },
+    {
+      "props": {
+        "n_ctx": [
+          1
+        ]
+      },
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "n_ctx": -5
+      },
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "total_slots": 4
+      },
+      "fenetre": 0,
+      "slots": 4
+    },
+    {
+      "props": {
+        "total_slots": 0,
+        "max_instances": 2
+      },
+      "fenetre": 0,
+      "slots": 2
+    },
+    {
+      "props": {
+        "total_slots": "3"
+      },
+      "fenetre": 0,
+      "slots": 3
+    },
+    {
+      "props": {
+        "total_slots": "x",
+        "max_instances": 6
+      },
+      "fenetre": 0,
+      "slots": 6
+    },
+    {
+      "props": {
+        "role": "router",
+        "max_instances": 3
+      },
+      "fenetre": 0,
+      "slots": 3
+    },
+    {
+      "props": {
+        "total_slots": -1
+      },
+      "fenetre": 0,
+      "slots": 0
+    },
+    {
+      "props": {
+        "total_slots": 2.7
+      },
+      "fenetre": 0,
+      "slots": 2
+    },
+    {
+      "props": {
+        "total_slots": true
+      },
+      "fenetre": 0,
+      "slots": 1
+    }
+  ],
+  "occupations": [
+    {
+      "slots": null,
+      "occupes": [],
+      "directe": null
+    },
+    {
+      "slots": {},
+      "occupes": [],
+      "directe": null
+    },
+    {
+      "slots": [],
+      "occupes": [],
+      "directe": []
+    },
+    {
+      "slots": [
+        {
+          "id": 0,
+          "is_processing": true
+        },
+        {
+          "id": 1,
+          "is_processing": false
+        },
+        {
+          "id": 2,
+          "state": 1
+        },
+        {
+          "id": 3,
+          "state": "processing"
+        },
+        {
+          "id": 4,
+          "state": "PROCESSING"
+        },
+        {
+          "id": 5,
+          "state": 0
+        },
+        {
+          "id": "6",
+          "is_processing": 1
+        },
+        {
+          "id": null,
+          "is_processing": true
+        },
+        "x",
+        {
+          "id": "abc",
+          "is_processing": true
+        },
+        {
+          "id": 7.9,
+          "state": true
+        },
+        {
+          "id": 8,
+          "is_processing": null,
+          "state": 1
+        },
+        {
+          "id": 9,
+          "is_processing": 0,
+          "state": 1
+        },
+        {
+          "id": 10,
+          "is_processing": "oui"
+        }
+      ],
+      "occupes": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        10
+      ],
+      "directe": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        10
+      ]
+    }
+  ],
+  "inventaires": [
+    {
+      "corps": {
+        "data": [
+          {
+            "id": "a",
+            "status": {
+              "value": "loaded"
+            }
+          },
+          {
+            "id": "b",
+            "status": {
+              "value": "unloaded",
+              "failed": true
+            }
+          },
+          {
+            "id": "c",
+            "status": "loaded"
+          },
+          {
+            "id": "d",
+            "status": null
+          },
+          {
+            "id": "e",
+            "status": {}
+          },
+          {
+            "id": "f",
+            "status": [],
+            "multimodal": true
+          },
+          {
+            "name": "sans id"
+          },
+          {
+            "id": "g",
+            "status": {
+              "value": "unloaded",
+              "failed": 0
+            },
+            "capabilities": [
+              "vision"
+            ]
+          }
+        ]
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [
+          {
+            "id": "a",
+            "status": "loaded"
+          },
+          {
+            "id": "b",
+            "status": "unloaded"
+          },
+          {
+            "id": "c",
+            "status": "unknown"
+          },
+          {
+            "id": "d",
+            "status": "unknown"
+          },
+          {
+            "id": "e",
+            "status": "unknown"
+          },
+          {
+            "id": "f",
+            "status": "unknown"
+          },
+          {
+            "id": "g",
+            "status": "unloaded"
+          }
+        ],
+        true
+      ],
+      "liste": [
+        {
+          "id": "a",
+          "status": "loaded",
+          "vision": false
+        },
+        {
+          "id": "b",
+          "status": "failed",
+          "vision": false
+        },
+        {
+          "id": "c",
+          "status": "unknown",
+          "vision": false
+        },
+        {
+          "id": "d",
+          "status": "unknown",
+          "vision": false
+        },
+        {
+          "id": "e",
+          "status": "unknown",
+          "vision": false
+        },
+        {
+          "id": "f",
+          "status": "unknown",
+          "vision": true
+        },
+        {
+          "id": "g",
+          "status": "unloaded",
+          "vision": true
+        }
+      ]
+    },
+    {
+      "corps": {
+        "data": [
+          {
+            "id": "a",
+            "status": {
+              "value": "loaded"
+            }
+          },
+          {
+            "id": "b",
+            "status": {
+              "value": "unloaded",
+              "failed": true
+            }
+          },
+          {
+            "id": "c",
+            "status": "loaded"
+          },
+          {
+            "id": "d",
+            "status": null
+          },
+          {
+            "id": "e",
+            "status": {}
+          },
+          {
+            "id": "f",
+            "status": [],
+            "multimodal": true
+          },
+          {
+            "name": "sans id"
+          },
+          {
+            "id": "g",
+            "status": {
+              "value": "unloaded",
+              "failed": 0
+            },
+            "capabilities": [
+              "vision"
+            ]
+          }
+        ]
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": []
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": []
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": null
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": null
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": "chaine"
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": "chaine"
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {},
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": {},
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": null,
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": null,
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": [],
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": [],
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": [
+        "data"
+      ],
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": [
+        "data"
+      ],
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": "metadata",
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": "metadata",
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": "pas de cle",
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        true
+      ],
+      "liste": []
+    },
+    {
+      "corps": "pas de cle",
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": 5,
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": 5,
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          "valid"
+        ]
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          "valid"
+        ]
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          5
+        ]
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          5
+        ]
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          {
+            "id": "z",
+            "status": "x"
+          },
+          "id"
+        ]
+      },
+      "illisible": false,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": {
+        "data": [
+          {
+            "id": "z",
+            "status": "x"
+          },
+          "id"
+        ]
+      },
+      "illisible": false,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": null,
+      "illisible": true,
+      "statut": 200,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    },
+    {
+      "corps": null,
+      "illisible": true,
+      "statut": 500,
+      "sonde": [
+        [],
+        false
+      ],
+      "liste": []
+    }
+  ],
+  "vision": [
+    {
+      "entree": {
+        "id": "llava-1.6"
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "qwen2.5-VL-7b"
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "plain",
+        "multimodal": true
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "plain",
+        "multimodal": 1
+      },
+      "vision": false,
+      "meta": true,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": "p2",
+        "capabilities": [
+          "completion",
+          "vision"
+        ]
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "p3",
+        "modalities": [
+          "text",
+          "image"
+        ]
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "p4",
+        "meta": {
+          "has_mmproj": true
+        }
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "p5",
+        "meta": {
+          "has_mmproj": 0
+        }
+      },
+      "vision": false,
+      "meta": true,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": "p6",
+        "capabilities": null
+      },
+      "vision": false,
+      "meta": true,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": "p7",
+        "capabilities": {
+          "vision": false
+        }
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "p8",
+        "capabilities": "vision-ish"
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": ""
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": null
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": 12
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "multimodal": true
+      },
+      "vision": true,
+      "meta": true,
+      "drapeau": false
+    },
+    {
+      "entree": {
+        "id": "Gemma-3-27B"
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": true
+    },
+    {
+      "entree": {
+        "id": "INTERNVL"
+      },
+      "vision": false,
+      "meta": false,
+      "drapeau": true
+    },
+    {
+      "sequence": [
+        {
+          "id": "m",
+          "multimodal": true
+        },
+        {
+          "id": "m"
+        },
+        {
+          "id": "m",
+          "meta": {
+            "x": 1
+          }
+        },
+        {
+          "id": "m"
+        },
+        {
+          "id": "n",
+          "capabilities": [
+            "vision"
+          ]
+        },
+        {
+          "id": "n",
+          "capabilities": []
+        },
+        {
+          "id": "n"
+        }
+      ],
+      "drapeaux": [
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  ],
+  "familles": [
+    {
+      "nom": null,
+      "fenetre": 0
+    },
+    {
+      "nom": "",
+      "fenetre": 0
+    },
+    {
+      "nom": "claude-opus-4-6",
+      "fenetre": 200000
+    },
+    {
+      "nom": "Claude-Sonnet-4-5",
+      "fenetre": 200000
+    },
+    {
+      "nom": "anthropic/claude-3-haiku",
+      "fenetre": 200000
+    },
+    {
+      "nom": "gpt-4o-mini",
+      "fenetre": 128000
+    },
+    {
+      "nom": "gpt-4",
+      "fenetre": 8192
+    },
+    {
+      "nom": "GPT-4.1-nano",
+      "fenetre": 1000000
+    },
+    {
+      "nom": "o1-mini-2024",
+      "fenetre": 128000
+    },
+    {
+      "nom": "o1",
+      "fenetre": 200000
+    },
+    {
+      "nom": "o3-pro",
+      "fenetre": 200000
+    },
+    {
+      "nom": "gemini-2.5-pro",
+      "fenetre": 1000000
+    },
+    {
+      "nom": "gemini-pro",
+      "fenetre": 32768
+    },
+    {
+      "nom": "accounts/fireworks/models/qwen3-235b",
+      "fenetre": 131072
+    },
+    {
+      "nom": "qwen2.5-coder",
+      "fenetre": 131072
+    },
+    {
+      "nom": "qwen2-7b",
+      "fenetre": 32768
+    },
+    {
+      "nom": "deepseek-v3",
+      "fenetre": 131072
+    },
+    {
+      "nom": "deepseek-coder",
+      "fenetre": 65536
+    },
+    {
+      "nom": "kimi-k2",
+      "fenetre": 131072
+    },
+    {
+      "nom": "moonshot-v1",
+      "fenetre": 131072
+    },
+    {
+      "nom": "llama-3.3-70b",
+      "fenetre": 131072
+    },
+    {
+      "nom": "llama-3-8b",
+      "fenetre": 8192
+    },
+    {
+      "nom": "llama-4-scout",
+      "fenetre": 131072
+    },
+    {
+      "nom": "mistral-large-2",
+      "fenetre": 131072
+    },
+    {
+      "nom": "mistral-small",
+      "fenetre": 32768
+    },
+    {
+      "nom": "mixtral-8x7b",
+      "fenetre": 32768
+    },
+    {
+      "nom": "command-r-plus",
+      "fenetre": 131072
+    },
+    {
+      "nom": "grok-2",
+      "fenetre": 131072
+    },
+    {
+      "nom": "inconnu-128k",
+      "fenetre": 128000
+    },
+    {
+      "nom": "inconnu_32K",
+      "fenetre": 32000
+    },
+    {
+      "nom": "modele-1m",
+      "fenetre": 1000000
+    },
+    {
+      "nom": "modele-2M-x",
+      "fenetre": 2000000
+    },
+    {
+      "nom": "modele-128kx",
+      "fenetre": 0
+    },
+    {
+      "nom": "modele-k",
+      "fenetre": 0
+    },
+    {
+      "nom": "x-\u0661\u0662\u0668k",
+      "fenetre": 128000
+    },
+    {
+      "nom": "  QWEN3  ",
+      "fenetre": 131072
+    },
+    {
+      "nom": "a/b/c/gpt-4o",
+      "fenetre": 128000
+    },
+    {
+      "nom": "o3",
+      "fenetre": 200000
+    },
+    {
+      "nom": "my-o1",
+      "fenetre": 0
+    },
+    {
+      "nom": "nemotron-3-ultra-free",
+      "fenetre": 0
+    },
+    {
+      "nom": "x-99999999999k",
+      "fenetre": 99999999999000
+    },
+    {
+      "nom": "x-99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999k",
+      "fenetre": 0
+    }
+  ],
+  "fenetres_connues": [
+    [
+      "claude-opus-5",
+      200000
+    ],
+    [
+      "claude-sonnet-5",
+      200000
+    ],
+    [
+      "claude-fable-5",
+      200000
+    ],
+    [
+      "claude-haiku-4-5",
+      200000
+    ],
+    [
+      "claude-opus-4",
+      200000
+    ],
+    [
+      "claude-sonnet-4",
+      200000
+    ],
+    [
+      "claude-haiku-4",
+      200000
+    ],
+    [
+      "claude-3-7",
+      200000
+    ],
+    [
+      "claude-3-5",
+      200000
+    ],
+    [
+      "claude-3",
+      200000
+    ],
+    [
+      "claude-",
+      200000
+    ],
+    [
+      "gpt-5",
+      200000
+    ],
+    [
+      "gpt-4.1",
+      1000000
+    ],
+    [
+      "gpt-4o",
+      128000
+    ],
+    [
+      "gpt-4-turbo",
+      128000
+    ],
+    [
+      "gpt-4",
+      8192
+    ],
+    [
+      "gpt-3.5",
+      16385
+    ],
+    [
+      "o3",
+      200000
+    ],
+    [
+      "o1-mini",
+      128000
+    ],
+    [
+      "o1-preview",
+      128000
+    ],
+    [
+      "o1",
+      200000
+    ],
+    [
+      "gemini-2",
+      1000000
+    ],
+    [
+      "gemini-1.5",
+      1000000
+    ],
+    [
+      "gemini-",
+      32768
+    ],
+    [
+      "qwen3",
+      131072
+    ],
+    [
+      "qwen2.5",
+      131072
+    ],
+    [
+      "qwen2",
+      32768
+    ],
+    [
+      "deepseek-v3",
+      131072
+    ],
+    [
+      "deepseek-r1",
+      131072
+    ],
+    [
+      "deepseek",
+      65536
+    ],
+    [
+      "kimi",
+      131072
+    ],
+    [
+      "moonshot",
+      131072
+    ],
+    [
+      "llama-4",
+      131072
+    ],
+    [
+      "llama-3.3",
+      131072
+    ],
+    [
+      "llama-3.1",
+      131072
+    ],
+    [
+      "llama-3",
+      8192
+    ],
+    [
+      "mistral-large",
+      131072
+    ],
+    [
+      "mixtral",
+      32768
+    ],
+    [
+      "mistral",
+      32768
+    ],
+    [
+      "command-r",
+      131072
+    ],
+    [
+      "grok",
+      131072
+    ]
+  ]
+}

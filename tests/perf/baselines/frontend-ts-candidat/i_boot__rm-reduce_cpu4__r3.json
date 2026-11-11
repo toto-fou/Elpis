@@ -1,0 +1,121 @@
+{
+ "scenario": "i_boot",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4
+ },
+ "run": 3,
+ "label": "frontend-ts-candidat",
+ "commit": "9d49c65",
+ "ts": "2026-10-14T05:51:08.772Z",
+ "page": "/",
+ "montageMs": 3733,
+ "fcpMs": 3288,
+ "dclMs": 3226,
+ "loadMs": 3275,
+ "requetes": 60,
+ "koTransferes": 3446,
+ "police": {
+  "url": "/static/vendor/src/regular/Phosphor.woff2",
+  "debutMs": 3643,
+  "finMs": 3722,
+  "ko": 144
+ },
+ "cpuParFichier": [
+  {
+   "url": "/static/dist/assets/socle-DGMn1mnx.js",
+   "ms": 2186
+  },
+  {
+   "url": "/static/dist/assets/pont-legacy-B0WvcaoC.js",
+   "ms": 225
+  },
+  {
+   "url": "/static/dist/assets/main-DKF-TuPt.js",
+   "ms": 138
+  },
+  {
+   "url": "/static/js/app.js",
+   "ms": 84
+  },
+  {
+   "url": "/static/js/app-chat.js",
+   "ms": 12
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ms": 8
+  },
+  {
+   "url": "/static/js/app-settings.js",
+   "ms": 7
+  },
+  {
+   "url": "/static/js/voice/_compat.js",
+   "ms": 4
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/utils.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/chat/_studio_automation.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/admin/_registry.js",
+   "ms": 1
+  },
+  {
+   "url": "/static/js/chat/_sampling.js",
+   "ms": 1
+  },
+  {
+   "url": "/static/js/chat/_routines_menu.js",
+   "ms": 1
+  },
+  {
+   "url": "/static/js/chat/_studio_menu.js",
+   "ms": 1
+  }
+ ],
+ "plusGros": [
+  {
+   "url": "/static/js/app-chat.js",
+   "ko": 405
+  },
+  {
+   "url": "/static/dist/assets/pont-legacy-B0WvcaoC.js",
+   "ko": 327
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ko": 256
+  },
+  {
+   "url": "/static/dist/assets/main-DKF-TuPt.js",
+   "ko": 253
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ko": 245
+  },
+  {
+   "url": "/static/dist/assets/socle-DGMn1mnx.js",
+   "ko": 226
+  },
+  {
+   "url": "/static/css/style.css",
+   "ko": 213
+  },
+  {
+   "url": "/static/js/app.js",
+   "ko": 175
+  }
+ ],
+ "errors": []
+}

@@ -1,0 +1,1356 @@
+{
+  "source": "migration-kit/vecteurs/observabilite_admin.py",
+  "entrees": {
+    "t0": 1800000000.0,
+    "comptes": [
+      [
+        "admin",
+        1
+      ],
+      [
+        "modo",
+        2
+      ],
+      [
+        "alice",
+        0
+      ]
+    ],
+    "evenements": [
+      [
+        "message_sent",
+        1,
+        "{\"role\": \"assistant\", \"user\": \"alice\"}",
+        60,
+        null
+      ],
+      [
+        "message_sent",
+        1,
+        "{\"role\": \"user\", \"user\": \"alice\"}",
+        50,
+        null
+      ],
+      [
+        "message_sent",
+        1,
+        "{\"role\": \"assistant\", \"user\": \"modo\"}",
+        3456000,
+        null
+      ],
+      [
+        "write_tps",
+        41.25,
+        "{\"model\": \"m\"}",
+        120,
+        null
+      ],
+      [
+        "write_tps",
+        12.5,
+        "{\"model\": \"m\"}",
+        1800,
+        null
+      ],
+      [
+        "write_tps",
+        99.0,
+        "{\"model\": \"m\"}",
+        7200,
+        null
+      ],
+      [
+        "llm_latency",
+        1.2345,
+        "{\"model\": \"m\"}",
+        30,
+        null
+      ],
+      [
+        "llm_latency",
+        2.0,
+        "{\"model\": \"m\"}",
+        90,
+        null
+      ],
+      [
+        "rag_hit",
+        1,
+        "{\"user\": \"alice\"}",
+        100,
+        null
+      ],
+      [
+        "rag_hit",
+        1,
+        "{\"user\": \"alice\"}",
+        90000,
+        null
+      ],
+      [
+        "tool_call",
+        1,
+        "{\"tool\": \"shell\", \"status\": \"ok\"}",
+        10,
+        null
+      ],
+      [
+        "maintenance_pass",
+        1,
+        null,
+        4000.5,
+        null
+      ],
+      [
+        "scheduler_skip",
+        2.5,
+        null,
+        600,
+        null
+      ],
+      [
+        "scheduler_skip",
+        1.0,
+        null,
+        259200,
+        null
+      ],
+      [
+        "proc_sample",
+        1.0,
+        "{\"pid\": 9, \"proc_scheduler_alive\": 1.0}",
+        345.25,
+        null
+      ],
+      [
+        "new_chat",
+        1,
+        "{\"user\": \"alice\"}",
+        70,
+        3
+      ]
+    ],
+    "usage": [
+      [
+        100,
+        3,
+        "chat",
+        "qwen3",
+        1000,
+        200,
+        "ok"
+      ],
+      [
+        200,
+        3,
+        "chat",
+        "qwen3",
+        500,
+        50,
+        "error"
+      ],
+      [
+        259200,
+        2,
+        "routine",
+        "mo\"d\\el",
+        70,
+        7,
+        "ok"
+      ],
+      [
+        691200,
+        1,
+        "webhook",
+        "",
+        9,
+        1,
+        "aborted"
+      ],
+      [
+        1728000,
+        null,
+        "",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        3,
+        3,
+        "ok"
+      ],
+      [
+        3456000,
+        3,
+        "chat",
+        "old",
+        1,
+        1,
+        "ok"
+      ]
+    ],
+    "runs": [
+      [
+        500,
+        "ok"
+      ],
+      [
+        600,
+        "error"
+      ],
+      [
+        172800,
+        "ok"
+      ],
+      [
+        864000,
+        "skipped"
+      ],
+      [
+        4320000,
+        "ok"
+      ]
+    ],
+    "appels": [
+      [
+        10,
+        "shell",
+        "success",
+        120,
+        null,
+        null
+      ],
+      [
+        20,
+        "shell",
+        "error",
+        45,
+        "exit 1",
+        "n1"
+      ],
+      [
+        30,
+        "git",
+        "timeout",
+        30000,
+        "d\u00e9lai",
+        null
+      ],
+      [
+        40,
+        "git",
+        "blocked",
+        0,
+        "refus\u00e9",
+        "n2"
+      ],
+      [
+        108000,
+        "read_file",
+        "error",
+        5,
+        "absent",
+        null
+      ],
+      [
+        50,
+        "read_file",
+        "success",
+        7,
+        null,
+        null
+      ],
+      [
+        60,
+        "read_file",
+        "success",
+        9,
+        null,
+        null
+      ]
+    ],
+    "chats": [
+      [
+        "c1",
+        3,
+        0
+      ],
+      [
+        "c2",
+        3,
+        1
+      ],
+      [
+        "c3",
+        2,
+        0
+      ]
+    ],
+    "etapes": [
+      [
+        null,
+        "GET",
+        "/api/admin/stats-dynamic",
+        {},
+        null
+      ],
+      [
+        "alice",
+        "GET",
+        "/api/admin/stats-dynamic",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/stats-dynamic?ids=kpi_users,usage_tokens,tool_error_rate,inconnu&scope_hours=168",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/stats-dynamic?ids=%20,%20",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/stats-dynamic?scope_hours=999&ids=kpi_users,%20kpi_chats%20",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/stats-dynamic?scope_hours=abc",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/stats-dynamic?ids=",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/audit-recent",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/audit-recent?hours=0&limit=9999&action_prefix=%20admin.%20",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/audit-recent?filter_user_id=abc",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/metrics/scrape-token",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/metrics/scrape-token",
+        {},
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {},
+        null
+      ],
+      [
+        "alice",
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/scrape-token",
+        {
+          "content-type": "application/json"
+        },
+        "{\"action\": \"bogus\"}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/scrape-token",
+        {
+          "content-type": "application/json"
+        },
+        "[1]"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/scrape-token",
+        {
+          "content-type": "application/json"
+        },
+        "pas du json"
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/metrics/scrape-token",
+        {},
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {
+          "authorization": "Bearer jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq"
+        },
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {
+          "authorization": "bearer   jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq  "
+        },
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus?token=jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq",
+        {},
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus?token=faux&token=jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq",
+        {},
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus?token=faux",
+        {},
+        null
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus",
+        {
+          "authorization": "Basic jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq"
+        },
+        null
+      ],
+      [
+        "alice",
+        "GET",
+        "/api/admin/metrics/prometheus?token=jeton-de-scrape-fixe_0123456789-abcdefghijklmnop",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/scrape-token",
+        {
+          "content-type": "application/json"
+        },
+        "{\"action\": \"revoke\"}"
+      ],
+      [
+        null,
+        "GET",
+        "/api/admin/metrics/prometheus?token=jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "GET",
+        "/api/admin/metrics/scrape-token",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/export-metrics",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/export-metrics?target=usage_events&days=0",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/export-metrics?target=usage_events&days=99999",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/export-metrics?target=autre",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/export-metrics?days=abc",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-failures",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-failures?status=error&hours=99999",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-failures?status=bogus",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-failures?hours=0&limit=0&status=",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-summary",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-summary?limit=1&hours=48",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"metric_events\"]}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "[1]"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "pas du json"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": []}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"x\", 3, null, \"usage_events\", true]}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [[\"a\"]]}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"metric_events\"], \"from\": \"abc\"}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"metric_events\", \"usage_events\", \"tool_call_metrics\"], \"event_types\": [\"write_tps\", \"rag_hit\"], \"sources\": [\"chat\"]}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"metric_events\"], \"dry_run\": false, \"event_types\": [\"rag_hit\"], \"to\": 1799996400.0}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/metrics/purge",
+        {
+          "content-type": "application/json"
+        },
+        "{\"targets\": [\"tool_call_metrics\", \"usage_events\", \"usage_events\"], \"dry_run\": 0, \"from\": \"1799222400.0\", \"sources\": [\"webhook\", 7]}"
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/observability/tool-summary",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily?date=2027-01-14",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "POST",
+        "/api/admin/report/daily/generate",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/report/daily/generate",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily?date=2027-01-15",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily/list?limit=0",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily/list",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily/auto",
+        {},
+        null
+      ],
+      [
+        "modo",
+        "POST",
+        "/api/admin/report/daily/auto",
+        {
+          "content-type": "application/json"
+        },
+        "{\"enabled\": true}"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/report/daily/auto",
+        {
+          "content-type": "application/json"
+        },
+        "{bad"
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/report/daily/auto",
+        {
+          "content-type": "application/json"
+        },
+        "{\"enabled\": 1}"
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily/auto",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/report/daily/auto",
+        {
+          "content-type": "application/json"
+        },
+        "[]"
+      ],
+      [
+        "modo",
+        "GET",
+        "/api/admin/report/daily/auto",
+        {},
+        null
+      ],
+      [
+        "admin",
+        "POST",
+        "/api/admin/report/daily/auto",
+        {
+          "content-type": "application/json"
+        },
+        "[1]"
+      ]
+    ],
+    "systeme": {
+      "memoire": {
+        "total": 16694493184,
+        "available": 4113581056,
+        "percent": 75.4,
+        "used": 12580912128,
+        "free": 1073401856,
+        "active": 0,
+        "inactive": 0,
+        "buffers": 0,
+        "cached": 0,
+        "shared": 0,
+        "slab": 0
+      },
+      "disque": {
+        "total": 250903199744,
+        "used": 228503199744,
+        "free": 9583616000,
+        "percent": 96.0
+      },
+      "logiques": 8,
+      "coeurs": 4,
+      "frequence": {
+        "current": 2394.5,
+        "min": 400.0,
+        "max": 4700.0
+      },
+      "creation": 1799996000.0,
+      "base": 52428800,
+      "cpu": 12.5
+    },
+    "sante": {
+      "server_reachable": true,
+      "status": "ok",
+      "models_loaded": [
+        {
+          "id": "m/qwen3.gguf"
+        }
+      ],
+      "kv_cache": {
+        "used": 3,
+        "total": 8
+      }
+    },
+    "echantillons": [
+      [
+        "proc_active_chat_tasks",
+        2
+      ],
+      [
+        "proc_rss_mb",
+        312.4
+      ],
+      [
+        "proc_pty_terminals",
+        null
+      ],
+      [
+        "proc_num_fds",
+        41
+      ]
+    ],
+    "jeton": "jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq"
+  },
+  "sorties": {
+    "ids": {
+      "admin": 1,
+      "modo": 2,
+      "alice": 3
+    },
+    "reponses": [
+      {
+        "statut": 401,
+        "corps": "{\"detail\":\"not logged in\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Staff required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"data\":{\"kpi_users\":{\"value\":3,\"unit\":\"comptes\",\"color\":\"blue\",\"icon\":\"ph-users\"},\"usage_tokens\":{\"value\":\"1,8 k\",\"unit\":\"tokens/7j\",\"color\":\"emerald\",\"icon\":\"ph-lightning\",\"detail\":\"1,6 k entr\u00e9e \u00b7 257 sortie\"},\"tool_error_rate\":{\"labels\":[],\"datasets\":[{\"label\":\"% erreur / 7j\",\"data\":[],\"backgroundColor\":[]}],\"tooltips\":[],\"scope_hours\":168,\"scopes_available\":[24,168,720]}},\"partial\":true}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"data\":{},\"partial\":true}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"data\":{\"kpi_users\":{\"value\":3,\"unit\":\"comptes\",\"color\":\"blue\",\"icon\":\"ph-users\"},\"kpi_chats\":{\"value\":2,\"unit\":\"actives\",\"color\":\"purple\",\"icon\":\"ph-chat-dots\"}},\"partial\":true}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 422,
+        "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"scope_hours\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"layout\":[{\"id\":\"kpi_users\",\"title\":\"Utilisateurs\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":true,\"purge\":null},{\"id\":\"kpi_dau\",\"title\":\"Utilisateurs actifs\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"kpi_wau\",\"title\":\"Actifs (7j)\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"kpi_mau\",\"title\":\"Actifs (30j)\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"kpi_chats\",\"title\":\"Conversations actives\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":true,\"purge\":null},{\"id\":\"kpi_new_chats\",\"title\":\"Nouveaux chats\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"new_chat\"]}},{\"id\":\"kpi_logins\",\"title\":\"Connexions\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"user_login\"]}},{\"id\":\"kpi_groups\",\"title\":\"Groupes\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":null},{\"id\":\"kpi_archived\",\"title\":\"Chats archiv\u00e9s\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":false,\"purge\":null},{\"id\":\"kpi_messages\",\"title\":\"Messages\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"kpi_avg_msgs_per_chat\",\"title\":\"Msgs / chat (moy.)\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\",\"new_chat\"]}},{\"id\":\"kpi_sandbox_writes\",\"title\":\"Fichiers \u00e9crits\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"sandbox_write\"]}},{\"id\":\"kpi_tool_calls\",\"title\":\"Appels outils\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"tool_call\"]}},{\"id\":\"kpi_rag_hits\",\"title\":\"Requ\u00eates RAG\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"rag_hit\"]}},{\"id\":\"kpi_model_loads\",\"title\":\"Chargements mod\u00e8le\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"model_load\"]}},{\"id\":\"kpi_total_messages\",\"title\":\"Messages totaux\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"kpi_avg_tps\",\"title\":\"Vitesse moy.\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"write_tps\"]}},{\"id\":\"kpi_latency\",\"title\":\"Latence moy. LLM\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_latency\"]}},{\"id\":\"kpi_latency_p95\",\"title\":\"Latence P95\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_latency\"]}},{\"id\":\"kpi_latency_p99\",\"title\":\"Latence P99\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_latency\"]}},{\"id\":\"kpi_llm_wait\",\"title\":\"Attente d'un cr\u00e9neau LLM\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_wait_time_ms\"]}},{\"id\":\"kpi_kv_prefix_reuse\",\"title\":\"R\u00e9utilisation du cache KV\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"kv_prefix_reuse_pct\"]}},{\"id\":\"kpi_top_model\",\"title\":\"Mod\u00e8le dominant\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":null},{\"id\":\"kpi_llm_status\",\"title\":\"LLM Server\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":null},{\"id\":\"kpi_disk\",\"title\":\"Disque\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":true,\"purge\":null},{\"id\":\"kpi_ram\",\"title\":\"RAM\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":true,\"purge\":null},{\"id\":\"kpi_db_size\",\"title\":\"Base de donn\u00e9es\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":true,\"purge\":null},{\"id\":\"kpi_sandbox_storage\",\"title\":\"Stockage sandbox\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":false,\"purge\":null},{\"id\":\"kpi_uptime\",\"title\":\"Uptime application\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":false,\"purge\":null},{\"id\":\"system_load\",\"title\":\"Charge Syst\u00e8me Live \u2014 CPU / RAM (10 min)\",\"type\":\"line\",\"width\":\"full\",\"category\":\"general\",\"default\":true,\"purge\":null},{\"id\":\"disk_io\",\"title\":\"Disque I/O Live (Mo/s)\",\"type\":\"line\",\"width\":\"full\",\"category\":\"general\",\"default\":false,\"purge\":null},{\"id\":\"proc_live\",\"title\":\"Process worker \u2014 RSS Mo / fd ouverts (live, 10 min)\",\"type\":\"line\",\"width\":\"full\",\"category\":\"system\",\"default\":false,\"purge\":null},{\"id\":\"proc_resources\",\"title\":\"Process \u2014 RSS Mo / fd / threads (tendance 7j, pire worker)\",\"type\":\"line\",\"width\":\"full\",\"category\":\"system\",\"default\":false,\"purge\":null},{\"id\":\"proc_app_counters\",\"title\":\"Process \u2014 tasks chat / PTY / SSE / bg / routines (tendance 7j)\",\"type\":\"line\",\"width\":\"full\",\"category\":\"system\",\"default\":false,\"purge\":null},{\"id\":\"write_tps_history\",\"title\":\"Vitesse tokens/s (24h)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"write_tps\"]}},{\"id\":\"llm_latency_history\",\"title\":\"Latence LLM/heure (sec)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_latency\"]}},{\"id\":\"latency_percentiles\",\"title\":\"Latence LLM \u2014 percentiles\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"llm_latency\"]}},{\"id\":\"rag_usage\",\"title\":\"Requ\u00eates RAG/heure (24h)\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"rag_hit\"]}},{\"id\":\"code_write_time\",\"title\":\"Temps \u00e9criture fichiers (24h)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"code_write_time\"]}},{\"id\":\"chats_per_day\",\"title\":\"Nouveaux chats/jour (7j)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"new_chat\"]}},{\"id\":\"messages_per_day\",\"title\":\"Messages/jour (7j)\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"sandbox_writes_history\",\"title\":\"Fichiers sandbox/jour (7j)\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"sandbox_write\"]}},{\"id\":\"sandbox_writes_ext\",\"title\":\"Fichiers par extension (7j)\",\"type\":\"doughnut\",\"width\":\"1/4\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"sandbox_write\"]}},{\"id\":\"sandbox_writes_user\",\"title\":\"Fichiers par utilisateur (7j)\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"sandbox_write\"]}},{\"id\":\"logins_per_day\",\"title\":\"Connexions/jour (7j)\",\"type\":\"bar\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"user_login\"]}},{\"id\":\"active_users_day\",\"title\":\"Utilisateurs actifs/jour (7j)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"tools_usage\",\"title\":\"Top Outils MCP (7j)\",\"type\":\"doughnut\",\"width\":\"1/4\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"tool_call\"]}},{\"id\":\"messages_history_30d\",\"title\":\"Messages \u00e9chang\u00e9s (30 jours)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"message_sent\"]}},{\"id\":\"chat_lifecycle\",\"title\":\"Chats : cr\u00e9ation vs archivage (30j)\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"general\",\"default\":false,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"new_chat\"]}},{\"id\":\"storage_breakdown\",\"title\":\"Stockage : r\u00e9partition\",\"type\":\"doughnut\",\"width\":\"1/4\",\"category\":\"general\",\"default\":false,\"purge\":null},{\"id\":\"usage_tokens\",\"title\":\"Tokens consomm\u00e9s\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_offhours\",\"title\":\"Hors plage\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_turns\",\"title\":\"Tours LLM\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_failure_rate\",\"title\":\"Tours en \u00e9chec\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_cache\",\"title\":\"Cache de prompt\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_thinking\",\"title\":\"R\u00e9flexion\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"routine_runs\",\"title\":\"Runs de routines\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"editor_routine_runs\",\"destructive\":true}},{\"id\":\"scheduler_health\",\"title\":\"Planification\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"system\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"scheduler_skip\",\"maintenance_pass\"]}},{\"id\":\"usage_timeline\",\"title\":\"Consommation par source\",\"type\":\"bar_stacked\",\"width\":\"full\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_turns_timeline\",\"title\":\"Tours LLM dans le temps\",\"type\":\"line\",\"width\":\"1/2\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_thinking_timeline\",\"title\":\"Sortie \u2014 r\u00e9flexion vs r\u00e9ponse\",\"type\":\"bar_stacked\",\"width\":\"1/2\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_input_timeline\",\"title\":\"Entr\u00e9e \u2014 cache vs utile\",\"type\":\"bar_stacked\",\"width\":\"1/2\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_by_source\",\"title\":\"R\u00e9partition par source\",\"type\":\"doughnut\",\"width\":\"1/4\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_by_model\",\"title\":\"Tokens par mod\u00e8le\",\"type\":\"bar_stacked\",\"width\":\"1/2\",\"category\":\"volume\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_top_users\",\"title\":\"Tokens par utilisateur\",\"type\":\"bar_stacked\",\"width\":\"1/2\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"usage_heatmap\",\"title\":\"Activit\u00e9 \u2014 jour \u00d7 heure\",\"type\":\"bar_stacked\",\"width\":\"full\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"routine_runs_timeline\",\"title\":\"Runs de routines\",\"type\":\"bar_stacked\",\"width\":\"1/2\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"editor_routine_runs\",\"destructive\":true}},{\"id\":\"usage_user_peaks\",\"title\":\"Pics par utilisateur\",\"type\":\"table\",\"width\":\"full\",\"category\":\"activity\",\"default\":true,\"purge\":{\"target\":\"usage_events\"}},{\"id\":\"tool_error_rate\",\"title\":\"Outils \u2014 taux d'erreur\",\"type\":\"bar\",\"width\":\"full\",\"category\":\"performance\",\"default\":true,\"purge\":{\"target\":\"metric_events\",\"event_types\":[\"tool_call\"]}},{\"id\":\"tool_call_volume\",\"title\":\"Outils \u2014 volume d'appels\",\"type\":\"bar\",\"width\":\"full\",\"category\":\"performance\",\"default\":false,\"purge\":null},{\"id\":\"tool_call_latency\",\"title\":\"Outils \u2014 latence moyenne\",\"type\":\"bar\",\"width\":\"full\",\"category\":\"performance\",\"default\":false,\"purge\":null},{\"id\":\"kpi_tool_failures\",\"title\":\"Outils en \u00e9chec\",\"type\":\"value\",\"width\":\"1/4\",\"category\":\"performance\",\"default\":false,\"purge\":null}],\"data\":{\"kpi_users\":{\"value\":3,\"unit\":\"comptes\",\"color\":\"blue\",\"icon\":\"ph-users\"},\"kpi_dau\":{\"value\":1,\"unit\":\"actifs / 24 h\",\"color\":\"emerald\",\"icon\":\"ph-user-circle\"},\"kpi_wau\":{\"value\":1,\"unit\":\"users / 7j\",\"color\":\"emerald\",\"icon\":\"ph-users-three\"},\"kpi_mau\":{\"value\":1,\"unit\":\"users / 30j\",\"color\":\"emerald\",\"icon\":\"ph-users-four\"},\"kpi_chats\":{\"value\":2,\"unit\":\"actives\",\"color\":\"purple\",\"icon\":\"ph-chat-dots\"},\"kpi_new_chats\":{\"value\":1,\"unit\":\"chats/24h\",\"color\":\"violet\",\"icon\":\"ph-plus-circle\"},\"kpi_logins\":{\"value\":0,\"unit\":\"logins/24h\",\"color\":\"blue\",\"icon\":\"ph-sign-in\"},\"kpi_groups\":{\"value\":0,\"unit\":\"groupes\",\"color\":\"teal\",\"icon\":\"ph-users-three\"},\"kpi_archived\":{\"value\":1,\"unit\":\"archiv\u00e9s\",\"color\":\"slate\",\"icon\":\"ph-archive\"},\"kpi_messages\":{\"value\":2,\"unit\":\"messages / 24 h\",\"color\":\"sky\",\"icon\":\"ph-chat-text\"},\"kpi_avg_msgs_per_chat\":{\"value\":2.0,\"unit\":\"msgs/chat\",\"color\":\"sky\",\"icon\":\"ph-conversation\"},\"kpi_sandbox_writes\":{\"value\":0,\"unit\":\"fichiers/24h\",\"color\":\"emerald\",\"icon\":\"ph-file-code\"},\"kpi_tool_calls\":{\"value\":1,\"unit\":\"appels/24h\",\"color\":\"amber\",\"icon\":\"ph-wrench\"},\"kpi_rag_hits\":{\"value\":1,\"unit\":\"requ\u00eates/24h\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_model_loads\":{\"value\":0,\"unit\":\"loads/24h\",\"color\":\"blue\",\"icon\":\"ph-upload\"},\"kpi_total_messages\":{\"value\":\"3\",\"unit\":\"messages\",\"color\":\"emerald\",\"icon\":\"ph-chats\"},\"kpi_avg_tps\":{\"value\":50.9,\"unit\":\"tokens/s\",\"color\":\"orange\",\"icon\":\"ph-speedometer\",\"detail\":\"moyenne sur 24 h\"},\"kpi_latency\":{\"value\":1.6,\"unit\":\"sec/r\u00e9ponse\",\"color\":\"rose\",\"icon\":\"ph-timer\"},\"kpi_latency_p95\":{\"value\":2.0,\"unit\":\"sec (95e)\",\"color\":\"rose\",\"icon\":\"ph-arrow-up-right\",\"detail\":\"sur 24 h\"},\"kpi_latency_p99\":{\"value\":2.0,\"unit\":\"sec (99e)\",\"color\":\"red\",\"icon\":\"ph-warning\"},\"kpi_llm_wait\":{\"value\":0,\"unit\":\"ms (moy.)\",\"color\":\"amber\",\"icon\":\"ph-hourglass-medium\",\"detail\":\"P95 0 ms \u00b7 attentes non nulles sur 24 h\"},\"kpi_kv_prefix_reuse\":{\"value\":0,\"unit\":\"% du prompt\",\"color\":\"emerald\",\"icon\":\"ph-recycle\",\"detail\":\"moyenne des pr\u00e9-remplissages sur 24 h\"},\"kpi_top_model\":{\"value\":\"qwen3\",\"unit\":\"mod\u00e8le dominant\",\"color\":\"indigo\",\"icon\":\"ph-robot\"},\"kpi_llm_status\":{\"value\":\"qwen3.gguf\",\"unit\":\"ok\",\"color\":\"emerald\",\"icon\":\"ph-hard-drives\"},\"kpi_disk\":{\"value\":\"212.8\",\"unit\":\"/ 233.7 Go\",\"color\":\"red\",\"icon\":\"ph-hard-drive\",\"state\":\"danger\"},\"kpi_ram\":{\"value\":\"11.7\",\"unit\":\"/ 15.5 Go\",\"color\":\"purple\",\"icon\":\"ph-memory\",\"state\":null},\"kpi_db_size\":{\"value\":\"50\",\"unit\":\"Mo\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_sandbox_storage\":{\"value\":\"0\",\"unit\":\"Ko\",\"color\":\"orange\",\"icon\":\"ph-folder\"},\"kpi_uptime\":{\"value\":\"1h 6m\",\"unit\":\"depuis le d\u00e9marrage\",\"color\":\"teal\",\"icon\":\"ph-clock-clockwise\"},\"system_load\":{\"title\":\"Charge Syst\u00e8me Live \u2014 4c/8t @ 2.39 GHz \u00b7 15.5 Go RAM (10 min)\",\"host\":{\"cores_logical\":8,\"cores_physical\":4,\"ram_total_gb\":15.5,\"cpu_ghz\":2.39},\"labels\":[],\"datasets\":[{\"label\":\"CPU %\",\"data\":[],\"borderColor\":\"#3b82f6\",\"backgroundColor\":\"rgba(59,130,246,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":true,\"pointRadius\":0},{\"label\":\"RAM %\",\"data\":[],\"borderColor\":\"#8b5cf6\",\"backgroundColor\":\"rgba(139,92,246,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":true,\"pointRadius\":0}]},\"disk_io\":{\"labels\":[],\"datasets\":[{\"label\":\"Lecture Mo/s\",\"data\":[],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":true,\"pointRadius\":0},{\"label\":\"\u00c9criture Mo/s\",\"data\":[],\"borderColor\":\"#ef4444\",\"backgroundColor\":\"rgba(239,68,68,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":true,\"pointRadius\":0}]},\"proc_live\":{\"labels\":[],\"datasets\":[{\"label\":\"RSS Mo\",\"data\":[],\"borderColor\":\"#8b5cf6\",\"backgroundColor\":\"rgba(139,92,246,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":true,\"pointRadius\":0},{\"label\":\"fd ouverts\",\"data\":[],\"borderColor\":\"#f59e0b\",\"backgroundColor\":\"rgba(245,158,11,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":false,\"pointRadius\":0},{\"label\":\"threads\",\"data\":[],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.08)\",\"borderWidth\":2,\"tension\":0.4,\"fill\":false,\"pointRadius\":0}]},\"proc_resources\":{\"labels\":[],\"datasets\":[{\"label\":\"RSS Mo\",\"data\":[],\"borderColor\":\"rgb(139,92,246)\",\"backgroundColor\":\"rgba(139,92,246,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"fd ouverts\",\"data\":[],\"borderColor\":\"rgb(245,158,11)\",\"backgroundColor\":\"rgba(245,158,11,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"threads\",\"data\":[],\"borderColor\":\"rgb(16,185,129)\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0}]},\"proc_app_counters\":{\"labels\":[],\"datasets\":[{\"label\":\"tasks chat\",\"data\":[],\"borderColor\":\"rgb(59,130,246)\",\"backgroundColor\":\"rgba(59,130,246,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"PTY\",\"data\":[],\"borderColor\":\"rgb(239,68,68)\",\"backgroundColor\":\"rgba(239,68,68,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"clients SSE\",\"data\":[],\"borderColor\":\"rgb(16,185,129)\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"bg tasks\",\"data\":[],\"borderColor\":\"rgb(245,158,11)\",\"backgroundColor\":\"rgba(245,158,11,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"routines\",\"data\":[],\"borderColor\":\"rgb(168,85,247)\",\"backgroundColor\":\"rgba(168,85,247,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":0},{\"label\":\"WAL Mo\",\"data\":[],\"borderColor\":\"rgb(6,182,212)\",\"backgroundColor\":\"rgba(6,182,212,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":0}]},\"write_tps_history\":{\"labels\":[\"07:00\",\"08:00\"],\"datasets\":[{\"label\":\"t/s moyen\",\"data\":[99.0,26.9],\"borderColor\":\"#f97316\",\"backgroundColor\":\"rgba(249,115,22,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":3}]},\"llm_latency_history\":{\"labels\":[\"08:00\"],\"datasets\":[{\"label\":\"Latence (s)\",\"data\":[1.62],\"borderColor\":\"#ec4899\",\"backgroundColor\":\"rgba(236,72,153,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":3}]},\"latency_percentiles\":{\"labels\":[\"P50\",\"P75\",\"P95\",\"P99\"],\"datasets\":[{\"label\":\"Secondes\",\"data\":[2.0,2.0,2.0,2.0],\"backgroundColor\":[\"#10b981\",\"#3b82f6\",\"#f59e0b\",\"#ef4444\"],\"borderRadius\":6}]},\"rag_usage\":{\"labels\":[\"08:00\"],\"datasets\":[{\"label\":\"Requ\u00eates RAG\",\"data\":[1],\"backgroundColor\":\"rgba(6,182,212,0.7)\",\"borderRadius\":4}]},\"code_write_time\":{\"labels\":[],\"datasets\":[{\"label\":\"sec/fichier\",\"data\":[],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":4}]},\"chats_per_day\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Nouveaux chats\",\"data\":[1],\"borderColor\":\"rgb(99,102,241)\",\"backgroundColor\":\"rgba(99,102,241,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":4}]},\"messages_per_day\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Messages\",\"data\":[2],\"backgroundColor\":\"rgba(99,102,241,0.7)\",\"borderRadius\":4}]},\"sandbox_writes_history\":{\"labels\":[],\"datasets\":[{\"label\":\"Fichiers\",\"data\":[],\"backgroundColor\":\"rgba(16,185,129,0.7)\",\"borderRadius\":4}]},\"sandbox_writes_ext\":{\"labels\":[],\"datasets\":[{\"data\":[],\"backgroundColor\":[]}]},\"sandbox_writes_user\":{\"labels\":[],\"datasets\":[{\"label\":\"Fichiers\",\"data\":[],\"backgroundColor\":[],\"borderRadius\":4}]},\"logins_per_day\":{\"labels\":[],\"datasets\":[{\"label\":\"Connexions\",\"data\":[],\"backgroundColor\":\"rgba(59,130,246,0.7)\",\"borderRadius\":4}]},\"active_users_day\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Actifs\",\"data\":[1],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":4}]},\"tools_usage\":{\"labels\":[\"shell\"],\"datasets\":[{\"data\":[1],\"backgroundColor\":[\"#ef4444\",\"#f97316\",\"#f59e0b\",\"#84cc16\",\"#06b6d4\",\"#8b5cf6\"]}]},\"messages_history_30d\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Messages\",\"data\":[2],\"borderColor\":\"#3b82f6\",\"backgroundColor\":\"rgba(59,130,246,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":3}]},\"chat_lifecycle\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Cr\u00e9\u00e9s\",\"data\":[1],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":3},{\"label\":\"Archiv\u00e9s\",\"data\":[0],\"borderColor\":\"#94a3b8\",\"backgroundColor\":\"rgba(148,163,184,0.1)\",\"tension\":0.4,\"fill\":false,\"borderWidth\":2,\"pointRadius\":3}]},\"storage_breakdown\":{\"labels\":[\"Base de donn\u00e9es\",\"Sandboxes\",\"Uploads\",\"Logs\"],\"datasets\":[{\"data\":[50.0,0.0,0.0,0.0],\"backgroundColor\":[\"#06b6d4\",\"#f97316\",\"#8b5cf6\",\"#94a3b8\"],\"label\":\"Mo\"}]},\"usage_tokens\":{\"value\":\"1,8 k\",\"unit\":\"tokens/24h\",\"color\":\"emerald\",\"icon\":\"ph-lightning\",\"detail\":\"1,5 k entr\u00e9e \u00b7 250 sortie\"},\"usage_offhours\":{\"value\":\"0.0 %\",\"unit\":\"des tokens\",\"color\":\"violet\",\"icon\":\"ph-moon\",\"detail\":\"0 hors 8h\u201319h (5 j/sem.)\"},\"usage_turns\":{\"value\":2,\"unit\":\"tours\",\"color\":\"sky\",\"icon\":\"ph-arrows-clockwise\",\"detail\":\"875 tokens/tour \u00b7 0 it\u00e9rations\"},\"usage_failure_rate\":{\"value\":\"50.0 %\",\"unit\":\"1/2 tours\",\"color\":\"rose\",\"icon\":\"ph-warning-circle\",\"state\":\"danger\"},\"usage_cache\":{\"value\":\"\u2014\",\"unit\":\"non utilis\u00e9\",\"color\":\"slate\",\"icon\":\"ph-database\"},\"usage_thinking\":{\"value\":\"\u2014\",\"unit\":\"aucun raisonnement mesur\u00e9\",\"color\":\"slate\",\"icon\":\"ph-brain\",\"detail\":\"250 de sortie, tout en r\u00e9ponse\"},\"routine_runs\":{\"value\":2,\"unit\":\"runs\",\"icon\":\"ph-clock-countdown\",\"color\":\"rose\",\"state\":\"danger\",\"detail\":\"1 en erreur \u00b7 0 non ex\u00e9cut\u00e9(s)\"},\"scheduler_health\":{\"value\":\"Active\",\"unit\":\"entretien : il y a 1 h\",\"color\":\"amber\",\"icon\":\"ph-heartbeat\",\"state\":\"warn\",\"detail\":\"2 minute(s) enjamb\u00e9e(s) sur 24 h\"},\"usage_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Chat\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1750,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_turns_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Erreur\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"borderColor\":\"rgb(59,130,246)\",\"backgroundColor\":\"rgba(59,130,246,0.12)\",\"tension\":0.35,\"fill\":true,\"borderWidth\":2,\"pointRadius\":0,\"pointHoverRadius\":4},{\"label\":\"R\u00e9ussi\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"borderColor\":\"rgb(16,185,129)\",\"backgroundColor\":\"rgba(16,185,129,0.12)\",\"tension\":0.35,\"fill\":true,\"borderWidth\":2,\"pointRadius\":0,\"pointHoverRadius\":4}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":false}},\"usage_thinking_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"R\u00e9flexion\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ponse\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,250,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_input_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"Utile\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_by_source\":{\"labels\":[\"Chat\"],\"datasets\":[{\"label\":\"Tokens\",\"data\":[1750],\"backgroundColor\":[\"rgb(59,130,246)\"],\"borderRadius\":4}]},\"usage_by_model\":{\"labels\":[\"qwen3\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"usage_top_users\":{\"labels\":[\"alice\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"usage_heatmap\":{\"labels\":[\"00h\",\"01h\",\"02h\",\"03h\",\"04h\",\"05h\",\"06h\",\"07h\",\"08h\",\"09h\",\"10h\",\"11h\",\"12h\",\"13h\",\"14h\",\"15h\",\"16h\",\"17h\",\"18h\",\"19h\",\"20h\",\"21h\",\"22h\",\"23h\"],\"datasets\":[{\"label\":\"Lundi\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Mardi\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Mercredi\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(245,158,11,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Jeudi\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(139,92,246,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Vendredi\",\"data\":[0,0,0,0,0,0,0,0,1750.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(239,68,68,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Samedi\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(6,182,212,0.75)\",\"borderRadius\":3,\"stack\":\"all\"},{\"label\":\"Dimanche\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"backgroundColor\":\"rgba(249,115,22,0.75)\",\"borderRadius\":3,\"stack\":\"all\"}],\"meta\":{\"timezone\":\"CET\",\"stacked\":true}},\"routine_runs_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Erreur\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ussi\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_user_peaks\":{\"columns\":[{\"key\":\"utilisateur\",\"label\":\"Utilisateur\"},{\"key\":\"tokens\",\"label\":\"Tokens\",\"align\":\"right\"},{\"key\":\"tours\",\"label\":\"Tours\",\"align\":\"right\"},{\"key\":\"pic\",\"label\":\"Pic\"},{\"key\":\"pic_tokens\",\"label\":\"Au pic\",\"align\":\"right\"},{\"key\":\"hors_plage\",\"label\":\"Hors plage\",\"align\":\"right\"},{\"key\":\"echecs\",\"label\":\"\u00c9checs\",\"align\":\"right\"}],\"rows\":[{\"utilisateur\":\"alice\",\"tokens\":\"1,8 k\",\"tours\":2,\"pic\":\"15/01 08:00\",\"pic_tokens\":\"1,8 k\",\"hors_plage\":\"0.0 %\",\"echecs\":1}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\"}},\"tool_error_rate\":{\"labels\":[],\"datasets\":[{\"label\":\"% erreur / 24h\",\"data\":[],\"backgroundColor\":[]}],\"tooltips\":[],\"scope_hours\":24,\"scopes_available\":[24,168,720]},\"tool_call_volume\":{\"labels\":[\"git\",\"read_file\",\"shell\"],\"datasets\":[{\"label\":\"appels / 24h\",\"data\":[2,2,2],\"backgroundColor\":\"#3B82F6\"}],\"scope_hours\":24,\"scopes_available\":[24,168,720]},\"tool_call_latency\":{\"labels\":[],\"datasets\":[{\"label\":\"dur\u00e9e moyenne (ms) / 24h\",\"data\":[],\"backgroundColor\":[]}],\"tooltips\":[],\"scope_hours\":24,\"scopes_available\":[24,168,720]},\"kpi_tool_failures\":{\"value\":3,\"unit\":\"\u00e9checs / 24h\",\"color\":\"rose\",\"icon\":\"ph-warning-octagon\",\"state\":\"warn\",\"scope_hours\":24,\"scopes_available\":[24,168,720]}}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"items\":[],\"total\":0,\"hours\":24}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"items\":[],\"total\":0,\"hours\":1}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 422,
+        "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"filter_user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Admin required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"configured\":false,\"token\":null}",
+        "type": "application/json",
+        "cache": "no-store",
+        "fichier": null
+      },
+      {
+        "statut": 401,
+        "corps": "{\"detail\":\"not logged in\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Staff required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "# HELP elpis_up Application is running\n# TYPE elpis_up gauge\nelpis_up 1\n# HELP elpis_users_total Total registered users\n# TYPE elpis_users_total gauge\nelpis_users_total 3\n# HELP elpis_chats_active Total active chats\n# TYPE elpis_chats_active gauge\nelpis_chats_active 2\n# HELP elpis_messages_total Total assistant messages\n# TYPE elpis_messages_total gauge\nelpis_messages_total 2\n# HELP elpis_avg_tps Average tokens per second (1h)\n# TYPE elpis_avg_tps gauge\nelpis_avg_tps 26.88\n# HELP elpis_avg_latency_seconds Average LLM latency in seconds (1h)\n# TYPE elpis_avg_latency_seconds gauge\nelpis_avg_latency_seconds 1.617\n# HELP elpis_rag_hits_24h RAG queries in last 24 hours\n# TYPE elpis_rag_hits_24h gauge\nelpis_rag_hits_24h 1\n# HELP elpis_tool_calls_24h Tool calls in last 24 hours\n# TYPE elpis_tool_calls_24h gauge\nelpis_tool_calls_24h 1\n# HELP elpis_tokens_total Tokens consumed over the window\n# TYPE elpis_tokens_total gauge\n# HELP elpis_turns_total LLM turns over the window\n# TYPE elpis_turns_total gauge\n# HELP elpis_tokens_by_model Tokens per model over the window\n# TYPE elpis_tokens_by_model gauge\n# HELP elpis_tokens_by_source Tokens per source over the window\n# TYPE elpis_tokens_by_source gauge\n# HELP elpis_turns_by_source LLM turns per source over the window\n# TYPE elpis_turns_by_source gauge\n# HELP elpis_turns_by_status LLM turns per outcome over the window\n# TYPE elpis_turns_by_status gauge\n# HELP elpis_tokens_offhours Tokens produced outside business hours\n# TYPE elpis_tokens_offhours gauge\nelpis_tokens_total{window=\"1d\"} 1750\nelpis_turns_total{window=\"1d\"} 2\nelpis_tokens_offhours{window=\"1d\"} 0\nelpis_tokens_by_model{window=\"1d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"1d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"1d\",source=\"chat\"} 2\nelpis_turns_by_status{window=\"1d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"1d\",status=\"ok\"} 1\nelpis_tokens_total{window=\"7d\"} 1827\nelpis_turns_total{window=\"7d\"} 3\nelpis_tokens_offhours{window=\"7d\"} 0\nelpis_tokens_by_model{window=\"7d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"7d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"7d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"7d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"7d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"7d\",source=\"routine\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"ok\"} 2\nelpis_tokens_total{window=\"30d\"} 1843\nelpis_turns_total{window=\"30d\"} 5\nelpis_tokens_offhours{window=\"30d\"} 6\nelpis_tokens_by_model{window=\"30d\",model=\"unknown\"} 10\nelpis_tokens_by_model{window=\"30d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"30d\",model=\"qwen3\"} 1750\nelpis_tokens_by_model{window=\"30d\",model=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"} 6\nelpis_tokens_by_source{window=\"30d\",source=\"unknown\"} 6\nelpis_turns_by_source{window=\"30d\",source=\"unknown\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"30d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"30d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"30d\",source=\"routine\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"webhook\"} 10\nelpis_turns_by_source{window=\"30d\",source=\"webhook\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"aborted\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"ok\"} 3\n# HELP elpis_routine_runs Routine runs per status over the window\n# TYPE elpis_routine_runs gauge\nelpis_routine_runs{window=\"1d\",status=\"error\"} 1\nelpis_routine_runs{window=\"1d\",status=\"ok\"} 1\nelpis_routine_runs{window=\"7d\",status=\"error\"} 1\nelpis_routine_runs{window=\"7d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"error\"} 1\nelpis_routine_runs{window=\"30d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"skipped\"} 1\n# HELP elpis_scheduler_last_seen_seconds Age of the last scheduler heartbeat (-1 = never)\n# TYPE elpis_scheduler_last_seen_seconds gauge\nelpis_scheduler_last_seen_seconds 345.2\n# HELP elpis_maintenance_last_run_seconds Age of the last upkeep pass (-1 = never)\n# TYPE elpis_maintenance_last_run_seconds gauge\nelpis_maintenance_last_run_seconds 4000.5\n# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h\n# TYPE elpis_scheduler_skipped_minutes_24h gauge\nelpis_scheduler_skipped_minutes_24h 2\n# HELP elpis_cpu_percent CPU usage percent\n# TYPE elpis_cpu_percent gauge\nelpis_cpu_percent 12.5\n# HELP elpis_memory_used_bytes Memory used in bytes\n# TYPE elpis_memory_used_bytes gauge\nelpis_memory_used_bytes 12580912128\n# HELP elpis_memory_total_bytes Total memory in bytes\n# TYPE elpis_memory_total_bytes gauge\nelpis_memory_total_bytes 16694493184\n# HELP elpis_disk_used_bytes Disk used in bytes\n# TYPE elpis_disk_used_bytes gauge\nelpis_disk_used_bytes 228503199744\n# HELP elpis_disk_total_bytes Disk total in bytes\n# TYPE elpis_disk_total_bytes gauge\nelpis_disk_total_bytes 250903199744\n# HELP elpis_proc Per-process resource & app counters (live)\n# TYPE elpis_proc gauge\nelpis_proc{metric=\"proc_active_chat_tasks\",pid=\"4242\"} 2.0\nelpis_proc{metric=\"proc_rss_mb\",pid=\"4242\"} 312.4\nelpis_proc{metric=\"proc_num_fds\",pid=\"4242\"} 41.0\n# HELP elpis_llm_server_up LLM server reachable\n# TYPE elpis_llm_server_up gauge\nelpis_llm_server_up 1\n# HELP elpis_kv_cache_used KV cache slots used\n# TYPE elpis_kv_cache_used gauge\nelpis_kv_cache_used 3\n# HELP elpis_kv_cache_total KV cache slots total\n# TYPE elpis_kv_cache_total gauge\nelpis_kv_cache_total 8\n",
+        "type": "text/plain; version=0.0.4; charset=utf-8",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Action inconnue\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 500,
+        "corps": "Internal Server Error",
+        "type": "text/plain; charset=utf-8",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"configured\":true,\"token\":\"jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq\"}",
+        "type": "application/json",
+        "cache": "no-store",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"configured\":true,\"token\":\"jeton-de-scrape-fixe_0123456789-abcdefghijklmnopq\"}",
+        "type": "application/json",
+        "cache": "no-store",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "# HELP elpis_up Application is running\n# TYPE elpis_up gauge\nelpis_up 1\n# HELP elpis_users_total Total registered users\n# TYPE elpis_users_total gauge\nelpis_users_total 3\n# HELP elpis_chats_active Total active chats\n# TYPE elpis_chats_active gauge\nelpis_chats_active 2\n# HELP elpis_messages_total Total assistant messages\n# TYPE elpis_messages_total gauge\nelpis_messages_total 2\n# HELP elpis_avg_tps Average tokens per second (1h)\n# TYPE elpis_avg_tps gauge\nelpis_avg_tps 26.88\n# HELP elpis_avg_latency_seconds Average LLM latency in seconds (1h)\n# TYPE elpis_avg_latency_seconds gauge\nelpis_avg_latency_seconds 1.617\n# HELP elpis_rag_hits_24h RAG queries in last 24 hours\n# TYPE elpis_rag_hits_24h gauge\nelpis_rag_hits_24h 1\n# HELP elpis_tool_calls_24h Tool calls in last 24 hours\n# TYPE elpis_tool_calls_24h gauge\nelpis_tool_calls_24h 1\n# HELP elpis_tokens_total Tokens consumed over the window\n# TYPE elpis_tokens_total gauge\n# HELP elpis_turns_total LLM turns over the window\n# TYPE elpis_turns_total gauge\n# HELP elpis_tokens_by_model Tokens per model over the window\n# TYPE elpis_tokens_by_model gauge\n# HELP elpis_tokens_by_source Tokens per source over the window\n# TYPE elpis_tokens_by_source gauge\n# HELP elpis_turns_by_source LLM turns per source over the window\n# TYPE elpis_turns_by_source gauge\n# HELP elpis_turns_by_status LLM turns per outcome over the window\n# TYPE elpis_turns_by_status gauge\n# HELP elpis_tokens_offhours Tokens produced outside business hours\n# TYPE elpis_tokens_offhours gauge\nelpis_tokens_total{window=\"1d\"} 1750\nelpis_turns_total{window=\"1d\"} 2\nelpis_tokens_offhours{window=\"1d\"} 0\nelpis_tokens_by_model{window=\"1d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"1d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"1d\",source=\"chat\"} 2\nelpis_turns_by_status{window=\"1d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"1d\",status=\"ok\"} 1\nelpis_tokens_total{window=\"7d\"} 1827\nelpis_turns_total{window=\"7d\"} 3\nelpis_tokens_offhours{window=\"7d\"} 0\nelpis_tokens_by_model{window=\"7d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"7d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"7d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"7d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"7d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"7d\",source=\"routine\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"ok\"} 2\nelpis_tokens_total{window=\"30d\"} 1843\nelpis_turns_total{window=\"30d\"} 5\nelpis_tokens_offhours{window=\"30d\"} 6\nelpis_tokens_by_model{window=\"30d\",model=\"unknown\"} 10\nelpis_tokens_by_model{window=\"30d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"30d\",model=\"qwen3\"} 1750\nelpis_tokens_by_model{window=\"30d\",model=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"} 6\nelpis_tokens_by_source{window=\"30d\",source=\"unknown\"} 6\nelpis_turns_by_source{window=\"30d\",source=\"unknown\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"30d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"30d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"30d\",source=\"routine\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"webhook\"} 10\nelpis_turns_by_source{window=\"30d\",source=\"webhook\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"aborted\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"ok\"} 3\n# HELP elpis_routine_runs Routine runs per status over the window\n# TYPE elpis_routine_runs gauge\nelpis_routine_runs{window=\"1d\",status=\"error\"} 1\nelpis_routine_runs{window=\"1d\",status=\"ok\"} 1\nelpis_routine_runs{window=\"7d\",status=\"error\"} 1\nelpis_routine_runs{window=\"7d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"error\"} 1\nelpis_routine_runs{window=\"30d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"skipped\"} 1\n# HELP elpis_scheduler_last_seen_seconds Age of the last scheduler heartbeat (-1 = never)\n# TYPE elpis_scheduler_last_seen_seconds gauge\nelpis_scheduler_last_seen_seconds 345.2\n# HELP elpis_maintenance_last_run_seconds Age of the last upkeep pass (-1 = never)\n# TYPE elpis_maintenance_last_run_seconds gauge\nelpis_maintenance_last_run_seconds 4000.5\n# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h\n# TYPE elpis_scheduler_skipped_minutes_24h gauge\nelpis_scheduler_skipped_minutes_24h 2\n# HELP elpis_cpu_percent CPU usage percent\n# TYPE elpis_cpu_percent gauge\nelpis_cpu_percent 12.5\n# HELP elpis_memory_used_bytes Memory used in bytes\n# TYPE elpis_memory_used_bytes gauge\nelpis_memory_used_bytes 12580912128\n# HELP elpis_memory_total_bytes Total memory in bytes\n# TYPE elpis_memory_total_bytes gauge\nelpis_memory_total_bytes 16694493184\n# HELP elpis_disk_used_bytes Disk used in bytes\n# TYPE elpis_disk_used_bytes gauge\nelpis_disk_used_bytes 228503199744\n# HELP elpis_disk_total_bytes Disk total in bytes\n# TYPE elpis_disk_total_bytes gauge\nelpis_disk_total_bytes 250903199744\n# HELP elpis_proc Per-process resource & app counters (live)\n# TYPE elpis_proc gauge\nelpis_proc{metric=\"proc_active_chat_tasks\",pid=\"4242\"} 2.0\nelpis_proc{metric=\"proc_rss_mb\",pid=\"4242\"} 312.4\nelpis_proc{metric=\"proc_num_fds\",pid=\"4242\"} 41.0\n# HELP elpis_llm_server_up LLM server reachable\n# TYPE elpis_llm_server_up gauge\nelpis_llm_server_up 1\n# HELP elpis_kv_cache_used KV cache slots used\n# TYPE elpis_kv_cache_used gauge\nelpis_kv_cache_used 3\n# HELP elpis_kv_cache_total KV cache slots total\n# TYPE elpis_kv_cache_total gauge\nelpis_kv_cache_total 8\n",
+        "type": "text/plain; version=0.0.4; charset=utf-8",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "# HELP elpis_up Application is running\n# TYPE elpis_up gauge\nelpis_up 1\n# HELP elpis_users_total Total registered users\n# TYPE elpis_users_total gauge\nelpis_users_total 3\n# HELP elpis_chats_active Total active chats\n# TYPE elpis_chats_active gauge\nelpis_chats_active 2\n# HELP elpis_messages_total Total assistant messages\n# TYPE elpis_messages_total gauge\nelpis_messages_total 2\n# HELP elpis_avg_tps Average tokens per second (1h)\n# TYPE elpis_avg_tps gauge\nelpis_avg_tps 26.88\n# HELP elpis_avg_latency_seconds Average LLM latency in seconds (1h)\n# TYPE elpis_avg_latency_seconds gauge\nelpis_avg_latency_seconds 1.617\n# HELP elpis_rag_hits_24h RAG queries in last 24 hours\n# TYPE elpis_rag_hits_24h gauge\nelpis_rag_hits_24h 1\n# HELP elpis_tool_calls_24h Tool calls in last 24 hours\n# TYPE elpis_tool_calls_24h gauge\nelpis_tool_calls_24h 1\n# HELP elpis_tokens_total Tokens consumed over the window\n# TYPE elpis_tokens_total gauge\n# HELP elpis_turns_total LLM turns over the window\n# TYPE elpis_turns_total gauge\n# HELP elpis_tokens_by_model Tokens per model over the window\n# TYPE elpis_tokens_by_model gauge\n# HELP elpis_tokens_by_source Tokens per source over the window\n# TYPE elpis_tokens_by_source gauge\n# HELP elpis_turns_by_source LLM turns per source over the window\n# TYPE elpis_turns_by_source gauge\n# HELP elpis_turns_by_status LLM turns per outcome over the window\n# TYPE elpis_turns_by_status gauge\n# HELP elpis_tokens_offhours Tokens produced outside business hours\n# TYPE elpis_tokens_offhours gauge\nelpis_tokens_total{window=\"1d\"} 1750\nelpis_turns_total{window=\"1d\"} 2\nelpis_tokens_offhours{window=\"1d\"} 0\nelpis_tokens_by_model{window=\"1d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"1d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"1d\",source=\"chat\"} 2\nelpis_turns_by_status{window=\"1d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"1d\",status=\"ok\"} 1\nelpis_tokens_total{window=\"7d\"} 1827\nelpis_turns_total{window=\"7d\"} 3\nelpis_tokens_offhours{window=\"7d\"} 0\nelpis_tokens_by_model{window=\"7d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"7d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"7d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"7d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"7d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"7d\",source=\"routine\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"ok\"} 2\nelpis_tokens_total{window=\"30d\"} 1843\nelpis_turns_total{window=\"30d\"} 5\nelpis_tokens_offhours{window=\"30d\"} 6\nelpis_tokens_by_model{window=\"30d\",model=\"unknown\"} 10\nelpis_tokens_by_model{window=\"30d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"30d\",model=\"qwen3\"} 1750\nelpis_tokens_by_model{window=\"30d\",model=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"} 6\nelpis_tokens_by_source{window=\"30d\",source=\"unknown\"} 6\nelpis_turns_by_source{window=\"30d\",source=\"unknown\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"30d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"30d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"30d\",source=\"routine\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"webhook\"} 10\nelpis_turns_by_source{window=\"30d\",source=\"webhook\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"aborted\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"ok\"} 3\n# HELP elpis_routine_runs Routine runs per status over the window\n# TYPE elpis_routine_runs gauge\nelpis_routine_runs{window=\"1d\",status=\"error\"} 1\nelpis_routine_runs{window=\"1d\",status=\"ok\"} 1\nelpis_routine_runs{window=\"7d\",status=\"error\"} 1\nelpis_routine_runs{window=\"7d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"error\"} 1\nelpis_routine_runs{window=\"30d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"skipped\"} 1\n# HELP elpis_scheduler_last_seen_seconds Age of the last scheduler heartbeat (-1 = never)\n# TYPE elpis_scheduler_last_seen_seconds gauge\nelpis_scheduler_last_seen_seconds 345.2\n# HELP elpis_maintenance_last_run_seconds Age of the last upkeep pass (-1 = never)\n# TYPE elpis_maintenance_last_run_seconds gauge\nelpis_maintenance_last_run_seconds 4000.5\n# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h\n# TYPE elpis_scheduler_skipped_minutes_24h gauge\nelpis_scheduler_skipped_minutes_24h 2\n# HELP elpis_cpu_percent CPU usage percent\n# TYPE elpis_cpu_percent gauge\nelpis_cpu_percent 12.5\n# HELP elpis_memory_used_bytes Memory used in bytes\n# TYPE elpis_memory_used_bytes gauge\nelpis_memory_used_bytes 12580912128\n# HELP elpis_memory_total_bytes Total memory in bytes\n# TYPE elpis_memory_total_bytes gauge\nelpis_memory_total_bytes 16694493184\n# HELP elpis_disk_used_bytes Disk used in bytes\n# TYPE elpis_disk_used_bytes gauge\nelpis_disk_used_bytes 228503199744\n# HELP elpis_disk_total_bytes Disk total in bytes\n# TYPE elpis_disk_total_bytes gauge\nelpis_disk_total_bytes 250903199744\n# HELP elpis_proc Per-process resource & app counters (live)\n# TYPE elpis_proc gauge\nelpis_proc{metric=\"proc_active_chat_tasks\",pid=\"4242\"} 2.0\nelpis_proc{metric=\"proc_rss_mb\",pid=\"4242\"} 312.4\nelpis_proc{metric=\"proc_num_fds\",pid=\"4242\"} 41.0\n# HELP elpis_llm_server_up LLM server reachable\n# TYPE elpis_llm_server_up gauge\nelpis_llm_server_up 1\n# HELP elpis_kv_cache_used KV cache slots used\n# TYPE elpis_kv_cache_used gauge\nelpis_kv_cache_used 3\n# HELP elpis_kv_cache_total KV cache slots total\n# TYPE elpis_kv_cache_total gauge\nelpis_kv_cache_total 8\n",
+        "type": "text/plain; version=0.0.4; charset=utf-8",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "# HELP elpis_up Application is running\n# TYPE elpis_up gauge\nelpis_up 1\n# HELP elpis_users_total Total registered users\n# TYPE elpis_users_total gauge\nelpis_users_total 3\n# HELP elpis_chats_active Total active chats\n# TYPE elpis_chats_active gauge\nelpis_chats_active 2\n# HELP elpis_messages_total Total assistant messages\n# TYPE elpis_messages_total gauge\nelpis_messages_total 2\n# HELP elpis_avg_tps Average tokens per second (1h)\n# TYPE elpis_avg_tps gauge\nelpis_avg_tps 26.88\n# HELP elpis_avg_latency_seconds Average LLM latency in seconds (1h)\n# TYPE elpis_avg_latency_seconds gauge\nelpis_avg_latency_seconds 1.617\n# HELP elpis_rag_hits_24h RAG queries in last 24 hours\n# TYPE elpis_rag_hits_24h gauge\nelpis_rag_hits_24h 1\n# HELP elpis_tool_calls_24h Tool calls in last 24 hours\n# TYPE elpis_tool_calls_24h gauge\nelpis_tool_calls_24h 1\n# HELP elpis_tokens_total Tokens consumed over the window\n# TYPE elpis_tokens_total gauge\n# HELP elpis_turns_total LLM turns over the window\n# TYPE elpis_turns_total gauge\n# HELP elpis_tokens_by_model Tokens per model over the window\n# TYPE elpis_tokens_by_model gauge\n# HELP elpis_tokens_by_source Tokens per source over the window\n# TYPE elpis_tokens_by_source gauge\n# HELP elpis_turns_by_source LLM turns per source over the window\n# TYPE elpis_turns_by_source gauge\n# HELP elpis_turns_by_status LLM turns per outcome over the window\n# TYPE elpis_turns_by_status gauge\n# HELP elpis_tokens_offhours Tokens produced outside business hours\n# TYPE elpis_tokens_offhours gauge\nelpis_tokens_total{window=\"1d\"} 1750\nelpis_turns_total{window=\"1d\"} 2\nelpis_tokens_offhours{window=\"1d\"} 0\nelpis_tokens_by_model{window=\"1d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"1d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"1d\",source=\"chat\"} 2\nelpis_turns_by_status{window=\"1d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"1d\",status=\"ok\"} 1\nelpis_tokens_total{window=\"7d\"} 1827\nelpis_turns_total{window=\"7d\"} 3\nelpis_tokens_offhours{window=\"7d\"} 0\nelpis_tokens_by_model{window=\"7d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"7d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"7d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"7d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"7d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"7d\",source=\"routine\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"ok\"} 2\nelpis_tokens_total{window=\"30d\"} 1843\nelpis_turns_total{window=\"30d\"} 5\nelpis_tokens_offhours{window=\"30d\"} 6\nelpis_tokens_by_model{window=\"30d\",model=\"unknown\"} 10\nelpis_tokens_by_model{window=\"30d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"30d\",model=\"qwen3\"} 1750\nelpis_tokens_by_model{window=\"30d\",model=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"} 6\nelpis_tokens_by_source{window=\"30d\",source=\"unknown\"} 6\nelpis_turns_by_source{window=\"30d\",source=\"unknown\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"30d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"30d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"30d\",source=\"routine\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"webhook\"} 10\nelpis_turns_by_source{window=\"30d\",source=\"webhook\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"aborted\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"ok\"} 3\n# HELP elpis_routine_runs Routine runs per status over the window\n# TYPE elpis_routine_runs gauge\nelpis_routine_runs{window=\"1d\",status=\"error\"} 1\nelpis_routine_runs{window=\"1d\",status=\"ok\"} 1\nelpis_routine_runs{window=\"7d\",status=\"error\"} 1\nelpis_routine_runs{window=\"7d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"error\"} 1\nelpis_routine_runs{window=\"30d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"skipped\"} 1\n# HELP elpis_scheduler_last_seen_seconds Age of the last scheduler heartbeat (-1 = never)\n# TYPE elpis_scheduler_last_seen_seconds gauge\nelpis_scheduler_last_seen_seconds 345.2\n# HELP elpis_maintenance_last_run_seconds Age of the last upkeep pass (-1 = never)\n# TYPE elpis_maintenance_last_run_seconds gauge\nelpis_maintenance_last_run_seconds 4000.5\n# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h\n# TYPE elpis_scheduler_skipped_minutes_24h gauge\nelpis_scheduler_skipped_minutes_24h 2\n# HELP elpis_cpu_percent CPU usage percent\n# TYPE elpis_cpu_percent gauge\nelpis_cpu_percent 12.5\n# HELP elpis_memory_used_bytes Memory used in bytes\n# TYPE elpis_memory_used_bytes gauge\nelpis_memory_used_bytes 12580912128\n# HELP elpis_memory_total_bytes Total memory in bytes\n# TYPE elpis_memory_total_bytes gauge\nelpis_memory_total_bytes 16694493184\n# HELP elpis_disk_used_bytes Disk used in bytes\n# TYPE elpis_disk_used_bytes gauge\nelpis_disk_used_bytes 228503199744\n# HELP elpis_disk_total_bytes Disk total in bytes\n# TYPE elpis_disk_total_bytes gauge\nelpis_disk_total_bytes 250903199744\n# HELP elpis_proc Per-process resource & app counters (live)\n# TYPE elpis_proc gauge\nelpis_proc{metric=\"proc_active_chat_tasks\",pid=\"4242\"} 2.0\nelpis_proc{metric=\"proc_rss_mb\",pid=\"4242\"} 312.4\nelpis_proc{metric=\"proc_num_fds\",pid=\"4242\"} 41.0\n# HELP elpis_llm_server_up LLM server reachable\n# TYPE elpis_llm_server_up gauge\nelpis_llm_server_up 1\n# HELP elpis_kv_cache_used KV cache slots used\n# TYPE elpis_kv_cache_used gauge\nelpis_kv_cache_used 3\n# HELP elpis_kv_cache_total KV cache slots total\n# TYPE elpis_kv_cache_total gauge\nelpis_kv_cache_total 8\n",
+        "type": "text/plain; version=0.0.4; charset=utf-8",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "# HELP elpis_up Application is running\n# TYPE elpis_up gauge\nelpis_up 1\n# HELP elpis_users_total Total registered users\n# TYPE elpis_users_total gauge\nelpis_users_total 3\n# HELP elpis_chats_active Total active chats\n# TYPE elpis_chats_active gauge\nelpis_chats_active 2\n# HELP elpis_messages_total Total assistant messages\n# TYPE elpis_messages_total gauge\nelpis_messages_total 2\n# HELP elpis_avg_tps Average tokens per second (1h)\n# TYPE elpis_avg_tps gauge\nelpis_avg_tps 26.88\n# HELP elpis_avg_latency_seconds Average LLM latency in seconds (1h)\n# TYPE elpis_avg_latency_seconds gauge\nelpis_avg_latency_seconds 1.617\n# HELP elpis_rag_hits_24h RAG queries in last 24 hours\n# TYPE elpis_rag_hits_24h gauge\nelpis_rag_hits_24h 1\n# HELP elpis_tool_calls_24h Tool calls in last 24 hours\n# TYPE elpis_tool_calls_24h gauge\nelpis_tool_calls_24h 1\n# HELP elpis_tokens_total Tokens consumed over the window\n# TYPE elpis_tokens_total gauge\n# HELP elpis_turns_total LLM turns over the window\n# TYPE elpis_turns_total gauge\n# HELP elpis_tokens_by_model Tokens per model over the window\n# TYPE elpis_tokens_by_model gauge\n# HELP elpis_tokens_by_source Tokens per source over the window\n# TYPE elpis_tokens_by_source gauge\n# HELP elpis_turns_by_source LLM turns per source over the window\n# TYPE elpis_turns_by_source gauge\n# HELP elpis_turns_by_status LLM turns per outcome over the window\n# TYPE elpis_turns_by_status gauge\n# HELP elpis_tokens_offhours Tokens produced outside business hours\n# TYPE elpis_tokens_offhours gauge\nelpis_tokens_total{window=\"1d\"} 1750\nelpis_turns_total{window=\"1d\"} 2\nelpis_tokens_offhours{window=\"1d\"} 0\nelpis_tokens_by_model{window=\"1d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"1d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"1d\",source=\"chat\"} 2\nelpis_turns_by_status{window=\"1d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"1d\",status=\"ok\"} 1\nelpis_tokens_total{window=\"7d\"} 1827\nelpis_turns_total{window=\"7d\"} 3\nelpis_tokens_offhours{window=\"7d\"} 0\nelpis_tokens_by_model{window=\"7d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"7d\",model=\"qwen3\"} 1750\nelpis_tokens_by_source{window=\"7d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"7d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"7d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"7d\",source=\"routine\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"7d\",status=\"ok\"} 2\nelpis_tokens_total{window=\"30d\"} 1843\nelpis_turns_total{window=\"30d\"} 5\nelpis_tokens_offhours{window=\"30d\"} 6\nelpis_tokens_by_model{window=\"30d\",model=\"unknown\"} 10\nelpis_tokens_by_model{window=\"30d\",model=\"model\"} 77\nelpis_tokens_by_model{window=\"30d\",model=\"qwen3\"} 1750\nelpis_tokens_by_model{window=\"30d\",model=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"} 6\nelpis_tokens_by_source{window=\"30d\",source=\"unknown\"} 6\nelpis_turns_by_source{window=\"30d\",source=\"unknown\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"chat\"} 1750\nelpis_turns_by_source{window=\"30d\",source=\"chat\"} 2\nelpis_tokens_by_source{window=\"30d\",source=\"routine\"} 77\nelpis_turns_by_source{window=\"30d\",source=\"routine\"} 1\nelpis_tokens_by_source{window=\"30d\",source=\"webhook\"} 10\nelpis_turns_by_source{window=\"30d\",source=\"webhook\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"aborted\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"error\"} 1\nelpis_turns_by_status{window=\"30d\",status=\"ok\"} 3\n# HELP elpis_routine_runs Routine runs per status over the window\n# TYPE elpis_routine_runs gauge\nelpis_routine_runs{window=\"1d\",status=\"error\"} 1\nelpis_routine_runs{window=\"1d\",status=\"ok\"} 1\nelpis_routine_runs{window=\"7d\",status=\"error\"} 1\nelpis_routine_runs{window=\"7d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"error\"} 1\nelpis_routine_runs{window=\"30d\",status=\"ok\"} 2\nelpis_routine_runs{window=\"30d\",status=\"skipped\"} 1\n# HELP elpis_scheduler_last_seen_seconds Age of the last scheduler heartbeat (-1 = never)\n# TYPE elpis_scheduler_last_seen_seconds gauge\nelpis_scheduler_last_seen_seconds 345.2\n# HELP elpis_maintenance_last_run_seconds Age of the last upkeep pass (-1 = never)\n# TYPE elpis_maintenance_last_run_seconds gauge\nelpis_maintenance_last_run_seconds 4000.5\n# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h\n# TYPE elpis_scheduler_skipped_minutes_24h gauge\nelpis_scheduler_skipped_minutes_24h 2\n# HELP elpis_cpu_percent CPU usage percent\n# TYPE elpis_cpu_percent gauge\nelpis_cpu_percent 12.5\n# HELP elpis_memory_used_bytes Memory used in bytes\n# TYPE elpis_memory_used_bytes gauge\nelpis_memory_used_bytes 12580912128\n# HELP elpis_memory_total_bytes Total memory in bytes\n# TYPE elpis_memory_total_bytes gauge\nelpis_memory_total_bytes 16694493184\n# HELP elpis_disk_used_bytes Disk used in bytes\n# TYPE elpis_disk_used_bytes gauge\nelpis_disk_used_bytes 228503199744\n# HELP elpis_disk_total_bytes Disk total in bytes\n# TYPE elpis_disk_total_bytes gauge\nelpis_disk_total_bytes 250903199744\n# HELP elpis_proc Per-process resource & app counters (live)\n# TYPE elpis_proc gauge\nelpis_proc{metric=\"proc_active_chat_tasks\",pid=\"4242\"} 2.0\nelpis_proc{metric=\"proc_rss_mb\",pid=\"4242\"} 312.4\nelpis_proc{metric=\"proc_num_fds\",pid=\"4242\"} 41.0\n# HELP elpis_llm_server_up LLM server reachable\n# TYPE elpis_llm_server_up gauge\nelpis_llm_server_up 1\n# HELP elpis_kv_cache_used KV cache slots used\n# TYPE elpis_kv_cache_used gauge\nelpis_kv_cache_used 3\n# HELP elpis_kv_cache_total KV cache slots total\n# TYPE elpis_kv_cache_total gauge\nelpis_kv_cache_total 8\n",
+        "type": "text/plain; version=0.0.4; charset=utf-8",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 401,
+        "corps": "{\"detail\":\"not logged in\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 401,
+        "corps": "{\"detail\":\"not logged in\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Staff required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"configured\":false,\"token\":null}",
+        "type": "application/json",
+        "cache": "no-store",
+        "fichier": null
+      },
+      {
+        "statut": 401,
+        "corps": "{\"detail\":\"not logged in\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"configured\":false,\"token\":null}",
+        "type": "application/json",
+        "cache": "no-store",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "event_type,value,tags,user_id,created_at\r\nscheduler_skip,1.0,,,2027-01-12 09:00:00\r\nrag_hit,1.0,\"{\"\"user\"\": \"\"alice\"\"}\",,2027-01-14 08:00:00\r\nwrite_tps,99.0,\"{\"\"model\"\": \"\"m\"\"}\",,2027-01-15 07:00:00\r\nmaintenance_pass,1.0,,,2027-01-15 07:53:19\r\nwrite_tps,12.5,\"{\"\"model\"\": \"\"m\"\"}\",,2027-01-15 08:30:00\r\nscheduler_skip,2.5,,,2027-01-15 08:50:00\r\nproc_sample,1.0,\"{\"\"pid\"\": 9, \"\"proc_scheduler_alive\"\": 1.0}\",,2027-01-15 08:54:14\r\nwrite_tps,41.25,\"{\"\"model\"\": \"\"m\"\"}\",,2027-01-15 08:58:00\r\nrag_hit,1.0,\"{\"\"user\"\": \"\"alice\"\"}\",,2027-01-15 08:58:20\r\nllm_latency,2.0,\"{\"\"model\"\": \"\"m\"\"}\",,2027-01-15 08:58:30\r\nnew_chat,1.0,\"{\"\"user\"\": \"\"alice\"\"}\",3,2027-01-15 08:58:50\r\nmessage_sent,1.0,\"{\"\"role\"\": \"\"assistant\"\", \"\"user\"\": \"\"alice\"\"}\",,2027-01-15 08:59:00\r\nmessage_sent,1.0,\"{\"\"role\"\": \"\"user\"\", \"\"user\"\": \"\"alice\"\"}\",,2027-01-15 08:59:10\r\nllm_latency,1.2345,\"{\"\"model\"\": \"\"m\"\"}\",,2027-01-15 08:59:30\r\ntool_call,1.0,\"{\"\"tool\"\": \"\"shell\"\", \"\"status\"\": \"\"ok\"\"}\",,2027-01-15 08:59:50\r\n",
+        "type": "text/csv; charset=utf-8",
+        "cache": null,
+        "fichier": "attachment; filename=metric_events_7j_1800000000.csv"
+      },
+      {
+        "statut": 200,
+        "corps": "ts,user_id,source,origin_id,parent_id,model,connector,path,input_tokens,output_tokens,submitted_tokens,cache_read_tokens,cache_creation_tokens,duration_ms,iterations,status,error_kind,thinking_tokens,run_id\r\n2027-01-15 08:56:40,3,chat,,,qwen3,,,500,50,0,0,0,0,0,error,,0,\r\n2027-01-15 08:58:20,3,chat,,,qwen3,,,1000,200,0,0,0,0,0,ok,,0,\r\n",
+        "type": "text/csv; charset=utf-8",
+        "cache": null,
+        "fichier": "attachment; filename=usage_events_0j_1800000000.csv"
+      },
+      {
+        "statut": 200,
+        "corps": "ts,user_id,source,origin_id,parent_id,model,connector,path,input_tokens,output_tokens,submitted_tokens,cache_read_tokens,cache_creation_tokens,duration_ms,iterations,status,error_kind,thinking_tokens,run_id\r\n2026-12-06 09:00:00,3,chat,,,old,,,1,1,0,0,0,0,0,ok,,0,\r\n2026-12-26 09:00:00,,,,,xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,,,3,3,0,0,0,0,0,ok,,0,\r\n2027-01-07 09:00:00,1,webhook,,,,,,9,1,0,0,0,0,0,aborted,,0,\r\n2027-01-12 09:00:00,2,routine,,,\"mo\"\"d\\el\",,,70,7,0,0,0,0,0,ok,,0,\r\n2027-01-15 08:56:40,3,chat,,,qwen3,,,500,50,0,0,0,0,0,error,,0,\r\n2027-01-15 08:58:20,3,chat,,,qwen3,,,1000,200,0,0,0,0,0,ok,,0,\r\n",
+        "type": "text/csv; charset=utf-8",
+        "cache": null,
+        "fichier": "attachment; filename=usage_events_99999j_1800000000.csv"
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Cible d'export inconnue\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 422,
+        "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"days\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"items\":[{\"ts\":1799999980.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":\"n1\",\"member_id\":null,\"tool_name\":\"shell\",\"server_name\":null,\"status\":\"error\",\"duration_ms\":45,\"error_short\":\"exit 1\"},{\"ts\":1799999970.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":null,\"member_id\":null,\"tool_name\":\"git\",\"server_name\":null,\"status\":\"timeout\",\"duration_ms\":30000,\"error_short\":\"d\u00e9lai\"},{\"ts\":1799999960.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":\"n2\",\"member_id\":null,\"tool_name\":\"git\",\"server_name\":null,\"status\":\"blocked\",\"duration_ms\":0,\"error_short\":\"refus\u00e9\"}],\"total\":3,\"hours\":24}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"items\":[{\"ts\":1799999980.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":\"n1\",\"member_id\":null,\"tool_name\":\"shell\",\"server_name\":null,\"status\":\"error\",\"duration_ms\":45,\"error_short\":\"exit 1\"},{\"ts\":1799892000.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":null,\"member_id\":null,\"tool_name\":\"read_file\",\"server_name\":null,\"status\":\"error\",\"duration_ms\":5,\"error_short\":\"absent\"}],\"total\":2,\"hours\":720}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"status must be one of ['blocked', 'error', 'timeout']\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"items\":[{\"ts\":1799999980.0,\"run_id\":\"r1\",\"user_id\":3,\"pipeline_id\":null,\"node_id\":\"n1\",\"member_id\":null,\"tool_name\":\"shell\",\"server_name\":null,\"status\":\"error\",\"duration_ms\":45,\"error_short\":\"exit 1\"}],\"total\":1,\"hours\":1}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"totals\":{\"n\":6,\"total_ms\":30181,\"n_error\":1,\"n_blocked\":1,\"n_timeout\":1},\"per_tool\":[{\"tool_name\":\"git\",\"n\":2,\"total_ms\":30000,\"n_failed\":2,\"avg_ms\":15000},{\"tool_name\":\"read_file\",\"n\":2,\"total_ms\":16,\"n_failed\":0,\"avg_ms\":8},{\"tool_name\":\"shell\",\"n\":2,\"total_ms\":165,\"n_failed\":1,\"avg_ms\":82}],\"hours\":24}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"totals\":{\"n\":7,\"total_ms\":30186,\"n_error\":2,\"n_blocked\":1,\"n_timeout\":1},\"per_tool\":[{\"tool_name\":\"read_file\",\"n\":3,\"total_ms\":21,\"n_failed\":1,\"avg_ms\":7}],\"hours\":48}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Admin required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Corps JSON attendu\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Aucune cible : pr\u00e9cisez \u00ab targets \u00bb\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Aucune cible : pr\u00e9cisez \u00ab targets \u00bb\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Cible inconnue : x, 3, None\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 500,
+        "corps": "Internal Server Error",
+        "type": "text/plain; charset=utf-8",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Bornes temporelles invalides\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"dry_run\":true,\"counted\":{\"metric_events\":5,\"usage_events\":3,\"tool_call_metrics\":7},\"deleted\":{}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"dry_run\":false,\"counted\":{\"metric_events\":1},\"deleted\":{\"metric_events\":1}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"dry_run\":false,\"counted\":{\"tool_call_metrics\":7,\"usage_events\":0},\"deleted\":{\"tool_call_metrics\":7,\"usage_events\":0}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"totals\":{\"n\":0,\"total_ms\":0,\"n_error\":0,\"n_blocked\":0,\"n_timeout\":0},\"per_tool\":[],\"hours\":24}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 404,
+        "corps": "{\"detail\":\"Aucun rapport pour cette date\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"date\":\"2027-01-15\",\"generated_at\":1800000000.0,\"scope_hours\":24,\"sections\":[{\"id\":\"adoption\",\"label\":\"Adoption\",\"widgets\":[\"kpi_dau\",\"kpi_chats\",\"kpi_new_chats\",\"kpi_logins\"]},{\"id\":\"volume\",\"label\":\"Volume\",\"widgets\":[\"kpi_messages\",\"usage_tokens\",\"usage_turns\",\"usage_cache\",\"usage_thinking\",\"kpi_tool_calls\",\"kpi_rag_hits\"]},{\"id\":\"performance\",\"label\":\"Performance\",\"widgets\":[\"kpi_avg_tps\",\"kpi_latency\",\"kpi_latency_p95\",\"usage_failure_rate\"]},{\"id\":\"models\",\"label\":\"Mod\u00e8les\",\"widgets\":[\"kpi_top_model\",\"kpi_model_loads\"]},{\"id\":\"exploitation\",\"label\":\"Exploitation\",\"widgets\":[\"routine_runs\",\"scheduler_health\",\"usage_offhours\"]},{\"id\":\"health\",\"label\":\"Sant\u00e9 plateforme\",\"widgets\":[\"kpi_uptime\",\"kpi_db_size\",\"kpi_ram\",\"kpi_llm_status\"]},{\"id\":\"charts\",\"label\":\"Graphiques\",\"widgets\":[\"usage_timeline\",\"usage_input_timeline\",\"usage_thinking_timeline\",\"usage_by_model\",\"tools_usage\",\"usage_top_users\",\"latency_percentiles\",\"active_users_day\",\"routine_runs_timeline\"]}],\"titles\":{\"kpi_dau\":\"Utilisateurs actifs\",\"kpi_chats\":\"Conversations actives\",\"kpi_new_chats\":\"Nouveaux chats\",\"kpi_logins\":\"Connexions\",\"kpi_messages\":\"Messages\",\"kpi_tool_calls\":\"Appels outils\",\"kpi_rag_hits\":\"Requ\u00eates RAG\",\"kpi_model_loads\":\"Chargements mod\u00e8le\",\"kpi_avg_tps\":\"Vitesse moy.\",\"kpi_latency\":\"Latence moy. LLM\",\"kpi_latency_p95\":\"Latence P95\",\"kpi_top_model\":\"Mod\u00e8le dominant\",\"kpi_llm_status\":\"LLM Server\",\"kpi_ram\":\"RAM\",\"kpi_db_size\":\"Base de donn\u00e9es\",\"kpi_uptime\":\"Uptime application\",\"latency_percentiles\":\"Latence LLM \u2014 percentiles\",\"active_users_day\":\"Utilisateurs actifs/jour (7j)\",\"tools_usage\":\"Top Outils MCP (7j)\",\"usage_tokens\":\"Tokens consomm\u00e9s\",\"usage_offhours\":\"Hors plage\",\"usage_turns\":\"Tours LLM\",\"usage_failure_rate\":\"Tours en \u00e9chec\",\"usage_cache\":\"Cache de prompt\",\"usage_thinking\":\"R\u00e9flexion\",\"routine_runs\":\"Runs de routines\",\"scheduler_health\":\"Planification\",\"usage_timeline\":\"Consommation par source\",\"usage_thinking_timeline\":\"Sortie \u2014 r\u00e9flexion vs r\u00e9ponse\",\"usage_input_timeline\":\"Entr\u00e9e \u2014 cache vs utile\",\"usage_by_model\":\"Tokens par mod\u00e8le\",\"usage_top_users\":\"Tokens par utilisateur\",\"routine_runs_timeline\":\"Runs de routines\"},\"widgets\":{\"kpi_dau\":{\"value\":1,\"unit\":\"actifs / 24 h\",\"color\":\"emerald\",\"icon\":\"ph-user-circle\"},\"kpi_chats\":{\"value\":2,\"unit\":\"actives\",\"color\":\"purple\",\"icon\":\"ph-chat-dots\"},\"kpi_new_chats\":{\"value\":1,\"unit\":\"chats/24h\",\"color\":\"violet\",\"icon\":\"ph-plus-circle\"},\"kpi_logins\":{\"value\":0,\"unit\":\"logins/24h\",\"color\":\"blue\",\"icon\":\"ph-sign-in\"},\"kpi_messages\":{\"value\":2,\"unit\":\"messages / 24 h\",\"color\":\"sky\",\"icon\":\"ph-chat-text\"},\"kpi_tool_calls\":{\"value\":1,\"unit\":\"appels/24h\",\"color\":\"amber\",\"icon\":\"ph-wrench\"},\"kpi_rag_hits\":{\"value\":1,\"unit\":\"requ\u00eates/24h\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_model_loads\":{\"value\":0,\"unit\":\"loads/24h\",\"color\":\"blue\",\"icon\":\"ph-upload\"},\"kpi_avg_tps\":{\"value\":50.9,\"unit\":\"tokens/s\",\"color\":\"orange\",\"icon\":\"ph-speedometer\",\"detail\":\"moyenne sur 24 h\"},\"kpi_latency\":{\"value\":1.6,\"unit\":\"sec/r\u00e9ponse\",\"color\":\"rose\",\"icon\":\"ph-timer\"},\"kpi_latency_p95\":{\"value\":2.0,\"unit\":\"sec (95e)\",\"color\":\"rose\",\"icon\":\"ph-arrow-up-right\",\"detail\":\"sur 24 h\"},\"kpi_top_model\":{\"value\":\"qwen3\",\"unit\":\"mod\u00e8le dominant\",\"color\":\"indigo\",\"icon\":\"ph-robot\"},\"kpi_llm_status\":{\"value\":\"qwen3.gguf\",\"unit\":\"ok\",\"color\":\"emerald\",\"icon\":\"ph-hard-drives\"},\"kpi_ram\":{\"value\":\"11.7\",\"unit\":\"/ 15.5 Go\",\"color\":\"purple\",\"icon\":\"ph-memory\",\"state\":null},\"kpi_db_size\":{\"value\":\"50\",\"unit\":\"Mo\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_uptime\":{\"value\":\"1h 6m\",\"unit\":\"depuis le d\u00e9marrage\",\"color\":\"teal\",\"icon\":\"ph-clock-clockwise\"},\"latency_percentiles\":{\"labels\":[\"P50\",\"P75\",\"P95\",\"P99\"],\"datasets\":[{\"label\":\"Secondes\",\"data\":[2.0,2.0,2.0,2.0],\"backgroundColor\":[\"#10b981\",\"#3b82f6\",\"#f59e0b\",\"#ef4444\"],\"borderRadius\":6}]},\"active_users_day\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Actifs\",\"data\":[1],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":4}]},\"tools_usage\":{\"labels\":[\"shell\"],\"datasets\":[{\"data\":[1],\"backgroundColor\":[\"#ef4444\",\"#f97316\",\"#f59e0b\",\"#84cc16\",\"#06b6d4\",\"#8b5cf6\"]}]},\"usage_tokens\":{\"value\":\"1,8 k\",\"unit\":\"tokens/24h\",\"color\":\"emerald\",\"icon\":\"ph-lightning\",\"detail\":\"1,5 k entr\u00e9e \u00b7 250 sortie\"},\"usage_offhours\":{\"value\":\"0.0 %\",\"unit\":\"des tokens\",\"color\":\"violet\",\"icon\":\"ph-moon\",\"detail\":\"0 hors 8h\u201319h (5 j/sem.)\"},\"usage_turns\":{\"value\":2,\"unit\":\"tours\",\"color\":\"sky\",\"icon\":\"ph-arrows-clockwise\",\"detail\":\"875 tokens/tour \u00b7 0 it\u00e9rations\"},\"usage_failure_rate\":{\"value\":\"50.0 %\",\"unit\":\"1/2 tours\",\"color\":\"rose\",\"icon\":\"ph-warning-circle\",\"state\":\"danger\"},\"usage_cache\":{\"value\":\"\u2014\",\"unit\":\"non utilis\u00e9\",\"color\":\"slate\",\"icon\":\"ph-database\"},\"usage_thinking\":{\"value\":\"\u2014\",\"unit\":\"aucun raisonnement mesur\u00e9\",\"color\":\"slate\",\"icon\":\"ph-brain\",\"detail\":\"250 de sortie, tout en r\u00e9ponse\"},\"routine_runs\":{\"value\":2,\"unit\":\"runs\",\"icon\":\"ph-clock-countdown\",\"color\":\"rose\",\"state\":\"danger\",\"detail\":\"1 en erreur \u00b7 0 non ex\u00e9cut\u00e9(s)\"},\"scheduler_health\":{\"value\":\"Active\",\"unit\":\"entretien : il y a 1 h\",\"color\":\"amber\",\"icon\":\"ph-heartbeat\",\"state\":\"warn\",\"detail\":\"2 minute(s) enjamb\u00e9e(s) sur 24 h\"},\"usage_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Chat\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1750,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_thinking_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"R\u00e9flexion\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ponse\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,250,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_input_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"Utile\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_by_model\":{\"labels\":[\"qwen3\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"usage_top_users\":{\"labels\":[\"alice\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"routine_runs_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Erreur\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ussi\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}}}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Admin required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"ok\":true,\"date\":\"2027-01-15\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"date\":\"2027-01-15\",\"generated_at\":1800000000.0,\"scope_hours\":24,\"sections\":[{\"id\":\"adoption\",\"label\":\"Adoption\",\"widgets\":[\"kpi_dau\",\"kpi_chats\",\"kpi_new_chats\",\"kpi_logins\"]},{\"id\":\"volume\",\"label\":\"Volume\",\"widgets\":[\"kpi_messages\",\"usage_tokens\",\"usage_turns\",\"usage_cache\",\"usage_thinking\",\"kpi_tool_calls\",\"kpi_rag_hits\"]},{\"id\":\"performance\",\"label\":\"Performance\",\"widgets\":[\"kpi_avg_tps\",\"kpi_latency\",\"kpi_latency_p95\",\"usage_failure_rate\"]},{\"id\":\"models\",\"label\":\"Mod\u00e8les\",\"widgets\":[\"kpi_top_model\",\"kpi_model_loads\"]},{\"id\":\"exploitation\",\"label\":\"Exploitation\",\"widgets\":[\"routine_runs\",\"scheduler_health\",\"usage_offhours\"]},{\"id\":\"health\",\"label\":\"Sant\u00e9 plateforme\",\"widgets\":[\"kpi_uptime\",\"kpi_db_size\",\"kpi_ram\",\"kpi_llm_status\"]},{\"id\":\"charts\",\"label\":\"Graphiques\",\"widgets\":[\"usage_timeline\",\"usage_input_timeline\",\"usage_thinking_timeline\",\"usage_by_model\",\"tools_usage\",\"usage_top_users\",\"latency_percentiles\",\"active_users_day\",\"routine_runs_timeline\"]}],\"titles\":{\"kpi_dau\":\"Utilisateurs actifs\",\"kpi_chats\":\"Conversations actives\",\"kpi_new_chats\":\"Nouveaux chats\",\"kpi_logins\":\"Connexions\",\"kpi_messages\":\"Messages\",\"kpi_tool_calls\":\"Appels outils\",\"kpi_rag_hits\":\"Requ\u00eates RAG\",\"kpi_model_loads\":\"Chargements mod\u00e8le\",\"kpi_avg_tps\":\"Vitesse moy.\",\"kpi_latency\":\"Latence moy. LLM\",\"kpi_latency_p95\":\"Latence P95\",\"kpi_top_model\":\"Mod\u00e8le dominant\",\"kpi_llm_status\":\"LLM Server\",\"kpi_ram\":\"RAM\",\"kpi_db_size\":\"Base de donn\u00e9es\",\"kpi_uptime\":\"Uptime application\",\"latency_percentiles\":\"Latence LLM \u2014 percentiles\",\"active_users_day\":\"Utilisateurs actifs/jour (7j)\",\"tools_usage\":\"Top Outils MCP (7j)\",\"usage_tokens\":\"Tokens consomm\u00e9s\",\"usage_offhours\":\"Hors plage\",\"usage_turns\":\"Tours LLM\",\"usage_failure_rate\":\"Tours en \u00e9chec\",\"usage_cache\":\"Cache de prompt\",\"usage_thinking\":\"R\u00e9flexion\",\"routine_runs\":\"Runs de routines\",\"scheduler_health\":\"Planification\",\"usage_timeline\":\"Consommation par source\",\"usage_thinking_timeline\":\"Sortie \u2014 r\u00e9flexion vs r\u00e9ponse\",\"usage_input_timeline\":\"Entr\u00e9e \u2014 cache vs utile\",\"usage_by_model\":\"Tokens par mod\u00e8le\",\"usage_top_users\":\"Tokens par utilisateur\",\"routine_runs_timeline\":\"Runs de routines\"},\"widgets\":{\"kpi_dau\":{\"value\":1,\"unit\":\"actifs / 24 h\",\"color\":\"emerald\",\"icon\":\"ph-user-circle\"},\"kpi_chats\":{\"value\":2,\"unit\":\"actives\",\"color\":\"purple\",\"icon\":\"ph-chat-dots\"},\"kpi_new_chats\":{\"value\":1,\"unit\":\"chats/24h\",\"color\":\"violet\",\"icon\":\"ph-plus-circle\"},\"kpi_logins\":{\"value\":0,\"unit\":\"logins/24h\",\"color\":\"blue\",\"icon\":\"ph-sign-in\"},\"kpi_messages\":{\"value\":2,\"unit\":\"messages / 24 h\",\"color\":\"sky\",\"icon\":\"ph-chat-text\"},\"kpi_tool_calls\":{\"value\":1,\"unit\":\"appels/24h\",\"color\":\"amber\",\"icon\":\"ph-wrench\"},\"kpi_rag_hits\":{\"value\":1,\"unit\":\"requ\u00eates/24h\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_model_loads\":{\"value\":0,\"unit\":\"loads/24h\",\"color\":\"blue\",\"icon\":\"ph-upload\"},\"kpi_avg_tps\":{\"value\":50.9,\"unit\":\"tokens/s\",\"color\":\"orange\",\"icon\":\"ph-speedometer\",\"detail\":\"moyenne sur 24 h\"},\"kpi_latency\":{\"value\":1.6,\"unit\":\"sec/r\u00e9ponse\",\"color\":\"rose\",\"icon\":\"ph-timer\"},\"kpi_latency_p95\":{\"value\":2.0,\"unit\":\"sec (95e)\",\"color\":\"rose\",\"icon\":\"ph-arrow-up-right\",\"detail\":\"sur 24 h\"},\"kpi_top_model\":{\"value\":\"qwen3\",\"unit\":\"mod\u00e8le dominant\",\"color\":\"indigo\",\"icon\":\"ph-robot\"},\"kpi_llm_status\":{\"value\":\"qwen3.gguf\",\"unit\":\"ok\",\"color\":\"emerald\",\"icon\":\"ph-hard-drives\"},\"kpi_ram\":{\"value\":\"11.7\",\"unit\":\"/ 15.5 Go\",\"color\":\"purple\",\"icon\":\"ph-memory\",\"state\":null},\"kpi_db_size\":{\"value\":\"50\",\"unit\":\"Mo\",\"color\":\"cyan\",\"icon\":\"ph-database\"},\"kpi_uptime\":{\"value\":\"1h 6m\",\"unit\":\"depuis le d\u00e9marrage\",\"color\":\"teal\",\"icon\":\"ph-clock-clockwise\"},\"latency_percentiles\":{\"labels\":[\"P50\",\"P75\",\"P95\",\"P99\"],\"datasets\":[{\"label\":\"Secondes\",\"data\":[2.0,2.0,2.0,2.0],\"backgroundColor\":[\"#10b981\",\"#3b82f6\",\"#f59e0b\",\"#ef4444\"],\"borderRadius\":6}]},\"active_users_day\":{\"labels\":[\"15/01\"],\"datasets\":[{\"label\":\"Actifs\",\"data\":[1],\"borderColor\":\"#10b981\",\"backgroundColor\":\"rgba(16,185,129,0.1)\",\"tension\":0.4,\"fill\":true,\"borderWidth\":2,\"pointRadius\":4}]},\"tools_usage\":{\"labels\":[\"shell\"],\"datasets\":[{\"data\":[1],\"backgroundColor\":[\"#ef4444\",\"#f97316\",\"#f59e0b\",\"#84cc16\",\"#06b6d4\",\"#8b5cf6\"]}]},\"usage_tokens\":{\"value\":\"1,8 k\",\"unit\":\"tokens/24h\",\"color\":\"emerald\",\"icon\":\"ph-lightning\",\"detail\":\"1,5 k entr\u00e9e \u00b7 250 sortie\"},\"usage_offhours\":{\"value\":\"0.0 %\",\"unit\":\"des tokens\",\"color\":\"violet\",\"icon\":\"ph-moon\",\"detail\":\"0 hors 8h\u201319h (5 j/sem.)\"},\"usage_turns\":{\"value\":2,\"unit\":\"tours\",\"color\":\"sky\",\"icon\":\"ph-arrows-clockwise\",\"detail\":\"875 tokens/tour \u00b7 0 it\u00e9rations\"},\"usage_failure_rate\":{\"value\":\"50.0 %\",\"unit\":\"1/2 tours\",\"color\":\"rose\",\"icon\":\"ph-warning-circle\",\"state\":\"danger\"},\"usage_cache\":{\"value\":\"\u2014\",\"unit\":\"non utilis\u00e9\",\"color\":\"slate\",\"icon\":\"ph-database\"},\"usage_thinking\":{\"value\":\"\u2014\",\"unit\":\"aucun raisonnement mesur\u00e9\",\"color\":\"slate\",\"icon\":\"ph-brain\",\"detail\":\"250 de sortie, tout en r\u00e9ponse\"},\"routine_runs\":{\"value\":2,\"unit\":\"runs\",\"icon\":\"ph-clock-countdown\",\"color\":\"rose\",\"state\":\"danger\",\"detail\":\"1 en erreur \u00b7 0 non ex\u00e9cut\u00e9(s)\"},\"scheduler_health\":{\"value\":\"Active\",\"unit\":\"entretien : il y a 1 h\",\"color\":\"amber\",\"icon\":\"ph-heartbeat\",\"state\":\"warn\",\"detail\":\"2 minute(s) enjamb\u00e9e(s) sur 24 h\"},\"usage_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Chat\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1750,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_thinking_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"R\u00e9flexion\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ponse\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,250,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_input_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"Utile\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}},\"usage_by_model\":{\"labels\":[\"qwen3\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"usage_top_users\":{\"labels\":[\"alice\"],\"datasets\":[{\"label\":\"Cache\",\"data\":[0],\"backgroundColor\":\"rgba(59,130,246,0.8)\",\"borderRadius\":2},{\"label\":\"Entr\u00e9e utile\",\"data\":[1500],\"backgroundColor\":\"rgba(16,185,129,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9flexion\",\"data\":[0],\"backgroundColor\":\"rgba(245,158,11,0.8)\",\"borderRadius\":2},{\"label\":\"R\u00e9ponse\",\"data\":[250],\"backgroundColor\":\"rgba(139,92,246,0.8)\",\"borderRadius\":2}],\"meta\":{\"horizontal\":true}},\"routine_runs_timeline\":{\"labels\":[\"2027-01-14T09:00\",\"2027-01-14T10:00\",\"2027-01-14T11:00\",\"2027-01-14T12:00\",\"2027-01-14T13:00\",\"2027-01-14T14:00\",\"2027-01-14T15:00\",\"2027-01-14T16:00\",\"2027-01-14T17:00\",\"2027-01-14T18:00\",\"2027-01-14T19:00\",\"2027-01-14T20:00\",\"2027-01-14T21:00\",\"2027-01-14T22:00\",\"2027-01-14T23:00\",\"2027-01-15T00:00\",\"2027-01-15T01:00\",\"2027-01-15T02:00\",\"2027-01-15T03:00\",\"2027-01-15T04:00\",\"2027-01-15T05:00\",\"2027-01-15T06:00\",\"2027-01-15T07:00\",\"2027-01-15T08:00\",\"2027-01-15T09:00\"],\"datasets\":[{\"label\":\"Erreur\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(59,130,246,0.75)\",\"borderRadius\":4,\"stack\":\"all\"},{\"label\":\"R\u00e9ussi\",\"data\":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1,0.0],\"backgroundColor\":\"rgba(16,185,129,0.75)\",\"borderRadius\":4,\"stack\":\"all\"}],\"meta\":{\"granularity\":\"hour\",\"timezone\":\"CET\",\"start\":1799913600.0,\"end\":1800000000.0,\"stacked\":true}}}}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"reports\":[{\"date\":\"2027-01-15\",\"created_at\":1800000000.0}]}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"reports\":[{\"date\":\"2027-01-15\",\"created_at\":1800000000.0}]}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"enabled\":true}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 403,
+        "corps": "{\"detail\":\"Admin required\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 400,
+        "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"ok\":true,\"enabled\":true}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"enabled\":true}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"ok\":true,\"enabled\":false}",
+        "type": "application/json",
+        "cache": null,
+        "fichier": null
+      },
+      {
+        "statut": 200,
+        "corps": "{\"enabled\":false}",
+        "type": "application/json",
+        "cache": "no-cache",
+        "fichier": null
+      },
+      {
+        "statut": 500,
+        "corps": "Internal Server Error",
+        "type": "text/plain; charset=utf-8",
+        "cache": null,
+        "fichier": null
+      }
+    ],
+    "audit": [
+      "[\"admin.metrics.scrape_token.generate\", {}, 1, \"admin\"]",
+      "[\"admin.metrics.scrape_token.revoke\", {}, 1, \"admin\"]",
+      "[\"admin.metrics.purge\", {\"deleted\": {\"metric_events\": 1}, \"event_types\": [\"rag_hit\"], \"from\": null, \"sources\": null, \"targets\": [\"metric_events\"], \"to\": 1799996400.0}, 1, \"admin\"]",
+      "[\"admin.metrics.purge\", {\"deleted\": {\"tool_call_metrics\": 7, \"usage_events\": 0}, \"event_types\": null, \"from\": \"1799222400.0\", \"sources\": [\"webhook\", 7], \"targets\": [\"tool_call_metrics\", \"usage_events\", \"usage_events\"], \"to\": null}, 1, \"admin\"]"
+    ],
+    "config": "{\n  \"metrics\": {\n    \"scrape_token\": \"\"\n  },\n  \"maintenance\": {\n    \"daily_digest_enabled\": false\n  }\n}",
+    "restants": {
+      "metric_events": 15,
+      "usage_events": 5,
+      "tool_call_metrics": 0,
+      "daily_usage_reports": 1
+    },
+    "notifications": [
+      [
+        1,
+        "daily_report",
+        "Rapport d'usage IA \u2014 2027-01-15",
+        20270115
+      ],
+      [
+        2,
+        "daily_report",
+        "Rapport d'usage IA \u2014 2027-01-15",
+        20270115
+      ]
+    ]
+  }
+}

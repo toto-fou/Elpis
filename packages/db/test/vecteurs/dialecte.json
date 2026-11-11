@@ -1,0 +1,1629 @@
+{
+  "source": "migration-kit/vecteurs/db_dialecte.py",
+  "fragments": [
+    {
+      "fonction": "ci_like",
+      "args": [
+        "u.nom"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "u.nom LIKE ?"
+    },
+    {
+      "fonction": "ci_like",
+      "args": [
+        "u.nom"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "u.nom ILIKE ?"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "GROUP_CONCAT(x, ',')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "string_agg(CAST(x AS TEXT), ',')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        ";"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "GROUP_CONCAT(x, ';')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        ";"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "string_agg(CAST(x AS TEXT), ';')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        "l'a"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "GROUP_CONCAT(x, 'l''a')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        "l'a"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "string_agg(CAST(x AS TEXT), 'l''a')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x"
+      ],
+      "options": {
+        "distinct": true
+      },
+      "dialecte": "sqlite",
+      "sortie": "GROUP_CONCAT(DISTINCT x)"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x"
+      ],
+      "options": {
+        "distinct": true
+      },
+      "dialecte": "postgres",
+      "sortie": "string_agg(DISTINCT CAST(x AS TEXT), ',')"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        ";"
+      ],
+      "options": {
+        "distinct": true
+      },
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "group_concat",
+      "args": [
+        "x",
+        ";"
+      ],
+      "options": {
+        "distinct": true
+      },
+      "dialecte": "postgres",
+      "sortie": "string_agg(DISTINCT CAST(x AS TEXT), ';')"
+    },
+    {
+      "fonction": "greatest",
+      "args": [
+        "a",
+        "b",
+        "c"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "MAX(a, b, c)"
+    },
+    {
+      "fonction": "greatest",
+      "args": [
+        "a",
+        "b",
+        "c"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "GREATEST(a, b, c)"
+    },
+    {
+      "fonction": "round_",
+      "args": [
+        "v",
+        2
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "ROUND(v, 2)"
+    },
+    {
+      "fonction": "round_",
+      "args": [
+        "v",
+        2
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "ROUND(CAST(v AS NUMERIC), 2)"
+    },
+    {
+      "fonction": "cast_int",
+      "args": [
+        "t / 60"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "CAST(t / 60 AS INTEGER)"
+    },
+    {
+      "fonction": "cast_int",
+      "args": [
+        "t / 60"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "CAST(FLOOR(t / 60) AS BIGINT)"
+    },
+    {
+      "fonction": "cast_float",
+      "args": [
+        "v"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "CAST(v AS REAL)"
+    },
+    {
+      "fonction": "cast_float",
+      "args": [
+        "v"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "CAST(v AS DOUBLE PRECISION)"
+    },
+    {
+      "fonction": "no_limit",
+      "args": [],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "-1"
+    },
+    {
+      "fonction": "no_limit",
+      "args": [],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "ALL"
+    },
+    {
+      "fonction": "bytes_order",
+      "args": [
+        "nom"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "nom"
+    },
+    {
+      "fonction": "bytes_order",
+      "args": [
+        "nom"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "nom COLLATE \"C\""
+    },
+    {
+      "fonction": "nulls_first",
+      "args": [
+        "d"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "d ASC NULLS FIRST"
+    },
+    {
+      "fonction": "nulls_first",
+      "args": [
+        "d"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "d ASC NULLS FIRST"
+    },
+    {
+      "fonction": "nulls_first",
+      "args": [
+        "d"
+      ],
+      "options": {
+        "desc": true
+      },
+      "dialecte": "sqlite",
+      "sortie": "d DESC NULLS FIRST"
+    },
+    {
+      "fonction": "nulls_first",
+      "args": [
+        "d"
+      ],
+      "options": {
+        "desc": true
+      },
+      "dialecte": "postgres",
+      "sortie": "d DESC NULLS FIRST"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "user"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "json_extract(tags_json, '$.user')"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "user"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "(CAST(tags_json AS JSONB) ->> 'user')"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "model_id"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "json_extract(tags_json, '$.model_id')"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "model_id"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "(CAST(tags_json AS JSONB) ->> 'model_id')"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "a.b"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "a.b"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "x'"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "json_get",
+      "args": [
+        "tags_json",
+        "x'"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "json_get_num",
+      "args": [
+        "tags_json",
+        "tokens"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "json_extract(tags_json, '$.tokens')"
+    },
+    {
+      "fonction": "json_get_num",
+      "args": [
+        "tags_json",
+        "tokens"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "CAST((CAST(tags_json AS JSONB) ->> 'tokens') AS DOUBLE PRECISION)"
+    },
+    {
+      "fonction": "json_get_param",
+      "args": [
+        "tags_json"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "json_extract(tags_json, '$.' || ?)"
+    },
+    {
+      "fonction": "json_get_param",
+      "args": [
+        "tags_json"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "(CAST(tags_json AS JSONB) ->> ?)"
+    },
+    {
+      "fonction": "json_get_param_num",
+      "args": [
+        "tags_json"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "json_extract(tags_json, '$.' || ?)"
+    },
+    {
+      "fonction": "json_get_param_num",
+      "args": [
+        "tags_json"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "CAST((CAST(tags_json AS JSONB) ->> ?) AS DOUBLE PRECISION)"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%Y-%m-%d",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "strftime('%Y-%m-%d', datetime(created_at, 'unixepoch'))"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%Y-%m-%d",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "to_char(to_timestamp(created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD')"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%Y-%m-%dT%H:%M:%S",
+        "created_at + 3600"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "strftime('%Y-%m-%dT%H:%M:%S', datetime(created_at + 3600, 'unixepoch'))"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%Y-%m-%dT%H:%M:%S",
+        "created_at + 3600"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "to_char(to_timestamp(created_at + 3600) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%w",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "strftime('%w', datetime(created_at, 'unixepoch'))"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%w",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp(created_at) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%j",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%j",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%d/%m h'",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "%d/%m h'",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "Semaine %H",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "sortie": "strftime('Semaine %H', datetime(created_at, 'unixepoch'))"
+    },
+    {
+      "fonction": "utc_strftime",
+      "args": [
+        "Semaine %H",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "sortie": "to_char(to_timestamp(created_at) AT TIME ZONE 'UTC', '\"S\"\"e\"\"m\"\"a\"\"i\"\"n\"\"e\" HH24')"
+    },
+    {
+      "fonction": "local_part_int",
+      "args": [
+        "%j",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "sqlite",
+      "erreur": "ValueError"
+    },
+    {
+      "fonction": "local_part_int",
+      "args": [
+        "%j",
+        "created_at"
+      ],
+      "options": {},
+      "dialecte": "postgres",
+      "erreur": "ValueError"
+    }
+  ],
+  "heure_locale": [
+    {
+      "fuseau": "UTC",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          null,
+          0
+        ]
+      ],
+      "local_offset_sql": "0",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "UTC",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          null,
+          0
+        ]
+      ],
+      "local_offset_sql": "0",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "UTC",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          null,
+          0
+        ]
+      ],
+      "local_offset_sql": "0",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 0)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 0)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Europe/Paris",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          1729990800,
+          7200
+        ],
+        [
+          1743296400,
+          3600
+        ],
+        [
+          1761440400,
+          7200
+        ],
+        [
+          1774746000,
+          3600
+        ],
+        [
+          1792890000,
+          7200
+        ],
+        [
+          1806195600,
+          3600
+        ],
+        [
+          1824944400,
+          7200
+        ],
+        [
+          null,
+          3600
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 WHEN created_at < 1824944400 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Europe/Paris",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          1711846800,
+          3600
+        ],
+        [
+          1729990800,
+          7200
+        ],
+        [
+          1743296400,
+          3600
+        ],
+        [
+          1761440400,
+          7200
+        ],
+        [
+          1774746000,
+          3600
+        ],
+        [
+          1792890000,
+          7200
+        ],
+        [
+          1806195600,
+          3600
+        ],
+        [
+          null,
+          7200
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 WHEN created_at < 1743296400 THEN 3600 WHEN created_at < 1761440400 THEN 7200 WHEN created_at < 1774746000 THEN 3600 WHEN created_at < 1792890000 THEN 7200 WHEN created_at < 1806195600 THEN 3600 ELSE 7200 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Europe/Paris",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          1635642000,
+          7200
+        ],
+        [
+          1648342800,
+          3600
+        ],
+        [
+          1667091600,
+          7200
+        ],
+        [
+          1679792400,
+          3600
+        ],
+        [
+          1698541200,
+          7200
+        ],
+        [
+          1711846800,
+          3600
+        ],
+        [
+          1729990800,
+          7200
+        ],
+        [
+          null,
+          3600
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1635642000 THEN 7200 WHEN created_at < 1648342800 THEN 3600 WHEN created_at < 1667091600 THEN 7200 WHEN created_at < 1679792400 THEN 3600 WHEN created_at < 1698541200 THEN 7200 WHEN created_at < 1711846800 THEN 3600 WHEN created_at < 1729990800 THEN 7200 ELSE 3600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/New_York",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          1730613600,
+          -14400
+        ],
+        [
+          1741503600,
+          -18000
+        ],
+        [
+          1762063200,
+          -14400
+        ],
+        [
+          1772953200,
+          -18000
+        ],
+        [
+          1793512800,
+          -14400
+        ],
+        [
+          1805007600,
+          -18000
+        ],
+        [
+          1825567200,
+          -14400
+        ],
+        [
+          null,
+          -18000
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 WHEN created_at < 1825567200 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/New_York",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          1710054000,
+          -18000
+        ],
+        [
+          1730613600,
+          -14400
+        ],
+        [
+          1741503600,
+          -18000
+        ],
+        [
+          1762063200,
+          -14400
+        ],
+        [
+          1772953200,
+          -18000
+        ],
+        [
+          1793512800,
+          -14400
+        ],
+        [
+          1805007600,
+          -18000
+        ],
+        [
+          null,
+          -14400
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 WHEN created_at < 1741503600 THEN -18000 WHEN created_at < 1762063200 THEN -14400 WHEN created_at < 1772953200 THEN -18000 WHEN created_at < 1793512800 THEN -14400 WHEN created_at < 1805007600 THEN -18000 ELSE -14400 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/New_York",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          1636264800,
+          -14400
+        ],
+        [
+          1647154800,
+          -18000
+        ],
+        [
+          1667714400,
+          -14400
+        ],
+        [
+          1678604400,
+          -18000
+        ],
+        [
+          1699164000,
+          -14400
+        ],
+        [
+          1710054000,
+          -18000
+        ],
+        [
+          1730613600,
+          -14400
+        ],
+        [
+          null,
+          -18000
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1636264800 THEN -14400 WHEN created_at < 1647154800 THEN -18000 WHEN created_at < 1667714400 THEN -14400 WHEN created_at < 1678604400 THEN -18000 WHEN created_at < 1699164000 THEN -14400 WHEN created_at < 1710054000 THEN -18000 WHEN created_at < 1730613600 THEN -14400 ELSE -18000 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Asia/Kolkata",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          null,
+          19800
+        ]
+      ],
+      "local_offset_sql": "19800",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Asia/Kolkata",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          null,
+          19800
+        ]
+      ],
+      "local_offset_sql": "19800",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Asia/Kolkata",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          null,
+          19800
+        ]
+      ],
+      "local_offset_sql": "19800",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + 19800)) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Australia/Lord_Howe",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          1728142200,
+          37800
+        ],
+        [
+          1743865200,
+          39600
+        ],
+        [
+          1759591800,
+          37800
+        ],
+        [
+          1775314800,
+          39600
+        ],
+        [
+          1791041400,
+          37800
+        ],
+        [
+          1806764400,
+          39600
+        ],
+        [
+          1822491000,
+          37800
+        ],
+        [
+          null,
+          39600
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 WHEN created_at < 1822491000 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Australia/Lord_Howe",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          1712415600,
+          39600
+        ],
+        [
+          1728142200,
+          37800
+        ],
+        [
+          1743865200,
+          39600
+        ],
+        [
+          1759591800,
+          37800
+        ],
+        [
+          1775314800,
+          39600
+        ],
+        [
+          1791041400,
+          37800
+        ],
+        [
+          1806764400,
+          39600
+        ],
+        [
+          null,
+          37800
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 WHEN created_at < 1743865200 THEN 39600 WHEN created_at < 1759591800 THEN 37800 WHEN created_at < 1775314800 THEN 39600 WHEN created_at < 1791041400 THEN 37800 WHEN created_at < 1806764400 THEN 39600 ELSE 37800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "Australia/Lord_Howe",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          1633188600,
+          37800
+        ],
+        [
+          1648911600,
+          39600
+        ],
+        [
+          1664638200,
+          37800
+        ],
+        [
+          1680361200,
+          39600
+        ],
+        [
+          1696087800,
+          37800
+        ],
+        [
+          1712415600,
+          39600
+        ],
+        [
+          1728142200,
+          37800
+        ],
+        [
+          null,
+          39600
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1633188600 THEN 37800 WHEN created_at < 1648911600 THEN 39600 WHEN created_at < 1664638200 THEN 37800 WHEN created_at < 1680361200 THEN 39600 WHEN created_at < 1696087800 THEN 37800 WHEN created_at < 1712415600 THEN 39600 WHEN created_at < 1728142200 THEN 37800 ELSE 39600 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/Santiago",
+      "maintenant": 1791331200.0,
+      "segments": [
+        [
+          1725768000,
+          -14400
+        ],
+        [
+          1743908400,
+          -10800
+        ],
+        [
+          1757217600,
+          -14400
+        ],
+        [
+          1775358000,
+          -10800
+        ],
+        [
+          1788667200,
+          -14400
+        ],
+        [
+          1806807600,
+          -10800
+        ],
+        [
+          1820116800,
+          -14400
+        ],
+        [
+          null,
+          -10800
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 WHEN created_at < 1820116800 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/Santiago",
+      "maintenant": 1774000000.0,
+      "segments": [
+        [
+          1712458800,
+          -10800
+        ],
+        [
+          1725768000,
+          -14400
+        ],
+        [
+          1743908400,
+          -10800
+        ],
+        [
+          1757217600,
+          -14400
+        ],
+        [
+          1775358000,
+          -10800
+        ],
+        [
+          1788667200,
+          -14400
+        ],
+        [
+          1806807600,
+          -10800
+        ],
+        [
+          null,
+          -14400
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 WHEN created_at < 1743908400 THEN -10800 WHEN created_at < 1757217600 THEN -14400 WHEN created_at < 1775358000 THEN -10800 WHEN created_at < 1788667200 THEN -14400 WHEN created_at < 1806807600 THEN -10800 ELSE -14400 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    },
+    {
+      "fuseau": "America/Santiago",
+      "maintenant": 1700000000.5,
+      "segments": [
+        [
+          1648954800,
+          -10800
+        ],
+        [
+          1662868800,
+          -14400
+        ],
+        [
+          1680404400,
+          -10800
+        ],
+        [
+          1693713600,
+          -14400
+        ],
+        [
+          1712458800,
+          -10800
+        ],
+        [
+          1725768000,
+          -14400
+        ],
+        [
+          null,
+          -10800
+        ]
+      ],
+      "local_offset_sql": "(CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END)",
+      "sqlite": {
+        "local_strftime": "strftime('%Y-%m-%d %H:00', datetime(created_at,'unixepoch','localtime'))",
+        "local_strftime_w": "strftime('%w', datetime(created_at,'unixepoch','localtime'))",
+        "local_part_int_h": "CAST(strftime('%H', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_part_int_w": "CAST(strftime('%w', datetime(created_at,'unixepoch','localtime')) AS INTEGER)",
+        "local_datetime": "datetime(created_at,'unixepoch','localtime')"
+      },
+      "postgres": {
+        "local_strftime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:00')",
+        "local_strftime_w": "CAST(CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER) AS TEXT)",
+        "local_part_int_h": "CAST(EXTRACT(HOUR FROM (to_timestamp((created_at + (CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_part_int_w": "CAST(EXTRACT(DOW FROM (to_timestamp((created_at + (CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC')) AS INTEGER)",
+        "local_datetime": "to_char(to_timestamp((created_at + (CASE WHEN created_at < 1648954800 THEN -10800 WHEN created_at < 1662868800 THEN -14400 WHEN created_at < 1680404400 THEN -10800 WHEN created_at < 1693713600 THEN -14400 WHEN created_at < 1712458800 THEN -10800 WHEN created_at < 1725768000 THEN -14400 ELSE -10800 END))) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')"
+      }
+    }
+  ],
+  "decoupage": [
+    {
+      "script": "CREATE TABLE a(x INT); INSERT INTO a VALUES (1);",
+      "instructions": [
+        "CREATE TABLE a(x INT)",
+        "INSERT INTO a VALUES (1)"
+      ]
+    },
+    {
+      "script": "SELECT ';' AS s; SELECT 2",
+      "instructions": [
+        "SELECT ';' AS s",
+        "SELECT 2"
+      ]
+    },
+    {
+      "script": "INSERT INTO t VALUES ('it''s; ok'); -- fin; commentaire\nSELECT 1;",
+      "instructions": [
+        "INSERT INTO t VALUES ('it''s; ok')",
+        "-- fin; commentaire\nSELECT 1"
+      ]
+    },
+    {
+      "script": "SELECT \"col;onne\" FROM t;;  ;SELECT `x;y`",
+      "instructions": [
+        "SELECT \"col;onne\" FROM t",
+        "SELECT `x;y`"
+      ]
+    },
+    {
+      "script": "  \n  ",
+      "instructions": []
+    },
+    {
+      "script": "SELECT 1 -- pas de point-virgule final",
+      "instructions": [
+        "SELECT 1 -- pas de point-virgule final"
+      ]
+    },
+    {
+      "script": "SELECT '--' ; SELECT 3",
+      "instructions": [
+        "SELECT '--'",
+        "SELECT 3"
+      ]
+    }
+  ],
+  "parametres": [
+    {
+      "sql": "SELECT * FROM t WHERE a = ? AND b = ?",
+      "postgres": "SELECT * FROM t WHERE a = $1 AND b = $2"
+    },
+    {
+      "sql": "SELECT '?' AS q, ? AS p",
+      "postgres": "SELECT '?' AS q, $1 AS p"
+    },
+    {
+      "sql": "SELECT \"a?b\" FROM t WHERE c = ?",
+      "postgres": "SELECT \"a?b\" FROM t WHERE c = $1"
+    },
+    {
+      "sql": "SELECT E'\\'?' , ?",
+      "postgres": "SELECT E'\\'?' , $1"
+    },
+    {
+      "sql": "SELECT $$ ? $$, ?",
+      "postgres": "SELECT $$ ? $$, $1"
+    },
+    {
+      "sql": "SELECT 1 -- ? commentaire\n, ?",
+      "postgres": "SELECT 1 -- ? commentaire\n, $1"
+    },
+    {
+      "sql": "SELECT /* ? */ ?",
+      "postgres": "SELECT /* ? */ $1"
+    },
+    {
+      "sql": "SELECT 'it''s ?' , ?",
+      "postgres": "SELECT 'it''s ?' , $1"
+    },
+    {
+      "sql": "SELECT x::text FROM t WHERE y = ?",
+      "postgres": "SELECT x::text FROM t WHERE y = $1"
+    },
+    {
+      "sql": "SELECT e'?' , ?",
+      "postgres": "SELECT e'?' , $1"
+    },
+    {
+      "sql": "SELECT a - -? FROM t",
+      "postgres": "SELECT a - -$1 FROM t"
+    },
+    {
+      "sql": "SELECT $$a$$$ ? $$, ?",
+      "postgres": "SELECT $$a$$$ ? $$, $1"
+    },
+    {
+      "sql": "INSERT INTO t(a,b) VALUES (?,?) ON CONFLICT (a) DO UPDATE SET b = excluded.b",
+      "postgres": "INSERT INTO t(a,b) VALUES ($1,$2) ON CONFLICT (a) DO UPDATE SET b = excluded.b"
+    },
+    {
+      "sql": "SELECT ? ? ?",
+      "postgres": "SELECT $1 $2 $3"
+    },
+    {
+      "sql": "",
+      "postgres": ""
+    }
+  ],
+  "premier_mot": [
+    {
+      "sql": "select 1",
+      "mot": "SELECT"
+    },
+    {
+      "sql": "  -- c\n /* d */ INSERT INTO t",
+      "mot": "INSERT"
+    },
+    {
+      "sql": "/* a */WITH x AS (SELECT 1) SELECT 1",
+      "mot": "WITH"
+    },
+    {
+      "sql": "(SELECT 1)",
+      "mot": ""
+    },
+    {
+      "sql": "",
+      "mot": ""
+    },
+    {
+      "sql": "begin",
+      "mot": "BEGIN"
+    },
+    {
+      "sql": "ROLLBACK TO SAVEPOINT sp",
+      "mot": "ROLLBACK"
+    },
+    {
+      "sql": "\n\tUpDaTe t SET a=1",
+      "mot": "UPDATE"
+    }
+  ],
+  "sqlstate": [
+    {
+      "code": "23505",
+      "classe": "ServerIntegrityError",
+      "base": "IntegrityError",
+      "message": "message du serveur [SQLSTATE 23505]",
+      "rompue": false
+    },
+    {
+      "code": "23503",
+      "classe": "ServerIntegrityError",
+      "base": "IntegrityError",
+      "message": "message du serveur [SQLSTATE 23503]",
+      "rompue": false
+    },
+    {
+      "code": "23502",
+      "classe": "ServerIntegrityError",
+      "base": "IntegrityError",
+      "message": "message du serveur [SQLSTATE 23502]",
+      "rompue": false
+    },
+    {
+      "code": "42P01",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "no such table: message du serveur",
+      "rompue": false
+    },
+    {
+      "code": "42703",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "no such column: message du serveur",
+      "rompue": false
+    },
+    {
+      "code": "22001",
+      "classe": "ServerDataError",
+      "base": "DataError",
+      "message": "message du serveur [SQLSTATE 22001]",
+      "rompue": false
+    },
+    {
+      "code": "22P02",
+      "classe": "ServerDataError",
+      "base": "DataError",
+      "message": "message du serveur [SQLSTATE 22P02]",
+      "rompue": false
+    },
+    {
+      "code": "08006",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 08006]",
+      "rompue": true
+    },
+    {
+      "code": "08001",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 08001]",
+      "rompue": true
+    },
+    {
+      "code": "57P01",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 57P01]",
+      "rompue": true
+    },
+    {
+      "code": "57P03",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 57P03]",
+      "rompue": true
+    },
+    {
+      "code": "40001",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 40001]",
+      "rompue": false
+    },
+    {
+      "code": "40P01",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 40P01]",
+      "rompue": false
+    },
+    {
+      "code": "42601",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 42601]",
+      "rompue": false
+    },
+    {
+      "code": "55P03",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 55P03]",
+      "rompue": false
+    },
+    {
+      "code": "25P02",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 25P02]",
+      "rompue": false
+    },
+    {
+      "code": "0A000",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 0A000]",
+      "rompue": false
+    },
+    {
+      "code": "26000",
+      "classe": "ServerOperationalError",
+      "base": "OperationalError",
+      "message": "message du serveur [SQLSTATE 26000]",
+      "rompue": false
+    },
+    {
+      "code": "XX000",
+      "classe": "ServerError",
+      "base": "DatabaseError",
+      "message": "message du serveur [SQLSTATE XX000]",
+      "rompue": false
+    },
+    {
+      "code": "53300",
+      "classe": "ServerError",
+      "base": "DatabaseError",
+      "message": "message du serveur [SQLSTATE 53300]",
+      "rompue": false
+    },
+    {
+      "code": "",
+      "classe": "ServerError",
+      "base": "DatabaseError",
+      "message": "sans code",
+      "rompue": false
+    }
+  ]
+}

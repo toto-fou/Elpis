@@ -1,0 +1,3766 @@
+{
+  "source": "migration-kit/vecteurs/images_magasin.py",
+  "prefs_textes": [
+    "null",
+    "{}",
+    "[]",
+    "\"x\"",
+    "5",
+    "{\"ratio\": \"16:9\", \"side\": 2048, \"n\": 9, \"enhance\": true}",
+    "{\"ratio\": \"5:1\", \"side\": \"x\"}",
+    "{\"side\": 900}",
+    "{\"side\": 700}",
+    "{\"side\": 640}",
+    "{\"side\": 896}",
+    "{\"side\": \" 1024 \"}",
+    "{\"side\": \"1_024\"}",
+    "{\"side\": \"\\u0661\\u0660\\u0662\\u0664\"}",
+    "{\"side\": 1024.9}",
+    "{\"side\": true}",
+    "{\"side\": -5}",
+    "{\"side\": 1000000000000000000000000000000}",
+    "{\"side\": Infinity}",
+    "{\"side\": -Infinity}",
+    "{\"side\": NaN}",
+    "{\"side\": [1]}",
+    "{\"side\": \"1e3\"}",
+    "{\"side\": \"+768\"}",
+    "{\"n\": \"3\"}",
+    "{\"n\": 0}",
+    "{\"n\": -2}",
+    "{\"n\": 2.7}",
+    "{\"n\": Infinity}",
+    "{\"n\": null}",
+    "{\"n\": \"2.0\"}",
+    "{\"ratio\": \" 4:3 \"}",
+    "{\"ratio\": 1}",
+    "{\"ratio\": \"SQUARE\"}",
+    "{\"ratio\": \"\\u00a016:9\\u2003\"}",
+    "{\"ratio\": \"9:21\", \"enhance\": 1}",
+    "{\"enhance\": \"true\"}",
+    "{\"enhance\": true, \"extra\": 1}",
+    "{\"ratio\": \"\", \"side\": \"\", \"n\": \"\"}",
+    "{\"__proto__\": {\"n\": 3}, \"n\": 2}"
+  ],
+  "sections": [
+    "{\"enabled\": true, \"url\": \"http://h\"}",
+    "{\"enabled\": true, \"url\": \"http://h\", \"max_side\": 700}",
+    "{\"enabled\": true, \"url\": \"http://h\", \"max_side\": 300}",
+    "{\"provider\": \"openai\", \"model\": \"dall-e-3\", \"max_n\": 6}",
+    "{\"provider\": \"openai\", \"model\": \"gpt-image-1\", \"max_n\": 2, \"default_side\": 768}",
+    "{\"max_n\": 1e999, \"default_side\": 512}"
+  ],
+  "reglages": [
+    null,
+    {},
+    {
+      "image_enabled": false
+    },
+    {
+      "image_enabled": 0
+    },
+    {
+      "image_enabled": null
+    },
+    {
+      "image_tool_enabled": false
+    },
+    {
+      "image_enabled": false,
+      "image_tool_enabled": true
+    },
+    {
+      "image_tool_enabled": "false"
+    },
+    {
+      "image_enabled": true,
+      "image_tool_enabled": 0
+    }
+  ],
+  "id_cas": [
+    "00000000000000000000000000000000",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "0000000000000000000000000000000",
+    "000000000000000000000000000000000",
+    "00000000000000000000000000000000\n",
+    123,
+    null,
+    "gggggggggggggggggggggggggggggggg",
+    "../../etc",
+    "\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+    "",
+    "0123456789abcdef0123456789abcdef"
+  ],
+  "ref_cas": [
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "width": 64,
+      "height": 48,
+      "mime": "image/png",
+      "params": {
+        "seed": 5
+      }
+    },
+    {
+      "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "width": 64.9,
+      "height": "48",
+      "mime": "image/webp",
+      "params": {
+        "seed": true
+      }
+    },
+    {
+      "id": "cccccccccccccccccccccccccccccccc",
+      "width": 1,
+      "height": 1,
+      "mime": "image/jpeg",
+      "params": {
+        "seed": 5.0
+      }
+    },
+    {
+      "id": "dddddddddddddddddddddddddddddddd",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params": {
+        "seed": null
+      },
+      "params_json": "{\"seed\": 9}"
+    },
+    {
+      "id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params": [],
+      "params_json": "{\"seed\": 9}"
+    },
+    {
+      "id": "ffffffffffffffffffffffffffffffff",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": ""
+    },
+    {
+      "id": "11111111111111111111111111111111",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": null
+    },
+    {
+      "id": "22222222222222222222222222222222",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "pas du json"
+    },
+    {
+      "id": "33333333333333333333333333333333",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "{\"seed\": 123456789012345678901}"
+    },
+    {
+      "id": "44444444444444444444444444444444",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "{\"seed\": -1}"
+    },
+    {
+      "id": "55555555555555555555555555555555",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "{\"seed\": NaN}"
+    },
+    {
+      "id": "66666666666666666666666666666666",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "{\"seed\": \"7\"}"
+    },
+    {
+      "id": "77777777777777777777777777777777",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "[]"
+    },
+    {
+      "id": "88888888888888888888888888888888",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "null"
+    },
+    {
+      "id": "99999999999999999999999999999999",
+      "width": 1,
+      "height": 1,
+      "mime": "x",
+      "params_json": "\"texte\""
+    }
+  ],
+  "prefs": [
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 2048, \"n\": 4, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 2048, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 3, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 2, \"enhance\": false}"
+      }
+    ],
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 512, \"n\": 4, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 3, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 2, \"enhance\": false}"
+      }
+    ],
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 300, \"n\": 4, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 3, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 300, \"n\": 2, \"enhance\": false}"
+      }
+    ],
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 2048, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 2048, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      }
+    ],
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 2048, \"n\": 2, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 2048, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 2, \"enhance\": false}"
+      }
+    ],
+    [
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 2048, \"n\": 4, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 1024, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 2048, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 768, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 3, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 2, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"4:3\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"16:9\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"9:21\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": true}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 1, \"enhance\": false}"
+      },
+      {
+        "resultat": "{\"ratio\": \"1:1\", \"side\": 512, \"n\": 2, \"enhance\": false}"
+      }
+    ]
+  ],
+  "cases": [
+    [
+      false,
+      false
+    ],
+    [
+      true,
+      true
+    ],
+    [
+      false,
+      false
+    ],
+    [
+      true,
+      true
+    ],
+    [
+      true,
+      true
+    ],
+    [
+      true,
+      false
+    ],
+    [
+      false,
+      false
+    ],
+    [
+      true,
+      true
+    ],
+    [
+      true,
+      true
+    ]
+  ],
+  "ids": [
+    [
+      true,
+      "/api/images/00000000000000000000000000000000",
+      "/api/images/00000000000000000000000000000000?thumb=1"
+    ],
+    [
+      true,
+      "/api/images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/api/images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?thumb=1"
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      false,
+      null,
+      null
+    ],
+    [
+      true,
+      "/api/images/0123456789abcdef0123456789abcdef",
+      "/api/images/0123456789abcdef0123456789abcdef?thumb=1"
+    ]
+  ],
+  "refs": [
+    {
+      "resultat": "{\"id\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"url\": \"/api/images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"thumb_url\": \"/api/images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 5}"
+    },
+    {
+      "resultat": "{\"id\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"url\": \"/api/images/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"thumb_url\": \"/api/images/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/webp\", \"seed\": true}"
+    },
+    {
+      "resultat": "{\"id\": \"cccccccccccccccccccccccccccccccc\", \"url\": \"/api/images/cccccccccccccccccccccccccccccccc\", \"thumb_url\": \"/api/images/cccccccccccccccccccccccccccccccc?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"image/jpeg\"}"
+    },
+    {
+      "resultat": "{\"id\": \"dddddddddddddddddddddddddddddddd\", \"url\": \"/api/images/dddddddddddddddddddddddddddddddd\", \"thumb_url\": \"/api/images/dddddddddddddddddddddddddddddddd?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "resultat": "{\"id\": \"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\", \"url\": \"/api/images/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\", \"thumb_url\": \"/api/images/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\", \"seed\": 9}"
+    },
+    {
+      "resultat": "{\"id\": \"ffffffffffffffffffffffffffffffff\", \"url\": \"/api/images/ffffffffffffffffffffffffffffffff\", \"thumb_url\": \"/api/images/ffffffffffffffffffffffffffffffff?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "resultat": "{\"id\": \"11111111111111111111111111111111\", \"url\": \"/api/images/11111111111111111111111111111111\", \"thumb_url\": \"/api/images/11111111111111111111111111111111?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "resultat": "{\"id\": \"22222222222222222222222222222222\", \"url\": \"/api/images/22222222222222222222222222222222\", \"thumb_url\": \"/api/images/22222222222222222222222222222222?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "resultat": "{\"id\": \"33333333333333333333333333333333\", \"url\": \"/api/images/33333333333333333333333333333333\", \"thumb_url\": \"/api/images/33333333333333333333333333333333?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\", \"seed\": 123456789012345678901}"
+    },
+    {
+      "resultat": "{\"id\": \"44444444444444444444444444444444\", \"url\": \"/api/images/44444444444444444444444444444444\", \"thumb_url\": \"/api/images/44444444444444444444444444444444?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\", \"seed\": -1}"
+    },
+    {
+      "resultat": "{\"id\": \"55555555555555555555555555555555\", \"url\": \"/api/images/55555555555555555555555555555555\", \"thumb_url\": \"/api/images/55555555555555555555555555555555?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "resultat": "{\"id\": \"66666666666666666666666666666666\", \"url\": \"/api/images/66666666666666666666666666666666\", \"thumb_url\": \"/api/images/66666666666666666666666666666666?thumb=1\", \"width\": 1, \"height\": 1, \"mime\": \"x\"}"
+    },
+    {
+      "erreur": "AttributeError",
+      "message": "'list' object has no attribute 'get'"
+    },
+    {
+      "erreur": "AttributeError",
+      "message": "'NoneType' object has no attribute 'get'"
+    },
+    {
+      "erreur": "AttributeError",
+      "message": "'str' object has no attribute 'get'"
+    }
+  ],
+  "constantes": {
+    "ORPHAN_GRACE_S": 7200.0,
+    "EPHEMERAL_TTL_S": 86400.0,
+    "THUMB_SIDE": 384,
+    "PREFS_DEFAULTS": {
+      "ratio": "1:1",
+      "side": 1024,
+      "n": 1,
+      "enhance": false
+    }
+  },
+  "magasin": {
+    "maintenant": 1800000000.0,
+    "comptes": [
+      [
+        "alice",
+        0
+      ],
+      [
+        "bob",
+        0
+      ],
+      [
+        "carol",
+        0
+      ]
+    ],
+    "chats": [
+      [
+        "alice",
+        "c1"
+      ],
+      [
+        "alice",
+        "c2"
+      ],
+      [
+        "bob",
+        "cb"
+      ]
+    ],
+    "fichiers": [
+      [
+        "1/a1.png",
+        "octets de a1",
+        1700000000
+      ],
+      [
+        "1/a2.png",
+        "octets de a2",
+        1700000000
+      ],
+      [
+        "1/a3.png",
+        "octets de a3",
+        1700000000
+      ],
+      [
+        "1/a4.png",
+        "octets de a4",
+        1700000000
+      ],
+      [
+        "1/a5.png",
+        "octets de a5",
+        1700000000
+      ],
+      [
+        "1/a8.png",
+        "octets de a8",
+        1700000000
+      ],
+      [
+        "1/a9.png",
+        "octets de a9",
+        1700000000
+      ],
+      [
+        "1/aa.png",
+        "octets de aa",
+        1700000000
+      ],
+      [
+        "1/ab.png",
+        "octets de ab",
+        1700000000
+      ],
+      [
+        "1/ac.png",
+        "octets de ac",
+        1700000000
+      ],
+      [
+        "2/b1.png",
+        "octets de b1",
+        1700000000
+      ],
+      [
+        "2/b2.png",
+        "octets de b2",
+        1700000000
+      ],
+      [
+        "3/c1.png",
+        "octets de c1",
+        1700000000
+      ],
+      [
+        "3/c2.png",
+        "octets de c2",
+        1700000000
+      ],
+      [
+        "3/c3.png",
+        "octets de c3",
+        1700000000
+      ],
+      [
+        "3/c4.png",
+        "octets de c4",
+        1700000000
+      ],
+      [
+        "1/a1.thumb.webp",
+        "vignette",
+        1700000000
+      ],
+      [
+        "1/a3.thumb.webp",
+        "vignette",
+        1700000000
+      ],
+      [
+        "2/b1.thumb.webp",
+        "vignette",
+        1700000000
+      ],
+      [
+        "1/ffffffffffffffffffffffffffffffff.png",
+        "perdu",
+        1700000000
+      ],
+      [
+        "1/frais.png",
+        "frais",
+        1799999990
+      ],
+      [
+        "99/x.png",
+        "fant\u00f4me",
+        1700000000
+      ],
+      [
+        "abc/x.png",
+        "pas un compte",
+        1700000000
+      ],
+      [
+        "\u0661/old.png",
+        "chiffre arabe",
+        1700000000
+      ],
+      [
+        "racine.txt",
+        "\u00e0 la racine",
+        1700000000
+      ]
+    ],
+    "lignes": [
+      [
+        "000000000000000000000000000000a1",
+        "alice",
+        "c1",
+        "Un phare",
+        "{\"seed\": 7, \"size\": \"64x48\"}",
+        "m",
+        "1/a1.png",
+        "1/a1.thumb.webp",
+        4,
+        0.003,
+        2.5,
+        1799999900.0
+      ],
+      [
+        "000000000000000000000000000000a2",
+        "alice",
+        "c1",
+        "Deux",
+        "{\"seed\": 7.0, \"revised_prompt\": \"r\u00e9vis\u00e9\"}",
+        "m",
+        "1/a2.png",
+        "",
+        4,
+        0.003,
+        null,
+        1799999910.0
+      ],
+      [
+        "000000000000000000000000000000a3",
+        "alice",
+        null,
+        "\u00e9ph\u00e9m\u00e8re",
+        "{}",
+        "m",
+        "1/a3.png",
+        "1/a3.thumb.webp",
+        4,
+        0.01,
+        8.0,
+        1799800000.0
+      ],
+      [
+        "000000000000000000000000000000a4",
+        "alice",
+        "disparu",
+        "orpheline",
+        "{}",
+        "m",
+        "1/a4.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799990000.0
+      ],
+      [
+        "000000000000000000000000000000a5",
+        "alice",
+        "disparu2",
+        "fra\u00eeche",
+        "{}",
+        "",
+        "1/a5.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999900.0
+      ],
+      [
+        "000000000000000000000000000000a6",
+        "alice",
+        "c2",
+        "perdue",
+        "{}",
+        "m",
+        "1/a6.png",
+        "",
+        4,
+        0.002,
+        1.0,
+        1799910000.0
+      ],
+      [
+        "000000000000000000000000000000a7",
+        "alice",
+        "c2",
+        "\u00e9vasion",
+        "{}",
+        "m",
+        "../../evasion.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999920.0
+      ],
+      [
+        "000000000000000000000000000000a8",
+        "alice",
+        "c2",
+        "sans vignette",
+        "{}",
+        "m",
+        "1/a8.png",
+        "1/absente.thumb.webp",
+        0,
+        0.0,
+        null,
+        1799999930.0
+      ],
+      [
+        "000000000000000000000000000000a9",
+        "alice",
+        "c2",
+        "",
+        "pas du json",
+        "m",
+        "1/a9.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999940.0
+      ],
+      [
+        "000000000000000000000000000000aa",
+        "alice",
+        "c2",
+        "graine bool",
+        "{\"seed\": true, \"revised_prompt\": \"\"}",
+        "m",
+        "1/aa.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999950.0
+      ],
+      [
+        "000000000000000000000000000000ab",
+        "alice",
+        "c2",
+        "grande graine",
+        "{\"seed\": 123456789012345678901}",
+        "m",
+        "1/ab.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999960.0
+      ],
+      [
+        "000000000000000000000000000000ac",
+        "alice",
+        "",
+        "chat vide",
+        "{}",
+        "m",
+        "1/ac.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999970.0
+      ],
+      [
+        "000000000000000000000000000000b1",
+        "bob",
+        null,
+        "bob 1",
+        "{}",
+        "m",
+        "2/b1.png",
+        "2/b1.thumb.webp",
+        4,
+        0.004,
+        3.0,
+        1799999900.0
+      ],
+      [
+        "000000000000000000000000000000b2",
+        "bob",
+        "cb",
+        "bob 2",
+        "{\"seed\": 1}",
+        "autre",
+        "2/b2.png",
+        "",
+        4,
+        0.004,
+        0.0,
+        1799999910.0
+      ],
+      [
+        "000000000000000000000000000000c1",
+        "carol",
+        null,
+        "c1",
+        "{}",
+        "m",
+        "3/c1.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999950.0
+      ],
+      [
+        "000000000000000000000000000000c2",
+        "carol",
+        null,
+        "c2",
+        "{}",
+        "m",
+        "3/c2.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999960.0
+      ],
+      [
+        "000000000000000000000000000000c3",
+        "carol",
+        null,
+        "c3",
+        "{}",
+        "m",
+        "3/c3.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999970.0
+      ],
+      [
+        "000000000000000000000000000000c4",
+        "carol",
+        null,
+        "c4",
+        "{}",
+        "m",
+        "3/c4.png",
+        "",
+        0,
+        0.0,
+        null,
+        1799999980.0
+      ]
+    ],
+    "operations_cas": [
+      [
+        "get_image",
+        "alice",
+        [
+          "000000000000000000000000000000a1"
+        ]
+      ],
+      [
+        "get_image",
+        "bob",
+        [
+          "000000000000000000000000000000a1"
+        ]
+      ],
+      [
+        "get_image",
+        "alice",
+        [
+          "../../etc"
+        ]
+      ],
+      [
+        "get_image",
+        "alice",
+        [
+          "000000000000000000000000000000a7"
+        ]
+      ],
+      [
+        "get_image",
+        "alice",
+        [
+          "000000000000000000000000000000a8"
+        ]
+      ],
+      [
+        "get_image",
+        "alice",
+        [
+          "000000000000000000000000000000a6"
+        ]
+      ],
+      [
+        "get_image",
+        "alice",
+        [
+          "000000000000000000000000000000A1"
+        ]
+      ],
+      [
+        "read_bytes",
+        "alice",
+        [
+          "000000000000000000000000000000a1"
+        ]
+      ],
+      [
+        "read_bytes",
+        "bob",
+        [
+          "000000000000000000000000000000a1"
+        ]
+      ],
+      [
+        "list_images",
+        "alice",
+        {}
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "limit": 2
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "limit": 2,
+          "before": 1799999905.0
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "chat_id": "c1"
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "chat_id": ""
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "limit": 0
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "limit": -3
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "limit": 1000
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "before": 0.0
+        }
+      ],
+      [
+        "list_images",
+        "alice",
+        {
+          "before": 1799999949.5,
+          "limit": 3
+        }
+      ],
+      [
+        "list_images",
+        "bob",
+        {}
+      ],
+      [
+        "list_images",
+        "carol",
+        {
+          "chat_id": "cb"
+        }
+      ],
+      [
+        "count_for_user",
+        "alice",
+        []
+      ],
+      [
+        "count_for_user",
+        "carol",
+        []
+      ],
+      [
+        "count_for_user",
+        null,
+        [
+          99
+        ]
+      ],
+      [
+        "recent_timings",
+        null,
+        [
+          "m",
+          4
+        ]
+      ],
+      [
+        "recent_timings",
+        null,
+        [
+          "m",
+          4,
+          1
+        ]
+      ],
+      [
+        "recent_timings",
+        null,
+        [
+          "",
+          0
+        ]
+      ],
+      [
+        "recent_timings",
+        null,
+        [
+          "autre",
+          4
+        ]
+      ],
+      [
+        "delete_image",
+        "bob",
+        [
+          "000000000000000000000000000000a1"
+        ]
+      ],
+      [
+        "delete_image",
+        "alice",
+        [
+          "000000000000000000000000000000a2"
+        ]
+      ],
+      [
+        "delete_image",
+        "alice",
+        [
+          "000000000000000000000000000000a2"
+        ]
+      ],
+      [
+        "delete_image",
+        "alice",
+        [
+          "000000000000000000000000000000a7"
+        ]
+      ],
+      [
+        "delete_image",
+        "alice",
+        [
+          "pas-un-id"
+        ]
+      ],
+      [
+        "delete_for_chats",
+        "alice",
+        [
+          [
+            "zz",
+            "",
+            "c1"
+          ]
+        ]
+      ],
+      [
+        "delete_for_chats",
+        "bob",
+        [
+          [
+            "c2"
+          ]
+        ]
+      ],
+      [
+        "delete_for_chats",
+        "alice",
+        [
+          []
+        ]
+      ],
+      [
+        "sweep_orphans",
+        null,
+        {
+          "now": 1800000000.0,
+          "keep": 5
+        }
+      ],
+      [
+        "sweep_orphans",
+        null,
+        {
+          "now": 1800200000.0
+        }
+      ],
+      [
+        "delete_user_dir",
+        "bob",
+        []
+      ],
+      [
+        "delete_user_dir",
+        null,
+        [
+          42
+        ]
+      ],
+      [
+        "count_for_user",
+        "bob",
+        []
+      ]
+    ],
+    "ids": {
+      "alice": 1,
+      "bob": 2,
+      "carol": 3
+    },
+    "operations": [
+      {
+        "resultat": "{\"id\": \"000000000000000000000000000000a1\", \"user_id\": 1, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"params_json\": \"{\\\"seed\\\": 7, \\\"size\\\": \\\"64x48\\\"}\", \"model\": \"m\", \"mime\": \"image/png\", \"width\": 64, \"height\": 48, \"bytes\": 10, \"rel_path\": \"1/a1.png\", \"thumb_rel_path\": \"1/a1.thumb.webp\", \"steps\": 4, \"megapixels\": 0.003, \"duration_s\": 2.5, \"created_at\": 1799999900.0, \"path\": \"1/a1.png\", \"thumb_path\": \"1/a1.thumb.webp\"}",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "{\"id\": \"000000000000000000000000000000a8\", \"user_id\": 1, \"chat_id\": \"c2\", \"prompt\": \"sans vignette\", \"params_json\": \"{}\", \"model\": \"m\", \"mime\": \"image/png\", \"width\": 64, \"height\": 48, \"bytes\": 10, \"rel_path\": \"1/a8.png\", \"thumb_rel_path\": \"1/absente.thumb.webp\", \"steps\": 0, \"megapixels\": 0.0, \"duration_s\": null, \"created_at\": 1799999930.0, \"path\": \"1/a8.png\", \"thumb_path\": null}",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "\"octets de a1\"",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}, {\"id\": \"000000000000000000000000000000ab\", \"url\": \"/api/images/000000000000000000000000000000ab\", \"thumb_url\": \"/api/images/000000000000000000000000000000ab?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 123456789012345678901, \"chat_id\": \"c2\", \"prompt\": \"grande graine\", \"model\": \"m\", \"created_at\": 1799999960.0}, {\"id\": \"000000000000000000000000000000aa\", \"url\": \"/api/images/000000000000000000000000000000aa\", \"thumb_url\": \"/api/images/000000000000000000000000000000aa?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": true, \"chat_id\": \"c2\", \"prompt\": \"graine bool\", \"model\": \"m\", \"created_at\": 1799999950.0}, {\"id\": \"000000000000000000000000000000a9\", \"url\": \"/api/images/000000000000000000000000000000a9\", \"thumb_url\": \"/api/images/000000000000000000000000000000a9?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\", \"model\": \"m\", \"created_at\": 1799999940.0}, {\"id\": \"000000000000000000000000000000a8\", \"url\": \"/api/images/000000000000000000000000000000a8\", \"thumb_url\": \"/api/images/000000000000000000000000000000a8?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"sans vignette\", \"model\": \"m\", \"created_at\": 1799999930.0}, {\"id\": \"000000000000000000000000000000a7\", \"url\": \"/api/images/000000000000000000000000000000a7\", \"thumb_url\": \"/api/images/000000000000000000000000000000a7?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\u00e9vasion\", \"model\": \"m\", \"created_at\": 1799999920.0}, {\"id\": \"000000000000000000000000000000a2\", \"url\": \"/api/images/000000000000000000000000000000a2\", \"thumb_url\": \"/api/images/000000000000000000000000000000a2?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c1\", \"prompt\": \"Deux\", \"model\": \"m\", \"created_at\": 1799999910.0, \"revised_prompt\": \"r\u00e9vis\u00e9\"}, {\"id\": \"000000000000000000000000000000a5\", \"url\": \"/api/images/000000000000000000000000000000a5\", \"thumb_url\": \"/api/images/000000000000000000000000000000a5?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu2\", \"prompt\": \"fra\u00eeche\", \"model\": \"\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a1\", \"url\": \"/api/images/000000000000000000000000000000a1\", \"thumb_url\": \"/api/images/000000000000000000000000000000a1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 7, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"model\": \"m\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a4\", \"url\": \"/api/images/000000000000000000000000000000a4\", \"thumb_url\": \"/api/images/000000000000000000000000000000a4?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu\", \"prompt\": \"orpheline\", \"model\": \"m\", \"created_at\": 1799990000.0}, {\"id\": \"000000000000000000000000000000a6\", \"url\": \"/api/images/000000000000000000000000000000a6\", \"thumb_url\": \"/api/images/000000000000000000000000000000a6?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"perdue\", \"model\": \"m\", \"created_at\": 1799910000.0}, {\"id\": \"000000000000000000000000000000a3\", \"url\": \"/api/images/000000000000000000000000000000a3\", \"thumb_url\": \"/api/images/000000000000000000000000000000a3?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"\u00e9ph\u00e9m\u00e8re\", \"model\": \"m\", \"created_at\": 1799800000.0}], null, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}, {\"id\": \"000000000000000000000000000000ab\", \"url\": \"/api/images/000000000000000000000000000000ab\", \"thumb_url\": \"/api/images/000000000000000000000000000000ab?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 123456789012345678901, \"chat_id\": \"c2\", \"prompt\": \"grande graine\", \"model\": \"m\", \"created_at\": 1799999960.0}], 1799999960.0, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000a5\", \"url\": \"/api/images/000000000000000000000000000000a5\", \"thumb_url\": \"/api/images/000000000000000000000000000000a5?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu2\", \"prompt\": \"fra\u00eeche\", \"model\": \"\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a1\", \"url\": \"/api/images/000000000000000000000000000000a1\", \"thumb_url\": \"/api/images/000000000000000000000000000000a1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 7, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"model\": \"m\", \"created_at\": 1799999900.0}], 1799999900.0, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000a2\", \"url\": \"/api/images/000000000000000000000000000000a2\", \"thumb_url\": \"/api/images/000000000000000000000000000000a2?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c1\", \"prompt\": \"Deux\", \"model\": \"m\", \"created_at\": 1799999910.0, \"revised_prompt\": \"r\u00e9vis\u00e9\"}, {\"id\": \"000000000000000000000000000000a1\", \"url\": \"/api/images/000000000000000000000000000000a1\", \"thumb_url\": \"/api/images/000000000000000000000000000000a1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 7, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"model\": \"m\", \"created_at\": 1799999900.0}], null, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}, {\"id\": \"000000000000000000000000000000ab\", \"url\": \"/api/images/000000000000000000000000000000ab\", \"thumb_url\": \"/api/images/000000000000000000000000000000ab?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 123456789012345678901, \"chat_id\": \"c2\", \"prompt\": \"grande graine\", \"model\": \"m\", \"created_at\": 1799999960.0}, {\"id\": \"000000000000000000000000000000aa\", \"url\": \"/api/images/000000000000000000000000000000aa\", \"thumb_url\": \"/api/images/000000000000000000000000000000aa?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": true, \"chat_id\": \"c2\", \"prompt\": \"graine bool\", \"model\": \"m\", \"created_at\": 1799999950.0}, {\"id\": \"000000000000000000000000000000a9\", \"url\": \"/api/images/000000000000000000000000000000a9\", \"thumb_url\": \"/api/images/000000000000000000000000000000a9?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\", \"model\": \"m\", \"created_at\": 1799999940.0}, {\"id\": \"000000000000000000000000000000a8\", \"url\": \"/api/images/000000000000000000000000000000a8\", \"thumb_url\": \"/api/images/000000000000000000000000000000a8?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"sans vignette\", \"model\": \"m\", \"created_at\": 1799999930.0}, {\"id\": \"000000000000000000000000000000a7\", \"url\": \"/api/images/000000000000000000000000000000a7\", \"thumb_url\": \"/api/images/000000000000000000000000000000a7?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\u00e9vasion\", \"model\": \"m\", \"created_at\": 1799999920.0}, {\"id\": \"000000000000000000000000000000a2\", \"url\": \"/api/images/000000000000000000000000000000a2\", \"thumb_url\": \"/api/images/000000000000000000000000000000a2?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c1\", \"prompt\": \"Deux\", \"model\": \"m\", \"created_at\": 1799999910.0, \"revised_prompt\": \"r\u00e9vis\u00e9\"}, {\"id\": \"000000000000000000000000000000a5\", \"url\": \"/api/images/000000000000000000000000000000a5\", \"thumb_url\": \"/api/images/000000000000000000000000000000a5?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu2\", \"prompt\": \"fra\u00eeche\", \"model\": \"\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a1\", \"url\": \"/api/images/000000000000000000000000000000a1\", \"thumb_url\": \"/api/images/000000000000000000000000000000a1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 7, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"model\": \"m\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a4\", \"url\": \"/api/images/000000000000000000000000000000a4\", \"thumb_url\": \"/api/images/000000000000000000000000000000a4?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu\", \"prompt\": \"orpheline\", \"model\": \"m\", \"created_at\": 1799990000.0}, {\"id\": \"000000000000000000000000000000a6\", \"url\": \"/api/images/000000000000000000000000000000a6\", \"thumb_url\": \"/api/images/000000000000000000000000000000a6?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"perdue\", \"model\": \"m\", \"created_at\": 1799910000.0}, {\"id\": \"000000000000000000000000000000a3\", \"url\": \"/api/images/000000000000000000000000000000a3\", \"thumb_url\": \"/api/images/000000000000000000000000000000a3?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"\u00e9ph\u00e9m\u00e8re\", \"model\": \"m\", \"created_at\": 1799800000.0}], null, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}], 1799999970.0, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}], 1799999970.0, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000ac\", \"url\": \"/api/images/000000000000000000000000000000ac\", \"thumb_url\": \"/api/images/000000000000000000000000000000ac?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"chat vide\", \"model\": \"m\", \"created_at\": 1799999970.0}, {\"id\": \"000000000000000000000000000000ab\", \"url\": \"/api/images/000000000000000000000000000000ab\", \"thumb_url\": \"/api/images/000000000000000000000000000000ab?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 123456789012345678901, \"chat_id\": \"c2\", \"prompt\": \"grande graine\", \"model\": \"m\", \"created_at\": 1799999960.0}, {\"id\": \"000000000000000000000000000000aa\", \"url\": \"/api/images/000000000000000000000000000000aa\", \"thumb_url\": \"/api/images/000000000000000000000000000000aa?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": true, \"chat_id\": \"c2\", \"prompt\": \"graine bool\", \"model\": \"m\", \"created_at\": 1799999950.0}, {\"id\": \"000000000000000000000000000000a9\", \"url\": \"/api/images/000000000000000000000000000000a9\", \"thumb_url\": \"/api/images/000000000000000000000000000000a9?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\", \"model\": \"m\", \"created_at\": 1799999940.0}, {\"id\": \"000000000000000000000000000000a8\", \"url\": \"/api/images/000000000000000000000000000000a8\", \"thumb_url\": \"/api/images/000000000000000000000000000000a8?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"sans vignette\", \"model\": \"m\", \"created_at\": 1799999930.0}, {\"id\": \"000000000000000000000000000000a7\", \"url\": \"/api/images/000000000000000000000000000000a7\", \"thumb_url\": \"/api/images/000000000000000000000000000000a7?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\u00e9vasion\", \"model\": \"m\", \"created_at\": 1799999920.0}, {\"id\": \"000000000000000000000000000000a2\", \"url\": \"/api/images/000000000000000000000000000000a2\", \"thumb_url\": \"/api/images/000000000000000000000000000000a2?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c1\", \"prompt\": \"Deux\", \"model\": \"m\", \"created_at\": 1799999910.0, \"revised_prompt\": \"r\u00e9vis\u00e9\"}, {\"id\": \"000000000000000000000000000000a5\", \"url\": \"/api/images/000000000000000000000000000000a5\", \"thumb_url\": \"/api/images/000000000000000000000000000000a5?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu2\", \"prompt\": \"fra\u00eeche\", \"model\": \"\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a1\", \"url\": \"/api/images/000000000000000000000000000000a1\", \"thumb_url\": \"/api/images/000000000000000000000000000000a1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 7, \"chat_id\": \"c1\", \"prompt\": \"Un phare\", \"model\": \"m\", \"created_at\": 1799999900.0}, {\"id\": \"000000000000000000000000000000a4\", \"url\": \"/api/images/000000000000000000000000000000a4\", \"thumb_url\": \"/api/images/000000000000000000000000000000a4?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"disparu\", \"prompt\": \"orpheline\", \"model\": \"m\", \"created_at\": 1799990000.0}, {\"id\": \"000000000000000000000000000000a6\", \"url\": \"/api/images/000000000000000000000000000000a6\", \"thumb_url\": \"/api/images/000000000000000000000000000000a6?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"perdue\", \"model\": \"m\", \"created_at\": 1799910000.0}, {\"id\": \"000000000000000000000000000000a3\", \"url\": \"/api/images/000000000000000000000000000000a3\", \"thumb_url\": \"/api/images/000000000000000000000000000000a3?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"\u00e9ph\u00e9m\u00e8re\", \"model\": \"m\", \"created_at\": 1799800000.0}], null, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[], null, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000a9\", \"url\": \"/api/images/000000000000000000000000000000a9\", \"thumb_url\": \"/api/images/000000000000000000000000000000a9?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\", \"model\": \"m\", \"created_at\": 1799999940.0}, {\"id\": \"000000000000000000000000000000a8\", \"url\": \"/api/images/000000000000000000000000000000a8\", \"thumb_url\": \"/api/images/000000000000000000000000000000a8?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"sans vignette\", \"model\": \"m\", \"created_at\": 1799999930.0}, {\"id\": \"000000000000000000000000000000a7\", \"url\": \"/api/images/000000000000000000000000000000a7\", \"thumb_url\": \"/api/images/000000000000000000000000000000a7?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": \"c2\", \"prompt\": \"\u00e9vasion\", \"model\": \"m\", \"created_at\": 1799999920.0}], 1799999920.0, 12]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[{\"id\": \"000000000000000000000000000000b2\", \"url\": \"/api/images/000000000000000000000000000000b2\", \"thumb_url\": \"/api/images/000000000000000000000000000000b2?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"seed\": 1, \"chat_id\": \"cb\", \"prompt\": \"bob 2\", \"model\": \"autre\", \"created_at\": 1799999910.0}, {\"id\": \"000000000000000000000000000000b1\", \"url\": \"/api/images/000000000000000000000000000000b1\", \"thumb_url\": \"/api/images/000000000000000000000000000000b1?thumb=1\", \"width\": 64, \"height\": 48, \"mime\": \"image/png\", \"chat_id\": null, \"prompt\": \"bob 1\", \"model\": \"m\", \"created_at\": 1799999900.0}], null, 2]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[], null, 4]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "12",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "4",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "0",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[3.0, 0.004], [2.5, 0.003], [1.0, 0.002], [8.0, 0.01]]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[[3.0, 0.004]]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "[]",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "false",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a2",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a2.png",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "true",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "false",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a7",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "true",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "false",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a1",
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a1.png",
+            "1/a1.thumb.webp",
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "1",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "0",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "0",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a3",
+            "000000000000000000000000000000a4",
+            "000000000000000000000000000000a5",
+            "000000000000000000000000000000a6",
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a3.png",
+            "1/a3.thumb.webp",
+            "1/a4.png",
+            "1/a5.png",
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/ffffffffffffffffffffffffffffffff.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "99/x.png",
+            "abc/x.png",
+            "racine.txt",
+            "\u0661/old.png"
+          ]
+        }
+      },
+      {
+        "resultat": "7",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000a8",
+            "000000000000000000000000000000a9",
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000ac",
+            "000000000000000000000000000000b1",
+            "000000000000000000000000000000b2",
+            "000000000000000000000000000000c1",
+            "000000000000000000000000000000c2",
+            "000000000000000000000000000000c3",
+            "000000000000000000000000000000c4"
+          ],
+          "fichiers": [
+            "1/a8.png",
+            "1/a9.png",
+            "1/aa.png",
+            "1/ab.png",
+            "1/ac.png",
+            "1/frais.png",
+            "2/b1.png",
+            "2/b1.thumb.webp",
+            "2/b2.png",
+            "3/c1.png",
+            "3/c2.png",
+            "3/c3.png",
+            "3/c4.png",
+            "abc/x.png",
+            "racine.txt"
+          ]
+        }
+      },
+      {
+        "resultat": "9",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000b2"
+          ],
+          "fichiers": [
+            "1/aa.png",
+            "1/ab.png",
+            "2/b2.png",
+            "abc/x.png",
+            "racine.txt"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000b2"
+          ],
+          "fichiers": [
+            "1/aa.png",
+            "1/ab.png",
+            "abc/x.png",
+            "racine.txt"
+          ]
+        }
+      },
+      {
+        "resultat": "null",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000b2"
+          ],
+          "fichiers": [
+            "1/aa.png",
+            "1/ab.png",
+            "abc/x.png",
+            "racine.txt"
+          ]
+        }
+      },
+      {
+        "resultat": "1",
+        "etat": {
+          "lignes": [
+            "000000000000000000000000000000aa",
+            "000000000000000000000000000000ab",
+            "000000000000000000000000000000b2"
+          ],
+          "fichiers": [
+            "1/aa.png",
+            "1/ab.png",
+            "abc/x.png",
+            "racine.txt"
+          ]
+        }
+      }
+    ]
+  }
+}

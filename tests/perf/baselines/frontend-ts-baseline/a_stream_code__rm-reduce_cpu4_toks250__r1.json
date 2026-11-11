@@ -1,0 +1,98 @@
+{
+ "scenario": "a_stream_code",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4,
+  "toks": 250
+ },
+ "run": 1,
+ "label": "frontend-ts-baseline",
+ "commit": "3247582",
+ "ts": "2026-10-12T21:18:59.621Z",
+ "durationMs": 8448,
+ "longTasks": {
+  "count": 4,
+  "p50": 92,
+  "p95": 143,
+  "max": 143,
+  "tbtMs": 158
+ },
+ "fps": {
+  "mean": 57.26,
+  "p5": 59.52,
+  "droppedPct": 0.02,
+  "frozen": 0
+ },
+ "inputEvents": {
+  "countOver50ms": 22,
+  "p95": 112
+ },
+ "cls": 0,
+ "markdown": {
+  "parseCalls": 10,
+  "parseMs": 95,
+  "parseMaxMs": 41,
+  "hljsCalls": 0,
+  "hljsAutoCalls": 0,
+  "hljsMs": 0
+ },
+ "cdp": {
+  "ScriptDuration": 0.39,
+  "LayoutDuration": 0.4,
+  "RecalcStyleDuration": 0.12,
+  "TaskDuration": 4.85,
+  "JSHeapUsedMB": 29.1
+ },
+ "intervals": [
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at /:18825:12"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  },
+  {
+   "ms": 200,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startGenTicker (/static/js/app-chat.js?v=1784227200:4916:22)"
+  },
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2641:36)"
+  }
+ ],
+ "_window": [
+  1791839931084,
+  1791839939532
+ ],
+ "requests": {
+  "total": 6,
+  "byUrl": {
+   "/api/saved/chats/new": 1,
+   "/api/chat-saved-stream3": 1,
+   "/api/llm/models": 1,
+   "/api/saved/chats": 1,
+   "/static/vendor/highlight.min.js": 1,
+   "/api/llm/models/m1/props": 1
+  }
+ },
+ "errors": [],
+ "toks": 250,
+ "reply": "code200"
+}

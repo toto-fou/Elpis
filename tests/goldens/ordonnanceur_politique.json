@@ -1,0 +1,156 @@
+{
+  "entrees": {
+    "actions": [
+      {
+        "a": 5,
+        "politique": {
+          "A": {
+            "max_concurrency": 2
+          }
+        }
+      }
+    ],
+    "demandes": [
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 20
+          }
+        ],
+        "id": "H1",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 20
+          }
+        ],
+        "id": "H2",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 0,
+        "etapes": [
+          {
+            "generer": 20
+          }
+        ],
+        "id": "H3",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      },
+      {
+        "arrivee": 10,
+        "etapes": [
+          {
+            "generer": 5
+          }
+        ],
+        "id": "H4",
+        "modele": "m1",
+        "priorite": "high",
+        "serveur": "A"
+      }
+    ],
+    "harnais": "ordonnanceur",
+    "instantanes": [
+      3,
+      7,
+      12,
+      22,
+      27,
+      90
+    ],
+    "mode": "classic",
+    "serveurs": {
+      "A": {
+        "max_concurrency": 1,
+        "max_models": 1
+      }
+    }
+  },
+  "instantanes": {
+    "t=12": {
+      "en_attente": [
+        "H3",
+        "H4"
+      ],
+      "en_cours": [
+        "H1",
+        "H2"
+      ],
+      "terminees": []
+    },
+    "t=22": {
+      "en_attente": [
+        "H4"
+      ],
+      "en_cours": [
+        "H2",
+        "H3"
+      ],
+      "terminees": [
+        "H1"
+      ]
+    },
+    "t=27": {
+      "en_attente": [],
+      "en_cours": [
+        "H3",
+        "H4"
+      ],
+      "terminees": [
+        "H1",
+        "H2"
+      ]
+    },
+    "t=3": {
+      "en_attente": [
+        "H2",
+        "H3"
+      ],
+      "en_cours": [
+        "H1"
+      ],
+      "terminees": []
+    },
+    "t=7": {
+      "en_attente": [
+        "H3"
+      ],
+      "en_cours": [
+        "H1",
+        "H2"
+      ],
+      "terminees": []
+    },
+    "t=90": {
+      "en_attente": [],
+      "en_cours": [],
+      "terminees": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
+      ]
+    }
+  },
+  "ordre": [
+    "t=0 H1 admis",
+    "t=5 H2 admis",
+    "t=20 H1 fin",
+    "t=20 H3 admis",
+    "t=25 H2 fin",
+    "t=25 H4 admis",
+    "t=30 H4 fin",
+    "t=40 H3 fin"
+  ]
+}

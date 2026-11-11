@@ -1,0 +1,27 @@
+{
+  "secret": "secret-de-test-bascule",
+  "t": 1791331260,
+  "set_cookie": "mcpwebui_session=eyJ1aWQiOiAxLCAidXNlciI6IDEsICJ1c2VyX2lkIjogMSwgIl9sb2dpbl90cyI6IDE3OTEzMzEyMDAuMCwgIl9zaWQiOiAic2lkLWRlLWxhLXNlc3Npb24tcHl0aG9uIn0=.asWLvA.3OUNgs7l3A1dRj3FzQ20g28lKTo; path=/; Max-Age=86400; httponly; samesite=lax",
+  "valeur": "eyJ1aWQiOiAxLCAidXNlciI6IDEsICJ1c2VyX2lkIjogMSwgIl9sb2dpbl90cyI6IDE3OTEzMzEyMDAuMCwgIl9zaWQiOiAic2lkLWRlLWxhLXNlc3Npb24tcHl0aG9uIn0=.asWLvA.3OUNgs7l3A1dRj3FzQ20g28lKTo",
+  "session_relue_par_python": {
+    "uid": 1,
+    "user": 1,
+    "user_id": 1,
+    "_login_ts": 1791331200.0,
+    "_sid": "sid-de-la-session-python"
+  },
+  "logout_cookie_illisible": [
+    200,
+    {
+      "ok": true
+    },
+    [
+      "mcpwebui_session=\"\"; expires=Wed, 07 Oct 2026 00:01:00 GMT; Max-Age=0; Path=/; SameSite=lax"
+    ]
+  ],
+  "retour_arriere": {
+    "cookie_ts": "eyJkIjp7InVzZXJfaWQiOjEsIl9sb2dpbl90cyI6MTc5MTMzMTIwMC4wLCJfc2lkIjoic2lkLWRlLWxhLXNlc3Npb24tcHl0aG9uIn0sInQiOjE3OTEzMzEyNjB9.4uQQu0FmFKQXhAITo-exqokphobcDb4OXCkHQ0v7038",
+    "session_vue_par_python": {},
+    "set_cookie": []
+  }
+}

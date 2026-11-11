@@ -1,0 +1,121 @@
+{
+ "scenario": "i_boot",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4
+ },
+ "run": 1,
+ "label": "frontend-ts-candidat",
+ "commit": "9d49c65",
+ "ts": "2026-10-14T05:50:59.953Z",
+ "page": "/",
+ "montageMs": 3903,
+ "fcpMs": 3480,
+ "dclMs": 3403,
+ "loadMs": 3453,
+ "requetes": 61,
+ "koTransferes": 3447,
+ "police": {
+  "url": "/static/vendor/src/regular/Phosphor.woff2",
+  "debutMs": 3740,
+  "finMs": 3838,
+  "ko": 144
+ },
+ "cpuParFichier": [
+  {
+   "url": "/static/dist/assets/socle-DGMn1mnx.js",
+   "ms": 2335
+  },
+  {
+   "url": "/static/dist/assets/pont-legacy-B0WvcaoC.js",
+   "ms": 275
+  },
+  {
+   "url": "/static/dist/assets/main-DKF-TuPt.js",
+   "ms": 142
+  },
+  {
+   "url": "/static/js/app.js",
+   "ms": 83
+  },
+  {
+   "url": "/static/js/app-chat.js",
+   "ms": 10
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ms": 9
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ms": 7
+  },
+  {
+   "url": "/static/js/app-settings.js",
+   "ms": 7
+  },
+  {
+   "url": "/static/js/utils.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/voice/_compat.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/dist/assets/rolldown-runtime-hePW80VL.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/chat/_studio_menu.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/chat/_code_menu.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/chat/_studio_automation.js",
+   "ms": 2
+  },
+  {
+   "url": "/static/js/chat/_voice.js",
+   "ms": 1
+  }
+ ],
+ "plusGros": [
+  {
+   "url": "/static/js/app-chat.js",
+   "ko": 405
+  },
+  {
+   "url": "/static/dist/assets/pont-legacy-B0WvcaoC.js",
+   "ko": 327
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ko": 256
+  },
+  {
+   "url": "/static/dist/assets/main-DKF-TuPt.js",
+   "ko": 253
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ko": 245
+  },
+  {
+   "url": "/static/dist/assets/socle-DGMn1mnx.js",
+   "ko": 226
+  },
+  {
+   "url": "/static/css/style.css",
+   "ko": 213
+  },
+  {
+   "url": "/static/js/app.js",
+   "ko": 175
+  }
+ ],
+ "errors": []
+}

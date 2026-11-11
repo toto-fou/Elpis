@@ -1,0 +1,3315 @@
+{
+  "entrees": {
+    "payloads": [
+      [
+        {
+          "role": "user",
+          "content": "q"
+        },
+        {
+          "role": "bot",
+          "content": "x"
+        },
+        "pas un dict",
+        {
+          "role": "user",
+          "content": 5
+        },
+        {
+          "role": "user"
+        },
+        {
+          "role": "user",
+          "content": null
+        },
+        {
+          "role": "assistant",
+          "content": "r",
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": 1,
+          "thinking": "t",
+          "resume_thinking": "rt",
+          "thinkingTruncated": "oui",
+          "images": [
+            "i"
+          ],
+          "task_runs": [
+            {
+              "id": "a",
+              "tools": [
+                1
+              ]
+            },
+            3
+          ],
+          "run_ids": [
+            "chat-1",
+            "",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            7,
+            "chat-2"
+          ],
+          "pruned": 3,
+          "compactions": [
+            {
+              "round": 2.7,
+              "threshold": true,
+              "tokens_before": 1000000000000.0,
+              "reason": "seuilseuilseuilseuilseuilseuilseuilseuilseuilseuil",
+              "had_previous_summary": false,
+              "path": "auto",
+              "model_used": "m",
+              "ctx_size": -1
+            },
+            "x"
+          ],
+          "metrics": {
+            "model": "m",
+            "duration": 1.5,
+            "thinking": "secret",
+            "tool_history": [],
+            "big": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "kv_cache": {
+              "used": 10,
+              "total": 20.0,
+              "pct": "50",
+              "extra": 1
+            },
+            "ok": true,
+            "rien": null,
+            "liste": [
+              1
+            ]
+          },
+          "files_changed": [
+            {
+              "path": "a.py",
+              "change": "created",
+              "before": null,
+              "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "added": 3
+            },
+            {
+              "path": "",
+              "change": "x"
+            },
+            {
+              "path": "b.py",
+              "change": "bizarre",
+              "before": "zz",
+              "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "removed": true,
+              "from": "c.py"
+            }
+          ],
+          "generated_images": [
+            {
+              "id": "0123456789abcdef0123456789abcdef",
+              "width": 512,
+              "height": 512.0,
+              "mime": "image/gif",
+              "seed": true
+            },
+            {
+              "id": "../x"
+            }
+          ],
+          "revised_prompt": "  un chat  ",
+          "image_meta": {
+            "model": "sd",
+            "duration_s": 12.345
+          },
+          "image_error": {
+            "code": "timeout",
+            "message": null,
+            "retryable": 0
+          }
+        },
+        {
+          "role": "notice",
+          "content": "",
+          "kind": "compaction",
+          "ts": 1.5,
+          "round": 1,
+          "tokens_after": null,
+          "summary": "s",
+          "autre": 1
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "a"
+            },
+            {
+              "type": "image_url"
+            }
+          ],
+          "image_request": {
+            "size": "1024x1024x1024x1024x1024x1024x",
+            "n": 2,
+            "seed": 3.0,
+            "ratio": "16:9",
+            "negative_prompt": "  flou ",
+            "enhance": 1,
+            "strength": 0.555,
+            "ref_image_id": "0123456789abcdef0123456789abcdef",
+            "model": " m "
+          }
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "image_error": true,
+          "tool_images": "x"
+        }
+      ],
+      [],
+      [
+        {
+          "role": "notice",
+          "content": "n"
+        }
+      ]
+    ],
+    "greffes": [
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": ""
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "isTruncated": true,
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true,
+            "run_ids": [
+              "chat-1"
+            ],
+            "resume_thinking": ""
+          }
+        ]
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel"
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "isTruncated": true,
+            "task_runs": [
+              {
+                "id": "t"
+              }
+            ],
+            "compactions": [
+              {
+                "round": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "autre"
+          },
+          {
+            "role": "assistant",
+            "content": ""
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "isTruncated": true,
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "diff\u00e9rent"
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "isTruncated": true,
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "isTruncated": true,
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": null
+          }
+        ],
+        "db": "pas une liste"
+      },
+      {
+        "payload": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_"
+          }
+        ],
+        "db": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "isTruncated": true,
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_images": [
+              {
+                "id": "x"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "expansions": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "r1",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": "q2"
+          },
+          {
+            "role": "assistant",
+            "content": "r2",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              },
+              {
+                "role": "user",
+                "content": "rappel"
+              },
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_2",
+                    "function": {
+                      "name": "ecrire",
+                      "arguments": {
+                        "x": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_2",
+                "content": "r\u00e9sultat deux"
+              }
+            ]
+          },
+          {
+            "role": "notice",
+            "content": ""
+          },
+          {
+            "role": "user",
+            "content": "q3"
+          }
+        ],
+        "options": {}
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "s"
+          },
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true
+          },
+          {
+            "role": "user",
+            "content": "q2"
+          }
+        ],
+        "options": {
+          "pruned_keys": [
+            "call_1|11|r\u00e9sultat un|r\u00e9sultat un",
+            5
+          ]
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "r\u00e9ponse coup\u00e9e"
+          },
+          {
+            "role": "notice",
+            "content": ""
+          }
+        ],
+        "options": {
+          "is_continue": true
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "<THINK>abc</think>\n"
+          }
+        ],
+        "options": {
+          "is_continue": true
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "resume_thinking": "pens\u00e9e"
+          }
+        ],
+        "options": {
+          "is_continue": true,
+          "resume_native": true
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q1"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "resume_thinking": "pens\u00e9e",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true
+          }
+        ],
+        "options": {
+          "is_continue": true
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q0"
+          },
+          {
+            "role": "assistant",
+            "content": "r0"
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "q1"
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "r1"
+          },
+          {
+            "role": "user",
+            "content": "q2"
+          }
+        ],
+        "options": {
+          "suffixes": "calcul"
+        }
+      }
+    ],
+    "continues": [
+      {
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "d\u00e9but",
+            "thinking": "p1",
+            "metrics": {
+              "input_tokens": 10,
+              "duration": 1.25,
+              "segments": 2,
+              "thinking_tokens_estimated": true
+            },
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true,
+            "run_ids": [
+              "chat-a",
+              "chat-e"
+            ],
+            "pruned": 2,
+            "files_changed": [
+              {
+                "path": "a.py",
+                "change": "created",
+                "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "task_runs": [
+              {
+                "id": "t1"
+              }
+            ],
+            "isTruncated": true
+          },
+          {
+            "role": "notice",
+            "content": "",
+            "kind": "compaction"
+          }
+        ],
+        "metrics": {
+          "input_tokens": 5,
+          "output_tokens": 3,
+          "duration": 2,
+          "iterations": true,
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": true,
+          "truncated_in_think": true,
+          "thinking": "x"
+        },
+        "thinking": " p2",
+        "assistant": " suite",
+        "fichiers": [
+          {
+            "path": "a.py",
+            "change": "modified",
+            "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "path": "b.py",
+            "change": "created",
+            "after": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        ],
+        "compactions": [
+          {
+            "round": 0,
+            "reason": "seuil"
+          }
+        ],
+        "prune": [
+          "k1",
+          "k2"
+        ],
+        "ctx": {
+          "used": 5,
+          "total": 10,
+          "pct": 50,
+          "model": "m"
+        }
+      },
+      {
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "metrics": {
+          "tool_limit_reached": true,
+          "tool_limit_iters": 9,
+          "tool_limit_max": 10,
+          "tool_limit_calls": 4
+        },
+        "thinking": "",
+        "assistant": "fin",
+        "fichiers": [],
+        "compactions": [],
+        "prune": [],
+        "ctx": null,
+        "continuer": false
+      },
+      {
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "thinking": "pens\u00e9e",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ],
+        "metrics": {
+          "truncated": true
+        },
+        "thinking": "",
+        "assistant": "r\u00e9ponse",
+        "fichiers": [],
+        "compactions": [],
+        "prune": [],
+        "ctx": null
+      },
+      {
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "metrics": {},
+        "thinking": "t",
+        "assistant": "a",
+        "fichiers": [],
+        "compactions": [],
+        "prune": [],
+        "ctx": {
+          "used": 1,
+          "total": 2,
+          "pct": 50
+        },
+        "continuer": false
+      }
+    ],
+    "partiels": [
+      {
+        "contenu": [
+          "  Bonj",
+          "our  "
+        ],
+        "pensee": [
+          "p"
+        ],
+        "historique": [
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "function": {
+                  "name": "lire",
+                  "arguments": "{\"p\": 1}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "r\u00e9sultat un"
+          }
+        ],
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "continuer": false
+      },
+      {
+        "contenu": [],
+        "pensee": [
+          "pens\u00e9e ",
+          "longue"
+        ],
+        "historique": [],
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "continuer": false
+      },
+      {
+        "contenu": [
+          " suite"
+        ],
+        "pensee": [],
+        "historique": [],
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "d\u00e9but",
+            "thinking": "p0",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "run_ids": [
+              "chat-a"
+            ]
+          }
+        ],
+        "continuer": true
+      },
+      {
+        "contenu": [],
+        "pensee": [],
+        "historique": [],
+        "msgs": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "continuer": true
+      }
+    ],
+    "suffixes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q0"
+          },
+          {
+            "role": "user",
+            "content": "q1"
+          }
+        ],
+        "chat": null,
+        "suffixe": {
+          "text": "<todo/>"
+        }
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q0"
+          }
+        ],
+        "chat": {
+          "llm_user_suffixes": {
+            "0:abc": "x",
+            "notdigit": "y"
+          }
+        },
+        "suffixe": {}
+      },
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "q0"
+          },
+          {
+            "role": "user",
+            "content": "q1"
+          }
+        ],
+        "chat": {
+          "llm_user_suffixes": {
+            "0:abc": "x"
+          }
+        },
+        "suffixe": {}
+      },
+      {
+        "messages": [
+          {
+            "role": "assistant",
+            "content": "r"
+          }
+        ],
+        "chat": null,
+        "suffixe": {
+          "text": "x"
+        }
+      }
+    ],
+    "passations": [
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "p",
+            "isTruncated": true
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "p"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "a"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "p",
+            "isTruncated": true
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q2"
+          },
+          {
+            "role": "assistant",
+            "content": "p",
+            "isTruncated": true
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "image_error": {
+              "code": "cancelled"
+            }
+          }
+        ]
+      ],
+      [
+        null,
+        "x"
+      ],
+      [
+        [
+          {
+            "role": "user",
+            "content": 1
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": 1.0
+          }
+        ]
+      ]
+    ],
+    "drains": [
+      [
+        {
+          "type": "content_token",
+          "text": "a"
+        },
+        {
+          "type": "content_token",
+          "text": "b",
+          "n": 3
+        },
+        {
+          "type": "thinking_token",
+          "text": "t"
+        },
+        {
+          "type": "content_token",
+          "text": "c"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0,
+          "name_delta": "x",
+          "args_delta": "{"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1.0,
+          "index": 0,
+          "args_delta": "}"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0,
+          "reset": true,
+          "name_delta": "y"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0
+        },
+        {
+          "type": "mode",
+          "text": "m"
+        },
+        {
+          "type": "content_token",
+          "text": "d"
+        },
+        {
+          "type": "content_token",
+          "text": "e"
+        }
+      ]
+    ],
+    "textes": [
+      null,
+      "abc",
+      [
+        {
+          "type": "text",
+          "text": "a"
+        },
+        {
+          "type": "image_url"
+        },
+        {
+          "type": "text",
+          "text": "b"
+        },
+        "x"
+      ],
+      5,
+      {
+        "a": 1
+      }
+    ],
+    "legendes": [
+      [
+        "  un   chat\n bleu ",
+        1
+      ],
+      [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        3
+      ],
+      [
+        "",
+        0
+      ]
+    ],
+    "finals": [
+      {
+        "assistant": "a",
+        "msg": {
+          "run_ids": [
+            "chat-x"
+          ],
+          "files_changed": [
+            {
+              "path": "p"
+            }
+          ],
+          "pruned": 2,
+          "metrics": {
+            "input_tokens": 9,
+            "segments": 2
+          },
+          "thinking": "fusion"
+        },
+        "thinking": "t",
+        "metrics": {
+          "input_tokens": 3,
+          "tool_limit_reached": true
+        },
+        "plan_done": true,
+        "titre": true,
+        "persiste": false,
+        "erreur": "conflict"
+      },
+      {
+        "assistant": "",
+        "msg": {},
+        "thinking": "t",
+        "metrics": null,
+        "plan_done": false,
+        "titre": false,
+        "persiste": true,
+        "erreur": "x"
+      },
+      {
+        "assistant": "",
+        "msg": {
+          "compactions": [
+            {
+              "round": 1
+            }
+          ],
+          "tool_images": []
+        },
+        "thinking": "",
+        "metrics": {},
+        "plan_done": false,
+        "titre": false,
+        "persiste": false,
+        "erreur": null
+      }
+    ],
+    "jauges": [
+      null,
+      {},
+      {
+        "last_prompt_tokens": 300
+      },
+      {
+        "last_prompt_tokens": 0,
+        "input_tokens": "40"
+      },
+      {
+        "submitted_input_tokens": 9,
+        "input_tokens": 40
+      },
+      {
+        "tool_limit_reached": true,
+        "input_tokens": 4
+      },
+      {
+        "input_tokens": "x"
+      },
+      {
+        "last_prompt_tokens": true
+      },
+      {
+        "input_tokens": -5
+      }
+    ],
+    "detaches": [
+      [
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        false,
+        false,
+        false,
+        true
+      ],
+      [
+        false,
+        false,
+        true,
+        false
+      ],
+      [
+        false,
+        false,
+        true,
+        true
+      ],
+      [
+        false,
+        true,
+        false,
+        false
+      ],
+      [
+        false,
+        true,
+        false,
+        true
+      ],
+      [
+        false,
+        true,
+        true,
+        false
+      ],
+      [
+        false,
+        true,
+        true,
+        true
+      ],
+      [
+        true,
+        false,
+        false,
+        false
+      ],
+      [
+        true,
+        false,
+        false,
+        true
+      ],
+      [
+        true,
+        false,
+        true,
+        false
+      ],
+      [
+        true,
+        false,
+        true,
+        true
+      ],
+      [
+        true,
+        true,
+        false,
+        false
+      ],
+      [
+        true,
+        true,
+        false,
+        true
+      ],
+      [
+        true,
+        true,
+        true,
+        false
+      ],
+      [
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "plans": [
+      [
+        true,
+        true,
+        false,
+        null
+      ],
+      [
+        true,
+        true,
+        false,
+        {
+          "truncated": 1
+        }
+      ],
+      [
+        false,
+        true,
+        false,
+        null
+      ],
+      [
+        true,
+        false,
+        false,
+        {}
+      ],
+      [
+        true,
+        true,
+        true,
+        {}
+      ],
+      [
+        true,
+        true,
+        false,
+        {
+          "tool_limit_reached": true
+        }
+      ]
+    ],
+    "metriques": [
+      [
+        {},
+        {
+          "input_tokens": 3
+        }
+      ],
+      [
+        {
+          "input_tokens": 2,
+          "duration": 1.234,
+          "segments": 3
+        },
+        {
+          "input_tokens": 3.9,
+          "duration": 2.0,
+          "output_tokens": null
+        }
+      ],
+      [
+        {
+          "duration": 1,
+          "thinking_tokens_estimated": 0,
+          "iterations": true
+        },
+        {
+          "duration": 2
+        }
+      ],
+      [
+        null,
+        {
+          "a": 1
+        }
+      ]
+    ],
+    "reprises": [
+      "<think>x</think>",
+      "  <TH\u0130NK>x</think>  \n",
+      "texte <think>x</think>",
+      null,
+      "<think>x"
+    ],
+    "fc": [
+      [
+        [
+          {
+            "path": "a",
+            "change": "created",
+            "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "added": 1
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "modified",
+            "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "path": "a",
+            "change": "created"
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "deleted"
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "modified"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "path": "a",
+            "change": "deleted"
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "modified",
+            "after": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "path": "a",
+            "change": "modified",
+            "before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "deleted"
+          }
+        ]
+      ],
+      [
+        "pas une liste",
+        [
+          {
+            "path": "b"
+          },
+          {
+            "path": "c",
+            "change": "moved",
+            "from": "d"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "path": "a",
+            "change": "created"
+          }
+        ],
+        [
+          {
+            "path": "a",
+            "change": "deleted"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "path": "a",
+            "added": 100000000,
+            "removed": 99999999
+          },
+          {
+            "path": "b",
+            "added": -1,
+            "removed": 0
+          }
+        ]
+      ]
+    ]
+  },
+  "sorties": {
+    "normalises": [
+      [
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "user"
+          },
+          {
+            "role": "assistant",
+            "content": "r",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": 1,
+            "thinking": "t",
+            "resume_thinking": "rt",
+            "thinkingTruncated": "oui",
+            "images": [
+              "i"
+            ],
+            "task_runs": [
+              {
+                "id": "a",
+                "tools": [
+                  1
+                ]
+              },
+              3
+            ],
+            "run_ids": [
+              "chat-1",
+              "",
+              "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              7,
+              "chat-2"
+            ],
+            "pruned": 3,
+            "compactions": [
+              {
+                "round": 2.7,
+                "threshold": true,
+                "tokens_before": 1000000000000.0,
+                "reason": "seuilseuilseuilseuilseuilseuilseuilseuilseuilseuil",
+                "had_previous_summary": false,
+                "path": "auto",
+                "model_used": "m",
+                "ctx_size": -1
+              },
+              "x"
+            ],
+            "metrics": {
+              "model": "m",
+              "duration": 1.5,
+              "thinking": "secret",
+              "tool_history": [],
+              "big": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "kv_cache": {
+                "used": 10,
+                "total": 20.0,
+                "pct": "50",
+                "extra": 1
+              },
+              "ok": true,
+              "rien": null,
+              "liste": [
+                1
+              ]
+            },
+            "files_changed": [
+              {
+                "path": "a.py",
+                "change": "created",
+                "before": null,
+                "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "added": 3
+              },
+              {
+                "path": "",
+                "change": "x"
+              },
+              {
+                "path": "b.py",
+                "change": "bizarre",
+                "before": "zz",
+                "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "removed": true,
+                "from": "c.py"
+              }
+            ],
+            "generated_images": [
+              {
+                "id": "0123456789abcdef0123456789abcdef",
+                "width": 512,
+                "height": 512.0,
+                "mime": "image/gif",
+                "seed": true
+              },
+              {
+                "id": "../x"
+              }
+            ],
+            "revised_prompt": "  un chat  ",
+            "image_meta": {
+              "model": "sd",
+              "duration_s": 12.345
+            },
+            "image_error": {
+              "code": "timeout",
+              "message": null,
+              "retryable": 0
+            }
+          },
+          {
+            "role": "notice",
+            "content": "",
+            "kind": "compaction",
+            "ts": 1.5,
+            "round": 1,
+            "tokens_after": null,
+            "summary": "s",
+            "autre": 1
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "a"
+              },
+              {
+                "type": "image_url"
+              }
+            ],
+            "image_request": {
+              "size": "1024x1024x1024x1024x1024x1024x",
+              "n": 2,
+              "seed": 3.0,
+              "ratio": "16:9",
+              "negative_prompt": "  flou ",
+              "enhance": 1,
+              "strength": 0.555,
+              "ref_image_id": "0123456789abcdef0123456789abcdef",
+              "model": " m "
+            }
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "image_error": true,
+            "tool_images": "x"
+          }
+        ],
+        [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "user",
+            "content": ""
+          },
+          {
+            "role": "assistant",
+            "content": "r",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true,
+            "thinking": "t",
+            "resume_thinking": "rt",
+            "thinkingTruncated": true,
+            "images": [
+              "i"
+            ],
+            "files_changed": [
+              {
+                "path": "a.py",
+                "change": "created",
+                "before": null,
+                "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "added": 3
+              },
+              {
+                "path": "b.py",
+                "change": "modified",
+                "before": null,
+                "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "from": "c.py"
+              }
+            ],
+            "task_runs": [
+              {
+                "id": "a"
+              }
+            ],
+            "run_ids": [
+              "chat-1",
+              "chat-2"
+            ],
+            "pruned": 3,
+            "compactions": [
+              {
+                "round": 2,
+                "reason": "seuilseuilseuilseuilseuilseuilse",
+                "path": "auto",
+                "model_used": "m",
+                "had_previous_summary": false
+              }
+            ],
+            "metrics": {
+              "model": "m",
+              "duration": 1.5,
+              "kv_cache": {
+                "used": 10,
+                "total": 20.0
+              },
+              "ok": true,
+              "rien": null
+            },
+            "generated_images": [
+              {
+                "id": "0123456789abcdef0123456789abcdef",
+                "url": "/api/images/0123456789abcdef0123456789abcdef",
+                "thumb_url": "/api/images/0123456789abcdef0123456789abcdef?thumb=1",
+                "width": 512
+              }
+            ],
+            "revised_prompt": "un chat",
+            "image_meta": {
+              "model": "sd",
+              "duration_s": 12.3
+            },
+            "image_error": {
+              "code": "timeout",
+              "message": "",
+              "retryable": true
+            }
+          },
+          {
+            "role": "notice",
+            "content": "",
+            "kind": "compaction",
+            "ts": 1.5,
+            "round": 1,
+            "summary": "s"
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "a"
+              },
+              {
+                "type": "image_url"
+              }
+            ],
+            "image_request": {
+              "size": "1024x1024x1024x1",
+              "n": 2,
+              "ratio": "16:9",
+              "negative_prompt": "flou",
+              "strength": 0.56,
+              "ref_image_id": "0123456789abcdef0123456789abcdef",
+              "model": "m"
+            }
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "image_error": {
+              "code": "engine",
+              "message": "",
+              "retryable": true
+            }
+          }
+        ]
+      ],
+      [
+        [],
+        []
+      ],
+      [
+        [
+          {
+            "role": "notice",
+            "content": "n"
+          }
+        ],
+        [
+          {
+            "role": "notice",
+            "content": "n"
+          }
+        ]
+      ]
+    ],
+    "greffes": [
+      {
+        "n": 1,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true,
+            "run_ids": [
+              "chat-1"
+            ],
+            "isTruncated": true
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true,
+            "run_ids": [
+              "chat-1"
+            ],
+            "isTruncated": true
+          }
+        ]
+      },
+      {
+        "n": 1,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "task_runs": [
+              {
+                "id": "t"
+              }
+            ],
+            "compactions": [
+              {
+                "round": 1
+              }
+            ],
+            "isTruncated": true
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "partiel",
+            "task_runs": [
+              {
+                "id": "t"
+              }
+            ],
+            "compactions": [
+              {
+                "round": 1
+              }
+            ],
+            "isTruncated": true
+          }
+        ]
+      },
+      {
+        "n": 0,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "autre"
+          },
+          {
+            "role": "assistant",
+            "content": ""
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "autre"
+          },
+          {
+            "role": "assistant",
+            "content": ""
+          }
+        ]
+      },
+      {
+        "n": 0,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "diff\u00e9rent"
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "diff\u00e9rent"
+          }
+        ]
+      },
+      {
+        "n": 0,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": 0,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ]
+      },
+      {
+        "n": 1,
+        "filtres": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_images": [
+              {
+                "id": "x"
+              }
+            ],
+            "isTruncated": true
+          }
+        ],
+        "persistables": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_images": [
+              {
+                "id": "x"
+              }
+            ],
+            "isTruncated": true
+          }
+        ]
+      }
+    ],
+    "expansions": [
+      [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "function": {
+                "name": "lire",
+                "arguments": "{\"p\": 1}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "r\u00e9sultat un",
+          "tool_call_id": "call_1"
+        },
+        {
+          "role": "assistant",
+          "content": "r1"
+        },
+        {
+          "role": "user",
+          "content": "q2"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_2",
+              "function": {
+                "name": "ecrire",
+                "arguments": {
+                  "x": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "r\u00e9sultat deux",
+          "tool_call_id": "call_2"
+        },
+        {
+          "role": "assistant",
+          "content": "r2"
+        },
+        {
+          "role": "user",
+          "content": "q3"
+        }
+      ],
+      [
+        {
+          "role": "system",
+          "content": "s"
+        },
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "function": {
+                "name": "lire",
+                "arguments": "{\"p\": 1}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "[Old tool output cleared \u2014 use session_search to retrieve it]",
+          "tool_call_id": "call_1"
+        },
+        {
+          "role": "user",
+          "content": "q2"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "r\u00e9ponse coup\u00e9e"
+        },
+        {
+          "role": "user",
+          "content": "Resume your previous answer exactly where it stopped. Do not repeat it and do not restart it from the beginning \u2014 simply continue."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "<THINK>abc</think>\n"
+        },
+        {
+          "role": "user",
+          "content": "Your thinking phase is over. Now write your final answer for the user, building on the reasoning above \u2014 without repeating or continuing it, and without <think> tags."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "reasoning_content": "pens\u00e9e"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "function": {
+                "name": "lire",
+                "arguments": "{\"p\": 1}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "r\u00e9sultat un",
+          "tool_call_id": "call_1"
+        },
+        {
+          "role": "assistant",
+          "content": "<think>\npens\u00e9e\n</think>"
+        },
+        {
+          "role": "user",
+          "content": "Your thinking phase is over. Now write your final answer for the user, building on the reasoning above \u2014 without repeating or continuing it, and without <think> tags."
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "q0\n\nS0"
+        },
+        {
+          "role": "assistant",
+          "content": "r0"
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "q1"
+            },
+            {
+              "type": "text",
+              "text": "S1"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "r1"
+        },
+        {
+          "role": "user",
+          "content": "q2"
+        }
+      ]
+    ],
+    "assistants": [
+      {
+        "message": {
+          "role": "assistant",
+          "content": "d\u00e9but suite",
+          "run_ids": [
+            "chat-a",
+            "chat-e"
+          ],
+          "metrics": {
+            "input_tokens": 15,
+            "output_tokens": 3,
+            "duration": 3.25,
+            "iterations": 1,
+            "tool_history_delta": true,
+            "truncated_in_think": true,
+            "kv_cache": {
+              "used": 5,
+              "total": 10,
+              "pct": 50
+            },
+            "thinking_tokens_estimated": true,
+            "segments": 3
+          },
+          "thinking": "p1 p2",
+          "resume_thinking": "p1 p2",
+          "thinkingTruncated": true,
+          "task_runs": [
+            {
+              "id": "t1"
+            },
+            {
+              "id": "t2"
+            }
+          ],
+          "files_changed": [
+            {
+              "path": "a.py",
+              "change": "created",
+              "before": null,
+              "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            {
+              "path": "b.py",
+              "change": "created",
+              "before": null,
+              "after": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
+          ],
+          "compactions": [
+            {
+              "round": 1,
+              "reason": "seuil"
+            }
+          ],
+          "pruned": 4,
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            },
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": true
+        },
+        "avant": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "apres": [
+          {
+            "role": "notice",
+            "content": "",
+            "kind": "compaction"
+          }
+        ],
+        "contenu": "d\u00e9but suite"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "fin",
+          "run_ids": [
+            "chat-e"
+          ],
+          "metrics": {
+            "tool_limit_reached": true,
+            "tool_limit_iters": 9,
+            "tool_limit_max": 10,
+            "tool_limit_calls": 4
+          },
+          "task_runs": [
+            {
+              "id": "t2"
+            }
+          ],
+          "isTruncated": true,
+          "toolLoopTruncated": true,
+          "toolLoopStats": {
+            "iterations": 9,
+            "hard_iterations": 9,
+            "max_iterations": 10,
+            "tool_calls_done": 4,
+            "stop_reason": ""
+          }
+        },
+        "avant": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "apres": [],
+        "contenu": "fin"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "r\u00e9ponse",
+          "run_ids": [
+            "chat-e"
+          ],
+          "metrics": {
+            "truncated": true
+          },
+          "task_runs": [
+            {
+              "id": "t2"
+            }
+          ],
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": false,
+          "thinking": "pens\u00e9e",
+          "isTruncated": true
+        },
+        "avant": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "apres": [],
+        "contenu": "r\u00e9ponse"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "a",
+          "run_ids": [
+            "chat-e"
+          ],
+          "thinking": "t",
+          "task_runs": [
+            {
+              "id": "t2"
+            }
+          ]
+        },
+        "avant": [
+          {
+            "role": "user",
+            "content": "q"
+          }
+        ],
+        "apres": [],
+        "contenu": "a"
+      }
+    ],
+    "partiels": [
+      {
+        "message": {
+          "role": "assistant",
+          "content": "Bonjour",
+          "isTruncated": true,
+          "run_ids": [
+            "chat-p"
+          ],
+          "thinking": "p",
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": true
+        },
+        "conversation": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "Bonjour",
+            "isTruncated": true,
+            "run_ids": [
+              "chat-p"
+            ],
+            "thinking": "p",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": true
+          }
+        ],
+        "texte": "Bonjour",
+        "raisonnement": "p",
+        "fusionne": "p"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "_(g\u00e9n\u00e9ration interrompue)_",
+          "isTruncated": true,
+          "run_ids": [
+            "chat-p"
+          ],
+          "thinking": "pens\u00e9e longue",
+          "resume_thinking": "pens\u00e9e longue",
+          "thinkingTruncated": true
+        },
+        "conversation": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "isTruncated": true,
+            "run_ids": [
+              "chat-p"
+            ],
+            "thinking": "pens\u00e9e longue",
+            "resume_thinking": "pens\u00e9e longue",
+            "thinkingTruncated": true
+          }
+        ],
+        "texte": "",
+        "raisonnement": "pens\u00e9e longue",
+        "fusionne": "pens\u00e9e longue"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "d\u00e9butsuite",
+          "isTruncated": true,
+          "run_ids": [
+            "chat-a",
+            "chat-p"
+          ],
+          "thinking": "p0",
+          "tool_history": [
+            {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "id": "call_1",
+                  "function": {
+                    "name": "lire",
+                    "arguments": "{\"p\": 1}"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "call_1",
+              "content": "r\u00e9sultat un"
+            }
+          ],
+          "tool_history_delta": false
+        },
+        "conversation": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "d\u00e9butsuite",
+            "isTruncated": true,
+            "run_ids": [
+              "chat-a",
+              "chat-p"
+            ],
+            "thinking": "p0",
+            "tool_history": [
+              {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "function": {
+                      "name": "lire",
+                      "arguments": "{\"p\": 1}"
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "r\u00e9sultat un"
+              }
+            ],
+            "tool_history_delta": false
+          }
+        ],
+        "texte": "d\u00e9butsuite",
+        "raisonnement": "",
+        "fusionne": "p0"
+      },
+      {
+        "message": {
+          "role": "assistant",
+          "content": "_(g\u00e9n\u00e9ration interrompue)_",
+          "isTruncated": true,
+          "run_ids": [
+            "chat-p"
+          ]
+        },
+        "conversation": [
+          {
+            "role": "user",
+            "content": "q"
+          },
+          {
+            "role": "assistant",
+            "content": "_(g\u00e9n\u00e9ration interrompue)_",
+            "isTruncated": true,
+            "run_ids": [
+              "chat-p"
+            ]
+          }
+        ],
+        "texte": "",
+        "raisonnement": "",
+        "fusionne": ""
+      }
+    ],
+    "suffixes": [
+      [
+        {
+          "1:e0417928efb829de": "<todo/>"
+        },
+        1
+      ],
+      [
+        {
+          "0:2cc0a011995baaa3": null
+        },
+        0
+      ],
+      [
+        null,
+        null
+      ],
+      [
+        null,
+        null
+      ]
+    ],
+    "passations": [
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true
+    ],
+    "drains": [
+      [
+        {
+          "type": "content_token",
+          "text": "ab",
+          "n": 4
+        },
+        {
+          "type": "thinking_token",
+          "text": "t"
+        },
+        {
+          "type": "content_token",
+          "text": "c"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0,
+          "name_delta": "x",
+          "args_delta": "{}"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0,
+          "reset": true,
+          "name_delta": "y"
+        },
+        {
+          "type": "tool_call_delta",
+          "iter": 1,
+          "index": 0
+        },
+        {
+          "type": "mode",
+          "text": "m"
+        },
+        {
+          "type": "content_token",
+          "text": "de",
+          "n": 2
+        }
+      ]
+    ],
+    "textes": [
+      [
+        "",
+        "",
+        "z"
+      ],
+      [
+        "abc",
+        "abc",
+        "z\nabc"
+      ],
+      [
+        "a b",
+        "a b",
+        "z\na b"
+      ],
+      [
+        "5",
+        "5",
+        "z\n5"
+      ],
+      [
+        "{'a': 1}",
+        "{'a': 1}",
+        "z\n{'a': 1}"
+      ]
+    ],
+    "legendes": [
+      "[Image g\u00e9n\u00e9r\u00e9e : \u00ab un chat bleu \u00bb]",
+      "[3 images g\u00e9n\u00e9r\u00e9es : \u00ab xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u2026 \u00bb]",
+      "[Image g\u00e9n\u00e9r\u00e9e : \u00ab  \u00bb]"
+    ],
+    "finals": [
+      {
+        "type": "final",
+        "assistant": "a",
+        "run_ids": [
+          "chat-x"
+        ],
+        "files_changed": [
+          {
+            "path": "p"
+          }
+        ],
+        "pruned": 2,
+        "chat_id": "c",
+        "plan_mode_done": true,
+        "title": "T",
+        "metrics": {
+          "input_tokens": 9,
+          "tool_limit_reached": true,
+          "segments": 2
+        },
+        "thinking": "fusion",
+        "tool_limit_reached": true,
+        "truncated": true,
+        "truncated_in_think": false,
+        "persisted": false,
+        "persist_error": "conflict"
+      },
+      {
+        "type": "final",
+        "assistant": "",
+        "run_ids": [
+          "chat-f"
+        ],
+        "chat_id": "c",
+        "metrics": null,
+        "thinking": "t",
+        "tool_limit_reached": false,
+        "truncated": false,
+        "truncated_in_think": false,
+        "persisted": true
+      },
+      {
+        "type": "final",
+        "assistant": "",
+        "run_ids": [
+          "chat-f"
+        ],
+        "compactions": [
+          {
+            "round": 1
+          }
+        ],
+        "chat_id": "c",
+        "metrics": {},
+        "thinking": "",
+        "tool_limit_reached": false,
+        "truncated": false,
+        "truncated_in_think": false,
+        "persisted": false
+      }
+    ],
+    "jauges": [
+      0,
+      0,
+      300,
+      40,
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    "detaches": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "plans": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "metriques_continuer": [
+      {
+        "input_tokens": 3
+      },
+      {
+        "input_tokens": 5,
+        "duration": 3.23,
+        "output_tokens": null,
+        "segments": 4
+      },
+      {
+        "duration": 3,
+        "iterations": 1,
+        "segments": 2
+      },
+      {
+        "a": 1
+      }
+    ],
+    "reprises": [
+      "Your thinking phase is over. Now write your final answer for the user, building on the reasoning above \u2014 without repeating or continuing it, and without <think> tags.",
+      "Your thinking phase is over. Now write your final answer for the user, building on the reasoning above \u2014 without repeating or continuing it, and without <think> tags.",
+      "Resume your previous answer exactly where it stopped. Do not repeat it and do not restart it from the beginning \u2014 simply continue.",
+      "Resume your previous answer exactly where it stopped. Do not repeat it and do not restart it from the beginning \u2014 simply continue.",
+      "Resume your previous answer exactly where it stopped. Do not repeat it and do not restart it from the beginning \u2014 simply continue."
+    ],
+    "fc": [
+      [
+        {
+          "path": "a",
+          "change": "created",
+          "before": null,
+          "after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      [
+        {
+          "path": "a",
+          "change": "modified",
+          "before": null,
+          "after": null
+        }
+      ],
+      [
+        {
+          "path": "a",
+          "change": "modified",
+          "before": null,
+          "after": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      [
+        {
+          "path": "a",
+          "change": "deleted",
+          "before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "after": null
+        }
+      ],
+      [
+        {
+          "path": "b",
+          "change": "modified",
+          "before": null,
+          "after": null
+        },
+        {
+          "path": "c",
+          "change": "moved",
+          "before": null,
+          "after": null,
+          "from": "d"
+        }
+      ],
+      [],
+      [
+        {
+          "path": "a",
+          "change": "modified",
+          "before": null,
+          "after": null,
+          "removed": 99999999
+        },
+        {
+          "path": "b",
+          "change": "modified",
+          "before": null,
+          "after": null,
+          "removed": 0
+        }
+      ]
+    ]
+  }
+}

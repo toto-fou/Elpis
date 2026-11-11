@@ -1,0 +1,746 @@
+{
+  "backup": [
+    {
+      "argv": [],
+      "valeurs": {
+        "dest": null,
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "full"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "db"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "db"
+      }
+    },
+    {
+      "argv": [
+        "sandboxes"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "sandboxes"
+      }
+    },
+    {
+      "argv": [
+        "mcp"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "mcp"
+      }
+    },
+    {
+      "argv": [
+        "tout"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: 'tout' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "Full"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: 'Full' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        ""
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: '' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "--dest",
+        "/tmp/b"
+      ],
+      "valeurs": {
+        "dest": "/tmp/b",
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "--dest=/tmp/b",
+        "mcp"
+      ],
+      "valeurs": {
+        "dest": "/tmp/b",
+        "scope": "mcp"
+      }
+    },
+    {
+      "argv": [
+        "mcp",
+        "--dest",
+        "x"
+      ],
+      "valeurs": {
+        "dest": "x",
+        "scope": "mcp"
+      }
+    },
+    {
+      "argv": [
+        "--de",
+        "x"
+      ],
+      "valeurs": {
+        "dest": "x",
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "--d",
+        "x"
+      ],
+      "valeurs": {
+        "dest": "x",
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "--dest"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument --dest: expected one argument\n"
+    },
+    {
+      "argv": [
+        "--dest",
+        "-x"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument --dest: expected one argument\n"
+    },
+    {
+      "argv": [
+        "--dest",
+        "-"
+      ],
+      "valeurs": {
+        "dest": "-",
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "--dest",
+        "--",
+        "db"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument --dest: expected one argument\n"
+    },
+    {
+      "argv": [
+        "--dest",
+        "a",
+        "--dest",
+        "b"
+      ],
+      "valeurs": {
+        "dest": "b",
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "full",
+        "db"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: unrecognized arguments: db\n"
+    },
+    {
+      "argv": [
+        "--vite"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: unrecognized arguments: --vite\n"
+    },
+    {
+      "argv": [
+        "-x"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: unrecognized arguments: -x\n"
+    },
+    {
+      "argv": [
+        "-"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: '-' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "--",
+        "full"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "--",
+        "--dest"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: '--dest' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "full",
+        "--"
+      ],
+      "valeurs": {
+        "dest": null,
+        "scope": "full"
+      }
+    },
+    {
+      "argv": [
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "--help"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "--he"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "db",
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "tout",
+        "-h"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: 'tout' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "-h",
+        "tout"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "--help=1"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument -h/--help: ignored explicit argument '1'\n"
+    },
+    {
+      "argv": [
+        "-hx"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n\nSauvegarde de l'instance (archive zip).\n\npositional arguments:\n  {full,db,sandboxes,mcp}\n\noptions:\n  -h, --help            show this help message and exit\n  --dest DEST           dossier de destination (d\u00e9faut : backups/ du d\u00e9p\u00f4t)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "--dest=",
+        "db"
+      ],
+      "valeurs": {
+        "dest": "",
+        "scope": "db"
+      }
+    },
+    {
+      "argv": [
+        "\u00e9t\u00e9"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: '\u00e9t\u00e9' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "-1"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis backup [-h] [--dest DEST] [{full,db,sandboxes,mcp}]\n./elpis backup: error: argument scope: invalid choice: '-1' (choose from full, db, sandboxes, mcp)\n"
+    },
+    {
+      "argv": [
+        "--dest",
+        "-1"
+      ],
+      "valeurs": {
+        "dest": "-1",
+        "scope": "full"
+      }
+    }
+  ],
+  "db": [
+    {
+      "argv": [],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: the following arguments are required: cmd\n"
+    },
+    {
+      "argv": [
+        "info"
+      ],
+      "valeurs": {
+        "cmd": "info",
+        "password_env": null
+      }
+    },
+    {
+      "argv": [
+        "info",
+        "x"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x\n"
+    },
+    {
+      "argv": [
+        "inconnu"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: argument cmd: invalid choice: 'inconnu' (choose from info, check, transfer, use)\n"
+    },
+    {
+      "argv": [
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "info",
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db info [-h]\n\noptions:\n  -h, --help  show this help message and exit\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "--password-env",
+        "PW",
+        "info"
+      ],
+      "valeurs": {
+        "cmd": "info",
+        "password_env": "PW"
+      }
+    },
+    {
+      "argv": [
+        "--password-env=PW",
+        "check",
+        "sqlite:/a.db"
+      ],
+      "valeurs": {
+        "cmd": "check",
+        "password_env": "PW",
+        "target": "sqlite:/a.db"
+      }
+    },
+    {
+      "argv": [
+        "--pass",
+        "PW",
+        "info"
+      ],
+      "valeurs": {
+        "cmd": "info",
+        "password_env": "PW"
+      }
+    },
+    {
+      "argv": [
+        "--password-env"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: argument --password-env: expected one argument\n"
+    },
+    {
+      "argv": [
+        "info",
+        "--password-env",
+        "PW"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --password-env PW\n"
+    },
+    {
+      "argv": [
+        "check"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db check [-h] target\n./elpis db check: error: the following arguments are required: target\n"
+    },
+    {
+      "argv": [
+        "check",
+        "sqlite:/a.db"
+      ],
+      "valeurs": {
+        "cmd": "check",
+        "password_env": null,
+        "target": "sqlite:/a.db"
+      }
+    },
+    {
+      "argv": [
+        "check",
+        "a",
+        "b"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: b\n"
+    },
+    {
+      "argv": [
+        "check",
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db check [-h] target\n\npositional arguments:\n  target\n\noptions:\n  -h, --help  show this help message and exit\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "transfer"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db transfer [-h] --to TO [--from SOURCE] [--dry-run]\n                           [--report REPORT]\n./elpis db transfer: error: the following arguments are required: --to\n"
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to",
+        "sqlite:/b.db"
+      ],
+      "valeurs": {
+        "cmd": "transfer",
+        "dry_run": false,
+        "password_env": null,
+        "report": null,
+        "source": null,
+        "to": "sqlite:/b.db"
+      }
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to",
+        "pg",
+        "--from",
+        "sqlite:/a.db",
+        "--dry-run",
+        "--report",
+        "r.json"
+      ],
+      "valeurs": {
+        "cmd": "transfer",
+        "dry_run": true,
+        "password_env": null,
+        "report": "r.json",
+        "source": "sqlite:/a.db",
+        "to": "pg"
+      }
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to=pg",
+        "--dry"
+      ],
+      "valeurs": {
+        "cmd": "transfer",
+        "dry_run": true,
+        "password_env": null,
+        "report": null,
+        "source": null,
+        "to": "pg"
+      }
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to",
+        "pg",
+        "--d"
+      ],
+      "valeurs": {
+        "cmd": "transfer",
+        "dry_run": true,
+        "password_env": null,
+        "report": null,
+        "source": null,
+        "to": "pg"
+      }
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to",
+        "pg",
+        "--dr",
+        "--re",
+        "r"
+      ],
+      "valeurs": {
+        "cmd": "transfer",
+        "dry_run": true,
+        "password_env": null,
+        "report": "r",
+        "source": null,
+        "to": "pg"
+      }
+    },
+    {
+      "argv": [
+        "transfer",
+        "--from",
+        "x"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db transfer [-h] --to TO [--from SOURCE] [--dry-run]\n                           [--report REPORT]\n./elpis db transfer: error: the following arguments are required: --to\n"
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db transfer [-h] --to TO [--from SOURCE] [--dry-run]\n                           [--report REPORT]\n./elpis db transfer: error: argument --to: expected one argument\n"
+    },
+    {
+      "argv": [
+        "transfer",
+        "--to",
+        "pg",
+        "--dry-run=1"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db transfer [-h] --to TO [--from SOURCE] [--dry-run]\n                           [--report REPORT]\n./elpis db transfer: error: argument --dry-run: ignored explicit argument '1'\n"
+    },
+    {
+      "argv": [
+        "transfer",
+        "x",
+        "--to",
+        "pg"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x\n"
+    },
+    {
+      "argv": [
+        "transfer",
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db transfer [-h] --to TO [--from SOURCE] [--dry-run]\n                           [--report REPORT]\n\noptions:\n  -h, --help       show this help message and exit\n  --to TO\n  --from SOURCE    d\u00e9faut : la base active\n  --dry-run\n  --report REPORT  \u00e9crire le rapport JSON dans ce fichier\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "use"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db use [-h] [--force] target\n./elpis db use: error: the following arguments are required: target\n"
+    },
+    {
+      "argv": [
+        "use",
+        "sqlite"
+      ],
+      "valeurs": {
+        "cmd": "use",
+        "force": false,
+        "password_env": null,
+        "target": "sqlite"
+      }
+    },
+    {
+      "argv": [
+        "use",
+        "sqlite",
+        "--force"
+      ],
+      "valeurs": {
+        "cmd": "use",
+        "force": true,
+        "password_env": null,
+        "target": "sqlite"
+      }
+    },
+    {
+      "argv": [
+        "use",
+        "--force",
+        "postgres://u@h/b"
+      ],
+      "valeurs": {
+        "cmd": "use",
+        "force": true,
+        "password_env": null,
+        "target": "postgres://u@h/b"
+      }
+    },
+    {
+      "argv": [
+        "use",
+        "-h"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db use [-h] [--force] target\n\npositional arguments:\n  target      sqlite ou une CIBLE serveur\n\noptions:\n  -h, --help  show this help message and exit\n  --force     quitter un moteur retir\u00e9 sans transfert\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "use",
+        "a",
+        "b"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: b\n"
+    },
+    {
+      "argv": [
+        "--vite",
+        "info"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --vite\n"
+    },
+    {
+      "argv": [
+        "info",
+        "--vite"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --vite\n"
+    },
+    {
+      "argv": [
+        "check",
+        "--",
+        "-x"
+      ],
+      "valeurs": {
+        "cmd": "check",
+        "password_env": null,
+        "target": "-x"
+      }
+    },
+    {
+      "argv": [
+        "--",
+        "info"
+      ],
+      "valeurs": {
+        "cmd": "info",
+        "password_env": null
+      }
+    },
+    {
+      "argv": [
+        "--help"
+      ],
+      "code": 0,
+      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "transfer",
+        "--report",
+        "r",
+        "--to",
+        "pg",
+        "x",
+        "y"
+      ],
+      "code": 2,
+      "stdout": "",
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x y\n"
+    }
+  ]
+}

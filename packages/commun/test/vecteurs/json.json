@@ -1,0 +1,2054 @@
+{
+  "source": "migration-kit/vecteurs/commun_json.py",
+  "cas": [
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {},
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "indent": 2
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "indent": -1
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "null"
+    },
+    {
+      "nom": "nul",
+      "entree": null,
+      "options": "canonique",
+      "sortie": "null"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {},
+      "sortie": "[true, false]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "[true, false]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "[true, false]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "[true,false]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "indent": 2
+      },
+      "sortie": "[\n  true,\n  false\n]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "[\ntrue,\nfalse\n]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "indent": -1
+      },
+      "sortie": "[\ntrue,\nfalse\n]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[\n  true,\n  false\n]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[true,false]"
+    },
+    {
+      "nom": "booleens",
+      "entree": [
+        true,
+        false
+      ],
+      "options": "canonique",
+      "sortie": "[true,false]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {},
+      "sortie": "[0, -7, 42, 9007199254740991, -9007199254740991]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "[0, -7, 42, 9007199254740991, -9007199254740991]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "[0, -7, 42, 9007199254740991, -9007199254740991]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "[0,-7,42,9007199254740991,-9007199254740991]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "indent": 2
+      },
+      "sortie": "[\n  0,\n  -7,\n  42,\n  9007199254740991,\n  -9007199254740991\n]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "[\n0,\n-7,\n42,\n9007199254740991,\n-9007199254740991\n]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "indent": -1
+      },
+      "sortie": "[\n0,\n-7,\n42,\n9007199254740991,\n-9007199254740991\n]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[\n  0,\n  -7,\n  42,\n  9007199254740991,\n  -9007199254740991\n]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[0,-7,42,9007199254740991,-9007199254740991]"
+    },
+    {
+      "nom": "entiers",
+      "entree": [
+        0,
+        -7,
+        42,
+        9007199254740991,
+        -9007199254740991
+      ],
+      "options": "canonique",
+      "sortie": "[0,-7,42,9007199254740991,-9007199254740991]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {},
+      "sortie": "[0.1, -2.5, 1e-05, 0.0001, 1.5e-07, 123456789.125, 1234.5, -0.000123, 3.141592653589793]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "[0.1, -2.5, 1e-05, 0.0001, 1.5e-07, 123456789.125, 1234.5, -0.000123, 3.141592653589793]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "[0.1, -2.5, 1e-05, 0.0001, 1.5e-07, 123456789.125, 1234.5, -0.000123, 3.141592653589793]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "[0.1,-2.5,1e-05,0.0001,1.5e-07,123456789.125,1234.5,-0.000123,3.141592653589793]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "indent": 2
+      },
+      "sortie": "[\n  0.1,\n  -2.5,\n  1e-05,\n  0.0001,\n  1.5e-07,\n  123456789.125,\n  1234.5,\n  -0.000123,\n  3.141592653589793\n]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "[\n0.1,\n-2.5,\n1e-05,\n0.0001,\n1.5e-07,\n123456789.125,\n1234.5,\n-0.000123,\n3.141592653589793\n]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "indent": -1
+      },
+      "sortie": "[\n0.1,\n-2.5,\n1e-05,\n0.0001,\n1.5e-07,\n123456789.125,\n1234.5,\n-0.000123,\n3.141592653589793\n]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[\n  0.1,\n  -2.5,\n  1e-05,\n  0.0001,\n  1.5e-07,\n  123456789.125,\n  1234.5,\n  -0.000123,\n  3.141592653589793\n]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[0.1,-2.5,1e-05,0.0001,1.5e-07,123456789.125,1234.5,-0.000123,3.141592653589793]"
+    },
+    {
+      "nom": "flottants",
+      "entree": [
+        0.1,
+        -2.5,
+        1e-05,
+        0.0001,
+        1.5e-07,
+        123456789.125,
+        1234.5,
+        -0.000123,
+        3.141592653589793
+      ],
+      "options": "canonique",
+      "sortie": "[0.1,-2.5,1e-05,0.0001,1.5e-07,123456789.125,1234.5,-0.000123,3.141592653589793]"
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {},
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_ascii",
+      "entree": "abc",
+      "options": "canonique",
+      "sortie": "\"abc\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {},
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"\\u00e9 \\u00e0 \\u00e7 \\u2014 \\u00ab guillemets \\u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb\""
+    },
+    {
+      "nom": "chaine_accents",
+      "entree": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb",
+      "options": "canonique",
+      "sortie": "\"\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {},
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"\u65e5\u672c\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"\\u65e5\\u672c\\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u65e5\u672c\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u65e5\u672c\u8a9e\""
+    },
+    {
+      "nom": "chaine_cjk",
+      "entree": "\u65e5\u672c\u8a9e",
+      "options": "canonique",
+      "sortie": "\"\u65e5\u672c\u8a9e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {},
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"emoji \ud83d\ude00 et \ud834\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"emoji \\ud83d\\ude00 et \\ud834\\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"emoji \ud83d\ude00 et \ud834\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"emoji \ud83d\ude00 et \ud834\udd1e\""
+    },
+    {
+      "nom": "chaine_astrale",
+      "entree": "emoji \ud83d\ude00 et \ud834\udd1e",
+      "options": "canonique",
+      "sortie": "\"emoji \ud83d\ude00 et \ud834\udd1e\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {},
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u0000\\u0001\\u001f\u007f\""
+    },
+    {
+      "nom": "chaine_controles",
+      "entree": "\u0000\u0001\u001f\u007f",
+      "options": "canonique",
+      "sortie": "\"\\u0000\\u0001\\u001f\u007f\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {},
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_echappements",
+      "entree": "\b\f\n\r\t \" \\ /",
+      "options": "canonique",
+      "sortie": "\"\\b\\f\\n\\r\\t \\\" \\\\ /\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {},
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"\u2028\u2029\u00a0\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"\\u2028\\u2029\\u00a0\\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u2028\u2029\u00a0\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"\u2028\u2029\u00a0\ufeff\""
+    },
+    {
+      "nom": "chaine_separateurs_unicode",
+      "entree": "\u2028\u2029\u00a0\ufeff",
+      "options": "canonique",
+      "sortie": "\"\u2028\u2029\u00a0\ufeff\""
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {},
+      "sortie": "{\"b\": 1, \"a\": [1, 2, {\"d\": null, \"c\": \"x\"}], \"vide\": {}, \"liste_vide\": []}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "{\"b\": 1, \"a\": [1, 2, {\"d\": null, \"c\": \"x\"}], \"vide\": {}, \"liste_vide\": []}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "{\"a\": [1, 2, {\"c\": \"x\", \"d\": null}], \"b\": 1, \"liste_vide\": [], \"vide\": {}}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "{\"b\":1,\"a\":[1,2,{\"d\":null,\"c\":\"x\"}],\"vide\":{},\"liste_vide\":[]}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "indent": 2
+      },
+      "sortie": "{\n  \"b\": 1,\n  \"a\": [\n    1,\n    2,\n    {\n      \"d\": null,\n      \"c\": \"x\"\n    }\n  ],\n  \"vide\": {},\n  \"liste_vide\": []\n}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "{\n\"a\": [\n1,\n2,\n{\n\"c\": \"x\",\n\"d\": null\n}\n],\n\"b\": 1,\n\"liste_vide\": [],\n\"vide\": {}\n}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "indent": -1
+      },
+      "sortie": "{\n\"b\": 1,\n\"a\": [\n1,\n2,\n{\n\"d\": null,\n\"c\": \"x\"\n}\n],\n\"vide\": {},\n\"liste_vide\": []\n}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\n  \"a\": [\n    1,\n    2,\n    {\n      \"c\": \"x\",\n      \"d\": null\n    }\n  ],\n  \"b\": 1,\n  \"liste_vide\": [],\n  \"vide\": {}\n}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\"a\":[1,2,{\"c\":\"x\",\"d\":null}],\"b\":1,\"liste_vide\":[],\"vide\":{}}"
+    },
+    {
+      "nom": "objet_imbrique",
+      "entree": {
+        "b": 1,
+        "a": [
+          1,
+          2,
+          {
+            "d": null,
+            "c": "x"
+          }
+        ],
+        "vide": {},
+        "liste_vide": []
+      },
+      "options": "canonique",
+      "sortie": "{\"a\":[1,2,{\"c\":\"x\",\"d\":null}],\"b\":1,\"liste_vide\":[],\"vide\":{}}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {},
+      "sortie": "{\"\\ue000\": 1, \"\\ud83d\\ude00\": 2, \"a\": 3, \"\\u00e9\": 4, \"Z\": 5}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "{\"\ue000\": 1, \"\ud83d\ude00\": 2, \"a\": 3, \"\u00e9\": 4, \"Z\": 5}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "{\"Z\": 5, \"a\": 3, \"\\u00e9\": 4, \"\\ue000\": 1, \"\\ud83d\\ude00\": 2}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "{\"\\ue000\":1,\"\\ud83d\\ude00\":2,\"a\":3,\"\\u00e9\":4,\"Z\":5}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "indent": 2
+      },
+      "sortie": "{\n  \"\\ue000\": 1,\n  \"\\ud83d\\ude00\": 2,\n  \"a\": 3,\n  \"\\u00e9\": 4,\n  \"Z\": 5\n}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "{\n\"Z\": 5,\n\"a\": 3,\n\"\\u00e9\": 4,\n\"\\ue000\": 1,\n\"\\ud83d\\ude00\": 2\n}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "indent": -1
+      },
+      "sortie": "{\n\"\\ue000\": 1,\n\"\\ud83d\\ude00\": 2,\n\"a\": 3,\n\"\\u00e9\": 4,\n\"Z\": 5\n}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\n  \"Z\": 5,\n  \"a\": 3,\n  \"\u00e9\": 4,\n  \"\ue000\": 1,\n  \"\ud83d\ude00\": 2\n}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\"Z\":5,\"a\":3,\"\u00e9\":4,\"\ue000\":1,\"\ud83d\ude00\":2}"
+    },
+    {
+      "nom": "cles_unicode",
+      "entree": {
+        "\ue000": 1,
+        "\ud83d\ude00": 2,
+        "a": 3,
+        "\u00e9": 4,
+        "Z": 5
+      },
+      "options": "canonique",
+      "sortie": "{\"Z\":5,\"a\":3,\"\u00e9\":4,\"\ue000\":1,\"\ud83d\ude00\":2}"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {},
+      "sortie": "[1, \"deux\", 3.5, null, true, {\"k\": \"v\"}, []]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "[1, \"deux\", 3.5, null, true, {\"k\": \"v\"}, []]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "[1, \"deux\", 3.5, null, true, {\"k\": \"v\"}, []]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "[1,\"deux\",3.5,null,true,{\"k\":\"v\"},[]]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "indent": 2
+      },
+      "sortie": "[\n  1,\n  \"deux\",\n  3.5,\n  null,\n  true,\n  {\n    \"k\": \"v\"\n  },\n  []\n]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "[\n1,\n\"deux\",\n3.5,\nnull,\ntrue,\n{\n\"k\": \"v\"\n},\n[]\n]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "indent": -1
+      },
+      "sortie": "[\n1,\n\"deux\",\n3.5,\nnull,\ntrue,\n{\n\"k\": \"v\"\n},\n[]\n]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[\n  1,\n  \"deux\",\n  3.5,\n  null,\n  true,\n  {\n    \"k\": \"v\"\n  },\n  []\n]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[1,\"deux\",3.5,null,true,{\"k\":\"v\"},[]]"
+    },
+    {
+      "nom": "liste_mixte",
+      "entree": [
+        1,
+        "deux",
+        3.5,
+        null,
+        true,
+        {
+          "k": "v"
+        },
+        []
+      ],
+      "options": "canonique",
+      "sortie": "[1,\"deux\",3.5,null,true,{\"k\":\"v\"},[]]"
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {},
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "\"a\ud83db\ude00c\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "indent": 2
+      },
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "indent": -1
+      },
+      "sortie": "\"a\\ud83db\\ude00c\\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"a\ud83db\ude00c\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "\"a\ud83db\ude00c\ud83d\""
+    },
+    {
+      "nom": "chaine_demi_paires",
+      "entree": "a\ud83db\ude00c\ud83d",
+      "options": "canonique",
+      "sortie": "\"a\ud83db\ude00c\ud83d\""
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {},
+      "sortie": "{\"\\uffff\": 1, \"\\ud83d\\ude00\": 2, \"\\ud83d\": 3, \"\\ud83d\\uffff\": 4}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "{\"\uffff\": 1, \"\ud83d\ude00\": 2, \"\ud83d\": 3, \"\ud83d\uffff\": 4}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "{\"\\ud83d\": 3, \"\\ud83d\\uffff\": 4, \"\\uffff\": 1, \"\\ud83d\\ude00\": 2}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "{\"\\uffff\":1,\"\\ud83d\\ude00\":2,\"\\ud83d\":3,\"\\ud83d\\uffff\":4}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "indent": 2
+      },
+      "sortie": "{\n  \"\\uffff\": 1,\n  \"\\ud83d\\ude00\": 2,\n  \"\\ud83d\": 3,\n  \"\\ud83d\\uffff\": 4\n}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "{\n\"\\ud83d\": 3,\n\"\\ud83d\\uffff\": 4,\n\"\\uffff\": 1,\n\"\\ud83d\\ude00\": 2\n}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "indent": -1
+      },
+      "sortie": "{\n\"\\uffff\": 1,\n\"\\ud83d\\ude00\": 2,\n\"\\ud83d\": 3,\n\"\\ud83d\\uffff\": 4\n}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\n  \"\ud83d\": 3,\n  \"\ud83d\uffff\": 4,\n  \"\uffff\": 1,\n  \"\ud83d\ude00\": 2\n}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "{\"\ud83d\":3,\"\ud83d\uffff\":4,\"\uffff\":1,\"\ud83d\ude00\":2}"
+    },
+    {
+      "nom": "cles_demi_paires",
+      "entree": {
+        "\uffff": 1,
+        "\ud83d\ude00": 2,
+        "\ud83d": 3,
+        "\ud83d\uffff": 4
+      },
+      "options": "canonique",
+      "sortie": "{\"\ud83d\":3,\"\ud83d\uffff\":4,\"\uffff\":1,\"\ud83d\ude00\":2}"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {},
+      "sortie": "[9007199254740992, 9007199254740994, 36893488147419103232, -18446744073709551616]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "ensure_ascii": false
+      },
+      "sortie": "[9007199254740992, 9007199254740994, 36893488147419103232, -18446744073709551616]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "sort_keys": true
+      },
+      "sortie": "[9007199254740992, 9007199254740994, 36893488147419103232, -18446744073709551616]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ]
+      },
+      "sortie": "[9007199254740992,9007199254740994,36893488147419103232,-18446744073709551616]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "indent": 2
+      },
+      "sortie": "[\n  9007199254740992,\n  9007199254740994,\n  36893488147419103232,\n  -18446744073709551616\n]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "indent": 0,
+        "sort_keys": true
+      },
+      "sortie": "[\n9007199254740992,\n9007199254740994,\n36893488147419103232,\n-18446744073709551616\n]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "indent": -1
+      },
+      "sortie": "[\n9007199254740992,\n9007199254740994,\n36893488147419103232,\n-18446744073709551616\n]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "indent": 2,
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[\n  9007199254740992,\n  9007199254740994,\n  36893488147419103232,\n  -18446744073709551616\n]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": {
+        "separators": [
+          ",",
+          ":"
+        ],
+        "ensure_ascii": false,
+        "sort_keys": true
+      },
+      "sortie": "[9007199254740992,9007199254740994,36893488147419103232,-18446744073709551616]"
+    },
+    {
+      "nom": "grands_entiers",
+      "entree": [
+        9007199254740992,
+        9007199254740994,
+        36893488147419103232,
+        -18446744073709551616
+      ],
+      "options": "canonique",
+      "sortie": "[9007199254740992,9007199254740994,36893488147419103232,-18446744073709551616]"
+    }
+  ]
+}

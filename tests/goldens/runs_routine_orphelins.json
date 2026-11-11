@@ -1,0 +1,561 @@
+{
+  "entrees": {
+    "harnais": "runs",
+    "operations": [
+      {
+        "a": 0,
+        "admettre": {
+          "boot": "w1",
+          "chevauchement_s": 60,
+          "declencheur": "schedule",
+          "plafond": 3,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 30,
+        "admettre": {
+          "boot": "w1",
+          "chevauchement_s": 60,
+          "declencheur": "schedule",
+          "plafond": 3,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 50,
+        "battement": {
+          "run": 1
+        }
+      },
+      {
+        "a": 100,
+        "compter": {
+          "frais_s": 60,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 110,
+        "compter": {
+          "frais_s": 60,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 110,
+        "admettre": {
+          "boot": "w1",
+          "chevauchement_s": 60,
+          "declencheur": "schedule",
+          "plafond": 3,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 200,
+        "compter": {
+          "frais_s": 60,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 200,
+        "compter": {
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 200,
+        "admettre": {
+          "boot": "w2",
+          "chevauchement_s": 60,
+          "declencheur": "webhook",
+          "plafond": 3,
+          "routine": "r1"
+        }
+      },
+      {
+        "a": 400,
+        "reconcilier": {
+          "perime_s": 300
+        }
+      },
+      {
+        "a": 401,
+        "terminer": {
+          "duree_ms": 1000,
+          "run": 1,
+          "statut": "ok"
+        }
+      },
+      {
+        "a": 401,
+        "battement": {
+          "run": 1
+        }
+      },
+      {
+        "a": 402,
+        "battement": {
+          "run": 2
+        }
+      },
+      {
+        "a": 17280000,
+        "purger": {
+          "jours": 180
+        }
+      }
+    ],
+    "routines": [
+      {
+        "cle": "r1",
+        "compte": 1
+      }
+    ],
+    "table": "routine"
+  },
+  "etapes": [
+    {
+      "a": 0,
+      "op": "admettre",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 30,
+      "op": "admettre",
+      "rendu": null,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 0,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 50,
+      "op": "battement",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 100,
+      "op": "compter",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 110,
+      "op": "compter",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 110,
+      "op": "admettre",
+      "rendu": null,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 200,
+      "op": "compter",
+      "rendu": 0,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 200,
+      "op": "compter",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        }
+      ]
+    },
+    {
+      "a": 200,
+      "op": "admettre",
+      "rendu": 2,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 200,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 400,
+      "op": "reconcilier",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": 50000,
+          "ended_at": 400,
+          "error": "reconciled: heartbeat périmé (processus arrêté ?)",
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "orphaned",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 200,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 401,
+      "op": "terminer",
+      "rendu": false,
+      "table": [
+        {
+          "duration_ms": 50000,
+          "ended_at": 400,
+          "error": "reconciled: heartbeat périmé (processus arrêté ?)",
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "orphaned",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 200,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 401,
+      "op": "battement",
+      "rendu": false,
+      "table": [
+        {
+          "duration_ms": 50000,
+          "ended_at": 400,
+          "error": "reconciled: heartbeat périmé (processus arrêté ?)",
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "orphaned",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 200,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 402,
+      "op": "battement",
+      "rendu": true,
+      "table": [
+        {
+          "duration_ms": 50000,
+          "ended_at": 400,
+          "error": "reconciled: heartbeat périmé (processus arrêté ?)",
+          "files": [],
+          "heartbeat_at": 50,
+          "id": 1,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 0,
+          "status": "orphaned",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "schedule",
+          "worker_boot_id": "w1"
+        },
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 402,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    },
+    {
+      "a": 17280000,
+      "op": "purger",
+      "rendu": 1,
+      "table": [
+        {
+          "duration_ms": null,
+          "ended_at": null,
+          "error": null,
+          "files": [],
+          "heartbeat_at": 402,
+          "id": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "owner_user_id": 1,
+          "routine_id": "r1",
+          "started_at": 200,
+          "status": "running",
+          "summary": null,
+          "tool_limit_reached": 0,
+          "trigger": "webhook",
+          "worker_boot_id": "w2"
+        }
+      ]
+    }
+  ]
+}

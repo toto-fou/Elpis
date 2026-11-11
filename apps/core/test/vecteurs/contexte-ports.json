@@ -1,0 +1,5628 @@
+{
+  "comptes": [
+    [
+      "alice",
+      null
+    ],
+    [
+      "bob",
+      "{\"network_profile_id\": \"lan\"}"
+    ],
+    [
+      "carol",
+      "{\"network_profile_id\": \"lan\", \"forced_network_profile_id\": \"web\"}"
+    ],
+    [
+      "dave",
+      "{\"network_profile_id\": \" lan \", \"forced_network_profile_id\": \"  \"}"
+    ],
+    [
+      "erin",
+      "pas du json"
+    ],
+    [
+      "fred",
+      "{\"network_profile_id\": 5}"
+    ],
+    [
+      "gus",
+      "{\"network_profile_id\": \"inexistant\"}"
+    ],
+    [
+      "hugo",
+      "[1]"
+    ],
+    [
+      "ines",
+      "{\"forced_network_profile_id\": \"open\"}"
+    ]
+  ],
+  "ax": {
+    "ax_nodes": [
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": "banner",
+        "verified_count": 3,
+        "last_ok": 1700000000.5,
+        "stale": 0,
+        "id": 1,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "banner",
+        "name": "En-t\u00eate",
+        "node_key": "banner:en-t\u00eate"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": "banner",
+        "verified_count": 5,
+        "last_ok": 1700000100.0,
+        "stale": 0,
+        "id": 2,
+        "parent_id": 1,
+        "node_type": "element",
+        "role": "link",
+        "name": "Accueil",
+        "node_key": "link:accueil"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000050.25,
+        "stale": 0,
+        "id": 3,
+        "parent_id": 1,
+        "node_type": "element",
+        "role": "button",
+        "name": "Panier \u2615",
+        "node_key": "button:panier \u2615"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 0,
+        "last_ok": null,
+        "stale": 0,
+        "id": 4,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "navigation",
+        "name": "",
+        "node_key": "navigation:"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 2,
+        "last_ok": 1700000060.0,
+        "stale": 1,
+        "id": 5,
+        "parent_id": 4,
+        "node_type": "element",
+        "role": "link",
+        "name": "Promotions",
+        "node_key": "link:promotions"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 0,
+        "last_ok": null,
+        "stale": 0,
+        "id": 6,
+        "parent_id": 5,
+        "node_type": "element",
+        "role": "link",
+        "name": "Soldes",
+        "node_key": "link:soldes"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/cart",
+        "region_tag": null,
+        "verified_count": 2,
+        "last_ok": null,
+        "stale": 0,
+        "id": 7,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "main",
+        "name": "Contenu",
+        "node_key": "main:contenu"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/cart",
+        "region_tag": null,
+        "verified_count": 4,
+        "last_ok": 1700000300.0,
+        "stale": 0,
+        "id": 8,
+        "parent_id": 7,
+        "node_type": "element",
+        "role": "button",
+        "name": "Payer",
+        "node_key": "button:payer"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/cart",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 9,
+        "parent_id": 7,
+        "node_type": "element",
+        "role": "textbox",
+        "name": "Code promo",
+        "node_key": "textbox:code promo"
+      },
+      {
+        "site": "shop.example.com",
+        "path": "/cart",
+        "region_tag": null,
+        "verified_count": 2,
+        "last_ok": null,
+        "stale": 0,
+        "id": 10,
+        "parent_id": 9,
+        "node_type": "element",
+        "role": "button",
+        "name": "Appliquer",
+        "node_key": "button:appliquer"
+      },
+      {
+        "site": ":1010",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000400.0,
+        "stale": 0,
+        "id": 20,
+        "parent_id": null,
+        "node_type": "element",
+        "role": "button",
+        "name": "Cr\u00e9er",
+        "node_key": "button:cr\u00e9er"
+      },
+      {
+        "site": "jira",
+        "path": "/browse/*",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000200.0,
+        "stale": 0,
+        "id": 30,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "main",
+        "name": "Ticket",
+        "node_key": "main:ticket"
+      },
+      {
+        "site": "jira",
+        "path": "/browse/*",
+        "region_tag": null,
+        "verified_count": 3,
+        "last_ok": 1700000201.0,
+        "stale": 0,
+        "id": 31,
+        "parent_id": 30,
+        "node_type": "element",
+        "role": "textbox",
+        "name": "Titre",
+        "node_key": "textbox:titre"
+      },
+      {
+        "site": "jira",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000202.0,
+        "stale": 0,
+        "id": 32,
+        "parent_id": null,
+        "node_type": "element",
+        "role": "link",
+        "name": "Tableaux",
+        "node_key": "link:tableaux"
+      },
+      {
+        "site": "vide.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1699999999.0,
+        "stale": 1,
+        "id": 40,
+        "parent_id": null,
+        "node_type": "element",
+        "role": "link",
+        "name": "Ancien",
+        "node_key": "link:ancien"
+      },
+      {
+        "site": "profond.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 3,
+        "last_ok": null,
+        "stale": 0,
+        "id": 100,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "main",
+        "name": "Racine",
+        "node_key": "main:racine"
+      },
+      {
+        "site": "profond.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000500.0,
+        "stale": 0,
+        "id": 101,
+        "parent_id": 100,
+        "node_type": "element",
+        "role": "link",
+        "name": "N1",
+        "node_key": "link:n1"
+      },
+      {
+        "site": "profond.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 102,
+        "parent_id": 101,
+        "node_type": "element",
+        "role": "link",
+        "name": "N2",
+        "node_key": "link:n2"
+      },
+      {
+        "site": "profond.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 103,
+        "parent_id": 102,
+        "node_type": "element",
+        "role": "link",
+        "name": "N3",
+        "node_key": "link:n3"
+      },
+      {
+        "site": "profond.example",
+        "path": "/",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 104,
+        "parent_id": 103,
+        "node_type": "element",
+        "role": "link",
+        "name": "N4",
+        "node_key": "link:n4"
+      },
+      {
+        "site": "profond.example",
+        "path": "/b",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 110,
+        "parent_id": null,
+        "node_type": "region",
+        "role": "main",
+        "name": "R0",
+        "node_key": "main:r0"
+      },
+      {
+        "site": "profond.example",
+        "path": "/b",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 111,
+        "parent_id": 110,
+        "node_type": "region",
+        "role": "form",
+        "name": "R1",
+        "node_key": "form:r1"
+      },
+      {
+        "site": "profond.example",
+        "path": "/b",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 112,
+        "parent_id": 111,
+        "node_type": "region",
+        "role": "group",
+        "name": "",
+        "node_key": "group:"
+      },
+      {
+        "site": "profond.example",
+        "path": "/b",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": 1700000600.0,
+        "stale": 0,
+        "id": 113,
+        "parent_id": 112,
+        "node_type": "element",
+        "role": "button",
+        "name": "Ici",
+        "node_key": "button:ici"
+      },
+      {
+        "site": "profond.example",
+        "path": "/b",
+        "region_tag": null,
+        "verified_count": 1,
+        "last_ok": null,
+        "stale": 0,
+        "id": 114,
+        "parent_id": 112,
+        "node_type": "element",
+        "role": "button",
+        "name": "Fr\u00e8re",
+        "node_key": "button:fr\u00e8re"
+      }
+    ],
+    "ax_selectors": [
+      {
+        "id": 1,
+        "node_id": 2,
+        "strategy": "test_id",
+        "value": "nav-home",
+        "success_count": 5,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 2,
+        "node_id": 2,
+        "strategy": "role_name",
+        "value": "link|Accueil",
+        "success_count": 3,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 3,
+        "node_id": 2,
+        "strategy": "css",
+        "value": "a.home",
+        "success_count": 0,
+        "failure_count": 2,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 4,
+        "node_id": 2,
+        "strategy": "xpath",
+        "value": "//a[1]",
+        "success_count": 1,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 5,
+        "node_id": 3,
+        "strategy": "text",
+        "value": "Panier",
+        "success_count": 1,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 6,
+        "node_id": 8,
+        "strategy": "label",
+        "value": "Payer maintenant",
+        "success_count": 2,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 7,
+        "node_id": 9,
+        "strategy": "placeholder",
+        "value": "CODE",
+        "success_count": 0,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 8,
+        "node_id": 10,
+        "strategy": "role_name",
+        "value": "button",
+        "success_count": 1,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 9,
+        "node_id": 10,
+        "strategy": "ref",
+        "value": "e42",
+        "success_count": 7,
+        "failure_count": 3,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 10,
+        "node_id": 31,
+        "strategy": "custom",
+        "value": "  spaced ",
+        "success_count": 0,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 11,
+        "node_id": 20,
+        "strategy": "test_id",
+        "value": "create",
+        "success_count": 2,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 12,
+        "node_id": 5,
+        "strategy": "test_id",
+        "value": "promo",
+        "success_count": 1,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 100,
+        "node_id": 103,
+        "strategy": "test_id",
+        "value": "n3",
+        "success_count": 2,
+        "failure_count": 0,
+        "last_ok": null,
+        "last_fail": null
+      },
+      {
+        "id": 101,
+        "node_id": 114,
+        "strategy": "css",
+        "value": ".frere",
+        "success_count": 1,
+        "failure_count": 1,
+        "last_ok": null,
+        "last_fail": null
+      }
+    ],
+    "ax_transitions": [
+      {
+        "id": 1,
+        "site": "shop.example.com",
+        "from_path": "/",
+        "action_node_id": 3,
+        "to_path": "/cart",
+        "verified_count": 4,
+        "last_ok": 1700000300.0
+      },
+      {
+        "id": 2,
+        "site": "jira",
+        "from_path": "/",
+        "action_node_id": 32,
+        "to_path": "/browse/*",
+        "verified_count": 1,
+        "last_ok": 1700000203.0
+      }
+    ],
+    "ax_credentials": [
+      {
+        "owner": "bob",
+        "site": "shop.example.com",
+        "username": "bob@shop",
+        "password": "mdp-secret-bob",
+        "last_ok": 1700000100.0,
+        "use_count": 3
+      },
+      {
+        "owner": "carol",
+        "site": "shop.example.com",
+        "username": "carol.c",
+        "password": "mdp-secret-carol",
+        "last_ok": 1700000200.5,
+        "use_count": 1
+      },
+      {
+        "owner": "",
+        "site": "shop.example.com",
+        "username": "legacy",
+        "password": "mdp-secret-legacy",
+        "last_ok": null,
+        "use_count": 7
+      },
+      {
+        "owner": "bob",
+        "site": ":1010",
+        "username": "bob",
+        "password": "mdp-secret-1010",
+        "last_ok": 1700000400.0,
+        "use_count": 1
+      },
+      {
+        "owner": "carol",
+        "site": "httpbin.org",
+        "username": "c",
+        "password": "mdp-secret-httpbin",
+        "last_ok": 1.0,
+        "use_count": 2
+      }
+    ]
+  },
+  "config_ax": {
+    "memory": {
+      "memory_char_limit": 300,
+      "user_char_limit": 200
+    },
+    "app": {
+      "ax_site_aliases": {
+        "1010": "jira",
+        "2020": 5
+      },
+      "ax_dedup_any_ip": false
+    }
+  },
+  "configs_bac": [
+    {},
+    {
+      "executors": {
+        "network_profiles": [
+          {
+            "id": "isolated",
+            "name": "Isol\u00e9",
+            "mode": "none",
+            "ips": []
+          },
+          {
+            "id": "lan",
+            "name": "LAN",
+            "mode": "bridge",
+            "ips": []
+          },
+          {
+            "id": "web",
+            "name": "Web",
+            "mode": "allowlist_ip",
+            "ips": [
+              "10.0.0.1"
+            ],
+            "domains": [
+              "pypi.org"
+            ]
+          },
+          {
+            "id": "open",
+            "name": "Ouvert",
+            "mode": "bridge",
+            "ips": []
+          }
+        ]
+      }
+    },
+    {
+      "executors": {
+        "network_profiles": [
+          {
+            "id": "lan",
+            "name": "LAN",
+            "mode": "bridge",
+            "ips": []
+          }
+        ]
+      }
+    },
+    {
+      "executors": {
+        "network_profiles": [
+          {
+            "id": "BAD ID",
+            "mode": "bridge"
+          },
+          {
+            "id": "web",
+            "name": "Web",
+            "mode": "allowlist_ip",
+            "ips": [
+              "10.0.0.1"
+            ],
+            "domains": [
+              "pypi.org"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "executors": "pas un dict"
+    }
+  ],
+  "noms_reseau": [
+    "alice",
+    "bob",
+    "carol",
+    "dave",
+    "erin",
+    "fred",
+    "gus",
+    "hugo",
+    "ines",
+    "inconnu",
+    ""
+  ],
+  "textes": [
+    "",
+    "rien ici",
+    "va sur https://shop.example.com/cart puis http://10.10.10.10:1010/browse/ABC-123",
+    "deux fois https://shop.example.com/a et https://shop.example.com/b",
+    "\u00ab http://jira.company.com/x \u00bb fin",
+    "lien<http://a.example/x>suite",
+    "http://h/x'y\"z`w",
+    "HTTPS://MAJ.example/",
+    "http://\u00e9t\u00e9.example/x",
+    "ftp://pas.example/",
+    "http://8.8.8.8:2020/u/0123456789/p\nhttps://httpbin.org/get",
+    "https://",
+    "http://h\u3000/x",
+    "x https://[::1]:80/a y",
+    "voir http://ex`ample.com/x",
+    "http://a<b.example/"
+  ],
+  "sites": [
+    "shop.example.com",
+    "jira",
+    ":1010",
+    "vide.example",
+    "profond.example",
+    "inconnu",
+    ""
+  ],
+  "chemins": [
+    null,
+    "/",
+    "/cart",
+    "/vide",
+    "/browse/*",
+    "/b"
+  ],
+  "rendus": [
+    [
+      4000,
+      ""
+    ],
+    [
+      4000,
+      "bob"
+    ],
+    [
+      60,
+      "bob"
+    ],
+    [
+      3000,
+      "carol"
+    ]
+  ],
+  "sessions": [
+    [
+      [],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "{\"session_id\": \"abc123\", \"ok\": true}"
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "{\"session_id\": \"abc12\"}"
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"sess-01\""
+        },
+        {
+          "role": "tool",
+          "content": "\"session_id\" : \"sess_02\""
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\"\u00a0:\u2003\"unicod\""
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": [
+            "liste"
+          ]
+        },
+        {
+          "role": "user",
+          "content": "\"session_id\":\"abcdef\""
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"abcdef\""
+        }
+      ],
+      ""
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"abcdef\""
+        }
+      ],
+      "ren\u00e9"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"abcdef\""
+        },
+        "pas un dict"
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"vieux01\""
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"recent1\""
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        },
+        {
+          "role": "user",
+          "content": "x"
+        }
+      ],
+      "bob"
+    ],
+    [
+      [
+        {
+          "role": "tool",
+          "content": null
+        },
+        {
+          "role": "tool",
+          "content": "\"session_id\":\"\u00e9123456\""
+        }
+      ],
+      "bob"
+    ]
+  ],
+  "reponses_pw": [
+    "{\"url\": \"http://shop.example.com/cart\"}",
+    "{\"current_url\": \"http://jira.company.com/x\"}",
+    "{\"url\": \"\", \"current_url\": \"http://y.example/\"}",
+    "{}",
+    "pas du json",
+    "<panne>",
+    "{\"url\": null}"
+  ],
+  "indexations": [
+    [],
+    [
+      {
+        "user_id": "alice",
+        "app": "chat",
+        "session_id": "c1",
+        "scope_key": "",
+        "role": "user",
+        "content": "  Bonjour  ",
+        "ts": 1700000000.5
+      }
+    ],
+    [
+      {
+        "user_id": "bob",
+        "content": "sans les autres champs"
+      },
+      {
+        "user_id": "bob",
+        "app": "",
+        "session_id": null,
+        "scope_key": null,
+        "role": "",
+        "content": "vides",
+        "ts": null
+      },
+      {
+        "user_id": null,
+        "content": "sans compte"
+      },
+      {
+        "user_id": "bob",
+        "content": "   "
+      },
+      "pas un dict",
+      {
+        "user_id": "bob",
+        "content": "",
+        "ts": 1.0
+      },
+      {
+        "user_id": "carol",
+        "app": "routine",
+        "session_id": "r9",
+        "scope_key": "k",
+        "role": "assistant",
+        "content": "\u00e9\ud83d\ude00",
+        "ts": 3
+      }
+    ]
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2,
+    "carol": 3,
+    "dave": 4,
+    "erin": 5,
+    "fred": 6,
+    "gus": 7,
+    "hugo": 8,
+    "ines": 9
+  },
+  "reseau": [
+    [
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'web') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'inexistant') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'open') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug)."
+    ],
+    [
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'inexistant') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: OPEN via profile 'open' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug)."
+    ],
+    [
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: NONE this session (profile 'web') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'inexistant') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'open') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug)."
+    ],
+    [
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'inexistant') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'open') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
+      "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug)."
+    ],
+    [
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug).",
+      "  \u2022 Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error (expected, not a bug)."
+    ]
+  ],
+  "detection": [
+    [],
+    [],
+    [
+      "shop.example.com",
+      "jira"
+    ],
+    [
+      "shop.example.com"
+    ],
+    [
+      "jira.company.com"
+    ],
+    [
+      "a.example"
+    ],
+    [
+      "h"
+    ],
+    [],
+    [
+      "\u00e9t\u00e9.example"
+    ],
+    [],
+    [
+      "5",
+      "httpbin.org"
+    ],
+    [],
+    [
+      "h"
+    ],
+    [
+      "[::1]:80"
+    ],
+    [
+      "ex"
+    ],
+    [
+      "a"
+    ]
+  ],
+  "signaux": [
+    [
+      "shop.example.com",
+      10
+    ],
+    [
+      "jira",
+      3
+    ],
+    [
+      ":1010",
+      1
+    ],
+    [
+      "vide.example",
+      0
+    ],
+    [
+      "profond.example",
+      6
+    ],
+    [
+      "inconnu",
+      0
+    ],
+    [
+      "",
+      0
+    ]
+  ],
+  "contextuels": [
+    [
+      "shop.example.com",
+      0,
+      null,
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      0,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      null,
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full \n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\n(6 elements across 2 paths, full DOM hierarchy)\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\n[/]\n  |- banner \"En-t\u00eate\" [used 3x]\n  |  |- button \"Panier \u2615\"\n  |  |  - text=\"Panier\" (1/2, 50%)\n  |  `- link \"Accueil\" [used 5x]\n  |     - test_id=nav-home (5/5, 100%)\n  |     - xpath=//a[1]\n  |     - role=link name=\"Accueil\" (3/4, 75%)\n  |- navigation\n  `- link \"Soldes\"\n\n[/cart]\n  `- main \"Contenu\" [used 2x]\n     |- button \"Payer\" [used 4x]\n     |  - label=\"Payer maintenant\" (2/3, 66%)\n     `- textbox \"Code promo\"\n        - placeholder=\"CODE\"\n        `- button \"Appliquer\" [used 2x]\n           - ref=e42 (7/10, 70%)\n           - role=button name=\"\" (1/2, 50%)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCR\n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      1,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      0,
+      null,
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      0,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      0,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      1,
+      null,
+      4000,
+      "",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      1,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      1,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarch\n... (truncated)"
+    ],
+    [
+      "jira",
+      1,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: jira\n(2 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- link \"Tableaux\"\n\n[/browse/*]\n  `- main \"Ticket\"\n     `- textbox \"Titre\" [used 3x]\n        - custom=  spaced"
+    ],
+    [
+      "jira",
+      1,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      1,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      1,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      1,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      1,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath\n... (truncated)"
+    ],
+    [
+      "jira",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      1,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      1,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      0,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      0,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      ":1010",
+      1,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      0,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "vide.example",
+      1,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "profond.example",
+      0,
+      null,
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      0,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      0,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      1,
+      null,
+      4000,
+      "",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      1,
+      null,
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      1,
+      null,
+      60,
+      "bob",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full D\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      1,
+      null,
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\n(6 elements across 2 paths, full DOM hierarchy)\n\n[/]\n  `- main \"Racine\" [used 3x]\n     `- link \"N1\"\n        `- link \"N2\"\n           `- link \"N3\"\n              - test_id=n3 (2/2, 100%)\n              `- link \"N4\"\n\n[/b]\n  `- main \"R0\"\n     `- form \"R1\"\n        `- group\n           |- button \"Fr\u00e8re\"\n           |  - css=.frere (1/2, 50%)\n           `- button \"Ici\""
+    ],
+    [
+      "profond.example",
+      1,
+      "/",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "profond.example",
+      1,
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "profond.example",
+      1,
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPat\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      1,
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "inconnu",
+      0,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      0,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "inconnu",
+      1,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      0,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      null,
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      null,
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      null,
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      null,
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      1,
+      "/b",
+      3000,
+      "carol",
+      ""
+    ]
+  ],
+  "cibles": [
+    [
+      "shop.example.com",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCR\n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/] link \"Accueil\"\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- banner \"En-t\u00eate\"\n    `- link \"Accueil\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Panier \u2615\"  [text=\"Panier\" (1/2, 50%)]"
+    ],
+    [
+      "shop.example.com",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\nCREDENTIALS KNOWN: user=bob@shop (used 3x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\n... (truncated)"
+    ],
+    [
+      "shop.example.com",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/cart] button \"Payer\"\nCREDENTIALS KNOWN: user=carol.c (used 1x, auto-injected by pw_session)\n\nPath to here (ancestors):\n  `- main \"Contenu\"\n    `- button \"Payer\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - textbox \"Code promo\"  [placeholder=\"CODE\"]"
+    ],
+    [
+      "shop.example.com",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "shop.example.com",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: shop.example.com\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/] link \"Tableaux\""
+    ],
+    [
+      "jira",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath\n... (truncated)"
+    ],
+    [
+      "jira",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/browse/*] textbox \"Titre\"\n\nPath to here (ancestors):\n  `- main \"Ticket\"\n    `- textbox \"Titre\"  *** YOU ARE HERE ***"
+    ],
+    [
+      "jira",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "jira",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: jira\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: :1010\nFOCUSED ON: [/] button \"Cr\u00e9er\""
+    ],
+    [
+      ":1010",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/] button \"Cr\u00e9er\"\nCREDENTIALS KNOWN: user=bob (used 1x, auto-injected by pw_session)"
+    ],
+    [
+      ":1010",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/] button \"Cr\u00e9er\"\nCREDENTIALS K\n... (truncated)"
+    ],
+    [
+      ":1010",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: :1010\nFOCUSED ON: [/] button \"Cr\u00e9er\""
+    ],
+    [
+      ":1010",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: :1010\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: :1010\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: :1010\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: :1010\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: :1010\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: :1010\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: :1010\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: :1010\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      ":1010",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: :1010\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "vide.example",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: vide.example\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/] link \"N1\"\n\nPath to here (ancestors):\n  `- main \"Racine\"\n    `- link \"N1\"  *** YOU ARE HERE ***\n\nBelow (1-2 hops):\n  - link \"N2\"\n    - link \"N3\"\n         test_id=n3 (2/2, 100%)"
+    ],
+    [
+      "profond.example",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "profond.example",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "profond.example",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "profond.example",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPat\n... (truncated)"
+    ],
+    [
+      "profond.example",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: profond.example\nFOCUSED ON: [/b] button \"Ici\"\n\nPath to here (ancestors):\n  `- form \"R1\"\n    `- group\n      `- button \"Ici\"  *** YOU ARE HERE ***\n\nSiblings (same parent):\n  - button \"Fr\u00e8re\"  [css=.frere (1/2, 50%)]"
+    ],
+    [
+      "inconnu",
+      "/",
+      4000,
+      "",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/",
+      4000,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/",
+      60,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/",
+      3000,
+      "carol",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/cart",
+      4000,
+      "",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/cart",
+      4000,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/cart",
+      60,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/cart",
+      3000,
+      "carol",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/cart] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/vide",
+      4000,
+      "",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/vide",
+      4000,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/vide",
+      60,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/vide",
+      3000,
+      "carol",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/vide] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/browse/*",
+      4000,
+      "",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/browse/*",
+      4000,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/browse/*",
+      60,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/browse/*",
+      3000,
+      "carol",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/browse/*] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/b",
+      4000,
+      "",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/b",
+      4000,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/b",
+      60,
+      "bob",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "inconnu",
+      "/b",
+      3000,
+      "carol",
+      "KNOWN UI: inconnu\nFOCUSED ON: [/b] (no DOM recorded yet, use pw_page(op='inspect') to discover)"
+    ],
+    [
+      "",
+      "/",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      "/",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      "/cart",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      "/cart",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/cart",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/cart",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      "/vide",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      "/vide",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/vide",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/vide",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      "/browse/*",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      "/browse/*",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/browse/*",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/browse/*",
+      3000,
+      "carol",
+      ""
+    ],
+    [
+      "",
+      "/b",
+      4000,
+      "",
+      ""
+    ],
+    [
+      "",
+      "/b",
+      4000,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/b",
+      60,
+      "bob",
+      ""
+    ],
+    [
+      "",
+      "/b",
+      3000,
+      "carol",
+      ""
+    ]
+  ],
+  "sessions_obtenues": [
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abc123&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=sess_02&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=unicod&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=abcdef&owner=u_adf75813ef1c30be4ff9c922b56ec96a&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://shop.example.com/cart"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://jira.company.com/x"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": "http://y.example/"
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": [
+        "http://pw.invalid:3000/smart_inspect?session_id=recent1&owner=bob&skip_screenshot=true&level=lite",
+        "GET",
+        2.0
+      ],
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    },
+    {
+      "demande": null,
+      "resultat": null
+    }
+  ],
+  "indexations_obtenues": [
+    {
+      "rendu": 0,
+      "table": []
+    },
+    {
+      "rendu": 1,
+      "table": [
+        [
+          1,
+          "chat",
+          "c1",
+          "",
+          "user",
+          "Bonjour",
+          1700000000.5
+        ]
+      ]
+    },
+    {
+      "rendu": 3,
+      "table": [
+        [
+          2,
+          "chat",
+          "",
+          "",
+          "user",
+          "sans les autres champs",
+          1800000000.25
+        ],
+        [
+          2,
+          "chat",
+          "",
+          "",
+          "user",
+          "vides",
+          1800000000.25
+        ],
+        [
+          3,
+          "routine",
+          "r9",
+          "k",
+          "assistant",
+          "\u00e9\ud83d\ude00",
+          3.0
+        ]
+      ]
+    }
+  ]
+}

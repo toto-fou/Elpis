@@ -1,0 +1,118 @@
+{
+  "base_apres": [
+    {
+      "cles": [
+        "content",
+        "role"
+      ],
+      "content": "q",
+      "role": "user"
+    },
+    {
+      "cles": [
+        "content",
+        "isTruncated",
+        "role",
+        "run_ids"
+      ],
+      "content": "Bonj",
+      "isTruncated": true,
+      "role": "assistant"
+    }
+  ],
+  "entrees": {
+    "base": [
+      {
+        "chat_id": "c8",
+        "horodatage": 100,
+        "messages": [],
+        "titre": "t"
+      }
+    ],
+    "file": {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1
+    },
+    "harnais": "flux_route",
+    "moteur": {
+      "raisonnement": "je réfléchis",
+      "reponse": "Bonjour.",
+      "titre": "Titre du modèle",
+      "type": "classique",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 1500
+      }
+    },
+    "n_ctx": 8192,
+    "pendant": "stop",
+    "requete": {
+      "active_mcp_servers": [],
+      "chat_id": "c8",
+      "messages": [
+        {
+          "content": "q",
+          "role": "user"
+        }
+      ],
+      "use_rag": false
+    }
+  },
+  "evenements": [
+    {
+      "text": "Génération en cours…",
+      "type": "mode"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status",
+      "waited_ms": 250
+    },
+    {
+      "type": "queue_cleared"
+    },
+    {
+      "text": "je réfléchis",
+      "type": "thinking_token"
+    },
+    {
+      "text": "Bonj",
+      "type": "content_token"
+    },
+    {
+      "assistant": "Bonj",
+      "cancelled": true,
+      "chat_id": "c8",
+      "cles": [
+        "assistant",
+        "cancelled",
+        "chat_id",
+        "metrics",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think",
+        "type"
+      ],
+      "metrics": null,
+      "persisted": true,
+      "run_ids": 1,
+      "thinking": "je réfléchis",
+      "tool_limit_reached": false,
+      "truncated": false,
+      "truncated_in_think": false,
+      "type": "final"
+    }
+  ]
+}

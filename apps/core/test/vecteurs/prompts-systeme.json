@@ -1,0 +1,1494 @@
+{
+  "source": "migration-kit/vecteurs/prompts_systeme.py",
+  "arbre": {
+    "global/deploy-jenkins.md": "---\nname: deploy-jenkins\ndescription: D\u00e9ployer via Jenkins\n---\n1. Ouvrir Jenkins\n",
+    "global/jenkins/release/SKILL.md": "---\ndescription: Publier une release\n---\n# Release\n\nTaguer puis builder\n",
+    "global/jenkins/release/scripts/run.sh": "echo release\n",
+    "global/jenkins/release/hotfix/SKILL.md": "---\ndescription: Corriger en urgence\n---\nPatch\n",
+    "global/jenkins/build/SKILL.md": "---\ndescription: Builder\n---\nmvn package\n",
+    "global/jenkins/build/notes.txt": "notes\n",
+    "global/pkg/SKILL.md": "---\ndescription: Paquet\n---\nRacine\n",
+    "global/pkg/child/SKILL.md": "---\ndescription: Enfant\n---\nEnfant\n",
+    "global/pkg/child/grand/SKILL.md": "---\ndescription: Petit-enfant\n---\nPetit-enfant\n",
+    "global/zeta.md": "---\nname: zeta\ndescription: Dernier par ordre\n---\nZ\n",
+    "global/a-sans-desc.md": "Corps sans description\n",
+    "global/ops/backup.md": "---\ndescription: Sauvegarder\ndomain: ops\n---\nBackup   \n\n",
+    "global/ops/gros.md": "---\ndescription: Tr\u00e8s long\n---\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 1.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 2.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 3.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 4.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 5.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 6.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 7.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 8.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 9.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 10.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 11.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 12.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 13.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 14.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 15.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 16.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 17.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 18.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 19.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 20.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 21.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 22.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 23.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 24.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 25.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 26.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 27.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 28.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 29.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 30.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 31.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 32.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 33.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 34.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 35.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 36.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 37.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 38.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 39.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 40.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 41.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 42.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 43.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 44.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 45.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 46.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 47.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 48.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 49.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 50.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 51.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 52.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 53.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 54.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 55.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 56.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 57.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 58.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 59.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 60.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 61.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 62.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 63.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 64.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 65.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 66.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 67.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 68.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 69.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 70.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 71.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 72.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 73.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 74.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 75.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 76.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 77.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 78.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 79.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 80.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 81.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 82.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 83.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 84.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 85.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 86.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 87.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 88.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 89.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 90.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 91.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 92.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 93.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 94.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 95.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 96.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 97.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 98.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 99.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 100.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 101.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 102.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 103.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 104.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 105.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 106.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 107.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 108.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 109.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 110.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 111.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 112.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 113.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 114.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 115.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 116.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 117.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 118.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 119.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 120.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 121.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 122.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 123.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 124.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 125.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 126.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 127.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 128.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 129.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 130.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 131.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 132.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 133.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 134.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 135.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 136.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 137.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 138.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 139.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 140.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 141.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 142.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 143.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 144.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 145.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 146.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 147.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 148.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 149.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 150.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 151.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 152.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 153.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 154.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 155.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 156.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 157.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 158.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 159.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 160.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 161.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 162.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 163.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 164.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 165.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 166.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 167.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 168.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 169.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 170.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 171.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 172.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 173.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 174.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 175.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 176.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 177.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 178.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 179.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 180.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 181.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 182.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 183.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 184.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 185.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 186.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 187.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 188.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 189.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 190.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 191.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 192.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 193.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 194.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 195.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 196.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 197.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 198.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 199.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 200.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 201.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 202.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 203.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 204.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 205.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 206.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 207.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 208.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 209.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 210.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 211.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 212.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 213.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 214.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 215.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 216.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 217.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 218.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 219.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 220.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 221.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 222.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 223.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 224.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 225.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 226.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 227.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 228.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 229.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 230.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 231.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 232.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 233.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 234.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 235.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 236.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 237.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 238.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 239.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 240.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 241.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 242.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 243.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 244.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 245.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 246.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 247.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 248.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 249.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 250.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 251.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 252.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 253.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 254.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 255.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 256.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 257.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 258.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 259.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 260.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 261.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 262.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 263.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 264.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 265.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 266.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 267.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 268.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 269.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 270.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 271.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 272.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 273.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 274.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 275.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 276.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 277.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 278.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 279.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 280.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 281.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 282.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 283.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 284.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 285.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 286.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 287.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 288.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 289.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 290.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 291.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 292.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 293.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 294.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 295.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 296.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 297.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 298.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 299.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 300.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 301.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 302.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 303.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 304.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 305.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 306.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 307.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 308.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 309.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 310.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 311.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 312.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 313.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 314.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 315.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 316.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 317.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 318.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 319.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 320.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 321.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 322.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 323.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 324.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 325.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 326.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 327.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 328.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 329.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 330.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 331.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 332.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 333.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 334.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 335.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 336.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 337.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 338.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 339.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 340.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 341.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 342.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 343.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 344.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 345.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 346.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 347.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 348.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 349.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 350.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 351.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 352.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 353.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 354.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 355.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 356.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 357.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 358.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 359.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 360.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 361.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 362.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 363.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 364.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 365.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 366.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 367.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 368.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 369.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 370.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 371.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 372.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 373.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 374.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 375.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 376.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 377.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 378.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 379.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 380.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 381.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 382.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 383.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 384.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 385.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 386.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 387.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 388.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 389.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 390.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 391.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 392.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 393.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 394.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 395.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 396.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 397.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 398.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 399.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 400.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 401.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 402.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 403.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 404.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 405.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 406.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 407.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 408.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 409.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 410.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 411.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 412.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 413.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 414.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 415.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 416.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 417.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 418.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 419.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 420.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 421.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 422.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 423.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 424.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 425.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 426.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 427.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 428.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 429.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 430.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 431.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 432.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 433.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 434.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 435.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 436.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 437.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 438.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 439.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 440.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 441.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 442.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 443.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 444.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 445.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 446.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 447.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 448.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 449.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 450.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 451.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 452.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 453.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 454.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 455.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 456.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 457.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 458.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 459.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 460.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 461.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 462.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 463.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 464.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 465.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 466.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 467.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 468.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 469.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 470.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 471.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 472.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 473.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 474.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 475.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 476.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 477.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 478.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 479.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 480.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 481.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 482.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 483.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 484.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 485.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 486.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 487.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 488.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 489.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 490.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 491.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 492.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 493.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 494.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 495.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 496.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 497.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 498.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 499.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 500.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 501.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 502.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 503.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 504.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 505.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 506.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 507.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 508.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 509.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 510.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 511.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 512.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 513.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 514.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 515.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 516.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 517.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 518.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 519.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 520.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 521.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 522.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 523.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 524.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 525.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 526.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 527.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 528.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 529.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 530.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 531.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 532.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 533.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 534.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 535.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 536.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 537.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 538.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 539.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 540.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 541.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 542.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 543.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 544.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 545.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 546.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 547.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 548.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 549.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 550.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 551.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 552.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 553.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 554.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 555.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 556.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 557.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 558.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 559.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 560.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 561.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 562.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 563.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 564.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 565.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 566.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 567.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 568.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 569.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 570.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 571.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 572.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 573.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 574.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 575.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 576.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 577.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 578.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 579.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 580.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 581.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 582.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 583.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 584.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 585.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 586.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 587.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 588.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 589.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 590.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 591.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 592.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 593.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 594.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 595.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 596.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 597.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 598.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 599.\n",
+    "global/learned/brouillon.md": "---\nname: brouillon\n---\nNon inject\u00e9\n",
+    "global/astral.md": "---\ndescription: Corps astral\n---\n\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\u3000\u3000fin\n",
+    "global/unicode/SKILL.md": "---\ndescription: Desc \ud83d\ude00 avec \u2028 s\u00e9parateur \u00a0\n---\nCorps\n",
+    "user_skills/alice/deploy-jenkins/SKILL.md": "---\ndescription: Ma version\n---\nMa proc\u00e9dure\n",
+    "user_skills/alice/perso.md": "---\nname: perso\ndescription: Perso\n---\nPerso\n",
+    "prompts/FRAGMENT_TOOLS.md": "# Tools\nYou can act.\n",
+    "prompts/FRAGMENT_CODE.md": "\n  # Code\n  sandbox  \n\n",
+    "prompts/FRAGMENT_AUTOMATION.md": "# Automation\n",
+    "prompts/FRAGMENT_WEB.md": "# Web\n",
+    "prompts/FRAGMENT_CHART.md": "# Charts\n",
+    "prompts/FRAGMENT_OFFICE.md": "   \n",
+    "prompts/FRAGMENT_MEMORY.md": "# Memory\n",
+    "prompts/FRAGMENT_CUSTOM.md": "# Custom\n",
+    "prompts/PLAN_MODE.md": "# Plan mode from file\n",
+    "prompts/AGENT_X.md": "Agent X persona\r\n",
+    "prompts/_TEMPLATE.md": "template\n",
+    "prompts/CHATBOT_SYSTEM.md": "socle\n",
+    "prompts/.cache.md": "cach\u00e9\n",
+    "prompts/sous.md/x.txt": "un dossier\n",
+    "prompts2/FRAGMENT_TOOLS.md": "# Tools 2\n"
+  },
+  "assemblages": [
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis."
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "",
+        "today": "2026-10-07"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Today's date: 2026-10-07."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "  Socle  ",
+        "today": "  ",
+        "model_label": "qwen3-32b"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Socle\n\n---\n\nBacking model: qwen3-32b."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "plan_mode": true
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Plan mode from file"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "plan_mode": true
+      },
+      "prompts": "prompts2",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Read-only mode (active)\n\nThis conversation is in READ-ONLY mode. Investigate and plan; do not change anything.\n\n- Do NOT create, edit, move or delete files, and do not commit, push or revert anything.\n- Do NOT run commands that modify state \u2014 no writing through a shell redirect, no sed -i, tee, mv, rm, install or package manager, and no workaround of any kind for the restrictions above.\n- Reading, searching, inspecting and documentary lookups are expected: use them freely.\n- Your tool surface has already been reduced to read-only tools. Do not assume a missing tool is a temporary glitch \u2014 plan around it.\n\nDeliver a concrete plan: what you found, what you would change (file by file), in what order, and what could go wrong. Read-only mode is one-shot: it ends automatically once this reply is delivered \u2014 the next user message runs with full tools again."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "memory_block": "  # Memory (snapshot)\n\n## USER.md\n[ab12] x  "
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Memory (snapshot)\n\n## USER.md\n[ab12] x"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "d\u00e9ployer"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "",
+        "user_id": 1
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": null,
+        "user_id": 1
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "user_id": 1,
+        "pinned_skills": [
+          "release"
+        ]
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## release\n# Release\n\nTaguer puis builder"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "user_id": 1,
+        "pinned_skills": [
+          "release/hotfix",
+          "deploy-jenkins",
+          "deploy-jenkins",
+          "inconnu",
+          "hotfix"
+        ]
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## hotfix\nPatch\n\n## deploy-jenkins\nMa proc\u00e9dure"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "skills_enabled": false,
+        "pinned_skills": [
+          "pkg"
+        ],
+        "last_user_text": "x"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## pkg\nRacine"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "skills_enabled": false,
+        "last_user_text": "x"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [],
+        "last_user_text": null
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "gros"
+        ]
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 1.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 2.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 3.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 4.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 5.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 6.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 7.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 8.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 9.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 10.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 11.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 12.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 13.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 14.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 15.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 16.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 17.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 18.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 19.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 20.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 21.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 22.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 23.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 24.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 25.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 26.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 27.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 28.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 29.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 30.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 31.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 32.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 33.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 34.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 35.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 36.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 37.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 38.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 39.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 40.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 41.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 42.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 43.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 44.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 45.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 46.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 47.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 48.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 49.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 50.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 51.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 52.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 53.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 54.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 55.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 56.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 57.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 58.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 59.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 60.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 61.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 62.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 63.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 64.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 65.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 66.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 67.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 68.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 69.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 70.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 71.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 72.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 73.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 74.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 75.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 76.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 77.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 78.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 79.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 80.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 81.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 82.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 83.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 84.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 85.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 86.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 87.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 88.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 89.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 90.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 91.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 92.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 93.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 94.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 95.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 96.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 97.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 98.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 99.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 100.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 101.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 102.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 103.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 104.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 105.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 106.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 107.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 108.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 109.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 110.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 111.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 112.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 113.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 114.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 115.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 116.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 117.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 118.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 119.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 120.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 121.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 122.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 123.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 124.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 125.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 126.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 127.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 128.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 129.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 130.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 131.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 132.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 133.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 134.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 135.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 136.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 137.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 138.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 139.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 140.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 141.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 142.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 143.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 144.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 145.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 146.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 147.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 148.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 149.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 150.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 151.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 152.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 153.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 154.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 155.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 156.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 157.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 158.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 159.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 160.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 161.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 162.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 163.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 164.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 165.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 166.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 167.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 168.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 169.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 170.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 171.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 172.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 173.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 174.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 175.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 176.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 177.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 178.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 179.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 180.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 181.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 182.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 183.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 184.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 185.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 186.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 187.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 188.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 189.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 190.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 191.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 192.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 193.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 194.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 195.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 196.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 197.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 198.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 199.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 200.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 201.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 202.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 203.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 204.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 205.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 206.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 207.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 208.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 209.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 210.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 211.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 212.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 213.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 214.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 215.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 216.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 217.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 218.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 219.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 220.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 221.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 222.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 223.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 224.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 225.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 226.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 227.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 228.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 229.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 230.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 231.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 232.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 233.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 234.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 235.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 236.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 237.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 238.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 239.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 240.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 241.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 242.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 243.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 244.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 245.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 246.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 247.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 248.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 249.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 250.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 251.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 252.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 253.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 254.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 255.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 256.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 257.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 258.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 259.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 260.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 261.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 262.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 263.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 264.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 265.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 266.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 267.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 268.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 269.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 270.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 271.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 272.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 273.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 274.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 275.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 276.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 277.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 278.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 279.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 280.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 281.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 282.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 283.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 284.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 285.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 286.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 287.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 288.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 289.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 290.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 291.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 292.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 293.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 294.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 295.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 296.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 297.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 298.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 299.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 300.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 301.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 302.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 303.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 304.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 305.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 306.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 307.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 308.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 309.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 310.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 311.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 312.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 313.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 314.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 315.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 316.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 317.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 318.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 319.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 320.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 321.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 322.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 323.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 324.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 325.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 326.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 327.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 328.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 329.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 330.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 331.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 332.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 333.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 334.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 335.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 336.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 337.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 338.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 339.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 340.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 341.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 342.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 343.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 344.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 345.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 346.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 347.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 348.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 349.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 350.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 351.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 352.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 353.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 354.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 355.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 356.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 357.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 358.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 359.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 360.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 361.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 362.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 363.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 364.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 365.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 366.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 367.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 368.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 369.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 370.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 371.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 372.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 373.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 374.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 375.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 376.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 377.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 378.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 379.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 380.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 381.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 382.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 383.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 384.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 385.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 386.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 387.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 388.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 389.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 390.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 391.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 392.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 393.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 394.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 395.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 396.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 397.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 398.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 399.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 400.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 401.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 402.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 403.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 404.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 405.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 406.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 407.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 408.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 409.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 410.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 411.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 412.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 413.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 414.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 415.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 416.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 417.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 418.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 419.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 420.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 421.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 422.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 423.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 424.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 425.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 426.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 427.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 428.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 429.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 430.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 431.\n\u00c9tape\n\n\u2026[procedure truncated]"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "release",
+          "gros"
+        ]
+      },
+      "budget": 200,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## release\n# Release\n\nTaguer puis builder"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "gros",
+          "release"
+        ]
+      },
+      "budget": 200,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 1.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 2.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 3.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 4.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 5.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 6.\n\u00c9tape d\u00e9ta\n\n\u2026[procedure truncated]"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "gros"
+        ]
+      },
+      "budget": 0,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 1.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 2.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 3.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 4.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 5.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 6.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 7.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 8.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 9.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 10.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 11.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 12.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 13.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 14.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 15.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 16.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 17.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 18.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 19.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 20.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 21.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 22.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 23.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 24.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 25.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 26.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 27.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 28.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 29.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 30.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 31.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 32.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 33.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 34.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 35.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 36.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 37.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 38.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 39.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 40.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 41.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 42.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 43.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 44.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 45.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 46.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 47.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 48.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 49.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 50.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 51.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 52.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 53.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 54.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 55.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 56.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 57.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 58.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 59.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 60.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 61.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 62.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 63.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 64.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 65.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 66.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 67.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 68.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 69.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 70.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 71.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 72.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 73.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 74.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 75.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 76.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 77.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 78.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 79.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 80.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 81.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 82.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 83.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 84.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 85.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 86.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 87.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 88.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 89.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 90.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 91.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 92.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 93.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 94.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 95.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 96.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 97.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 98.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 99.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 100.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 101.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 102.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 103.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 104.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 105.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 106.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 107.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 108.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 109.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 110.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 111.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 112.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 113.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 114.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 115.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 116.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 117.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 118.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 119.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 120.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 121.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 122.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 123.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 124.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 125.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 126.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 127.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 128.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 129.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 130.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 131.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 132.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 133.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 134.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 135.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 136.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 137.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 138.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 139.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 140.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 141.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 142.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 143.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 144.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 145.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 146.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 147.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 148.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 149.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 150.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 151.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 152.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 153.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 154.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 155.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 156.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 157.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 158.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 159.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 160.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 161.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 162.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 163.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 164.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 165.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 166.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 167.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 168.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 169.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 170.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 171.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 172.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 173.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 174.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 175.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 176.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 177.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 178.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 179.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 180.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 181.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 182.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 183.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 184.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 185.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 186.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 187.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 188.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 189.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 190.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 191.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 192.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 193.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 194.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 195.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 196.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 197.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 198.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 199.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 200.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 201.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 202.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 203.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 204.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 205.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 206.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 207.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 208.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 209.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 210.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 211.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 212.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 213.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 214.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 215.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 216.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 217.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 218.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 219.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 220.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 221.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 222.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 223.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 224.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 225.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 226.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 227.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 228.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 229.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 230.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 231.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 232.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 233.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 234.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 235.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 236.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 237.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 238.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 239.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 240.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 241.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 242.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 243.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 244.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 245.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 246.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 247.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 248.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 249.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 250.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 251.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 252.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 253.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 254.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 255.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 256.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 257.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 258.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 259.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 260.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 261.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 262.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 263.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 264.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 265.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 266.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 267.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 268.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 269.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 270.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 271.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 272.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 273.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 274.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 275.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 276.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 277.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 278.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 279.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 280.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 281.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 282.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 283.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 284.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 285.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 286.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 287.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 288.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 289.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 290.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 291.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 292.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 293.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 294.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 295.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 296.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 297.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 298.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 299.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 300.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 301.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 302.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 303.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 304.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 305.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 306.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 307.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 308.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 309.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 310.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 311.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 312.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 313.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 314.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 315.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 316.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 317.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 318.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 319.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 320.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 321.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 322.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 323.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 324.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 325.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 326.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 327.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 328.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 329.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 330.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 331.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 332.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 333.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 334.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 335.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 336.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 337.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 338.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 339.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 340.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 341.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 342.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 343.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 344.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 345.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 346.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 347.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 348.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 349.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 350.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 351.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 352.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 353.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 354.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 355.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 356.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 357.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 358.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 359.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 360.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 361.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 362.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 363.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 364.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 365.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 366.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 367.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 368.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 369.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 370.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 371.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 372.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 373.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 374.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 375.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 376.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 377.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 378.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 379.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 380.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 381.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 382.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 383.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 384.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 385.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 386.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 387.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 388.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 389.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 390.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 391.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 392.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 393.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 394.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 395.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 396.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 397.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 398.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 399.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 400.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 401.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 402.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 403.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 404.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 405.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 406.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 407.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 408.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 409.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 410.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 411.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 412.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 413.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 414.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 415.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 416.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 417.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 418.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 419.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 420.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 421.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 422.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 423.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 424.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 425.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 426.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 427.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 428.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 429.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 430.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 431.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 432.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 433.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 434.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 435.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 436.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 437.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 438.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 439.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 440.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 441.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 442.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 443.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 444.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 445.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 446.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 447.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 448.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 449.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 450.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 451.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 452.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 453.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 454.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 455.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 456.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 457.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 458.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 459.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 460.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 461.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 462.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 463.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 464.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 465.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 466.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 467.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 468.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 469.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 470.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 471.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 472.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 473.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 474.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 475.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 476.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 477.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 478.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 479.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 480.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 481.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 482.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 483.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 484.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 485.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 486.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 487.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 488.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 489.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 490.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 491.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 492.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 493.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 494.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 495.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 496.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 497.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 498.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 499.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 500.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 501.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 502.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 503.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 504.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 505.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 506.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 507.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 508.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 509.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 510.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 511.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 512.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 513.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 514.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 515.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 516.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 517.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 518.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 519.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 520.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 521.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 522.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 523.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 524.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 525.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 526.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 527.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 528.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 529.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 530.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 531.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 532.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 533.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 534.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 535.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 536.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 537.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 538.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 539.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 540.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 541.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 542.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 543.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 544.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 545.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 546.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 547.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 548.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 549.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 550.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 551.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 552.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 553.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 554.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 555.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 556.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 557.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 558.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 559.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 560.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 561.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 562.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 563.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 564.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 565.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 566.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 567.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 568.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 569.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 570.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 571.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 572.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 573.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 574.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 575.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 576.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 577.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 578.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 579.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 580.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 581.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 582.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 583.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 584.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 585.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 586.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 587.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 588.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 589.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 590.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 591.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 592.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 593.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 594.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 595.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 596.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 597.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 598.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 599."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "gros",
+          "zeta"
+        ]
+      },
+      "budget": 30,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro\n\n\u2026[procedure truncated]"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "x"
+      },
+      "index_max": 2,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n\n_(+8 more \u2014 `skill_get(name)`)_"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "x"
+      },
+      "index_max": 0,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "x",
+        "pinned_skills": [
+          "zeta"
+        ]
+      },
+      "ctx": {
+        "skills.header": "## Mes skills",
+        "assembly.separator": "\n\n***\n\n"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n***\n\n## Mes skills\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## zeta\nZ"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "x"
+      },
+      "ctx": {
+        "skills.header": ""
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "",
+        "today": "",
+        "memory_block": "  "
+      },
+      "messages": []
+    },
+    {
+      "entrees": {
+        "custom_sys": "",
+        "plan_mode": true
+      },
+      "ctx": {
+        "assembly.separator": "|"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "# Plan mode from file"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "today": "d",
+        "model_label": "m",
+        "plan_mode": true,
+        "memory_block": "M",
+        "last_user_text": "q",
+        "user_id": 1,
+        "pinned_skills": [
+          "perso",
+          "pkg/child"
+        ]
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\nToday's date: d.\nBacking model: m.\n\n---\n\n# Plan mode from file\n\n---\n\nM\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## perso\nPerso\n\n## child\nEnfant"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "user_id": 2,
+        "last_user_text": "q"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": null,
+        "model_label": "  mod\u00e8le  "
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Backing model: mod\u00e8le."
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "astral"
+        ]
+      },
+      "budget": 41,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## astral\n\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\n\n\u2026[procedure truncated]"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "astral"
+        ]
+      },
+      "budget": 25,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## astral\n\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\n\n\u2026[procedure truncated]"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "pinned_skills": [
+          "astral",
+          "zeta"
+        ]
+      },
+      "budget": 45,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long\n\n## astral\n\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\u3000\u3000fin"
+        }
+      ]
+    },
+    {
+      "entrees": {
+        "custom_sys": "\u3000Socle\u2028",
+        "today": "\u00a0",
+        "memory_block": "\u0085M\u0085"
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Socle\n\n---\n\nM"
+        }
+      ]
+    }
+  ],
+  "apercus": [
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis."
+      },
+      "apercu": "Tu es Elpis."
+    },
+    {
+      "entrees": {
+        "custom_sys": "",
+        "today": "2026-10-07"
+      },
+      "apercu": "Today's date: 2026-10-07."
+    },
+    {
+      "entrees": {
+        "custom_sys": "  Socle  ",
+        "today": "  "
+      },
+      "apercu": "Socle"
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis."
+      },
+      "apercu": "Tu es Elpis."
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis."
+      },
+      "prompts": "prompts2",
+      "apercu": "Tu es Elpis."
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "memory_block": "  # Memory (snapshot)\n\n## USER.md\n[ab12] x  "
+      },
+      "apercu": "Tu es Elpis.\n\n---\n\n# Memory (snapshot)\n\n## USER.md\n[ab12] x"
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "d\u00e9ployer"
+      },
+      "apercu": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+    },
+    {
+      "entrees": {
+        "custom_sys": "Tu es Elpis.",
+        "last_user_text": "",
+        "user_id": 1
+      },
+      "apercu": "Tu es Elpis.\n\n---\n\n# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+    }
+  ],
+  "capacites": [
+    {
+      "manifeste": {},
+      "categories": [],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "fs"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "shell",
+        "git"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Automation",
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "browser"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Web",
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "chart"
+      ],
+      "bloc": "# Charts",
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "office"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "memory"
+      ],
+      "bloc": "# Memory",
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "rag"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "FS",
+        " Shell "
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "chart",
+        "fs",
+        "browser",
+        "memory",
+        "rag",
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox\n\n# Automation\n\n# Web\n\n# Charts\n\n# Memory",
+      "runtime": true
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "nouvelle"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "autre"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "inconnue"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        1,
+        null,
+        "",
+        "  "
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {},
+      "categories": [
+        "git",
+        "nouvelle",
+        "autre"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {},
+      "categories": null,
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "fs"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Custom",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "shell",
+        "git"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Automation",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "browser"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Web",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "chart"
+      ],
+      "bloc": "# Charts",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "office"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "memory"
+      ],
+      "bloc": "# Memory",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "rag"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "FS",
+        " Shell "
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Custom",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "chart",
+        "fs",
+        "browser",
+        "memory",
+        "rag",
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Custom\n\n# Automation\n\n# Web\n\n# Charts\n\n# Memory",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "nouvelle"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "autre"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "inconnue"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        1,
+        null,
+        "",
+        "  "
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": [
+        "git",
+        "nouvelle",
+        "autre"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "fs": "FRAGMENT_CUSTOM"
+      },
+      "categories": null,
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "fs"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "shell",
+        "git"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Web",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Automation",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "browser"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Custom",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "chart"
+      ],
+      "bloc": "# Memory",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "office"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "memory"
+      ],
+      "bloc": "# Memory",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "rag"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "FS",
+        " Shell "
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Web",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "chart",
+        "fs",
+        "browser",
+        "memory",
+        "rag",
+        "desktop"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox\n\n# Automation\n\n# Custom\n\n# Memory",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "nouvelle"
+      ],
+      "bloc": "# Custom",
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "autre"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "inconnue"
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        1,
+        null,
+        "",
+        "  "
+      ],
+      "bloc": null,
+      "runtime": false
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": [
+        "git",
+        "nouvelle",
+        "autre"
+      ],
+      "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox\n\n# Custom",
+      "runtime": true
+    },
+    {
+      "manifeste": {
+        "browser": "FRAGMENT_CUSTOM",
+        "chart": "FRAGMENT_MEMORY",
+        "nouvelle": "FRAGMENT_CUSTOM",
+        "autre": "FRAGMENT_ABSENT",
+        "shell": "FRAGMENT_WEB"
+      },
+      "categories": null,
+      "bloc": null,
+      "runtime": false
+    }
+  ],
+  "index": [
+    {
+      "uid": null,
+      "bloc": "# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+    },
+    {
+      "uid": 1,
+      "bloc": "# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 Ma version\n- **perso** \u2014 Perso\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+    },
+    {
+      "uid": 2,
+      "bloc": "# Skills (known procedures)\n\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \"files/scripts\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\n\n## Index\n\n### General\n- **a-sans-desc** \u2014 (no description)\n- **astral** \u2014 Corps astral\n- **deploy-jenkins** \u2014 D\u00e9ployer via Jenkins\n- **pkg** \u2014 Paquet \u00b7 sub-skills (`skill_get`)\n- **unicode** \u2014 Desc \ud83d\ude00 avec\n- **zeta** \u2014 Dernier par ordre\n\n### jenkins\n- **build** \u2014 Builder \u00b7 files/scripts\n- **release** \u2014 Publier une release \u00b7 sub-skills (`skill_get`)\n\n### ops\n- **backup** \u2014 Sauvegarder\n- **gros** \u2014 Tr\u00e8s long"
+    }
+  ],
+  "attaches": [
+    {
+      "uid": 1,
+      "ids": [
+        "pkg"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## pkg\nRacine\n\n## child\nEnfant\n\n## grand\nPetit-enfant"
+    },
+    {
+      "uid": 1,
+      "ids": [
+        "pkg/child"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## child\nEnfant\n\n## grand\nPetit-enfant"
+    },
+    {
+      "uid": null,
+      "ids": [
+        "release",
+        "release"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## release\n# Release\n\nTaguer puis builder\n\n## hotfix\nPatch"
+    },
+    {
+      "uid": 1,
+      "ids": [],
+      "bloc": null
+    },
+    {
+      "uid": 1,
+      "ids": [
+        " ",
+        "inconnu"
+      ],
+      "bloc": null
+    },
+    {
+      "uid": 1,
+      "ids": [
+        "deploy-jenkins"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## deploy-jenkins\nMa proc\u00e9dure"
+    },
+    {
+      "uid": null,
+      "ids": [
+        "gros"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 1.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 2.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 3.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 4.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 5.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 6.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 7.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 8.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 9.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 10.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 11.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 12.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 13.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 14.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 15.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 16.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 17.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 18.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 19.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 20.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 21.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 22.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 23.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 24.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 25.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 26.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 27.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 28.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 29.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 30.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 31.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 32.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 33.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 34.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 35.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 36.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 37.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 38.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 39.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 40.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 41.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 42.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 43.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 44.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 45.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 46.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 47.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 48.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 49.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 50.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 51.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 52.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 53.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 54.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 55.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 56.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 57.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 58.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 59.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 60.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 61.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 62.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 63.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 64.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 65.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 66.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 67.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 68.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 69.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 70.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 71.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 72.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 73.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 74.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 75.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 76.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 77.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 78.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 79.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 80.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 81.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 82.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 83.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 84.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 85.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 86.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 87.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 88.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 89.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 90.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 91.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 92.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 93.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 94.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 95.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 96.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 97.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 98.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 99.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 100.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 101.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 102.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 103.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 104.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 105.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 106.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 107.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 108.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 109.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 110.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 111.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 112.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 113.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 114.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 115.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 116.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 117.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 118.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 119.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 120.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 121.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 122.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 123.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 124.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 125.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 126.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 127.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 128.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 129.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 130.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 131.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 132.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 133.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 134.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 135.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 136.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 137.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 138.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 139.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 140.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 141.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 142.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 143.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 144.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 145.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 146.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 147.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 148.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 149.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 150.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 151.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 152.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 153.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 154.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 155.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 156.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 157.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 158.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 159.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 160.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 161.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 162.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 163.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 164.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 165.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 166.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 167.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 168.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 169.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 170.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 171.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 172.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 173.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 174.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 175.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 176.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 177.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 178.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 179.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 180.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 181.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 182.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 183.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 184.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 185.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 186.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 187.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 188.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 189.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 190.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 191.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 192.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 193.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 194.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 195.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 196.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 197.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 198.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 199.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 200.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 201.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 202.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 203.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 204.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 205.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 206.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 207.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 208.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 209.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 210.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 211.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 212.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 213.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 214.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 215.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 216.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 217.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 218.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 219.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 220.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 221.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 222.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 223.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 224.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 225.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 226.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 227.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 228.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 229.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 230.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 231.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 232.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 233.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 234.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 235.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 236.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 237.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 238.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 239.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 240.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 241.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 242.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 243.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 244.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 245.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 246.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 247.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 248.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 249.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 250.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 251.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 252.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 253.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 254.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 255.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 256.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 257.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 258.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 259.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 260.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 261.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 262.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 263.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 264.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 265.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 266.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 267.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 268.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 269.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 270.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 271.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 272.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 273.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 274.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 275.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 276.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 277.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 278.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 279.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 280.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 281.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 282.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 283.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 284.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 285.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 286.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 287.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 288.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 289.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 290.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 291.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 292.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 293.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 294.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 295.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 296.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 297.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 298.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 299.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 300.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 301.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 302.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 303.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 304.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 305.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 306.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 307.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 308.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 309.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 310.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 311.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 312.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 313.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 314.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 315.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 316.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 317.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 318.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 319.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 320.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 321.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 322.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 323.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 324.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 325.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 326.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 327.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 328.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 329.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 330.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 331.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 332.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 333.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 334.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 335.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 336.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 337.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 338.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 339.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 340.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 341.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 342.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 343.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 344.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 345.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 346.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 347.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 348.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 349.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 350.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 351.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 352.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 353.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 354.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 355.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 356.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 357.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 358.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 359.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 360.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 361.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 362.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 363.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 364.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 365.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 366.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 367.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 368.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 369.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 370.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 371.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 372.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 373.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 374.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 375.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 376.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 377.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 378.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 379.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 380.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 381.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 382.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 383.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 384.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 385.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 386.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 387.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 388.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 389.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 390.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 391.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 392.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 393.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 394.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 395.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 396.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 397.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 398.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 399.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 400.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 401.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 402.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 403.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 404.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 405.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 406.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 407.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 408.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 409.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 410.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 411.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 412.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 413.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 414.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 415.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 416.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 417.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 418.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 419.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 420.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 421.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 422.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 423.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 424.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 425.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 426.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 427.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 428.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 429.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 430.\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 431.\n\u00c9tape\n\n\u2026[procedure truncated]"
+    },
+    {
+      "uid": null,
+      "ids": null,
+      "bloc": null
+    },
+    {
+      "uid": 1,
+      "ids": [
+        "perso",
+        "pkg",
+        "pkg/child/grand"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## perso\nPerso\n\n## pkg\nRacine\n\n## child\nEnfant\n\n## grand\nPetit-enfant"
+    }
+  ],
+  "attaches_budget": [
+    {
+      "uid": null,
+      "ids": [
+        "gros",
+        "zeta"
+      ],
+      "bloc": "# Skills (procedures to apply)\n\nProcedures attached to this agent \u2014 apply them for this task.\n\n## gros\n\u00c9tape d\u00e9taill\u00e9e num\u00e9ro 0.\n\u00c9tape\n\n\u2026[procedure truncated]"
+    }
+  ],
+  "categories": [
+    ".cache",
+    "AGENT_X",
+    "CHATBOT_SYSTEM",
+    "FRAGMENT_AUTOMATION",
+    "FRAGMENT_CHART",
+    "FRAGMENT_CODE",
+    "FRAGMENT_CUSTOM",
+    "FRAGMENT_MEMORY",
+    "FRAGMENT_OFFICE",
+    "FRAGMENT_TOOLS",
+    "FRAGMENT_WEB",
+    "PLAN_MODE",
+    "sous"
+  ],
+  "personas": {
+    "AGENT_X": "Agent X persona",
+    "ABSENT": "",
+    "FRAGMENT_OFFICE": ""
+  },
+  "manifeste_reel": {
+    "manifeste": {
+      "$schema": "docs/schemas/mcp.schema.json",
+      "version": 1,
+      "toolHosts": {
+        "main": {
+          "url": "http://127.0.0.1:8765",
+          "token": "${file:user_db/.local_mcp_token}",
+          "serve": {
+            "host": "127.0.0.1",
+            "port": 8765,
+            "transports": [
+              "http",
+              "sse"
+            ]
+          }
+        }
+      },
+      "mcpServers": {
+        "elpis-fs": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/fs",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Fichiers du sandbox : lire, \u00e9crire, chercher, arborescence",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "fs"
+            ],
+            "prompt_fragments": {
+              "FS": "FRAGMENT_CUSTOM",
+              "Nouvelle ": "FRAGMENT_WEB"
+            }
+          }
+        },
+        "elpis-shell": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/shell",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Terminal du sandbox : ex\u00e9cution de commandes, sortie live",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "shell"
+            ]
+          }
+        },
+        "elpis-git": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/git",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "D\u00e9p\u00f4ts Git du sandbox : \u00e9tat, diff, commit, branches, connecteurs",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "git"
+            ],
+            "opencode": {
+              "publish": true
+            }
+          }
+        },
+        "elpis-office": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/office",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Documents Word et PowerPoint du sandbox : cr\u00e9er, lire, modifier, exporter en PDF",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "office"
+            ]
+          }
+        },
+        "elpis-browser": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/browser",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Navigateur pilot\u00e9 : navigation, clics, saisie, captures",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "browser"
+            ],
+            "opencode": {
+              "publish": true
+            }
+          }
+        },
+        "elpis-desktop": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/desktop",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Contr\u00f4le d'\u00e9cran : fen\u00eatres, clics, clavier, trames",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "desktop"
+            ],
+            "opencode": {
+              "publish": true
+            }
+          }
+        },
+        "elpis-skill-run": {
+          "type": "http",
+          "url": "http://127.0.0.1:8765/mcp/skill_run",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          },
+          "description": "Ex\u00e9cution des scripts de skills dans le sandbox",
+          "x-elpis": {
+            "role": "toolhost",
+            "host": "main",
+            "families": [
+              "skill_run"
+            ]
+          }
+        },
+        "elpis-chart": {
+          "type": "http",
+          "description": "Graphiques et tableaux rendus dans le chat",
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "chart"
+            ],
+            "prompt_fragments": {
+              " chart": " FRAGMENT_MEMORY ",
+              "skill_run": "FRAGMENT_TOOLS"
+            }
+          },
+          "url": "http://127.0.0.1:8766/mcp/chart",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          }
+        },
+        "elpis-memory": {
+          "type": "http",
+          "description": "M\u00e9moire du compte et recherche dans l'historique",
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "memory"
+            ],
+            "prompt_fragments": {
+              "memory": "../evil",
+              "rag": "a/b",
+              "office": "x\\y",
+              "desktop": ""
+            }
+          },
+          "url": "http://127.0.0.1:8766/mcp/memory",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          }
+        },
+        "elpis-skill": {
+          "type": "http",
+          "description": "Biblioth\u00e8que de skills du compte",
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "skill"
+            ]
+          },
+          "url": "http://127.0.0.1:8766/mcp/skill",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          }
+        },
+        "elpis-todo": {
+          "type": "http",
+          "description": "Liste de t\u00e2ches du tour",
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "todo"
+            ]
+          },
+          "url": "http://127.0.0.1:8766/mcp/todo",
+          "headers": {
+            "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+          }
+        }
+      },
+      "sandboxHosts": {
+        "main": {
+          "url": "http://127.0.0.1:8765",
+          "token": "${file:user_db/.local_mcp_token}",
+          "relay": true
+        }
+      },
+      "placement": {
+        "strategy": "single",
+        "host": "main"
+      }
+    },
+    "fragments": {
+      "fs": "FRAGMENT_CUSTOM",
+      "nouvelle": "FRAGMENT_WEB",
+      "chart": "FRAGMENT_MEMORY",
+      "skill": "FRAGMENT_TOOLS"
+    },
+    "blocs": [
+      {
+        "categories": [
+          "fs"
+        ],
+        "bloc": "# Tools\nYou can act.\n\n# Custom"
+      },
+      {
+        "categories": [
+          "chart",
+          "memory"
+        ],
+        "bloc": "# Memory"
+      },
+      {
+        "categories": [
+          "skill"
+        ],
+        "bloc": "# Tools\nYou can act."
+      },
+      {
+        "categories": [
+          "nouvelle",
+          "fs",
+          "rag"
+        ],
+        "bloc": "# Tools\nYou can act.\n\n# Custom\n\n# Web"
+      },
+      {
+        "categories": [
+          "office",
+          "desktop"
+        ],
+        "bloc": "# Tools\nYou can act.\n\n# Automation"
+      },
+      {
+        "categories": [
+          "shell",
+          "browser"
+        ],
+        "bloc": "# Tools\nYou can act.\n\n# Code\n  sandbox\n\n# Web"
+      }
+    ]
+  }
+}

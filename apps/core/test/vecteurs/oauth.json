@@ -1,0 +1,2250 @@
+{
+  "source": "migration-kit/vecteurs/core_oauth.py",
+  "secret": "secret-de-session-des-vecteurs-oauth-0123456789",
+  "comptes": [
+    [
+      "alice",
+      1
+    ],
+    [
+      "bob",
+      0
+    ]
+  ],
+  "entetes": [
+    "content-type",
+    "cache-control",
+    "pragma",
+    "location",
+    "www-authenticate",
+    "access-control-allow-origin",
+    "access-control-allow-methods",
+    "access-control-allow-headers",
+    "content-security-policy",
+    "x-frame-options",
+    "referrer-policy"
+  ],
+  "etapes": [
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/fs"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/skill_run"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/office"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/inconnue"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server",
+      "entetes": {
+        "host": "mauvais_hote:8000"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge",
+      "entetes": {
+        "host": "App.LAN:8080"
+      }
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/.well-known/oauth-protected-resource"
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/oauth/register"
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/oauth/token"
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/oauth/revoke"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "type": "application/json",
+      "corps": "{\"redirect_uris\": [\"https://c.example/cb\"], \"client_name\": \"Confidentiel\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "type": "application/json",
+      "corps": "{\"redirect_uris\": [\"http://127.0.0.1:9/cb\"], \"token_endpoint_auth_method\": \"none\", \"client_name\": \"  Public <b>&'\\\"\u00e9  \"}"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "type": "application/json",
+      "corps": "{\"redirect_uris\": [\"http://localhost:7/cb\", \"https://d.example/r?x=1\"], \"token_endpoint_auth_method\": \"none\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": ""
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "[1]"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "{\"redirect_uris\": [1.0]}"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "{\"redirect_uris\": [\"https://e.example/cb\"], \"client_name\": 1.5, \"grant_types\": [\"authorization_code\"]}"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "repete": [
+        "x",
+        65537
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "octets": "ff"
+    },
+    {
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "state",
+          "\u00e9 t"
+        ]
+      ]
+    },
+    {
+      "m": "GET",
+      "u": "/oauth/authorize"
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "inconnu"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          ""
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "https://cimd.example/client.json"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:2}"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "redirect_uri",
+          "http://127.0.0.1:9/autre"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "court"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "https://ailleurs/api/mcp-bridge"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge"
+        ],
+        [
+          "scope",
+          "tools:fs tools:git tools:browser tools:office"
+        ],
+        [
+          "state",
+          "\u00e9 tat&x"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:0}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "fs"
+        ],
+        [
+          "fam",
+          "browser"
+        ],
+        [
+          "fam",
+          "office"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "authorization_code"
+        ],
+        [
+          "code",
+          "{code:0}"
+        ],
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "code_verifier",
+          "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "token"
+        ],
+        [
+          "state",
+          "s1"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge/office"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge"
+        ],
+        [
+          "scope",
+          "tools:office"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge/git"
+        ],
+        [
+          "scope",
+          "tools"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "deny"
+        ]
+      ]
+    },
+    {
+      "compte": "bob",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "git"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "git"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}x"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "git"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "fs"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "octets": "ff",
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "corps": "a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1",
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "corps": "a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1&a=1",
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "git"
+        ],
+        [
+          "fam",
+          "git"
+        ]
+      ]
+    },
+    {
+      "avancer": 901
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:1}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "git"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "authorization_code"
+        ],
+        [
+          "code",
+          "{code:1}"
+        ],
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "code_verifier",
+          "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:0}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "kxR_lMiyp4tyeni4Ddrqn5DNPwlbiu5liDPc5hTIciI"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge"
+        ],
+        [
+          "redirect_uri",
+          "https://c.example/cb"
+        ],
+        [
+          "state",
+          "st"
+        ]
+      ]
+    },
+    {
+      "compte": "alice",
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "{req:2}"
+        ],
+        [
+          "decision",
+          "allow"
+        ],
+        [
+          "fam",
+          "shell"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "basic": "{c:0}:mauvais",
+      "form": [
+        [
+          "grant_type",
+          "authorization_code"
+        ],
+        [
+          "code",
+          "{code:2}"
+        ],
+        [
+          "redirect_uri",
+          "https://c.example/cb"
+        ],
+        [
+          "code_verifier",
+          "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "basic": "{c:0}:{s:0}",
+      "form": [
+        [
+          "grant_type",
+          "authorization_code"
+        ],
+        [
+          "code",
+          "{code:2}"
+        ],
+        [
+          "redirect_uri",
+          "https://c.example/cb"
+        ],
+        [
+          "code_verifier",
+          "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "entetes": {
+        "authorization": "Basic YQ"
+      },
+      "form": [
+        [
+          "grant_type",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "entetes": {
+        "authorization": "Basic /w=="
+      },
+      "form": [
+        [
+          "grant_type",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "entetes": {
+        "authorization": "basic  Ojo= "
+      },
+      "form": [
+        [
+          "grant_type",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "password"
+        ],
+        [
+          "client_id",
+          "{c:0}"
+        ],
+        [
+          "client_secret",
+          "{s:0}"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "octets": "ff",
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "type": "multipart/form-data; boundary=x",
+      "corps": "--x\r\nContent-Disposition: form-data; name=\"grant_type\"\r\n\r\npassword\r\n--x--\r\n"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "type": "multipart/form-data; boundary=x",
+      "corps": "client_id={c:1}&grant_type=x&--x--"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "repete": [
+        "x",
+        65537
+      ],
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          "{rafr:0}"
+        ],
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "scope",
+          "tools:fs"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          "{rafr:0}"
+        ],
+        [
+          "client_id",
+          "{c:1}"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "refresh_token"
+        ],
+        [
+          "refresh_token",
+          "{rafr:2}"
+        ],
+        [
+          "client_id",
+          "{c:1}"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/revoke",
+      "form": [
+        [
+          "token",
+          "{acces:1}"
+        ],
+        [
+          "client_id",
+          "{c:0}"
+        ],
+        [
+          "client_secret",
+          "{s:0}"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/revoke",
+      "basic": "{c:0}:faux",
+      "form": [
+        [
+          "token",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/revoke",
+      "form": [
+        [
+          "token",
+          "inconnu"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/revoke",
+      "octets": "ff"
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/api/oauth/grants"
+    },
+    {
+      "compte": "bob",
+      "m": "GET",
+      "u": "/api/oauth/grants"
+    },
+    {
+      "m": "GET",
+      "u": "/api/oauth/grants"
+    },
+    {
+      "compte": "bob",
+      "m": "DELETE",
+      "u": "/api/oauth/grants/{g:0}"
+    },
+    {
+      "compte": "alice",
+      "m": "DELETE",
+      "u": "/api/oauth/grants/{g:0}"
+    },
+    {
+      "compte": "alice",
+      "m": "DELETE",
+      "u": "/api/oauth/grants/{g:0}"
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/api/oauth/grants"
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true,
+            "main_port": 8443
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/fs"
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/oauth/authorize",
+      "q": [
+        [
+          "client_id",
+          "{c:1}"
+        ],
+        [
+          "response_type",
+          "code"
+        ],
+        [
+          "code_challenge",
+          "7w_YNF9DSfIdPf_pRjSq646_kPr-2-o9NAl16JGghdM"
+        ],
+        [
+          "code_challenge_method",
+          "S256"
+        ],
+        [
+          "resource",
+          "http://testserver/api/mcp-bridge"
+        ],
+        [
+          "state",
+          "z"
+        ]
+      ]
+    },
+    {
+      "config": {
+        "security": {
+          "https": {
+            "enabled": true,
+            "main_port": 0
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "config": {
+        "mcp": {
+          "oauth": {
+            "dcr_enabled": "off"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "{"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "repete": [
+        "x",
+        65537
+      ]
+    },
+    {
+      "config": {
+        "mcp": {
+          "oauth": {
+            "enabled": false
+          }
+        }
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "repete": [
+        "x",
+        65537
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "repete": [
+        "x",
+        65537
+      ],
+      "type": "application/x-www-form-urlencoded"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/register",
+      "corps": "{}"
+    },
+    {
+      "m": "GET",
+      "u": "/oauth/authorize"
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/authorize",
+      "form": [
+        [
+          "req",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/token",
+      "form": [
+        [
+          "grant_type",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "POST",
+      "u": "/oauth/revoke",
+      "form": [
+        [
+          "token",
+          "x"
+        ]
+      ]
+    },
+    {
+      "m": "OPTIONS",
+      "u": "/oauth/token"
+    },
+    {
+      "compte": "alice",
+      "m": "GET",
+      "u": "/api/oauth/grants"
+    },
+    {
+      "config": {
+        "mcp": {
+          "tokens": {
+            "tools_enabled": "false"
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource"
+    },
+    {
+      "config": {
+        "mcp": {
+          "tokens": {
+            "tools_families": "fs, git,inconnue"
+          },
+          "oauth": {
+            "access_ttl_s": "abc",
+            "refresh_days": 5000
+          }
+        }
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/git"
+    },
+    {
+      "m": "GET",
+      "u": "/.well-known/oauth-protected-resource/api/mcp-bridge/desktop"
+    }
+  ],
+  "ids": {
+    "alice": 1,
+    "bob": 2
+  },
+  "reponses": [
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://testserver/api/mcp-bridge\",\"authorization_servers\":[\"http://testserver\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://testserver/api/mcp-bridge\",\"authorization_servers\":[\"http://testserver\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://testserver/api/mcp-bridge/fs\",\"authorization_servers\":[\"http://testserver\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://testserver/api/mcp-bridge/skill_run\",\"authorization_servers\":[\"http://testserver\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"http://testserver\",\"authorization_endpoint\":\"http://testserver/oauth/authorize\",\"token_endpoint\":\"http://testserver/oauth/token\",\"revocation_endpoint\":\"http://testserver/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true,\"registration_endpoint\":\"http://testserver/oauth/register\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"http://mauvais_hote:8000\",\"authorization_endpoint\":\"http://mauvais_hote:8000/oauth/authorize\",\"token_endpoint\":\"http://mauvais_hote:8000/oauth/token\",\"revocation_endpoint\":\"http://mauvais_hote:8000/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true,\"registration_endpoint\":\"http://mauvais_hote:8000/oauth/register\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://app.lan:8080/api/mcp-bridge\",\"authorization_servers\":[\"http://App.LAN:8080\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 201,
+      "corps": "{\"client_id\":\"elpis-U001uuuuuuuuuuuuuuuuuuuu\",\"client_id_issued_at\":1800000000,\"client_name\":\"Confidentiel\",\"redirect_uris\":[\"https://c.example/cb\"],\"grant_types\":[\"authorization_code\",\"refresh_token\"],\"response_types\":[\"code\"],\"token_endpoint_auth_method\":\"client_secret_basic\",\"client_secret\":\"ecs_U002uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"client_secret_expires_at\":0}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 201,
+      "corps": "{\"client_id\":\"elpis-U003uuuuuuuuuuuuuuuuuuuu\",\"client_id_issued_at\":1800000000,\"client_name\":\"Public <b>&'\\\"\u00e9\",\"redirect_uris\":[\"http://127.0.0.1:9/cb\"],\"grant_types\":[\"authorization_code\",\"refresh_token\"],\"response_types\":[\"code\"],\"token_endpoint_auth_method\":\"none\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 201,
+      "corps": "{\"client_id\":\"elpis-U004uuuuuuuuuuuuuuuuuuuu\",\"client_id_issued_at\":1800000000,\"client_name\":\"Client MCP\",\"redirect_uris\":[\"http://localhost:7/cb\",\"https://d.example/r?x=1\"],\"grant_types\":[\"authorization_code\",\"refresh_token\"],\"response_types\":[\"code\"],\"token_endpoint_auth_method\":\"none\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_client_metadata\",\"error_description\":\"JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_redirect_uri\",\"error_description\":\"redirect_uris : 1 \u00e0 10 adresses.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_client_metadata\",\"error_description\":\"Objet JSON attendu.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_redirect_uri\",\"error_description\":\"Redirections permises : http://127.0.0.1, http://localhost ou https://.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 201,
+      "corps": "{\"client_id\":\"elpis-U005uuuuuuuuuuuuuuuuuuuu\",\"client_id_issued_at\":1800000000,\"client_name\":\"1.5\",\"redirect_uris\":[\"https://e.example/cb\"],\"grant_types\":[\"authorization_code\"],\"response_types\":[\"code\"],\"token_endpoint_auth_method\":\"client_secret_basic\",\"client_secret\":\"ecs_U006uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"client_secret_expires_at\":0}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 413,
+      "corps": "{\"detail\":\"Corps trop volumineux.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_client_metadata\",\"error_description\":\"JSON invalide.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "/?oauth_next=%2Foauth%2Fauthorize%3Fclient_id%3Delpis-U003uuuuuuuuuuuuuuuuuuuu%26state%3D%25C3%25A9%2Bt"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "/?oauth_next=%2Foauth%2Fauthorize"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Client inconnu.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Client inconnu.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Document de client injoignable depuis ce serveur.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Adresse de retour non enregistr\u00e9e pour ce client.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Adresse de retour non enregistr\u00e9e pour ce client.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>response_type=code attendu.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>PKCE S256 obligatoire.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Ressource inconnue de ce serveur.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autoriser l&#x27;acc\u00e8s</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autoriser l'acc\u00e8s \u00e0 vos outils</h1><p><strong>Public &lt;b&gt;&amp;&#x27;&quot;\u00e9</strong> demande \u00e0 utiliser vos outils Elpis en tant que <strong>alice</strong>.</p><p class=\"warn\">Nom d\u00e9clar\u00e9 par l'application elle-m\u00eame, non v\u00e9rifi\u00e9.</p><p class=\"muted\">Retour vers <code>127.0.0.1:9</code></p><form method=\"post\" action=\"/oauth/authorize\"><input type=\"hidden\" name=\"req\" value=\"eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiI3d19ZTkY5RFNmSWRQZl9wUmpTcTY0Nl9rUHItMi1vOU5BbDE2SkdnaGRNIiwiY2lkIjoiZWxwaXMtVTAwM3V1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJmcyIsImdpdCIsImJyb3dzZXIiXSwiaW1wIjp0cnVlLCJyZXMiOiJodHRwOi8vdGVzdHNlcnZlci9hcGkvbWNwLWJyaWRnZSIsInJ1cmkiOiJodHRwOi8vMTI3LjAuMC4xOjkvY2IiLCJzdCI6Ilx1MDBlOSB0YXQmeCIsInRzIjoxODAwMDAwMDAwLjAsInVpZCI6MX0.xvtg5wRqq050l2ZlssOYBqu9PxoJgNM4LrIoSDUjdck\"><fieldset><legend>Familles d'outils</legend><label><input type=\"checkbox\" name=\"fam\" value=\"fs\" checked><span>Fichiers de votre sandbox (lecture et \u00e9criture) <span class=\"muted\">(fs)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"git\" checked><span>Git dans votre sandbox <span class=\"muted\">(git)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"browser\"><span>Navigateur pilot\u00e9 <span class=\"muted\">(browser)</span></span></label></fieldset><p class=\"muted\">Les appels s'ex\u00e9cutent sous votre compte. Vous pourrez retirer cet acc\u00e8s dans Param\u00e8tres \u203a Connexions.</p><div class=\"row\"><button type=\"submit\" name=\"decision\" value=\"deny\">Refuser</button><button class=\"primary\" type=\"submit\" name=\"decision\" value=\"allow\">Autoriser</button></div></form></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?code=eoc_U007uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu&iss=http%3A%2F%2Ftestserver&state=%C3%A9+tat%26x"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"access_token\":\"eoa_U009uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"refresh_token\":\"eor_U010uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"scope\":\"tools:fs tools:browser\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=unsupported_response_type&error_description=response_type%3Dcode+attendu.&iss=http%3A%2F%2Ftestserver&state=s1"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=invalid_target&error_description=Ressource+inconnue+de+ce+serveur.&iss=http%3A%2F%2Ftestserver"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=invalid_scope&error_description=Aucune+famille+d%27outils+permise.&iss=http%3A%2F%2Ftestserver"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autoriser l&#x27;acc\u00e8s</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autoriser l'acc\u00e8s \u00e0 vos outils</h1><p><strong>Public &lt;b&gt;&amp;&#x27;&quot;\u00e9</strong> demande \u00e0 utiliser vos outils Elpis en tant que <strong>alice</strong>.</p><p class=\"warn\">Nom d\u00e9clar\u00e9 par l'application elle-m\u00eame, non v\u00e9rifi\u00e9.</p><p class=\"muted\">Retour vers <code>127.0.0.1:9</code></p><form method=\"post\" action=\"/oauth/authorize\"><input type=\"hidden\" name=\"req\" value=\"eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiI3d19ZTkY5RFNmSWRQZl9wUmpTcTY0Nl9rUHItMi1vOU5BbDE2SkdnaGRNIiwiY2lkIjoiZWxwaXMtVTAwM3V1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJnaXQiXSwiaW1wIjp0cnVlLCJyZXMiOiJodHRwOi8vdGVzdHNlcnZlci9hcGkvbWNwLWJyaWRnZS9naXQiLCJydXJpIjoiaHR0cDovLzEyNy4wLjAuMTo5L2NiIiwic3QiOiIiLCJ0cyI6MTgwMDAwMDAwMC4wLCJ1aWQiOjF9.NVO1aY0ObHew7EzHTHVc85lYwIk4Kzn0xmM84JbzXZI\"><fieldset><legend>Familles d'outils</legend><label><input type=\"checkbox\" name=\"fam\" value=\"git\" checked><span>Git dans votre sandbox <span class=\"muted\">(git)</span></span></label></fieldset><p class=\"muted\">Les appels s'ex\u00e9cutent sous votre compte. Vous pourrez retirer cet acc\u00e8s dans Param\u00e8tres \u203a Connexions.</p><div class=\"row\"><button type=\"submit\" name=\"decision\" value=\"deny\">Refuser</button><button class=\"primary\" type=\"submit\" name=\"decision\" value=\"allow\">Autoriser</button></div></form></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=access_denied&error_description=Acc%C3%A8s+refus%C3%A9+par+l%27utilisateur.&iss=http%3A%2F%2Ftestserver"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Demande expir\u00e9e ou session chang\u00e9e : relancez la connexion depuis l&#x27;application.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Demande expir\u00e9e ou session chang\u00e9e : relancez la connexion depuis l&#x27;application.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Demande expir\u00e9e ou session chang\u00e9e : relancez la connexion depuis l&#x27;application.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=access_denied&error_description=Aucune+famille+autoris%C3%A9e.&iss=http%3A%2F%2Ftestserver"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Formulaire illisible.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Formulaire illisible.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Demande expir\u00e9e ou session chang\u00e9e : relancez la connexion depuis l&#x27;application.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?code=eoc_U011uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu&iss=http%3A%2F%2Ftestserver"
+      }
+    },
+    null,
+    {
+      "statut": 400,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autorisation impossible</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autorisation impossible</h1><p>Demande expir\u00e9e ou session chang\u00e9e : relancez la connexion depuis l&#x27;application.</p><p class=\"muted\">Fermez cette page et relancez la connexion depuis l'application.</p></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_grant\",\"error_description\":\"Code expir\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Autoriser l&#x27;acc\u00e8s</title><style>\n:root{--bg:#f8fafc;--card:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--accent-fg:#fff;--warn:#b45309}\n@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--fg:#e2e8f0;--muted:#94a3b8;--line:#1f2937;--accent:#3b82f6;--accent-fg:#fff;--warn:#fbbf24}}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\nbackground:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif;padding:16px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;padding:24px}\nh1{font-size:16px;margin:0 0 4px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:12px}\n.warn{color:var(--warn);font-size:12px}code{font-size:12px;word-break:break-all}\nfieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:8px 12px}\nlegend{font-size:12px;color:var(--muted);padding:0 4px}label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}\n.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}\nbutton{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}\nbutton.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}\n</style></head><body><main class=\"card\"><h1>Autoriser l'acc\u00e8s \u00e0 vos outils</h1><p><strong>Confidentiel</strong> demande \u00e0 utiliser vos outils Elpis en tant que <strong>alice</strong>.</p><p class=\"warn\">Nom d\u00e9clar\u00e9 par l'application elle-m\u00eame, non v\u00e9rifi\u00e9.</p><p class=\"muted\">Retour vers <code>c.example</code></p><form method=\"post\" action=\"/oauth/authorize\"><input type=\"hidden\" name=\"req\" value=\"eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiJreFJfbE1peXA0dHllbmk0RGRycW41RE5Qd2xiaXU1bGlEUGM1aFRJY2lJIiwiY2lkIjoiZWxwaXMtVTAwMXV1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJmcyIsInNoZWxsIiwiZ2l0IiwiZGVza3RvcCIsImJyb3dzZXIiLCJza2lsbF9ydW4iXSwiaW1wIjpmYWxzZSwicmVzIjoiaHR0cDovL3Rlc3RzZXJ2ZXIvYXBpL21jcC1icmlkZ2UiLCJydXJpIjoiaHR0cHM6Ly9jLmV4YW1wbGUvY2IiLCJzdCI6InN0IiwidHMiOjE4MDAwMDA5MDEuMCwidWlkIjoxfQ.CH9XO-OUsRQLaGDhmOahyVdKzYOeGRz9xutmtaJoD-8\"><fieldset><legend>Familles d'outils</legend><label><input type=\"checkbox\" name=\"fam\" value=\"fs\" checked><span>Fichiers de votre sandbox (lecture et \u00e9criture) <span class=\"muted\">(fs)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"shell\" checked><span>Terminal de votre sandbox (commandes) <span class=\"muted\">(shell)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"git\" checked><span>Git dans votre sandbox <span class=\"muted\">(git)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"desktop\"><span>Contr\u00f4le d&#x27;\u00e9cran des machines autoris\u00e9es <span class=\"muted\">(desktop)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"browser\"><span>Navigateur pilot\u00e9 <span class=\"muted\">(browser)</span></span></label><label><input type=\"checkbox\" name=\"fam\" value=\"skill_run\" checked><span>Scripts de vos skills <span class=\"muted\">(skill_run)</span></span></label></fieldset><p class=\"muted\">Les appels s'ex\u00e9cutent sous votre compte. Vous pourrez retirer cet acc\u00e8s dans Param\u00e8tres \u203a Connexions.</p><div class=\"row\"><button type=\"submit\" name=\"decision\" value=\"deny\">Refuser</button><button class=\"primary\" type=\"submit\" name=\"decision\" value=\"allow\">Autoriser</button></div></form></main></body></html>",
+      "entetes": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+        "x-frame-options": "DENY",
+        "referrer-policy": "same-origin"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "https://c.example/cb?code=eoc_U013uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu&iss=http%3A%2F%2Ftestserver&state=st"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"Authentification du client refus\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"access_token\":\"eoa_U015uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"refresh_token\":\"eor_U016uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"scope\":\"tools:shell\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"En-t\u00eate Basic illisible.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"En-t\u00eate Basic illisible.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"Client inconnu.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"unsupported_grant_type\",\"error_description\":\"authorization_code ou refresh_token.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Formulaire illisible.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"Client inconnu.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"unsupported_grant_type\",\"error_description\":\"authorization_code ou refresh_token.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 413,
+      "corps": "{\"detail\":\"Corps trop volumineux.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"access_token\":\"eoa_U017uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"refresh_token\":\"eor_U018uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\",\"scope\":\"tools:fs\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_grant\",\"error_description\":\"Jeton de rafra\u00eechissement d\u00e9j\u00e0 utilis\u00e9 ou r\u00e9voqu\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"error\":\"invalid_grant\",\"error_description\":\"Jeton de rafra\u00eechissement d\u00e9j\u00e0 utilis\u00e9 ou r\u00e9voqu\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"error\":\"invalid_client\",\"error_description\":\"Authentification du client refus\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "www-authenticate": "Basic",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Formulaire illisible.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[{\"grant_id\":\"H0140000000000000000000000000000\",\"client_id\":\"elpis-U001uuuuuuuuuuuuuuuuuuuu\",\"client_name\":\"Confidentiel\",\"families\":[\"shell\"],\"created_at\":1800000901.0,\"expires_at\":1802592901.0,\"last_used_at\":null}],\"enabled\":true}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[],\"enabled\":true}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"not logged in\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation introuvable.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation introuvable.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[],\"enabled\":true}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"https://testserver:8443\",\"authorization_endpoint\":\"https://testserver:8443/oauth/authorize\",\"token_endpoint\":\"https://testserver:8443/oauth/token\",\"revocation_endpoint\":\"https://testserver:8443/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true,\"registration_endpoint\":\"https://testserver:8443/oauth/register\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"https://testserver:8443/api/mcp-bridge/fs\",\"authorization_servers\":[\"https://testserver:8443\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 302,
+      "corps": "",
+      "entetes": {
+        "location": "http://127.0.0.1:9/cb?error=invalid_target&error_description=Ressource+inconnue+de+ce+serveur.&iss=https%3A%2F%2Ftestserver%3A8443&state=z"
+      }
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"https://testserver\",\"authorization_endpoint\":\"https://testserver/oauth/authorize\",\"token_endpoint\":\"https://testserver/oauth/token\",\"revocation_endpoint\":\"https://testserver/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true,\"registration_endpoint\":\"https://testserver/oauth/register\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"http://testserver\",\"authorization_endpoint\":\"http://testserver/oauth/authorize\",\"token_endpoint\":\"http://testserver/oauth/token\",\"revocation_endpoint\":\"http://testserver/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:shell\",\"tools:git\",\"tools:desktop\",\"tools:browser\",\"tools:skill_run\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"error\":\"access_denied\",\"error_description\":\"Enregistrement dynamique d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"error\":\"access_denied\",\"error_description\":\"Enregistrement dynamique d\u00e9sactiv\u00e9 par l'administrateur.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    null,
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 204,
+      "corps": "",
+      "entetes": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"items\":[],\"enabled\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      }
+    },
+    null,
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Autorisation OAuth d\u00e9sactiv\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"issuer\":\"http://testserver\",\"authorization_endpoint\":\"http://testserver/oauth/authorize\",\"token_endpoint\":\"http://testserver/oauth/token\",\"revocation_endpoint\":\"http://testserver/oauth/revoke\",\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:git\"],\"response_types_supported\":[\"code\"],\"response_modes_supported\":[\"query\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"token_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"revocation_endpoint_auth_methods_supported\":[\"none\",\"client_secret_basic\",\"client_secret_post\"],\"code_challenge_methods_supported\":[\"S256\"],\"client_id_metadata_document_supported\":true,\"authorization_response_iss_parameter_supported\":true,\"registration_endpoint\":\"http://testserver/oauth/register\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"resource\":\"http://testserver/api/mcp-bridge/git\",\"authorization_servers\":[\"http://testserver\"],\"scopes_supported\":[\"tools\",\"tools:fs\",\"tools:git\"],\"bearer_methods_supported\":[\"header\"],\"resource_name\":\"Elpis \u2014 outils MCP\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "pragma": "no-cache",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Authorization, Content-Type, MCP-Protocol-Version"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    }
+  ],
+  "valeurs": {
+    "c": [
+      "elpis-U001uuuuuuuuuuuuuuuuuuuu",
+      "elpis-U003uuuuuuuuuuuuuuuuuuuu",
+      "elpis-U004uuuuuuuuuuuuuuuuuuuu",
+      "elpis-U005uuuuuuuuuuuuuuuuuuuu"
+    ],
+    "s": [
+      "ecs_U002uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "",
+      "",
+      "ecs_U006uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+    ],
+    "req": [
+      "eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiI3d19ZTkY5RFNmSWRQZl9wUmpTcTY0Nl9rUHItMi1vOU5BbDE2SkdnaGRNIiwiY2lkIjoiZWxwaXMtVTAwM3V1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJmcyIsImdpdCIsImJyb3dzZXIiXSwiaW1wIjp0cnVlLCJyZXMiOiJodHRwOi8vdGVzdHNlcnZlci9hcGkvbWNwLWJyaWRnZSIsInJ1cmkiOiJodHRwOi8vMTI3LjAuMC4xOjkvY2IiLCJzdCI6Ilx1MDBlOSB0YXQmeCIsInRzIjoxODAwMDAwMDAwLjAsInVpZCI6MX0.xvtg5wRqq050l2ZlssOYBqu9PxoJgNM4LrIoSDUjdck",
+      "eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiI3d19ZTkY5RFNmSWRQZl9wUmpTcTY0Nl9rUHItMi1vOU5BbDE2SkdnaGRNIiwiY2lkIjoiZWxwaXMtVTAwM3V1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJnaXQiXSwiaW1wIjp0cnVlLCJyZXMiOiJodHRwOi8vdGVzdHNlcnZlci9hcGkvbWNwLWJyaWRnZS9naXQiLCJydXJpIjoiaHR0cDovLzEyNy4wLjAuMTo5L2NiIiwic3QiOiIiLCJ0cyI6MTgwMDAwMDAwMC4wLCJ1aWQiOjF9.NVO1aY0ObHew7EzHTHVc85lYwIk4Kzn0xmM84JbzXZI",
+      "eyJhdWQiOiJlbHBpcy1vYXV0aC1jb25zZW50IiwiY2MiOiJreFJfbE1peXA0dHllbmk0RGRycW41RE5Qd2xiaXU1bGlEUGM1aFRJY2lJIiwiY2lkIjoiZWxwaXMtVTAwMXV1dXV1dXV1dXV1dXV1dXV1dXV1IiwiZmFtcyI6WyJmcyIsInNoZWxsIiwiZ2l0IiwiZGVza3RvcCIsImJyb3dzZXIiLCJza2lsbF9ydW4iXSwiaW1wIjpmYWxzZSwicmVzIjoiaHR0cDovL3Rlc3RzZXJ2ZXIvYXBpL21jcC1icmlkZ2UiLCJydXJpIjoiaHR0cHM6Ly9jLmV4YW1wbGUvY2IiLCJzdCI6InN0IiwidHMiOjE4MDAwMDA5MDEuMCwidWlkIjoxfQ.CH9XO-OUsRQLaGDhmOahyVdKzYOeGRz9xutmtaJoD-8"
+    ],
+    "code": [
+      "eoc_U007uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eoc_U011uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eoc_U013uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+    ],
+    "acces": [
+      "eoa_U009uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eoa_U015uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eoa_U017uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+    ],
+    "rafr": [
+      "eor_U010uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eor_U016uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "eor_U018uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+    ],
+    "g": [
+      "H0140000000000000000000000000000"
+    ]
+  }
+}

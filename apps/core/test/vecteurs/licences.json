@@ -1,0 +1,162 @@
+{
+  "source": "migration-kit/vecteurs/deploiement_licences.py",
+  "autorisees": [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "Unlicense"
+  ],
+  "cas": [
+    {
+      "expression": "MIT",
+      "conforme": true
+    },
+    {
+      "expression": "ISC",
+      "conforme": true
+    },
+    {
+      "expression": "Apache-2.0",
+      "conforme": true
+    },
+    {
+      "expression": "BSD-2-Clause",
+      "conforme": true
+    },
+    {
+      "expression": "BSD-3-Clause",
+      "conforme": true
+    },
+    {
+      "expression": "0BSD",
+      "conforme": true
+    },
+    {
+      "expression": "Unlicense",
+      "conforme": true
+    },
+    {
+      "expression": "GPL-3.0",
+      "conforme": false
+    },
+    {
+      "expression": "AGPL-3.0-only",
+      "conforme": false
+    },
+    {
+      "expression": "MPL-2.0",
+      "conforme": false
+    },
+    {
+      "expression": "BlueOak-1.0.0",
+      "conforme": false
+    },
+    {
+      "expression": "Artistic-2.0",
+      "conforme": false
+    },
+    {
+      "expression": "UNLICENSED",
+      "conforme": false
+    },
+    {
+      "expression": "SEE LICENSE IN LICENSE",
+      "conforme": false
+    },
+    {
+      "expression": "MIT OR GPL-3.0",
+      "conforme": true
+    },
+    {
+      "expression": "GPL-3.0 OR MIT",
+      "conforme": true
+    },
+    {
+      "expression": "MIT AND GPL-3.0",
+      "conforme": false
+    },
+    {
+      "expression": "MIT AND ISC",
+      "conforme": true
+    },
+    {
+      "expression": "(MIT OR Apache-2.0)",
+      "conforme": true
+    },
+    {
+      "expression": "(MIT AND GPL-2.0) OR ISC",
+      "conforme": true
+    },
+    {
+      "expression": "MIT AND (GPL-2.0 OR ISC)",
+      "conforme": true
+    },
+    {
+      "expression": "MIT OR GPL-2.0 AND ISC",
+      "conforme": true
+    },
+    {
+      "expression": "GPL-2.0 OR MIT AND MPL-2.0",
+      "conforme": false
+    },
+    {
+      "expression": "Apache-2.0 WITH LLVM-exception",
+      "conforme": true
+    },
+    {
+      "expression": "GPL-2.0 WITH Classpath-exception-2.0",
+      "conforme": false
+    },
+    {
+      "expression": "(BSD-3-Clause OR GPL-2.0)",
+      "conforme": true
+    },
+    {
+      "expression": "((MIT))",
+      "conforme": true
+    },
+    {
+      "expression": "mit",
+      "conforme": false
+    },
+    {
+      "expression": "MIT OR",
+      "conforme": false
+    },
+    {
+      "expression": "OR MIT",
+      "conforme": false
+    },
+    {
+      "expression": "(MIT",
+      "conforme": false
+    },
+    {
+      "expression": "MIT)",
+      "conforme": false
+    },
+    {
+      "expression": "MIT AND",
+      "conforme": false
+    },
+    {
+      "expression": "",
+      "conforme": false
+    },
+    {
+      "expression": "   ",
+      "conforme": false
+    },
+    {
+      "expression": "( )",
+      "conforme": false
+    },
+    {
+      "expression": "WITH",
+      "conforme": false
+    }
+  ]
+}

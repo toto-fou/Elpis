@@ -1,0 +1,3524 @@
+{
+  "defaut": [
+    {
+      "url": "",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": ".bashrc",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": ".bashrc",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "..html",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "..html",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "...",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "...",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "A.HTML",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "A.HTML",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a.Html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a.Html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "dir/a.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "dir/a.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a.html/b",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html/b",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "d.x/a",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "d.x/a",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.tar.gz",
+      "strict": true,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.tar.gz",
+      "strict": false,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.TAR.GZ",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.TAR.GZ",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.svgz",
+      "strict": true,
+      "attendu": [
+        "image/svg+xml",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.svgz",
+      "strict": false,
+      "attendu": [
+        "image/svg+xml",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.SVGZ",
+      "strict": true,
+      "attendu": [
+        "image/svg+xml",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.SVGZ",
+      "strict": false,
+      "attendu": [
+        "image/svg+xml",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.tgz",
+      "strict": true,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.tgz",
+      "strict": false,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.TGZ",
+      "strict": true,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.TGZ",
+      "strict": false,
+      "attendu": [
+        "application/x-tar",
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.Z",
+      "strict": true,
+      "attendu": [
+        null,
+        "compress"
+      ]
+    },
+    {
+      "url": "a.Z",
+      "strict": false,
+      "attendu": [
+        null,
+        "compress"
+      ]
+    },
+    {
+      "url": "a.z",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.z",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.gz",
+      "strict": true,
+      "attendu": [
+        null,
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.gz",
+      "strict": false,
+      "attendu": [
+        null,
+        "gzip"
+      ]
+    },
+    {
+      "url": "a.GZ",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.GZ",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.js.br",
+      "strict": true,
+      "attendu": [
+        "text/javascript",
+        "br"
+      ]
+    },
+    {
+      "url": "a.js.br",
+      "strict": false,
+      "attendu": [
+        "text/javascript",
+        "br"
+      ]
+    },
+    {
+      "url": "a.css.xz",
+      "strict": true,
+      "attendu": [
+        "text/css",
+        "xz"
+      ]
+    },
+    {
+      "url": "a.css.xz",
+      "strict": false,
+      "attendu": [
+        "text/css",
+        "xz"
+      ]
+    },
+    {
+      "url": "a.txt.bz2",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        "bzip2"
+      ]
+    },
+    {
+      "url": "a.txt.bz2",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        "bzip2"
+      ]
+    },
+    {
+      "url": "a.jpg",
+      "strict": true,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "a.jpg",
+      "strict": false,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "a.rtf",
+      "strict": true,
+      "attendu": [
+        "text/rtf",
+        null
+      ]
+    },
+    {
+      "url": "a.rtf",
+      "strict": false,
+      "attendu": [
+        "text/rtf",
+        null
+      ]
+    },
+    {
+      "url": "a.mid",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.mid",
+      "strict": false,
+      "attendu": [
+        "audio/midi",
+        null
+      ]
+    },
+    {
+      "url": "a.pict",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.pict",
+      "strict": false,
+      "attendu": [
+        "image/pict",
+        null
+      ]
+    },
+    {
+      "url": "a.xul",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.xul",
+      "strict": false,
+      "attendu": [
+        "text/xul",
+        null
+      ]
+    },
+    {
+      "url": "a.inconnu",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.inconnu",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "\u00e9.HTML",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "\u00e9.HTML",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a.\u017fvg",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.\u017fvg",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html#x",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html#x",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html?x",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "a.html?x",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "ab:c.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "ab:c.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "ab:c#d.html",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "ab:c#d.html",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "ab:c?d.html",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "ab:c?d.html",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "http:x;y.html",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "http:x;y.html",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "http://h/a.css",
+      "strict": true,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "http://h/a.css",
+      "strict": false,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "http://h/a.css;p",
+      "strict": true,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "http://h/a.css;p",
+      "strict": false,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "x:y.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "x:y.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "1a:b.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "1a:b.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "a+b:c.png",
+      "strict": true,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "a+b:c.png",
+      "strict": false,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html,x",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html,x",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "data:,x",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "data:,x",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "data:a=b/c,x",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "data:a=b/c,x",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html;base64,x",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html;base64,x",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "data:x",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "data:x",
+      "strict": false,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "DATA:image/png,x",
+      "strict": true,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "DATA:image/png,x",
+      "strict": false,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html;q=1,x;y",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "data:text/html;q=1,x;y",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "  a.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "  a.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "\ta.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "\ta.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "ab://[x/a.html",
+      "strict": true,
+      "attendu": {
+        "erreur": "ValueError"
+      }
+    },
+    {
+      "url": "ab://[x/a.html",
+      "strict": false,
+      "attendu": {
+        "erreur": "ValueError"
+      }
+    },
+    {
+      "url": "ab://h:1/a.svg",
+      "strict": true,
+      "attendu": [
+        "image/svg+xml",
+        null
+      ]
+    },
+    {
+      "url": "ab://h:1/a.svg",
+      "strict": false,
+      "attendu": [
+        "image/svg+xml",
+        null
+      ]
+    },
+    {
+      "url": "x.3g2",
+      "strict": true,
+      "attendu": [
+        "audio/3gpp2",
+        null
+      ]
+    },
+    {
+      "url": "x.3g2",
+      "strict": false,
+      "attendu": [
+        "audio/3gpp2",
+        null
+      ]
+    },
+    {
+      "url": "x.3gp",
+      "strict": true,
+      "attendu": [
+        "audio/3gpp",
+        null
+      ]
+    },
+    {
+      "url": "x.3gp",
+      "strict": false,
+      "attendu": [
+        "audio/3gpp",
+        null
+      ]
+    },
+    {
+      "url": "x.3gpp",
+      "strict": true,
+      "attendu": [
+        "audio/3gpp",
+        null
+      ]
+    },
+    {
+      "url": "x.3gpp",
+      "strict": false,
+      "attendu": [
+        "audio/3gpp",
+        null
+      ]
+    },
+    {
+      "url": "x.3gpp2",
+      "strict": true,
+      "attendu": [
+        "audio/3gpp2",
+        null
+      ]
+    },
+    {
+      "url": "x.3gpp2",
+      "strict": false,
+      "attendu": [
+        "audio/3gpp2",
+        null
+      ]
+    },
+    {
+      "url": "x.a",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.a",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.aac",
+      "strict": true,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.aac",
+      "strict": false,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.adts",
+      "strict": true,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.adts",
+      "strict": false,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.ai",
+      "strict": true,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.ai",
+      "strict": false,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.aif",
+      "strict": true,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.aif",
+      "strict": false,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.aifc",
+      "strict": true,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.aifc",
+      "strict": false,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.aiff",
+      "strict": true,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.aiff",
+      "strict": false,
+      "attendu": [
+        "audio/x-aiff",
+        null
+      ]
+    },
+    {
+      "url": "x.ass",
+      "strict": true,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.ass",
+      "strict": false,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.au",
+      "strict": true,
+      "attendu": [
+        "audio/basic",
+        null
+      ]
+    },
+    {
+      "url": "x.au",
+      "strict": false,
+      "attendu": [
+        "audio/basic",
+        null
+      ]
+    },
+    {
+      "url": "x.avi",
+      "strict": true,
+      "attendu": [
+        "video/x-msvideo",
+        null
+      ]
+    },
+    {
+      "url": "x.avi",
+      "strict": false,
+      "attendu": [
+        "video/x-msvideo",
+        null
+      ]
+    },
+    {
+      "url": "x.avif",
+      "strict": true,
+      "attendu": [
+        "image/avif",
+        null
+      ]
+    },
+    {
+      "url": "x.avif",
+      "strict": false,
+      "attendu": [
+        "image/avif",
+        null
+      ]
+    },
+    {
+      "url": "x.bat",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.bat",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.bcpio",
+      "strict": true,
+      "attendu": [
+        "application/x-bcpio",
+        null
+      ]
+    },
+    {
+      "url": "x.bcpio",
+      "strict": false,
+      "attendu": [
+        "application/x-bcpio",
+        null
+      ]
+    },
+    {
+      "url": "x.bin",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.bin",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.bmp",
+      "strict": true,
+      "attendu": [
+        "image/bmp",
+        null
+      ]
+    },
+    {
+      "url": "x.bmp",
+      "strict": false,
+      "attendu": [
+        "image/bmp",
+        null
+      ]
+    },
+    {
+      "url": "x.c",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.c",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.cdf",
+      "strict": true,
+      "attendu": [
+        "application/x-netcdf",
+        null
+      ]
+    },
+    {
+      "url": "x.cdf",
+      "strict": false,
+      "attendu": [
+        "application/x-netcdf",
+        null
+      ]
+    },
+    {
+      "url": "x.cpio",
+      "strict": true,
+      "attendu": [
+        "application/x-cpio",
+        null
+      ]
+    },
+    {
+      "url": "x.cpio",
+      "strict": false,
+      "attendu": [
+        "application/x-cpio",
+        null
+      ]
+    },
+    {
+      "url": "x.csh",
+      "strict": true,
+      "attendu": [
+        "application/x-csh",
+        null
+      ]
+    },
+    {
+      "url": "x.csh",
+      "strict": false,
+      "attendu": [
+        "application/x-csh",
+        null
+      ]
+    },
+    {
+      "url": "x.css",
+      "strict": true,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "x.css",
+      "strict": false,
+      "attendu": [
+        "text/css",
+        null
+      ]
+    },
+    {
+      "url": "x.csv",
+      "strict": true,
+      "attendu": [
+        "text/csv",
+        null
+      ]
+    },
+    {
+      "url": "x.csv",
+      "strict": false,
+      "attendu": [
+        "text/csv",
+        null
+      ]
+    },
+    {
+      "url": "x.dll",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.dll",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.doc",
+      "strict": true,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.doc",
+      "strict": false,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.dot",
+      "strict": true,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.dot",
+      "strict": false,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.dvi",
+      "strict": true,
+      "attendu": [
+        "application/x-dvi",
+        null
+      ]
+    },
+    {
+      "url": "x.dvi",
+      "strict": false,
+      "attendu": [
+        "application/x-dvi",
+        null
+      ]
+    },
+    {
+      "url": "x.eml",
+      "strict": true,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.eml",
+      "strict": false,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.eps",
+      "strict": true,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.eps",
+      "strict": false,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.etx",
+      "strict": true,
+      "attendu": [
+        "text/x-setext",
+        null
+      ]
+    },
+    {
+      "url": "x.etx",
+      "strict": false,
+      "attendu": [
+        "text/x-setext",
+        null
+      ]
+    },
+    {
+      "url": "x.exe",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.exe",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.gif",
+      "strict": true,
+      "attendu": [
+        "image/gif",
+        null
+      ]
+    },
+    {
+      "url": "x.gif",
+      "strict": false,
+      "attendu": [
+        "image/gif",
+        null
+      ]
+    },
+    {
+      "url": "x.gtar",
+      "strict": true,
+      "attendu": [
+        "application/x-gtar",
+        null
+      ]
+    },
+    {
+      "url": "x.gtar",
+      "strict": false,
+      "attendu": [
+        "application/x-gtar",
+        null
+      ]
+    },
+    {
+      "url": "x.h",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.h",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.h5",
+      "strict": true,
+      "attendu": [
+        "application/x-hdf5",
+        null
+      ]
+    },
+    {
+      "url": "x.h5",
+      "strict": false,
+      "attendu": [
+        "application/x-hdf5",
+        null
+      ]
+    },
+    {
+      "url": "x.hdf",
+      "strict": true,
+      "attendu": [
+        "application/x-hdf",
+        null
+      ]
+    },
+    {
+      "url": "x.hdf",
+      "strict": false,
+      "attendu": [
+        "application/x-hdf",
+        null
+      ]
+    },
+    {
+      "url": "x.heic",
+      "strict": true,
+      "attendu": [
+        "image/heic",
+        null
+      ]
+    },
+    {
+      "url": "x.heic",
+      "strict": false,
+      "attendu": [
+        "image/heic",
+        null
+      ]
+    },
+    {
+      "url": "x.heif",
+      "strict": true,
+      "attendu": [
+        "image/heif",
+        null
+      ]
+    },
+    {
+      "url": "x.heif",
+      "strict": false,
+      "attendu": [
+        "image/heif",
+        null
+      ]
+    },
+    {
+      "url": "x.htm",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "x.htm",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "x.html",
+      "strict": true,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "x.html",
+      "strict": false,
+      "attendu": [
+        "text/html",
+        null
+      ]
+    },
+    {
+      "url": "x.ico",
+      "strict": true,
+      "attendu": [
+        "image/vnd.microsoft.icon",
+        null
+      ]
+    },
+    {
+      "url": "x.ico",
+      "strict": false,
+      "attendu": [
+        "image/vnd.microsoft.icon",
+        null
+      ]
+    },
+    {
+      "url": "x.ief",
+      "strict": true,
+      "attendu": [
+        "image/ief",
+        null
+      ]
+    },
+    {
+      "url": "x.ief",
+      "strict": false,
+      "attendu": [
+        "image/ief",
+        null
+      ]
+    },
+    {
+      "url": "x.jpe",
+      "strict": true,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.jpe",
+      "strict": false,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.jpeg",
+      "strict": true,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.jpeg",
+      "strict": false,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.jpg",
+      "strict": true,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.jpg",
+      "strict": false,
+      "attendu": [
+        "image/jpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.js",
+      "strict": true,
+      "attendu": [
+        "text/javascript",
+        null
+      ]
+    },
+    {
+      "url": "x.js",
+      "strict": false,
+      "attendu": [
+        "text/javascript",
+        null
+      ]
+    },
+    {
+      "url": "x.json",
+      "strict": true,
+      "attendu": [
+        "application/json",
+        null
+      ]
+    },
+    {
+      "url": "x.json",
+      "strict": false,
+      "attendu": [
+        "application/json",
+        null
+      ]
+    },
+    {
+      "url": "x.ksh",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.ksh",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.latex",
+      "strict": true,
+      "attendu": [
+        "application/x-latex",
+        null
+      ]
+    },
+    {
+      "url": "x.latex",
+      "strict": false,
+      "attendu": [
+        "application/x-latex",
+        null
+      ]
+    },
+    {
+      "url": "x.loas",
+      "strict": true,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.loas",
+      "strict": false,
+      "attendu": [
+        "audio/aac",
+        null
+      ]
+    },
+    {
+      "url": "x.m1v",
+      "strict": true,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.m1v",
+      "strict": false,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.m3u",
+      "strict": true,
+      "attendu": [
+        "application/vnd.apple.mpegurl",
+        null
+      ]
+    },
+    {
+      "url": "x.m3u",
+      "strict": false,
+      "attendu": [
+        "application/vnd.apple.mpegurl",
+        null
+      ]
+    },
+    {
+      "url": "x.m3u8",
+      "strict": true,
+      "attendu": [
+        "application/vnd.apple.mpegurl",
+        null
+      ]
+    },
+    {
+      "url": "x.m3u8",
+      "strict": false,
+      "attendu": [
+        "application/vnd.apple.mpegurl",
+        null
+      ]
+    },
+    {
+      "url": "x.man",
+      "strict": true,
+      "attendu": [
+        "application/x-troff-man",
+        null
+      ]
+    },
+    {
+      "url": "x.man",
+      "strict": false,
+      "attendu": [
+        "application/x-troff-man",
+        null
+      ]
+    },
+    {
+      "url": "x.markdown",
+      "strict": true,
+      "attendu": [
+        "text/markdown",
+        null
+      ]
+    },
+    {
+      "url": "x.markdown",
+      "strict": false,
+      "attendu": [
+        "text/markdown",
+        null
+      ]
+    },
+    {
+      "url": "x.md",
+      "strict": true,
+      "attendu": [
+        "text/markdown",
+        null
+      ]
+    },
+    {
+      "url": "x.md",
+      "strict": false,
+      "attendu": [
+        "text/markdown",
+        null
+      ]
+    },
+    {
+      "url": "x.me",
+      "strict": true,
+      "attendu": [
+        "application/x-troff-me",
+        null
+      ]
+    },
+    {
+      "url": "x.me",
+      "strict": false,
+      "attendu": [
+        "application/x-troff-me",
+        null
+      ]
+    },
+    {
+      "url": "x.mht",
+      "strict": true,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.mht",
+      "strict": false,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.mhtml",
+      "strict": true,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.mhtml",
+      "strict": false,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.mid",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.mid",
+      "strict": false,
+      "attendu": [
+        "audio/midi",
+        null
+      ]
+    },
+    {
+      "url": "x.midi",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.midi",
+      "strict": false,
+      "attendu": [
+        "audio/midi",
+        null
+      ]
+    },
+    {
+      "url": "x.mif",
+      "strict": true,
+      "attendu": [
+        "application/x-mif",
+        null
+      ]
+    },
+    {
+      "url": "x.mif",
+      "strict": false,
+      "attendu": [
+        "application/x-mif",
+        null
+      ]
+    },
+    {
+      "url": "x.mjs",
+      "strict": true,
+      "attendu": [
+        "text/javascript",
+        null
+      ]
+    },
+    {
+      "url": "x.mjs",
+      "strict": false,
+      "attendu": [
+        "text/javascript",
+        null
+      ]
+    },
+    {
+      "url": "x.mov",
+      "strict": true,
+      "attendu": [
+        "video/quicktime",
+        null
+      ]
+    },
+    {
+      "url": "x.mov",
+      "strict": false,
+      "attendu": [
+        "video/quicktime",
+        null
+      ]
+    },
+    {
+      "url": "x.movie",
+      "strict": true,
+      "attendu": [
+        "video/x-sgi-movie",
+        null
+      ]
+    },
+    {
+      "url": "x.movie",
+      "strict": false,
+      "attendu": [
+        "video/x-sgi-movie",
+        null
+      ]
+    },
+    {
+      "url": "x.mp2",
+      "strict": true,
+      "attendu": [
+        "audio/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mp2",
+      "strict": false,
+      "attendu": [
+        "audio/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mp3",
+      "strict": true,
+      "attendu": [
+        "audio/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mp3",
+      "strict": false,
+      "attendu": [
+        "audio/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mp4",
+      "strict": true,
+      "attendu": [
+        "video/mp4",
+        null
+      ]
+    },
+    {
+      "url": "x.mp4",
+      "strict": false,
+      "attendu": [
+        "video/mp4",
+        null
+      ]
+    },
+    {
+      "url": "x.mpa",
+      "strict": true,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpa",
+      "strict": false,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpe",
+      "strict": true,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpe",
+      "strict": false,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpeg",
+      "strict": true,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpeg",
+      "strict": false,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpg",
+      "strict": true,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.mpg",
+      "strict": false,
+      "attendu": [
+        "video/mpeg",
+        null
+      ]
+    },
+    {
+      "url": "x.ms",
+      "strict": true,
+      "attendu": [
+        "application/x-troff-ms",
+        null
+      ]
+    },
+    {
+      "url": "x.ms",
+      "strict": false,
+      "attendu": [
+        "application/x-troff-ms",
+        null
+      ]
+    },
+    {
+      "url": "x.n3",
+      "strict": true,
+      "attendu": [
+        "text/n3",
+        null
+      ]
+    },
+    {
+      "url": "x.n3",
+      "strict": false,
+      "attendu": [
+        "text/n3",
+        null
+      ]
+    },
+    {
+      "url": "x.nc",
+      "strict": true,
+      "attendu": [
+        "application/x-netcdf",
+        null
+      ]
+    },
+    {
+      "url": "x.nc",
+      "strict": false,
+      "attendu": [
+        "application/x-netcdf",
+        null
+      ]
+    },
+    {
+      "url": "x.nq",
+      "strict": true,
+      "attendu": [
+        "application/n-quads",
+        null
+      ]
+    },
+    {
+      "url": "x.nq",
+      "strict": false,
+      "attendu": [
+        "application/n-quads",
+        null
+      ]
+    },
+    {
+      "url": "x.nt",
+      "strict": true,
+      "attendu": [
+        "application/n-triples",
+        null
+      ]
+    },
+    {
+      "url": "x.nt",
+      "strict": false,
+      "attendu": [
+        "application/n-triples",
+        null
+      ]
+    },
+    {
+      "url": "x.nws",
+      "strict": true,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.nws",
+      "strict": false,
+      "attendu": [
+        "message/rfc822",
+        null
+      ]
+    },
+    {
+      "url": "x.o",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.o",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.obj",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.obj",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.oda",
+      "strict": true,
+      "attendu": [
+        "application/oda",
+        null
+      ]
+    },
+    {
+      "url": "x.oda",
+      "strict": false,
+      "attendu": [
+        "application/oda",
+        null
+      ]
+    },
+    {
+      "url": "x.opus",
+      "strict": true,
+      "attendu": [
+        "audio/opus",
+        null
+      ]
+    },
+    {
+      "url": "x.opus",
+      "strict": false,
+      "attendu": [
+        "audio/opus",
+        null
+      ]
+    },
+    {
+      "url": "x.p12",
+      "strict": true,
+      "attendu": [
+        "application/x-pkcs12",
+        null
+      ]
+    },
+    {
+      "url": "x.p12",
+      "strict": false,
+      "attendu": [
+        "application/x-pkcs12",
+        null
+      ]
+    },
+    {
+      "url": "x.p7c",
+      "strict": true,
+      "attendu": [
+        "application/pkcs7-mime",
+        null
+      ]
+    },
+    {
+      "url": "x.p7c",
+      "strict": false,
+      "attendu": [
+        "application/pkcs7-mime",
+        null
+      ]
+    },
+    {
+      "url": "x.pbm",
+      "strict": true,
+      "attendu": [
+        "image/x-portable-bitmap",
+        null
+      ]
+    },
+    {
+      "url": "x.pbm",
+      "strict": false,
+      "attendu": [
+        "image/x-portable-bitmap",
+        null
+      ]
+    },
+    {
+      "url": "x.pct",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.pct",
+      "strict": false,
+      "attendu": [
+        "image/pict",
+        null
+      ]
+    },
+    {
+      "url": "x.pdf",
+      "strict": true,
+      "attendu": [
+        "application/pdf",
+        null
+      ]
+    },
+    {
+      "url": "x.pdf",
+      "strict": false,
+      "attendu": [
+        "application/pdf",
+        null
+      ]
+    },
+    {
+      "url": "x.pfx",
+      "strict": true,
+      "attendu": [
+        "application/x-pkcs12",
+        null
+      ]
+    },
+    {
+      "url": "x.pfx",
+      "strict": false,
+      "attendu": [
+        "application/x-pkcs12",
+        null
+      ]
+    },
+    {
+      "url": "x.pgm",
+      "strict": true,
+      "attendu": [
+        "image/x-portable-graymap",
+        null
+      ]
+    },
+    {
+      "url": "x.pgm",
+      "strict": false,
+      "attendu": [
+        "image/x-portable-graymap",
+        null
+      ]
+    },
+    {
+      "url": "x.pic",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.pic",
+      "strict": false,
+      "attendu": [
+        "image/pict",
+        null
+      ]
+    },
+    {
+      "url": "x.pict",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.pict",
+      "strict": false,
+      "attendu": [
+        "image/pict",
+        null
+      ]
+    },
+    {
+      "url": "x.pl",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.pl",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.png",
+      "strict": true,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "x.png",
+      "strict": false,
+      "attendu": [
+        "image/png",
+        null
+      ]
+    },
+    {
+      "url": "x.pnm",
+      "strict": true,
+      "attendu": [
+        "image/x-portable-anymap",
+        null
+      ]
+    },
+    {
+      "url": "x.pnm",
+      "strict": false,
+      "attendu": [
+        "image/x-portable-anymap",
+        null
+      ]
+    },
+    {
+      "url": "x.pot",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.pot",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ppa",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ppa",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ppm",
+      "strict": true,
+      "attendu": [
+        "image/x-portable-pixmap",
+        null
+      ]
+    },
+    {
+      "url": "x.ppm",
+      "strict": false,
+      "attendu": [
+        "image/x-portable-pixmap",
+        null
+      ]
+    },
+    {
+      "url": "x.pps",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.pps",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ppt",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ppt",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.ps",
+      "strict": true,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.ps",
+      "strict": false,
+      "attendu": [
+        "application/postscript",
+        null
+      ]
+    },
+    {
+      "url": "x.pwz",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.pwz",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-powerpoint",
+        null
+      ]
+    },
+    {
+      "url": "x.py",
+      "strict": true,
+      "attendu": [
+        "text/x-python",
+        null
+      ]
+    },
+    {
+      "url": "x.py",
+      "strict": false,
+      "attendu": [
+        "text/x-python",
+        null
+      ]
+    },
+    {
+      "url": "x.pyc",
+      "strict": true,
+      "attendu": [
+        "application/x-python-code",
+        null
+      ]
+    },
+    {
+      "url": "x.pyc",
+      "strict": false,
+      "attendu": [
+        "application/x-python-code",
+        null
+      ]
+    },
+    {
+      "url": "x.pyo",
+      "strict": true,
+      "attendu": [
+        "application/x-python-code",
+        null
+      ]
+    },
+    {
+      "url": "x.pyo",
+      "strict": false,
+      "attendu": [
+        "application/x-python-code",
+        null
+      ]
+    },
+    {
+      "url": "x.qt",
+      "strict": true,
+      "attendu": [
+        "video/quicktime",
+        null
+      ]
+    },
+    {
+      "url": "x.qt",
+      "strict": false,
+      "attendu": [
+        "video/quicktime",
+        null
+      ]
+    },
+    {
+      "url": "x.ra",
+      "strict": true,
+      "attendu": [
+        "audio/x-pn-realaudio",
+        null
+      ]
+    },
+    {
+      "url": "x.ra",
+      "strict": false,
+      "attendu": [
+        "audio/x-pn-realaudio",
+        null
+      ]
+    },
+    {
+      "url": "x.ram",
+      "strict": true,
+      "attendu": [
+        "application/x-pn-realaudio",
+        null
+      ]
+    },
+    {
+      "url": "x.ram",
+      "strict": false,
+      "attendu": [
+        "application/x-pn-realaudio",
+        null
+      ]
+    },
+    {
+      "url": "x.ras",
+      "strict": true,
+      "attendu": [
+        "image/x-cmu-raster",
+        null
+      ]
+    },
+    {
+      "url": "x.ras",
+      "strict": false,
+      "attendu": [
+        "image/x-cmu-raster",
+        null
+      ]
+    },
+    {
+      "url": "x.rdf",
+      "strict": true,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.rdf",
+      "strict": false,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.rgb",
+      "strict": true,
+      "attendu": [
+        "image/x-rgb",
+        null
+      ]
+    },
+    {
+      "url": "x.rgb",
+      "strict": false,
+      "attendu": [
+        "image/x-rgb",
+        null
+      ]
+    },
+    {
+      "url": "x.roff",
+      "strict": true,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.roff",
+      "strict": false,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.rst",
+      "strict": true,
+      "attendu": [
+        "text/x-rst",
+        null
+      ]
+    },
+    {
+      "url": "x.rst",
+      "strict": false,
+      "attendu": [
+        "text/x-rst",
+        null
+      ]
+    },
+    {
+      "url": "x.rtf",
+      "strict": true,
+      "attendu": [
+        "text/rtf",
+        null
+      ]
+    },
+    {
+      "url": "x.rtf",
+      "strict": false,
+      "attendu": [
+        "text/rtf",
+        null
+      ]
+    },
+    {
+      "url": "x.rtx",
+      "strict": true,
+      "attendu": [
+        "text/richtext",
+        null
+      ]
+    },
+    {
+      "url": "x.rtx",
+      "strict": false,
+      "attendu": [
+        "text/richtext",
+        null
+      ]
+    },
+    {
+      "url": "x.sgm",
+      "strict": true,
+      "attendu": [
+        "text/x-sgml",
+        null
+      ]
+    },
+    {
+      "url": "x.sgm",
+      "strict": false,
+      "attendu": [
+        "text/x-sgml",
+        null
+      ]
+    },
+    {
+      "url": "x.sgml",
+      "strict": true,
+      "attendu": [
+        "text/x-sgml",
+        null
+      ]
+    },
+    {
+      "url": "x.sgml",
+      "strict": false,
+      "attendu": [
+        "text/x-sgml",
+        null
+      ]
+    },
+    {
+      "url": "x.sh",
+      "strict": true,
+      "attendu": [
+        "application/x-sh",
+        null
+      ]
+    },
+    {
+      "url": "x.sh",
+      "strict": false,
+      "attendu": [
+        "application/x-sh",
+        null
+      ]
+    },
+    {
+      "url": "x.shar",
+      "strict": true,
+      "attendu": [
+        "application/x-shar",
+        null
+      ]
+    },
+    {
+      "url": "x.shar",
+      "strict": false,
+      "attendu": [
+        "application/x-shar",
+        null
+      ]
+    },
+    {
+      "url": "x.snd",
+      "strict": true,
+      "attendu": [
+        "audio/basic",
+        null
+      ]
+    },
+    {
+      "url": "x.snd",
+      "strict": false,
+      "attendu": [
+        "audio/basic",
+        null
+      ]
+    },
+    {
+      "url": "x.so",
+      "strict": true,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.so",
+      "strict": false,
+      "attendu": [
+        "application/octet-stream",
+        null
+      ]
+    },
+    {
+      "url": "x.src",
+      "strict": true,
+      "attendu": [
+        "application/x-wais-source",
+        null
+      ]
+    },
+    {
+      "url": "x.src",
+      "strict": false,
+      "attendu": [
+        "application/x-wais-source",
+        null
+      ]
+    },
+    {
+      "url": "x.srt",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.srt",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.sv4cpio",
+      "strict": true,
+      "attendu": [
+        "application/x-sv4cpio",
+        null
+      ]
+    },
+    {
+      "url": "x.sv4cpio",
+      "strict": false,
+      "attendu": [
+        "application/x-sv4cpio",
+        null
+      ]
+    },
+    {
+      "url": "x.sv4crc",
+      "strict": true,
+      "attendu": [
+        "application/x-sv4crc",
+        null
+      ]
+    },
+    {
+      "url": "x.sv4crc",
+      "strict": false,
+      "attendu": [
+        "application/x-sv4crc",
+        null
+      ]
+    },
+    {
+      "url": "x.svg",
+      "strict": true,
+      "attendu": [
+        "image/svg+xml",
+        null
+      ]
+    },
+    {
+      "url": "x.svg",
+      "strict": false,
+      "attendu": [
+        "image/svg+xml",
+        null
+      ]
+    },
+    {
+      "url": "x.swf",
+      "strict": true,
+      "attendu": [
+        "application/x-shockwave-flash",
+        null
+      ]
+    },
+    {
+      "url": "x.swf",
+      "strict": false,
+      "attendu": [
+        "application/x-shockwave-flash",
+        null
+      ]
+    },
+    {
+      "url": "x.t",
+      "strict": true,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.t",
+      "strict": false,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.tar",
+      "strict": true,
+      "attendu": [
+        "application/x-tar",
+        null
+      ]
+    },
+    {
+      "url": "x.tar",
+      "strict": false,
+      "attendu": [
+        "application/x-tar",
+        null
+      ]
+    },
+    {
+      "url": "x.tcl",
+      "strict": true,
+      "attendu": [
+        "application/x-tcl",
+        null
+      ]
+    },
+    {
+      "url": "x.tcl",
+      "strict": false,
+      "attendu": [
+        "application/x-tcl",
+        null
+      ]
+    },
+    {
+      "url": "x.tex",
+      "strict": true,
+      "attendu": [
+        "application/x-tex",
+        null
+      ]
+    },
+    {
+      "url": "x.tex",
+      "strict": false,
+      "attendu": [
+        "application/x-tex",
+        null
+      ]
+    },
+    {
+      "url": "x.texi",
+      "strict": true,
+      "attendu": [
+        "application/x-texinfo",
+        null
+      ]
+    },
+    {
+      "url": "x.texi",
+      "strict": false,
+      "attendu": [
+        "application/x-texinfo",
+        null
+      ]
+    },
+    {
+      "url": "x.texinfo",
+      "strict": true,
+      "attendu": [
+        "application/x-texinfo",
+        null
+      ]
+    },
+    {
+      "url": "x.texinfo",
+      "strict": false,
+      "attendu": [
+        "application/x-texinfo",
+        null
+      ]
+    },
+    {
+      "url": "x.tif",
+      "strict": true,
+      "attendu": [
+        "image/tiff",
+        null
+      ]
+    },
+    {
+      "url": "x.tif",
+      "strict": false,
+      "attendu": [
+        "image/tiff",
+        null
+      ]
+    },
+    {
+      "url": "x.tiff",
+      "strict": true,
+      "attendu": [
+        "image/tiff",
+        null
+      ]
+    },
+    {
+      "url": "x.tiff",
+      "strict": false,
+      "attendu": [
+        "image/tiff",
+        null
+      ]
+    },
+    {
+      "url": "x.tr",
+      "strict": true,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.tr",
+      "strict": false,
+      "attendu": [
+        "application/x-troff",
+        null
+      ]
+    },
+    {
+      "url": "x.trig",
+      "strict": true,
+      "attendu": [
+        "application/trig",
+        null
+      ]
+    },
+    {
+      "url": "x.trig",
+      "strict": false,
+      "attendu": [
+        "application/trig",
+        null
+      ]
+    },
+    {
+      "url": "x.tsv",
+      "strict": true,
+      "attendu": [
+        "text/tab-separated-values",
+        null
+      ]
+    },
+    {
+      "url": "x.tsv",
+      "strict": false,
+      "attendu": [
+        "text/tab-separated-values",
+        null
+      ]
+    },
+    {
+      "url": "x.txt",
+      "strict": true,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.txt",
+      "strict": false,
+      "attendu": [
+        "text/plain",
+        null
+      ]
+    },
+    {
+      "url": "x.ustar",
+      "strict": true,
+      "attendu": [
+        "application/x-ustar",
+        null
+      ]
+    },
+    {
+      "url": "x.ustar",
+      "strict": false,
+      "attendu": [
+        "application/x-ustar",
+        null
+      ]
+    },
+    {
+      "url": "x.vcf",
+      "strict": true,
+      "attendu": [
+        "text/x-vcard",
+        null
+      ]
+    },
+    {
+      "url": "x.vcf",
+      "strict": false,
+      "attendu": [
+        "text/x-vcard",
+        null
+      ]
+    },
+    {
+      "url": "x.vtt",
+      "strict": true,
+      "attendu": [
+        "text/vtt",
+        null
+      ]
+    },
+    {
+      "url": "x.vtt",
+      "strict": false,
+      "attendu": [
+        "text/vtt",
+        null
+      ]
+    },
+    {
+      "url": "x.wasm",
+      "strict": true,
+      "attendu": [
+        "application/wasm",
+        null
+      ]
+    },
+    {
+      "url": "x.wasm",
+      "strict": false,
+      "attendu": [
+        "application/wasm",
+        null
+      ]
+    },
+    {
+      "url": "x.wav",
+      "strict": true,
+      "attendu": [
+        "audio/x-wav",
+        null
+      ]
+    },
+    {
+      "url": "x.wav",
+      "strict": false,
+      "attendu": [
+        "audio/x-wav",
+        null
+      ]
+    },
+    {
+      "url": "x.webm",
+      "strict": true,
+      "attendu": [
+        "video/webm",
+        null
+      ]
+    },
+    {
+      "url": "x.webm",
+      "strict": false,
+      "attendu": [
+        "video/webm",
+        null
+      ]
+    },
+    {
+      "url": "x.webmanifest",
+      "strict": true,
+      "attendu": [
+        "application/manifest+json",
+        null
+      ]
+    },
+    {
+      "url": "x.webmanifest",
+      "strict": false,
+      "attendu": [
+        "application/manifest+json",
+        null
+      ]
+    },
+    {
+      "url": "x.webp",
+      "strict": true,
+      "attendu": [
+        "image/webp",
+        null
+      ]
+    },
+    {
+      "url": "x.webp",
+      "strict": false,
+      "attendu": [
+        "image/webp",
+        null
+      ]
+    },
+    {
+      "url": "x.wiz",
+      "strict": true,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.wiz",
+      "strict": false,
+      "attendu": [
+        "application/msword",
+        null
+      ]
+    },
+    {
+      "url": "x.wsdl",
+      "strict": true,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.wsdl",
+      "strict": false,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xbm",
+      "strict": true,
+      "attendu": [
+        "image/x-xbitmap",
+        null
+      ]
+    },
+    {
+      "url": "x.xbm",
+      "strict": false,
+      "attendu": [
+        "image/x-xbitmap",
+        null
+      ]
+    },
+    {
+      "url": "x.xlb",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-excel",
+        null
+      ]
+    },
+    {
+      "url": "x.xlb",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-excel",
+        null
+      ]
+    },
+    {
+      "url": "x.xls",
+      "strict": true,
+      "attendu": [
+        "application/vnd.ms-excel",
+        null
+      ]
+    },
+    {
+      "url": "x.xls",
+      "strict": false,
+      "attendu": [
+        "application/vnd.ms-excel",
+        null
+      ]
+    },
+    {
+      "url": "x.xml",
+      "strict": true,
+      "attendu": [
+        "text/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xml",
+      "strict": false,
+      "attendu": [
+        "text/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xpdl",
+      "strict": true,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xpdl",
+      "strict": false,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xpm",
+      "strict": true,
+      "attendu": [
+        "image/x-xpixmap",
+        null
+      ]
+    },
+    {
+      "url": "x.xpm",
+      "strict": false,
+      "attendu": [
+        "image/x-xpixmap",
+        null
+      ]
+    },
+    {
+      "url": "x.xsl",
+      "strict": true,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xsl",
+      "strict": false,
+      "attendu": [
+        "application/xml",
+        null
+      ]
+    },
+    {
+      "url": "x.xul",
+      "strict": true,
+      "attendu": [
+        null,
+        null
+      ]
+    },
+    {
+      "url": "x.xul",
+      "strict": false,
+      "attendu": [
+        "text/xul",
+        null
+      ]
+    },
+    {
+      "url": "x.xwd",
+      "strict": true,
+      "attendu": [
+        "image/x-xwindowdump",
+        null
+      ]
+    },
+    {
+      "url": "x.xwd",
+      "strict": false,
+      "attendu": [
+        "image/x-xwindowdump",
+        null
+      ]
+    },
+    {
+      "url": "x.zip",
+      "strict": true,
+      "attendu": [
+        "application/zip",
+        null
+      ]
+    },
+    {
+      "url": "x.zip",
+      "strict": false,
+      "attendu": [
+        "application/zip",
+        null
+      ]
+    }
+  ],
+  "lecture": {
+    "contenu": "# commentaire\ntext/x-essai\tess  essai # fin de ligne\napplication/x-remplace html\r\nimage/x-maj MAJ\rtext/x-vide\n  \ntext/x-a a#b c\n\u3000text/x-espace\u3000esp\n",
+    "cas": [
+      {
+        "url": "a.ess",
+        "attendu": [
+          "text/x-essai",
+          null
+        ]
+      },
+      {
+        "url": "a.essai",
+        "attendu": [
+          "text/x-essai",
+          null
+        ]
+      },
+      {
+        "url": "a.fin",
+        "attendu": [
+          null,
+          null
+        ]
+      },
+      {
+        "url": "a.html",
+        "attendu": [
+          "application/x-remplace",
+          null
+        ]
+      },
+      {
+        "url": "a.maj",
+        "attendu": [
+          null,
+          null
+        ]
+      },
+      {
+        "url": "a.MAJ",
+        "attendu": [
+          null,
+          null
+        ]
+      },
+      {
+        "url": "a.vide",
+        "attendu": [
+          null,
+          null
+        ]
+      },
+      {
+        "url": "a.a",
+        "attendu": [
+          "application/octet-stream",
+          null
+        ]
+      },
+      {
+        "url": "a.c",
+        "attendu": [
+          "text/x-a",
+          null
+        ]
+      },
+      {
+        "url": "a.esp",
+        "attendu": [
+          "text/x-espace",
+          null
+        ]
+      },
+      {
+        "url": "a.css",
+        "attendu": [
+          "text/css",
+          null
+        ]
+      }
+    ]
+  }
+}

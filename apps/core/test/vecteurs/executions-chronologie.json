@@ -1,0 +1,589 @@
+{
+  "runs": [
+    {
+      "id": "chat-a1",
+      "kind": "chat",
+      "user_id": 1,
+      "started_at": 1700000000.0,
+      "chat_id": "c1",
+      "ended_at": 1700000010.5,
+      "status": "ok",
+      "model": "m",
+      "engine": "builtin",
+      "input_tokens": 1000,
+      "output_tokens": 50,
+      "llm_calls": 2,
+      "tool_calls": 3,
+      "tool_errors": 1,
+      "tool_families": "{\"fs\": 2, \"shell\": 1}",
+      "files_changed": 2
+    },
+    {
+      "id": "compaction-c1",
+      "kind": "compaction",
+      "user_id": 1,
+      "started_at": 1700000001.0,
+      "chat_id": "c1",
+      "parent_id": "chat-a1"
+    },
+    {
+      "id": "subagent-b1",
+      "kind": "subagent",
+      "user_id": 1,
+      "started_at": 1700000002.0,
+      "chat_id": "c1#task-x",
+      "parent_id": "chat-a1",
+      "ended_at": 1700000005.25,
+      "status": "error",
+      "error_kind": "timeout"
+    },
+    {
+      "id": "subagent-d1",
+      "kind": "subagent",
+      "user_id": 1,
+      "started_at": 1700000003.0,
+      "parent_id": "subagent-b1",
+      "ended_at": 1700000004.0
+    },
+    {
+      "id": "subagent-d2",
+      "kind": "subagent",
+      "user_id": 1,
+      "started_at": 1700000003.5,
+      "parent_id": "subagent-d1"
+    },
+    {
+      "id": "subagent-d3",
+      "kind": "subagent",
+      "user_id": 1,
+      "started_at": 1700000003.75,
+      "parent_id": "subagent-d2"
+    },
+    {
+      "id": "subagent-d4",
+      "kind": "subagent",
+      "user_id": 1,
+      "started_at": 1700000003.875,
+      "parent_id": "subagent-d3"
+    },
+    {
+      "id": "chat-bob1",
+      "kind": "chat",
+      "user_id": 2,
+      "started_at": 1700000020.0,
+      "chat_id": "c9",
+      "tool_families": "pas du json"
+    },
+    {
+      "id": "routine-x",
+      "kind": "routine",
+      "user_id": null,
+      "started_at": 1700000030.0
+    },
+    {
+      "id": "BAD",
+      "kind": "chat",
+      "user_id": 1,
+      "started_at": 1700000035.0
+    },
+    {
+      "id": "chat-z",
+      "kind": "chat",
+      "user_id": 1,
+      "started_at": 1700000040.0,
+      "tool_families": "{\"b\": 1, \"a\": 2}",
+      "sandbox_cpu_peak": 12.0,
+      "sandbox_mem_peak_mb": 256.5,
+      "error_kind": "Authorization: Bearer secret-de-run"
+    }
+  ],
+  "usage": [
+    {
+      "ts": 1700000003.5,
+      "user_id": 1,
+      "source": "chat",
+      "model": "m",
+      "connector": "builtin",
+      "input_tokens": 600,
+      "output_tokens": 20,
+      "duration_ms": 1500,
+      "iterations": 1,
+      "status": "ok",
+      "run_id": "chat-a1"
+    },
+    {
+      "ts": 1700000009.0,
+      "user_id": 1,
+      "source": "chat",
+      "model": "m",
+      "connector": "",
+      "input_tokens": 400,
+      "output_tokens": 30,
+      "duration_ms": 0,
+      "iterations": 2,
+      "status": "error",
+      "error_kind": "api_key=abc123",
+      "run_id": "chat-a1"
+    },
+    {
+      "ts": 1700000004.0,
+      "user_id": 1,
+      "source": "subagent",
+      "duration_ms": 250,
+      "run_id": "subagent-b1"
+    }
+  ],
+  "outils": [
+    {
+      "run_id": "chat-a1",
+      "user_id": 1,
+      "tool_name": "execute_shell",
+      "status": "success",
+      "duration_ms": 900,
+      "ts": 1700000005.0,
+      "call_id": "call_1",
+      "started_at": 1700000004.25,
+      "category": "shell",
+      "exit_code": 0,
+      "args_bytes": 40,
+      "result_bytes": 20
+    },
+    {
+      "run_id": "chat-a1",
+      "user_id": 1,
+      "tool_name": "read_file",
+      "status": "error",
+      "duration_ms": 500,
+      "ts": 1700000006.0,
+      "call_id": "call_2",
+      "category": "fs",
+      "error_short": "password=hunter2 refus\u00e9"
+    },
+    {
+      "run_id": "chat-a1",
+      "user_id": 1,
+      "tool_name": "write_file",
+      "status": "success",
+      "duration_ms": 10,
+      "ts": 1700000007.0,
+      "call_id": "call_3",
+      "started_at": 0,
+      "category": "fs"
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "liste"
+    },
+    {
+      "role": "assistant",
+      "content": "ok",
+      "run_ids": [
+        "chat-a1"
+      ],
+      "tool_history": [
+        {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "function": {
+                "name": "execute_shell",
+                "arguments": "{\"command\": \"ls -la\", \"token\": \"t0k3n-secret\"}"
+              }
+            },
+            {
+              "id": "call_2",
+              "function": {
+                "name": "read_file",
+                "arguments": {
+                  "path": "a.py"
+                }
+              }
+            },
+            {
+              "id": "",
+              "function": {
+                "name": "ignor\u00e9"
+              }
+            },
+            "pas un dict"
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "total 0\npassword=hunter2\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_2",
+          "content": {
+            "ok": true,
+            "\u00e9": 1
+          }
+        },
+        {
+          "role": "tool",
+          "content": "sans id"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "run_ids": [
+        "autre"
+      ],
+      "tool_history": [
+        {
+          "role": "tool",
+          "tool_call_id": "call_3",
+          "content": "d'un autre run"
+        }
+      ]
+    }
+  ],
+  "requetes": [
+    [
+      1,
+      "/api/runs/chat-a1"
+    ],
+    [
+      2,
+      "/api/runs/chat-a1"
+    ],
+    [
+      2,
+      "/api/runs/chat-bob1"
+    ],
+    [
+      1,
+      "/api/runs/inconnu-x"
+    ],
+    [
+      1,
+      "/api/runs/BAD"
+    ],
+    [
+      1,
+      "/api/runs/chat-a1/timeline"
+    ],
+    [
+      1,
+      "/api/runs/chat-a1/export"
+    ],
+    [
+      1,
+      "/api/runs/subagent-b1/timeline"
+    ],
+    [
+      1,
+      "/api/runs/routine-x"
+    ],
+    [
+      1,
+      "/api/runs/chat-z/export"
+    ],
+    [
+      1,
+      "/api/runs/chat-z"
+    ],
+    [
+      2,
+      "/api/runs/chat-bob1/export"
+    ],
+    [
+      1,
+      "/api/runs/a-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    [
+      1,
+      "/api/runs/aaaaaaaaaaaaaaaaa-x"
+    ],
+    [
+      1,
+      "/api/runs/chat-%C3%A9"
+    ],
+    [
+      1,
+      "/api/runs/compaction-c1/timeline"
+    ]
+  ],
+  "textes": [
+    "Authorization: Bearer abc.def",
+    "authorization=basic xyz",
+    "Proxy-Authorization: token t0k",
+    "AUTHORIZATION:secret",
+    "xauthorization: v",
+    "\u00e9authorization: v",
+    "api_key=sk-12345",
+    "API-KEY: 'with space'",
+    "\"password\": \"p@ss w\\\"ord\"",
+    "\\\"token\\\": \\\"abc\\\"",
+    "my_secret_value=abc;next",
+    "passwd = x&y",
+    "access-key:abc",
+    "Token=abc",
+    "ghp_abcdefghijklmnop",
+    "xoxb-123456789012",
+    "sk-ant-abcdefghijkl12",
+    "https://user:pw@host/x",
+    "HTTPS://u:p@h",
+    "http://h/path@x",
+    "\u017fecret=1",
+    "to\u212aen=1",
+    "ap\u0130_key=1",
+    "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY----- fin",
+    "-----BEGIN PRIVATE KEY-----\ntronqu\u00e9",
+    "texte sans secret",
+    "pcr_abcdefghijkl",
+    "\u00e9vt_abcdefghijklmnop",
+    "Authorization:\u00a0Bearer\u2003x",
+    "TOKEN : \"a b\"",
+    "token='x y'",
+    "secretkey=v1 secret=v2",
+    "_ghp_abcdefghijklmnop",
+    "sk_abcdefghijklm",
+    "url http://a:b@c et https://d:e@f"
+  ],
+  "arguments": [
+    "{\"command\": \"ls\"}",
+    "{\"cmd\": \"\", \"path\": \"a.py\"}",
+    "{\"paths\": []}",
+    "{\"paths\": [\"a\", \"b\"]}",
+    "{\"query\": 0}",
+    "[1, 2]",
+    "\"juste une cha\u00eene\"",
+    "pas du json",
+    null,
+    5,
+    {
+      "name": {
+        "x": 1
+      }
+    },
+    {
+      "url": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    },
+    {
+      "z": 1,
+      "y": [
+        true,
+        null
+      ]
+    },
+    "{\"pattern\": false}",
+    "{\"action\": null, \"repo\": \"r\"}",
+    "",
+    0,
+    "{\"target\": 1.5}",
+    {
+      "command": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "reponses": [
+    {
+      "statut": 200,
+      "corps": "{\"id\":\"chat-a1\",\"kind\":\"chat\",\"user_id\":1,\"chat_id\":\"c1\",\"routine_id\":null,\"parent_id\":\"\",\"project_id\":null,\"model\":\"m\",\"engine\":\"builtin\",\"started_at\":1700000000.0,\"ended_at\":1700000010.5,\"status\":\"ok\",\"error_kind\":\"\",\"input_tokens\":1000,\"output_tokens\":50,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":2,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":3,\"tool_errors\":1,\"tool_families\":{\"fs\":2,\"shell\":1},\"files_changed\":2,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"compaction-c1\",\"kind\":\"compaction\",\"user_id\":1,\"chat_id\":\"c1\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000001.0,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]},{\"id\":\"subagent-b1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"c1#task-x\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000002.0,\"ended_at\":1700000005.25,\"status\":\"error\",\"error_kind\":\"timeout\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-b1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.0,\"ended_at\":1700000004.0,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d2\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.5,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d3\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d2\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.75,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]}]}]}]}]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":\"chat-bob1\",\"kind\":\"chat\",\"user_id\":2,\"chat_id\":\"c9\",\"routine_id\":null,\"parent_id\":\"\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000020.0,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"run\":{\"id\":\"chat-a1\",\"kind\":\"chat\",\"user_id\":1,\"chat_id\":\"c1\",\"routine_id\":null,\"parent_id\":\"\",\"project_id\":null,\"model\":\"m\",\"engine\":\"builtin\",\"started_at\":1700000000.0,\"ended_at\":1700000010.5,\"status\":\"ok\",\"error_kind\":\"\",\"input_tokens\":1000,\"output_tokens\":50,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":2,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":3,\"tool_errors\":1,\"tool_families\":{\"fs\":2,\"shell\":1},\"files_changed\":2,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0},\"events\":[{\"type\":\"child\",\"at\":1700000001.0,\"run_id\":\"compaction-c1\",\"kind\":\"compaction\",\"status\":\"running\",\"duration_ms\":0},{\"type\":\"llm\",\"at\":1700000002.0,\"ts\":1700000003.5,\"source\":\"chat\",\"model\":\"m\",\"connector\":\"builtin\",\"input_tokens\":600,\"output_tokens\":20,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"tool_tokens\":0,\"duration_ms\":1500,\"iterations\":1,\"status\":\"ok\",\"error_kind\":\"\"},{\"type\":\"child\",\"at\":1700000002.0,\"run_id\":\"subagent-b1\",\"kind\":\"subagent\",\"status\":\"error\",\"duration_ms\":3250},{\"type\":\"tool\",\"at\":1700000004.25,\"call_id\":\"call_1\",\"started_at\":1700000004.25,\"ts\":1700000005.0,\"tool_name\":\"execute_shell\",\"category\":\"shell\",\"status\":\"success\",\"duration_ms\":900,\"exit_code\":0,\"args_bytes\":40,\"result_bytes\":20,\"error_short\":null,\"argument\":\"command: ls -la\",\"result\":\"total 0\\npassword=hunter2\\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},{\"type\":\"tool\",\"at\":1700000005.5,\"call_id\":\"call_2\",\"started_at\":null,\"ts\":1700000006.0,\"tool_name\":\"read_file\",\"category\":\"fs\",\"status\":\"error\",\"duration_ms\":500,\"exit_code\":null,\"args_bytes\":null,\"result_bytes\":null,\"error_short\":\"password=hunter2 refus\u00e9\",\"argument\":\"path: a.py\",\"result\":\"{\\\"ok\\\": true, \\\"\u00e9\\\": 1}\"},{\"type\":\"tool\",\"at\":1700000006.99,\"call_id\":\"call_3\",\"started_at\":0.0,\"ts\":1700000007.0,\"tool_name\":\"write_file\",\"category\":\"fs\",\"status\":\"success\",\"duration_ms\":10,\"exit_code\":null,\"args_bytes\":null,\"result_bytes\":null,\"error_short\":null,\"argument\":\"\",\"result\":\"\"},{\"type\":\"llm\",\"at\":1700000009.0,\"ts\":1700000009.0,\"source\":\"chat\",\"model\":\"m\",\"connector\":\"\",\"input_tokens\":400,\"output_tokens\":30,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"tool_tokens\":0,\"duration_ms\":0,\"iterations\":2,\"status\":\"error\",\"error_kind\":\"api_key=abc123\"}],\"children\":[{\"id\":\"compaction-c1\",\"kind\":\"compaction\",\"user_id\":1,\"chat_id\":\"c1\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000001.0,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]},{\"id\":\"subagent-b1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"c1#task-x\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000002.0,\"ended_at\":1700000005.25,\"status\":\"error\",\"error_kind\":\"timeout\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-b1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.0,\"ended_at\":1700000004.0,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d2\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.5,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d3\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d2\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.75,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]}]}]}]}]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"format\": \"elpis-run/1\",\n  \"run\": {\n    \"id\": \"chat-a1\",\n    \"kind\": \"chat\",\n    \"user_id\": 1,\n    \"chat_id\": \"c1\",\n    \"routine_id\": null,\n    \"parent_id\": \"\",\n    \"project_id\": null,\n    \"model\": \"m\",\n    \"engine\": \"builtin\",\n    \"started_at\": 1700000000.0,\n    \"ended_at\": 1700000010.5,\n    \"status\": \"ok\",\n    \"error_kind\": \"\",\n    \"input_tokens\": 1000,\n    \"output_tokens\": 50,\n    \"cache_read_tokens\": 0,\n    \"cache_creation_tokens\": 0,\n    \"thinking_tokens\": 0,\n    \"llm_calls\": 2,\n    \"prefill_ms\": 0,\n    \"decode_ms\": 0,\n    \"wait_ms\": 0,\n    \"tool_calls\": 3,\n    \"tool_errors\": 1,\n    \"tool_families\": {\n      \"fs\": 2,\n      \"shell\": 1\n    },\n    \"files_changed\": 2,\n    \"sandbox_cpu_peak\": null,\n    \"sandbox_mem_peak_mb\": null,\n    \"tool_tokens\": 0\n  },\n  \"events\": [\n    {\n      \"type\": \"child\",\n      \"at\": 1700000001.0,\n      \"run_id\": \"compaction-c1\",\n      \"kind\": \"compaction\",\n      \"status\": \"running\",\n      \"duration_ms\": 0\n    },\n    {\n      \"type\": \"llm\",\n      \"at\": 1700000002.0,\n      \"ts\": 1700000003.5,\n      \"source\": \"chat\",\n      \"model\": \"m\",\n      \"connector\": \"builtin\",\n      \"input_tokens\": 600,\n      \"output_tokens\": 20,\n      \"cache_read_tokens\": 0,\n      \"cache_creation_tokens\": 0,\n      \"thinking_tokens\": 0,\n      \"tool_tokens\": 0,\n      \"duration_ms\": 1500,\n      \"iterations\": 1,\n      \"status\": \"ok\",\n      \"error_kind\": \"\"\n    },\n    {\n      \"type\": \"child\",\n      \"at\": 1700000002.0,\n      \"run_id\": \"subagent-b1\",\n      \"kind\": \"subagent\",\n      \"status\": \"error\",\n      \"duration_ms\": 3250\n    },\n    {\n      \"type\": \"tool\",\n      \"at\": 1700000004.25,\n      \"call_id\": \"call_1\",\n      \"started_at\": 1700000004.25,\n      \"ts\": 1700000005.0,\n      \"tool_name\": \"execute_shell\",\n      \"category\": \"shell\",\n      \"status\": \"success\",\n      \"duration_ms\": 900,\n      \"exit_code\": 0,\n      \"args_bytes\": 40,\n      \"result_bytes\": 20,\n      \"error_short\": null,\n      \"argument\": \"command: ls -la\",\n      \"result\": \"total 0\\npassword=***\\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n    },\n    {\n      \"type\": \"tool\",\n      \"at\": 1700000005.5,\n      \"call_id\": \"call_2\",\n      \"started_at\": null,\n      \"ts\": 1700000006.0,\n      \"tool_name\": \"read_file\",\n      \"category\": \"fs\",\n      \"status\": \"error\",\n      \"duration_ms\": 500,\n      \"exit_code\": null,\n      \"args_bytes\": null,\n      \"result_bytes\": null,\n      \"error_short\": \"password=*** refus\u00e9\",\n      \"argument\": \"path: a.py\",\n      \"result\": \"{\\\"ok\\\": true, \\\"\u00e9\\\": 1}\"\n    },\n    {\n      \"type\": \"tool\",\n      \"at\": 1700000006.99,\n      \"call_id\": \"call_3\",\n      \"started_at\": 0.0,\n      \"ts\": 1700000007.0,\n      \"tool_name\": \"write_file\",\n      \"category\": \"fs\",\n      \"status\": \"success\",\n      \"duration_ms\": 10,\n      \"exit_code\": null,\n      \"args_bytes\": null,\n      \"result_bytes\": null,\n      \"error_short\": null,\n      \"argument\": \"\",\n      \"result\": \"\"\n    },\n    {\n      \"type\": \"llm\",\n      \"at\": 1700000009.0,\n      \"ts\": 1700000009.0,\n      \"source\": \"chat\",\n      \"model\": \"m\",\n      \"connector\": \"\",\n      \"input_tokens\": 400,\n      \"output_tokens\": 30,\n      \"cache_read_tokens\": 0,\n      \"cache_creation_tokens\": 0,\n      \"thinking_tokens\": 0,\n      \"tool_tokens\": 0,\n      \"duration_ms\": 0,\n      \"iterations\": 2,\n      \"status\": \"error\",\n      \"error_kind\": \"api_key=***\"\n    }\n  ],\n  \"children\": [\n    {\n      \"id\": \"compaction-c1\",\n      \"kind\": \"compaction\",\n      \"user_id\": 1,\n      \"chat_id\": \"c1\",\n      \"routine_id\": null,\n      \"parent_id\": \"chat-a1\",\n      \"project_id\": null,\n      \"model\": \"\",\n      \"engine\": \"\",\n      \"started_at\": 1700000001.0,\n      \"ended_at\": null,\n      \"status\": \"running\",\n      \"error_kind\": \"\",\n      \"input_tokens\": 0,\n      \"output_tokens\": 0,\n      \"cache_read_tokens\": 0,\n      \"cache_creation_tokens\": 0,\n      \"thinking_tokens\": 0,\n      \"llm_calls\": 0,\n      \"prefill_ms\": 0,\n      \"decode_ms\": 0,\n      \"wait_ms\": 0,\n      \"tool_calls\": 0,\n      \"tool_errors\": 0,\n      \"tool_families\": {},\n      \"files_changed\": 0,\n      \"sandbox_cpu_peak\": null,\n      \"sandbox_mem_peak_mb\": null,\n      \"tool_tokens\": 0,\n      \"children\": []\n    },\n    {\n      \"id\": \"subagent-b1\",\n      \"kind\": \"subagent\",\n      \"user_id\": 1,\n      \"chat_id\": \"c1#task-x\",\n      \"routine_id\": null,\n      \"parent_id\": \"chat-a1\",\n      \"project_id\": null,\n      \"model\": \"\",\n      \"engine\": \"\",\n      \"started_at\": 1700000002.0,\n      \"ended_at\": 1700000005.25,\n      \"status\": \"error\",\n      \"error_kind\": \"timeout\",\n      \"input_tokens\": 0,\n      \"output_tokens\": 0,\n      \"cache_read_tokens\": 0,\n      \"cache_creation_tokens\": 0,\n      \"thinking_tokens\": 0,\n      \"llm_calls\": 0,\n      \"prefill_ms\": 0,\n      \"decode_ms\": 0,\n      \"wait_ms\": 0,\n      \"tool_calls\": 0,\n      \"tool_errors\": 0,\n      \"tool_families\": {},\n      \"files_changed\": 0,\n      \"sandbox_cpu_peak\": null,\n      \"sandbox_mem_peak_mb\": null,\n      \"tool_tokens\": 0,\n      \"children\": [\n        {\n          \"id\": \"subagent-d1\",\n          \"kind\": \"subagent\",\n          \"user_id\": 1,\n          \"chat_id\": \"\",\n          \"routine_id\": null,\n          \"parent_id\": \"subagent-b1\",\n          \"project_id\": null,\n          \"model\": \"\",\n          \"engine\": \"\",\n          \"started_at\": 1700000003.0,\n          \"ended_at\": 1700000004.0,\n          \"status\": \"running\",\n          \"error_kind\": \"\",\n          \"input_tokens\": 0,\n          \"output_tokens\": 0,\n          \"cache_read_tokens\": 0,\n          \"cache_creation_tokens\": 0,\n          \"thinking_tokens\": 0,\n          \"llm_calls\": 0,\n          \"prefill_ms\": 0,\n          \"decode_ms\": 0,\n          \"wait_ms\": 0,\n          \"tool_calls\": 0,\n          \"tool_errors\": 0,\n          \"tool_families\": {},\n          \"files_changed\": 0,\n          \"sandbox_cpu_peak\": null,\n          \"sandbox_mem_peak_mb\": null,\n          \"tool_tokens\": 0,\n          \"children\": [\n            {\n              \"id\": \"subagent-d2\",\n              \"kind\": \"subagent\",\n              \"user_id\": 1,\n              \"chat_id\": \"\",\n              \"routine_id\": null,\n              \"parent_id\": \"subagent-d1\",\n              \"project_id\": null,\n              \"model\": \"\",\n              \"engine\": \"\",\n              \"started_at\": 1700000003.5,\n              \"ended_at\": null,\n              \"status\": \"running\",\n              \"error_kind\": \"\",\n              \"input_tokens\": 0,\n              \"output_tokens\": 0,\n              \"cache_read_tokens\": 0,\n              \"cache_creation_tokens\": 0,\n              \"thinking_tokens\": 0,\n              \"llm_calls\": 0,\n              \"prefill_ms\": 0,\n              \"decode_ms\": 0,\n              \"wait_ms\": 0,\n              \"tool_calls\": 0,\n              \"tool_errors\": 0,\n              \"tool_families\": {},\n              \"files_changed\": 0,\n              \"sandbox_cpu_peak\": null,\n              \"sandbox_mem_peak_mb\": null,\n              \"tool_tokens\": 0,\n              \"children\": [\n                {\n                  \"id\": \"subagent-d3\",\n                  \"kind\": \"subagent\",\n                  \"user_id\": 1,\n                  \"chat_id\": \"\",\n                  \"routine_id\": null,\n                  \"parent_id\": \"subagent-d2\",\n                  \"project_id\": null,\n                  \"model\": \"\",\n                  \"engine\": \"\",\n                  \"started_at\": 1700000003.75,\n                  \"ended_at\": null,\n                  \"status\": \"running\",\n                  \"error_kind\": \"\",\n                  \"input_tokens\": 0,\n                  \"output_tokens\": 0,\n                  \"cache_read_tokens\": 0,\n                  \"cache_creation_tokens\": 0,\n                  \"thinking_tokens\": 0,\n                  \"llm_calls\": 0,\n                  \"prefill_ms\": 0,\n                  \"decode_ms\": 0,\n                  \"wait_ms\": 0,\n                  \"tool_calls\": 0,\n                  \"tool_errors\": 0,\n                  \"tool_families\": {},\n                  \"files_changed\": 0,\n                  \"sandbox_cpu_peak\": null,\n                  \"sandbox_mem_peak_mb\": null,\n                  \"tool_tokens\": 0,\n                  \"children\": []\n                }\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"children_timelines\": [\n    {\n      \"run\": {\n        \"id\": \"compaction-c1\",\n        \"kind\": \"compaction\",\n        \"user_id\": 1,\n        \"chat_id\": \"c1\",\n        \"routine_id\": null,\n        \"parent_id\": \"chat-a1\",\n        \"project_id\": null,\n        \"model\": \"\",\n        \"engine\": \"\",\n        \"started_at\": 1700000001.0,\n        \"ended_at\": null,\n        \"status\": \"running\",\n        \"error_kind\": \"\",\n        \"input_tokens\": 0,\n        \"output_tokens\": 0,\n        \"cache_read_tokens\": 0,\n        \"cache_creation_tokens\": 0,\n        \"thinking_tokens\": 0,\n        \"llm_calls\": 0,\n        \"prefill_ms\": 0,\n        \"decode_ms\": 0,\n        \"wait_ms\": 0,\n        \"tool_calls\": 0,\n        \"tool_errors\": 0,\n        \"tool_families\": {},\n        \"files_changed\": 0,\n        \"sandbox_cpu_peak\": null,\n        \"sandbox_mem_peak_mb\": null,\n        \"tool_tokens\": 0,\n        \"children\": []\n      },\n      \"events\": [],\n      \"children\": []\n    },\n    {\n      \"run\": {\n        \"id\": \"subagent-b1\",\n        \"kind\": \"subagent\",\n        \"user_id\": 1,\n        \"chat_id\": \"c1#task-x\",\n        \"routine_id\": null,\n        \"parent_id\": \"chat-a1\",\n        \"project_id\": null,\n        \"model\": \"\",\n        \"engine\": \"\",\n        \"started_at\": 1700000002.0,\n        \"ended_at\": 1700000005.25,\n        \"status\": \"error\",\n        \"error_kind\": \"timeout\",\n        \"input_tokens\": 0,\n        \"output_tokens\": 0,\n        \"cache_read_tokens\": 0,\n        \"cache_creation_tokens\": 0,\n        \"thinking_tokens\": 0,\n        \"llm_calls\": 0,\n        \"prefill_ms\": 0,\n        \"decode_ms\": 0,\n        \"wait_ms\": 0,\n        \"tool_calls\": 0,\n        \"tool_errors\": 0,\n        \"tool_families\": {},\n        \"files_changed\": 0,\n        \"sandbox_cpu_peak\": null,\n        \"sandbox_mem_peak_mb\": null,\n        \"tool_tokens\": 0,\n        \"children\": [\n          {\n            \"id\": \"subagent-d1\",\n            \"kind\": \"subagent\",\n            \"user_id\": 1,\n            \"chat_id\": \"\",\n            \"routine_id\": null,\n            \"parent_id\": \"subagent-b1\",\n            \"project_id\": null,\n            \"model\": \"\",\n            \"engine\": \"\",\n            \"started_at\": 1700000003.0,\n            \"ended_at\": 1700000004.0,\n            \"status\": \"running\",\n            \"error_kind\": \"\",\n            \"input_tokens\": 0,\n            \"output_tokens\": 0,\n            \"cache_read_tokens\": 0,\n            \"cache_creation_tokens\": 0,\n            \"thinking_tokens\": 0,\n            \"llm_calls\": 0,\n            \"prefill_ms\": 0,\n            \"decode_ms\": 0,\n            \"wait_ms\": 0,\n            \"tool_calls\": 0,\n            \"tool_errors\": 0,\n            \"tool_families\": {},\n            \"files_changed\": 0,\n            \"sandbox_cpu_peak\": null,\n            \"sandbox_mem_peak_mb\": null,\n            \"tool_tokens\": 0,\n            \"children\": [\n              {\n                \"id\": \"subagent-d2\",\n                \"kind\": \"subagent\",\n                \"user_id\": 1,\n                \"chat_id\": \"\",\n                \"routine_id\": null,\n                \"parent_id\": \"subagent-d1\",\n                \"project_id\": null,\n                \"model\": \"\",\n                \"engine\": \"\",\n                \"started_at\": 1700000003.5,\n                \"ended_at\": null,\n                \"status\": \"running\",\n                \"error_kind\": \"\",\n                \"input_tokens\": 0,\n                \"output_tokens\": 0,\n                \"cache_read_tokens\": 0,\n                \"cache_creation_tokens\": 0,\n                \"thinking_tokens\": 0,\n                \"llm_calls\": 0,\n                \"prefill_ms\": 0,\n                \"decode_ms\": 0,\n                \"wait_ms\": 0,\n                \"tool_calls\": 0,\n                \"tool_errors\": 0,\n                \"tool_families\": {},\n                \"files_changed\": 0,\n                \"sandbox_cpu_peak\": null,\n                \"sandbox_mem_peak_mb\": null,\n                \"tool_tokens\": 0,\n                \"children\": [\n                  {\n                    \"id\": \"subagent-d3\",\n                    \"kind\": \"subagent\",\n                    \"user_id\": 1,\n                    \"chat_id\": \"\",\n                    \"routine_id\": null,\n                    \"parent_id\": \"subagent-d2\",\n                    \"project_id\": null,\n                    \"model\": \"\",\n                    \"engine\": \"\",\n                    \"started_at\": 1700000003.75,\n                    \"ended_at\": null,\n                    \"status\": \"running\",\n                    \"error_kind\": \"\",\n                    \"input_tokens\": 0,\n                    \"output_tokens\": 0,\n                    \"cache_read_tokens\": 0,\n                    \"cache_creation_tokens\": 0,\n                    \"thinking_tokens\": 0,\n                    \"llm_calls\": 0,\n                    \"prefill_ms\": 0,\n                    \"decode_ms\": 0,\n                    \"wait_ms\": 0,\n                    \"tool_calls\": 0,\n                    \"tool_errors\": 0,\n                    \"tool_families\": {},\n                    \"files_changed\": 0,\n                    \"sandbox_cpu_peak\": null,\n                    \"sandbox_mem_peak_mb\": null,\n                    \"tool_tokens\": 0,\n                    \"children\": []\n                  }\n                ]\n              }\n            ]\n          }\n        ]\n      },\n      \"events\": [\n        {\n          \"type\": \"child\",\n          \"at\": 1700000003.0,\n          \"run_id\": \"subagent-d1\",\n          \"kind\": \"subagent\",\n          \"status\": \"running\",\n          \"duration_ms\": 1000\n        },\n        {\n          \"type\": \"llm\",\n          \"at\": 1700000003.75,\n          \"ts\": 1700000004.0,\n          \"source\": \"subagent\",\n          \"model\": \"\",\n          \"connector\": \"\",\n          \"input_tokens\": 0,\n          \"output_tokens\": 0,\n          \"cache_read_tokens\": 0,\n          \"cache_creation_tokens\": 0,\n          \"thinking_tokens\": 0,\n          \"tool_tokens\": 0,\n          \"duration_ms\": 250,\n          \"iterations\": 0,\n          \"status\": \"ok\",\n          \"error_kind\": \"\"\n        }\n      ],\n      \"children\": [\n        {\n          \"id\": \"subagent-d1\",\n          \"kind\": \"subagent\",\n          \"user_id\": 1,\n          \"chat_id\": \"\",\n          \"routine_id\": null,\n          \"parent_id\": \"subagent-b1\",\n          \"project_id\": null,\n          \"model\": \"\",\n          \"engine\": \"\",\n          \"started_at\": 1700000003.0,\n          \"ended_at\": 1700000004.0,\n          \"status\": \"running\",\n          \"error_kind\": \"\",\n          \"input_tokens\": 0,\n          \"output_tokens\": 0,\n          \"cache_read_tokens\": 0,\n          \"cache_creation_tokens\": 0,\n          \"thinking_tokens\": 0,\n          \"llm_calls\": 0,\n          \"prefill_ms\": 0,\n          \"decode_ms\": 0,\n          \"wait_ms\": 0,\n          \"tool_calls\": 0,\n          \"tool_errors\": 0,\n          \"tool_families\": {},\n          \"files_changed\": 0,\n          \"sandbox_cpu_peak\": null,\n          \"sandbox_mem_peak_mb\": null,\n          \"tool_tokens\": 0,\n          \"children\": [\n            {\n              \"id\": \"subagent-d2\",\n              \"kind\": \"subagent\",\n              \"user_id\": 1,\n              \"chat_id\": \"\",\n              \"routine_id\": null,\n              \"parent_id\": \"subagent-d1\",\n              \"project_id\": null,\n              \"model\": \"\",\n              \"engine\": \"\",\n              \"started_at\": 1700000003.5,\n              \"ended_at\": null,\n              \"status\": \"running\",\n              \"error_kind\": \"\",\n              \"input_tokens\": 0,\n              \"output_tokens\": 0,\n              \"cache_read_tokens\": 0,\n              \"cache_creation_tokens\": 0,\n              \"thinking_tokens\": 0,\n              \"llm_calls\": 0,\n              \"prefill_ms\": 0,\n              \"decode_ms\": 0,\n              \"wait_ms\": 0,\n              \"tool_calls\": 0,\n              \"tool_errors\": 0,\n              \"tool_families\": {},\n              \"files_changed\": 0,\n              \"sandbox_cpu_peak\": null,\n              \"sandbox_mem_peak_mb\": null,\n              \"tool_tokens\": 0,\n              \"children\": [\n                {\n                  \"id\": \"subagent-d3\",\n                  \"kind\": \"subagent\",\n                  \"user_id\": 1,\n                  \"chat_id\": \"\",\n                  \"routine_id\": null,\n                  \"parent_id\": \"subagent-d2\",\n                  \"project_id\": null,\n                  \"model\": \"\",\n                  \"engine\": \"\",\n                  \"started_at\": 1700000003.75,\n                  \"ended_at\": null,\n                  \"status\": \"running\",\n                  \"error_kind\": \"\",\n                  \"input_tokens\": 0,\n                  \"output_tokens\": 0,\n                  \"cache_read_tokens\": 0,\n                  \"cache_creation_tokens\": 0,\n                  \"thinking_tokens\": 0,\n                  \"llm_calls\": 0,\n                  \"prefill_ms\": 0,\n                  \"decode_ms\": 0,\n                  \"wait_ms\": 0,\n                  \"tool_calls\": 0,\n                  \"tool_errors\": 0,\n                  \"tool_families\": {},\n                  \"files_changed\": 0,\n                  \"sandbox_cpu_peak\": null,\n                  \"sandbox_mem_peak_mb\": null,\n                  \"tool_tokens\": 0,\n                  \"children\": [\n                    {\n                      \"id\": \"subagent-d4\",\n                      \"kind\": \"subagent\",\n                      \"user_id\": 1,\n                      \"chat_id\": \"\",\n                      \"routine_id\": null,\n                      \"parent_id\": \"subagent-d3\",\n                      \"project_id\": null,\n                      \"model\": \"\",\n                      \"engine\": \"\",\n                      \"started_at\": 1700000003.875,\n                      \"ended_at\": null,\n                      \"status\": \"running\",\n                      \"error_kind\": \"\",\n                      \"input_tokens\": 0,\n                      \"output_tokens\": 0,\n                      \"cache_read_tokens\": 0,\n                      \"cache_creation_tokens\": 0,\n                      \"thinking_tokens\": 0,\n                      \"llm_calls\": 0,\n                      \"prefill_ms\": 0,\n                      \"decode_ms\": 0,\n                      \"wait_ms\": 0,\n                      \"tool_calls\": 0,\n                      \"tool_errors\": 0,\n                      \"tool_families\": {},\n                      \"files_changed\": 0,\n                      \"sandbox_cpu_peak\": null,\n                      \"sandbox_mem_peak_mb\": null,\n                      \"tool_tokens\": 0,\n                      \"children\": []\n                    }\n                  ]\n                }\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": "attachment; filename=\"execution-chat-a1.json\"",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"run\":{\"id\":\"subagent-b1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"c1#task-x\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000002.0,\"ended_at\":1700000005.25,\"status\":\"error\",\"error_kind\":\"timeout\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0},\"events\":[{\"type\":\"child\",\"at\":1700000003.0,\"run_id\":\"subagent-d1\",\"kind\":\"subagent\",\"status\":\"running\",\"duration_ms\":1000},{\"type\":\"llm\",\"at\":1700000003.75,\"ts\":1700000004.0,\"source\":\"subagent\",\"model\":\"\",\"connector\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"tool_tokens\":0,\"duration_ms\":250,\"iterations\":0,\"status\":\"ok\",\"error_kind\":\"\"}],\"children\":[{\"id\":\"subagent-d1\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-b1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.0,\"ended_at\":1700000004.0,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d2\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.5,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d3\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d2\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.75,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[{\"id\":\"subagent-d4\",\"kind\":\"subagent\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"subagent-d3\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000003.875,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0,\"children\":[]}]}]}]}]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"format\": \"elpis-run/1\",\n  \"run\": {\n    \"id\": \"chat-z\",\n    \"kind\": \"chat\",\n    \"user_id\": 1,\n    \"chat_id\": \"\",\n    \"routine_id\": null,\n    \"parent_id\": \"\",\n    \"project_id\": null,\n    \"model\": \"\",\n    \"engine\": \"\",\n    \"started_at\": 1700000040.0,\n    \"ended_at\": null,\n    \"status\": \"running\",\n    \"error_kind\": \"Authorization: ***\",\n    \"input_tokens\": 0,\n    \"output_tokens\": 0,\n    \"cache_read_tokens\": 0,\n    \"cache_creation_tokens\": 0,\n    \"thinking_tokens\": 0,\n    \"llm_calls\": 0,\n    \"prefill_ms\": 0,\n    \"decode_ms\": 0,\n    \"wait_ms\": 0,\n    \"tool_calls\": 0,\n    \"tool_errors\": 0,\n    \"tool_families\": {\n      \"b\": 1,\n      \"a\": 2\n    },\n    \"files_changed\": 0,\n    \"sandbox_cpu_peak\": 12.0,\n    \"sandbox_mem_peak_mb\": 256.5,\n    \"tool_tokens\": 0\n  },\n  \"events\": [],\n  \"children\": [],\n  \"children_timelines\": []\n}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": "attachment; filename=\"execution-chat-z.json\"",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":\"chat-z\",\"kind\":\"chat\",\"user_id\":1,\"chat_id\":\"\",\"routine_id\":null,\"parent_id\":\"\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000040.0,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"Authorization: Bearer secret-de-run\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{\"b\":1,\"a\":2},\"files_changed\":0,\"sandbox_cpu_peak\":12.0,\"sandbox_mem_peak_mb\":256.5,\"tool_tokens\":0,\"children\":[]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\n  \"format\": \"elpis-run/1\",\n  \"run\": {\n    \"id\": \"chat-bob1\",\n    \"kind\": \"chat\",\n    \"user_id\": 2,\n    \"chat_id\": \"c9\",\n    \"routine_id\": null,\n    \"parent_id\": \"\",\n    \"project_id\": null,\n    \"model\": \"\",\n    \"engine\": \"\",\n    \"started_at\": 1700000020.0,\n    \"ended_at\": null,\n    \"status\": \"running\",\n    \"error_kind\": \"\",\n    \"input_tokens\": 0,\n    \"output_tokens\": 0,\n    \"cache_read_tokens\": 0,\n    \"cache_creation_tokens\": 0,\n    \"thinking_tokens\": 0,\n    \"llm_calls\": 0,\n    \"prefill_ms\": 0,\n    \"decode_ms\": 0,\n    \"wait_ms\": 0,\n    \"tool_calls\": 0,\n    \"tool_errors\": 0,\n    \"tool_families\": {},\n    \"files_changed\": 0,\n    \"sandbox_cpu_peak\": null,\n    \"sandbox_mem_peak_mb\": null,\n    \"tool_tokens\": 0\n  },\n  \"events\": [],\n  \"children\": [],\n  \"children_timelines\": []\n}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": "attachment; filename=\"execution-chat-bob1.json\"",
+        "cache-control": "no-store"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Ex\u00e9cution introuvable\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"run\":{\"id\":\"compaction-c1\",\"kind\":\"compaction\",\"user_id\":1,\"chat_id\":\"c1\",\"routine_id\":null,\"parent_id\":\"chat-a1\",\"project_id\":null,\"model\":\"\",\"engine\":\"\",\"started_at\":1700000001.0,\"ended_at\":null,\"status\":\"running\",\"error_kind\":\"\",\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"thinking_tokens\":0,\"llm_calls\":0,\"prefill_ms\":0,\"decode_ms\":0,\"wait_ms\":0,\"tool_calls\":0,\"tool_errors\":0,\"tool_families\":{},\"files_changed\":0,\"sandbox_cpu_peak\":null,\"sandbox_mem_peak_mb\":null,\"tool_tokens\":0},\"events\":[],\"children\":[]}",
+      "entetes": {
+        "content-type": "application/json",
+        "content-disposition": null,
+        "cache-control": null
+      }
+    }
+  ],
+  "masques": [
+    "Authorization: ***",
+    "authorization: ***",
+    "Proxy-Authorization: ***",
+    "AUTHORIZATION: ***",
+    "xauthorization: v",
+    "\u00e9authorization: v",
+    "api_key=***",
+    "API-KEY: ***",
+    "\"password\": ***ord\"",
+    "\\\"token\\\": ***",
+    "my_secret_value=***;next",
+    "passwd = ***&y",
+    "access-key:***",
+    "Token=***",
+    "***",
+    "***",
+    "***",
+    "https://***@host/x",
+    "HTTPS://***@h",
+    "http://h/path@x",
+    "\u017fecret=***",
+    "to\u212aen=***",
+    "ap\u0130_key=***",
+    "-----PRIVATE KEY (masqu\u00e9e)----- fin",
+    "-----PRIVATE KEY (masqu\u00e9e)-----",
+    "texte sans secret",
+    "***",
+    "\u00e9vt_abcdefghijklmnop",
+    "Authorization: ***",
+    "TOKEN : ***",
+    "token=***",
+    "secretkey=*** secret=***",
+    "_ghp_abcdefghijklmnop",
+    "***",
+    "url http://***@c et https://***@f"
+  ],
+  "arguments_principaux": [
+    "command: ls",
+    "path: a.py",
+    "{\"paths\": []}",
+    "paths: [\"a\", \"b\"]",
+    "query: 0",
+    "[1, 2]",
+    "juste une cha\u00eene",
+    "pas du json",
+    "None",
+    "5",
+    "name: {\"x\": 1}",
+    "url: \u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+    "{\"z\": 1, \"y\": [true, null]}",
+    "pattern: false",
+    "repo: r",
+    "",
+    "0",
+    "target: 1.5",
+    "command: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ]
+}

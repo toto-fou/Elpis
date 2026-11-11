@@ -1,0 +1,1687 @@
+{
+  "table": {
+    "example.com": [
+      "93.184.216.34"
+    ],
+    "example.com.": [
+      "93.184.216.34"
+    ],
+    "intranet.lan": [
+      "10.1.2.3"
+    ],
+    "nas.corp.example": [
+      "192.168.0.50"
+    ],
+    "lan.example": [
+      "10.9.9.9"
+    ],
+    "evil.example": [
+      "93.184.216.35",
+      "127.0.0.1"
+    ],
+    "meta.example": [
+      "169.254.169.254"
+    ],
+    "v6.example": [
+      "2001:db8::1"
+    ],
+    "v6local.example": [
+      "::1"
+    ],
+    "mapped.example": [
+      "::ffff:127.0.0.1"
+    ],
+    "mappedlan.example": [
+      "::ffff:10.0.0.9"
+    ],
+    "ula.example": [
+      "fd00::5"
+    ],
+    "hote.example": [
+      "192.168.0.40"
+    ],
+    "pont.example": [
+      "172.17.0.5"
+    ],
+    "pontvide.example": [
+      "172.19.0.7"
+    ],
+    "b\u00fccher.de": [
+      "93.184.216.40"
+    ],
+    "xn--bcher-kva.de": [
+      "93.184.216.40"
+    ],
+    "reserve.example": [
+      "240.0.0.1"
+    ],
+    "multi.example": [
+      "224.0.0.1"
+    ],
+    "zero.example": [
+      "0.0.0.0"
+    ],
+    "bizarre.example": [
+      "pas-une-ip",
+      "93.184.216.36"
+    ],
+    "cgnat.example": [
+      "100.64.0.9"
+    ],
+    "localhost.": [
+      "127.0.0.1"
+    ],
+    "127.1": [
+      "127.0.0.1"
+    ],
+    "2130706433": [
+      "127.0.0.1"
+    ],
+    "0x7f.0.0.1": [
+      "127.0.0.1"
+    ],
+    "0177.0.0.1": [
+      "127.0.0.1"
+    ],
+    "10.1": [
+      "10.0.0.1"
+    ]
+  },
+  "hote": {
+    "adresses": [
+      "192.168.0.40",
+      "fe80::5054:ff:fe12:3456",
+      "172.17.0.1",
+      "::ffff:172.19.0.1"
+    ],
+    "reseaux": [
+      "172.17.0.0/16",
+      "172.19.0.0/16"
+    ]
+  },
+  "listes": [
+    [],
+    "intranet.lan, *.corp.example 10.1.0.0/16\tfd00::/8",
+    [
+      "Intranet.LAN",
+      ".corp.example",
+      null,
+      0,
+      5,
+      true,
+      "  ",
+      "192.168.0.0/24",
+      "fd00::/8",
+      "10.9.9.9"
+    ]
+  ],
+  "cas": [
+    {
+      "url": null,
+      "liste": 0,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "",
+      "liste": 0,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "   ",
+      "liste": 0,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "about:blank",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "ABOUT:BLANK",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": " about:blank ",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "about:blank#x",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "about:config",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "ftp://example.com/",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ftp:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "javascript:alert(1)",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (javascript:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "data:text/html,x",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (data:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (file:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "example.com",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "//example.com/x",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "HTTPS://EXAMPLE.COM/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "Http://Example.com:8080/a",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "ws://example.com/",
+      "liste": 0,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ws:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "http://",
+      "liste": 0,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http:///x",
+      "liste": 0,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://:80/",
+      "liste": 0,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://localhost/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://LOCALHOST:3000/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://a.localhost/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (a.localhost)"
+    },
+    {
+      "url": "http://localhost./",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://localhost.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:99999/",
+      "liste": 0,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:abc/",
+      "liste": 0,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:0/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:80/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:+80/",
+      "liste": 0,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:080/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://[::1]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::1))"
+    },
+    {
+      "url": "http://[::1",
+      "liste": 0,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://[fe80::1%25eth0]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::1%25eth0))"
+    },
+    {
+      "url": "http://[::ffff:127.0.0.1]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://[::ffff:10.0.0.9]/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://[fd00::5]/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://[2001:db8::1]:8443/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://[::]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::))"
+    },
+    {
+      "url": "http://[ff02::1]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (ff02::1))"
+    },
+    {
+      "url": "http://[fe80::5054:ff:fe12:3456]/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::5054:ff:fe12:3456))"
+    },
+    {
+      "url": "http://[::ffff:172.19.0.1]/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://[v1.x]/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://127.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://2130706433/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0x7f.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0177.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://10.1/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://0.0.0.0/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (0.0.0.0))"
+    },
+    {
+      "url": "http://169.254.169.254/latest/meta-data",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (169.254.169.254))"
+    },
+    {
+      "url": "http://224.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (224.0.0.1))"
+    },
+    {
+      "url": "http://240.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://255.255.255.255/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (255.255.255.255)"
+    },
+    {
+      "url": "http://10.0.0.5/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://10.1.9.9/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://192.168.0.40/",
+      "liste": 0,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://192.168.0.77/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://172.17.0.5/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://172.19.0.1/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://172.19.4.4/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.4.4)"
+    },
+    {
+      "url": "http://100.64.0.1/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://8.8.8.8/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://1.2.3.4.5/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://user:pw@example.com/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://user@127.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://evil.com@127.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.0.0.1@example.com/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://evil.com\\@127.0.0.1/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://example.com\\@intranet.lan/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://exa mple.com/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://ex%61mple.com/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://Example.COM./",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://b\u00fccher.de/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://xn--bcher-kva.de/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://B\u00dcCHER.de/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://intranet.lan/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://INTRANET.lan:8080/x",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://nas.corp.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://corp.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://lan.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://evil.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://meta.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (169.254.169.254))"
+    },
+    {
+      "url": "http://v6.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://v6local.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::1))"
+    },
+    {
+      "url": "http://mapped.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://mappedlan.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://ula.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://hote.example/",
+      "liste": 0,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://pont.example/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://pontvide.example/",
+      "liste": 0,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.7)"
+    },
+    {
+      "url": "http://reserve.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://multi.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (224.0.0.1))"
+    },
+    {
+      "url": "http://zero.example/",
+      "liste": 0,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (0.0.0.0))"
+    },
+    {
+      "url": "http://bizarre.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://cgnat.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://inconnu.example/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "\thttp://example.com/\n",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://exa\tmple.com/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com#frag",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "http://example.com?x=1",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": "https://example.com:443/",
+      "liste": 0,
+      "motif": null
+    },
+    {
+      "url": null,
+      "liste": 1,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "",
+      "liste": 1,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "   ",
+      "liste": 1,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "about:blank",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "ABOUT:BLANK",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": " about:blank ",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "about:blank#x",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "about:config",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "ftp://example.com/",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ftp:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "javascript:alert(1)",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (javascript:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "data:text/html,x",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (data:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (file:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "example.com",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "//example.com/x",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "HTTPS://EXAMPLE.COM/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "Http://Example.com:8080/a",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "ws://example.com/",
+      "liste": 1,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ws:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "http://",
+      "liste": 1,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http:///x",
+      "liste": 1,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://:80/",
+      "liste": 1,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://localhost/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://LOCALHOST:3000/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://a.localhost/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (a.localhost)"
+    },
+    {
+      "url": "http://localhost./",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://localhost.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:99999/",
+      "liste": 1,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:abc/",
+      "liste": 1,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:0/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:80/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:+80/",
+      "liste": 1,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:080/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://[::1]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::1))"
+    },
+    {
+      "url": "http://[::1",
+      "liste": 1,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://[fe80::1%25eth0]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::1%25eth0))"
+    },
+    {
+      "url": "http://[::ffff:127.0.0.1]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://[::ffff:10.0.0.9]/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (::ffff:10.0.0.9)"
+    },
+    {
+      "url": "http://[fd00::5]/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://[2001:db8::1]:8443/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://[::]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::))"
+    },
+    {
+      "url": "http://[ff02::1]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (ff02::1))"
+    },
+    {
+      "url": "http://[fe80::5054:ff:fe12:3456]/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::5054:ff:fe12:3456))"
+    },
+    {
+      "url": "http://[::ffff:172.19.0.1]/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://[v1.x]/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://127.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://2130706433/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0x7f.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0177.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://10.1/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (10.1)"
+    },
+    {
+      "url": "http://0.0.0.0/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (0.0.0.0))"
+    },
+    {
+      "url": "http://169.254.169.254/latest/meta-data",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (169.254.169.254))"
+    },
+    {
+      "url": "http://224.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (224.0.0.1))"
+    },
+    {
+      "url": "http://240.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://255.255.255.255/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (255.255.255.255)"
+    },
+    {
+      "url": "http://10.0.0.5/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (10.0.0.5)"
+    },
+    {
+      "url": "http://10.1.9.9/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://192.168.0.40/",
+      "liste": 1,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://192.168.0.77/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (192.168.0.77)"
+    },
+    {
+      "url": "http://172.17.0.5/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://172.19.0.1/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://172.19.4.4/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.4.4)"
+    },
+    {
+      "url": "http://100.64.0.1/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (100.64.0.1)"
+    },
+    {
+      "url": "http://8.8.8.8/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://1.2.3.4.5/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://user:pw@example.com/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://user@127.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://evil.com@127.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.0.0.1@example.com/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://evil.com\\@127.0.0.1/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://example.com\\@intranet.lan/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://exa mple.com/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://ex%61mple.com/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://Example.COM./",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://b\u00fccher.de/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://xn--bcher-kva.de/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://B\u00dcCHER.de/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://intranet.lan/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://INTRANET.lan:8080/x",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://nas.corp.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://corp.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://lan.example/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (lan.example)"
+    },
+    {
+      "url": "http://evil.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://meta.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (169.254.169.254))"
+    },
+    {
+      "url": "http://v6.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://v6local.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::1))"
+    },
+    {
+      "url": "http://mapped.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://mappedlan.example/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (mappedlan.example)"
+    },
+    {
+      "url": "http://ula.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://hote.example/",
+      "liste": 1,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://pont.example/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://pontvide.example/",
+      "liste": 1,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.7)"
+    },
+    {
+      "url": "http://reserve.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://multi.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (224.0.0.1))"
+    },
+    {
+      "url": "http://zero.example/",
+      "liste": 1,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (0.0.0.0))"
+    },
+    {
+      "url": "http://bizarre.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://cgnat.example/",
+      "liste": 1,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (cgnat.example)"
+    },
+    {
+      "url": "http://inconnu.example/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "\thttp://example.com/\n",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://exa\tmple.com/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com#frag",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "http://example.com?x=1",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": "https://example.com:443/",
+      "liste": 1,
+      "motif": null
+    },
+    {
+      "url": null,
+      "liste": 2,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "",
+      "liste": 2,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "   ",
+      "liste": 2,
+      "motif": "adresse vide"
+    },
+    {
+      "url": "about:blank",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "ABOUT:BLANK",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": " about:blank ",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "about:blank#x",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "about:config",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (about:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "ftp://example.com/",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ftp:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "javascript:alert(1)",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (javascript:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "data:text/html,x",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (data:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "file:///etc/passwd",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (file:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "example.com",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "//example.com/x",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (aucun:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "HTTPS://EXAMPLE.COM/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "Http://Example.com:8080/a",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "ws://example.com/",
+      "liste": 2,
+      "motif": "sch\u00e9ma non autoris\u00e9 (ws:) \u2014 seuls http et https le sont"
+    },
+    {
+      "url": "http://",
+      "liste": 2,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http:///x",
+      "liste": 2,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://:80/",
+      "liste": 2,
+      "motif": "adresse sans h\u00f4te"
+    },
+    {
+      "url": "http://localhost/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://LOCALHOST:3000/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (localhost)"
+    },
+    {
+      "url": "http://a.localhost/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (a.localhost)"
+    },
+    {
+      "url": "http://localhost./",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://localhost.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:99999/",
+      "liste": 2,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:abc/",
+      "liste": 2,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:0/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:80/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com:+80/",
+      "liste": 2,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://example.com:080/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://[::1]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::1))"
+    },
+    {
+      "url": "http://[::1",
+      "liste": 2,
+      "motif": "adresse mal form\u00e9e"
+    },
+    {
+      "url": "http://[fe80::1%25eth0]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::1%25eth0))"
+    },
+    {
+      "url": "http://[::ffff:127.0.0.1]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://[::ffff:10.0.0.9]/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (::ffff:10.0.0.9)"
+    },
+    {
+      "url": "http://[fd00::5]/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://[2001:db8::1]:8443/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://[::]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (::))"
+    },
+    {
+      "url": "http://[ff02::1]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (ff02::1))"
+    },
+    {
+      "url": "http://[fe80::5054:ff:fe12:3456]/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (fe80::5054:ff:fe12:3456))"
+    },
+    {
+      "url": "http://[::ffff:172.19.0.1]/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://[v1.x]/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://127.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://2130706433/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0x7f.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://0177.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://10.1/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (10.1)"
+    },
+    {
+      "url": "http://0.0.0.0/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (0.0.0.0))"
+    },
+    {
+      "url": "http://169.254.169.254/latest/meta-data",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (169.254.169.254))"
+    },
+    {
+      "url": "http://224.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (224.0.0.1))"
+    },
+    {
+      "url": "http://240.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://255.255.255.255/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (255.255.255.255)"
+    },
+    {
+      "url": "http://10.0.0.5/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (10.0.0.5)"
+    },
+    {
+      "url": "http://10.1.9.9/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (10.1.9.9)"
+    },
+    {
+      "url": "http://192.168.0.40/",
+      "liste": 2,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://192.168.0.77/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://172.17.0.5/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://172.19.0.1/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.1)"
+    },
+    {
+      "url": "http://172.19.4.4/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.4.4)"
+    },
+    {
+      "url": "http://100.64.0.1/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (100.64.0.1)"
+    },
+    {
+      "url": "http://8.8.8.8/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://1.2.3.4.5/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://user:pw@example.com/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://user@127.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://evil.com@127.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://127.0.0.1@example.com/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://evil.com\\@127.0.0.1/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (blocked_ip (127.0.0.1))"
+    },
+    {
+      "url": "http://example.com\\@intranet.lan/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://exa mple.com/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://ex%61mple.com/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://Example.COM./",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://b\u00fccher.de/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://xn--bcher-kva.de/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://B\u00dcCHER.de/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://intranet.lan/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://INTRANET.lan:8080/x",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://nas.corp.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://corp.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://lan.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://evil.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (127.0.0.1))"
+    },
+    {
+      "url": "http://meta.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (169.254.169.254))"
+    },
+    {
+      "url": "http://v6.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://v6local.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::1))"
+    },
+    {
+      "url": "http://mapped.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (::ffff:127.0.0.1))"
+    },
+    {
+      "url": "http://mappedlan.example/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (mappedlan.example)"
+    },
+    {
+      "url": "http://ula.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://hote.example/",
+      "liste": 2,
+      "motif": "adresse de la machine qui h\u00e9berge Elpis (192.168.0.40)"
+    },
+    {
+      "url": "http://pont.example/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.17.0.5)"
+    },
+    {
+      "url": "http://pontvide.example/",
+      "liste": 2,
+      "motif": "r\u00e9seau interne de la machine qui h\u00e9berge Elpis (172.19.0.7)"
+    },
+    {
+      "url": "http://reserve.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (240.0.0.1)"
+    },
+    {
+      "url": "http://multi.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (224.0.0.1))"
+    },
+    {
+      "url": "http://zero.example/",
+      "liste": 2,
+      "motif": "adresse r\u00e9serv\u00e9e \u00e0 l'h\u00f4te ou au r\u00e9seau local de la machine (resolves_to_blocked (0.0.0.0))"
+    },
+    {
+      "url": "http://bizarre.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://cgnat.example/",
+      "liste": 2,
+      "motif": "h\u00f4te du r\u00e9seau local absent de la liste autoris\u00e9e (cgnat.example)"
+    },
+    {
+      "url": "http://inconnu.example/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "\thttp://example.com/\n",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://exa\tmple.com/",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com#frag",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "http://example.com?x=1",
+      "liste": 2,
+      "motif": null
+    },
+    {
+      "url": "https://example.com:443/",
+      "liste": 2,
+      "motif": null
+    }
+  ],
+  "messages": [
+    {
+      "url": "http://127.0.0.1/",
+      "motif": "adresse r\u00e9serv\u00e9e",
+      "valeur": "Adresse refus\u00e9e par la politique du navigateur : adresse r\u00e9serv\u00e9e. URL : http://127.0.0.1/. Le navigateur ne peut joindre que des sites http/https hors de la machine qui h\u00e9berge Elpis."
+    },
+    {
+      "url": null,
+      "motif": "adresse vide",
+      "valeur": "Adresse refus\u00e9e par la politique du navigateur : adresse vide. URL : . Le navigateur ne peut joindre que des sites http/https hors de la machine qui h\u00e9berge Elpis."
+    },
+    {
+      "url": "http://\u00e9.example/\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "motif": "x",
+      "valeur": "Adresse refus\u00e9e par la politique du navigateur : x. URL : http://\u00e9.example/\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9. Le navigateur ne peut joindre que des sites http/https hors de la machine qui h\u00e9berge Elpis."
+    },
+    {
+      "url": "http://example.com/\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "motif": "y",
+      "valeur": "Adresse refus\u00e9e par la politique du navigateur : y. URL : http://example.com/\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00. Le navigateur ne peut joindre que des sites http/https hors de la machine qui h\u00e9berge Elpis."
+    }
+  ]
+}

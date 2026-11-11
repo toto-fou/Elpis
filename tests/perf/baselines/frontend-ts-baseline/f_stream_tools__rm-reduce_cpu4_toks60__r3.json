@@ -1,0 +1,217 @@
+{
+ "scenario": "f_stream_tools",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4,
+  "toks": 60,
+  "rounds": 30
+ },
+ "run": 3,
+ "label": "frontend-ts-baseline",
+ "commit": "3247582",
+ "ts": "2026-10-12T21:15:37.632Z",
+ "durationMs": 15164,
+ "longTasks": {
+  "count": 12,
+  "p50": 60,
+  "p95": 154,
+  "max": 154,
+  "tbtMs": 259
+ },
+ "fps": {
+  "mean": 51.21,
+  "p5": 29.94,
+  "droppedPct": 0.09,
+  "frozen": 0
+ },
+ "inputEvents": {
+  "countOver50ms": 22,
+  "p95": 168
+ },
+ "cls": 0,
+ "markdown": {
+  "parseCalls": 147,
+  "parseMs": 160,
+  "parseMaxMs": 44,
+  "hljsCalls": 0,
+  "hljsAutoCalls": 0,
+  "hljsMs": 0
+ },
+ "cdp": {
+  "ScriptDuration": 0.65,
+  "LayoutDuration": 0.74,
+  "RecalcStyleDuration": 0.58,
+  "TaskDuration": 10.48,
+  "JSHeapUsedMB": 30.66
+ },
+ "intervals": [
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 100,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at /:18825:12"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  },
+  {
+   "ms": 60000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startModelPolling (/static/js/chat/_system_sse.js?v=1784227200:375:31)"
+  },
+  {
+   "ms": 30000,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at Object.startInboxPolling (/static/js/app-settings.js?v=1784227200:1371:27)"
+  },
+  {
+   "ms": 200,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at _startGenTicker (/static/js/app-chat.js?v=1784227200:4916:22)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  },
+  {
+   "ms": 40,
+   "at": "at /home/user/wt/L02/tests/perf/lib/collector.js:109:20 |     at handleStreamEvent (/static/js/app-chat.js?v=1784227200:2719:45)"
+  }
+ ],
+ "_window": [
+  1791839722385,
+  1791839737549
+ ],
+ "requests": {
+  "total": 19,
+  "byUrl": {
+   "/api/saved/chats/new": 1,
+   "/api/chat-saved-stream3": 1,
+   "/api/sandbox/tree": 7,
+   "/api/sandbox/quota": 7,
+   "/api/llm/models": 1,
+   "/api/saved/chats": 1,
+   "/api/llm/models/m1/props": 1
+  }
+ },
+ "errors": [],
+ "toks": 60,
+ "rounds": 30,
+ "reply": "tools"
+}

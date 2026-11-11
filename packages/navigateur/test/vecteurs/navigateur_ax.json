@@ -1,0 +1,1791 @@
+{
+  "source": "migration-kit/vecteurs/navigateur_ax.py",
+  "scenarios": [
+    [
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/produits",
+          "role": "link",
+          "name": "Produits",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {
+            "role": "link",
+            "name": "Produits",
+            "text": "Produits"
+          },
+          "url_before": "https://shop.example.com/",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/produits",
+          "role": "link",
+          "name": "Produits",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {
+            "role": "link",
+            "name": "Produits",
+            "text": "Produits"
+          },
+          "url_before": "https://shop.example.com/",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/produits/42",
+          "role": "button",
+          "name": "Ajouter au panier",
+          "result": {
+            "ok": true,
+            "url": "https://shop.example.com/produits/42"
+          },
+          "locator_kw": {
+            "text": "Ajouter",
+            "css": "#add",
+            "test_id": "  ",
+            "xpath": null
+          },
+          "url_before": "https://shop.example.com/produits",
+          "ancestors": [
+            {
+              "role": "menu",
+              "name": "Actions"
+            },
+            {
+              "tag": "nav",
+              "name": "  Principal  "
+            },
+            {
+              "role": "banner"
+            },
+            "pas un dict"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/produits/42",
+          "role": "button",
+          "name": "Ajouter au panier",
+          "result": {
+            "ok": true,
+            "url": "https://shop.example.com/produits/42"
+          },
+          "locator_kw": {
+            "text": "Ajouter",
+            "css": "#add",
+            "test_id": "  ",
+            "xpath": null
+          },
+          "url_before": "https://shop.example.com/produits",
+          "ancestors": [
+            {
+              "role": "menu",
+              "name": "Actions"
+            },
+            {
+              "tag": "nav",
+              "name": "  Principal  "
+            },
+            {
+              "role": "banner"
+            },
+            "pas un dict"
+          ]
+        }
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        null,
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        "/",
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        "/",
+        1
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/",
+        "/",
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/inconnu",
+        null,
+        6
+      ],
+      [
+        "path",
+        "",
+        "/x",
+        null,
+        6
+      ],
+      [
+        "path",
+        "autre.example",
+        "/",
+        null,
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits",
+        null,
+        0
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "produ",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "BUTTON",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "  panier ",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "zzz",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "o",
+        1
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "o",
+        500
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "o",
+        0
+      ],
+      [
+        "search",
+        "",
+        "o",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "%",
+        20
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "link",
+          "name": "Produits",
+          "result": {
+            "error": "timeout"
+          },
+          "locator_kw": {
+            "role": "link",
+            "name": "Produits",
+            "text": "Produits"
+          },
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        "/",
+        6
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "link",
+          "name": "Inconnu",
+          "result": {
+            "error": "x"
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "link",
+          "name": "Texte",
+          "result": "pas un dict",
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "",
+          "name": "Vide",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "link",
+          "name": "",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "",
+          "role": "link",
+          "name": "Depuis le r\u00e9sultat",
+          "result": {
+            "url": "https://shop.example.com/x",
+            "success": true
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/compte",
+          "role": "textbox",
+          "name": "Email   adresse\n",
+          "result": {
+            "ok": true,
+            "region": "NAV"
+          },
+          "locator_kw": {
+            "label": "Email",
+            "placeholder": "vous@x",
+            "role": "ignor\u00e9"
+          },
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/compte",
+          "role": "textbox",
+          "name": "Email adresse",
+          "result": {
+            "ok": true,
+            "region_tag": "main"
+          },
+          "locator_kw": {
+            "label": "Email"
+          },
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/compte",
+          "role": "checkbox",
+          "name": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "result": {
+            "ok": true,
+            "closest_landmark": "inconnu"
+          },
+          "locator_kw": {
+            "css": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "inspection",
+        "https://shop.example.com/",
+        [
+          {
+            "role": "link",
+            "name": "Produits"
+          },
+          "x",
+          {
+            "role": "",
+            "name": "a"
+          }
+        ]
+      ],
+      [
+        "inspection",
+        "https://shop.example.com/",
+        []
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/",
+          "role": "link",
+          "name": "Produits",
+          "result": {
+            "error": "timeout"
+          },
+          "locator_kw": {
+            "role": "link",
+            "name": "Produits",
+            "text": "Produits"
+          },
+          "url_before": null,
+          "ancestors": null
+        }
+      ],
+      [
+        "inspection",
+        "https://shop.example.com/",
+        [
+          {
+            "role": "button",
+            "accessible_name": "autre"
+          }
+        ]
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "produ",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "BUTTON",
+        20
+      ],
+      [
+        "search",
+        "shop.example.com",
+        "  panier ",
+        20
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        null,
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/produits/42",
+        "/",
+        6
+      ]
+    ],
+    [
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/a",
+          "role": "link",
+          "name": "Plat",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": [
+            "x",
+            5
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/a",
+          "role": "link",
+          "name": "Plat",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": [
+            "x",
+            5
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/a",
+          "role": "link",
+          "name": "Plat",
+          "result": {
+            "error": "non"
+          },
+          "locator_kw": null,
+          "url_before": null,
+          "ancestors": [
+            "x"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/a",
+          "role": "tab",
+          "name": "Onglet",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/a",
+          "ancestors": [
+            {
+              "tag": "Section",
+              "name": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+            }
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/b",
+          "role": "tab",
+          "name": "Onglet",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/a",
+          "ancestors": [
+            {
+              "tag": "Section",
+              "name": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+            }
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/b",
+          "role": "tab",
+          "name": "Onglet",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://ailleurs.example/a",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/c",
+          "role": "link",
+          "name": "Suite",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/b",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/d",
+          "role": "link",
+          "name": "Raccourci",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/a",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/c",
+          "role": "link",
+          "name": "Direct",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/a",
+          "ancestors": null
+        }
+      ],
+      [
+        "action",
+        {
+          "url": "https://shop.example.com/c",
+          "role": "link",
+          "name": "Direct",
+          "result": {
+            "ok": true
+          },
+          "locator_kw": {},
+          "url_before": "https://shop.example.com/a",
+          "ancestors": null
+        }
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/c",
+        "/a",
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/c",
+        "/b",
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/d",
+        null,
+        6
+      ],
+      [
+        "path",
+        "shop.example.com",
+        "/c",
+        "/a",
+        1
+      ],
+      [
+        "inspection",
+        "https://shop.example.com/a",
+        []
+      ],
+      [
+        "inspection",
+        "",
+        []
+      ],
+      [
+        "inspection",
+        "https://shop.example.com/zz",
+        null
+      ]
+    ],
+    [
+      [
+        "save",
+        "https://Jira.Example.COM/login",
+        "alice",
+        "pw1",
+        "bob"
+      ],
+      [
+        "save",
+        "https://jira.example.com/autre",
+        "alice2",
+        "pw2",
+        "bob"
+      ],
+      [
+        "save",
+        "https://jira.example.com/",
+        "carol",
+        "pw3",
+        "carol"
+      ],
+      [
+        "save",
+        "https://jira.example.com/",
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "save",
+        "https://jira.example.com/",
+        "",
+        "y",
+        "bob"
+      ],
+      [
+        "save",
+        "https://jira.example.com/",
+        "x",
+        "",
+        "bob"
+      ],
+      [
+        "save",
+        "",
+        "x",
+        "y",
+        "bob"
+      ],
+      [
+        "save",
+        "pas une url",
+        "x",
+        "y",
+        "bob"
+      ],
+      [
+        "get",
+        "https://jira.example.com/x",
+        "bob"
+      ],
+      [
+        "get",
+        "https://jira.example.com/x",
+        "carol"
+      ],
+      [
+        "get",
+        "https://jira.example.com/x",
+        "dave"
+      ],
+      [
+        "get",
+        "https://jira.example.com/x",
+        ""
+      ],
+      [
+        "get",
+        "",
+        "bob"
+      ],
+      [
+        "get",
+        "pas une url",
+        "bob"
+      ],
+      [
+        "get",
+        "http://jira.example.com:8080/",
+        "bob"
+      ]
+    ]
+  ],
+  "sorties": [
+    {
+      "resultats": [
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/produits",
+          "to_path": "/produits/42",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/produits",
+              "to": "/produits/42",
+              "action_role": "button",
+              "action_name": "Ajouter au panier",
+              "action_selector": {
+                "strategy": "css",
+                "value": "#add",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            }
+          ]
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/",
+          "to_path": "/produits/42",
+          "depth": 2,
+          "steps": [
+            {
+              "from": "/",
+              "to": "/produits",
+              "action_role": "link",
+              "action_name": "Produits",
+              "action_selector": {
+                "strategy": "role_name",
+                "value": "link|Produits",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            },
+            {
+              "from": "/produits",
+              "to": "/produits/42",
+              "action_role": "button",
+              "action_name": "Ajouter au panier",
+              "action_selector": {
+                "strategy": "css",
+                "value": "#add",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            }
+          ]
+        },
+        {
+          "found": false,
+          "site": "shop.example.com",
+          "from_path": "/",
+          "to_path": "/produits/42",
+          "depth": 0,
+          "steps": []
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/",
+          "to_path": "/",
+          "depth": 0,
+          "steps": []
+        },
+        {
+          "found": false,
+          "site": "shop.example.com",
+          "from_path": null,
+          "to_path": "/inconnu",
+          "depth": 0,
+          "steps": []
+        },
+        {
+          "found": false,
+          "site": "",
+          "from_path": null,
+          "to_path": "/x",
+          "depth": 0,
+          "steps": []
+        },
+        {
+          "found": false,
+          "site": "autre.example",
+          "from_path": null,
+          "to_path": "/",
+          "depth": 0,
+          "steps": []
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/produits",
+          "to_path": "/produits",
+          "depth": 0,
+          "steps": []
+        },
+        [
+          {
+            "path": "/",
+            "role": "link",
+            "name": "Produits",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "role_name",
+              "value": "link|Produits",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [],
+        [],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          },
+          {
+            "path": "/",
+            "role": "link",
+            "name": "Produits",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "role_name",
+              "value": "link|Produits",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          },
+          {
+            "path": "/",
+            "role": "link",
+            "name": "Produits",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "role_name",
+              "value": "link|Produits",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        "stale",
+        {
+          "found": false,
+          "site": "shop.example.com",
+          "from_path": "/",
+          "to_path": "/produits/42",
+          "depth": 0,
+          "steps": []
+        },
+        null,
+        null,
+        null,
+        null,
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        {
+          "revived": 1,
+          "deleted": 0
+        },
+        {
+          "revived": 0,
+          "deleted": 0
+        },
+        "stale",
+        {
+          "revived": 0,
+          "deleted": 1
+        },
+        [],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        [
+          {
+            "path": "/produits",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "region_tag": "body",
+            "verified_count": 2,
+            "stale": false,
+            "selector": {
+              "strategy": "css",
+              "value": "#add",
+              "success_count": 2,
+              "failure_count": 0
+            }
+          }
+        ],
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/produits",
+          "to_path": "/produits/42",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/produits",
+              "to": "/produits/42",
+              "action_role": "button",
+              "action_name": "Ajouter au panier",
+              "action_selector": {
+                "strategy": "css",
+                "value": "#add",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            }
+          ]
+        },
+        {
+          "found": false,
+          "site": "shop.example.com",
+          "from_path": "/",
+          "to_path": "/produits/42",
+          "depth": 0,
+          "steps": []
+        }
+      ],
+      "tables": {
+        "ax_nodes": [
+          {
+            "id": 1,
+            "site": "shop.example.com",
+            "path": "/produits",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "banner",
+            "role": "banner",
+            "name": "",
+            "node_key": "region:banner",
+            "verified_count": 2,
+            "last_ok": 1800000030.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 2,
+            "site": "shop.example.com",
+            "path": "/produits",
+            "parent_id": 1,
+            "node_type": "region",
+            "region_tag": "nav",
+            "role": "nav",
+            "name": "Principal",
+            "node_key": "nav:principal",
+            "verified_count": 2,
+            "last_ok": 1800000030.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 3,
+            "site": "shop.example.com",
+            "path": "/produits",
+            "parent_id": 2,
+            "node_type": "region",
+            "region_tag": "menu",
+            "role": "menu",
+            "name": "Actions",
+            "node_key": "menu:actions",
+            "verified_count": 2,
+            "last_ok": 1800000030.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 4,
+            "site": "shop.example.com",
+            "path": "/produits",
+            "parent_id": 3,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "button",
+            "name": "Ajouter au panier",
+            "node_key": "button:ajouter au panier",
+            "verified_count": 2,
+            "last_ok": 1800000030.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 5,
+            "site": "shop.example.com",
+            "path": "/x",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "body",
+            "role": "region",
+            "name": "body",
+            "node_key": "region:body",
+            "verified_count": 0,
+            "last_ok": 1800000280.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 6,
+            "site": "shop.example.com",
+            "path": "/x",
+            "parent_id": 5,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "link",
+            "name": "Depuis le r\u00e9sultat",
+            "node_key": "link:depuis le r\u00e9sultat",
+            "verified_count": 1,
+            "last_ok": 1800000280.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 7,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "nav",
+            "role": "region",
+            "name": "nav",
+            "node_key": "region:nav",
+            "verified_count": 0,
+            "last_ok": 1800000290.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 8,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": 7,
+            "node_type": "element",
+            "region_tag": "nav",
+            "role": "textbox",
+            "name": "Email   adresse\n",
+            "node_key": "textbox:email adresse",
+            "verified_count": 1,
+            "last_ok": 1800000290.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 9,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "main",
+            "role": "region",
+            "name": "main",
+            "node_key": "region:main",
+            "verified_count": 0,
+            "last_ok": 1800000300.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 10,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": 9,
+            "node_type": "element",
+            "region_tag": "main",
+            "role": "textbox",
+            "name": "Email adresse",
+            "node_key": "textbox:email adresse",
+            "verified_count": 1,
+            "last_ok": 1800000300.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 11,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "body",
+            "role": "region",
+            "name": "body",
+            "node_key": "region:body",
+            "verified_count": 0,
+            "last_ok": 1800000310.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 12,
+            "site": "shop.example.com",
+            "path": "/compte",
+            "parent_id": 11,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "checkbox",
+            "name": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "node_key": "checkbox:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "verified_count": 1,
+            "last_ok": 1800000310.25,
+            "stale": 0,
+            "stale_at": null
+          }
+        ],
+        "ax_selectors": [
+          {
+            "node_id": 4,
+            "strategy": "role_name",
+            "value": "button|Ajouter au panier",
+            "success_count": 2,
+            "failure_count": 0,
+            "last_ok": 1800000030.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 4,
+            "strategy": "css",
+            "value": "#add",
+            "success_count": 2,
+            "failure_count": 0,
+            "last_ok": 1800000030.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 4,
+            "strategy": "text",
+            "value": "Ajouter",
+            "success_count": 2,
+            "failure_count": 0,
+            "last_ok": 1800000030.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 6,
+            "strategy": "role_name",
+            "value": "link|Depuis le r\u00e9sultat",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000280.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 8,
+            "strategy": "role_name",
+            "value": "textbox|Email   adresse",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000290.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 8,
+            "strategy": "label",
+            "value": "Email",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000290.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 8,
+            "strategy": "placeholder",
+            "value": "vous@x",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000290.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 10,
+            "strategy": "role_name",
+            "value": "textbox|Email adresse",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000300.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 10,
+            "strategy": "label",
+            "value": "Email",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000300.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 12,
+            "strategy": "role_name",
+            "value": "checkbox|XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000310.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 12,
+            "strategy": "css",
+            "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800000310.25,
+            "last_fail": null
+          }
+        ],
+        "ax_transitions": [
+          {
+            "site": "shop.example.com",
+            "from_path": "/produits",
+            "action_node_id": 4,
+            "to_path": "/produits/42",
+            "verified_count": 2,
+            "last_ok": 1800000030.25
+          }
+        ],
+        "ax_credentials": []
+      }
+    },
+    {
+      "resultats": [
+        "saved",
+        "saved",
+        "stale",
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        "saved",
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/a",
+          "to_path": "/c",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/a",
+              "to": "/c",
+              "action_role": "link",
+              "action_name": "Direct",
+              "action_selector": {
+                "strategy": "role_name",
+                "value": "link|Direct",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            }
+          ]
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/b",
+          "to_path": "/c",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/b",
+              "to": "/c",
+              "action_role": "link",
+              "action_name": "Suite",
+              "action_selector": {
+                "strategy": "role_name",
+                "value": "link|Suite",
+                "success_count": 1,
+                "failure_count": 0
+              },
+              "verified_count": 1
+            }
+          ]
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/a",
+          "to_path": "/d",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/a",
+              "to": "/d",
+              "action_role": "link",
+              "action_name": "Raccourci",
+              "action_selector": {
+                "strategy": "role_name",
+                "value": "link|Raccourci",
+                "success_count": 1,
+                "failure_count": 0
+              },
+              "verified_count": 1
+            }
+          ]
+        },
+        {
+          "found": true,
+          "site": "shop.example.com",
+          "from_path": "/a",
+          "to_path": "/c",
+          "depth": 1,
+          "steps": [
+            {
+              "from": "/a",
+              "to": "/c",
+              "action_role": "link",
+              "action_name": "Direct",
+              "action_selector": {
+                "strategy": "role_name",
+                "value": "link|Direct",
+                "success_count": 2,
+                "failure_count": 0
+              },
+              "verified_count": 2
+            }
+          ]
+        },
+        {
+          "revived": 0,
+          "deleted": 1
+        },
+        {
+          "revived": 0,
+          "deleted": 0
+        },
+        {
+          "revived": 0,
+          "deleted": 0
+        }
+      ],
+      "tables": {
+        "ax_nodes": [
+          {
+            "id": 1,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": null,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "link",
+            "name": "Plat",
+            "node_key": "link:plat",
+            "verified_count": 1,
+            "last_ok": 1800001010.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 2,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "section",
+            "role": "section",
+            "name": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN",
+            "node_key": "section:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+            "verified_count": 2,
+            "last_ok": 1800001040.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 3,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": 2,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "tab",
+            "name": "Onglet",
+            "node_key": "tab:onglet",
+            "verified_count": 2,
+            "last_ok": 1800001040.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 4,
+            "site": "shop.example.com",
+            "path": "/b",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "body",
+            "role": "region",
+            "name": "body",
+            "node_key": "region:body",
+            "verified_count": 0,
+            "last_ok": 1800001050.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 5,
+            "site": "shop.example.com",
+            "path": "/b",
+            "parent_id": 4,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "tab",
+            "name": "Onglet",
+            "node_key": "tab:onglet",
+            "verified_count": 1,
+            "last_ok": 1800001050.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 6,
+            "site": "shop.example.com",
+            "path": "/b",
+            "parent_id": 4,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "link",
+            "name": "Suite",
+            "node_key": "link:suite",
+            "verified_count": 1,
+            "last_ok": 1800001060.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 7,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": null,
+            "node_type": "region",
+            "region_tag": "body",
+            "role": "region",
+            "name": "body",
+            "node_key": "region:body",
+            "verified_count": 0,
+            "last_ok": 1800001070.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 8,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": 7,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "link",
+            "name": "Raccourci",
+            "node_key": "link:raccourci",
+            "verified_count": 1,
+            "last_ok": 1800001070.25,
+            "stale": 0,
+            "stale_at": null
+          },
+          {
+            "id": 9,
+            "site": "shop.example.com",
+            "path": "/a",
+            "parent_id": 7,
+            "node_type": "element",
+            "region_tag": "body",
+            "role": "link",
+            "name": "Direct",
+            "node_key": "link:direct",
+            "verified_count": 2,
+            "last_ok": 1800001090.25,
+            "stale": 0,
+            "stale_at": null
+          }
+        ],
+        "ax_selectors": [
+          {
+            "node_id": 1,
+            "strategy": "role_name",
+            "value": "link|Plat",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800001010.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 3,
+            "strategy": "role_name",
+            "value": "tab|Onglet",
+            "success_count": 2,
+            "failure_count": 0,
+            "last_ok": 1800001040.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 5,
+            "strategy": "role_name",
+            "value": "tab|Onglet",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800001050.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 6,
+            "strategy": "role_name",
+            "value": "link|Suite",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800001060.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 8,
+            "strategy": "role_name",
+            "value": "link|Raccourci",
+            "success_count": 1,
+            "failure_count": 0,
+            "last_ok": 1800001070.25,
+            "last_fail": null
+          },
+          {
+            "node_id": 9,
+            "strategy": "role_name",
+            "value": "link|Direct",
+            "success_count": 2,
+            "failure_count": 0,
+            "last_ok": 1800001090.25,
+            "last_fail": null
+          }
+        ],
+        "ax_transitions": [
+          {
+            "site": "shop.example.com",
+            "from_path": "/a",
+            "action_node_id": 3,
+            "to_path": "/b",
+            "verified_count": 1,
+            "last_ok": 1800001040.25
+          },
+          {
+            "site": "shop.example.com",
+            "from_path": "/b",
+            "action_node_id": 6,
+            "to_path": "/c",
+            "verified_count": 1,
+            "last_ok": 1800001060.25
+          },
+          {
+            "site": "shop.example.com",
+            "from_path": "/a",
+            "action_node_id": 8,
+            "to_path": "/d",
+            "verified_count": 1,
+            "last_ok": 1800001070.25
+          },
+          {
+            "site": "shop.example.com",
+            "from_path": "/a",
+            "action_node_id": 9,
+            "to_path": "/c",
+            "verified_count": 2,
+            "last_ok": 1800001090.25
+          }
+        ],
+        "ax_credentials": []
+      }
+    },
+    {
+      "resultats": [
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        {
+          "username": "alice2",
+          "password": "pw2",
+          "use_count": 2,
+          "last_ok": 1800002010.25
+        },
+        {
+          "username": "carol",
+          "password": "pw3",
+          "use_count": 1,
+          "last_ok": 1800002020.25
+        },
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "tables": {
+        "ax_nodes": [],
+        "ax_selectors": [],
+        "ax_transitions": [],
+        "ax_credentials": [
+          {
+            "owner": "bob",
+            "site": "jira.example.com",
+            "username": "alice2",
+            "password": "pw2",
+            "last_ok": 1800002010.25,
+            "use_count": 2
+          },
+          {
+            "owner": "carol",
+            "site": "jira.example.com",
+            "username": "carol",
+            "password": "pw3",
+            "last_ok": 1800002020.25,
+            "use_count": 1
+          }
+        ]
+      }
+    }
+  ]
+}

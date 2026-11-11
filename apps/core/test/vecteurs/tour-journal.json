@@ -1,0 +1,1435 @@
+{
+  "debut": {
+    "chat_id": "c1",
+    "mode": "classique"
+  },
+  "journaux": [
+    {
+      "nom": "fusion",
+      "run_id": "r1",
+      "meta": {
+        "base_count": 3,
+        "is_continue": false,
+        "user_message": "Salut \u00e9",
+        "engine_key": "builtin"
+      },
+      "prealables": [
+        "ancien.jsonl",
+        "ancien.end",
+        "vivant.jsonl",
+        "x.y.end",
+        "x.y.jsonl"
+      ],
+      "ops": [
+        {
+          "ajout": {
+            "type": "mode",
+            "text": "G\u00e9n\u00e9ration en cours\u2026"
+          }
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "Bon"
+          }
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "jour",
+            "n": 3
+          }
+        },
+        {
+          "ajout": {
+            "type": "thinking_token",
+            "text": "a"
+          }
+        },
+        {
+          "ajout": {
+            "type": "thinking_token",
+            "text": "b"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1,
+            "index": 0,
+            "name_delta": "lire",
+            "args_delta": "{\"a\""
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1.0,
+            "index": 0,
+            "args_delta": ": 1}"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": true,
+            "index": 0,
+            "args_delta": "!"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1,
+            "index": 1,
+            "name_delta": "b"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1,
+            "index": 1,
+            "reset": true,
+            "name_delta": "c"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1,
+            "index": 1,
+            "name_delta": "d"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call_delta",
+            "iter": 1,
+            "index": 1,
+            "args_delta": "",
+            "name_delta": ""
+          }
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": null
+          }
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "x"
+          }
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "y",
+            "n": "2"
+          }
+        },
+        {
+          "ajout": "pas un dict"
+        },
+        {
+          "ajout": {
+            "type": "content_token"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "apr\u00e8s"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call",
+            "args": {
+              "k": [
+                1,
+                2.5,
+                null,
+                true
+              ]
+            },
+            "id": "t1"
+          }
+        },
+        {
+          "ajout": {
+            "type": "thinking_token",
+            "text": "z",
+            "n": 0
+          }
+        }
+      ],
+      "statut": "done"
+    },
+    {
+      "nom": "plafond",
+      "run_id": "r2",
+      "plafond": 250,
+      "ops": [
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call",
+            "id": "t0"
+          }
+        },
+        {
+          "ajout": {
+            "type": "ping"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "ping"
+          }
+        },
+        {
+          "ajout": {
+            "type": "tool_call",
+            "id": "t1"
+          }
+        },
+        {
+          "ajout": {
+            "type": "shell_output",
+            "text": "ls"
+          }
+        }
+      ],
+      "statut": "error"
+    },
+    {
+      "nom": "plafond_points_de_code",
+      "run_id": "r3",
+      "plafond_apres": 2,
+      "ops": [
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "apr\u00e8s"
+          }
+        },
+        {
+          "vider": true
+        },
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "encore"
+          }
+        }
+      ],
+      "statut": "done"
+    },
+    {
+      "nom": "statut_vide",
+      "run_id": "r4",
+      "ops": [],
+      "statut": ""
+    },
+    {
+      "nom": "statut_nul",
+      "run_id": "r5",
+      "ops": [
+        {
+          "ajout": {
+            "type": "final",
+            "ok": true
+          }
+        }
+      ],
+      "statut": null
+    },
+    {
+      "nom": "sans_fermer",
+      "run_id": "r6",
+      "prealables": [
+        "r6.end",
+        "r5.end"
+      ],
+      "ops": [
+        {
+          "ajout": {
+            "type": "content_token",
+            "text": "a"
+          }
+        }
+      ]
+    },
+    {
+      "nom": "run_id_vide",
+      "run_id": "--/..",
+      "ops": [
+        {
+          "ajout": {
+            "type": "x"
+          }
+        }
+      ],
+      "statut": "done"
+    },
+    {
+      "nom": "meta_ecrase",
+      "run_id": "r-7_\u00e9",
+      "meta": {
+        "run_id": "autre",
+        "chat_id": "x"
+      },
+      "ops": [],
+      "statut": "done"
+    }
+  ],
+  "lectures": [
+    {
+      "octets": "7b2273223a20312c202265223a207b2274797065223a202261227d7d0a7b2273223a20322c202265223a207b2274797065223a202262227d7d0a7b2273223a20332c20226522",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a20312c202265223a207b2274797065223a202261227d7d0a7b2273223a20322c202265223a207b2274797065223a202262227d7d0a7b2273223a20332c20226522",
+      "offset": 29
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b7d7d0d0a7b2273223a322c2265223a7b7d7d0d0a",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b7d7d0d7b2273223a322c2265223a7b7d7d0a",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b7d7d0d",
+      "offset": 0
+    },
+    {
+      "octets": "0a2020200a7b2273223a312c2265223a7b7d7d0a",
+      "offset": 0
+    },
+    {
+      "octets": "6f6f70730a5b315d0a7b2273223a312c2265223a5b315d7d0a7b2273223a317d0a7b2273223a352c2265223a7b2278223a312e352c2279223a312e307d7d0a",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b2274223a22ff227d7d0a7b2273223a322c2265223a7b2274223a22c3a9227d7d0a",
+      "offset": 0
+    },
+    {
+      "octets": "efbbbf7b2273223a312c2265223a7b7d7d0a",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b2261223a2278227d7d0c0a7b2273223a322c2265223a7b7d7d0b0a",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b226c6f6e67223a2261616161616161616161616161616161616161616161616161616161616161616161616161616161227d7d0a7b2273223a322c2265223a7b7d7d0a",
+      "offset": 0,
+      "max": 8
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b7d7d0a7b2273223a322c2265223a7b226c6f6e67223a2262626262626262626262626262626262626262626262626262626262626262626262626262626262227d7d0a",
+      "offset": 0,
+      "max": 20
+    },
+    {
+      "octets": "7b2273223a31",
+      "offset": 0
+    },
+    {
+      "octets": "7b2273223a312c2265223a7b7d7d0a",
+      "offset": 15
+    },
+    {
+      "octets": "",
+      "offset": 0
+    }
+  ],
+  "identifiants": [
+    "abc-123_x",
+    "\u00e9 \u00fc",
+    "\u0663\u0664",
+    "\u00b2\u00b3",
+    "\u216b",
+    "\u4e00\u4e8c",
+    "\ud83d\ude42a",
+    "e\u0301",
+    "\u01c5",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    null,
+    0,
+    1.5,
+    "",
+    "\u00aa",
+    "\u2070",
+    "\u0bf0",
+    "\u3007",
+    "\ud835\udfce",
+    "r/../5",
+    true,
+    false,
+    [],
+    [
+      "a"
+    ]
+  ],
+  "dossiers": [
+    [
+      1,
+      "c1"
+    ],
+    [
+      42,
+      "\u00e9\ud83d\ude42"
+    ],
+    [
+      7,
+      ""
+    ],
+    [
+      3,
+      "a\u0000b"
+    ],
+    [
+      12,
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  ],
+  "etats": [
+    {
+      "uid": 1,
+      "chat": "c1",
+      "verrou": true,
+      "jsonl": "r1",
+      "courant": "{\"run_id\": \"r1\", \"chat_id\": \"c1\", \"user_id\": 1, \"started_at\": 1700000000.0, \"base_count\": 4, \"is_continue\": 1, \"user_message\": \"Salut\", \"engine_key\": \"\", \"image_request\": {\"prompt\": \"chat\", \"n\": 2.0}}"
+    },
+    {
+      "uid": 1,
+      "chat": "c2",
+      "verrou": true,
+      "jsonl": "r2",
+      "fin": true,
+      "courant": "{\"run_id\": \"r2\", \"chat_id\": \"c2\", \"started_at\": 1.5}",
+      "lignes": "{\"s\": 1, \"e\": {\"type\": \"run_started\", \"run_id\": \"r2\"}}\n{\"s\": 2, \"e\": {\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0}}\n"
+    },
+    {
+      "uid": 1,
+      "chat": "c3",
+      "verrou": false,
+      "jsonl": "r3",
+      "courant": "{\"run_id\": \"r3\", \"chat_id\": \"c3\"}"
+    },
+    {
+      "uid": 1,
+      "chat": "c4",
+      "verrou": true
+    },
+    {
+      "uid": 1,
+      "chat": "c5",
+      "verrou": true,
+      "jsonl": "r5",
+      "courant": "{\"run_id\": \"r/../5\", \"chat_id\": \"c5\", \"user_message\": 0, \"engine_key\": \"conn:9\", \"image_request\": \"non\", \"is_continue\": []}"
+    },
+    {
+      "uid": 1,
+      "chat": "c6",
+      "verrou": true,
+      "courant": "pas du json"
+    },
+    {
+      "uid": 1,
+      "chat": "c7",
+      "verrou": true,
+      "courant": "{\"run_id\": \"r7\", \"chat_id\": \"c7\"}"
+    },
+    {
+      "uid": 1,
+      "chat": "c9",
+      "verrou": true,
+      "jsonl": "r9",
+      "courant": "{\"run_id\": \"r9\", \"chat_id\": \"c9\"}"
+    },
+    {
+      "uid": 2,
+      "chat": "c8",
+      "verrou": true,
+      "jsonl": "r8",
+      "courant": "{\"run_id\": \"r8\", \"chat_id\": \"c8\"}"
+    }
+  ],
+  "requetes": [
+    [
+      1,
+      "GET",
+      "/api/chat/c1/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c3/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c4/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c5/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c6/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c7/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c8/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c9/generation-status",
+      null
+    ],
+    [
+      2,
+      "GET",
+      "/api/chat/c1/generation-status",
+      null
+    ],
+    [
+      2,
+      "GET",
+      "/api/chat/c8/generation-status",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chats/active-runs",
+      null
+    ],
+    [
+      2,
+      "GET",
+      "/api/chats/active-runs",
+      null
+    ],
+    [
+      3,
+      "GET",
+      "/api/chats/active-runs",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c1/run/events?run_id=r0",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c4/run/events",
+      null
+    ],
+    [
+      2,
+      "GET",
+      "/api/chat/c2/run/events",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events?from=2&run_id=%20r2%20",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events?from=-5",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events?from=1_0",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events?from=abc&from=2",
+      null
+    ],
+    [
+      1,
+      "GET",
+      "/api/chat/c2/run/events?from=2.0",
+      null
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      "{\"messages\": [{\"role\": \"user\", \"content\": \"\u00e9\"}, 1.0, 2]}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      ""
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      "{\"x\": 1}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      "{\"messages\": \"abc\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      "[1]"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/compress",
+      "null"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/task-cancel",
+      "{}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/task-cancel",
+      "{\"child_id\": \"enfant-1\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/task-cancel",
+      "{\"child_id\": 5}"
+    ],
+    [
+      3,
+      "POST",
+      "/api/chat/task-cancel",
+      "{\"child_id\": \"x\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/task-cancel",
+      "oops"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/task-cancel",
+      "{\"child_id\": \"\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/reasoning-end",
+      "{}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/reasoning-end",
+      "{\"chat_id\": \"inconnu\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/reasoning-end",
+      "{\"chat_id\": \"c1\"}"
+    ],
+    [
+      2,
+      "POST",
+      "/api/chat/reasoning-end",
+      "{\"chat_id\": \"c1\"}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/reasoning-end",
+      "oops"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/reasoning-end",
+      "{\"chat_id\": 0}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/cancel",
+      "{}"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/cancel",
+      "oops"
+    ],
+    [
+      1,
+      "POST",
+      "/api/chat/cancel",
+      "{\"chat_id\": \"c3\"}"
+    ]
+  ],
+  "journaux_obtenus": [
+    {
+      "ouvert": true,
+      "plafond": null,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r1\"}}\n{\"s\": 2, \"e\": {\"type\": \"mode\", \"text\": \"G\u00e9n\u00e9ration en cours\u2026\"}}\n{\"s\": 3, \"e\": {\"type\": \"content_token\", \"text\": \"Bonjour\", \"n\": 4}}\n{\"s\": 4, \"e\": {\"type\": \"thinking_token\", \"text\": \"ab\", \"n\": 2}}\n{\"s\": 5, \"e\": {\"type\": \"tool_call_delta\", \"iter\": 1, \"index\": 0, \"name_delta\": \"lire\", \"args_delta\": \"{\\\"a\\\": 1}!\"}}\n{\"s\": 6, \"e\": {\"type\": \"tool_call_delta\", \"iter\": 1, \"index\": 1, \"name_delta\": \"b\"}}\n{\"s\": 7, \"e\": {\"type\": \"tool_call_delta\", \"iter\": 1, \"index\": 1, \"reset\": true, \"name_delta\": \"c\"}}\n{\"s\": 8, \"e\": {\"type\": \"tool_call_delta\", \"iter\": 1, \"index\": 1, \"name_delta\": \"d\"}}\n{\"s\": 9, \"e\": {\"type\": \"content_token\", \"text\": null}}\n{\"s\": 10, \"e\": {\"type\": \"content_token\", \"text\": \"xy\", \"n\": 4}}\n{\"s\": 11, \"e\": {\"type\": \"content_token\", \"text\": \"apr\u00e8s\"}}\n{\"s\": 12, \"e\": {\"type\": \"tool_call\", \"args\": {\"k\": [1, 2.5, null, true]}, \"id\": \"t1\"}}\n{\"s\": 13, \"e\": {\"type\": \"thinking_token\", \"text\": \"z\", \"n\": 0}}\n{\"s\": 14, \"e\": {\"type\": \"run_end\", \"status\": \"done\"}}\n",
+      "courant": "{\"run_id\": \"r1\", \"chat_id\": \"chat0\", \"user_id\": 1, \"started_at\": 1700000000.5, \"base_count\": 3, \"is_continue\": false, \"user_message\": \"Salut \u00e9\", \"engine_key\": \"builtin\"}",
+      "fichiers": [
+        "current.json",
+        "r1.end",
+        "r1.jsonl",
+        "vivant.jsonl"
+      ]
+    },
+    {
+      "ouvert": true,
+      "plafond": 250,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r2\"}}\n{\"s\": 2, \"e\": {\"type\": \"content_token\", \"text\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}\n{\"s\": 3, \"e\": {\"type\": \"content_token\", \"text\": \"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\"}}\n{\"s\": 4, \"e\": {\"type\": \"journal_truncated\"}}\n{\"s\": 5, \"e\": {\"type\": \"tool_call\", \"id\": \"t0\"}}\n{\"s\": 6, \"e\": {\"type\": \"tool_call\", \"id\": \"t1\"}}\n{\"s\": 7, \"e\": {\"type\": \"run_end\", \"status\": \"error\"}}\n",
+      "courant": "{\"run_id\": \"r2\", \"chat_id\": \"chat1\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r2.end",
+        "r2.jsonl"
+      ]
+    },
+    {
+      "ouvert": true,
+      "plafond": 197,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r3\"}}\n{\"s\": 2, \"e\": {\"type\": \"content_token\", \"text\": \"\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\ud83d\ude42\"}}\n{\"s\": 3, \"e\": {\"type\": \"content_token\", \"text\": \"apr\u00e8s\"}}\n{\"s\": 4, \"e\": {\"type\": \"journal_truncated\"}}\n{\"s\": 5, \"e\": {\"type\": \"run_end\", \"status\": \"done\"}}\n",
+      "courant": "{\"run_id\": \"r3\", \"chat_id\": \"chat2\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r3.end",
+        "r3.jsonl"
+      ]
+    },
+    {
+      "ouvert": true,
+      "plafond": null,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r4\"}}\n{\"s\": 2, \"e\": {\"type\": \"run_end\", \"status\": \"done\"}}\n",
+      "courant": "{\"run_id\": \"r4\", \"chat_id\": \"chat3\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r4.end",
+        "r4.jsonl"
+      ]
+    },
+    {
+      "ouvert": true,
+      "plafond": null,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r5\"}}\n{\"s\": 2, \"e\": {\"type\": \"final\", \"ok\": true}}\n{\"s\": 3, \"e\": {\"type\": \"run_end\", \"status\": \"done\"}}\n",
+      "courant": "{\"run_id\": \"r5\", \"chat_id\": \"chat4\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r5.end",
+        "r5.jsonl"
+      ]
+    },
+    {
+      "ouvert": true,
+      "plafond": null,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r6\"}}\n{\"s\": 2, \"e\": {\"type\": \"content_token\", \"text\": \"a\"}}\n",
+      "courant": "{\"run_id\": \"r6\", \"chat_id\": \"chat5\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r6.end",
+        "r6.jsonl"
+      ]
+    },
+    {
+      "ouvert": false,
+      "plafond": null,
+      "contenu": null,
+      "courant": null,
+      "fichiers": null
+    },
+    {
+      "ouvert": true,
+      "plafond": null,
+      "contenu": "{\"s\": 1, \"e\": {\"chat_id\": \"c1\", \"mode\": \"classique\", \"type\": \"run_started\", \"run_id\": \"r7\u00e9\"}}\n{\"s\": 2, \"e\": {\"type\": \"run_end\", \"status\": \"done\"}}\n",
+      "courant": "{\"run_id\": \"autre\", \"chat_id\": \"x\", \"user_id\": 1, \"started_at\": 1700000000.5}",
+      "fichiers": [
+        "current.json",
+        "r7\u00e9.end",
+        "r7\u00e9.jsonl"
+      ]
+    }
+  ],
+  "lectures_obtenues": [
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {
+            "type": "a"
+          }
+        },
+        {
+          "s": 2,
+          "e": {
+            "type": "b"
+          }
+        }
+      ],
+      "offset": 58
+    },
+    {
+      "entrees": [
+        {
+          "s": 2,
+          "e": {
+            "type": "b"
+          }
+        }
+      ],
+      "offset": 58
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {}
+        },
+        {
+          "s": 2,
+          "e": {}
+        }
+      ],
+      "offset": 32
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {}
+        },
+        {
+          "s": 2,
+          "e": {}
+        }
+      ],
+      "offset": 30
+    },
+    {
+      "entrees": [],
+      "offset": 0
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {}
+        }
+      ],
+      "offset": 20
+    },
+    {
+      "entrees": [
+        {
+          "s": 5,
+          "e": {
+            "x": 1.5,
+            "y": 1.0
+          }
+        }
+      ],
+      "offset": 63
+    },
+    {
+      "entrees": [
+        {
+          "s": 2,
+          "e": {
+            "t": "\u00e9"
+          }
+        }
+      ],
+      "offset": 45
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {}
+        }
+      ],
+      "offset": 18
+    },
+    {
+      "entrees": [],
+      "offset": 39
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {
+            "long": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      ],
+      "offset": 64
+    },
+    {
+      "entrees": [
+        {
+          "s": 1,
+          "e": {}
+        }
+      ],
+      "offset": 15
+    },
+    {
+      "entrees": [],
+      "offset": 0
+    },
+    {
+      "entrees": [],
+      "offset": 15
+    },
+    {
+      "entrees": [],
+      "offset": 0
+    }
+  ],
+  "identifiants_surs": [
+    "abc123x",
+    "\u00e9\u00fc",
+    "\u0663\u0664",
+    "\u00b2\u00b3",
+    "\u216b",
+    "\u4e00\u4e8c",
+    "a",
+    "e",
+    "\u01c5",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "",
+    "",
+    "15",
+    "",
+    "\u00aa",
+    "\u2070",
+    "\u0bf0",
+    "\u3007",
+    "\ud835\udfce",
+    "r5",
+    "True",
+    "",
+    "",
+    "a"
+  ],
+  "noms_dossiers": [
+    "u1-bebaae45a1e48c24a560eb4b",
+    "u42-569996619d9467e50a1814f2",
+    "u7-bb153e97380f82aa57033add",
+    "u3-952b77723b0c328a841afb7c",
+    "u12-1c359d66b9b22eb0ed34ed74"
+  ],
+  "reponses": [
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":\"r1\",\"resumable\":true,\"started_at\":1700000000.0,\"base_count\":4,\"is_continue\":true,\"user_message\":\"Salut\",\"engine_key\":\"builtin\",\"image_request\":{\"prompt\":\"chat\",\"n\":2.0}}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":false,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":false,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":\"r5\",\"resumable\":true,\"started_at\":null,\"base_count\":null,\"is_continue\":false,\"user_message\":\"\",\"engine_key\":\"conn:9\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":false,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":\"r9\",\"resumable\":true,\"started_at\":null,\"base_count\":null,\"is_continue\":false,\"user_message\":\"\",\"engine_key\":\"builtin\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":false,\"run_id\":null,\"resumable\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"generation_running\":true,\"run_id\":\"r8\",\"resumable\":true,\"started_at\":null,\"base_count\":null,\"is_continue\":false,\"user_message\":\"\",\"engine_key\":\"builtin\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": null,
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      },
+      "chat_ids": [
+        "c1",
+        "c5",
+        "c7",
+        "c9"
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": null,
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      },
+      "chat_ids": [
+        "c8"
+      ]
+    },
+    {
+      "statut": 200,
+      "corps": null,
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      },
+      "chat_ids": []
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"run_not_found\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"run_not_found\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"run_not_found\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"run_started\", \"run_id\": \"r2\", \"_s\": 1}\n{\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0, \"_s\": 2}\n{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0, \"_s\": 2}\n{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"run_started\", \"run_id\": \"r2\", \"_s\": 1}\n{\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0, \"_s\": 2}\n{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0, \"_s\": 2}\n{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"type\": \"run_started\", \"run_id\": \"r2\", \"_s\": 1}\n{\"type\": \"content_token\", \"text\": \"\u00e9\", \"v\": 1.0, \"_s\": 2}\n{\"type\": \"replay_done\"}\n{\"type\": \"run_end\", \"status\": \"unknown\"}\n",
+      "entetes": {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"compressed\":false,\"messages\":[{\"role\":\"user\",\"content\":\"\u00e9\"},1.0,2],\"deprecated\":true,\"reason\":\"Server-side compression now runs automatically during chat streaming.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"compressed\":false,\"messages\":[],\"deprecated\":true,\"reason\":\"Server-side compression now runs automatically during chat streaming.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"compressed\":false,\"messages\":[],\"deprecated\":true,\"reason\":\"Server-side compression now runs automatically during chat streaming.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"compressed\":false,\"messages\":\"abc\",\"deprecated\":true,\"reason\":\"Server-side compression now runs automatically during chat streaming.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"child_id requis\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\",\"active\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\",\"active\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\",\"active\":false}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"child_id requis\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"child_id requis\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"reason\":\"no_chat\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chat_not_found\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"reason\":\"no_active_completion\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"chat_not_found\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"reason\":\"no_chat\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"reason\":\"no_chat\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"status\":\"cancelled\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": null,
+        "x-accel-buffering": null
+      }
+    }
+  ]
+}

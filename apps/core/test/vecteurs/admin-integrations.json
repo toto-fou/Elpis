@@ -1,0 +1,1369 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_integrations.py",
+  "comptes": [
+    [
+      "admin",
+      1
+    ],
+    [
+      "modo",
+      2
+    ],
+    [
+      "bob",
+      0
+    ]
+  ],
+  "config": {
+    "rag": {
+      "service_url": "{h}/r1",
+      "service_token": "jeton-rag"
+    },
+    "voice": {
+      "enabled": true,
+      "stt": {
+        "endpoint_url": "http://stt.lan:8080/",
+        "format": "openai",
+        "model": "whisper-1",
+        "token": "jeton-voix"
+      },
+      "tts": {
+        "endpoint_url": "",
+        "voice": "fr_FR-x"
+      }
+    },
+    "security": {
+      "https": {
+        "enabled": false
+      }
+    }
+  },
+  "faux": {
+    "GET /r1/api/health": [
+      200,
+      "application/json",
+      "{\"ok\": true, \"version\": \"2.3.0\", \"collection\": \"exigences\", \"chunks\": 1842, \"ratio\": 2.5, \"perdu\": NaN, \"plafond\": -Infinity, \"liste\": [1, NaN]}"
+    ],
+    "GET /r2/api/health": [
+      401,
+      "text/plain",
+      "non"
+    ],
+    "GET /r3/api/health": [
+      500,
+      "text/plain",
+      "panne xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "GET /r4/api/health": [
+      200,
+      "text/plain",
+      "pas du json"
+    ]
+  },
+  "fichiers": {
+    "system_prompts/CHATBOT_SYSTEM.md": [
+      "Tu es Elpis.\n",
+      1700000000
+    ],
+    "system_prompts/COMPRESSOR_SYSTEM.md": [
+      "R\u00e9sume.\r\nFin",
+      1700000100
+    ],
+    "system_prompts/_TEMPLATE.md": [
+      "# Gabarit\n",
+      1700000200
+    ],
+    "system_prompts/binaire.md": [
+      "hex:fffe41",
+      1700000300
+    ],
+    "dehors.md": [
+      "dehors",
+      1700000400
+    ],
+    "system_prompts/lien.md": [
+      "lien:../dehors.md",
+      null
+    ]
+  },
+  "etapes": [
+    [
+      "bob",
+      "POST",
+      "/api/admin/rag-service/test",
+      {}
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/rag-service/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r1/"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r4"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r2",
+        "token": "autre"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": " {h}/r3 ",
+        "token": 5,
+        "timeout": "abc"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r4",
+        "token": 0,
+        "timeout": 0
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r1",
+        "token": 2.0,
+        "timeout": [
+          1
+        ]
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "{h}/r1",
+        "token": true,
+        "timeout": "1e9"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "   ",
+        "token": null,
+        "timeout": 0.01
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": 5
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      "<<null>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {
+        "url": "http://127.0.0.1:1"
+      },
+      200
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/voice/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "enabled": false,
+        "stt": {
+          "endpoint_url": "http://autre/refus",
+          "timeout_sec": "90",
+          "verify": "false"
+        },
+        "tts": {
+          "endpoint_url": "http://tts.lan/",
+          "format": "OpenAI",
+          "model": ""
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "enabled": true,
+        "stt": {
+          "endpoint_url": "http://stt.lan:8080",
+          "model": "whisper-1",
+          "verify": true,
+          "token": "",
+          "language": "fr",
+          "timeout_sec": 2.9
+        },
+        "tts": {
+          "endpoint_url": "http://tts.lan/boom",
+          "format": "openai",
+          "model": 2.0,
+          "voice": "fr_FR-x",
+          "verify": 0,
+          "timeout_sec": "abc"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "stt": {
+          "endpoint_url": "",
+          "prompt": null,
+          "format": "openai"
+        },
+        "tts": {
+          "endpoint_url": "http://tts.lan",
+          "speed": 3,
+          "verify": "Non"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "stt": "pas un dict",
+        "tts": {
+          "endpoint_url": "http://tts.lan",
+          "timeout_sec": 1
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "TTS ",
+        "endpoint_url": "http://tts.lan/",
+        "format": "OpenAI"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "x"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "stt"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "stt",
+        "endpoint_url": "http://x/vide"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "stt",
+        "endpoint_url": "http://x/refus"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "tts",
+        "endpoint_url": ""
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "tts",
+        "endpoint_url": "http://tts.lan/boom",
+        "token": "t"
+      }
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "stt"
+      }
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "voice": {
+          "enabled": "oui",
+          "tts": {
+            "endpoint_url": "http://tts.lan"
+          }
+        },
+        "security": {
+          "https": {
+            "enabled": true
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "enabled": true,
+        "tts": {
+          "endpoint_url": "http://tts.lan"
+        }
+      }
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "rag": {
+          "service_url": ""
+        },
+        "voice": "cass\u00e9"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/rag-service/test",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/test",
+      {
+        "stt": {
+          "endpoint_url": "http://stt.lan"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/voice/models",
+      {
+        "section": "stt",
+        "endpoint_url": "http://stt.lan"
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/admin/system-prompts",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/system-prompts",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_template",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_preview",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_preview?categories=+memory+,fs,,&user_prompt=++Tu+es+l%C3%A0++&query=bonjour",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_preview?user_prompt=estimation+du+texte&categories=",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_preview?user_prompt=a&user_prompt=b",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/COMPRESSOR_SYSTEM",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/binaire",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/lien",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/absent",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_TEMPLATE",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/a.b",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/..%2Fdehors",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/%C3%A9t%C3%A9",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      null
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/_TEMPLATE",
+      {
+        "content": "x"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/lien",
+      {
+        "content": "x"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/a.b",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {
+        "content": 5
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {
+        "content": " \n\t "
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {}
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      "<<null>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      "<<{\"content\": \"a\\ud800\"}>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {
+        "@repete": [
+          "\u00e9",
+          25001
+        ]
+      }
+    ],
+    [
+      "modo",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {
+        "content": "x"
+      }
+    ],
+    [
+      "admin",
+      "RENOMMER",
+      "",
+      [
+        "system_prompts",
+        "system_prompts.bak"
+      ]
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_template",
+      null
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/system-prompts/CHATBOT_SYSTEM",
+      {
+        "content": "x"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/system-prompts/_preview?user_prompt=x",
+      null
+    ],
+    [
+      "admin",
+      "RENOMMER",
+      "",
+      [
+        "system_prompts.bak",
+        "system_prompts"
+      ]
+    ],
+    [
+      "admin",
+      "MCP",
+      "",
+      {
+        "version": 1,
+        "toolHosts": {
+          "main": {
+            "url": "{h}",
+            "token": "jeton-hote"
+          }
+        },
+        "mcpServers": {
+          "elpis-fs": {
+            "type": "http",
+            "url": "{h}/mcp/fs",
+            "headers": {
+              "Authorization": "Bearer jeton-hote"
+            },
+            "description": "Fichiers du sandbox",
+            "x-elpis": {
+              "role": "toolhost",
+              "host": "main",
+              "families": [
+                "fs"
+              ]
+            }
+          },
+          "elpis-shell": {
+            "type": "http",
+            "url": "{h}/mcp/shell",
+            "headers": {
+              "Authorization": "Bearer jeton-hote"
+            },
+            "x-elpis": {
+              "role": "toolhost",
+              "host": "main",
+              "families": [
+                "shell",
+                "inconnue"
+              ]
+            }
+          },
+          "externe": {
+            "type": "sse",
+            "url": "http://127.0.0.1:1/sse",
+            "description": "Service externe",
+            "headers": {
+              "Authorization": "Bearer jeton-externe",
+              "X-Cle": "v"
+            },
+            "x-elpis": {
+              "role": "external",
+              "default_on": true
+            }
+          },
+          "outil-local": {
+            "type": "stdio",
+            "command": "python3",
+            "args": [
+              "-m",
+              "outil"
+            ],
+            "x-elpis": {
+              "role": "external"
+            }
+          },
+          "eteint": {
+            "type": "http",
+            "url": "{h}/mcp/eteint",
+            "enabled": false,
+            "x-elpis": {
+              "role": "external"
+            }
+          }
+        }
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/admin/mcp/manifest",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/mcp/manifest",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?transport=sse&with_token=1&prefix=x-",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?transport=stdio&scope=all",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?transport=streamable-http&base_url=+http://autre:9000/+&with_token=0",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?with_token=abc",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?transport=ws",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/mcp/manifest/export?with_token=1",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/mcp/manifest/reload",
+      null
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/mcp/manifest/reload",
+      null
+    ],
+    [
+      "admin",
+      "MCP",
+      "",
+      "<<{\"version\": 1, \"mcpServers\": [1]>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/mcp/manifest/reload",
+      null,
+      200
+    ],
+    [
+      "admin",
+      "MCP",
+      "",
+      {
+        "version": "x",
+        "mcpServers": {
+          "seul": {
+            "url": "{h}/mcp",
+            "x-elpis": {
+              "role": "toolhost",
+              "families": "all,-fs"
+            }
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/mcp/manifest/reload",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/mcp/manifest/export?scope=all&with_token=1",
+      null
+    ]
+  ],
+  "ids": {
+    "admin": 1,
+    "modo": 2,
+    "bob": 3
+  },
+  "reponses": [
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"raw\":\"pas du json\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"Auth refused (HTTP 401).\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"HTTP 500: panne xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"raw\":\"pas du json\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":{\"ok\":true,\"version\":\"2.3.0\",\"collection\":\"exigences\",\"chunks\":1842,\"ratio\":2.5,\"perdu\":null,\"plafond\":null,\"liste\":[1,null]}}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"Network error: [Errno 111] Connection refused\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":true}},\"tts\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"enabled\":true,\"saved_matches_form\":true,\"unsaved\":[],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":true}},\"tts\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"enabled\":true,\"saved_matches_form\":true,\"unsaved\":[],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":true}},\"tts\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"enabled\":true,\"saved_matches_form\":true,\"unsaved\":[],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":false,\"error\":\"Le service vocal refuse la requ\u00eate.\",\"detail\":\"HTTP 500 : panne\"},\"tts\":{\"ok\":false,\"error\":\"Format openai : renseignez le mod\u00e8le de synth\u00e8se (ex. tts-1).\"},\"enabled\":true,\"saved_matches_form\":false,\"unsaved\":[\"enabled\",\"stt.endpoint_url\",\"stt.verify\",\"tts.endpoint_url\",\"tts.format\"],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":2,\"has_token\":false}},\"tts\":{\"ok\":false,\"error\":\"Erreur interne : boum\"},\"enabled\":true,\"saved_matches_form\":false,\"unsaved\":[\"stt.token\",\"tts.endpoint_url\",\"tts.format\",\"tts.model\",\"tts.verify\"],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"tts\":{\"ok\":true,\"bytes\":2048,\"mime\":\"audio/wav\",\"voices\":[\"a\",\"b\"],\"vu\":{\"endpoint_url\":\"http://tts.lan\",\"format\":\"elpis-tts\",\"model\":\"\",\"verify\":true,\"voice\":\"fr_FR-x\",\"timeout_sec\":30,\"has_token\":false}},\"enabled\":true,\"saved_matches_form\":false,\"unsaved\":[\"stt.endpoint_url\",\"tts.endpoint_url\"],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":true}},\"tts\":{\"ok\":true,\"bytes\":2048,\"mime\":\"audio/wav\",\"voices\":[\"a\",\"b\"],\"vu\":{\"endpoint_url\":\"http://tts.lan\",\"format\":\"elpis-tts\",\"model\":\"\",\"verify\":true,\"voice\":\"fr_FR-x\",\"timeout_sec\":2,\"has_token\":false}},\"enabled\":true,\"saved_matches_form\":false,\"unsaved\":[\"tts.endpoint_url\"],\"flags\":{\"stt\":true,\"tts\":false},\"https\":false,\"warnings\":[\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Chaque utilisateur doit cocher Dict\u00e9e / R\u00e9ponse vocale dans ses Param\u00e8tres.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"models\":[{\"id\":\"m1\",\"label\":\"M1\"}],\"current\":\"m1\",\"source\":\"tts/openai\",\"vu\":{\"endpoint_url\":\"http://tts.lan\",\"format\":\"openai\",\"model\":\"\",\"verify\":true,\"voice\":\"fr_FR-x\",\"timeout_sec\":30,\"has_token\":false}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Section inconnue : \u00ab stt \u00bb ou \u00ab tts \u00bb.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Section inconnue : \u00ab stt \u00bb ou \u00ab tts \u00bb.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Section inconnue : \u00ab stt \u00bb ou \u00ab tts \u00bb.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"models\":[{\"id\":\"m1\",\"label\":\"M1\"}],\"current\":\"m1\",\"source\":\"stt/openai\",\"vu\":{\"endpoint_url\":\"http://stt.lan:8080\",\"format\":\"openai\",\"language\":\"fr\",\"model\":\"whisper-1\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":true}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Service vocal injoignable.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Le service vocal refuse la requ\u00eate.\",\"detail\":\"HTTP 500 : panne\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Aucune adresse renseign\u00e9e.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"models\":[],\"current\":null,\"source\":\"\",\"error\":\"Erreur interne : boum\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"tts\":{\"ok\":true,\"bytes\":2048,\"mime\":\"audio/wav\",\"voices\":[\"a\",\"b\"],\"vu\":{\"endpoint_url\":\"http://tts.lan\",\"format\":\"elpis-tts\",\"model\":\"\",\"verify\":true,\"voice\":\"fr_FR-siwis-medium\",\"timeout_sec\":30,\"has_token\":false}},\"enabled\":false,\"saved_matches_form\":true,\"unsaved\":[],\"flags\":{\"stt\":false,\"tts\":false},\"https\":true,\"warnings\":[\"Moteur vocal d\u00e9sactiv\u00e9 (case Activer).\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"tts\":{\"ok\":true,\"bytes\":2048,\"mime\":\"audio/wav\",\"voices\":[\"a\",\"b\"],\"vu\":{\"endpoint_url\":\"http://tts.lan\",\"format\":\"elpis-tts\",\"model\":\"\",\"verify\":true,\"voice\":\"fr_FR-siwis-medium\",\"timeout_sec\":30,\"has_token\":false}},\"enabled\":false,\"saved_matches_form\":false,\"unsaved\":[\"enabled\"],\"flags\":{\"stt\":false,\"tts\":false},\"https\":true,\"warnings\":[\"Moteur vocal d\u00e9sactiv\u00e9 (case Activer).\",\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\"]}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"error\":\"No URL provided.\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"stt\":{\"ok\":true,\"text\":\"bonjour\",\"format\":\"whisper.cpp\",\"vu\":{\"endpoint_url\":\"http://stt.lan\",\"format\":\"whisper.cpp\",\"language\":\"fr\",\"model\":\"\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":false}},\"tts\":{\"ok\":false,\"error\":\"Aucune adresse renseign\u00e9e.\"},\"enabled\":false,\"saved_matches_form\":false,\"unsaved\":[\"stt.endpoint_url\"],\"flags\":{\"stt\":false,\"tts\":false},\"https\":false,\"warnings\":[\"Moteur vocal d\u00e9sactiv\u00e9 (case Activer).\",\"Configuration non enregistr\u00e9e : le test porte sur le formulaire.\",\"Apr\u00e8s enregistrement, rechargez la page pour voir le micro.\",\"Le micro exige HTTPS (ou localhost) : activez HTTPS dans S\u00e9curit\u00e9 \u203a Acc\u00e8s HTTPS.\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"models\":[{\"id\":\"m1\",\"label\":\"M1\"}],\"current\":\"m1\",\"source\":\"stt/whisper.cpp\",\"vu\":{\"endpoint_url\":\"http://stt.lan\",\"format\":\"whisper.cpp\",\"language\":\"fr\",\"model\":\"\",\"prompt\":\"\",\"verify\":true,\"timeout_sec\":30,\"has_token\":false}}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"directory\":\"<R>/system_prompts\",\"items\":[{\"category\":\"CHATBOT_SYSTEM\",\"size_chars\":13,\"mtime\":1700000000,\"exists\":true},{\"category\":\"COMPRESSOR_SYSTEM\",\"size_chars\":13,\"mtime\":1700000100,\"exists\":true},{\"category\":\"binaire\",\"size_chars\":3,\"mtime\":1700000300,\"exists\":true},{\"category\":\"lien\",\"size_chars\":6,\"mtime\":1700000400,\"exists\":true}],\"template_exists\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"category\":\"_TEMPLATE\",\"content\":\"# Gabarit\\n\",\"size_chars\":10}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"user_prompt\":\"\",\"active_categories\":[],\"available_categories\":[\"CHATBOT_SYSTEM\",\"COMPRESSOR_SYSTEM\",\"binaire\",\"lien\"],\"assembled\":\"# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\",\"messages\":[{\"role\":\"system\",\"content\":\"# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\"}],\"size_chars\":1996,\"approx_tokens\":666,\"tokens_exact\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"user_prompt\":\"  Tu es l\u00e0  \",\"active_categories\":[\"memory\",\"fs\"],\"available_categories\":[\"CHATBOT_SYSTEM\",\"COMPRESSOR_SYSTEM\",\"binaire\",\"lien\"],\"assembled\":\"Tu es l\u00e0\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\",\"messages\":[{\"role\":\"system\",\"content\":\"Tu es l\u00e0\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\"}],\"size_chars\":2011,\"approx_tokens\":671,\"tokens_exact\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"user_prompt\":\"estimation du texte\",\"active_categories\":[],\"available_categories\":[\"CHATBOT_SYSTEM\",\"COMPRESSOR_SYSTEM\",\"binaire\",\"lien\"],\"assembled\":\"estimation du texte\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\",\"messages\":[{\"role\":\"system\",\"content\":\"estimation du texte\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\"}],\"size_chars\":2022,\"approx_tokens\":612,\"tokens_exact\":false}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"user_prompt\":\"b\",\"active_categories\":[],\"available_categories\":[\"CHATBOT_SYSTEM\",\"COMPRESSOR_SYSTEM\",\"binaire\",\"lien\"],\"assembled\":\"b\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\",\"messages\":[{\"role\":\"system\",\"content\":\"b\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\"}],\"size_chars\":2004,\"approx_tokens\":669,\"tokens_exact\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"category\":\"CHATBOT_SYSTEM\",\"content\":\"Tu es Elpis.\\n\",\"size_chars\":13}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"category\":\"COMPRESSOR_SYSTEM\",\"content\":\"R\u00e9sume.\\nFin\",\"size_chars\":11}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"path escapes system_prompts/\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"absent.md not found\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"reserved name\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"invalid category name\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"invalid category name\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"reserved name\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"path escapes system_prompts/\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"invalid category name\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"body.content must be a string\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"content is empty \u2014 use DELETE if you really want to remove this category\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"body.content must be a string\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"content too large (25001 chars > 50000 bytes max)\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"directory\":\"<R>/system_prompts\",\"items\":[],\"template_exists\":false}"
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"SYSTEM_P directory missing: <R>/system_prompts\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"SYSTEM_P directory missing: <R>/system_prompts\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "{\"detail\":\"SYSTEM_P directory missing: <R>/system_prompts\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"user_prompt\":\"x\",\"active_categories\":[],\"available_categories\":[],\"assembled\":\"x\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\",\"messages\":[{\"role\":\"system\",\"content\":\"x\\n\\n---\\n\\n# Skills (known procedures)\\n\\nThe index below lists ALL available pre-written procedures (name \u2014 description). When one matches the task, load its content with the `skill_get(name)` tool BEFORE acting \u2014 do not invent the steps. A skill marked \\\"files/scripts\\\" ships resources (scripts, references, templates): they live OUTSIDE the `/work` sandbox (a `skills/` folder in the sandbox is only a disposable mirror) \u2014 read one with `skill_read_file(name, path)` and run a script with `skill_run_script(name, script, args, env)` (do not use read_file / execute_shell for that, and do not copy the code out). Scripts execute FROM `/work`: pass your sandbox files in `args` exactly as you see them (relative paths resolve against `/work`), and script outputs land in `/work`.\\n\\n## Index\\n\\n### General\\n- **creer-un-skill** \u2014 Create a new skill through a guided interview \u2014 ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get\\n\\n### ansible\\n- **ansible** \u2014 Automatisation Ansible \u2014 \u00e9crire un playbook idempotent (t\u00e2ches, handlers, r\u00f4les), organiser inventaire et variables de groupe, chiffrer les secrets avec ansible-vault, tester \u00e0 blanc et d\u00e9boguer un run (check, diff, verbose, limit, tags) \u00b7 sub-skills (`skill_get`)\\n\\n### python\\n- **python** \u2014 D\u00e9veloppement Python \u2014 cr\u00e9er un environnement virtuel propre et g\u00e9rer les d\u00e9pendances (venv, pip, requirements, pyproject), \u00e9crire et lancer des tests pytest (fixtures, parametrize, mocking), d\u00e9boguer et profiler (pdb, logging, cProfile, tracemalloc) \u00b7 sub-skills (`skill_get`)\\n\\n### robotframework\\n- **robotframework** \u2014 Automatisation de tests Robot Framework \u2014 \u00e9crire une suite .robot (sections, keywords, resources), lancer une suite et relancer les \u00e9checs, lire log.html et output.xml, automatiser un parcours web avec SeleniumLibrary sans tests flaky \u00b7 sub-skills (`skill_get`)\"}],\"size_chars\":2004,\"approx_tokens\":669,\"tokens_exact\":true}"
+    },
+    null,
+    null,
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"manifest\":{\"version\":1,\"source\":\"file\",\"host_base_url\":\"{h}\",\"mcp_base_url\":\"{h}/mcp\",\"path\":\"<R>/mcp.json\",\"loaded_at\":1800000820.5,\"servers\":[{\"endpoints\":{\"http\":\"{h}/mcp/fs\",\"sse\":\"{h}/sse/fs\",\"stdio\":{\"command\":\"<PY>\",\"args\":[\"-m\",\"toolhost\",\"--stdio\",\"--families\",\"fs\"],\"env\":{\"LOCAL_MCP_TRANSPORT\":\"stdio\"}}},\"name\":\"elpis-fs\",\"type\":\"http\",\"url\":\"{h}/mcp/fs\",\"headers\":{\"Authorization\":\"***\"},\"command\":\"\",\"args\":[],\"description\":\"Fichiers du sandbox\",\"enabled\":true,\"role\":\"toolhost\",\"identity\":\"meta\",\"families\":[\"fs\"],\"default_on\":[],\"default_on_self\":false,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":true,\"fallback\":true,\"sandbox\":\"\",\"host\":\"main\",\"reachable\":true},{\"endpoints\":{\"http\":\"{h}/mcp/shell\",\"sse\":\"{h}/sse/shell\",\"stdio\":{\"command\":\"<PY>\",\"args\":[\"-m\",\"toolhost\",\"--stdio\",\"--families\",\"shell\"],\"env\":{\"LOCAL_MCP_TRANSPORT\":\"stdio\"}}},\"name\":\"elpis-shell\",\"type\":\"http\",\"url\":\"{h}/mcp/shell\",\"headers\":{\"Authorization\":\"***\"},\"command\":\"\",\"args\":[],\"description\":\"\",\"enabled\":true,\"role\":\"toolhost\",\"identity\":\"meta\",\"families\":[\"shell\"],\"default_on\":[],\"default_on_self\":false,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":true,\"fallback\":true,\"sandbox\":\"\",\"host\":\"main\",\"reachable\":true},{\"endpoints\":{\"http\":\"http://127.0.0.1:1/mcp\",\"sse\":\"http://127.0.0.1:1/sse\"},\"name\":\"externe\",\"type\":\"sse\",\"url\":\"http://127.0.0.1:1/sse\",\"headers\":{\"Authorization\":\"***\",\"X-Cle\":\"v\"},\"command\":\"\",\"args\":[],\"description\":\"Service externe\",\"enabled\":true,\"role\":\"external\",\"identity\":\"token\",\"families\":[],\"default_on\":[],\"default_on_self\":true,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":true,\"fallback\":false,\"sandbox\":\"\",\"host\":\"\",\"reachable\":false},{\"endpoints\":{},\"name\":\"outil-local\",\"type\":\"stdio\",\"url\":\"\",\"headers\":{},\"command\":\"python3\",\"args\":[\"-m\",\"outil\"],\"description\":\"\",\"enabled\":true,\"role\":\"external\",\"identity\":\"token\",\"families\":[],\"default_on\":[],\"default_on_self\":false,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":false,\"fallback\":false,\"sandbox\":\"\",\"host\":\"\",\"reachable\":null},{\"endpoints\":{\"http\":\"{h}/mcp/eteint/mcp\",\"sse\":\"{h}/mcp/eteint/sse\"},\"name\":\"eteint\",\"type\":\"http\",\"url\":\"{h}/mcp/eteint\",\"headers\":{},\"command\":\"\",\"args\":[],\"description\":\"\",\"enabled\":false,\"role\":\"external\",\"identity\":\"token\",\"families\":[],\"default_on\":[],\"default_on_self\":false,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":false,\"fallback\":false,\"sandbox\":\"\",\"host\":\"\",\"reachable\":true}],\"sandbox_hosts\":{\"main\":{\"url\":\"{h}\",\"token\":\"***\"}},\"placement\":{},\"warnings\":[\"elpis-shell : famille d'outils inconnue ignor\u00e9e : 'inconnue'\"],\"errors\":[\"mcpServers/elpis-shell/x-elpis/families : ['shell', 'inconnue'] is not valid under any of the given schemas\"],\"live_categories\":{},\"manifest_path\":\"<R>/mcp.json\",\"schema_path\":\"<DEPOT>/docs/schemas/mcp.schema.json\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"http\",\"base_url\":\"{h}\",\"with_token\":false,\"mcpServers\":{\"elpis-fs\":{\"type\":\"http\",\"url\":\"{h}/mcp/fs\",\"description\":\"Fichiers du sandbox\"},\"elpis-shell\":{\"type\":\"http\",\"url\":\"{h}/mcp/shell\"}}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"sse\",\"base_url\":\"{h}\",\"with_token\":true,\"mcpServers\":{\"x-elpis-fs\":{\"type\":\"sse\",\"url\":\"{h}/sse/fs\",\"headers\":{\"Authorization\":\"Bearer jeton-hote\"},\"description\":\"Fichiers du sandbox\"},\"x-elpis-shell\":{\"type\":\"sse\",\"url\":\"{h}/sse/shell\",\"headers\":{\"Authorization\":\"Bearer jeton-hote\"}}}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"stdio\",\"base_url\":\"{h}\",\"with_token\":false,\"mcpServers\":{\"elpis-fs\":{\"type\":\"stdio\",\"command\":\"<PY>\",\"args\":[\"-m\",\"toolhost\",\"--stdio\",\"--families\",\"fs\"],\"env\":{\"LOCAL_MCP_TRANSPORT\":\"stdio\"},\"description\":\"Fichiers du sandbox\"},\"elpis-shell\":{\"type\":\"stdio\",\"command\":\"<PY>\",\"args\":[\"-m\",\"toolhost\",\"--stdio\",\"--families\",\"shell\"],\"env\":{\"LOCAL_MCP_TRANSPORT\":\"stdio\"}}}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"streamable-http\",\"base_url\":\"http://autre:9000/\",\"with_token\":false,\"mcpServers\":{\"elpis-fs\":{\"type\":\"http\",\"url\":\"http://autre:9000/mcp/fs\",\"description\":\"Fichiers du sandbox\"},\"elpis-shell\":{\"type\":\"http\",\"url\":\"http://autre:9000/mcp/shell\"}}}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"with_token\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"ws\",\"base_url\":\"{h}\",\"with_token\":false,\"mcpServers\":{}}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"source\":\"file\",\"errors\":[\"mcpServers/elpis-shell/x-elpis/families : ['shell', 'inconnue'] is not valid under any of the given schemas\"],\"warnings\":[\"elpis-shell : famille d'outils inconnue ignor\u00e9e : 'inconnue'\"],\"servers\":[\"elpis-fs\",\"elpis-shell\",\"externe\",\"outil-local\",\"eteint\"]}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"source\":\"synthesized\",\"errors\":[\"mcp.json illisible : Expecting ',' delimiter: line 1 column 33 (char 32)\"],\"warnings\":[],\"servers\":[\"elpis-tools\"]}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"source\":\"file\",\"errors\":[\"version : 'x' is not of type 'integer'\"],\"warnings\":[],\"servers\":[\"seul\"]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"manifest\":{\"version\":1,\"source\":\"file\",\"host_base_url\":\"{h}\",\"mcp_base_url\":\"{h}/mcp\",\"path\":\"<R>/mcp.json\",\"loaded_at\":1800000950.5,\"servers\":[{\"endpoints\":{\"http\":\"{h}/mcp\",\"sse\":\"{h}/sse\",\"stdio\":{\"command\":\"<PY>\",\"args\":[\"-m\",\"toolhost\",\"--stdio\",\"--families\",\"shell,git,chart,office,memory,skill,skill_run,todo,browser,desktop\"],\"env\":{\"LOCAL_MCP_TRANSPORT\":\"stdio\"}}},\"name\":\"seul\",\"type\":\"http\",\"url\":\"{h}/mcp\",\"headers\":{},\"command\":\"\",\"args\":[],\"description\":\"\",\"enabled\":true,\"role\":\"toolhost\",\"identity\":\"meta\",\"families\":[\"shell\",\"git\",\"chart\",\"office\",\"memory\",\"skill\",\"skill_run\",\"todo\",\"browser\",\"desktop\"],\"default_on\":[],\"default_on_self\":false,\"opencode_families\":[],\"opencode_publish\":false,\"has_token\":false,\"fallback\":true,\"sandbox\":\"\",\"host\":\"\",\"reachable\":true}],\"sandbox_hosts\":{},\"placement\":{},\"warnings\":[],\"errors\":[\"version : 'x' is not of type 'integer'\"],\"live_categories\":{},\"manifest_path\":\"<R>/mcp.json\",\"schema_path\":\"<DEPOT>/docs/schemas/mcp.schema.json\"}}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"transport\":\"http\",\"base_url\":\"{h}\",\"with_token\":false,\"mcpServers\":{\"seul\":{\"type\":\"http\",\"url\":\"{h}/mcp\"}}}"
+    }
+  ],
+  "requetes": [
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer jeton-rag"
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer jeton-rag"
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer jeton-rag"
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer jeton-rag"
+    ],
+    [
+      "GET",
+      "/r4/api/health",
+      ""
+    ],
+    [
+      "GET",
+      "/r2/api/health",
+      "Bearer autre"
+    ],
+    [
+      "GET",
+      "/r3/api/health",
+      "Bearer 5"
+    ],
+    [
+      "GET",
+      "/r4/api/health",
+      ""
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer 2.0"
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer True"
+    ],
+    [
+      "GET",
+      "/r1/api/health",
+      "Bearer jeton-rag"
+    ]
+  ],
+  "fichiers_finaux": {
+    "CHATBOT_SYSTEM.md": "547520657320456c7069732e0a",
+    "COMPRESSOR_SYSTEM.md": "52c3a973756d652e0d0a46696e",
+    "_TEMPLATE.md": "2320476162617269740a",
+    "binaire.md": "fffe41",
+    "lien.md": "lien:../dehors.md"
+  }
+}

@@ -1,0 +1,3687 @@
+{
+  "source": "migration-kit/vecteurs/moteur_cibles.py",
+  "connecteurs": {
+    "1": {
+      "enabled": true,
+      "scope": "shared",
+      "provider_type": "llamacpp",
+      "wire": "openai",
+      "base_url": " http://s2:8081/v1 ",
+      "api_key": "k1",
+      "default_model": " m-def "
+    },
+    "2": {
+      "enabled": true,
+      "scope": "user",
+      "provider_type": "openai",
+      "wire": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "sk",
+      "default_model": "gpt"
+    },
+    "3": {
+      "enabled": false,
+      "scope": "shared",
+      "provider_type": "vllm",
+      "wire": "openai",
+      "base_url": "http://v",
+      "api_key": "",
+      "default_model": ""
+    },
+    "4": {
+      "enabled": true,
+      "scope": "user",
+      "provider_type": "anthropic",
+      "wire": "anthropic",
+      "base_url": "https://api.anthropic.com",
+      "api_key": "ak",
+      "default_model": ""
+    },
+    "5": {
+      "enabled": 1
+    },
+    "6": {},
+    "7": {
+      "enabled": null,
+      "scope": "shared"
+    },
+    "8": {
+      "scope": "user",
+      "provider_type": ""
+    },
+    "9": {
+      "enabled": true,
+      "scope": "user",
+      "provider_type": null,
+      "wire": null,
+      "base_url": null,
+      "api_key": null,
+      "default_model": null
+    }
+  },
+  "integre_fixe": {
+    "LLAMA_URL": "http://127.0.0.1:8080/v1/chat/completions",
+    "LLAMA_PROVIDER_TYPE": "llamacpp"
+  },
+  "cles": [
+    {
+      "key": null,
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": "",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": "  ",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": "builtin",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": " builtin ",
+      "valeur": [
+        "builtin",
+        null
+      ]
+    },
+    {
+      "key": "BUILTIN",
+      "valeur": null
+    },
+    {
+      "key": "conn:3",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn: 3",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn:03",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn:0",
+      "valeur": null
+    },
+    {
+      "key": "conn:-1",
+      "valeur": null
+    },
+    {
+      "key": "conn:+4",
+      "valeur": [
+        "conn",
+        4
+      ]
+    },
+    {
+      "key": "conn:3_000",
+      "valeur": [
+        "conn",
+        3000
+      ]
+    },
+    {
+      "key": "conn:\u0663",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "conn:\u00b2",
+      "valeur": null
+    },
+    {
+      "key": "conn:",
+      "valeur": null
+    },
+    {
+      "key": "conn:abc",
+      "valeur": null
+    },
+    {
+      "key": "conn:1.5",
+      "valeur": null
+    },
+    {
+      "key": "conn:3 ",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": " conn:3\u3000",
+      "valeur": [
+        "conn",
+        3
+      ]
+    },
+    {
+      "key": "Conn:3",
+      "valeur": null
+    },
+    {
+      "key": "url:x",
+      "valeur": null
+    },
+    {
+      "key": "conn:99999999999999999999",
+      "valeur": [
+        "conn",
+        99999999999999999999
+      ]
+    },
+    {
+      "key": "conn:1e3",
+      "valeur": null
+    }
+  ],
+  "connector_key": [
+    {
+      "id": 3,
+      "valeur": "conn:3"
+    },
+    {
+      "id": "3",
+      "valeur": "conn:3"
+    },
+    {
+      "id": " 7 ",
+      "valeur": "conn:7"
+    },
+    {
+      "id": 3.9,
+      "valeur": "conn:3"
+    },
+    {
+      "id": true,
+      "valeur": "conn:1"
+    },
+    {
+      "id": "abc",
+      "erreur": "ValueError"
+    },
+    {
+      "id": null,
+      "erreur": "TypeError"
+    },
+    {
+      "id": "\u0663",
+      "valeur": "conn:3"
+    },
+    {
+      "id": -2,
+      "valeur": "conn:-2"
+    },
+    {
+      "id": "1_0",
+      "valeur": "conn:10"
+    },
+    {
+      "id": 0,
+      "valeur": "conn:0"
+    }
+  ],
+  "base_root": [
+    {
+      "url": "",
+      "racine": ""
+    },
+    {
+      "url": null,
+      "racine": ""
+    },
+    {
+      "url": "http://h:8080/v1/chat/completions",
+      "racine": "http://h:8080"
+    },
+    {
+      "url": "http://h:8080/v1/chat/completions/",
+      "racine": "http://h:8080"
+    },
+    {
+      "url": "http://h/chat/completions",
+      "racine": "http://h"
+    },
+    {
+      "url": "http://h/v1",
+      "racine": "http://h"
+    },
+    {
+      "url": "http://h/v1/",
+      "racine": "http://h"
+    },
+    {
+      "url": "http://h/proxy/v1",
+      "racine": "http://h/proxy"
+    },
+    {
+      "url": "http://h/proxy/",
+      "racine": "http://h/proxy"
+    },
+    {
+      "url": "http://h//",
+      "racine": "http://h"
+    },
+    {
+      "url": "  http://h/v1  ",
+      "racine": "http://h"
+    },
+    {
+      "url": "/v1",
+      "racine": ""
+    },
+    {
+      "url": "v1",
+      "racine": "v1"
+    },
+    {
+      "url": "http://h/v1/v1",
+      "racine": "http://h/v1"
+    },
+    {
+      "url": "http://h/chat/completions/v1",
+      "racine": "http://h/chat/completions"
+    },
+    {
+      "url": "http://h/V1",
+      "racine": "http://h/V1"
+    },
+    {
+      "url": "http://h/v1/chat/completions/v1/chat/completions",
+      "racine": "http://h/v1/chat/completions"
+    },
+    {
+      "url": "\u00a0http://h/v1\u2003",
+      "racine": "http://h"
+    },
+    {
+      "url": "http://h/v1///",
+      "racine": "http://h"
+    },
+    {
+      "url": "///",
+      "racine": ""
+    },
+    {
+      "url": "https://api.openai.com/v1",
+      "racine": "https://api.openai.com"
+    },
+    {
+      "url": "https://opencode.ai/zen/v1",
+      "racine": "https://opencode.ai/zen"
+    }
+  ],
+  "integre": [
+    {
+      "url": "http://127.0.0.1:8080/v1/chat/completions",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "HTTP://Host:8080/x",
+      "provider_type": "vllm",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://Host:8080",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": false,
+        "repr": "EngineRef(builtin, http://Host:8080, vllm)",
+        "header_dict": {},
+        "url": "http://Host:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://[::1]:8080/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://[::1]:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://[::1]:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://[::1]:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://[fe80::1%eth0]:8080/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://[fe80::1%eth0]:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://[fe80::1%eth0]:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://[fe80::1%eth0]:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://[bad]:8080/v1",
+      "provider_type": "vllm",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://[127.0.0.1]:8080/v1",
+      "provider_type": "vllm",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://h]:1/",
+      "provider_type": "vllm",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "pas une url",
+      "provider_type": "generic",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "generic",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": false,
+        "repr": "EngineRef(builtin, , generic)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://user:pw@h:1/v1",
+      "provider_type": "",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://user:pw@h:1",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://user:pw@h:1, llamacpp)",
+        "header_dict": {},
+        "url": "http://user:pw@h:1/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "\thttp://h:2/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://h:2",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://h:2, llamacpp)",
+        "header_dict": {},
+        "url": "http://h:2/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://h\n:3/x",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://h:3",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://h:3, llamacpp)",
+        "header_dict": {},
+        "url": "http://h:3/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://h\u2100x/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://h\u00e9:4/v1",
+      "provider_type": "generic",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://h\u00e9:4",
+        "provider_type": "generic",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": false,
+        "repr": "EngineRef(builtin, http://h\u00e9:4, generic)",
+        "header_dict": {},
+        "url": "http://h\u00e9:4/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "h:5/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "//h:6/v1",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "1http://h:7",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http:/h:8",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, , llamacpp)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "url": "http://h:9?q=1#f",
+      "provider_type": "llamacpp",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://h:9",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://h:9, llamacpp)",
+        "header_dict": {},
+        "url": "http://h:9/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    }
+  ],
+  "cibles_defaut": [
+    {
+      "provider_type": "llamacpp",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      }
+    },
+    {
+      "provider_type": "vllm",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "vllm",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    },
+    {
+      "provider_type": "generic",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "generic",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    },
+    {
+      "provider_type": "",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      }
+    },
+    {
+      "provider_type": null,
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      }
+    }
+  ],
+  "proprietes": [
+    {
+      "cible": {},
+      "proprietes": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      }
+    },
+    {
+      "cible": {
+        "is_default": false
+      },
+      "proprietes": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      }
+    },
+    {
+      "cible": {
+        "provider_type": "vllm"
+      },
+      "proprietes": {
+        "wire": "openai",
+        "provider_type": "vllm",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    },
+    {
+      "cible": {
+        "provider_type": "vllm",
+        "is_default": false
+      },
+      "proprietes": {
+        "wire": "openai",
+        "provider_type": "vllm",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    },
+    {
+      "cible": {
+        "provider_type": "LLAMACPP"
+      },
+      "proprietes": {
+        "wire": "openai",
+        "provider_type": "LLAMACPP",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    },
+    {
+      "cible": {
+        "wire": "anthropic",
+        "provider_type": "anthropic",
+        "is_default": false
+      },
+      "proprietes": {
+        "wire": "anthropic",
+        "provider_type": "anthropic",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      }
+    }
+  ],
+  "moteurs_de_cible": [
+    {
+      "cible": null,
+      "forme": "aucune",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": true,
+        "base_url": "http://ignore/v1",
+        "api_key": "k",
+        "connector_id": 4
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k",
+        "connector_id": 3
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "conn:3",
+        "base_root": "http://s2:8081",
+        "provider_type": "llamacpp",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer k"
+          ]
+        ],
+        "connector_id": 3,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": true,
+        "repr": "EngineRef(conn:3, http://s2:8081, llamacpp)",
+        "header_dict": {
+          "Authorization": "Bearer k"
+        },
+        "url": "http://s2:8081/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:3|"
+          ],
+          [
+            null,
+            "conn:3|"
+          ],
+          [
+            "qwen",
+            "conn:3|qwen"
+          ],
+          [
+            "a|b",
+            "conn:3|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "openai",
+        "base_url": "https://api.x/v1/chat/completions",
+        "api_key": "",
+        "connector_id": null
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "url:https://api.x",
+        "base_root": "https://api.x",
+        "provider_type": "openai",
+        "headers": [],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(url:https://api.x, https://api.x, openai)",
+        "header_dict": {},
+        "url": "https://api.x/props",
+        "cache_keys": [
+          [
+            "",
+            "url:https://api.x|"
+          ],
+          [
+            null,
+            "url:https://api.x|"
+          ],
+          [
+            "qwen",
+            "url:https://api.x|qwen"
+          ],
+          [
+            "a|b",
+            "url:https://api.x|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "",
+        "base_url": " https://api.y/v1/ ",
+        "api_key": "sk-1",
+        "connector_id": 0
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "url:https://api.y",
+        "base_root": "https://api.y",
+        "provider_type": "generic",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer sk-1"
+          ]
+        ],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(url:https://api.y, https://api.y, generic)",
+        "header_dict": {
+          "Authorization": "Bearer sk-1"
+        },
+        "url": "https://api.y/props",
+        "cache_keys": [
+          [
+            "",
+            "url:https://api.y|"
+          ],
+          [
+            null,
+            "url:https://api.y|"
+          ],
+          [
+            "qwen",
+            "url:https://api.y|qwen"
+          ],
+          [
+            "a|b",
+            "url:https://api.y|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "vllm",
+        "base_url": "",
+        "connector_id": "7"
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "conn:7",
+        "base_root": "",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": 7,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:7, , vllm)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:7|"
+          ],
+          [
+            null,
+            "conn:7|"
+          ],
+          [
+            "qwen",
+            "conn:7|qwen"
+          ],
+          [
+            "a|b",
+            "conn:7|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "vllm",
+        "base_url": "http://z",
+        "connector_id": "x"
+      },
+      "forme": "LlmTarget",
+      "erreur": "ValueError"
+    },
+    {
+      "cible": {
+        "is_default": false
+      },
+      "forme": "canard",
+      "moteur": {
+        "key": "url:",
+        "base_root": "",
+        "provider_type": "generic",
+        "headers": [],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(url:, , generic)",
+        "header_dict": {},
+        "url": "/props",
+        "cache_keys": [
+          [
+            "",
+            "url:|"
+          ],
+          [
+            null,
+            "url:|"
+          ],
+          [
+            "qwen",
+            "url:|qwen"
+          ],
+          [
+            "a|b",
+            "url:|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": 0,
+        "base_url": "http://w/v1"
+      },
+      "forme": "LlmTarget",
+      "moteur": {
+        "key": "url:http://w",
+        "base_root": "http://w",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": true,
+        "repr": "EngineRef(url:http://w, http://w, llamacpp)",
+        "header_dict": {},
+        "url": "http://w/props",
+        "cache_keys": [
+          [
+            "",
+            "url:http://w|"
+          ],
+          [
+            null,
+            "url:http://w|"
+          ],
+          [
+            "qwen",
+            "url:http://w|qwen"
+          ],
+          [
+            "a|b",
+            "url:http://w|a|b"
+          ]
+        ]
+      }
+    }
+  ],
+  "resolutions": [
+    {
+      "user_id": 5,
+      "connector_id": null,
+      "model": null,
+      "strict": false,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": 0,
+      "model": "choisi",
+      "strict": false,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "choisi",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": "",
+      "model": "  garde  ",
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "  garde  ",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": null,
+      "strict": false,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "m-def",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ],
+        [
+          "bump",
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": "choisi",
+      "strict": true,
+      "touch": false,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "choisi",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": "  espace  ",
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "espace",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ],
+        [
+          "bump",
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": "5",
+      "connector_id": 2,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai",
+        "anthropic"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "sk",
+        "model": "gpt",
+        "connector_id": 2,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ],
+        [
+          "bump",
+          2
+        ]
+      ]
+    },
+    {
+      "user_id": "05",
+      "connector_id": 2,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "anthropic"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "provider",
+        "message": "Ce fournisseur n'est plus autoris\u00e9 sur cette instance."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 2,
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [
+        "anthropic"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 2,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "provider",
+        "message": "Ce fournisseur n'est plus autoris\u00e9 sur cette instance."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 2,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": "leve",
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "sk",
+        "model": "gpt",
+        "connector_id": 2,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ],
+        [
+          "bump",
+          2
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 3,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "disabled",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est d\u00e9sactiv\u00e9."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          3
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 3,
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          3
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 4,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "provider",
+        "message": "Ce fournisseur n'est plus autoris\u00e9 sur cette instance."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          4
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 4,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "anthropic",
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "anthropic",
+        "provider_type": "anthropic",
+        "base_url": "https://api.anthropic.com",
+        "api_key": "ak",
+        "model": "",
+        "connector_id": 4,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          4
+        ],
+        [
+          "allowed"
+        ],
+        [
+          "bump",
+          4
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 5,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "generic",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": 5,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          5
+        ],
+        [
+          "bump",
+          5
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 6,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 6,
+      "model": "m",
+      "strict": false,
+      "touch": false,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 7,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "disabled",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est d\u00e9sactiv\u00e9."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          7
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 8,
+      "model": "x",
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "generic",
+        "base_url": "",
+        "api_key": "",
+        "model": "x",
+        "connector_id": 8,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          8
+        ],
+        [
+          "bump",
+          8
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 9,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "generic",
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "connector_id": 9,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          9
+        ],
+        [
+          "bump",
+          9
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 99,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          99
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 99,
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          99
+        ]
+      ]
+    },
+    {
+      "user_id": null,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": null,
+      "connector_id": 1,
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": []
+    },
+    {
+      "user_id": "abc",
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": -1,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": true,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5.5,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": "\u00b2",
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "key",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est illisible (cl\u00e9)."
+      },
+      "appels": []
+    },
+    {
+      "user_id": "\u0665",
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "m-def",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ],
+        [
+          "bump",
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": "",
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "missing",
+        "message": "Le serveur s\u00e9lectionn\u00e9 n'existe plus."
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": "2",
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [
+        "openai"
+      ],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "sk",
+        "model": "gpt",
+        "connector_id": 2,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": false
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ],
+        [
+          "bump",
+          2
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": "x",
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "key",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est illisible (cl\u00e9)."
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": "x",
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "leve",
+      "bump": "ok",
+      "erreur": {
+        "reason": "key",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est illisible (cl\u00e9)."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": "m",
+      "strict": false,
+      "touch": true,
+      "autorises": [],
+      "lignes": "leve",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "",
+        "api_key": "",
+        "model": "m",
+        "connector_id": null,
+        "is_default": true,
+        "is_local_llamacpp": true,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 1,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "leve",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "m-def",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ],
+        [
+          "bump",
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": 3.7,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "erreur": {
+        "reason": "disabled",
+        "message": "Le serveur s\u00e9lectionn\u00e9 est d\u00e9sactiv\u00e9."
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          3
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "connector_id": true,
+      "model": null,
+      "strict": true,
+      "touch": true,
+      "autorises": [],
+      "lignes": "ok",
+      "bump": "ok",
+      "cible": {
+        "wire": "openai",
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k1",
+        "model": "m-def",
+        "connector_id": 1,
+        "is_default": false,
+        "is_local_llamacpp": false,
+        "is_llamacpp": true
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ],
+        [
+          "bump",
+          1
+        ]
+      ]
+    }
+  ],
+  "utilisateurs": [
+    {
+      "user_id": 5,
+      "key": null,
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "key": "",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "key": "builtin",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      },
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "key": "conn:1",
+      "moteur": {
+        "key": "conn:1",
+        "base_root": "http://s2:8081",
+        "provider_type": "llamacpp",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer k1"
+          ]
+        ],
+        "connector_id": 1,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": true,
+        "repr": "EngineRef(conn:1, http://s2:8081, llamacpp)",
+        "header_dict": {
+          "Authorization": "Bearer k1"
+        },
+        "url": "http://s2:8081/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:1|"
+          ],
+          [
+            null,
+            "conn:1|"
+          ],
+          [
+            "qwen",
+            "conn:1|qwen"
+          ],
+          [
+            "a|b",
+            "conn:1|a|b"
+          ]
+        ]
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          1
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "key": "conn:2",
+      "moteur": {
+        "key": "conn:2",
+        "base_root": "https://api.openai.com",
+        "provider_type": "openai",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer sk"
+          ]
+        ],
+        "connector_id": 2,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:2, https://api.openai.com, openai)",
+        "header_dict": {
+          "Authorization": "Bearer sk"
+        },
+        "url": "https://api.openai.com/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:2|"
+          ],
+          [
+            null,
+            "conn:2|"
+          ],
+          [
+            "qwen",
+            "conn:2|qwen"
+          ],
+          [
+            "a|b",
+            "conn:2|a|b"
+          ]
+        ]
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          2
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "key": "conn:3",
+      "moteur": null,
+      "appels": [
+        [
+          "get",
+          5,
+          3
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "key": "conn:99",
+      "moteur": null,
+      "appels": [
+        [
+          "get",
+          5,
+          99
+        ]
+      ]
+    },
+    {
+      "user_id": 5,
+      "key": "conn:x",
+      "moteur": null,
+      "appels": []
+    },
+    {
+      "user_id": null,
+      "key": "conn:1",
+      "moteur": null,
+      "appels": []
+    },
+    {
+      "user_id": 5,
+      "key": "autre",
+      "moteur": null,
+      "appels": []
+    },
+    {
+      "user_id": "5",
+      "key": " conn:4 ",
+      "moteur": {
+        "key": "conn:4",
+        "base_root": "https://api.anthropic.com",
+        "provider_type": "anthropic",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer ak"
+          ]
+        ],
+        "connector_id": 4,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:4, https://api.anthropic.com, anthropic)",
+        "header_dict": {
+          "Authorization": "Bearer ak"
+        },
+        "url": "https://api.anthropic.com/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:4|"
+          ],
+          [
+            null,
+            "conn:4|"
+          ],
+          [
+            "qwen",
+            "conn:4|qwen"
+          ],
+          [
+            "a|b",
+            "conn:4|a|b"
+          ]
+        ]
+      },
+      "appels": [
+        [
+          "get",
+          5,
+          4
+        ],
+        [
+          "allowed"
+        ]
+      ]
+    }
+  ],
+  "limites": [
+    {
+      "integre": [
+        1,
+        1
+      ],
+      "valeur": [
+        1,
+        1
+      ]
+    },
+    {
+      "integre": [
+        0,
+        0
+      ],
+      "valeur": [
+        1,
+        1
+      ]
+    },
+    {
+      "integre": [
+        2,
+        4
+      ],
+      "valeur": [
+        2,
+        4
+      ]
+    },
+    {
+      "integre": [
+        -1,
+        3
+      ],
+      "valeur": [
+        -1,
+        3
+      ]
+    },
+    {
+      "integre": [
+        3,
+        0
+      ],
+      "valeur": [
+        3,
+        1
+      ]
+    },
+    {
+      "meta": {
+        "max_models": 2,
+        "max_concurrency": 3
+      },
+      "connector_id": 3,
+      "valeur": [
+        2,
+        3
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {
+        "max_models": 2,
+        "max_concurrency": 3
+      },
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": 2,
+        "max_concurrency": 3
+      },
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": null,
+        "max_concurrency": 0
+      },
+      "connector_id": 3,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {
+        "max_models": null,
+        "max_concurrency": 0
+      },
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": null,
+        "max_concurrency": 0
+      },
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {},
+      "connector_id": 3,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {},
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {},
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": null,
+      "connector_id": 3,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": null,
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": null,
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": "leve",
+      "connector_id": 3,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": "leve",
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": "leve",
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": "4",
+        "max_concurrency": 2.7
+      },
+      "connector_id": 3,
+      "valeur": [
+        4,
+        2
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {
+        "max_models": "4",
+        "max_concurrency": 2.7
+      },
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": "4",
+        "max_concurrency": 2.7
+      },
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": "abc"
+      },
+      "connector_id": 3,
+      "erreur": "ValueError",
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {
+        "max_models": "abc"
+      },
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": "abc"
+      },
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": true,
+        "max_concurrency": -2
+      },
+      "connector_id": 3,
+      "valeur": [
+        1,
+        -2
+      ],
+      "appels": [
+        [
+          "meta",
+          3
+        ]
+      ]
+    },
+    {
+      "meta": {
+        "max_models": true,
+        "max_concurrency": -2
+      },
+      "connector_id": null,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    },
+    {
+      "meta": {
+        "max_models": true,
+        "max_concurrency": -2
+      },
+      "connector_id": 0,
+      "valeur": [
+        0,
+        0
+      ],
+      "appels": []
+    }
+  ],
+  "courants": [
+    {
+      "cible": null,
+      "mode": "aucune",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": null,
+      "mode": "surcharge",
+      "moteur": {
+        "key": "conn:9",
+        "base_root": "http://surcharge",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": null,
+        "label": "s",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:9, http://surcharge, vllm)",
+        "header_dict": {},
+        "url": "http://surcharge/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:9|"
+          ],
+          [
+            null,
+            "conn:9|"
+          ],
+          [
+            "qwen",
+            "conn:9|qwen"
+          ],
+          [
+            "a|b",
+            "conn:9|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": null,
+      "mode": "surcharge_puis_nulle",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k",
+        "connector_id": 3
+      },
+      "mode": "aucune",
+      "moteur": {
+        "key": "conn:3",
+        "base_root": "http://s2:8081",
+        "provider_type": "llamacpp",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer k"
+          ]
+        ],
+        "connector_id": 3,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": true,
+        "repr": "EngineRef(conn:3, http://s2:8081, llamacpp)",
+        "header_dict": {
+          "Authorization": "Bearer k"
+        },
+        "url": "http://s2:8081/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:3|"
+          ],
+          [
+            null,
+            "conn:3|"
+          ],
+          [
+            "qwen",
+            "conn:3|qwen"
+          ],
+          [
+            "a|b",
+            "conn:3|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k",
+        "connector_id": 3
+      },
+      "mode": "surcharge",
+      "moteur": {
+        "key": "conn:9",
+        "base_root": "http://surcharge",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": null,
+        "label": "s",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:9, http://surcharge, vllm)",
+        "header_dict": {},
+        "url": "http://surcharge/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:9|"
+          ],
+          [
+            null,
+            "conn:9|"
+          ],
+          [
+            "qwen",
+            "conn:9|qwen"
+          ],
+          [
+            "a|b",
+            "conn:9|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "llamacpp",
+        "base_url": "http://s2:8081/v1",
+        "api_key": "k",
+        "connector_id": 3
+      },
+      "mode": "surcharge_puis_nulle",
+      "moteur": {
+        "key": "conn:3",
+        "base_root": "http://s2:8081",
+        "provider_type": "llamacpp",
+        "headers": [
+          [
+            "Authorization",
+            "Bearer k"
+          ]
+        ],
+        "connector_id": 3,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": true,
+        "repr": "EngineRef(conn:3, http://s2:8081, llamacpp)",
+        "header_dict": {
+          "Authorization": "Bearer k"
+        },
+        "url": "http://s2:8081/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:3|"
+          ],
+          [
+            null,
+            "conn:3|"
+          ],
+          [
+            "qwen",
+            "conn:3|qwen"
+          ],
+          [
+            "a|b",
+            "conn:3|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "openai",
+        "base_url": "https://api.x/v1/chat/completions",
+        "api_key": "",
+        "connector_id": null
+      },
+      "mode": "aucune",
+      "moteur": {
+        "key": "url:https://api.x",
+        "base_root": "https://api.x",
+        "provider_type": "openai",
+        "headers": [],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(url:https://api.x, https://api.x, openai)",
+        "header_dict": {},
+        "url": "https://api.x/props",
+        "cache_keys": [
+          [
+            "",
+            "url:https://api.x|"
+          ],
+          [
+            null,
+            "url:https://api.x|"
+          ],
+          [
+            "qwen",
+            "url:https://api.x|qwen"
+          ],
+          [
+            "a|b",
+            "url:https://api.x|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "openai",
+        "base_url": "https://api.x/v1/chat/completions",
+        "api_key": "",
+        "connector_id": null
+      },
+      "mode": "surcharge",
+      "moteur": {
+        "key": "conn:9",
+        "base_root": "http://surcharge",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": null,
+        "label": "s",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:9, http://surcharge, vllm)",
+        "header_dict": {},
+        "url": "http://surcharge/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:9|"
+          ],
+          [
+            null,
+            "conn:9|"
+          ],
+          [
+            "qwen",
+            "conn:9|qwen"
+          ],
+          [
+            "a|b",
+            "conn:9|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "openai",
+        "base_url": "https://api.x/v1/chat/completions",
+        "api_key": "",
+        "connector_id": null
+      },
+      "mode": "surcharge_puis_nulle",
+      "moteur": {
+        "key": "url:https://api.x",
+        "base_root": "https://api.x",
+        "provider_type": "openai",
+        "headers": [],
+        "connector_id": null,
+        "label": "",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(url:https://api.x, https://api.x, openai)",
+        "header_dict": {},
+        "url": "https://api.x/props",
+        "cache_keys": [
+          [
+            "",
+            "url:https://api.x|"
+          ],
+          [
+            null,
+            "url:https://api.x|"
+          ],
+          [
+            "qwen",
+            "url:https://api.x|qwen"
+          ],
+          [
+            "a|b",
+            "url:https://api.x|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "vllm",
+        "base_url": "http://z",
+        "connector_id": "x"
+      },
+      "mode": "aucune",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "vllm",
+        "base_url": "http://z",
+        "connector_id": "x"
+      },
+      "mode": "surcharge",
+      "moteur": {
+        "key": "conn:9",
+        "base_root": "http://surcharge",
+        "provider_type": "vllm",
+        "headers": [],
+        "connector_id": null,
+        "label": "s",
+        "is_builtin": false,
+        "is_llamacpp": false,
+        "repr": "EngineRef(conn:9, http://surcharge, vllm)",
+        "header_dict": {},
+        "url": "http://surcharge/props",
+        "cache_keys": [
+          [
+            "",
+            "conn:9|"
+          ],
+          [
+            null,
+            "conn:9|"
+          ],
+          [
+            "qwen",
+            "conn:9|qwen"
+          ],
+          [
+            "a|b",
+            "conn:9|a|b"
+          ]
+        ]
+      }
+    },
+    {
+      "cible": {
+        "is_default": false,
+        "provider_type": "vllm",
+        "base_url": "http://z",
+        "connector_id": "x"
+      },
+      "mode": "surcharge_puis_nulle",
+      "moteur": {
+        "key": "builtin",
+        "base_root": "http://127.0.0.1:8080",
+        "provider_type": "llamacpp",
+        "headers": [],
+        "connector_id": null,
+        "label": "Serveur int\u00e9gr\u00e9",
+        "is_builtin": true,
+        "is_llamacpp": true,
+        "repr": "EngineRef(builtin, http://127.0.0.1:8080, llamacpp)",
+        "header_dict": {},
+        "url": "http://127.0.0.1:8080/props",
+        "cache_keys": [
+          [
+            "",
+            ""
+          ],
+          [
+            null,
+            ""
+          ],
+          [
+            "qwen",
+            "qwen"
+          ],
+          [
+            "a|b",
+            "a|b"
+          ]
+        ]
+      }
+    }
+  ]
+}

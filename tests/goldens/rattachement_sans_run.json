@@ -1,0 +1,16 @@
+{
+  "entrees": {
+    "chat_id": "c1",
+    "chronologie": [
+      {
+        "a": 0,
+        "connexion": {}
+      }
+    ],
+    "harnais": "rattachement"
+  },
+  "refus": {
+    "detail": "run_not_found",
+    "statut": 404
+  }
+}

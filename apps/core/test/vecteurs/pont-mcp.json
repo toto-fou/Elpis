@@ -1,0 +1,963 @@
+{
+  "source": "migration-kit/vecteurs/core_pont_mcp.py",
+  "service": "jeton-service-des-vecteurs-0123456789",
+  "appmcp": "jeton-appmcp-des-vecteurs-9876543210",
+  "jetons": [
+    [
+      "alice",
+      "tools",
+      "ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fs,git",
+      null
+    ],
+    [
+      "bob",
+      "opencode",
+      "pcr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "",
+      null
+    ],
+    [
+      "alice",
+      "tools",
+      "ept_cccccccccccccccccccccccccccccccccccccccc",
+      "fs",
+      -1
+    ]
+  ],
+  "relayes": [
+    "accept",
+    "content-type",
+    "mcp-session-id",
+    "mcp-protocol-version",
+    "last-event-id",
+    "accept-encoding",
+    "user-agent"
+  ],
+  "entetes": [
+    "content-type",
+    "cache-control",
+    "x-accel-buffering",
+    "mcp-session-id",
+    "x-amont",
+    "allow",
+    "www-authenticate",
+    "keep-alive",
+    "proxy-authenticate"
+  ],
+  "etapes": [
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge",
+      "entetes": {
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/inconnue",
+      "entetes": {
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_faux",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "origin": "https://evil.example",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "origin": "null",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "origin": "http://testserver",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "mcp-protocol-version": "1999-01-01xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "mcp-protocol-version": "1999-01-01",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"initialize\", \"params\": {}}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "mcp-protocol-version": "1999-01-01",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{pas du json"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "mcp-protocol-version": "2025-06-18",
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "x-elpis-token": " ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "  bEaReR   ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Basic eDp5",
+        "x-elpis-token": "ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/git?x=1&y=%C3%A9&z",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "accept": "text/event-stream",
+        "last-event-id": "5",
+        "mcp-session-id": "abc",
+        "cookie": "session=1",
+        "x-perso": "non",
+        "mcp-protocol-version": "2025-11-25"
+      }
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "mcp-session-id": "abc"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "corps": "--x\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--x--\r\n"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/chart",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/memory",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/inconnue",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/%20fs",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/git",
+      "entetes": {
+        "authorization": "Bearer pcr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_cccccccccccccccccccccccccccccccccccccccc",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer {oauth}",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/git",
+      "entetes": {
+        "authorization": "Bearer {oauth}",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge",
+      "entetes": {
+        "authorization": "Bearer {oauth}",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/fs?statut=404",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      }
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/fs?statut=400",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs?statut=404",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs?statut=401",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/fs?statut=403",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      }
+    },
+    {
+      "m": "DELETE",
+      "u": "/api/mcp-bridge/fs?statut=404",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs?statut=500",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "GET",
+      "u": "/api/mcp-bridge/fs?sse=1",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "accept": "text/event-stream"
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs?coupe=1",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "config": {
+        "mcp": {
+          "oauth": {
+            "enabled": false
+          }
+        }
+      }
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer {oauth}",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "config": {}
+    },
+    {
+      "manifeste": "mort"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    },
+    {
+      "manifeste": "absent"
+    },
+    {
+      "m": "POST",
+      "u": "/api/mcp-bridge/fs",
+      "entetes": {
+        "authorization": "Bearer ept_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "user-agent": "client-test/1",
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream"
+      },
+      "corps": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/list\"}"
+    }
+  ],
+  "manifestes": {
+    "ecoute": {
+      "version": 1,
+      "toolHosts": {
+        "main": {
+          "url": "http://127.0.0.1:9",
+          "token": "jeton-service-des-vecteurs-0123456789"
+        }
+      },
+      "mcpServers": {
+        "elpis-fs": {
+          "type": "http",
+          "url": "http://127.0.0.1:9/mcp/fs",
+          "headers": {
+            "Authorization": "Bearer jeton-service-des-vecteurs-0123456789"
+          },
+          "x-elpis": {
+            "role": "toolhost",
+            "families": [
+              "fs"
+            ],
+            "host": "main"
+          }
+        },
+        "elpis-git": {
+          "type": "http",
+          "url": "http://127.0.0.1:9/mcp/git",
+          "headers": {
+            "Authorization": "Bearer jeton-service-des-vecteurs-0123456789"
+          },
+          "x-elpis": {
+            "role": "toolhost",
+            "families": [
+              "git"
+            ],
+            "host": "main"
+          }
+        },
+        "elpis-chart": {
+          "type": "http",
+          "url": "http://127.0.0.1:9/appmcp/chart",
+          "headers": {
+            "Authorization": "Bearer jeton-appmcp-des-vecteurs-9876543210"
+          },
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "chart"
+            ]
+          }
+        },
+        "elpis-memory": {
+          "type": "http",
+          "url": "http://127.0.0.1:9/appmcp/",
+          "headers": {
+            "Authorization": "Bearer jeton-appmcp-des-vecteurs-9876543210"
+          },
+          "x-elpis": {
+            "role": "app",
+            "families": [
+              "memory"
+            ]
+          }
+        }
+      }
+    },
+    "absent": {
+      "version": 1,
+      "mcpServers": {}
+    }
+  },
+  "ids": {
+    "alice": 1,
+    "bob": 2
+  },
+  "oauth": "eoa_U004uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+  "reponses": [
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton requis (Param\u00e8tres \u203a Connexions).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge\""
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton requis (Param\u00e8tres \u203a Connexions).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/fs\", scope=\"tools:fs\""
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton requis (Param\u00e8tres \u203a Connexions).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge\""
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton invalide, expir\u00e9 ou r\u00e9voqu\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/fs\", scope=\"tools:fs\""
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Origine non autoris\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Origine non autoris\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Origine non autoris\u00e9e.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Version de protocole MCP non prise en charge : 1999-01-01xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (connues : 2024-11-05, 2025-03-26, 2025-06-18, 2025-11-25).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"mcp-protocol-version\": \"1999-01-01\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 1, \\\"method\\\": \\\"initialize\\\", \\\"params\\\": {}}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Version de protocole MCP non prise en charge : 1999-01-01 (connues : 2024-11-05, 2025-03-26, 2025-06-18, 2025-11-25).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"mcp-protocol-version\": \"2025-06-18\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"*/*\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"*/*\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"GET\", \"chemin\": \"/mcp/git?x=1&y=%C3%A9&z\", \"entetes\": {\"accept\": \"text/event-stream\", \"mcp-session-id\": \"abc\", \"mcp-protocol-version\": \"2025-11-25\", \"last-event-id\": \"5\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"DELETE\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"*/*\", \"mcp-session-id\": \"abc\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"*/*\", \"content-type\": \"multipart/form-data; boundary=x\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"--x\\r\\nContent-Disposition: form-data; name=\\\"a\\\"\\r\\n\\r\\n1\\r\\n--x--\\r\\n\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/appmcp/chart\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"app\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/appmcp/memory\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"app\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Famille d'outils inconnue.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/git\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"bob\", \"uid\": 2, \"kind\": \"opencode\", \"families\": []}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton invalide, expir\u00e9 ou r\u00e9voqu\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/fs\", scope=\"tools:fs\""
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"oauth\", \"families\": [\"fs\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Famille d'outils non autoris\u00e9e pour ce jeton.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer error=\"insufficient_scope\", resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/git\", scope=\"tools:git\""
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"oauth\", \"families\": [\"fs\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "entetes": {
+        "cache-control": "no-store",
+        "allow": "POST"
+      }
+    },
+    {
+      "statut": 405,
+      "corps": "",
+      "entetes": {
+        "cache-control": "no-store",
+        "allow": "POST"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs?statut=404\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"Le service d'outils a refus\u00e9 la d\u00e9l\u00e9gation du relais (horloge, version ou jeton de service).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"Le service d'outils a refus\u00e9 la d\u00e9l\u00e9gation du relais (horloge, version ou jeton de service).\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"methode\": \"DELETE\", \"chemin\": \"/mcp/fs?statut=404\", \"entetes\": {\"accept\": \"*/*\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 500,
+      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/fs?statut=500\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "event: message\ndata: {\"methode\": \"GET\", \"chemin\": \"/mcp/fs?sse=1\", \"entetes\": {\"accept\": \"text/event-stream\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"alice\", \"uid\": 1, \"kind\": \"tools\", \"families\": [\"fs\", \"git\"]}, \"corps\": \"\"}\n\ndata: fin\n\n",
+      "entetes": {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-store",
+        "x-accel-buffering": "no",
+        "mcp-session-id": "s-1",
+        "x-amont": "oui"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "debut",
+      "entetes": {
+        "content-type": "text/plain",
+        "cache-control": "no-store",
+        "x-accel-buffering": "no"
+      }
+    },
+    null,
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton requis (Param\u00e8tres \u203a Connexions).\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    {
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton invalide, expir\u00e9 ou r\u00e9voqu\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      }
+    },
+    null,
+    null,
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"Le service MCP partag\u00e9 ne r\u00e9pond pas. V\u00e9rifiez qu'il tourne (./elpis start) et que LOCAL_MCP_URL pointe dessus.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    },
+    null,
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Service MCP partag\u00e9 non configur\u00e9.\"}",
+      "entetes": {
+        "content-type": "application/json"
+      }
+    }
+  ]
+}

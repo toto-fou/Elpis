@@ -1,0 +1,121 @@
+{
+ "scenario": "i_boot",
+ "cell": {
+  "reducedMotion": "reduce",
+  "cpuRate": 4
+ },
+ "run": 2,
+ "label": "frontend-ts-baseline",
+ "commit": "3247582",
+ "ts": "2026-10-12T21:17:36.424Z",
+ "page": "/",
+ "montageMs": 3630,
+ "fcpMs": 3276,
+ "dclMs": 3257,
+ "loadMs": 3262,
+ "requetes": 86,
+ "koTransferes": 3665,
+ "police": {
+  "url": "/static/vendor/src/regular/Phosphor.woff2",
+  "debutMs": 3515,
+  "finMs": 3610,
+  "ko": 144
+ },
+ "cpuParFichier": [
+  {
+   "url": "/static/vendor/vue.global.prod.js",
+   "ms": 2213
+  },
+  {
+   "url": "/static/js/app.js",
+   "ms": 189
+  },
+  {
+   "url": "/static/js/chat/_charts.js",
+   "ms": 42
+  },
+  {
+   "url": "/static/vendor/marked.min.js",
+   "ms": 28
+  },
+  {
+   "url": "/static/js/app-chat.js",
+   "ms": 18
+  },
+  {
+   "url": "/static/vendor/purify.min.js",
+   "ms": 9
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ms": 7
+  },
+  {
+   "url": "/static/js/app-settings.js",
+   "ms": 5
+  },
+  {
+   "url": "/static/js/chat/_automation_model.js",
+   "ms": 4
+  },
+  {
+   "url": "/static/js/chat/_system_sse.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/voice/_compat.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/app-auth.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/chat/_compose.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ms": 3
+  },
+  {
+   "url": "/static/js/utils.js",
+   "ms": 2
+  }
+ ],
+ "plusGros": [
+  {
+   "url": "/static/js/app-chat.js",
+   "ko": 419
+  },
+  {
+   "url": "/static/js/app-editor.js",
+   "ko": 391
+  },
+  {
+   "url": "/static/js/app-admin.js",
+   "ko": 257
+  },
+  {
+   "url": "/static/css/style.css",
+   "ko": 213
+  },
+  {
+   "url": "/static/js/app.js",
+   "ko": 181
+  },
+  {
+   "url": "/static/js/app-settings.js",
+   "ko": 176
+  },
+  {
+   "url": "/static/vendor/vue.global.prod.js",
+   "ko": 158
+  },
+  {
+   "url": "/static/vendor/src/regular/Phosphor.woff2",
+   "ko": 144
+  }
+ ],
+ "errors": []
+}

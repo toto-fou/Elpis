@@ -1,0 +1,831 @@
+{
+  "source": "migration-kit/vecteurs/db_base_python.py",
+  "objets": [
+    [
+      "index",
+      "idx_action_cache_age",
+      "editor_action_cache",
+      "CREATE INDEX \"idx_action_cache_age\" ON \"editor_action_cache\" (\"updated_at\")"
+    ],
+    [
+      "index",
+      "idx_ax_nodes_parent",
+      "ax_nodes",
+      "CREATE INDEX \"idx_ax_nodes_parent\" ON \"ax_nodes\" (\"parent_id\")"
+    ],
+    [
+      "index",
+      "idx_ax_nodes_site_path",
+      "ax_nodes",
+      "CREATE INDEX \"idx_ax_nodes_site_path\" ON \"ax_nodes\" (\"site\", \"path\", \"stale\")"
+    ],
+    [
+      "index",
+      "idx_ax_sel_node",
+      "ax_selectors",
+      "CREATE INDEX \"idx_ax_sel_node\" ON \"ax_selectors\" (\"node_id\")"
+    ],
+    [
+      "index",
+      "idx_ax_trans_from",
+      "ax_transitions",
+      "CREATE INDEX \"idx_ax_trans_from\" ON \"ax_transitions\" (\"site\", \"from_path\")"
+    ],
+    [
+      "index",
+      "idx_ax_trans_to",
+      "ax_transitions",
+      "CREATE INDEX \"idx_ax_trans_to\" ON \"ax_transitions\" (\"site\", \"to_path\")"
+    ],
+    [
+      "index",
+      "idx_chats_user_archived",
+      "chats",
+      "CREATE INDEX \"idx_chats_user_archived\" ON \"chats\" (\"user_id\", \"archived\", \"updated_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_chats_user_updated",
+      "chats",
+      "CREATE INDEX \"idx_chats_user_updated\" ON \"chats\" (\"user_id\", \"updated_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_code_commands_user",
+      "code_commands",
+      "CREATE INDEX \"idx_code_commands_user\" ON \"code_commands\" (\"user_id\", \"created_at\")"
+    ],
+    [
+      "index",
+      "idx_daily_reports_created",
+      "daily_usage_reports",
+      "CREATE INDEX \"idx_daily_reports_created\" ON \"daily_usage_reports\" (\"created_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_editor_routines_enabled",
+      "editor_routines",
+      "CREATE INDEX \"idx_editor_routines_enabled\" ON \"editor_routines\" (\"enabled\") WHERE enabled=1"
+    ],
+    [
+      "index",
+      "idx_editor_routines_owner",
+      "editor_routines",
+      "CREATE INDEX \"idx_editor_routines_owner\" ON \"editor_routines\" (\"owner_user_id\")"
+    ],
+    [
+      "index",
+      "idx_editor_runs_routine",
+      "editor_routine_runs",
+      "CREATE INDEX \"idx_editor_runs_routine\" ON \"editor_routine_runs\" (\"routine_id\", \"started_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_editor_runs_running",
+      "editor_routine_runs",
+      "CREATE INDEX \"idx_editor_runs_running\" ON \"editor_routine_runs\" (\"owner_user_id\", \"status\") WHERE status='running'"
+    ],
+    [
+      "index",
+      "idx_editor_webhook_deliveries_received",
+      "editor_webhook_deliveries",
+      "CREATE INDEX \"idx_editor_webhook_deliveries_received\" ON \"editor_webhook_deliveries\" (\"received_at\")"
+    ],
+    [
+      "index",
+      "idx_generated_images_chat",
+      "generated_images",
+      "CREATE INDEX \"idx_generated_images_chat\" ON \"generated_images\" (\"user_id\", \"chat_id\")"
+    ],
+    [
+      "index",
+      "idx_generated_images_model",
+      "generated_images",
+      "CREATE INDEX \"idx_generated_images_model\" ON \"generated_images\" (\"model\", \"created_at\")"
+    ],
+    [
+      "index",
+      "idx_generated_images_user",
+      "generated_images",
+      "CREATE INDEX \"idx_generated_images_user\" ON \"generated_images\" (\"user_id\", \"created_at\")"
+    ],
+    [
+      "index",
+      "idx_gitconn_owner_host",
+      "git_connectors",
+      "CREATE INDEX \"idx_gitconn_owner_host\" ON \"git_connectors\" (\"owner_user_id\", \"host\")"
+    ],
+    [
+      "index",
+      "idx_gitconn_owner_host_label",
+      "git_connectors",
+      "CREATE UNIQUE INDEX \"idx_gitconn_owner_host_label\" ON \"git_connectors\" (\"owner_user_id\", \"host\", \"label\")"
+    ],
+    [
+      "index",
+      "idx_llm_calls_status",
+      "llm_calls",
+      "CREATE INDEX \"idx_llm_calls_status\" ON \"llm_calls\" (\"status\", \"ts\" DESC) WHERE status != 'ok'"
+    ],
+    [
+      "index",
+      "idx_llm_calls_ts",
+      "llm_calls",
+      "CREATE INDEX \"idx_llm_calls_ts\" ON \"llm_calls\" (\"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_llm_calls_user",
+      "llm_calls",
+      "CREATE INDEX \"idx_llm_calls_user\" ON \"llm_calls\" (\"user_id\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_llmconn_owner",
+      "llm_connectors",
+      "CREATE INDEX \"idx_llmconn_owner\" ON \"llm_connectors\" (\"owner_user_id\")"
+    ],
+    [
+      "index",
+      "idx_llmconn_scope",
+      "llm_connectors",
+      "CREATE INDEX \"idx_llmconn_scope\" ON \"llm_connectors\" (\"scope\")"
+    ],
+    [
+      "index",
+      "idx_mcpshared_enabled",
+      "mcp_shared_servers",
+      "CREATE INDEX \"idx_mcpshared_enabled\" ON \"mcp_shared_servers\" (\"enabled\")"
+    ],
+    [
+      "index",
+      "idx_metrics_type_date",
+      "metric_events",
+      "CREATE INDEX \"idx_metrics_type_date\" ON \"metric_events\" (\"event_type\", \"created_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_notif_user_unread",
+      "notifications",
+      "CREATE INDEX \"idx_notif_user_unread\" ON \"notifications\" (\"owner_user_id\", \"read_at\", \"created_at\")"
+    ],
+    [
+      "index",
+      "idx_oauth_codes_expires",
+      "oauth_codes",
+      "CREATE INDEX \"idx_oauth_codes_expires\" ON \"oauth_codes\" (\"expires_at\")"
+    ],
+    [
+      "index",
+      "idx_oauth_tokens_grant",
+      "oauth_tokens",
+      "CREATE INDEX \"idx_oauth_tokens_grant\" ON \"oauth_tokens\" (\"grant_id\")"
+    ],
+    [
+      "index",
+      "idx_oauth_tokens_user",
+      "oauth_tokens",
+      "CREATE INDEX \"idx_oauth_tokens_user\" ON \"oauth_tokens\" (\"user_id\", \"kind\")"
+    ],
+    [
+      "index",
+      "idx_prompt_templates_user",
+      "prompt_templates",
+      "CREATE INDEX \"idx_prompt_templates_user\" ON \"prompt_templates\" (\"user_id\")"
+    ],
+    [
+      "index",
+      "idx_rag_collections_visibility",
+      "rag_collections",
+      "CREATE INDEX \"idx_rag_collections_visibility\" ON \"rag_collections\" (\"visibility\")"
+    ],
+    [
+      "index",
+      "idx_rag_documents_added_by",
+      "rag_documents",
+      "CREATE INDEX \"idx_rag_documents_added_by\" ON \"rag_documents\" (\"added_by\")"
+    ],
+    [
+      "index",
+      "idx_rag_documents_sha256",
+      "rag_documents",
+      "CREATE INDEX \"idx_rag_documents_sha256\" ON \"rag_documents\" (\"collection_id\", \"sha256\")"
+    ],
+    [
+      "index",
+      "idx_rag_documents_status",
+      "rag_documents",
+      "CREATE INDEX \"idx_rag_documents_status\" ON \"rag_documents\" (\"collection_id\", \"status\")"
+    ],
+    [
+      "index",
+      "idx_rag_grants_principal",
+      "rag_grants",
+      "CREATE INDEX \"idx_rag_grants_principal\" ON \"rag_grants\" (\"principal_type\", \"principal_id\")"
+    ],
+    [
+      "index",
+      "idx_rag_hidden_collection",
+      "rag_hidden",
+      "CREATE INDEX \"idx_rag_hidden_collection\" ON \"rag_hidden\" (\"collection_id\")"
+    ],
+    [
+      "index",
+      "idx_rag_jobs_collection",
+      "rag_jobs",
+      "CREATE INDEX \"idx_rag_jobs_collection\" ON \"rag_jobs\" (\"collection_id\", \"status\")"
+    ],
+    [
+      "index",
+      "idx_rag_jobs_owner",
+      "rag_jobs",
+      "CREATE INDEX \"idx_rag_jobs_owner\" ON \"rag_jobs\" (\"owner_user_id\", \"status\")"
+    ],
+    [
+      "index",
+      "idx_rag_jobs_status",
+      "rag_jobs",
+      "CREATE INDEX \"idx_rag_jobs_status\" ON \"rag_jobs\" (\"status\", \"created_at\")"
+    ],
+    [
+      "index",
+      "idx_revoked_sessions_at",
+      "revoked_sessions",
+      "CREATE INDEX \"idx_revoked_sessions_at\" ON \"revoked_sessions\" (\"revoked_at\")"
+    ],
+    [
+      "index",
+      "idx_runs_chat",
+      "runs",
+      "CREATE INDEX \"idx_runs_chat\" ON \"runs\" (\"chat_id\", \"started_at\")"
+    ],
+    [
+      "index",
+      "idx_runs_parent",
+      "runs",
+      "CREATE INDEX \"idx_runs_parent\" ON \"runs\" (\"parent_id\")"
+    ],
+    [
+      "index",
+      "idx_runs_running",
+      "runs",
+      "CREATE INDEX \"idx_runs_running\" ON \"runs\" (\"status\", \"started_at\") WHERE status = 'running'"
+    ],
+    [
+      "index",
+      "idx_runs_started",
+      "runs",
+      "CREATE INDEX \"idx_runs_started\" ON \"runs\" (\"started_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_runs_user",
+      "runs",
+      "CREATE INDEX \"idx_runs_user\" ON \"runs\" (\"user_id\", \"started_at\" DESC)"
+    ],
+    [
+      "index",
+      "idx_sandbox_placements_host",
+      "sandbox_placements",
+      "CREATE INDEX \"idx_sandbox_placements_host\" ON \"sandbox_placements\" (\"host_id\")"
+    ],
+    [
+      "index",
+      "idx_shell_job_events_pending",
+      "shell_job_events",
+      "CREATE INDEX \"idx_shell_job_events_pending\" ON \"shell_job_events\" (\"user_id\", \"chat_id\", \"delivered_at\")"
+    ],
+    [
+      "index",
+      "idx_shell_jobs_chat",
+      "shell_jobs",
+      "CREATE INDEX \"idx_shell_jobs_chat\" ON \"shell_jobs\" (\"user_id\", \"chat_id\")"
+    ],
+    [
+      "index",
+      "idx_shell_jobs_user",
+      "shell_jobs",
+      "CREATE INDEX \"idx_shell_jobs_user\" ON \"shell_jobs\" (\"user_id\", \"state\")"
+    ],
+    [
+      "index",
+      "idx_sm_session",
+      "session_messages",
+      "CREATE INDEX \"idx_sm_session\" ON \"session_messages\" (\"user_id\", \"app\", \"session_id\")"
+    ],
+    [
+      "index",
+      "idx_sm_ts",
+      "session_messages",
+      "CREATE INDEX \"idx_sm_ts\" ON \"session_messages\" (\"ts\")"
+    ],
+    [
+      "index",
+      "idx_sm_user",
+      "session_messages",
+      "CREATE INDEX \"idx_sm_user\" ON \"session_messages\" (\"user_id\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_tcm_run",
+      "tool_call_metrics",
+      "CREATE INDEX \"idx_tcm_run\" ON \"tool_call_metrics\" (\"run_id\", \"ts\")"
+    ],
+    [
+      "index",
+      "idx_tcm_status",
+      "tool_call_metrics",
+      "CREATE INDEX \"idx_tcm_status\" ON \"tool_call_metrics\" (\"status\", \"ts\" DESC) WHERE status != 'success'"
+    ],
+    [
+      "index",
+      "idx_tcm_tool",
+      "tool_call_metrics",
+      "CREATE INDEX \"idx_tcm_tool\" ON \"tool_call_metrics\" (\"tool_name\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_tcm_ts",
+      "tool_call_metrics",
+      "CREATE INDEX \"idx_tcm_ts\" ON \"tool_call_metrics\" (\"ts\")"
+    ],
+    [
+      "index",
+      "idx_tcm_user",
+      "tool_call_metrics",
+      "CREATE INDEX \"idx_tcm_user\" ON \"tool_call_metrics\" (\"user_id\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_term_sessions_uid",
+      "terminal_sessions",
+      "CREATE INDEX \"idx_term_sessions_uid\" ON \"terminal_sessions\" (\"uid\", \"tid\")"
+    ],
+    [
+      "index",
+      "idx_tool_tokens_user",
+      "tool_tokens",
+      "CREATE INDEX \"idx_tool_tokens_user\" ON \"tool_tokens\" (\"user_id\", \"kind\")"
+    ],
+    [
+      "index",
+      "idx_usage_model_ts",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_model_ts\" ON \"usage_events\" (\"model\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_usage_run",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_run\" ON \"usage_events\" (\"run_id\")"
+    ],
+    [
+      "index",
+      "idx_usage_source_ts",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_source_ts\" ON \"usage_events\" (\"source\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_usage_status_ts",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_status_ts\" ON \"usage_events\" (\"status\", \"ts\" DESC) WHERE status != 'ok'"
+    ],
+    [
+      "index",
+      "idx_usage_ts",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_ts\" ON \"usage_events\" (\"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_usage_user_ts",
+      "usage_events",
+      "CREATE INDEX \"idx_usage_user_ts\" ON \"usage_events\" (\"user_id\", \"ts\" DESC)"
+    ],
+    [
+      "index",
+      "idx_user_groups_group",
+      "user_groups",
+      "CREATE INDEX \"idx_user_groups_group\" ON \"user_groups\" (\"group_id\")"
+    ],
+    [
+      "index",
+      "idx_user_groups_user",
+      "user_groups",
+      "CREATE INDEX \"idx_user_groups_user\" ON \"user_groups\" (\"user_id\")"
+    ],
+    [
+      "index",
+      "idx_vault_secrets_owner_name",
+      "vault_secrets",
+      "CREATE UNIQUE INDEX \"idx_vault_secrets_owner_name\" ON \"vault_secrets\" ((COALESCE(user_id, 0)), \"name\")"
+    ],
+    [
+      "table",
+      "ax_credentials",
+      "ax_credentials",
+      "CREATE TABLE \"ax_credentials\" (\n  \"owner\" TEXT NOT NULL DEFAULT '',\n  \"site\" TEXT NOT NULL,\n  \"username\" TEXT NOT NULL,\n  \"password\" TEXT NOT NULL,\n  \"last_ok\" REAL,\n  \"use_count\" INTEGER NOT NULL DEFAULT 1,\n  PRIMARY KEY (\"owner\", \"site\")\n)"
+    ],
+    [
+      "table",
+      "ax_nodes",
+      "ax_nodes",
+      "CREATE TABLE \"ax_nodes\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"site\" TEXT NOT NULL,\n  \"path\" TEXT NOT NULL,\n  \"parent_id\" INTEGER,\n  \"node_type\" TEXT NOT NULL,\n  \"region_tag\" TEXT,\n  \"role\" TEXT NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"node_key\" TEXT NOT NULL,\n  \"verified_count\" INTEGER NOT NULL DEFAULT 0,\n  \"last_ok\" REAL,\n  \"stale\" INTEGER NOT NULL DEFAULT 0,\n  \"stale_at\" REAL,\n  UNIQUE (\"site\", \"path\", \"parent_id\", \"node_key\"),\n  FOREIGN KEY (\"parent_id\") REFERENCES \"ax_nodes\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "ax_selectors",
+      "ax_selectors",
+      "CREATE TABLE \"ax_selectors\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"node_id\" INTEGER NOT NULL,\n  \"strategy\" TEXT NOT NULL,\n  \"value\" TEXT NOT NULL,\n  \"success_count\" INTEGER NOT NULL DEFAULT 0,\n  \"failure_count\" INTEGER NOT NULL DEFAULT 0,\n  \"last_ok\" REAL,\n  \"last_fail\" REAL,\n  UNIQUE (\"node_id\", \"strategy\", \"value\"),\n  FOREIGN KEY (\"node_id\") REFERENCES \"ax_nodes\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "ax_transitions",
+      "ax_transitions",
+      "CREATE TABLE \"ax_transitions\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"site\" TEXT NOT NULL,\n  \"from_path\" TEXT NOT NULL,\n  \"action_node_id\" INTEGER NOT NULL,\n  \"to_path\" TEXT NOT NULL,\n  \"verified_count\" INTEGER NOT NULL DEFAULT 1,\n  \"last_ok\" REAL,\n  UNIQUE (\"site\", \"from_path\", \"action_node_id\", \"to_path\"),\n  FOREIGN KEY (\"action_node_id\") REFERENCES \"ax_nodes\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "chats",
+      "chats",
+      "CREATE TABLE \"chats\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"title\" TEXT NOT NULL,\n  \"messages_json\" TEXT NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"archived\" INTEGER NOT NULL DEFAULT 0,\n  \"archived_at\" REAL,\n  \"meta_json\" TEXT NOT NULL DEFAULT '{}',\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\")\n)"
+    ],
+    [
+      "table",
+      "code_clients",
+      "code_clients",
+      "CREATE TABLE \"code_clients\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"client_id\" TEXT NOT NULL,\n  \"last_seen\" REAL NOT NULL DEFAULT 0,\n  \"plugin_version\" INTEGER NOT NULL DEFAULT 1,\n  \"directory\" TEXT NOT NULL DEFAULT '',\n  \"bye\" INTEGER NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"client_id\")\n)"
+    ],
+    [
+      "table",
+      "code_commands",
+      "code_commands",
+      "CREATE TABLE \"code_commands\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL DEFAULT '',\n  \"kind\" TEXT NOT NULL,\n  \"payload\" TEXT NOT NULL DEFAULT '{}',\n  \"created_at\" REAL NOT NULL DEFAULT 0,\n  \"target\" TEXT NOT NULL DEFAULT ''\n)"
+    ],
+    [
+      "table",
+      "code_messages",
+      "code_messages",
+      "CREATE TABLE \"code_messages\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"info\" TEXT NOT NULL DEFAULT '{}',\n  \"created\" REAL NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"session_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "code_meta",
+      "code_meta",
+      "CREATE TABLE \"code_meta\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"key\" TEXT NOT NULL,\n  \"value\" TEXT NOT NULL,\n  PRIMARY KEY (\"user_id\", \"key\")\n)"
+    ],
+    [
+      "table",
+      "code_notes",
+      "code_notes",
+      "CREATE TABLE \"code_notes\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"kind\" TEXT NOT NULL DEFAULT 'command',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"detail\" TEXT NOT NULL DEFAULT '',\n  \"created\" REAL NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"session_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "code_pairings",
+      "code_pairings",
+      "CREATE TABLE \"code_pairings\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"code\" TEXT NOT NULL,\n  \"ip\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"confirmed_uid\" INTEGER,\n  \"token\" TEXT\n)"
+    ],
+    [
+      "table",
+      "code_parts",
+      "code_parts",
+      "CREATE TABLE \"code_parts\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"message_id\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"part\" TEXT NOT NULL DEFAULT '{}',\n  \"ts\" REAL NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"session_id\", \"message_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "code_permissions",
+      "code_permissions",
+      "CREATE TABLE \"code_permissions\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"info\" TEXT NOT NULL DEFAULT '{}',\n  \"created\" REAL NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"session_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "code_questions",
+      "code_questions",
+      "CREATE TABLE \"code_questions\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"info\" TEXT NOT NULL DEFAULT '{}',\n  \"created\" REAL NOT NULL DEFAULT 0,\n  PRIMARY KEY (\"user_id\", \"session_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "code_sessions",
+      "code_sessions",
+      "CREATE TABLE \"code_sessions\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"info\" TEXT NOT NULL DEFAULT '{}',\n  \"client_id\" TEXT NOT NULL DEFAULT '',\n  \"busy\" INTEGER NOT NULL DEFAULT 0,\n  \"updated_at\" REAL NOT NULL DEFAULT 0,\n  \"last_model\" TEXT NOT NULL DEFAULT '',\n  \"preview\" TEXT NOT NULL DEFAULT '',\n  PRIMARY KEY (\"user_id\", \"id\")\n)"
+    ],
+    [
+      "table",
+      "daily_usage_reports",
+      "daily_usage_reports",
+      "CREATE TABLE \"daily_usage_reports\" (\n  \"date\" TEXT PRIMARY KEY,\n  \"payload_json\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL\n)"
+    ],
+    [
+      "table",
+      "editor_action_cache",
+      "editor_action_cache",
+      "CREATE TABLE \"editor_action_cache\" (\n  \"scope\" TEXT NOT NULL,\n  \"query_norm\" TEXT NOT NULL,\n  \"auto_id\" TEXT NOT NULL DEFAULT '',\n  \"role\" TEXT NOT NULL DEFAULT '',\n  \"center_x\" INTEGER DEFAULT NULL,\n  \"center_y\" INTEGER DEFAULT NULL,\n  \"hits\" INTEGER NOT NULL DEFAULT 1,\n  \"updated_at\" REAL NOT NULL,\n  PRIMARY KEY (\"scope\", \"query_norm\")\n)"
+    ],
+    [
+      "table",
+      "editor_routine_runs",
+      "editor_routine_runs",
+      "CREATE TABLE \"editor_routine_runs\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"routine_id\" INTEGER NOT NULL,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"status\" TEXT NOT NULL DEFAULT 'running',\n  \"trigger\" TEXT NOT NULL DEFAULT 'schedule',\n  \"started_at\" REAL NOT NULL,\n  \"ended_at\" REAL DEFAULT NULL,\n  \"duration_ms\" INTEGER DEFAULT NULL,\n  \"input_tokens\" INTEGER DEFAULT NULL,\n  \"output_tokens\" INTEGER DEFAULT NULL,\n  \"summary\" TEXT DEFAULT NULL,\n  \"error\" TEXT DEFAULT NULL,\n  \"tool_limit_reached\" INTEGER NOT NULL DEFAULT 0,\n  \"worker_boot_id\" TEXT DEFAULT NULL,\n  \"heartbeat_at\" REAL DEFAULT NULL,\n  \"files\" TEXT NOT NULL DEFAULT '[]',\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"routine_id\") REFERENCES \"editor_routines\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "editor_routines",
+      "editor_routines",
+      "CREATE TABLE \"editor_routines\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"cron_expr\" TEXT NOT NULL,\n  \"model\" TEXT DEFAULT NULL,\n  \"system_prompt\" TEXT NOT NULL DEFAULT '',\n  \"task_prompt\" TEXT NOT NULL DEFAULT '',\n  \"mcp_snapshot\" TEXT NOT NULL DEFAULT '[]',\n  \"skills\" TEXT NOT NULL DEFAULT '[]',\n  \"thinking_mode\" INTEGER NOT NULL DEFAULT 0,\n  \"enabled\" INTEGER NOT NULL DEFAULT 1,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"last_fire_minute\" TEXT DEFAULT NULL,\n  \"runs_keep\" INTEGER NOT NULL DEFAULT 0,\n  \"notify_on\" TEXT NOT NULL DEFAULT 'all',\n  \"notify_keep\" INTEGER NOT NULL DEFAULT 0,\n  \"webhook_enabled\" INTEGER NOT NULL DEFAULT 0,\n  \"webhook_secret\" TEXT DEFAULT NULL,\n  \"webhook_filter\" TEXT NOT NULL DEFAULT '{}',\n  \"trigger_after_id\" INTEGER DEFAULT NULL,\n  \"trigger_after_on\" TEXT NOT NULL DEFAULT 'ok',\n  \"agents_enabled\" INTEGER NOT NULL DEFAULT 0,\n  \"connector_id\" INTEGER DEFAULT NULL,\n  \"webhook_secret_enc\" TEXT DEFAULT NULL,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "editor_webhook_deliveries",
+      "editor_webhook_deliveries",
+      "CREATE TABLE \"editor_webhook_deliveries\" (\n  \"delivery_id\" TEXT NOT NULL,\n  \"routine_id\" INTEGER NOT NULL,\n  \"received_at\" REAL NOT NULL,\n  PRIMARY KEY (\"delivery_id\", \"routine_id\")\n)"
+    ],
+    [
+      "table",
+      "generated_images",
+      "generated_images",
+      "CREATE TABLE \"generated_images\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"chat_id\" TEXT,\n  \"prompt\" TEXT NOT NULL DEFAULT '',\n  \"params_json\" TEXT NOT NULL DEFAULT '{}',\n  \"model\" TEXT NOT NULL DEFAULT '',\n  \"mime\" TEXT NOT NULL,\n  \"width\" INTEGER NOT NULL,\n  \"height\" INTEGER NOT NULL,\n  \"bytes\" INTEGER NOT NULL,\n  \"rel_path\" TEXT NOT NULL,\n  \"thumb_rel_path\" TEXT NOT NULL DEFAULT '',\n  \"steps\" INTEGER NOT NULL DEFAULT 0,\n  \"megapixels\" REAL NOT NULL DEFAULT 0,\n  \"duration_s\" REAL DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "git_connectors",
+      "git_connectors",
+      "CREATE TABLE \"git_connectors\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"provider_type\" TEXT NOT NULL,\n  \"host\" TEXT NOT NULL,\n  \"api_base\" TEXT NOT NULL DEFAULT '',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"username\" TEXT NOT NULL DEFAULT '',\n  \"token_enc\" TEXT NOT NULL,\n  \"token_scheme\" TEXT NOT NULL DEFAULT 'plain',\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"last_used\" REAL,\n  \"secret_id\" INTEGER DEFAULT NULL,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "groups",
+      "groups",
+      "CREATE TABLE \"groups\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"name\" TEXT UNIQUE NOT NULL,\n  \"description\" TEXT,\n  \"created_at\" REAL NOT NULL\n)"
+    ],
+    [
+      "table",
+      "llm_calls",
+      "llm_calls",
+      "CREATE TABLE \"llm_calls\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"ts\" REAL NOT NULL,\n  \"req_id\" TEXT DEFAULT NULL,\n  \"user_id\" INTEGER DEFAULT NULL,\n  \"chat_id\" TEXT DEFAULT NULL,\n  \"model\" TEXT DEFAULT NULL,\n  \"path\" TEXT DEFAULT NULL,\n  \"status\" TEXT NOT NULL DEFAULT 'ok',\n  \"finish_reason\" TEXT DEFAULT NULL,\n  \"prompt_tokens\" INTEGER DEFAULT NULL,\n  \"completion_tokens\" INTEGER DEFAULT NULL,\n  \"duration_ms\" INTEGER DEFAULT NULL,\n  \"n_messages\" INTEGER DEFAULT NULL,\n  \"n_tool_calls\" INTEGER DEFAULT NULL,\n  \"request_json\" TEXT DEFAULT NULL,\n  \"response_json\" TEXT DEFAULT NULL,\n  \"error\" TEXT DEFAULT NULL\n)"
+    ],
+    [
+      "table",
+      "llm_connectors",
+      "llm_connectors",
+      "CREATE TABLE \"llm_connectors\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER,\n  \"scope\" TEXT NOT NULL DEFAULT 'user',\n  \"provider_type\" TEXT NOT NULL,\n  \"wire\" TEXT NOT NULL DEFAULT 'openai',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"base_url\" TEXT NOT NULL DEFAULT '',\n  \"api_key_enc\" TEXT NOT NULL DEFAULT '',\n  \"key_scheme\" TEXT NOT NULL DEFAULT 'fernet',\n  \"default_model\" TEXT NOT NULL DEFAULT '',\n  \"models_json\" TEXT NOT NULL DEFAULT '',\n  \"enabled\" INTEGER NOT NULL DEFAULT 1,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"last_used\" REAL,\n  \"context_window\" INTEGER,\n  \"max_models\" INTEGER,\n  \"max_concurrency\" INTEGER,\n  \"secret_id\" INTEGER DEFAULT NULL,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "llm_engine_policies",
+      "llm_engine_policies",
+      "CREATE TABLE \"llm_engine_policies\" (\n  \"principal_type\" TEXT NOT NULL CHECK (principal_type IN ('user', 'group')),\n  \"principal_id\" INTEGER NOT NULL,\n  \"engine_keys\" TEXT,\n  \"can_manage_models\" INTEGER,\n  \"updated_at\" REAL NOT NULL,\n  PRIMARY KEY (\"principal_type\", \"principal_id\")\n)"
+    ],
+    [
+      "table",
+      "mcp_shared_servers",
+      "mcp_shared_servers",
+      "CREATE TABLE \"mcp_shared_servers\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"name\" TEXT NOT NULL DEFAULT '',\n  \"type\" TEXT NOT NULL DEFAULT 'sse',\n  \"url\" TEXT NOT NULL DEFAULT '',\n  \"command\" TEXT NOT NULL DEFAULT '',\n  \"auth_mode\" TEXT NOT NULL DEFAULT '',\n  \"auth_user\" TEXT NOT NULL DEFAULT '',\n  \"auth_enc\" TEXT NOT NULL DEFAULT '',\n  \"key_scheme\" TEXT NOT NULL DEFAULT 'fernet',\n  \"enabled\" INTEGER NOT NULL DEFAULT 1,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"headers_enc\" TEXT NOT NULL DEFAULT '',\n  \"env_enc\" TEXT NOT NULL DEFAULT '',\n  \"extra_scheme\" TEXT NOT NULL DEFAULT 'plain',\n  \"secret_id\" INTEGER DEFAULT NULL,\n  \"secret_error\" TEXT NOT NULL DEFAULT ''\n)"
+    ],
+    [
+      "table",
+      "metric_events",
+      "metric_events",
+      "CREATE TABLE \"metric_events\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"event_type\" TEXT NOT NULL,\n  \"value\" REAL,\n  \"tags_json\" TEXT,\n  \"created_at\" REAL NOT NULL,\n  \"user_id\" INTEGER\n)"
+    ],
+    [
+      "table",
+      "notifications",
+      "notifications",
+      "CREATE TABLE \"notifications\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"title\" TEXT NOT NULL,\n  \"body\" TEXT DEFAULT '',\n  \"ref_type\" TEXT DEFAULT '',\n  \"ref_id\" INTEGER,\n  \"read_at\" REAL,\n  \"created_at\" REAL NOT NULL,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "oauth_clients",
+      "oauth_clients",
+      "CREATE TABLE \"oauth_clients\" (\n  \"client_id\" TEXT PRIMARY KEY,\n  \"kind\" TEXT NOT NULL DEFAULT 'dcr',\n  \"name\" TEXT NOT NULL DEFAULT '',\n  \"secret_hash\" TEXT NOT NULL DEFAULT '',\n  \"auth_method\" TEXT NOT NULL DEFAULT 'none',\n  \"redirect_uris\" TEXT NOT NULL DEFAULT '[]',\n  \"metadata\" TEXT NOT NULL DEFAULT '{}',\n  \"created_at\" REAL NOT NULL,\n  \"fetched_at\" REAL,\n  \"last_used_at\" REAL\n)"
+    ],
+    [
+      "table",
+      "oauth_codes",
+      "oauth_codes",
+      "CREATE TABLE \"oauth_codes\" (\n  \"code_hash\" TEXT PRIMARY KEY,\n  \"client_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"grant_id\" TEXT NOT NULL,\n  \"redirect_uri\" TEXT NOT NULL DEFAULT '',\n  \"code_challenge\" TEXT NOT NULL DEFAULT '',\n  \"resource\" TEXT NOT NULL DEFAULT '',\n  \"families\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"used_at\" REAL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"client_id\") REFERENCES \"oauth_clients\"(\"client_id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "oauth_tokens",
+      "oauth_tokens",
+      "CREATE TABLE \"oauth_tokens\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"grant_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"client_id\" TEXT NOT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"token_hash\" TEXT UNIQUE NOT NULL,\n  \"families\" TEXT NOT NULL DEFAULT '',\n  \"resource\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"used_at\" REAL,\n  \"revoked_at\" REAL,\n  \"last_used_at\" REAL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"client_id\") REFERENCES \"oauth_clients\"(\"client_id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "prompt_templates",
+      "prompt_templates",
+      "CREATE TABLE \"prompt_templates\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"title\" TEXT NOT NULL,\n  \"content\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  UNIQUE (\"user_id\", \"name\"),\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "rag_collections",
+      "rag_collections",
+      "CREATE TABLE \"rag_collections\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"description\" TEXT NOT NULL DEFAULT '',\n  \"visibility\" TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'groups', 'all')),\n  \"allow_source_open\" INTEGER NOT NULL DEFAULT 0,\n  \"embed_model\" TEXT NOT NULL DEFAULT '',\n  \"embed_dim\" INTEGER NOT NULL DEFAULT 0,\n  \"chunk_json\" TEXT NOT NULL DEFAULT '{}',\n  \"status\" TEXT NOT NULL DEFAULT 'ready',\n  \"doc_count\" INTEGER NOT NULL DEFAULT 0,\n  \"chunk_count\" INTEGER NOT NULL DEFAULT 0,\n  \"bytes\" INTEGER NOT NULL DEFAULT 0,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"meta_json\" TEXT NOT NULL DEFAULT '{}',\n  UNIQUE (\"owner_user_id\", \"name\"),\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "rag_documents",
+      "rag_documents",
+      "CREATE TABLE \"rag_documents\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"collection_id\" TEXT NOT NULL,\n  \"rel_path\" TEXT NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"ext\" TEXT NOT NULL,\n  \"bytes\" INTEGER NOT NULL DEFAULT 0,\n  \"sha256\" TEXT NOT NULL DEFAULT '',\n  \"pages\" INTEGER DEFAULT NULL,\n  \"chunk_count\" INTEGER NOT NULL DEFAULT 0,\n  \"status\" TEXT NOT NULL DEFAULT 'pending',\n  \"error_code\" TEXT DEFAULT NULL,\n  \"error_message\" TEXT DEFAULT NULL,\n  \"chunk_params_hash\" TEXT NOT NULL DEFAULT '',\n  \"added_by\" INTEGER DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"indexed_at\" REAL DEFAULT NULL,\n  UNIQUE (\"collection_id\", \"rel_path\"),\n  FOREIGN KEY (\"collection_id\") REFERENCES \"rag_collections\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"added_by\") REFERENCES \"users\"(\"id\") ON DELETE SET NULL\n)"
+    ],
+    [
+      "table",
+      "rag_grants",
+      "rag_grants",
+      "CREATE TABLE \"rag_grants\" (\n  \"collection_id\" TEXT NOT NULL,\n  \"principal_type\" TEXT NOT NULL CHECK (principal_type IN ('user', 'group')),\n  \"principal_id\" INTEGER NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  PRIMARY KEY (\"collection_id\", \"principal_type\", \"principal_id\"),\n  FOREIGN KEY (\"collection_id\") REFERENCES \"rag_collections\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "rag_hidden",
+      "rag_hidden",
+      "CREATE TABLE \"rag_hidden\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"collection_id\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  PRIMARY KEY (\"user_id\", \"collection_id\"),\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"collection_id\") REFERENCES \"rag_collections\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "rag_jobs",
+      "rag_jobs",
+      "CREATE TABLE \"rag_jobs\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"collection_id\" TEXT NOT NULL,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"kind\" TEXT NOT NULL CHECK (kind IN ('ingest', 'reindex', 'migrate', 'purge')),\n  \"status\" TEXT NOT NULL DEFAULT 'queued',\n  \"total\" INTEGER NOT NULL DEFAULT 0,\n  \"done\" INTEGER NOT NULL DEFAULT 0,\n  \"failed\" INTEGER NOT NULL DEFAULT 0,\n  \"params_json\" TEXT NOT NULL DEFAULT '{}',\n  \"heartbeat_at\" REAL DEFAULT NULL,\n  \"worker_boot_id\" TEXT DEFAULT NULL,\n  \"error\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"finished_at\" REAL DEFAULT NULL,\n  FOREIGN KEY (\"collection_id\") REFERENCES \"rag_collections\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "revoked_sessions",
+      "revoked_sessions",
+      "CREATE TABLE \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER,\n  \"revoked_at\" REAL NOT NULL\n)"
+    ],
+    [
+      "table",
+      "runs",
+      "runs",
+      "CREATE TABLE \"runs\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"kind\" TEXT NOT NULL DEFAULT 'chat',\n  \"user_id\" INTEGER,\n  \"chat_id\" TEXT NOT NULL DEFAULT '',\n  \"routine_id\" INTEGER DEFAULT NULL,\n  \"parent_id\" TEXT NOT NULL DEFAULT '',\n  \"project_id\" INTEGER DEFAULT NULL,\n  \"model\" TEXT NOT NULL DEFAULT '',\n  \"engine\" TEXT NOT NULL DEFAULT '',\n  \"started_at\" REAL NOT NULL,\n  \"ended_at\" REAL DEFAULT NULL,\n  \"status\" TEXT NOT NULL DEFAULT 'running',\n  \"error_kind\" TEXT NOT NULL DEFAULT '',\n  \"input_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"output_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_read_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_creation_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"thinking_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"llm_calls\" INTEGER NOT NULL DEFAULT 0,\n  \"prefill_ms\" INTEGER NOT NULL DEFAULT 0,\n  \"decode_ms\" INTEGER NOT NULL DEFAULT 0,\n  \"wait_ms\" INTEGER NOT NULL DEFAULT 0,\n  \"tool_calls\" INTEGER NOT NULL DEFAULT 0,\n  \"tool_errors\" INTEGER NOT NULL DEFAULT 0,\n  \"tool_families\" TEXT NOT NULL DEFAULT '{}',\n  \"files_changed\" INTEGER NOT NULL DEFAULT 0,\n  \"sandbox_cpu_peak\" REAL DEFAULT NULL,\n  \"sandbox_mem_peak_mb\" REAL DEFAULT NULL,\n  \"tool_tokens\" INTEGER NOT NULL DEFAULT 0\n)"
+    ],
+    [
+      "table",
+      "sandbox_placements",
+      "sandbox_placements",
+      "CREATE TABLE \"sandbox_placements\" (\n  \"user_id\" INTEGER PRIMARY KEY,\n  \"host_id\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL\n)"
+    ],
+    [
+      "table",
+      "saved_prompts",
+      "saved_prompts",
+      "CREATE TABLE \"saved_prompts\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"title\" TEXT NOT NULL,\n  \"content\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\")\n)"
+    ],
+    [
+      "table",
+      "schema_migrations",
+      "schema_migrations",
+      "CREATE TABLE \"schema_migrations\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"name\" TEXT UNIQUE NOT NULL,\n  \"applied_at\" REAL NOT NULL\n)"
+    ],
+    [
+      "table",
+      "session_messages",
+      "session_messages",
+      "CREATE TABLE \"session_messages\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"app\" TEXT NOT NULL,\n  \"session_id\" TEXT NOT NULL,\n  \"scope_key\" TEXT NOT NULL DEFAULT '',\n  \"role\" TEXT NOT NULL,\n  \"content\" TEXT NOT NULL,\n  \"ts\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "session_messages_fts",
+      "session_messages_fts",
+      "CREATE VIRTUAL TABLE session_messages_fts USING fts5(\n                content,\n                user_id    UNINDEXED,\n                app        UNINDEXED,\n                session_id UNINDEXED,\n                role       UNINDEXED,\n                content='session_messages',\n                content_rowid='id',\n                tokenize='unicode61 remove_diacritics 2'\n            )"
+    ],
+    [
+      "table",
+      "session_messages_fts_config",
+      "session_messages_fts_config",
+      "CREATE TABLE 'session_messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+    ],
+    [
+      "table",
+      "session_messages_fts_data",
+      "session_messages_fts_data",
+      "CREATE TABLE 'session_messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+    ],
+    [
+      "table",
+      "session_messages_fts_docsize",
+      "session_messages_fts_docsize",
+      "CREATE TABLE 'session_messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+    ],
+    [
+      "table",
+      "session_messages_fts_idx",
+      "session_messages_fts_idx",
+      "CREATE TABLE 'session_messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+    ],
+    [
+      "table",
+      "shared_prompts",
+      "shared_prompts",
+      "CREATE TABLE \"shared_prompts\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"from_user_id\" INTEGER NOT NULL,\n  \"to_user_id\" INTEGER NOT NULL,\n  \"title\" TEXT NOT NULL,\n  \"content\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  FOREIGN KEY (\"to_user_id\") REFERENCES \"users\"(\"id\"),\n  FOREIGN KEY (\"from_user_id\") REFERENCES \"users\"(\"id\")\n)"
+    ],
+    [
+      "table",
+      "shell_job_events",
+      "shell_job_events",
+      "CREATE TABLE \"shell_job_events\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"job_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"chat_id\" TEXT NOT NULL,\n  \"seq\" INTEGER NOT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"payload_json\" TEXT NOT NULL DEFAULT '{}',\n  \"created_at\" REAL NOT NULL,\n  \"delivered_at\" REAL DEFAULT NULL,\n  \"delivered_in\" TEXT NOT NULL DEFAULT '',\n  UNIQUE (\"job_id\", \"seq\"),\n  FOREIGN KEY (\"job_id\") REFERENCES \"shell_jobs\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "shell_jobs",
+      "shell_jobs",
+      "CREATE TABLE \"shell_jobs\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"chat_id\" TEXT NOT NULL,\n  \"call_id\" TEXT NOT NULL DEFAULT '',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"command\" TEXT NOT NULL DEFAULT '',\n  \"cwd\" TEXT NOT NULL DEFAULT '',\n  \"state\" TEXT NOT NULL DEFAULT 'starting',\n  \"wake_on_json\" TEXT NOT NULL DEFAULT '[]',\n  \"resume_note\" TEXT NOT NULL DEFAULT '',\n  \"wake\" INTEGER NOT NULL DEFAULT 1,\n  \"depth\" INTEGER NOT NULL DEFAULT 0,\n  \"turn_json\" TEXT NOT NULL DEFAULT '{}',\n  \"host\" TEXT NOT NULL DEFAULT '',\n  \"pid\" INTEGER DEFAULT NULL,\n  \"exit_code\" INTEGER DEFAULT NULL,\n  \"exit_signal\" TEXT DEFAULT NULL,\n  \"kill_by\" TEXT NOT NULL DEFAULT '',\n  \"last_seq\" INTEGER NOT NULL DEFAULT 0,\n  \"last_line\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"started_at\" REAL DEFAULT NULL,\n  \"ended_at\" REAL DEFAULT NULL,\n  \"inline_result\" INTEGER NOT NULL DEFAULT 0,\n  \"kind\" TEXT NOT NULL DEFAULT 'shell',\n  \"detail_json\" TEXT NOT NULL DEFAULT '{}',\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "sqlite_sequence",
+      "sqlite_sequence",
+      "CREATE TABLE sqlite_sequence(name,seq)"
+    ],
+    [
+      "table",
+      "terminal_sessions",
+      "terminal_sessions",
+      "CREATE TABLE \"terminal_sessions\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"uid\" INTEGER NOT NULL,\n  \"tid\" INTEGER,\n  \"name\" TEXT NOT NULL DEFAULT 'Terminal',\n  \"created_at\" INTEGER NOT NULL,\n  \"last_connected_at\" INTEGER NOT NULL\n)"
+    ],
+    [
+      "table",
+      "tool_call_metrics",
+      "tool_call_metrics",
+      "CREATE TABLE \"tool_call_metrics\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"run_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"pipeline_id\" INTEGER DEFAULT NULL,\n  \"node_id\" TEXT DEFAULT NULL,\n  \"member_id\" TEXT DEFAULT NULL,\n  \"tool_name\" TEXT NOT NULL,\n  \"server_name\" TEXT DEFAULT NULL,\n  \"status\" TEXT NOT NULL DEFAULT 'success',\n  \"duration_ms\" INTEGER NOT NULL DEFAULT 0,\n  \"error_short\" TEXT DEFAULT NULL,\n  \"ts\" REAL NOT NULL,\n  \"call_id\" TEXT DEFAULT NULL,\n  \"started_at\" REAL DEFAULT NULL,\n  \"category\" TEXT DEFAULT NULL,\n  \"exit_code\" INTEGER DEFAULT NULL,\n  \"args_bytes\" INTEGER DEFAULT NULL,\n  \"result_bytes\" INTEGER DEFAULT NULL\n)"
+    ],
+    [
+      "table",
+      "tool_tokens",
+      "tool_tokens",
+      "CREATE TABLE \"tool_tokens\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"name\" TEXT NOT NULL DEFAULT '',\n  \"token_hash\" TEXT UNIQUE NOT NULL,\n  \"hint\" TEXT NOT NULL DEFAULT '',\n  \"families\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL,\n  \"last_used_at\" REAL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "usage_events",
+      "usage_events",
+      "CREATE TABLE \"usage_events\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"ts\" REAL NOT NULL,\n  \"user_id\" INTEGER,\n  \"source\" TEXT NOT NULL DEFAULT 'unknown',\n  \"origin_id\" TEXT NOT NULL DEFAULT '',\n  \"parent_id\" TEXT NOT NULL DEFAULT '',\n  \"model\" TEXT NOT NULL DEFAULT '',\n  \"connector\" TEXT NOT NULL DEFAULT '',\n  \"path\" TEXT NOT NULL DEFAULT '',\n  \"input_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"output_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"submitted_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_read_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_creation_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"duration_ms\" INTEGER NOT NULL DEFAULT 0,\n  \"iterations\" INTEGER NOT NULL DEFAULT 0,\n  \"status\" TEXT NOT NULL DEFAULT 'ok',\n  \"error_kind\" TEXT NOT NULL DEFAULT '',\n  \"thinking_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"run_id\" TEXT NOT NULL DEFAULT '',\n  \"tool_tokens\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_reported_calls\" INTEGER NOT NULL DEFAULT 0,\n  \"cache_hit_calls\" INTEGER NOT NULL DEFAULT 0\n)"
+    ],
+    [
+      "table",
+      "user_groups",
+      "user_groups",
+      "CREATE TABLE \"user_groups\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"group_id\" INTEGER NOT NULL,\n  PRIMARY KEY (\"user_id\", \"group_id\"),\n  FOREIGN KEY (\"group_id\") REFERENCES \"groups\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "users",
+      "users",
+      "CREATE TABLE \"users\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"username\" TEXT UNIQUE NOT NULL,\n  \"pass_salt\" TEXT NOT NULL,\n  \"pass_hash\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"is_admin\" INTEGER DEFAULT 0,\n  \"avatar\" TEXT,\n  \"settings_json\" TEXT,\n  \"must_change_pwd\" INTEGER DEFAULT 0,\n  \"session_min_ts\" REAL DEFAULT 0\n)"
+    ],
+    [
+      "table",
+      "vault_secrets",
+      "vault_secrets",
+      "CREATE TABLE \"vault_secrets\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER DEFAULT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"scope_json\" TEXT NOT NULL DEFAULT '{}',\n  \"username\" TEXT DEFAULT NULL,\n  \"secret_enc\" TEXT NOT NULL,\n  \"kid\" TEXT NOT NULL,\n  \"version\" INTEGER NOT NULL DEFAULT 1,\n  \"state\" TEXT NOT NULL DEFAULT 'active',\n  \"policy_json\" TEXT NOT NULL DEFAULT '{}',\n  \"meta_json\" TEXT NOT NULL DEFAULT '{}',\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"rotated_at\" REAL DEFAULT NULL,\n  \"last_used_at\" REAL DEFAULT NULL,\n  \"use_count\" INTEGER NOT NULL DEFAULT 0,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "trigger",
+      "sm_ad",
+      "session_messages",
+      "CREATE TRIGGER sm_ad AFTER DELETE ON session_messages BEGIN\n                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, user_id, app, session_id, role)\n                VALUES('delete', old.id, old.content, old.user_id, old.app, old.session_id, old.role);\n            END"
+    ],
+    [
+      "trigger",
+      "sm_ai",
+      "session_messages",
+      "CREATE TRIGGER sm_ai AFTER INSERT ON session_messages BEGIN\n                INSERT INTO session_messages_fts(rowid, content, user_id, app, session_id, role)\n                VALUES (new.id, new.content, new.user_id, new.app, new.session_id, new.role);\n            END"
+    ],
+    [
+      "trigger",
+      "sm_au",
+      "session_messages",
+      "CREATE TRIGGER sm_au AFTER UPDATE ON session_messages BEGIN\n                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, user_id, app, session_id, role)\n                VALUES('delete', old.id, old.content, old.user_id, old.app, old.session_id, old.role);\n                INSERT INTO session_messages_fts(rowid, content, user_id, app, session_id, role)\n                VALUES (new.id, new.content, new.user_id, new.app, new.session_id, new.role);\n            END"
+    ]
+  ],
+  "migrations": [
+    "0001_rename_toolbox_to_mcp",
+    "0002_remove_dead_blocks",
+    "0003_drop_agentic_tables",
+    "0004_drop_agents_routines_tables",
+    "0005_notifications_table",
+    "0006_git_connectors",
+    "0007_llm_connectors",
+    "0008_chat_meta",
+    "0009_revoked_sessions",
+    "0010_mcp_shared_servers",
+    "0011_usage_events",
+    "0012_drop_unused_metric_index",
+    "0013_encrypt_personal_mcp_auth",
+    "0014_usage_thinking_tokens",
+    "0015_mcp_headers_env",
+    "0016_sandbox_placements",
+    "0017_drop_scenarios",
+    "0018_llm_engine_policies",
+    "0019_llm_connector_engine_limits",
+    "0020_prompt_templates",
+    "0021_runs",
+    "0022_tool_tokens",
+    "0023_oauth",
+    "0024_generated_images",
+    "0025_usage_entree_inclusive",
+    "0026_usage_tool_tokens"
+  ]
+}

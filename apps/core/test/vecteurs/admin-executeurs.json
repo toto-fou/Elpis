@@ -1,0 +1,2224 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_executeurs.py",
+  "comptes": [
+    [
+      "admin",
+      1
+    ],
+    [
+      "modo",
+      2
+    ],
+    [
+      "bob",
+      0
+    ],
+    [
+      "carol",
+      0
+    ],
+    [
+      "Jean.Dupont",
+      0
+    ]
+  ],
+  "reglages": {
+    "bob": {
+      "network_profile_id": "web"
+    },
+    "carol": {
+      "forced_network_profile_id": "lan",
+      "network_profile_id": "web"
+    }
+  },
+  "placements": [
+    [
+      3,
+      "b",
+      1700000000.5,
+      1700000001.25
+    ],
+    [
+      5,
+      "a",
+      1700000002.0,
+      1700000003.0
+    ]
+  ],
+  "docker_factice": "#!/bin/sh\nd=\"$FAUX_DOCKER\"\nprintf '%s\\n' \"$*\" >> \"$d/appels.log\"\ncase \"$1\" in\n  version) k=version ;;\n  image) k=image-inspect ;;\n  ps) case \"$*\" in *\" -a \"*) k=ps-a ;; *netcfg*) k=ps-netcfg ;; *) k=ps-noms ;; esac ;;\n  inspect) for a; do n=\"$a\"; done\n           case \"$*\" in *user_id*) k=\"inspect-$n\" ;; *) k=\"inspect-nom-$n\" ;; esac ;;\n  stop) k=stop ;;\n  rm) k=rm ;;\n  *) k=autre ;;\nesac\n[ -f \"$d/$k.dort\" ] && exec sleep \"$(cat \"$d/$k.dort\")\"\n[ -f \"$d/$k.out\" ] && cat \"$d/$k.out\"\n[ -f \"$d/$k.err\" ] && cat \"$d/$k.err\" >&2\n[ -f \"$d/$k.rc\" ] && exit \"$(cat \"$d/$k.rc\")\"\nexit 0\n",
+  "config_texte": "{\n  \"executors\": {\n    \"limits\": {\n      \"memory_mb\": 1024.0,\n      \"cpu_quota_pct\": 50\n    },\n    \"exec_user\": \"1000:1000\",\n    \"runtime\": \"runsc\",\n    \"extra_run_args\": [\n      \"--cap-add\",\n      2.0,\n      \"  \"\n    ],\n    \"idle_kill_hours\": \"6\",\n    \"image\": \"registre.lan:5000/outils/bac:2\",\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist_ip\",\n        \"ips\": [\n          \"10.0.0.0/8\"\n        ],\n        \"domains\": [\n          \"pypi.org\"\n        ],\n        \"ports\": [\n          443\n        ],\n        \"dns\": []\n      },\n      {\n        \"id\": \"lan\",\n        \"name\": \"LAN\",\n        \"mode\": \"bridge\"\n      }\n    ]\n  },\n  \"autre\": {\n    \"x\": 1.0\n  }\n}",
+  "hotes": {
+    "GET /a/health": [
+      200,
+      "application/json",
+      "{\"families\": [\"fs\", \"shell\"], \"tools\": 12, \"uptime_s\": 12.0, \"auth\": \"token\", \"service\": \"elpis-tools\", \"extra\": 1}",
+      null
+    ],
+    "GET /b/health": [
+      503,
+      "text/plain",
+      "indisponible",
+      null
+    ],
+    "GET /l/health": [
+      200,
+      "application/json",
+      "[1, 2]",
+      null
+    ],
+    "GET /t/health": [
+      200,
+      "text/plain",
+      "pas du json",
+      null
+    ],
+    "GET /a/api/sandbox/export": [
+      200,
+      "application/gzip",
+      "ARCHIVE-A",
+      "jeton-a"
+    ],
+    "POST /b/api/sandbox/import": [
+      200,
+      "application/json",
+      "{\"files\": 7}",
+      "jeton-b"
+    ],
+    "POST /l/api/sandbox/import": [
+      200,
+      "application/json",
+      "[1]",
+      null
+    ]
+  },
+  "etapes": [
+    [
+      "bob",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "version.out": "27.1.1\n",
+        "image-inspect.rc": "1",
+        "ps-netcfg.out": "elpis-sb-bob\t3\tbob\tdeadbeef0000\nelpis-sb-carol\t4\tcarol\t\nelpis-sb-JeanDupont\t5\tJean.Dupont\t\nmal\tform\u00e9e\nelpis-sb-x\tabc\tx\tl\nelpis-sb-fantome\t99\t\tl\nelpis-sb-web\t3\tbob\t5c87cc195791\n"
+      }
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "image-inspect.rc": null
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "version.rc": "1",
+        "version.err": "  Cannot connect to the Docker daemon. Is the docker daemon running?\nsuite\n"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "version.rc": null,
+        "version.err": null,
+        "version.out": "hex:fffe0a"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "version.out": "27.1.1\n"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": []
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": 5
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": 5,
+              "name": "x"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "Web",
+              "name": "x"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A"
+            },
+            {
+              "id": "a",
+              "name": "B"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "open"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": null
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "10.0.0.300"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                5
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "domains": [
+                "exemple",
+                "."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "domains": [
+                "."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "ports": [
+                "https"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "ports": [
+                null,
+                70000
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "ports": [
+                [
+                  443
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "dns": [
+                "x.y"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "dns": [
+                "1.1.1.1",
+                "1.0.0.1",
+                "8.8.8.8",
+                "8.8.4.4",
+                "9.9.9.9"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "10.0.0.1",
+                "10.0.1.1",
+                "10.0.2.1",
+                "10.0.3.1",
+                "10.0.4.1",
+                "10.0.5.1",
+                "10.0.6.1",
+                "10.0.7.1",
+                "10.0.8.1",
+                "10.0.9.1",
+                "10.0.10.1",
+                "10.0.11.1",
+                "10.0.12.1",
+                "10.0.13.1",
+                "10.0.14.1",
+                "10.0.15.1",
+                "10.0.16.1",
+                "10.0.17.1",
+                "10.0.18.1",
+                "10.0.19.1",
+                "10.0.20.1",
+                "10.0.21.1",
+                "10.0.22.1",
+                "10.0.23.1",
+                "10.0.24.1",
+                "10.0.25.1",
+                "10.0.26.1",
+                "10.0.27.1",
+                "10.0.28.1",
+                "10.0.29.1",
+                "10.0.30.1",
+                "10.0.31.1",
+                "10.0.32.1",
+                "10.0.33.1",
+                "10.0.34.1",
+                "10.0.35.1",
+                "10.0.36.1",
+                "10.0.37.1",
+                "10.0.38.1",
+                "10.0.39.1",
+                "10.0.40.1",
+                "10.0.41.1",
+                "10.0.42.1",
+                "10.0.43.1",
+                "10.0.44.1",
+                "10.0.45.1",
+                "10.0.46.1",
+                "10.0.47.1",
+                "10.0.48.1",
+                "10.0.49.1",
+                "10.0.50.1",
+                "10.0.51.1",
+                "10.0.52.1",
+                "10.0.53.1",
+                "10.0.54.1",
+                "10.0.55.1",
+                "10.0.56.1",
+                "10.0.57.1",
+                "10.0.58.1",
+                "10.0.59.1",
+                "10.0.60.1",
+                "10.0.61.1",
+                "10.0.62.1",
+                "10.0.63.1",
+                "10.0.64.1"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "p0",
+              "name": "P0"
+            },
+            {
+              "id": "p1",
+              "name": "P1"
+            },
+            {
+              "id": "p2",
+              "name": "P2"
+            },
+            {
+              "id": "p3",
+              "name": "P3"
+            },
+            {
+              "id": "p4",
+              "name": "P4"
+            },
+            {
+              "id": "p5",
+              "name": "P5"
+            },
+            {
+              "id": "p6",
+              "name": "P6"
+            },
+            {
+              "id": "p7",
+              "name": "P7"
+            },
+            {
+              "id": "p8",
+              "name": "P8"
+            },
+            {
+              "id": "p9",
+              "name": "P9"
+            },
+            {
+              "id": "p10",
+              "name": "P10"
+            },
+            {
+              "id": "p11",
+              "name": "P11"
+            },
+            {
+              "id": "p12",
+              "name": "P12"
+            },
+            {
+              "id": "p13",
+              "name": "P13"
+            },
+            {
+              "id": "p14",
+              "name": "P14"
+            },
+            {
+              "id": "p15",
+              "name": "P15"
+            },
+            {
+              "id": "p16",
+              "name": "P16"
+            },
+            {
+              "id": "p17",
+              "name": "P17"
+            },
+            {
+              "id": "p18",
+              "name": "P18"
+            },
+            {
+              "id": "p19",
+              "name": "P19"
+            },
+            {
+              "id": "p20",
+              "name": "P20"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "name": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+            },
+            {
+              "id": "",
+              "name": "sans id"
+            },
+            "pas un dict"
+          ],
+          "exec_user": "abc"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "runtime": "run sc"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "extra_run_args": "x"
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "extra_run_args": [
+            "  a\nb  "
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "extra_run_args": [
+            "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "extra_run_args": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18",
+            "19",
+            "20",
+            "21",
+            "22",
+            "23",
+            "24",
+            "25",
+            "26",
+            "27",
+            "28",
+            "29",
+            "30",
+            "31",
+            "32"
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "limits": {
+            "memory_mb": 100
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "limits": {
+            "timeout_s": 8000
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "limits": {
+            "cpu_quota_pct": "abc"
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "limits": [
+            1
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "idle_kill_hours": "x"
+        }
+      }
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {}
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "isolated",
+              "name": " Isol\u00e9 ",
+              "mode": "bridge",
+              "ips": [
+                "1.1.1.1"
+              ]
+            },
+            {
+              "id": "web",
+              "name": "Web",
+              "mode": "allowlist_ip",
+              "ips": [
+                " 10.1.2.3 ",
+                "0.0.0.0/0",
+                "169.254.10.0/24",
+                "fe80::1/64"
+              ],
+              "domains": [
+                " PyPI.org. ",
+                "files.pythonhosted.org"
+              ],
+              "ports": [
+                "443",
+                80.9,
+                " 8080 ",
+                true
+              ],
+              "dns": [
+                "10.0.0.1"
+              ],
+              "description": "  Acc\u00e8s web  "
+            },
+            {
+              "id": "lan",
+              "name": "LAN",
+              "mode": "bridge",
+              "ips": [
+                "x"
+              ],
+              "description": null
+            }
+          ],
+          "limits": {
+            "memory_mb": "4096",
+            "cpu_quota_pct": 200.7,
+            "pids_max": 64
+          },
+          "force_user_docker": 1,
+          "idle_kill_hours": 12.9
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "exec_user": null,
+          "runtime": "",
+          "extra_run_args": [],
+          "limits": {},
+          "force_user_docker": "",
+          "network_profiles": []
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "executors": {
+          "image": "elpis/sandbox:1.0.0",
+          "extra_run_args": "pas une liste",
+          "exec_user": "0:0"
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {}
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "extra_run_args": [
+            "  --init  ",
+            0
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "runtime": 1.0,
+          "extra_run_args": [
+            2.0,
+            1e+16,
+            true
+          ],
+          "limits": {
+            "pids_max": 64.0
+          }
+        }
+      }
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "executors": [
+          "x"
+        ]
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {}
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "executors": {
+          "limits": {
+            "memory_mb": "abc"
+          },
+          "network_profiles": [
+            {
+              "id": "Mauvais",
+              "name": "m"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors/healthcheck",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/containers/3/stop",
+      null
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "executors": {
+          "idle_kill_hours": 0
+        }
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/executors",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.out": "{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.7.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\"}\npas du json\n\n{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\"}\n",
+        "inspect-elpis-sb-bob.out": "3|bob\n",
+        "inspect-elpis-sb-anon.out": "|\n"
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.rc": "1",
+        "ps-a.err": "  erreur docker \u00e9  \n"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.rc": null,
+        "ps-a.err": null,
+        "ps-a.out": "{\"id\": \"z\"}\n"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.out": "[1]\n"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.out": "{\"name\": 5}\n"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-a.out": ""
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/sandbox/containers",
+      null
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/admin/sandbox/containers/3/stop",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/containers/99/stop",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/containers/abc/stop",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/containers/5/stop",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/sandbox/containers/3",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/sandbox/containers/99",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/gc",
+      null
+    ],
+    [
+      "admin",
+      "CONFIG",
+      "",
+      {
+        "executors": {
+          "idle_kill_hours": 1
+        }
+      }
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-noms.out": "elpis-sb-bob\nelpis-sb-carol\n  \nelpis-sb-x\nelpis-sb-vide\n",
+        "inspect-nom-elpis-sb-bob.out": "bob\n",
+        "inspect-nom-elpis-sb-carol.out": "carol",
+        "inspect-nom-elpis-sb-x.rc": "1",
+        "inspect-nom-elpis-sb-vide.out": ""
+      }
+    ],
+    [
+      "admin",
+      "MTIME",
+      "",
+      {
+        "bob/work": 1000000000,
+        "bob/work/.bg/bg-1.log": 4000000000,
+        "carol/work": 1000000000,
+        "carol/work/.bg/bg-1.log": 1000000000,
+        "work": 4000000000
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/admin/sandbox/gc",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/gc",
+      null
+    ],
+    [
+      "admin",
+      "DOCKER",
+      "",
+      {
+        "ps-noms.rc": "1"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/sandbox/gc",
+      null
+    ],
+    [
+      "admin",
+      "MCP",
+      "",
+      {
+        "mcpServers": {},
+        "sandboxHosts": {
+          "a": {
+            "url": "{h}/a/",
+            "token": "jeton-a",
+            "relay": true
+          },
+          "b": {
+            "url": "{h}/b",
+            "token": "jeton-b",
+            "relay": true
+          },
+          "l": {
+            "url": "{h}/l",
+            "relay": true
+          },
+          "t": {
+            "url": "{h}/t",
+            "relay": "oui"
+          },
+          "mort": {
+            "url": "http://127.0.0.1:1",
+            "relay": true
+          },
+          "vide": {
+            "token": "x"
+          },
+          "pasdict": 5
+        },
+        "placement": {
+          "strategy": "by_user",
+          "host": "a"
+        }
+      }
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/admin/toolhosts",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/toolhosts",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/abc",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      {
+        "host_id": "inconnu"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      "<<null>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      {
+        "host_id": " a "
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/99",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/toolhosts/placements/4",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/toolhosts",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4/migrate",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/3/migrate",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4/migrate",
+      {
+        "host_id": "l"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/4/migrate",
+      {
+        "host_id": "b"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/99/migrate",
+      {
+        "host_id": "vide"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/99/migrate",
+      {
+        "host_id": "mort"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/99/migrate",
+      {
+        "host_id": "inconnu"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/toolhosts/placements/x/migrate",
+      {
+        "host_id": "a"
+      }
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/toolhosts/placements/4",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/toolhosts/placements/abc",
+      null
+    ],
+    [
+      "modo",
+      "DELETE",
+      "/api/admin/toolhosts/placements/4",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/toolhosts",
+      null
+    ]
+  ],
+  "fonctions": {
+    "profils": [
+      [
+        {
+          "id": "isolated",
+          "name": "I",
+          "mode": "none"
+        },
+        "6907f24f152c"
+      ],
+      [
+        {
+          "id": "web",
+          "name": "Web",
+          "mode": "allowlist_ip",
+          "ips": [
+            "10.1.2.3",
+            "0.0.0.0/0",
+            "169.254.10.0/24",
+            "fe80::1/64"
+          ],
+          "domains": [
+            "pypi.org",
+            "files.pythonhosted.org"
+          ],
+          "ports": [
+            443,
+            80,
+            8080,
+            1
+          ],
+          "dns": [
+            "10.0.0.1"
+          ]
+        },
+        "5c87cc195791"
+      ],
+      [
+        {
+          "id": "b",
+          "name": "B",
+          "mode": "bridge",
+          "ips": [
+            "z",
+            "a",
+            "\u00e9",
+            "B"
+          ],
+          "ports": [
+            "7",
+            3.9,
+            "x",
+            null
+          ]
+        },
+        "716c58b0c036"
+      ],
+      [
+        {
+          "id": "x",
+          "name": "X",
+          "mode": "inconnu",
+          "domains": [
+            "B.example.",
+            "a.example",
+            "pas_valide!",
+            "\u00e9.fr"
+          ],
+          "dns": [
+            "9.9.9.9",
+            "1.1.1.1"
+          ]
+        },
+        "ef4adfb9f013"
+      ]
+    ],
+    "images": [
+      [
+        null,
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "  ",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "elpis/sandbox:1.0.0",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "elpis/sandbox",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "elpis/sandbox@sha256:ab",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "  registre.lan:5000/elpis/sandbox:2  ",
+        "registre.lan:5000/elpis/sandbox:2"
+      ],
+      [
+        "registre.lan:5000/outils/bac",
+        "registre.lan:5000/outils/bac"
+      ],
+      [
+        "registre.lan:5000",
+        "registre.lan:5000"
+      ],
+      [
+        "autre:1",
+        "autre:1"
+      ],
+      [
+        5,
+        "5"
+      ],
+      [
+        1.0,
+        "1.0"
+      ],
+      [
+        true,
+        "True"
+      ],
+      [
+        "elpis/sandbox:1.7.0@sha256:x",
+        "elpis/sandbox:1.7.0"
+      ],
+      [
+        "ELPIS/SANDBOX:1.7.0",
+        "ELPIS/SANDBOX:1.7.0"
+      ],
+      [
+        ":1.7.0",
+        ":1.7.0"
+      ]
+    ]
+  },
+  "ids": {
+    "admin": 1,
+    "modo": 2,
+    "bob": 3,
+    "carol": 4,
+    "Jean.Dupont": 5
+  },
+  "reponses": [
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":1024.0,\"cpu_quota_pct\":50},\"force_user_docker\":false,\"idle_kill_hours\":6,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.0.0.0/8\"],\"domains\":[\"pypi.org\"],\"ports\":[443],\"dns\":[]},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+    },
+    null,
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"daemon_ok\":true,\"server_version\":\"27.1.1\",\"image\":\"registre.lan:5000/outils/bac:2\",\"image_loaded\":false,\"archive_available\":true,\"archive_path\":\"<R>/archive.tar.gz\",\"image_load_state\":{\"status\":\"not_checked\",\"image\":null,\"archive_path\":null,\"progress_msg\":\"\"}}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"daemon_ok\":true,\"server_version\":\"27.1.1\",\"image\":\"registre.lan:5000/outils/bac:2\",\"image_loaded\":true,\"archive_available\":false,\"archive_path\":null,\"image_load_state\":{\"status\":\"not_checked\",\"image\":null,\"archive_path\":null,\"progress_msg\":\"\"}}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"daemon_ok\":false,\"error\":\"Cannot connect to the Docker daemon. Is the docker daemon running?\",\"hint\":\"Le daemon Docker n'est pas joignable. V\u00e9rifie :\\n  \u2022 sudo systemctl status docker\\n  \u2022 L'utilisateur de l'app a-t-il le droit (groupe docker) ?\\n  \u2022 Le socket /var/run/docker.sock existe-t-il ?\"}"
+    },
+    null,
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Body invalide : besoin de {executors: {...}}\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Body invalide : besoin de {executors: {...}}\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"id de profil invalide : 'Web' (lettres minuscules, chiffres, _ ou -)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"id de profil dupliqu\u00e9 : 'a'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mode invalide pour profil 'a'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mode invalide pour profil 'a'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : allowlist_ip sans IP ni domaine\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : IP invalide '10.0.0.300' (utilise IP ou CIDR)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : IP invalide '5' (utilise IP ou CIDR)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : domaine invalide 'exemple'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : domaine invalide ''\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : port invalide 'https'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : port invalide None\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : port invalide [443]\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : r\u00e9solveur DNS invalide 'x.y' (IP attendue)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : trop de r\u00e9solveurs (max 4)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : trop d'IPs (max 64)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Trop de profils (max 20)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"exec_user doit \u00eatre au format UID:GID (ex. 10001:10001 ; 0:0 = root)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"runtime invalide (lettres, chiffres, . _ - uniquement)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"extra_run_args doit \u00eatre une liste de cha\u00eenes\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"extra_run_args : argument invalide 'a\\\\nb'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"extra_run_args : argument invalide '\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9'\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"extra_run_args : trop d'arguments (max 32)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"memory_mb doit \u00eatre entre 256 et 65536\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"timeout_s doit \u00eatre entre 5 et 7200\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\",\"fe80::1/64\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\",\"fe80::1/64\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[],\"network_profiles\":[],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[],\"stale_containers\":[]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"p\",\"a\",\"s\",\"u\",\"n\",\"e\",\"l\",\"i\",\"s\",\"t\",\"e\"]},\"image\":\"elpis/sandbox:1.7.0\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"extra_run_args doit \u00eatre une liste de cha\u00eenes\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"--init\",\"0\"],\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"1.0\",\"extra_run_args\":[\"2.0\",\"1e+16\",\"True\"],\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+    },
+    null,
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":\"abc\"},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"Mauvais\",\"name\":\"m\"}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.7.0\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":0,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.7.0\"}"
+    },
+    null,
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"containers\":[{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.7.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\",\"user_id\":3,\"username\":\"bob\"},{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\",\"user_id\":null,\"username\":null}],\"count\":2}"
+    },
+    null,
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"erreur docker \u00e9\"}"
+    },
+    null,
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"containers\":[],\"count\":0}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"User 99 introuvable\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"User 99 introuvable\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopped\":[]}"
+    },
+    null,
+    null,
+    null,
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopped\":[\"elpis-sb-carol\"]}"
+    },
+    null,
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"stopped\":[]}"
+    },
+    null,
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"hosts\":[{\"id\":\"a\",\"url\":\"{h}/a\",\"has_token\":true,\"relay\":true,\"reachable\":true,\"health\":{\"families\":[\"fs\",\"shell\"],\"tools\":12,\"uptime_s\":12.0,\"auth\":\"token\",\"service\":\"elpis-tools\"},\"accounts\":1},{\"id\":\"b\",\"url\":\"{h}/b\",\"has_token\":true,\"relay\":true,\"reachable\":false,\"health\":null,\"accounts\":1},{\"id\":\"l\",\"url\":\"{h}/l\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"'list' object has no attribute 'get'\",\"accounts\":0},{\"id\":\"t\",\"url\":\"{h}/t\",\"has_token\":false,\"relay\":\"oui\",\"reachable\":false,\"health\":null,\"error\":\"Expecting value: line 1 column 1 (char 0)\",\"accounts\":0},{\"id\":\"mort\",\"url\":\"http://127.0.0.1:1\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"All connection attempts failed\",\"accounts\":0},{\"id\":\"vide\",\"url\":\"\",\"has_token\":true,\"relay\":null,\"reachable\":null,\"health\":null,\"accounts\":0}],\"placement\":{\"strategy\":\"by_user\",\"host\":\"a\"},\"placements\":[{\"user_id\":3,\"host_id\":\"b\",\"created_at\":1700000000.5,\"updated_at\":1700000001.25,\"username\":\"bob\"},{\"user_id\":5,\"host_id\":\"a\",\"created_at\":1700000002.0,\"updated_at\":1700000003.0,\"username\":\"Jean.Dupont\"}]}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"h\u00f4te inconnu : inconnu\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}"
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting value: line 1 column 1 (char 0)\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"h\u00f4te inconnu : \"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":4,\"host_id\":\"a\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"user_id\":99,\"host_id\":\"a\"}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"hosts\":[{\"id\":\"a\",\"url\":\"{h}/a\",\"has_token\":true,\"relay\":true,\"reachable\":true,\"health\":{\"families\":[\"fs\",\"shell\"],\"tools\":12,\"uptime_s\":12.0,\"auth\":\"token\",\"service\":\"elpis-tools\"},\"accounts\":3},{\"id\":\"b\",\"url\":\"{h}/b\",\"has_token\":true,\"relay\":true,\"reachable\":false,\"health\":null,\"accounts\":1},{\"id\":\"l\",\"url\":\"{h}/l\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"'list' object has no attribute 'get'\",\"accounts\":0},{\"id\":\"t\",\"url\":\"{h}/t\",\"has_token\":false,\"relay\":\"oui\",\"reachable\":false,\"health\":null,\"error\":\"Expecting value: line 1 column 1 (char 0)\",\"accounts\":0},{\"id\":\"mort\",\"url\":\"http://127.0.0.1:1\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"All connection attempts failed\",\"accounts\":0},{\"id\":\"vide\",\"url\":\"\",\"has_token\":true,\"relay\":null,\"reachable\":null,\"health\":null,\"accounts\":0}],\"placement\":{\"strategy\":\"by_user\",\"host\":\"a\"},\"placements\":[{\"user_id\":3,\"host_id\":\"b\",\"created_at\":1700000000.5,\"updated_at\":1700000001.25,\"username\":\"bob\"},{\"user_id\":4,\"host_id\":\"a\",\"created_at\":1800001010.5,\"updated_at\":1800001010.5,\"username\":\"carol\"},{\"user_id\":5,\"host_id\":\"a\",\"created_at\":1700000002.0,\"updated_at\":1700000003.0,\"username\":\"Jean.Dupont\"},{\"user_id\":99,\"host_id\":\"a\",\"created_at\":1800001020.5,\"updated_at\":1800001020.5,\"username\":\"\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"moved\":false,\"from\":\"a\",\"to\":\"a\",\"files\":0}"
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"migration impossible : Client error '404 Not Found' for url '{h}/b/api/sandbox/export'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404\"}"
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"migration impossible : jeton de service absent : impossible de signer l'identit\u00e9\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"moved\":true,\"from\":\"a\",\"to\":\"b\",\"files\":7,\"bytes\":9}"
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"migration impossible : h\u00f4te inconnu : vide\"}"
+    },
+    {
+      "statut": 502,
+      "corps": "{\"detail\":\"migration impossible : jeton de service absent : impossible de signer l'identit\u00e9\"}"
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"h\u00f4te inconnu : inconnu\"}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"x\"}]}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}"
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}"
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}"
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"hosts\":[{\"id\":\"a\",\"url\":\"{h}/a\",\"has_token\":true,\"relay\":true,\"reachable\":true,\"health\":{\"families\":[\"fs\",\"shell\"],\"tools\":12,\"uptime_s\":12.0,\"auth\":\"token\",\"service\":\"elpis-tools\"},\"accounts\":2},{\"id\":\"b\",\"url\":\"{h}/b\",\"has_token\":true,\"relay\":true,\"reachable\":false,\"health\":null,\"accounts\":1},{\"id\":\"l\",\"url\":\"{h}/l\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"'list' object has no attribute 'get'\",\"accounts\":0},{\"id\":\"t\",\"url\":\"{h}/t\",\"has_token\":false,\"relay\":\"oui\",\"reachable\":false,\"health\":null,\"error\":\"Expecting value: line 1 column 1 (char 0)\",\"accounts\":0},{\"id\":\"mort\",\"url\":\"http://127.0.0.1:1\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"All connection attempts failed\",\"accounts\":0},{\"id\":\"vide\",\"url\":\"\",\"has_token\":true,\"relay\":null,\"reachable\":null,\"health\":null,\"accounts\":0}],\"placement\":{\"strategy\":\"by_user\",\"host\":\"a\"},\"placements\":[{\"user_id\":3,\"host_id\":\"b\",\"created_at\":1700000000.5,\"updated_at\":1700000001.25,\"username\":\"bob\"},{\"user_id\":5,\"host_id\":\"a\",\"created_at\":1700000002.0,\"updated_at\":1700000003.0,\"username\":\"Jean.Dupont\"},{\"user_id\":99,\"host_id\":\"a\",\"created_at\":1800001020.5,\"updated_at\":1800001020.5,\"username\":\"\"}]}"
+    }
+  ],
+  "config_finale": "{\n  \"executors\": {\n    \"idle_kill_hours\": 1\n  }\n}",
+  "appels_docker": [
+    "version --format {{.Server.Version}}",
+    "image inspect registre.lan:5000/outils/bac:2",
+    "version --format {{.Server.Version}}",
+    "image inspect registre.lan:5000/outils/bac:2",
+    "version --format {{.Server.Version}}",
+    "version --format {{.Server.Version}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "inspect --format {{index .Config.Labels \"elpis.user_id\"}}|{{index .Config.Labels \"elpis.username\"}} elpis-sb-bob",
+    "inspect --format {{index .Config.Labels \"elpis.user_id\"}}|{{index .Config.Labels \"elpis.username\"}} elpis-sb-anon",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
+    "stop -t 5 elpis-sb-JeanDupont",
+    "rm -fv elpis-sb-bob",
+    "ps --filter label=elpis.user_id --format {{.Names}}",
+    "inspect --format {{index .Config.Labels \"elpis.username\"}} elpis-sb-bob",
+    "inspect --format {{index .Config.Labels \"elpis.username\"}} elpis-sb-carol",
+    "stop -t 5 elpis-sb-carol",
+    "inspect --format {{index .Config.Labels \"elpis.username\"}} elpis-sb-x",
+    "inspect --format {{index .Config.Labels \"elpis.username\"}} elpis-sb-vide",
+    "ps --filter label=elpis.user_id --format {{.Names}}"
+  ],
+  "placements_finaux": [
+    [
+      3,
+      "b",
+      1700000000.5,
+      1700000001.25
+    ],
+    [
+      5,
+      "a",
+      1700000002.0,
+      1700000003.0
+    ],
+    [
+      99,
+      "a",
+      1800001020.5,
+      1800001020.5
+    ]
+  ],
+  "requetes_hotes": [
+    [
+      "GET",
+      "/a/api/sandbox/export",
+      "Bearer jeton-a",
+      true
+    ],
+    [
+      "GET",
+      "/a/api/sandbox/export",
+      "Bearer jeton-a",
+      true
+    ],
+    [
+      "GET",
+      "/a/api/sandbox/export",
+      "Bearer jeton-a",
+      true
+    ],
+    [
+      "GET",
+      "/a/api/sandbox/export",
+      "Bearer jeton-a",
+      true
+    ],
+    [
+      "GET",
+      "/a/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/a/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/a/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/b/api/sandbox/export",
+      "Bearer jeton-b",
+      true
+    ],
+    [
+      "GET",
+      "/b/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/b/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/b/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/l/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/l/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/l/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/t/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/t/health",
+      "",
+      false
+    ],
+    [
+      "GET",
+      "/t/health",
+      "",
+      false
+    ],
+    [
+      "POST",
+      "/b/api/sandbox/import",
+      "Bearer jeton-b",
+      true
+    ]
+  ]
+}

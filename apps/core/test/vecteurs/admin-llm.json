@@ -1,0 +1,1398 @@
+{
+  "source": "migration-kit/vecteurs/core_admin_llm.py",
+  "comptes": [
+    [
+      "admin",
+      1
+    ],
+    [
+      "modo",
+      2
+    ],
+    [
+      "bob",
+      0
+    ]
+  ],
+  "config_texte": "{\n  \"app\": {\n    \"nom\": \"Elpis \u00e9t\u00e9\",\n    \"ports\": [\n      1,\n      2.0\n    ]\n  },\n  \"vide\": {}\n}",
+  "faux": {
+    "/props": [
+      200,
+      {
+        "total_slots": 2,
+        "model_path": "/models/qwen3-8b.Q4.gguf",
+        "default_generation_settings": {
+          "n_ctx": 8192
+        }
+      }
+    ],
+    "/slots": [
+      200,
+      [
+        {
+          "id": 0
+        },
+        {
+          "id": 1
+        }
+      ]
+    ],
+    "/v1/models": [
+      200,
+      {
+        "data": [
+          {
+            "id": "m1"
+          },
+          {
+            "id": "m2"
+          },
+          {
+            "x": 1
+          }
+        ]
+      }
+    ],
+    "/refus/models": [
+      401,
+      {
+        "error": "bad key"
+      }
+    ]
+  },
+  "appels": [
+    {
+      "id": 1,
+      "ts": 1700000000.5,
+      "req_id": "r1",
+      "user_id": 3,
+      "chat_id": "c1",
+      "model": "m1",
+      "path": "tools",
+      "status": "ok",
+      "finish_reason": "stop",
+      "prompt_tokens": 10,
+      "completion_tokens": 5,
+      "duration_ms": 120,
+      "n_messages": 2,
+      "n_tool_calls": 0,
+      "request_json": "{\"messages\": [{\"role\": \"user\", \"content\": \"\u00e9t\u00e9\"}], \"temperature\": 1.0, \"top_p\": 1e-07, \"2\": \"cl\u00e9 enti\u00e8re\", \"a\": 1}",
+      "response_json": "{\"content\": \"ok\", \"n\": 18446744073709551617}",
+      "error": null
+    },
+    {
+      "id": 2,
+      "ts": 1700000001.25,
+      "req_id": "r2",
+      "user_id": 3,
+      "chat_id": "c2",
+      "model": "m2",
+      "path": "classic",
+      "status": "error",
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "duration_ms": 5,
+      "n_messages": 1,
+      "n_tool_calls": null,
+      "request_json": "pas du json",
+      "response_json": "",
+      "error": "HTTP 500"
+    },
+    {
+      "id": 3,
+      "ts": 1700000002.0,
+      "req_id": "r3",
+      "user_id": 1,
+      "chat_id": "c1",
+      "model": "m1",
+      "path": "tools",
+      "status": "ok",
+      "finish_reason": "length",
+      "prompt_tokens": 3,
+      "completion_tokens": 1,
+      "duration_ms": 9,
+      "n_messages": 3,
+      "n_tool_calls": 2,
+      "request_json": "{\"x\": NaN}",
+      "response_json": null,
+      "error": null
+    },
+    {
+      "id": 7,
+      "ts": 1700000003.75,
+      "req_id": null,
+      "user_id": null,
+      "chat_id": null,
+      "model": "",
+      "path": null,
+      "status": "ok",
+      "finish_reason": null,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "duration_ms": null,
+      "n_messages": null,
+      "n_tool_calls": null,
+      "request_json": "[1, 2.50, true, null]",
+      "response_json": "\"texte\"",
+      "error": null
+    }
+  ],
+  "politiques": [
+    {
+      "principal_type": "user",
+      "principal_id": 3,
+      "engine_keys": "[\"conn:3\", \"builtin\", \"conn:3\"]",
+      "can_manage_models": null,
+      "updated_at": 1.5
+    },
+    {
+      "principal_type": "group",
+      "principal_id": 9,
+      "engine_keys": "[\"conn:3\"]",
+      "can_manage_models": 1,
+      "updated_at": 2.5
+    },
+    {
+      "principal_type": "user",
+      "principal_id": 2,
+      "engine_keys": "[\"conn:1\"]",
+      "can_manage_models": null,
+      "updated_at": 3.5
+    },
+    {
+      "principal_type": "user",
+      "principal_id": 1,
+      "engine_keys": null,
+      "can_manage_models": 0,
+      "updated_at": 4.5
+    }
+  ],
+  "etapes": [
+    [
+      "bob",
+      "GET",
+      "/api/admin/llm/connectors",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/llm/connectors",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/connectors",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "x"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "llamacpp"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "openai",
+        "api_key": 5
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "generic",
+        "base_url": "{llm}/refus",
+        "max_concurrency": 300
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "generic",
+        "base_url": "{llm}/refus",
+        "max_concurrency": "x"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "vllm",
+        "base_url": " {llm}/v1 ",
+        "label": "  vLLM interne ",
+        "api_key": " sk-factice-admin ",
+        "context_window": "32768",
+        "max_models": 2,
+        "default_model": "m1"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "generic",
+        "base_url": "{llm}/refus",
+        "max_concurrency": 0,
+        "models_json": ""
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "openai",
+        "base_url": "{llm}/absent",
+        "label": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+      }
+    ],
+    [
+      "bob",
+      "POST",
+      "/api/admin/llm/connectors",
+      {
+        "provider_type": "openai"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/connectors",
+      null
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/abc",
+      {
+        "label": "x"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/99",
+      {
+        "label": "x"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      {}
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      {
+        "label": "  Nouveau  ",
+        "base_url": "{llm}/v1",
+        "enabled": 0,
+        "api_key": "  ",
+        "models_json": "a,b",
+        "max_models": ""
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      {
+        "enabled": "oui",
+        "context_window": -1
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      {
+        "api_key": [
+          "x"
+        ]
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      "<<5>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      "<<[\"label\"]>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/1",
+      {
+        "label": 5,
+        "default_model": null,
+        "enabled": true,
+        "api_key": "sk-factice-nouvelle",
+        "max_concurrency": "4"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/007",
+      {
+        "label": "sept"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/connectors/2",
+      {
+        "models_json": 2.0,
+        "default_model": 1e+16,
+        "max_models": 3.0
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors/1/test",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors/2/test",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors/3/test",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors/9/test",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm/connectors/x/test",
+      null
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/llm/connectors/1/test",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/llm/connectors/3",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/llm/connectors/3",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/llm/connectors/abc",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/connectors",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/allowed-providers",
+      null
+    ],
+    [
+      "modo",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {
+        "allowed": []
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {
+        "allowed": "openai"
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {}
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {
+        "allowed": [
+          "openai",
+          [
+            "x"
+          ]
+        ]
+      }
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {
+        "allowed": [
+          "openai",
+          "llamacpp",
+          5,
+          null,
+          true,
+          1.0,
+          "groq",
+          "openai",
+          "OPENAI",
+          " groq"
+        ]
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/allowed-providers",
+      null
+    ],
+    [
+      "admin",
+      "PUT",
+      "/api/admin/llm/allowed-providers",
+      {
+        "allowed": []
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm/allowed-providers",
+      null
+    ],
+    [
+      "bob",
+      "GET",
+      "/api/admin/llm-capabilities",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/llm-capabilities",
+      null
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/llm-capabilities/probe",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-capabilities/probe",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/llm-capabilities",
+      null
+    ],
+    [
+      "modo",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": "auto"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      "<<{>>"
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": "turbo"
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {}
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": 5
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      [
+        1
+      ]
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": " OPTIMIZED\t"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-capabilities",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": "auto"
+      }
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-capabilities",
+      null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/llm-scheduling-mode",
+      {
+        "mode": "classic"
+      }
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/llm-traffic",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?limit=2",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?limit=0",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?limit=-5",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?limit=abc",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?limit=99999999999999999999",
+      null,
+      400
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?user_id=3",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?user_id=0",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?user_id=abc&limit=x",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?model=m1&status=ok",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?chat_id=c1&model=",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic?status=error",
+      null
+    ],
+    [
+      "modo",
+      "GET",
+      "/api/admin/llm-traffic/1",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/1",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/2",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/3",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/007",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/999",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/abc",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/-1",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic/99999999999999999999",
+      null
+    ],
+    [
+      "modo",
+      "DELETE",
+      "/api/admin/llm-traffic",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/llm-traffic",
+      null
+    ],
+    [
+      "admin",
+      "DELETE",
+      "/api/admin/llm-traffic",
+      null
+    ],
+    [
+      "admin",
+      "GET",
+      "/api/admin/llm-traffic",
+      null
+    ]
+  ],
+  "ids": {
+    "admin": 1,
+    "modo": 2,
+    "bob": 3
+  },
+  "reponses": [
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}},\"all_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\",\"llamacpp\",\"vllm\",\"sglang\",\"generic\"]}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"provider_type invalide (['anthropic', 'openai', 'mistral', 'groq', 'openrouter', 'deepseek', 'moonshot', 'opencode', 'llamacpp', 'vllm', 'sglang', 'generic'])\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"base_url requise (ex. http://llm.example.lan:8000/v1)\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"max_concurrency hors bornes (0-256)\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"max_concurrency doit \u00eatre un entier\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":1}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":2}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"id\":3}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[{\"id\":2,\"owner_user_id\":null,\"scope\":\"shared\",\"provider_type\":\"generic\",\"wire\":\"openai\",\"label\":\"OpenAI-compatible (custom)\",\"base_url\":\"{llm}/refus\",\"default_model\":\"\",\"models_json\":\"\",\"enabled\":true,\"key_scheme\":\"plain\",\"created_at\":1800000110.5,\"updated_at\":1800000110.5,\"last_used\":null,\"has_key\":false,\"context_window\":null,\"max_models\":null,\"max_concurrency\":null},{\"id\":1,\"owner_user_id\":null,\"scope\":\"shared\",\"provider_type\":\"vllm\",\"wire\":\"openai\",\"label\":\"vLLM interne\",\"base_url\":\"{llm}/v1\",\"default_model\":\"m1\",\"models_json\":\"\",\"enabled\":true,\"key_scheme\":\"fernet\",\"created_at\":1800000100.5,\"updated_at\":1800000100.5,\"last_used\":null,\"has_key\":true,\"context_window\":32768,\"max_models\":2,\"max_concurrency\":null},{\"id\":3,\"owner_user_id\":null,\"scope\":\"shared\",\"provider_type\":\"openai\",\"wire\":\"openai\",\"label\":\"\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\",\"base_url\":\"{llm}/absent\",\"default_model\":\"\",\"models_json\":\"\",\"enabled\":true,\"key_scheme\":\"plain\",\"created_at\":1800000120.5,\"updated_at\":1800000120.5,\"last_used\":null,\"has_key\":false,\"context_window\":null,\"max_models\":null,\"max_concurrency\":null}],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}},\"all_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\",\"llamacpp\",\"vllm\",\"sglang\",\"generic\"]}",
+      "entetes": {}
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"context_window hors bornes (0-10000000)\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable ou rien \u00e0 modifier\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"status\":200,\"models_count\":2}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"status\":401,\"models_count\":1,\"fallback\":\"manual\",\"error\":\"\u00e9chec\",\"hint\":\"401/403 : cl\u00e9 API refus\u00e9e. V\u00e9rifie la cl\u00e9 du fournisseur.\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":false,\"status\":404,\"models_count\":0,\"error\":\"HTTP 404\",\"hint\":\"404 : base_url probablement faux (chemin /v1 attendu).\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"x\"}]}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Connecteur introuvable\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"path\",\"cid\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"connectors\":[{\"id\":1,\"owner_user_id\":null,\"scope\":\"shared\",\"provider_type\":\"vllm\",\"wire\":\"openai\",\"label\":\"5\",\"base_url\":\"{llm}/v1\",\"default_model\":\"\",\"models_json\":\"a,b\",\"enabled\":true,\"key_scheme\":\"fernet\",\"created_at\":1800000100.5,\"updated_at\":1800000230.5,\"last_used\":null,\"has_key\":true,\"context_window\":32768,\"max_models\":null,\"max_concurrency\":4},{\"id\":2,\"owner_user_id\":null,\"scope\":\"shared\",\"provider_type\":\"generic\",\"wire\":\"openai\",\"label\":\"OpenAI-compatible (custom)\",\"base_url\":\"{llm}/refus\",\"default_model\":\"1e+16\",\"models_json\":\"2.0\",\"enabled\":true,\"key_scheme\":\"plain\",\"created_at\":1800000110.5,\"updated_at\":1800000250.5,\"last_used\":null,\"has_key\":false,\"context_window\":null,\"max_models\":3,\"max_concurrency\":null}],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}},\"all_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\",\"llamacpp\",\"vllm\",\"sglang\",\"generic\"]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"allowed\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\"],\"cloud_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\"],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}}}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"'allowed' doit \u00eatre une liste de provider_type\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"'allowed' doit \u00eatre une liste de provider_type\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Corps JSON invalide : Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"allowed\":[\"openai\",\"groq\",\"openai\"]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"allowed\":[\"openai\",\"groq\",\"openai\"],\"cloud_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\"],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}}}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"allowed\":[]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"allowed\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\"],\"cloud_provider_types\":[\"anthropic\",\"openai\",\"mistral\",\"groq\",\"openrouter\",\"deepseek\",\"moonshot\",\"opencode\"],\"presets\":{\"anthropic\":{\"wire\":\"anthropic\",\"base_url\":\"https://api.anthropic.com\",\"label\":\"Anthropic (Claude)\",\"admin_only\":false,\"user_base_locked\":true},\"openai\":{\"wire\":\"openai\",\"base_url\":\"https://api.openai.com/v1\",\"label\":\"OpenAI (GPT)\",\"admin_only\":false,\"user_base_locked\":true},\"mistral\":{\"wire\":\"openai\",\"base_url\":\"https://api.mistral.ai/v1\",\"label\":\"Mistral\",\"admin_only\":false,\"user_base_locked\":true},\"groq\":{\"wire\":\"openai\",\"base_url\":\"https://api.groq.com/openai/v1\",\"label\":\"Groq\",\"admin_only\":false,\"user_base_locked\":true},\"openrouter\":{\"wire\":\"openai\",\"base_url\":\"https://openrouter.ai/api/v1\",\"label\":\"OpenRouter\",\"admin_only\":false,\"user_base_locked\":true},\"deepseek\":{\"wire\":\"openai\",\"base_url\":\"https://api.deepseek.com/v1\",\"label\":\"DeepSeek\",\"admin_only\":false,\"user_base_locked\":true},\"moonshot\":{\"wire\":\"openai\",\"base_url\":\"https://api.moonshot.ai/v1\",\"label\":\"Moonshot (Kimi)\",\"admin_only\":false,\"user_base_locked\":true},\"opencode\":{\"wire\":\"openai\",\"base_url\":\"https://opencode.ai/zen/v1\",\"label\":\"OpenCode Zen\",\"admin_only\":false,\"user_base_locked\":true},\"llamacpp\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"llama.cpp (local)\",\"admin_only\":true,\"user_base_locked\":false},\"vllm\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"vLLM (local)\",\"admin_only\":true,\"user_base_locked\":false},\"sglang\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"SGLang (local)\",\"admin_only\":true,\"user_base_locked\":false},\"generic\":{\"wire\":\"openai\",\"base_url\":\"\",\"label\":\"OpenAI-compatible (custom)\",\"admin_only\":true,\"user_base_locked\":false}}}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Staff required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"capabilities\":{\"probed\":false,\"slots_endpoint\":false,\"total_slots\":null,\"loaded_model\":null,\"probe_error\":null,\"recommended_mode\":\"classic\"},\"configured_mode\":\"auto\",\"effective_mode\":\"classic\"}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"capabilities\":{\"probed\":true,\"slots_endpoint\":true,\"total_slots\":2,\"loaded_model\":\"qwen3-8b.Q4\",\"role\":\"single-model\",\"max_instances\":null,\"probe_error\":null,\"recommended_mode\":\"optimized\"}}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"capabilities\":{\"probed\":true,\"slots_endpoint\":true,\"total_slots\":2,\"loaded_model\":\"qwen3-8b.Q4\",\"role\":\"single-model\",\"max_instances\":null,\"probe_error\":null,\"recommended_mode\":\"optimized\"},\"configured_mode\":\"auto\",\"effective_mode\":\"optimized\"}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Body JSON requis\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Body JSON requis\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mode doit \u00eatre auto, classic ou optimized\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"mode doit \u00eatre auto, classic ou optimized\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"configured_mode\":\"optimized\",\"effective_mode\":\"optimized\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"capabilities\":{\"probed\":true,\"slots_endpoint\":true,\"total_slots\":2,\"loaded_model\":\"qwen3-8b.Q4\",\"role\":\"single-model\",\"max_instances\":null,\"probe_error\":null,\"recommended_mode\":\"optimized\"},\"configured_mode\":\"optimized\",\"effective_mode\":\"optimized\"}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"configured_mode\":\"auto\",\"effective_mode\":\"optimized\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"capabilities\":{\"probed\":true,\"slots_endpoint\":true,\"total_slots\":2,\"loaded_model\":\"qwen3-8b.Q4\",\"role\":\"single-model\",\"max_instances\":null,\"probe_error\":null,\"recommended_mode\":\"optimized\"},\"configured_mode\":\"auto\",\"effective_mode\":\"optimized\"}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"configured_mode\":\"classic\",\"effective_mode\":\"classic\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null},{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null},{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\"},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":4,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null},{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null}],\"count\":2,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null},{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null},{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\"},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":4,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null}],\"count\":1,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"limit\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null},{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null},{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\"},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":4,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\"},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":2,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[],\"count\":0,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 422,
+      "corps": "{\"detail\":[{\"type\":\"int_parsing\",\"loc\":[\"query\",\"limit\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"x\"},{\"type\":\"int_parsing\",\"loc\":[\"query\",\"user_id\"],\"msg\":\"Input should be a valid integer, unable to parse string as an integer\",\"input\":\"abc\"}]}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":2,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":3,\"ts\":1700000002.0,\"req_id\":\"r3\",\"user_id\":1,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"length\",\"prompt_tokens\":3,\"completion_tokens\":1,\"duration_ms\":9,\"n_messages\":3,\"n_tool_calls\":2,\"error\":null},{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null}],\"count\":2,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\"}],\"count\":1,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":1,\"ts\":1700000000.5,\"req_id\":\"r1\",\"user_id\":3,\"chat_id\":\"c1\",\"model\":\"m1\",\"path\":\"tools\",\"status\":\"ok\",\"finish_reason\":\"stop\",\"prompt_tokens\":10,\"completion_tokens\":5,\"duration_ms\":120,\"n_messages\":2,\"n_tool_calls\":0,\"error\":null,\"request\":{\"messages\":[{\"role\":\"user\",\"content\":\"\u00e9t\u00e9\"}],\"temperature\":1.0,\"top_p\":1e-07,\"2\":\"cl\u00e9 enti\u00e8re\",\"a\":1},\"response\":{\"content\":\"ok\",\"n\":18446744073709551617}}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":2,\"ts\":1700000001.25,\"req_id\":\"r2\",\"user_id\":3,\"chat_id\":\"c2\",\"model\":\"m2\",\"path\":\"classic\",\"status\":\"error\",\"finish_reason\":null,\"prompt_tokens\":null,\"completion_tokens\":null,\"duration_ms\":5,\"n_messages\":1,\"n_tool_calls\":null,\"error\":\"HTTP 500\",\"request\":\"pas du json\",\"response\":null}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 500,
+      "corps": "Internal Server Error",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"id\":7,\"ts\":1700000003.75,\"req_id\":null,\"user_id\":null,\"chat_id\":null,\"model\":\"\",\"path\":null,\"status\":\"ok\",\"finish_reason\":null,\"prompt_tokens\":0,\"completion_tokens\":0,\"duration_ms\":null,\"n_messages\":null,\"n_tool_calls\":null,\"error\":null,\"request\":[1,2.5,true,null],\"response\":\"texte\"}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"\u00e9change introuvable\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 404,
+      "corps": "{\"detail\":\"Not Found\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Param\u00e8tre hors bornes.\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 403,
+      "corps": "{\"detail\":\"Admin required\"}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"deleted\":4}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"ok\":true,\"deleted\":0}",
+      "entetes": {}
+    },
+    {
+      "statut": 200,
+      "corps": "{\"calls\":[],\"count\":0,\"enabled\":true,\"max_entries\":500}",
+      "entetes": {
+        "cache-control": "no-cache"
+      }
+    }
+  ],
+  "config_finale": "{\n  \"app\": {\n    \"nom\": \"Elpis \u00e9t\u00e9\",\n    \"ports\": [\n      1,\n      2.0\n    ]\n  },\n  \"vide\": {},\n  \"llm\": {\n    \"allowed_provider_types\": [],\n    \"scheduling_mode\": \"classic\"\n  }\n}",
+  "politiques_finales": [
+    [
+      "group",
+      9,
+      "[]",
+      1,
+      1800000320.5
+    ],
+    [
+      "user",
+      1,
+      null,
+      0,
+      4.5
+    ],
+    [
+      "user",
+      2,
+      "[\"conn:1\"]",
+      null,
+      3.5
+    ],
+    [
+      "user",
+      3,
+      "[\"builtin\"]",
+      null,
+      1800000320.5
+    ]
+  ],
+  "connecteurs": [
+    {
+      "id": 1,
+      "scope": "shared",
+      "owner_user_id": null,
+      "provider_type": "vllm",
+      "wire": "openai",
+      "label": "5",
+      "base_url": "{llm}/v1",
+      "key_scheme": "fernet",
+      "default_model": "",
+      "models_json": "a,b",
+      "enabled": 1,
+      "context_window": 32768,
+      "max_models": null,
+      "max_concurrency": 4,
+      "created_at": 1800000100.5,
+      "updated_at": 1800000230.5
+    },
+    {
+      "id": 2,
+      "scope": "shared",
+      "owner_user_id": null,
+      "provider_type": "generic",
+      "wire": "openai",
+      "label": "OpenAI-compatible (custom)",
+      "base_url": "{llm}/refus",
+      "key_scheme": "plain",
+      "default_model": "1e+16",
+      "models_json": "2.0",
+      "enabled": 1,
+      "context_window": null,
+      "max_models": 3,
+      "max_concurrency": null,
+      "created_at": 1800000110.5,
+      "updated_at": 1800000250.5
+    }
+  ],
+  "cles": [
+    [
+      1,
+      "fernet",
+      "6f1bc8894ad97ba5"
+    ],
+    [
+      2,
+      "plain",
+      "e3b0c44298fc1c14"
+    ]
+  ]
+}

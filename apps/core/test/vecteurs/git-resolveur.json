@@ -1,0 +1,331 @@
+{
+  "etapes": [
+    [
+      "save",
+      1,
+      "https://github.com/o/r.git",
+      "u",
+      " t1 ",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "https://github.com/o/r.git",
+      "",
+      "t2",
+      "gitlab"
+    ],
+    [
+      "save",
+      1,
+      "git.lan:3000",
+      "v",
+      "t3",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "https://gitlab.example.com/a/b",
+      "w",
+      "t4",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "https://h.lan/a/b",
+      "x",
+      "t5",
+      "GENERIC "
+    ],
+    [
+      "save",
+      1,
+      "https://bitbucket.org/a/b",
+      "y",
+      "t6",
+      "nope"
+    ],
+    [
+      "save",
+      1,
+      "",
+      "z",
+      "t",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "x",
+      "z",
+      "   ",
+      ""
+    ],
+    [
+      "save",
+      0,
+      "https://github.com/o/r",
+      "z",
+      "t",
+      ""
+    ],
+    [
+      "save",
+      2,
+      "https://GitHub.com/o/r",
+      "u2",
+      "t7",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "ssh://git@host.lan:2222/o/r.git",
+      "s",
+      "t8",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "git@github.com:o/r.git",
+      "nouveau",
+      "t9",
+      ""
+    ],
+    [
+      "save",
+      1,
+      "https://user@Depot.Lan:8443/o/r",
+      "",
+      "t10",
+      "Gitea"
+    ],
+    [
+      "save",
+      1,
+      "depot.lan/o/r",
+      "d",
+      "t11",
+      ""
+    ],
+    [
+      "import",
+      1,
+      "{\"github\": {\"token\": \"g\", \"user\": \"gu\"}, \"gitlab\": {\"token\": \"l\", \"url\": \"https://gitlab.acme.io/x\"}, \"bitbucket\": {\"token\": \" \"}, \"autre\": {\"token\": \"a\"}, \"Gitea\": {\"token\": \"e\", \"url\": \"http://Git.Lan:3000/x\"}, \"github2\": {\"token\": \"h\", \"url\": \" https://gitlab.acme.io/y \"}}"
+    ],
+    [
+      "import",
+      1,
+      "pas du json"
+    ],
+    [
+      "import",
+      1,
+      "[1]"
+    ],
+    [
+      "import",
+      1,
+      "{\"github\": {\"token\": 5}}"
+    ],
+    [
+      "import",
+      0,
+      "{}"
+    ],
+    [
+      "import",
+      3,
+      "{\"x\": \"pas un dict\", \"bitbucket\": {\"token\": \"b\", \"user\": \"bu\"}, \"gitlab\": {\"token\": \"t\", \"user\": 7}}"
+    ],
+    [
+      "import",
+      3,
+      "/3siZ2l0aHViIjp7InRva2VuIjoieiJ9fQ==:b64"
+    ],
+    [
+      "import",
+      3,
+      "{\"github\": {\"token\": \"q\", \"url\": \"http://[::1\"}}"
+    ],
+    [
+      "import",
+      2,
+      "{\"GitHub\": {\"token\": \"k\"}, \"github\": {\"token\": \"k2\"}}"
+    ]
+  ],
+  "valeurs": [
+    1,
+    1,
+    2,
+    3,
+    4,
+    5,
+    null,
+    null,
+    null,
+    6,
+    7,
+    1,
+    8,
+    9,
+    2,
+    0,
+    0,
+    -1,
+    0,
+    2,
+    0,
+    -1,
+    0
+  ],
+  "lignes": [
+    {
+      "id": 1,
+      "owner_user_id": 1,
+      "provider_type": "github",
+      "host": "github.com",
+      "api_base": "",
+      "label": "auto",
+      "username": "nouveau",
+      "token_enc": "t9",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 2,
+      "owner_user_id": 1,
+      "provider_type": "gitea",
+      "host": "git.lan:3000",
+      "api_base": "",
+      "label": "auto",
+      "username": "v",
+      "token_enc": "t3",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 3,
+      "owner_user_id": 1,
+      "provider_type": "gitlab",
+      "host": "gitlab.example.com",
+      "api_base": "",
+      "label": "auto",
+      "username": "w",
+      "token_enc": "t4",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 4,
+      "owner_user_id": 1,
+      "provider_type": "generic",
+      "host": "h.lan",
+      "api_base": "",
+      "label": "auto",
+      "username": "x",
+      "token_enc": "t5",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 5,
+      "owner_user_id": 1,
+      "provider_type": "bitbucket-cloud",
+      "host": "bitbucket.org",
+      "api_base": "",
+      "label": "auto",
+      "username": "y",
+      "token_enc": "t6",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 6,
+      "owner_user_id": 2,
+      "provider_type": "github",
+      "host": "github.com",
+      "api_base": "",
+      "label": "auto",
+      "username": "u2",
+      "token_enc": "t7",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 7,
+      "owner_user_id": 1,
+      "provider_type": "gitea",
+      "host": "host.lan:2222",
+      "api_base": "",
+      "label": "auto",
+      "username": "s",
+      "token_enc": "t8",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 8,
+      "owner_user_id": 1,
+      "provider_type": "gitea",
+      "host": "depot.lan:8443",
+      "api_base": "",
+      "label": "auto",
+      "username": "",
+      "token_enc": "t10",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 9,
+      "owner_user_id": 1,
+      "provider_type": "gitea",
+      "host": "depot.lan",
+      "api_base": "",
+      "label": "auto",
+      "username": "d",
+      "token_enc": "t11",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 10,
+      "owner_user_id": 1,
+      "provider_type": "gitlab",
+      "host": "gitlab.acme.io",
+      "api_base": "",
+      "label": "imported",
+      "username": "",
+      "token_enc": "l",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 11,
+      "owner_user_id": 1,
+      "provider_type": "generic",
+      "host": "git.lan",
+      "api_base": "",
+      "label": "imported",
+      "username": "",
+      "token_enc": "e",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 12,
+      "owner_user_id": 3,
+      "provider_type": "bitbucket-cloud",
+      "host": "bitbucket.org",
+      "api_base": "",
+      "label": "imported",
+      "username": "bu",
+      "token_enc": "b",
+      "token_scheme": "plain"
+    },
+    {
+      "id": 13,
+      "owner_user_id": 3,
+      "provider_type": "gitlab",
+      "host": "gitlab.com",
+      "api_base": "",
+      "label": "imported",
+      "username": "7",
+      "token_enc": "t",
+      "token_scheme": "plain"
+    }
+  ]
+}

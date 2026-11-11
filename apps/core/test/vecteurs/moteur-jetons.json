@@ -1,0 +1,2896 @@
+{
+  "constantes": {
+    "CHARS_PER_TOKEN": 3.3,
+    "MSG_OVERHEAD_TOKENS": 8,
+    "IMAGE_TOKEN_COST": 1500
+  },
+  "textes": [
+    {
+      "texte": "",
+      "longueur": 0,
+      "pondere": 0,
+      "est": 0,
+      "empreinte": "e3b0c44298fc1c149afbf4c8",
+      "outils_json": "[{\"t\": \"\"}]"
+    },
+    {
+      "texte": "a",
+      "longueur": 1,
+      "pondere": 1,
+      "est": 0,
+      "empreinte": "ca978112ca1bbdcafac231b3",
+      "outils_json": "[{\"t\": \"a\"}]"
+    },
+    {
+      "texte": "Bonjour le monde",
+      "longueur": 16,
+      "pondere": 16,
+      "est": 4,
+      "empreinte": "4dc45b5ed3de202a5693c926",
+      "outils_json": "[{\"t\": \"Bonjour le monde\"}]"
+    },
+    {
+      "texte": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "longueur": 1000,
+      "pondere": 1000,
+      "est": 303,
+      "empreinte": "44f8354494a5ba03ba1792a8",
+      "outils_json": "[{\"t\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}]"
+    },
+    {
+      "texte": "def f(x):\n    return x * 2\n",
+      "longueur": 27,
+      "pondere": 27,
+      "est": 8,
+      "empreinte": "9384a0466b6574019c3c4b84",
+      "outils_json": "[{\"t\": \"def f(x):\\n    return x * 2\\n\"}]"
+    },
+    {
+      "texte": "{\"cl\u00e9\": [1, 2, 3]}",
+      "longueur": 18,
+      "pondere": 18,
+      "est": 5,
+      "empreinte": "747d33524def8ad36ed6d23c",
+      "outils_json": "[{\"t\": \"{\\\"cl\u00e9\\\": [1, 2, 3]}\"}]"
+    },
+    {
+      "texte": "\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb \u2026 \u2019apostrophe\u2019",
+      "longueur": 37,
+      "pondere": 37,
+      "est": 11,
+      "empreinte": "97f2ebeb1e57bf055a7d35d2",
+      "outils_json": "[{\"t\": \"\u00e9 \u00e0 \u00e7 \u2014 \u00ab guillemets \u00bb \u2026 \u2019apostrophe\u2019\"}]"
+    },
+    {
+      "texte": "\u00dcn\u00efc\u00f6d\u00e9 fa\u00e7ade na\u00efve",
+      "longueur": 20,
+      "pondere": 20,
+      "est": 6,
+      "empreinte": "a55445d79fa859dfc1b6b8ea",
+      "outils_json": "[{\"t\": \"\u00dcn\u00efc\u00f6d\u00e9 fa\u00e7ade na\u00efve\"}]"
+    },
+    {
+      "texte": "\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440",
+      "longueur": 11,
+      "pondere": 11,
+      "est": 3,
+      "empreinte": "2a2e76364df5ab8f0441d9c8",
+      "outils_json": "[{\"t\": \"\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440\"}]"
+    },
+    {
+      "texte": "\u0393\u03b5\u03b9\u03ac \u03c3\u03bf\u03c5 \u039a\u03cc\u03c3\u03bc\u03b5",
+      "longueur": 14,
+      "pondere": 14,
+      "est": 4,
+      "empreinte": "4ab807c306f990bf49c871c1",
+      "outils_json": "[{\"t\": \"\u0393\u03b5\u03b9\u03ac \u03c3\u03bf\u03c5 \u039a\u03cc\u03c3\u03bc\u03b5\"}]"
+    },
+    {
+      "texte": "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645",
+      "longueur": 13,
+      "pondere": 13,
+      "est": 3,
+      "empreinte": "9262a0a791605071a500c1a1",
+      "outils_json": "[{\"t\": \"\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645\"}]"
+    },
+    {
+      "texte": "\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd",
+      "longueur": 9,
+      "pondere": 9,
+      "est": 2,
+      "empreinte": "5fdd1afb5cef74cd5b28d3e0",
+      "outils_json": "[{\"t\": \"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd\"}]"
+    },
+    {
+      "texte": "\u0928\u092e\u0938\u094d\u0924\u0947 \u0926\u0941\u0928\u093f\u092f\u093e",
+      "longueur": 13,
+      "pondere": 41,
+      "est": 12,
+      "empreinte": "d7be5996fa562294908ffe50",
+      "outils_json": "[{\"t\": \"\u0928\u092e\u0938\u094d\u0924\u0947 \u0926\u0941\u0928\u093f\u092f\u093e\"}]"
+    },
+    {
+      "texte": "\u09b9\u09cd\u09af\u09be\u09b2\u09cb \u09ac\u09bf\u09b6\u09cd\u09ac",
+      "longueur": 12,
+      "pondere": 37,
+      "est": 11,
+      "empreinte": "73cd619fae5968baf9dc0ad6",
+      "outils_json": "[{\"t\": \"\u09b9\u09cd\u09af\u09be\u09b2\u09cb \u09ac\u09bf\u09b6\u09cd\u09ac\"}]"
+    },
+    {
+      "texte": "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\u0e0a\u0e32\u0e27\u0e42\u0e25\u0e01",
+      "longueur": 12,
+      "pondere": 40,
+      "est": 12,
+      "empreinte": "659342b8932d5a736548a5d9",
+      "outils_json": "[{\"t\": \"\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\u0e0a\u0e32\u0e27\u0e42\u0e25\u0e01\"}]"
+    },
+    {
+      "texte": "\u1019\u1004\u103a\u1039\u1002\u101c\u102c\u1015\u102b",
+      "longueur": 9,
+      "pondere": 30,
+      "est": 9,
+      "empreinte": "6901f606d6d28548c7bf2c0b",
+      "outils_json": "[{\"t\": \"\u1019\u1004\u103a\u1039\u1002\u101c\u102c\u1015\u102b\"}]"
+    },
+    {
+      "texte": "\u1230\u120b\u121d \u12d3\u1208\u121d",
+      "longueur": 7,
+      "pondere": 7,
+      "est": 2,
+      "empreinte": "036b16a63a46c0ae4551fef8",
+      "outils_json": "[{\"t\": \"\u1230\u120b\u121d \u12d3\u1208\u121d\"}]"
+    },
+    {
+      "texte": "\uc548\ub155\ud558\uc138\uc694 \uc138\uacc4",
+      "longueur": 8,
+      "pondere": 24,
+      "est": 7,
+      "empreinte": "a6271561508893c087688418",
+      "outils_json": "[{\"t\": \"\uc548\ub155\ud558\uc138\uc694 \uc138\uacc4\"}]"
+    },
+    {
+      "texte": "\u1100\u1101\u1102 \uc790\ubaa8",
+      "longueur": 6,
+      "pondere": 17,
+      "est": 5,
+      "empreinte": "bd4bf2468e0525ebb64f6b70",
+      "outils_json": "[{\"t\": \"\u1100\u1101\u1102 \uc790\ubaa8\"}]"
+    },
+    {
+      "texte": "\u4f60\u597d\uff0c\u4e16\u754c",
+      "longueur": 5,
+      "pondere": 16,
+      "est": 4,
+      "empreinte": "46932f1e6ea5216e77f58b19",
+      "outils_json": "[{\"t\": \"\u4f60\u597d\uff0c\u4e16\u754c\"}]"
+    },
+    {
+      "texte": "\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8",
+      "longueur": 8,
+      "pondere": 26,
+      "est": 7,
+      "empreinte": "d4192d3b01dfa9f5b08388f1",
+      "outils_json": "[{\"t\": \"\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8\"}]"
+    },
+    {
+      "texte": "\u30ab\u30bf\u30ab\u30ca \u3072\u3089\u304c\u306a",
+      "longueur": 9,
+      "pondere": 27,
+      "est": 8,
+      "empreinte": "af401991e9c1b3a973a34fad",
+      "outils_json": "[{\"t\": \"\u30ab\u30bf\u30ab\u30ca \u3072\u3089\u304c\u306a\"}]"
+    },
+    {
+      "texte": "\uff26\uff35\uff2c\uff2c\uff37\uff29\uff24\uff34\uff28\u3000\uff53\uff50\uff41\uff43\uff45",
+      "longueur": 15,
+      "pondere": 50,
+      "est": 15,
+      "empreinte": "ce26c35c2f0835c2e833be98",
+      "outils_json": "[{\"t\": \"\uff26\uff35\uff2c\uff2c\uff37\uff29\uff24\uff34\uff28\u3000\uff53\uff50\uff41\uff43\uff45\"}]"
+    },
+    {
+      "texte": "emoji \ud83d\ude00\ud83c\udf89\ud83d\udc4d\ud83c\udffd",
+      "longueur": 10,
+      "pondere": 19,
+      "est": 5,
+      "empreinte": "8111d0a65f0acba37574caeb",
+      "outils_json": "[{\"t\": \"emoji \ud83d\ude00\ud83c\udf89\ud83d\udc4d\ud83c\udffd\"}]"
+    },
+    {
+      "texte": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 famille ZWJ",
+      "longueur": 19,
+      "pondere": 28,
+      "est": 8,
+      "empreinte": "e292d2f13f08c29a170f75c8",
+      "outils_json": "[{\"t\": \"\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 famille ZWJ\"}]"
+    },
+    {
+      "texte": "\ud83c\uddeb\ud83c\uddf7 drapeau",
+      "longueur": 10,
+      "pondere": 15,
+      "est": 4,
+      "empreinte": "b54cfe6f222bcab72f420a7d",
+      "outils_json": "[{\"t\": \"\ud83c\uddeb\ud83c\uddf7 drapeau\"}]"
+    },
+    {
+      "texte": "math \ud835\udd38\ud835\udd53\ud835\udcb8 \u2211\u222b\u221a",
+      "longueur": 12,
+      "pondere": 19,
+      "est": 5,
+      "empreinte": "317a3d486bde94a4e6193bba",
+      "outils_json": "[{\"t\": \"math \ud835\udd38\ud835\udd53\ud835\udcb8 \u2211\u222b\u221a\"}]"
+    },
+    {
+      "texte": "e\u0301 combinant",
+      "longueur": 12,
+      "pondere": 12,
+      "est": 3,
+      "empreinte": "e33247f12e1738183f0e7e46",
+      "outils_json": "[{\"t\": \"e\u0301 combinant\"}]"
+    },
+    {
+      "texte": "a\u0300\u0301\u0302",
+      "longueur": 4,
+      "pondere": 4,
+      "est": 1,
+      "empreinte": "3173a5b6eacef48dff5701b6",
+      "outils_json": "[{\"t\": \"a\u0300\u0301\u0302\"}]"
+    },
+    {
+      "texte": "\u08ff\u0900\u097f\u0980\u109f\u10a0\u10ff\u1100\u11ff\u1200",
+      "longueur": 10,
+      "pondere": 24,
+      "est": 7,
+      "empreinte": "98d1e577affedb5228a89ece",
+      "outils_json": "[{\"t\": \"\u08ff\u0900\u097f\u0980\u109f\u10a0\u10ff\u1100\u11ff\u1200\"}]"
+    },
+    {
+      "texte": "\u2e7f\u2e80\u2fff\u3000\u303f\u3040\uac00\ud7a3\uf8ff\uff01\uffff",
+      "longueur": 11,
+      "pondere": 34,
+      "est": 10,
+      "empreinte": "84e4b120afb08f95467bd476",
+      "outils_json": "[{\"t\": \"\u2e7f\u2e80\u2fff\u3000\u303f\u3040\uac00\ud7a3\uf8ff\uff01\uffff\"}]"
+    },
+    {
+      "texte": "\ud800\udc00\ud83d\ude00\ud869\uded6\udb40\udc01\udbff\udfff",
+      "longueur": 5,
+      "pondere": 16,
+      "est": 4,
+      "empreinte": "357a0b97263f01dc331be0f9",
+      "outils_json": "[{\"t\": \"\ud800\udc00\ud83d\ude00\ud869\uded6\udb40\udc01\udbff\udfff\"}]"
+    },
+    {
+      "texte": "lone \ud83d surrogate",
+      "longueur": 16,
+      "pondere": 18,
+      "est": 5,
+      "empreinte": "023f25230bb14c1b279d3365",
+      "outils_json": "[{\"t\": \"lone \ud83d surrogate\"}]"
+    },
+    {
+      "texte": "\udc00 basse seule",
+      "longueur": 13,
+      "pondere": 15,
+      "est": 4,
+      "empreinte": "733e53e934d39cdb24f44ddc",
+      "outils_json": "[{\"t\": \"\udc00 basse seule\"}]"
+    },
+    {
+      "texte": "mixte \u4e2d\u6587 and English \u0662\u0663 \u09e7\u09e8",
+      "longueur": 26,
+      "pondere": 35,
+      "est": 10,
+      "empreinte": "b34e1499dbff8c823491562b",
+      "outils_json": "[{\"t\": \"mixte \u4e2d\u6587 and English \u0662\u0663 \u09e7\u09e8\"}]"
+    },
+    {
+      "texte": "\u2028\u2029\u0085 s\u00e9parateurs",
+      "longueur": 15,
+      "pondere": 15,
+      "est": 4,
+      "empreinte": "db907d2d3b0f07544b94e6d2",
+      "outils_json": "[{\"t\": \"\u2028\u2029\u0085 s\u00e9parateurs\"}]"
+    },
+    {
+      "texte": "\t\n\r\u000b\f espaces",
+      "longueur": 13,
+      "pondere": 13,
+      "est": 3,
+      "empreinte": "7438baf1a8d9104511281e8f",
+      "outils_json": "[{\"t\": \"\\t\\n\\r\\u000b\\f espaces\"}]"
+    },
+    {
+      "texte": "\u0000\u0001\u001f contr\u00f4les",
+      "longueur": 13,
+      "pondere": 13,
+      "est": 3,
+      "empreinte": "19081a109945ca2ebe37b6e5",
+      "outils_json": "[{\"t\": \"\\u0000\\u0001\\u001f contr\u00f4les\"}]"
+    },
+    {
+      "texte": "  ",
+      "longueur": 2,
+      "pondere": 2,
+      "est": 0,
+      "empreinte": "6c179f21e6f62b629055d8ab",
+      "outils_json": "[{\"t\": \"  \"}]"
+    },
+    {
+      "texte": "\uabc0\uabc1 Meitei",
+      "longueur": 9,
+      "pondere": 14,
+      "est": 4,
+      "empreinte": "6e64b94839c54675a2237127",
+      "outils_json": "[{\"t\": \"\uabc0\uabc1 Meitei\"}]"
+    },
+    {
+      "texte": "\u1700 Tagalog",
+      "longueur": 9,
+      "pondere": 9,
+      "est": 2,
+      "empreinte": "3bc4a4b2de7b51d83a23a864",
+      "outils_json": "[{\"t\": \"\u1700 Tagalog\"}]"
+    },
+    {
+      "texte": "\ua9b2\ua98f Javanais",
+      "longueur": 11,
+      "pondere": 16,
+      "est": 4,
+      "empreinte": "6024e858f055cd930e30a795",
+      "outils_json": "[{\"t\": \"\ua9b2\ua98f Javanais\"}]"
+    },
+    {
+      "texte": "\ud800\udf30\ud800\udf31 gotique",
+      "longueur": 10,
+      "pondere": 15,
+      "est": 4,
+      "empreinte": "28a3c783191aa706b6623d18",
+      "outils_json": "[{\"t\": \"\ud800\udf30\ud800\udf31 gotique\"}]"
+    },
+    {
+      "texte": "\u16a0\u16a2 runique",
+      "longueur": 10,
+      "pondere": 10,
+      "est": 3,
+      "empreinte": "6c03fbcc88fa9f3aedc4ff4d",
+      "outils_json": "[{\"t\": \"\u16a0\u16a2 runique\"}]"
+    },
+    {
+      "texte": "\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570",
+      "longueur": 37,
+      "pondere": 122,
+      "est": 36,
+      "empreinte": "4d6c070d02a1242cb1b8d3da",
+      "outils_json": "[{\"t\": \"\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\u6570\"}]"
+    },
+    {
+      "texte": "\uac00\uac00\uac00",
+      "longueur": 3,
+      "pondere": 10,
+      "est": 3,
+      "empreinte": "8350e57da41a90445e6d71d2",
+      "outils_json": "[{\"t\": \"\uac00\uac00\uac00\"}]"
+    },
+    {
+      "texte": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "longueur": 5,
+      "pondere": 16,
+      "est": 4,
+      "empreinte": "1cb491910bb1aff194b41637",
+      "outils_json": "[{\"t\": \"\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\"}]"
+    },
+    {
+      "texte": "a\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d",
+      "longueur": 12,
+      "pondere": 37,
+      "est": 11,
+      "empreinte": "7d9c0b03069d79ff40f21974",
+      "outils_json": "[{\"t\": \"a\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\"}]"
+    },
+    {
+      "texte": "\u4e2d\u4e2dbbbbbbb",
+      "longueur": 9,
+      "pondere": 14,
+      "est": 4,
+      "empreinte": "d4a258f3d9bca9f21142e842",
+      "outils_json": "[{\"t\": \"\u4e2d\u4e2dbbbbbbb\"}]"
+    }
+  ],
+  "larges": [
+    {
+      "n": 0,
+      "pondere": 0,
+      "mixte": 3
+    },
+    {
+      "n": 1,
+      "pondere": 3,
+      "mixte": 6
+    },
+    {
+      "n": 2,
+      "pondere": 7,
+      "mixte": 10
+    },
+    {
+      "n": 3,
+      "pondere": 10,
+      "mixte": 13
+    },
+    {
+      "n": 4,
+      "pondere": 13,
+      "mixte": 16
+    },
+    {
+      "n": 5,
+      "pondere": 16,
+      "mixte": 19
+    },
+    {
+      "n": 6,
+      "pondere": 20,
+      "mixte": 23
+    },
+    {
+      "n": 7,
+      "pondere": 23,
+      "mixte": 26
+    },
+    {
+      "n": 10,
+      "pondere": 33,
+      "mixte": 36
+    },
+    {
+      "n": 15,
+      "pondere": 50,
+      "mixte": 53
+    },
+    {
+      "n": 17,
+      "pondere": 56,
+      "mixte": 59
+    },
+    {
+      "n": 25,
+      "pondere": 82,
+      "mixte": 85
+    },
+    {
+      "n": 33,
+      "pondere": 109,
+      "mixte": 112
+    },
+    {
+      "n": 49,
+      "pondere": 162,
+      "mixte": 165
+    },
+    {
+      "n": 50,
+      "pondere": 165,
+      "mixte": 168
+    },
+    {
+      "n": 99,
+      "pondere": 327,
+      "mixte": 330
+    },
+    {
+      "n": 101,
+      "pondere": 333,
+      "mixte": 336
+    },
+    {
+      "n": 1000,
+      "pondere": 3300,
+      "mixte": 3303
+    },
+    {
+      "n": 12345,
+      "pondere": 40738,
+      "mixte": 40741
+    }
+  ],
+  "stables": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      100,
+      330
+    ],
+    [
+      1000,
+      3300
+    ],
+    [
+      2.5,
+      8
+    ],
+    [
+      -10,
+      0
+    ]
+  ],
+  "ratios": [
+    {
+      "appels": [],
+      "ratios": {},
+      "lus": {
+        "None": 3.3,
+        "": 3.3,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          23
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          330
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          8
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          3300,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {
+        "": 3.3,
+        "m1": 3.3
+      },
+      "lus": {
+        "None": 3.3,
+        "": 3.3,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          23
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          330
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          8
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          3300,
+          1000,
+          0
+        ],
+        [
+          "m1",
+          4000,
+          1000,
+          0
+        ],
+        [
+          "m1",
+          2000,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {
+        "": 3.057,
+        "m1": 3.057
+      },
+      "lus": {
+        "None": 3.057,
+        "": 3.057,
+        "m1": 3.057,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          21
+        ],
+        [
+          7,
+          "m1",
+          21
+        ],
+        [
+          100,
+          null,
+          305
+        ],
+        [
+          100,
+          "m1",
+          305
+        ],
+        [
+          2.5,
+          null,
+          7
+        ],
+        [
+          2.5,
+          "m1",
+          7
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          null,
+          5000,
+          1000,
+          0
+        ],
+        [
+          "",
+          1500,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {
+        "": 3.95
+      },
+      "lus": {
+        "None": 3.95,
+        "": 3.95,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          27
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          395
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          9
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          900,
+          1000,
+          0
+        ],
+        [
+          "m1",
+          9000,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {},
+      "lus": {
+        "None": 3.3,
+        "": 3.3,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          23
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          330
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          8
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          5000,
+          1000,
+          2
+        ],
+        [
+          "m1",
+          5000,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {
+        "": 5.0,
+        "m1": 5.0
+      },
+      "lus": {
+        "None": 5.0,
+        "": 5.0,
+        "m1": 5.0,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          5
+        ],
+        [
+          1,
+          "m1",
+          5
+        ],
+        [
+          7,
+          null,
+          35
+        ],
+        [
+          7,
+          "m1",
+          35
+        ],
+        [
+          100,
+          null,
+          500
+        ],
+        [
+          100,
+          "m1",
+          500
+        ],
+        [
+          2.5,
+          null,
+          12
+        ],
+        [
+          2.5,
+          "m1",
+          12
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          0,
+          1000,
+          0
+        ],
+        [
+          "m1",
+          100,
+          0,
+          0
+        ],
+        [
+          "m1",
+          -5,
+          10,
+          0
+        ],
+        [
+          "m1",
+          10,
+          -1,
+          0
+        ]
+      ],
+      "ratios": {},
+      "lus": {
+        "None": 3.3,
+        "": 3.3,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          23
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          330
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          8
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m2",
+          8000,
+          1000,
+          0
+        ],
+        [
+          "m3",
+          1000,
+          1000,
+          0
+        ],
+        [
+          "m2",
+          2500,
+          1000,
+          0
+        ]
+      ],
+      "ratios": {
+        "": 4.880000000000001,
+        "m2": 6.35,
+        "m3": 1.0
+      },
+      "lus": {
+        "None": 4.880000000000001,
+        "": 4.880000000000001,
+        "m1": 3.3,
+        "m2": 6.35,
+        "m3": 1.0,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          4
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          34
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          488
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          12
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    },
+    {
+      "appels": [
+        [
+          "m1",
+          33,
+          10,
+          "3"
+        ],
+        [
+          "m1",
+          33,
+          10,
+          null
+        ]
+      ],
+      "ratios": {
+        "": 3.3,
+        "m1": 3.3
+      },
+      "lus": {
+        "None": 3.3,
+        "": 3.3,
+        "m1": 3.3,
+        "m2": 3.3,
+        "m3": 3.3,
+        "inconnu": 3.3
+      },
+      "vers_chars": [
+        [
+          0,
+          null,
+          0
+        ],
+        [
+          0,
+          "m1",
+          0
+        ],
+        [
+          1,
+          null,
+          3
+        ],
+        [
+          1,
+          "m1",
+          3
+        ],
+        [
+          7,
+          null,
+          23
+        ],
+        [
+          7,
+          "m1",
+          23
+        ],
+        [
+          100,
+          null,
+          330
+        ],
+        [
+          100,
+          "m1",
+          330
+        ],
+        [
+          2.5,
+          null,
+          8
+        ],
+        [
+          2.5,
+          "m1",
+          8
+        ],
+        [
+          -3,
+          null,
+          0
+        ],
+        [
+          -3,
+          "m1",
+          0
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": "Bonjour"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 10,
+        "m1": 10
+      },
+      "texte_tokenize": "user\nBonjour",
+      "payload_chars": 7,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "system",
+        "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+      },
+      "est": 16,
+      "mesure": {
+        "None": 16,
+        "m1": 16
+      },
+      "texte_tokenize": "system\nTu es Elpis. \u4e2d\u6587 et \ud83d\ude00.",
+      "payload_chars": 28,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "c1",
+            "type": "function",
+            "function": {
+              "name": "fs_write",
+              "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+            }
+          }
+        ]
+      },
+      "est": 19,
+      "mesure": {
+        "None": 20,
+        "m1": 20
+      },
+      "texte_tokenize": "assistant\nfs_write\n{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}",
+      "payload_chars": 40,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "function": {
+              "name": "a"
+            }
+          },
+          {
+            "function": {
+              "arguments": "{}"
+            }
+          },
+          "pas un dict",
+          {
+            "function": null
+          },
+          {
+            "function": {
+              "name": 5,
+              "arguments": [
+                "x"
+              ]
+            }
+          }
+        ]
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "assistant\na\n{}",
+      "payload_chars": 3,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+      },
+      "est": 107,
+      "mesure": {
+        "None": 107,
+        "m1": 107
+      },
+      "texte_tokenize": "tool\n{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "payload_chars": 327,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Que vois-tu ?"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,AAAA"
+            }
+          }
+        ]
+      },
+      "est": 1511,
+      "mesure": {
+        "None": 1511,
+        "m1": 1511
+      },
+      "texte_tokenize": "user\nQue vois-tu ?",
+      "payload_chars": 13,
+      "images": 1
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image",
+            "source": {}
+          },
+          {
+            "type": "image_url"
+          },
+          {
+            "type": "text",
+            "text": "deux"
+          },
+          {
+            "type": "text",
+            "text": 42
+          },
+          "cha\u00eene seule",
+          {
+            "text": "sans type"
+          }
+        ]
+      },
+      "est": 3011,
+      "mesure": {
+        "None": 3011,
+        "m1": 3011
+      },
+      "texte_tokenize": "user\ndeux\nsans type",
+      "payload_chars": 13,
+      "images": 2
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": []
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user"
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": null,
+        "content": "r\u00f4le nul"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 10,
+        "m1": 10
+      },
+      "texte_tokenize": "r\u00f4le nul",
+      "payload_chars": 8,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "content": "sans r\u00f4le"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 10,
+        "m1": 10
+      },
+      "texte_tokenize": "sans r\u00f4le",
+      "payload_chars": 9,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": 123
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "assistant",
+        "content": "r\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+        "tool_calls": []
+      },
+      "est": 129,
+      "mesure": {
+        "None": 129,
+        "m1": 129
+      },
+      "texte_tokenize": "assistant\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+      "payload_chars": 400,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "assistant",
+        "content": "x",
+        "tool_calls": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "assistant\nx",
+      "payload_chars": 1,
+      "images": 0
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image_url",
+            "text": "texte et image"
+          }
+        ]
+      },
+      "est": 12,
+      "mesure": {
+        "None": 1512,
+        "m1": 1512
+      },
+      "texte_tokenize": "user\ntexte et image",
+      "payload_chars": 14,
+      "images": 1
+    },
+    {
+      "ratio": null,
+      "message": {
+        "role": "tool",
+        "content": [
+          {
+            "type": "text",
+            "text": "r\u00e9sultat en blocs"
+          }
+        ],
+        "name": "outil"
+      },
+      "est": 13,
+      "mesure": {
+        "None": 13,
+        "m1": 13
+      },
+      "texte_tokenize": "tool\nr\u00e9sultat en blocs",
+      "payload_chars": 17,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": "Bonjour"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 10,
+        "m1": 11
+      },
+      "texte_tokenize": "user\nBonjour",
+      "payload_chars": 7,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "system",
+        "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+      },
+      "est": 16,
+      "mesure": {
+        "None": 19,
+        "m1": 22
+      },
+      "texte_tokenize": "system\nTu es Elpis. \u4e2d\u6587 et \ud83d\ude00.",
+      "payload_chars": 28,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "c1",
+            "type": "function",
+            "function": {
+              "name": "fs_write",
+              "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+            }
+          }
+        ]
+      },
+      "est": 19,
+      "mesure": {
+        "None": 24,
+        "m1": 28
+      },
+      "texte_tokenize": "assistant\nfs_write\n{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}",
+      "payload_chars": 40,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "function": {
+              "name": "a"
+            }
+          },
+          {
+            "function": {
+              "arguments": "{}"
+            }
+          },
+          "pas un dict",
+          {
+            "function": null
+          },
+          {
+            "function": {
+              "name": 5,
+              "arguments": [
+                "x"
+              ]
+            }
+          }
+        ]
+      },
+      "est": 8,
+      "mesure": {
+        "None": 9,
+        "m1": 9
+      },
+      "texte_tokenize": "assistant\na\n{}",
+      "payload_chars": 3,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+      },
+      "est": 107,
+      "mesure": {
+        "None": 138,
+        "m1": 171
+      },
+      "texte_tokenize": "tool\n{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "payload_chars": 327,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Que vois-tu ?"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,AAAA"
+            }
+          }
+        ]
+      },
+      "est": 1511,
+      "mesure": {
+        "None": 1513,
+        "m1": 1514
+      },
+      "texte_tokenize": "user\nQue vois-tu ?",
+      "payload_chars": 13,
+      "images": 1
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image",
+            "source": {}
+          },
+          {
+            "type": "image_url"
+          },
+          {
+            "type": "text",
+            "text": "deux"
+          },
+          {
+            "type": "text",
+            "text": 42
+          },
+          "cha\u00eene seule",
+          {
+            "text": "sans type"
+          }
+        ]
+      },
+      "est": 3011,
+      "mesure": {
+        "None": 3013,
+        "m1": 3014
+      },
+      "texte_tokenize": "user\ndeux\nsans type",
+      "payload_chars": 13,
+      "images": 2
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": []
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user"
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": null,
+        "content": "r\u00f4le nul"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 11,
+        "m1": 12
+      },
+      "texte_tokenize": "r\u00f4le nul",
+      "payload_chars": 8,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "content": "sans r\u00f4le"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 11,
+        "m1": 12
+      },
+      "texte_tokenize": "sans r\u00f4le",
+      "payload_chars": 9,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": 123
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "assistant",
+        "content": "r\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+        "tool_calls": []
+      },
+      "est": 129,
+      "mesure": {
+        "None": 168,
+        "m1": 208
+      },
+      "texte_tokenize": "assistant\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+      "payload_chars": 400,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "assistant",
+        "content": "x",
+        "tool_calls": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "assistant\nx",
+      "payload_chars": 1,
+      "images": 0
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image_url",
+            "text": "texte et image"
+          }
+        ]
+      },
+      "est": 12,
+      "mesure": {
+        "None": 1513,
+        "m1": 1515
+      },
+      "texte_tokenize": "user\ntexte et image",
+      "payload_chars": 14,
+      "images": 1
+    },
+    {
+      "ratio": 2.0,
+      "message": {
+        "role": "tool",
+        "content": [
+          {
+            "type": "text",
+            "text": "r\u00e9sultat en blocs"
+          }
+        ],
+        "name": "outil"
+      },
+      "est": 13,
+      "mesure": {
+        "None": 14,
+        "m1": 16
+      },
+      "texte_tokenize": "tool\nr\u00e9sultat en blocs",
+      "payload_chars": 17,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": "Bonjour"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 9,
+        "m1": 9
+      },
+      "texte_tokenize": "user\nBonjour",
+      "payload_chars": 7,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "system",
+        "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+      },
+      "est": 16,
+      "mesure": {
+        "None": 13,
+        "m1": 14
+      },
+      "texte_tokenize": "system\nTu es Elpis. \u4e2d\u6587 et \ud83d\ude00.",
+      "payload_chars": 28,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "c1",
+            "type": "function",
+            "function": {
+              "name": "fs_write",
+              "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+            }
+          }
+        ]
+      },
+      "est": 19,
+      "mesure": {
+        "None": 16,
+        "m1": 16
+      },
+      "texte_tokenize": "assistant\nfs_write\n{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}",
+      "payload_chars": 40,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "function": {
+              "name": "a"
+            }
+          },
+          {
+            "function": {
+              "arguments": "{}"
+            }
+          },
+          "pas un dict",
+          {
+            "function": null
+          },
+          {
+            "function": {
+              "name": 5,
+              "arguments": [
+                "x"
+              ]
+            }
+          }
+        ]
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "assistant\na\n{}",
+      "payload_chars": 3,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+      },
+      "est": 107,
+      "mesure": {
+        "None": 73,
+        "m1": 80
+      },
+      "texte_tokenize": "tool\n{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "payload_chars": 327,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Que vois-tu ?"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,AAAA"
+            }
+          }
+        ]
+      },
+      "est": 1511,
+      "mesure": {
+        "None": 1510,
+        "m1": 1510
+      },
+      "texte_tokenize": "user\nQue vois-tu ?",
+      "payload_chars": 13,
+      "images": 1
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image",
+            "source": {}
+          },
+          {
+            "type": "image_url"
+          },
+          {
+            "type": "text",
+            "text": "deux"
+          },
+          {
+            "type": "text",
+            "text": 42
+          },
+          "cha\u00eene seule",
+          {
+            "text": "sans type"
+          }
+        ]
+      },
+      "est": 3011,
+      "mesure": {
+        "None": 3010,
+        "m1": 3010
+      },
+      "texte_tokenize": "user\ndeux\nsans type",
+      "payload_chars": 13,
+      "images": 2
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": []
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user"
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": null,
+        "content": "r\u00f4le nul"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 9,
+        "m1": 9
+      },
+      "texte_tokenize": "r\u00f4le nul",
+      "payload_chars": 8,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "content": "sans r\u00f4le"
+      },
+      "est": 10,
+      "mesure": {
+        "None": 9,
+        "m1": 10
+      },
+      "texte_tokenize": "sans r\u00f4le",
+      "payload_chars": 9,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": 123
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "user",
+      "payload_chars": 0,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "assistant",
+        "content": "r\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+        "tool_calls": []
+      },
+      "est": 129,
+      "mesure": {
+        "None": 88,
+        "m1": 96
+      },
+      "texte_tokenize": "assistant\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+      "payload_chars": 400,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "assistant",
+        "content": "x",
+        "tool_calls": {
+          "pas": "liste"
+        }
+      },
+      "est": 8,
+      "mesure": {
+        "None": 8,
+        "m1": 8
+      },
+      "texte_tokenize": "assistant\nx",
+      "payload_chars": 1,
+      "images": 0
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "image_url",
+            "text": "texte et image"
+          }
+        ]
+      },
+      "est": 12,
+      "mesure": {
+        "None": 1510,
+        "m1": 1511
+      },
+      "texte_tokenize": "user\ntexte et image",
+      "payload_chars": 14,
+      "images": 1
+    },
+    {
+      "ratio": 4.5,
+      "message": {
+        "role": "tool",
+        "content": [
+          {
+            "type": "text",
+            "text": "r\u00e9sultat en blocs"
+          }
+        ],
+        "name": "outil"
+      },
+      "est": 13,
+      "mesure": {
+        "None": 11,
+        "m1": 11
+      },
+      "texte_tokenize": "tool\nr\u00e9sultat en blocs",
+      "payload_chars": 17,
+      "images": 0
+    }
+  ],
+  "listes": [
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Bonjour"
+        },
+        {
+          "role": "system",
+          "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "function": {
+                "name": "a"
+              }
+            },
+            {
+              "function": {
+                "arguments": "{}"
+              }
+            },
+            "pas un dict",
+            {
+              "function": null
+            },
+            {
+              "function": {
+                "name": 5,
+                "arguments": [
+                  "x"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "c1",
+          "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Que vois-tu ?"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:image/png;base64,AAAA"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image",
+              "source": {}
+            },
+            {
+              "type": "image_url"
+            },
+            {
+              "type": "text",
+              "text": "deux"
+            },
+            {
+              "type": "text",
+              "text": 42
+            },
+            "cha\u00eene seule",
+            {
+              "text": "sans type"
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": []
+        },
+        {
+          "role": "user"
+        },
+        {
+          "role": null,
+          "content": "r\u00f4le nul"
+        },
+        {
+          "content": "sans r\u00f4le"
+        },
+        {
+          "role": "user",
+          "content": 123
+        },
+        {
+          "role": "user",
+          "content": {
+            "pas": "liste"
+          }
+        },
+        {
+          "role": "assistant",
+          "content": "r\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+          "tool_calls": []
+        },
+        {
+          "role": "assistant",
+          "content": "x",
+          "tool_calls": {
+            "pas": "liste"
+          }
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image_url",
+              "text": "texte et image"
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": [
+            {
+              "type": "text",
+              "text": "r\u00e9sultat en blocs"
+            }
+          ],
+          "name": "outil"
+        }
+      ],
+      "payload_chars": 880,
+      "images": 4,
+      "forfait": 6000,
+      "approx": [
+        4896,
+        4996,
+        4896
+      ],
+      "mesure": [
+        6425,
+        6404
+      ],
+      "outils": [
+        144,
+        382,
+        144
+      ],
+      "texte_seul": [
+        {
+          "role": "user",
+          "content": "Bonjour"
+        },
+        {
+          "role": "system",
+          "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "function": {
+                "name": "a"
+              }
+            },
+            {
+              "function": {
+                "arguments": "{}"
+              }
+            },
+            "pas un dict",
+            {
+              "function": null
+            },
+            {
+              "function": {
+                "name": 5,
+                "arguments": [
+                  "x"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "c1",
+          "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+        },
+        {
+          "role": "user",
+          "content": "Que vois-tu ?"
+        },
+        {
+          "role": "user",
+          "content": "deux sans type"
+        },
+        {
+          "role": "user",
+          "content": ""
+        },
+        {
+          "role": "user"
+        },
+        {
+          "role": null,
+          "content": "r\u00f4le nul"
+        },
+        {
+          "content": "sans r\u00f4le"
+        },
+        {
+          "role": "user",
+          "content": 123
+        },
+        {
+          "role": "user",
+          "content": {
+            "pas": "liste"
+          }
+        },
+        {
+          "role": "assistant",
+          "content": "r\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\nr\u00e9ponse\n",
+          "tool_calls": []
+        },
+        {
+          "role": "assistant",
+          "content": "x",
+          "tool_calls": {
+            "pas": "liste"
+          }
+        },
+        {
+          "role": "user",
+          "content": "texte et image"
+        },
+        {
+          "role": "tool",
+          "content": "r\u00e9sultat en blocs",
+          "name": "outil"
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Bonjour"
+        },
+        {
+          "role": "system",
+          "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        }
+      ],
+      "payload_chars": 75,
+      "images": 0,
+      "forfait": 0,
+      "approx": [
+        45,
+        145,
+        45
+      ],
+      "mesure": [
+        48,
+        53
+      ],
+      "outils": [
+        13,
+        262,
+        13
+      ],
+      "texte_seul": [
+        {
+          "role": "user",
+          "content": "Bonjour"
+        },
+        {
+          "role": "system",
+          "content": "Tu es Elpis. \u4e2d\u6587 et \ud83d\ude00."
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "messages": [],
+      "payload_chars": 0,
+      "images": 0,
+      "forfait": 0,
+      "approx": [
+        0,
+        100,
+        0
+      ],
+      "mesure": [
+        0,
+        7
+      ],
+      "outils": [
+        0,
+        250,
+        0
+      ],
+      "texte_seul": []
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Que vois-tu ?"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:image/png;base64,AAAA"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image",
+              "source": {}
+            },
+            {
+              "type": "image_url"
+            },
+            {
+              "type": "text",
+              "text": "deux"
+            },
+            {
+              "type": "text",
+              "text": 42
+            },
+            "cha\u00eene seule",
+            {
+              "text": "sans type"
+            }
+          ]
+        },
+        "pas un dict",
+        null
+      ],
+      "payload_chars": 26,
+      "images": 3,
+      "forfait": 4500,
+      "approx": [
+        4522,
+        4622,
+        4522
+      ],
+      "mesure": [
+        4524,
+        4529
+      ],
+      "outils": [
+        0,
+        250,
+        0
+      ],
+      "texte_seul": null
+    },
+    {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "function": {
+                "name": "a"
+              }
+            },
+            {
+              "function": {
+                "arguments": "{}"
+              }
+            },
+            "pas un dict",
+            {
+              "function": null
+            },
+            {
+              "function": {
+                "name": 5,
+                "arguments": [
+                  "x"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "c1",
+          "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+        }
+      ],
+      "payload_chars": 370,
+      "images": 0,
+      "forfait": 0,
+      "approx": [
+        134,
+        234,
+        134
+      ],
+      "mesure": [
+        147,
+        142
+      ],
+      "outils": [
+        131,
+        369,
+        131
+      ],
+      "texte_seul": [
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "c1",
+              "type": "function",
+              "function": {
+                "name": "fs_write",
+                "arguments": "{\"path\": \"a.py\", \"c\": \"\u65e5\u672c\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "function": {
+                "name": "a"
+              }
+            },
+            {
+              "function": {
+                "arguments": "{}"
+              }
+            },
+            "pas un dict",
+            {
+              "function": null
+            },
+            {
+              "function": {
+                "name": 5,
+                "arguments": [
+                  "x"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "c1",
+          "content": "{\"ok\": true, \"contenu\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+        }
+      ]
+    }
+  ]
+}

@@ -249,6 +249,7 @@ Most of these documents are still in French.
 - [Architecture, API, subsystems](docs/architecture.md)
 - [Sandbox gateway](docs/sandbox-gateway.md) ·
   [Token counters](docs/token-counters.md)
+- [Testing](docs/testing.md): the development test kit (`devs/main` only)
 
 ## Contributing, security, license
 

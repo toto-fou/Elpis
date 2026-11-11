@@ -5182,10 +5182,14 @@ th[aria-sort] .sup-tri .ph { opacity: 1; color: var(--accent-text); }
 .elpis-secrets__table td.elpis-secrets__menu { overflow: visible; padding-block: 0.125rem; }
 .elpis-secrets__num { text-align: right; font-variant-numeric: tabular-nums; }
 .elpis-secrets__table th.elpis-secrets__num { text-align: right; }
+.elpis-secrets__details { display: none; }
 @container (max-width: 36rem) {
     .elpis-secrets__opt { display: none; }
     .elpis-secrets__c-name { width: 40%; }
+    .elpis-secrets__details { display: block; flex-basis: 100%; font-size: 0.625rem; color: var(--text-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+.elpis-secrets:focus { outline: none; }
+.elpis-secrets:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 /* Valeur d'un secret : champ texte masqué (pas de type password, que les navigateurs proposeraient d'enregistrer). */
 .elpis-valeur-secrete { -webkit-text-security: disc; }
 .elpis-secrets__cellnom { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 0.375rem; min-width: 0; }

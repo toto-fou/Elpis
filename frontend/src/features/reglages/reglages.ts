@@ -60,7 +60,14 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     toast: ctx.showToast,
     ouvrir: (cible) => ouvrirGestionnaireSecret(cible),
     notifier: () => window.dispatchEvent(new CustomEvent("secrets:changed")),
+    demanderAbandon: () =>
+      ctx.openConfirm("Abandonner la saisie ?", "La saisie de ce secret sera perdue.", true, "Abandonner"),
   });
+  // Déconnexion ou autre compte : la liste du compte précédent disparaît.
+  vue.watch(
+    () => refs.user.value?.username ?? null,
+    () => secrets.vider(),
+  );
   const memoire = setupMemoire(
     ctx,
     {

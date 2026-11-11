@@ -156,7 +156,14 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     portee: "instance",
     toast: ctx.showToast,
     ouvrir: (cible) => navigation.goAdminPage(cible),
+    demanderAbandon: () =>
+      ctx.openConfirm("Abandonner la saisie ?", "La saisie de ce secret sera perdue.", true, "Abandonner"),
   });
+  // Déconnexion ou autre compte : la liste lue avec l'ancienne session disparaît.
+  vue.watch(
+    () => refs.user.value?.username ?? null,
+    () => secrets.vider(),
+  );
 
   vue.onUnmounted(() => {
     libererMetriques();

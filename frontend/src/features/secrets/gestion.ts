@@ -22,6 +22,8 @@ export interface DepsGestionSecrets {
   readonly ouvrir?: (cible: string) => unknown;
   /** Avis aux autres vues (menu `/secret`, puces) : la liste a changé. */
   readonly notifier?: () => void;
+  /** Accord avant d'abandonner une saisie par Échap ; sans lui, la saisie est abandonnée. */
+  readonly demanderAbandon?: () => Promise<boolean>;
   readonly maintenant?: () => number;
 }
 
@@ -43,6 +45,7 @@ export function creerGestionSecrets(dep: DepsGestionSecrets) {
   const edition = ref<FormulaireSecret | null>(null);
   const valeurRotation = ref("");
   let armeA = 0;
+  let jetonListe = 0;
 
   const sale = computed(
     () =>
@@ -59,18 +62,35 @@ export function creerGestionSecrets(dep: DepsGestionSecrets) {
     erreur.value = { cible, message: message || repli };
   }
 
+  /** Liste relue ; seule la dernière lecture compte, et un refus vide la liste plutôt que d'en garder une périmée. */
   async function charger(): Promise<void> {
+    const j = ++jetonListe;
     chargement.value = true;
     try {
       const r = await dep.api.lister(dep.portee);
+      if (j !== jetonListe) return;
       if (r.ok) {
         secrets.value = [...r.valeur].sort(parNom);
         erreurListe.value = "";
         charge.value = true;
-      } else if (r.message) erreurListe.value = r.message;
+      } else {
+        secrets.value = [];
+        charge.value = false;
+        erreurListe.value = r.message || "Liste illisible.";
+      }
     } finally {
-      chargement.value = false;
+      if (j === jetonListe) chargement.value = false;
     }
+  }
+
+  /** Déconnexion ou autre compte : plus rien de l'ancien, lectures en vol ignorées. */
+  function vider(): void {
+    jetonListe++;
+    reinitialiserVue();
+    secrets.value = [];
+    charge.value = false;
+    chargement.value = false;
+    erreurListe.value = "";
   }
 
   function basculerMenu(id: number): void {
@@ -210,12 +230,27 @@ export function creerGestionSecrets(dep: DepsGestionSecrets) {
     if (erreur.value?.cible === "nouveau") erreur.value = null;
   }
 
+  /** Saisie faite : rien n'est jeté sans accord, et seulement si la même saisie est toujours ouverte. */
+  function abandonner(sale: boolean, encore: () => boolean, fermer: () => void): void {
+    if (!sale || !dep.demanderAbandon) return fermer();
+    void dep.demanderAbandon().then((ok) => {
+      if (ok && encore()) fermer();
+    });
+  }
+
   /** Échap : menu, confirmation, panneau puis formulaire de création ; faux s'il n'y avait rien d'ouvert. */
   function fermerCouche(): boolean {
+    const p = panneau.value;
+    const c = creation.value;
     if (menu.value !== null) fermerMenu();
     else if (confirmer.value !== null) confirmer.value = null;
-    else if (panneau.value) fermerPanneau();
-    else if (creation.value) annulerCreation();
+    else if (p)
+      abandonner(
+        valeurRotation.value !== "" || formulaireModifie(edition.value),
+        () => panneau.value === p,
+        fermerPanneau,
+      );
+    else if (c) abandonner(formulaireModifie(c), () => creation.value === c, annulerCreation);
     else return false;
     return true;
   }
@@ -258,6 +293,7 @@ export function creerGestionSecrets(dep: DepsGestionSecrets) {
     annulerCreation,
     fermerCouche,
     reinitialiserVue,
+    vider,
   };
 }
 

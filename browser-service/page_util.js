@@ -27,11 +27,12 @@ export function selecteurUnique(el, candidat, candidatDe = null) {
         try { const m = tous(sel); return m.length === 1 && m[0] === cible; } catch (_) { return false; }
     };
     const prefixe = hote ? `${selecteurUnique(hote, candidatDe ? candidatDe(hote) : null, candidatDe)} >> ` : '';
-    const texte = /^([a-z][a-z0-9-]*):has-text\("((?:[^"\\]|\\.)*)"\)$/i.exec(candidat || '');
+    const texte = /^([a-z][a-z0-9-]*):(has-text|text-is)\("((?:[^"\\]|\\.)*)"\)$/i.exec(candidat || '');
     if (texte) {
-        const voulu = texte[2].replace(/\\(.)/g, '$1').replace(/\s+/g, ' ').trim().toLowerCase();
-        const norme = (e) => (e.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        const memes = tous(texte[1]).filter((e) => norme(e).includes(voulu));
+        const exact = texte[2].toLowerCase() === 'text-is';
+        const voulu = texte[3].replace(/\\(.)/g, '$1').replace(/\s+/g, ' ').trim();
+        const norme = (e) => (e.textContent || '').replace(/\s+/g, ' ').trim();
+        const memes = tous(texte[1]).filter((e) => (exact ? norme(e) === voulu : norme(e).toLowerCase().includes(voulu.toLowerCase())));
         if (memes.length === 1 && memes[0] === el) return prefixe + candidat;
     } else if (candidat && seul(candidat, el)) return prefixe + candidat;
     const parties = [];

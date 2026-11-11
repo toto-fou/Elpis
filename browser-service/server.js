@@ -743,8 +743,10 @@ function resolveOfficialLocator(page, params) {
     if (by_role) {
         const opts = {};
         // whole_name : nom entier (casse et espaces de bord ignorés) au lieu d'une sous-chaîne.
-        if (by_name) opts.name = exact ? by_name
-            : new RegExp(params.whole_name ? `^\\s*${escapeRegex(by_name)}\\s*$` : escapeRegex(by_name), 'i');
+        const coupe = typeof by_name === 'string' && by_name.length > 1 && by_name.endsWith('…');
+        const nom = coupe ? by_name.slice(0, -1) : by_name;
+        if (by_name) opts.name = exact && !coupe ? by_name
+            : new RegExp(params.whole_name && !coupe ? `^\\s*${escapeRegex(nom)}\\s*$` : coupe ? `^\\s*${escapeRegex(nom)}` : escapeRegex(nom), 'i');
         if (exact) opts.exact = true;
         loc = page.getByRole(by_role, opts);
     } else if (by_text) {
@@ -841,7 +843,7 @@ async function resoudreCible(scope, params, graceMs = 0) {
     if (!base) return null;
     const n0 = await attendrePresence(base, graceMs);
     let r = { liste: base, n: n0, nameMatch: null, params: sansNth };
-    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name) {
+    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name && !String(sansNth.by_name).endsWith('…')) {
         const entier = { ...sansNth, whole_name: true };
         const locEntier = resolveOfficialLocator(scope, entier);
         const ne = await locEntier.count().catch(() => 0);
@@ -3032,6 +3034,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             const avis = [];
             if (cible.n > 1 && nth === null)
                 avis.push(`${cible.n} elements match ${expr}; acted on the first. Pass strict=true to refuse ambiguous targets, or add |nth=K / use a ref from pw_find.`);
+            else if (cible.n > 1)
+                avis.push(`${cible.n} elements match ${expr}; acted on nth=${nth} (0-based). A position breaks when the list changes: prefer a ref from pw_find or a more precise target.`);
             if (cible.nameMatch === 'substring') {
                 const vu = await officialLocator.evaluate(decrireNoeud).catch(() => null);
                 avis.push(`No ${by_role} is named exactly "${by_name}"; matched by substring${vu && vu.name ? ` ("${vu.name}")` : ''}.`);
@@ -3215,7 +3219,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // Ce que le service a RÉELLEMENT résolu, et par quel chemin :
                     // un succès par repli n'est plus indiscernable d'un succès
                     // direct (audit tools web 2026-09-05).
-                    resolved_selector: describeLocator(ref ? { ref } : { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath }, { first: true }),
+                    resolved_selector: describeLocator(ref ? { ref } : { ...cible.params, ...(nth !== null ? { nth } : {}) }, { first: true }),
                     attempts: [{ via: ref ? 'ref' : 'official', ok: true, ms: Date.now() - _t0 }],
                     url: page.url(),
                     ...(selectedOption ? { selected: selectedOption } : {}),
@@ -3753,7 +3757,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch (e) {}
         }
 
-        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow }) => {
+        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, srcUnique }) => {
+            const unique = new Function(`return (${srcUnique})`)();
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -3885,6 +3890,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return parts.join(' > ');
             }
+            // Sélecteur lisible gardé s'il désigne l'élément seul, sinon rendu unique (même règle que pw_observe).
+            function selUnique(el) {
+                try { return unique(el, buildBestSelector(el), buildBestSelector); } catch (e) { return buildBestSelector(el); }
+            }
             function anchoredSelector(el) {
                 // id stable sur l'élément lui-même, sinon chemin positionnel ANCRÉ
                 // (id d'ancêtre ou body) — jamais un chemin qui part d'un « tbody »
@@ -3916,26 +3925,28 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return '';
             }
+            // Nom de plus de 80 caractères coupé avec « … » (jamais vidé) : name=<début>… reste une cible (préfixe).
+            const borneNom = (t) => (t.length > 80 ? `${t.slice(0, 79)}…` : t);
             function axName(el) {
                 // Accessible-name priority: aria-label > aria-labelledby >
                 // associated <label> > control text > placeholder/title/alt.
                 try {
                     const al = el.getAttribute('aria-label');
-                    if (al && al.trim()) return al.trim().substring(0, 80);
+                    if (al && al.trim()) return borneNom(al.trim().replace(/\s+/g, ' '));
                     const lb = el.getAttribute('aria-labelledby');
                     if (lb) {
                         const txt = lb.split(/\s+/).map(id => {
                             const r = document.getElementById(id);
                             return r ? (r.textContent || '').trim() : '';
                         }).filter(Boolean).join(' ');
-                        if (txt) return txt.substring(0, 80);
+                        if (txt) return borneNom(txt.replace(/\s+/g, ' '));
                     }
                     if (el.id) {
                         const lf = document.querySelector('label[for="' + el.id.replace(/[\\"]/g, '\\$&') + '"]');
-                        if (lf && lf.textContent.trim()) return lf.textContent.trim().substring(0, 80);
+                        if (lf && lf.textContent.trim()) return borneNom(lf.textContent.replace(/\s+/g, ' ').trim());
                     }
                     const wrap = el.closest('label');
-                    if (wrap && wrap.textContent.trim()) return wrap.textContent.trim().substring(0, 80);
+                    if (wrap && wrap.textContent.trim()) return borneNom(wrap.textContent.replace(/\s+/g, ' ').trim());
                     // Le texte propre vaut nom accessible pour TOUT contrôle qui
                     // n'a pas de valeur saisie — pas seulement button/a/role=button.
                     // Un `<div role="combobox">Choisir une ville</div>` ressortait
@@ -3946,12 +3957,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     const NO_OWN_TEXT = new Set(['input', 'textarea', 'select']);
                     if (!NO_OWN_TEXT.has(tag)) {
                         const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-                        // Un conteneur qui agrège le texte de toute une section
-                        // n'a pas un « nom » : on borne.
-                        if (t && t.length <= 120) return t.substring(0, 80);
+                        if (t) return borneNom(t);
                     }
-                    return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').trim().substring(0, 80);
+                    return borneNom(((el.getAttribute('placeholder') || el.getAttribute('title')
+                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').replace(/\s+/g, ' ').trim());
                 } catch (e) { return ''; }
             }
 
@@ -4030,7 +4039,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         const sr = host.shadowRoot;
                         if (!sr) continue;
                         _shadowHosts.push(host);
-                        const hostSel = buildBestSelector(host);
+                        const hostSel = selUnique(host);
                         const inter = sr.querySelectorAll(interactiveQuery);
                         for (const el of inter) {
                             if (!_inShadow.has(el)) { _inShadow.set(el, hostSel); _semantic.push(el); }
@@ -4097,13 +4106,17 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // éléments sans le dire, et le modèle concluait « n'existe pas »
             // (audit tools web 2026-09-05).
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _allCandidates) {
-                if (interactives.length >= maxItems) { omitted.over_max = _allCandidates.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const rect = el.getBoundingClientRect();
+                // Au-delà du plafond, chaque candidat restant est encore classé (petit, hors écran) : over_max ne compte que les retenus de trop.
+                if (interactives.length >= maxItems) {
+                    if (rect.width < 2 || rect.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (rect.width < 2 || rect.height < 2) { omitted.too_small++; continue; }
                 if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) { omitted.offscreen++; continue; }
                 const style = window.getComputedStyle(el);
@@ -4121,7 +4134,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 else if (tag === 'select') elemType = 'select';
                 else if (tag === 'textarea') elemType = 'textarea';
 
-                const sel = buildBestSelector(el);
+                const sel = selUnique(el);
                 const item = {
                     idx: idx++, type: elemType, text, selector: sel,
                     role: axRole(el), name: axName(el),
@@ -4217,19 +4230,26 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
                     })(),
-                    selector: buildBestSelector(f),
+                    selector: selUnique(f),
                 }));
                 return { index: i, id: form.id || null, action: form.action || null, method: form.method || 'get', fields, submit_btn: (() => {
                     const btn = form.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
-                    return btn ? { text: btn.textContent.trim(), selector: buildBestSelector(btn) } : null;
+                    return btn ? { text: btn.textContent.trim(), selector: selUnique(btn) } : null;
                 })() };
             });
 
-            // ─── Tableaux (full only) ───
-            const tables = (level !== 'full') ? [] : Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]')).map((t, i) => {
-                const headers = Array.from(t.querySelectorAll('th, [role="columnheader"]')).map(h => h.textContent.trim()).filter(Boolean);
-                const rows = t.querySelectorAll('tr, [role="row"]').length;
-                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows, cols: headers.length || 'unknown', headers: headers.slice(0, 15), selector: buildBestSelector(t) };
+            // ─── Tableaux (tous niveaux, 10 au plus) : en-têtes <th>, sinon la première ligne, sinon aucun ───
+            const _tables = Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]'));
+            const tables = _tables.slice(0, 10).map((t, i) => {
+                const net = (c) => (c.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 60);
+                const lignes = Array.from(t.querySelectorAll('tr, [role="row"]'));
+                const th = Array.from(t.querySelectorAll('th, [role="columnheader"]'));
+                const premiere = lignes[0] ? Array.from(lignes[0].querySelectorAll('td, th, [role="cell"], [role="gridcell"]')) : [];
+                const source = th.length ? 'th' : premiere.some(c => net(c)) ? 'first_row' : 'none';
+                const headers = source === 'th' ? th.map(net) : source === 'first_row' ? premiere.map(net) : [];
+                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows: lignes.length,
+                         cols: Math.max(headers.length, premiere.length), headers: headers.slice(0, 15), header_source: source,
+                         selector: selUnique(t) };
             });
 
             // ─── Structure sémantique (nav+full) ───
@@ -4258,7 +4278,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 
             // ─── Alertes (always — they're cheap and important for the LLM) ───
             const alerts = Array.from(document.querySelectorAll('[role="alert"], [role="status"], .alert, .notification, .toast, .snackbar, .error, .warning, .success')).slice(0, 5).map(el => ({
-                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: buildBestSelector(el),
+                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: selUnique(el),
             })).filter(a => a.text.length > 0);
 
             const scrollables = _scrollables.sort((a, b) => b.area - a.area).slice(0, 5).map(x => ({
@@ -4279,7 +4299,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // absence ne doit pas être confondue avec « pas encore implémenté »
             // (audit tools web 2026-09-05, retest 2). Vide = la page défile
             // elle-même (ou rien ne défile), non-vide = viser un conteneur.
-            return { interactives, forms, tables, regions, alerts, url: location.href, title: document.title,
+            return { interactives, forms, tables, ...(_tables.length > 10 ? { tables_total: _tables.length } : {}), regions, alerts, url: location.href, title: document.title,
                      viewport: { w: window.innerWidth, h: window.innerHeight },
                      scroll: { x: window.scrollX, y: window.scrollY, maxY },
                      candidates_total: _allCandidates.length, omitted,
@@ -4289,7 +4309,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                      ...(shadow.length ? { shadow } : {}) };
         };
 
-        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow });
+        const srcUnique = sourceDe(selecteurUnique);
+        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, srcUnique });
 
         // ── Contenu des iframes ───────────────────────────────────────────
         // page.evaluate ne s'exécute QUE dans la frame principale : tout ce qui
@@ -4308,7 +4329,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 let sub = null;
                 try {
                     sub = await Promise.race([
-                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow }),
+                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow, srcUnique }),
                         new Promise(r => setTimeout(() => r(null), 3000)),
                     ]);
                 } catch (e) { sub = null; }
@@ -5906,13 +5927,16 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             let i = 0;
             const _all = _semantic.concat(_heur);
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _all) {
-                if (items.length >= maxItems) { omitted.over_max = _all.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const r = el.getBoundingClientRect();
+                if (items.length >= maxItems) {
+                    if (r.width < 2 || r.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (r.bottom < -50 || r.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (r.width < 2 || r.height < 2) { omitted.too_small++; continue; }
                 const cs = window.getComputedStyle(el);
                 if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') { omitted.hidden++; continue; }

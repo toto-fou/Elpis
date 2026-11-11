@@ -27,6 +27,17 @@ const PAGES = {
         document.getElementById('carte').attachShadow({ mode: 'open' }).innerHTML = '<div>Profond sans rapport</div>';
         document.getElementById('dedans').attachShadow({ mode: 'open' }).innerHTML = '<span>Contenu du composant</span>';
     </script>`,
+    '/inspect': `<title>Inspect</title><p id="out">rien</p>
+        <button onclick="document.getElementById('out').textContent='long'">${'Libellé très long '.repeat(40)}</button>
+        <div><button onclick="document.getElementById('out').textContent='e1'">Edit</button></div>
+        <div><button onclick="document.getElementById('out').textContent='e2'">Edit</button></div>
+        <div><button onclick="document.getElementById('out').textContent='e3'">Edit</button></div>
+        <table id="t"><tr><td>Nom</td><td>Ville</td></tr><tr><td>Zoé</td><td>Lyon</td></tr></table>`,
+    '/grand': `<title>Grand</title><p id="out">rien</p><div id="liste"></div><script>
+        const l = document.getElementById('liste');
+        for (let i = 0; i < 3000; i++) l.insertAdjacentHTML('beforeend',
+            '<div style="height:24px">Ligne ' + i + ' <button onclick="document.getElementById(\\'out\\').textContent=\\'edit ' + i + '\\'">Edit</button></div>');
+    </script>`,
 };
 
 let service = null;
@@ -102,4 +113,40 @@ test('pw_page text : avec une cible, son texte seul ; le texte shadow ajouté ne
     assert.match(page.text, /Résultat/);
     assert.match(page.text, /Profond sans rapport/);
     assert.match(page.text, /Contenu du composant/);
+});
+
+test('pw_page inspect : nom long coupé d\'une ellipse et actionnable, sélecteurs uniques, tableau sans <th>, hors écran compté, nth et cible multiple rendus après un geste', { skip: SAUTER, timeout: 90000 }, async () => {
+    const inspecter = async () => (await service.get(`/smart_inspect?owner=${OWNER}&session_id=${sid}&level=lite&viewport_only=true&max_items=30&skip_screenshot=true`)).corps;
+    await ouvrir('/inspect');
+    const vue = await inspecter();
+    const long = vue.interactives.find(i => i.text.startsWith('Libellé'));
+    assert.equal(long.name.length, 80);
+    assert.ok(long.name.endsWith('…'), long.name);
+    let r = await api('/action', { type: 'click', by_role: 'button', by_name: long.name });
+    assert.equal(r.statut, 200, r.texte);
+    assert.equal(await texteDe('#out'), 'long');
+    const edits = vue.interactives.filter(i => i.name === 'Edit');
+    assert.equal(edits.length, 3);
+    assert.equal(new Set(edits.map(e => e.selector)).size, 3);
+    for (const [k, e] of edits.entries()) {
+        const n = (await api('/evaluate', { script: `return document.querySelectorAll(${JSON.stringify(e.selector)}).length` })).corps.result;
+        assert.equal(n, 1, e.selector);
+        assert.equal((await api('/action', { type: 'click', by_css: e.selector })).statut, 200);
+        assert.equal(await texteDe('#out'), `e${k + 1}`);
+    }
+    assert.deepEqual(vue.tables.map(t => ({ ...t, selector: undefined })), [
+        { index: 0, tag: 'table', role: null, rows: 2, cols: 2, headers: ['Nom', 'Ville'], header_source: 'first_row', selector: undefined }]);
+    assert.equal(vue.tables[0].selector, '#t');
+
+    await ouvrir('/grand');
+    const grand = await inspecter();
+    assert.equal(grand.interactives.length, 30);
+    assert.ok(grand.omitted.offscreen > 2900, JSON.stringify(grand.omitted));
+    assert.ok(grand.omitted.over_max < 100, JSON.stringify(grand.omitted));
+    r = await api('/action', { type: 'click', by_role: 'button', by_name: 'Edit', nth: 2500 });
+    assert.equal(r.statut, 200, r.texte);
+    assert.equal(await texteDe('#out'), 'edit 2500');
+    assert.match(r.corps.resolved_selector, /\.nth\(2500\)$/);
+    assert.equal(r.corps.matched, 3000);
+    assert.match(r.corps.warning, /^3000 elements match .*acted on nth=2500/);
 });

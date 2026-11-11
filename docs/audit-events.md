@@ -419,11 +419,34 @@ Backups: a full backup made from the console or by `./elpis backup` includes the
 A remote send (`backup.remote`) leaves it out unless `backup.remote.include_audit` is `true`. Keep
 backups for no longer than the journal retention.
 
+### Secrets vault
+
+Written by `main` (the account's secrets, the tool host's resolutions), `admin` (instance secrets)
+and `cli` (`vault rekey`). `owner` is `user` or `instance` (secrets of shared connectors, managed by
+admins). `details` never carry a value, a ciphertext or the key: `scope` lists exact origins, a git
+host, a connector or a server id; `target` is the normalised origin (or host, connector, server) a
+secret was asked for, never the page's path or query.
+
+| Action                  | Outcome | When                                                                                                                              | `details`                                                                                                                                                                        |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vault.secret.created`  | success | Secret created (Settings › Secrets, a connector form, an import, or a migration at the start of `main`, once committed).          | `secret_id`, `name`, `kind`, `owner`, `scope`, `state`                                                                                                                           |
+| `vault.secret.updated`  | success | Secret edited. A new value raises `version`.                                                                                      | `secret_id`, `name`, `kind`, `owner`, `fields` (among `name`, `scope`, `username`, `policy`, `meta`, `value`), `version`; `scope` when it changed, `tls` when the policy changed |
+| `vault.secret.rotated`  | success | New value: by its owner, or by an admin for an instance secret.                                                                   | `secret_id`, `name`, `kind`, `owner`, `version`                                                                                                                                  |
+| `vault.secret.verified` | success | An imported secret (`unverified`) was verified by its owner.                                                                      | `secret_id`, `name`, `kind`, `owner`, `scope`                                                                                                                                    |
+| `vault.secret.deleted`  | success | Secret deleted.                                                                                                                   | `secret_id`, `name`, `kind`, `owner`                                                                                                                                             |
+| `vault.secret.used`     | success | The value was used: sent to the tool host (`POST /api/internal/secrets/resolve`, `GET /api/internal/git/credential`, account of the signed identity, `ip` `null`) or read by the core for a Git account (connection test, repository list, PR; `usage` `git`). | `secret_id`, `name`, `kind`, `owner`, `usage`, `target`, `version`, `chat_id`, `run`, `subagent`                                                                                 |
+| `vault.secret.refused`  | failure | A resolution was refused, or a secure session tripped (`reason` `tripwire`, the secret is detached).                              | `code` (a `secret_*` code, see [architecture.md](architecture.md#secrets-vault)), `usage`, `target`, `name`, `chat_id`, `run`, `subagent`                                        |
+| `vault.secret.attached` | success | A secret was attached to a conversation (send payload `secrets`, or `PUT /api/chats/:chat_id/secrets`).                           | `secret_id`, `name`, `kind`, `chat_id`                                                                                                                                           |
+| `vault.secret.detached` | success | A secret was detached from a conversation (same ways).                                                                            | `secret_id`, `name` and `kind` (`null` once the secret is deleted), `chat_id`                                                                                                    |
+| `vault.ax.imported`     | success | Former AX credentials imported, per account: by the core at startup (`source` `core`) or the tool host (`toolhost`).              | `source`, `imported`, `existing`, `skipped`, `failed`, `skipped_sites` (up to 10 `{site, reason}`), `undecryptable` (core)                                                       |
+| `vault.key.rekeyed`     | success | `./elpis vault rekey --from FILE` (service `cli`, `user_id` `null`); `failure` for any exit code but 0.                           | `from_kid`, `to_kid`, `rekeyed`, `failed`, `remaining`, `os_user`                                                                                                                |
+
 ### Command line (`./elpis`)
 
-Written by the `cli` service for `backup`, `db transfer`, `db use` and `audit verify` once the
-command has parsed its arguments (not for help or usage errors). The action comes from the parsed
-subcommand, global options such as `--password-env` included, and `db transfer` and `db use` are
+Written by the `cli` service for `backup`, `db transfer`, `db use`, `audit verify` and `vault rekey`
+(`vault.key.rekeyed`, see [Secrets vault](#secrets-vault)) once the command has parsed its
+arguments (not for help or usage errors). The action comes from the parsed subcommand, global
+options such as `--password-env` included, and `db transfer` and `db use` are
 written before their checks, so a refusal or an unreachable target is logged too. `user_id` and
 `username` are `null`; `outcome` is `success` for exit code 0 and `failure` otherwise. Every line
 carries `os_user` (`SUDO_USER`, otherwise the current system account). An audit failure never
@@ -445,6 +468,7 @@ audit setup` creates it.
 - Token values, token prefixes or hints, token hashes, OAuth codes, access and refresh tokens,
   PKCE verifiers, client secrets, the scrape token.
 - Private keys (SSH, TLS), certificate contents, the audit key, the session secret.
+- Values of the secrets vault, their ciphertexts and the vault key (only its `kid`).
 - Cookies and `Authorization` headers.
 - Base URLs carrying credentials (`scheme://user:pass@host`), database passwords.
 - Contents of `config.json` in clear: only changed values, secrets masked at any depth, long values

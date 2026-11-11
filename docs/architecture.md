@@ -87,6 +87,7 @@ and by the application's help modal, *Developer* tab).
 - [Studio and desktop agent](#studio-and-desktop-agent)
 - [Built-in RAG: collections, indexing, extractor](#built-in-rag-collections-indexing-extractor)
 - [Periodic maintenance](#periodic-maintenance)
+- [Secrets vault](#secrets-vault)
 - [Cross-cutting security](#cross-cutting-security)
 
 ### Appendices
@@ -351,7 +352,7 @@ position.
 | `postgres.ts`, `sql.ts` | pg: bounded pool, `?` → `$n`, values and errors reread as in SQLite |
 | `schema.ts`, `schema.gen.ts` | declarative reference schema (tables, indexes, foreign keys), rendered for each engine; full text |
 | `dialecte.ts` | what differs between engines: write start, inserted identifier, case-insensitive `LIKE`, local dates, JSON… |
-| `init.ts`, `demarrage.ts` | schema creation and migrations under lock (`schema_migrations` table, `MIGRATIONS_TS`), permissions, cleanup at startup |
+| `init.ts`, `demarrage.ts`, `migration.ts` | schema creation and migrations under lock (`schema_migrations` table, registry `MIGRATIONS_TS`, implementations passed by `main`), permissions, cleanup at startup |
 | `erreurs.ts` | errors classified like those of `sqlite3` (integrity, operation, data…) |
 
 Copy between engines: `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
@@ -363,6 +364,29 @@ covers are stamped; an existing database receives its missing tables and columns
 then its pending migrations. Full text: FTS5 (SQLite),
 `tsvector` + GIN with `unaccent` (PostgreSQL).
 The maintainers' tests run on each engine.
+
+**TS migrations.** Numbered after the Python ones, their names form one registry
+(`MIGRATIONS_TS`, `packages/db/src/migration.ts`) that every process knows: an empty database is
+stamped with all of them, whichever process creates it. Their implementations are passed
+explicitly by the process that applies them, `main` (`demarrerBase({ migrations, ports })`, no
+registration at import). Each runs in its own transaction, in registry order, with
+`PRAGMA secure_delete` on (SQLite): `migrer(x, base, ctx)` reaches the vault and the former
+Fernet key only through the ports of `ctx` (the Fernet port never creates a key) and returns
+notes for the startup log; its security journal events are written once the outer transaction is
+committed, and dropped if it is rolled back. A pending migration without an implementation in the
+process (admin, tool host, commands), or that throws `MigrationDifferee`, is deferred: not
+stamped, logged as info, and the ones after it wait. A failure is logged as an error and retried
+at the next start. The registry is `0027_vault_git`, `0028_vault_llm_images` and `0029_vault_mcp`;
+`main` passes their implementations (`MIGRATIONS_DU_CORE`) with the core's ports
+(`portsMigrationsDuCore`: `ranger` inserts a row as `creerSecret` does and returns its id, or
+`null` when the vault rules refuse the value; `chiffrer(x, valeur, aad)` encrypts outside
+`vault_secrets`, for routine webhook secrets). Then, still at startup and under the schema lock,
+`main` runs the catch-ups of these migrations (`reprendreCoffreAuDemarrage`: kept LLM keys and the
+image key, MCP values left outside the vault, former AX credentials); each one returns at once when
+nothing is left, erases with `secure_delete` and writes the journal after commit. Last, it compacts
+the database once, for the tables of the migrations it applied and those a catch-up removed old
+values from (`VACUUM` and `wal_checkpoint(TRUNCATE)` on SQLite, `VACUUM FULL` of the tables on
+PostgreSQL); an error there is logged and never blocks the start.
 
 ```mermaid
 erDiagram
@@ -389,6 +413,7 @@ erDiagram
 | **Studio** | `editor_action_cache` (memory of live-targeting anchors) — automation scripts are sandbox files (`automations/`), not database rows |
 | **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
 | **Connectors** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
+| **Secrets** | `vault_secrets` (one row per secret of an account, or of the instance when `user_id` is `NULL`; value encrypted, see [Secrets vault](#secrets-vault)) |
 | **RAG** | `rag_collections` (owner, visibility, embedding model, counters), `rag_grants` (groups of a publication), `rag_documents`, `rag_jobs` (indexing queue), `rag_hidden` ("Hide from my list"); active collections of a chat in `chats.meta_json.rag` |
 | **Images** | `generated_images` (one row per image: account, conversation, model, relative path of the file and its thumbnail, duration measurements) |
 | **Misc** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` / `ax_credentials` |
@@ -3374,6 +3399,134 @@ independent of the state of the Routines feature.
 
 ---
 
+## Secrets vault
+
+One store for the secrets that an account, or the instance for shared connectors, hands to Elpis:
+website logins, HTTP authentication, Git tokens, LLM and MCP keys, plain tokens. A value is
+write-only: no route returns it, except the internal resolution for the tool host.
+
+| Part | Where | Role |
+|---|---|---|
+| Encryption | `packages/securite/src/coffre.ts` | `chiffrerSecret(clair, aad)` → `v1.<kid>.<nonce>.<ciphertext+tag>` (AES-256-GCM, random 96-bit nonce, 128-bit tag, base64url); `dechiffrerSecret(enc, aad)` throws `SecretIndechiffrable` (format, unknown `kid`, altered data or another AAD) and never returns `""`; `chargerCleCoffre()`, `cleCoffre()`, `kidCoffre()`, `etatCleCoffre()` |
+| Store | `apps/core/src/secrets/` | `creerSecret`, `modifierSecret`, `rotation`, `verifierSecret`, `supprimerSecret`, `listerSecrets` (metadata only), `lireSecretPourUsage`; `rechiffrerCoffre` for `rekey` |
+| Routes | `apps/core/src/familles/secrets.ts` | Account, console and internal routes below; contracts in `packages/contracts/src/rest/secrets.ts` |
+| Commands | `apps/core/src/exploitation/coffre.ts` | `./elpis vault status\|rekey`, `./elpis secret ls`, the vault lines of `./elpis doctor`; `vault setup` is done by the launcher (root) |
+
+```
+vault_secrets
+  id, user_id (NULL = instance), kind, name (unique per owner: index on (COALESCE(user_id, 0), name)),
+  scope_json, username, secret_enc ("v1.<kid>.<nonce>.<ct+tag>"), kid, version (+1 per new value),
+  state (active | unverified), policy_json, meta_json, created_at, updated_at, rotated_at,
+  last_used_at, use_count
+```
+
+| `kind` | `scope` |
+|---|---|
+| `web-login`, `http-auth` | `{"origins": [...]}`: 1 to 10 exact origins `scheme://host[:port]`, normalised as WHATWG does (lower case, punycode, default port dropped); no user, path, query or fragment |
+| `git` | `{"host": "git.example.lan"}`, optional port |
+| `llm` | `{"connector_id": 3}` |
+| `mcp` | `{"server": "shared:2"}` (or a personal server id) |
+| `token` | `{}` (designated by its name only); only the instance secret `image-engine` (image engine key) takes `{"origins": [...]}`, refused on any other token |
+
+- **Name**: slug `[a-z0-9][a-z0-9._-]{0,47}`, unique per owner. 200 secrets at most per owner.
+- **Policy**: `{"subagents": true, "routines": false, "confirm_first_use": false, "tls": "strict"}` by
+  default; partial updates are merged. `confirm_first_use: true` is refused
+  (`secret_meta_invalid`) until the resolution applies it.
+- **AAD**: `vault|v2|<user_id or 0>|<kind>|<name>|<sha256>`, where `<sha256>` is the SHA-256 (hex)
+  of the JSON array `[scope_json, policy_json, state, version, username]`, the column values exactly
+  as stored. The GCM tag therefore covers everything that decides how a secret may be used. A
+  ciphertext moved to another row, an older ciphertext restored after a rotation or a scope change,
+  or any of these columns written outside the module (scope widened, state forced to `active`,
+  `tls` set to `insecure`, user name changed) makes decryption fail: the resolution answers
+  `secret_undecryptable` and writes `vault.secret.refused`. A rollback of the whole row to an
+  earlier copy cannot be detected this way. `meta_json` is not bound: nothing may decide on it.
+- **Updates**: absent fields are unchanged, an empty `value` too. Every module write that changes
+  a bound column re-encrypts the value (the module holds the key): rename, scope, policy, user name,
+  verification, rotation. A change of `meta` alone does not. A new value raises `version` and sets
+  `rotated_at`. Widening the scope (an origin added, another host, connector or server) or moving
+  to `tls: insecure` requires the value again, so an open session alone cannot send an existing
+  secret elsewhere. The kind never changes. An update that needs the current value and cannot
+  decrypt it is refused (`secret_undecryptable`): rotate the secret.
+- **State**: `unverified` (secrets imported from older stores) is never resolved until its owner
+  verifies it (`POST …/verify`), which re-encrypts it for its new state.
+
+| Route | Process, access | Role |
+|---|---|---|
+| `GET /api/secrets` · `POST /api/secrets` · `PUT /api/secrets/:secret_id` · `POST /api/secrets/:secret_id/rotate` · `POST /api/secrets/:secret_id/verify` · `DELETE /api/secrets/:secret_id` | main, session | The account's secrets |
+| `GET /api/admin/secrets` · `POST /api/admin/secrets/:secret_id/rotate` · `DELETE /api/admin/secrets/:secret_id` | admin, admin | Instance secrets (created by the connector forms) |
+| `GET /api/chats/:chat_id/secrets` · `PUT /api/chats/:chat_id/secrets` | main, session | Secrets attached to a conversation (below) |
+| `POST /api/internal/secrets/resolve` | main, service token and signed identity (`X-Elpis-Identity`) | Value for the tool host |
+| `POST /api/internal/secrets/match` | main, service token and signed identity | Attached secrets that cover an origin, without value (`pw_session`) |
+| `POST /api/internal/secrets/tripwire` | main, service token and signed identity | A session closed by the browser service on a tripwire (`secret_session_closed`, inert): detach the secret, journal the refusal |
+| `POST /api/internal/secrets/import-ax` | main, service token and signed identity | The tool host's former AX credentials of one account |
+
+Responses carry metadata only (`schemaSecret`: scope, user name, state, version, policy, uses,
+`key_current` when the ciphertext uses the current key), never the value or its ciphertext.
+Errors are `{detail, code}`, `detail` in English.
+
+Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
+`secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
+`secret_meta_invalid`, `secret_limit`, `secret_unknown`, `secret_type_mismatch`,
+`secret_unverified`, `secret_scope_mismatch`, `secret_not_attached`, `secret_ambiguous`,
+`secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`, `secret_managed`.
+
+**Secrets held by a connector.** LLM keys (`llm`), Git tokens (`git`), MCP servers (`mcp`) and the
+image engine key (instance `token` `image-engine`) belong to their connector: `DELETE
+/api/secrets/:secret_id` and `DELETE /api/admin/secrets/:secret_id` refuse them (409
+`secret_managed`, the `detail` names where to manage them), and deleting the connector deletes its
+secret. The rotation routes refuse an `mcp` secret too (its value is the server's JSON).
+
+**Migration `0027_vault_git`** (the first TS migration, `packages/db/src/coffre-git.ts`): every
+plain `git_connectors.token_enc` becomes a `git` secret through the `ranger` port (`secret_id` set,
+`token_enc` emptied, `token_scheme` = `vault`), and every plain `webhook_secret` moves to
+`webhook_secret_enc` through the `chiffrer` port (AAD `aadWebhookRoutine`), in one transaction. A
+token that the vault rules refuse (an invalid host) stays as it was, with a warning in the startup
+log. The ports use the current vault key; with none, they create the fallback key only while
+nothing is encrypted yet, like the first secret. Without a usable key the migration fails, leaves
+everything as it was and is retried at the next start (`migration 0027_vault_git en échec` in the
+log, still pending in `./elpis db info`); admin, the tool host and the commands leave it to `main`.
+Routine webhook secrets follow the same key rule, and their ciphertexts count as existing secrets
+for it.
+
+**Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
+`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
+The fallback is created 0600 under a lock the first time a secret is saved, only while
+`vault_secrets` is empty, and published in one step (hard link of a synced temporary file). With
+secrets and no key, saving a secret is refused (`secret_key_unavailable`), never answered with a
+new key. Any file system error while creating it gives the same refusal. A key that exists but
+cannot be read is an error, never a reason to fall back. `chiffrerSecret` never creates a key;
+`chargerCleCoffre()` does, and only the module calls it, after checking that the vault is empty.
+
+One validator (`validerCleCoffre`) decides for the core, for `vault setup` (through
+`exploitation.mjs vault check-key`, the key on standard input) and for the doctor: canonical base64
+(44 characters) or 64 hexadecimal digits, 32 bytes, not a single repeated byte. `kid` = first 8
+hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from` re-encrypts the rows of
+an old `kid`, routine webhook secrets included ([operations.md](operations.md#secrets-vault-key)).
+
+`main` and `admin` delete `ELPIS_VAULT_KEY` and `ELPIS_VAULT_KEY_PATH` from their environment
+once read. The other units get `UnsetEnvironment=` for both and `InaccessiblePaths=` for
+`/etc/elpis/vault.key` and the fallback, and `./elpis start` runs them without the variables. The
+Fernet encryption (`packages/securite/src/chiffrement.ts`) is only read, without ever creating a
+key, to move the former values into the vault (migrations and startup catch-ups).
+
+### LLM connector and image engine keys
+
+- **Migration.** `0028_vault_llm_images` is applied by `main` only (`MIGRATIONS_DU_CORE` with
+  `portsMigrationsDuCore`, see [TS migrations](#database)); admin, the tool host, the installer and
+  the commands leave it pending (logged as info). An unavailable vault key makes it fail loudly
+  (error in the log, retried at the next start); a key that cannot be decrypted is kept and marked
+  `unreadable`, never dropped; without any Fernet key (never created for this), the Fernet keys
+  stay as they are (`legacy_pending`). A row that cannot be read only holds back itself: clear keys
+  and the other rows move. After the migration, `main` retries the kept keys at each start, seeds
+  the image key if the vault has none, and removes `image.api_key_enc` from `config.json` and
+  `config.json.bak` once the vault holds it; this catch-up runs under the schema lock and opens no
+  transaction while no key is left in `llm_connectors` and no image key waits. The secrets created
+  are reported in the startup log and written to the security journal (`vault.secret.created`)
+  once committed. The rewrite and the startup retry run with `PRAGMA secure_delete` on (SQLite),
+  then `main` compacts the database once, and again after a retry that moved keys (older backups
+  still hold the keys: rotate the provider keys).
+---
+
 ## Cross-cutting security
 
 | Mechanism | Module | Note |
@@ -3384,7 +3537,8 @@ independent of the state of the Routines feature.
 | **Revocation** | `revoked_sessions` + `security.session.global_min_ts` | Logout really revokes server-side |
 | **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session cleared before the account is associated |
 | **Audit** | `packages/securite/src/audit.ts` | Every login attempt (success/failure, real IP behind trusted proxies, reason) |
-| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys and shared MCP secrets (format also read by the remaining Python) |
+| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet (format also read by the remaining Python): `decryptStrict` reads, without ever creating a key, the former LLM connector, image engine and MCP values and the AX site passwords being moved into the secrets vault |
+| **Secrets vault** | `packages/securite/src/coffre.ts`, `apps/core/src/secrets/` | AES-256-GCM, AAD per secret, key outside the database (`/etc/elpis/vault.key`); a value reaches the tool host only, by the signed internal resolution; see [Secrets vault](#secrets-vault) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
 | **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
 | **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | Remote Git URLs, AX diagnostics |

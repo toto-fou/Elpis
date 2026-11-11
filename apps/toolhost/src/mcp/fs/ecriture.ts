@@ -10,6 +10,7 @@ import { asList, err, estContenuElide, getUsername, ok } from "@elpis/outils-mcp
 import type { ContexteAppel } from "@elpis/outils-mcp";
 import { toContainer } from "@elpis/securite";
 
+import { SessionCalcul } from "../../fichiers/calcul-execution";
 import { Espace } from "../espace";
 import {
   actuel,
@@ -408,10 +409,10 @@ function textes(v: unknown): string[] {
 }
 
 /** `_apply_one_edit` sur un élément de lot : un non-dict lève l'AttributeError de `edit.get`. */
-function appliquer(texte: string, ed: unknown): [string, Dict] {
+async function appliquer(texte: string, ed: unknown, fil: SessionCalcul): Promise<[string, Dict]> {
   if (!estDict(ed))
     throw new ErreurPython("AttributeError", `'${nomTypePy(ed)}' object has no attribute 'get'`);
-  return appliquerEdition(texte, ed);
+  return appliquerEdition(texte, ed, fil);
 }
 
 const UNITAIRES = [
@@ -428,6 +429,7 @@ const UNITAIRES = [
 /** `edit_file` : édition chirurgicale (une action ou un lot `multi`), conventions CRLF/BOM restaurées, écriture stricte. */
 export async function editFile(a: ArgsEdition, ctx: ContexteAppel): Promise<Dict> {
   const username = getUsername(ctx);
+  const fil = new SessionCalcul();
   let rel = "";
   try {
     const esp = await Espace.pour(username);
@@ -503,7 +505,7 @@ export async function editFile(a: ArgsEdition, ctx: ContexteAppel): Promise<Dict
       appliquees = [];
       for (const [i, ed] of ordre) {
         try {
-          const [t, info] = appliquer(courant, ed);
+          const [t, info] = await appliquer(courant, ed, fil);
           courant = t;
           appliquees.push({ index: i, ...info });
         } catch (x) {
@@ -543,7 +545,7 @@ export async function editFile(a: ArgsEdition, ctx: ContexteAppel): Promise<Dict
       else
         Object.assign(ed, { start_line: a.start_line, end_line: a.end_line, indent_delta: a.indent_delta });
       try {
-        const [t, info] = appliquerEdition(ancien, ed);
+        const [t, info] = await appliquerEdition(ancien, ed, fil);
         nouveau = t;
         appliquees = [info];
       } catch (x) {
@@ -626,5 +628,7 @@ export async function editFile(a: ArgsEdition, ctx: ContexteAppel): Promise<Dict
     if (estErreurAgent(e)) return errAgent(e, rel);
     if (estValueError(e)) return errFs(e.message);
     return errFs(`unexpected: ${strErreur(e)}`);
+  } finally {
+    await fil.fermer();
   }
 }

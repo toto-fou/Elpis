@@ -545,6 +545,15 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Tool regular expressions run off the tool host's event loop.** A pattern given by the model
+  to `read_file` (`grep`), `edit_file` (`regex`, `anchor_re`, `multi`), `git_write` (`replace`
+  with `regex`) or `desktop_wait(match=true)` ran on the tool host's main thread, so a pattern with
+  nested repetition such as `(a|a)*$` could hold every user's tools at 100 % CPU. These searches
+  now run in the per-request worker thread, killed after 10 seconds (120 seconds of searching per
+  tool call at most); the model gets `regex_timeout` with advice to simplify the pattern, and the
+  file is left untouched. When the worker cannot start, a pattern is refused (`regex_unavailable`)
+  rather than run on the main thread. Desktop patterns longer than 2,000 characters fall back to
+  a plain substring match.
 - **Images: PNG decompression bombs bounded.** A small PNG could expand without limit when its
   compressed metadata (`zTXt`, `iTXt`, `iCCP`) or its interlaced image data were inflated. The
   metadata is now inflated within 1 MiB per text chunk, 16 MiB per ICC profile and 64 MiB in all

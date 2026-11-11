@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/fichiers/calcul-fil.ts — thread de calcul d'une requête (remplacements de l'éditeur, texte d'un .docx) : un calcul coûteux n'occupe que lui (la boucle de l'hôte reste libre), tué à l'échéance. */
+/** apps/toolhost/src/fichiers/calcul-fil.ts — thread de calcul d'une requête (remplacements de l'éditeur, texte d'un .docx, motifs des outils) : un calcul coûteux n'occupe que lui (la boucle de l'hôte reste libre), tué à l'échéance. */
 import { parentPort, workerData } from "node:worker_threads";
 
-import { HttpError } from "@elpis/commun";
+import { chercher, HttpError, subn, trouverTout } from "@elpis/commun";
+import type { MotifPy } from "@elpis/commun";
 
 import { texteDocx } from "../office/docx";
 import { remplacement, Remplaceur } from "./remplacement";
@@ -10,6 +11,15 @@ import type { Echantillon, SpecRemplacement } from "./remplacement";
 
 /** Résultat transmis : échantillons et nombre (aperçu), ou nouveau texte (application), ou raison, ou rien. */
 export type ResultatFil = { n: number; echantillons: Echantillon[]; nouveau?: string } | string | null;
+
+/** Recherche d'un motif déjà compilé : par ligne (`longueurs` découpe `texte`), présence, `finditer` ou `subn`. */
+export type ActionRegex =
+  | { quoi: "lignes"; texte: string; longueurs: Uint32Array }
+  | { quoi: "present"; texte: string }
+  | { quoi: "occurrences"; texte: string }
+  | { quoi: "subn"; repl: string; texte: string; count: number };
+
+export type ResultatRegex = Uint32Array | boolean | [string, number];
 
 export type RequeteFil =
   | {
@@ -28,7 +38,8 @@ export type RequeteFil =
       entree: { kind: unknown; link?: unknown };
       brut: Uint8Array | null;
     }
-  | { id: number; op: "docx"; donnees: Uint8Array };
+  | { id: number; op: "docx"; donnees: Uint8Array }
+  | { id: number; op: "regex"; motif: MotifPy; action: ActionRegex };
 
 /** Erreur transmise ; `statut` et `detail` pour une `HttpError`. */
 export interface ErreurFil {
@@ -42,6 +53,7 @@ export type ReponseFil =
   | { id: number; lot: [string, ResultatFil][] }
   | { id: number; un: ResultatFil }
   | { id: number; docx: string }
+  | { id: number; regex: ResultatRegex }
   | { id: number; erreur: ErreurFil }
   | { pret: true };
 
@@ -78,11 +90,27 @@ export function traiterUn(r: Extract<RequeteFil, { op: "un" }>): ResultatFil {
     : res;
 }
 
+function traiterRegex(m: MotifPy, a: ActionRegex): ResultatRegex {
+  if (a.quoi === "present") return chercher(m, a.texte) !== null;
+  if (a.quoi === "subn") return subn(m, a.repl, a.texte, a.count);
+  const sortie: number[] = [];
+  if (a.quoi === "occurrences") for (const c of trouverTout(m, a.texte)) sortie.push(c.debut, c.fin);
+  else {
+    let pos = 0;
+    for (const [k, n] of a.longueurs.entries()) {
+      if (chercher(m, a.texte.slice(pos, pos + n)) !== null) sortie.push(k);
+      pos += n;
+    }
+  }
+  return Uint32Array.from(sortie);
+}
+
 /** Une requête traitée : son résultat, ou l'erreur levée. */
 export function traiter(r: RequeteFil): ReponseFil {
   try {
     if (r.op === "lot") return { id: r.id, lot: traiterLot(r) };
     if (r.op === "un") return { id: r.id, un: traiterUn(r) };
+    if (r.op === "regex") return { id: r.id, regex: traiterRegex(r.motif, r.action) };
     return {
       id: r.id,
       docx: texteDocx(Buffer.from(r.donnees.buffer, r.donnees.byteOffset, r.donnees.byteLength)),

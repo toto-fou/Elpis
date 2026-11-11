@@ -3461,14 +3461,22 @@ holding the non-empty parts: `auth` (token, password or header value of the auth
 and `env` (lists of `{name, value}`; an object is also read); a value that is not a JSON object is
 taken as `auth`. The core (`apps/core/src/secrets/mcp.ts`, the `CoffreMcp` port of `@elpis/mcp`)
 reads it whenever it resolves the server for a turn, a routine or a sub-agent: owner, kind, scope,
-state and policy are checked, the value is decrypted, never cached, so a rotation applies to the
-next turn. These reads are not resolutions for the tool host: they change neither `use_count` nor
-the journal; the writes do (`vault.secret.created`, `updated`, `deleted`). A server whose secret
-cannot be read is left out, with a warning in the core log, never connected with part of its
-secrets. The server forms keep write-only fields: an empty field keeps the value, the auth mode
-"None" or an emptied list removes it, and a secret that cannot be decrypted is only replaced by new
-input (or deleted with its server). Migration `0029_vault_mcp` moved the earlier values
-([configuration.md](configuration.md#mcp-servers-secrets)).
+state and policy are checked, the value is decrypted at most once per turn (a cache keyed by id,
+version and key id, dropped with the turn), so a rotation applies to the next turn. These reads are
+not resolutions for the tool host: they change neither `use_count` nor the journal; the writes do
+(`vault.secret.created`, `updated`, `deleted`), once the enclosing transaction commits (a
+rolled-back change writes nothing: `apresValidation` of `@elpis/db`). A server whose secret cannot
+be read or was removed from the vault is left out, with a warning in the core log (once an hour per
+server and reason), never connected with part of its secrets. The server forms keep write-only
+fields: an empty field keeps the value, the auth mode "None" or an emptied list removes it, a
+secret that cannot be decrypted or was removed is only replaced by new input (or deleted with its
+server), and old values not yet in the vault are listed and kept until new values replace them.
+`PUT /api/settings` reads the list, writes the vault and the settings in one write transaction
+(the URL guard is asked beforehand, outside it). Migration `0029_vault_mcp` moved the earlier
+values; the ones it could not read (another Fernet key, or none: `decryptStrict` never creates
+one) are tried again by main at each start (`reprendreMcpAuDemarrage`)
+([configuration.md](configuration.md#mcp-servers-secrets)). The MCP pool keys use an HMAC of the
+auth material under a key drawn at process start, and the pool logs server names, not keys.
 
 Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,

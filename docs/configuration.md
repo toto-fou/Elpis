@@ -1306,15 +1306,23 @@ core log. The value holds 16,384 characters at most.
 
 - **Forms.** The secret fields stay write-only: an empty field keeps the value, the auth mode
   "None" removes the token, and removing a header or a variable removes it. `has_auth` and
-  `has_value` mean "readable with the current vault key". A secret that cannot be read is never
-  overwritten or removed by a save of the list: only a new value replaces it, or deleting the
-  server removes it.
-- **Connection.** The secret is read and decrypted for each turn, routine run and sub-agent, never
-  cached: a rotation applies to the next turn. Its policy applies: created with `routines` and
-  `subagents` allowed, either can be turned off in Settings › Secrets. A server whose secret
-  cannot be read (another key, removed from the vault, key unavailable, refused by its policy,
-  flagged by the migration) is left out, with a warning in the core log; it is never connected with
-  part of its secrets.
+  `has_value` mean "readable with the current vault key". A secret that cannot be read, or was
+  removed from the vault, is never overwritten or removed by a save of the list: only a new value
+  replaces it, or deleting the server removes it. Old values still on the server (not yet in the
+  vault) are listed by name, with the auth mode they imply, and a save that brings no new value for
+  them keeps them and moves them into the vault. The account that owns a personal server can enter
+  a secret that cannot be used again, even when it may not otherwise change that server; for a
+  server of the shared library, an administrator does.
+- **Saves.** A save of the list reads and writes the settings and the vault in one transaction, so
+  two saves at the same time never lose a server or leave a secret behind. A list that names the
+  same server id twice is refused (400). The Test button joins the stored secret only to a test of
+  the same type and address (or command).
+- **Connection.** The secret is read and decrypted for each turn, routine run and sub-agent, at
+  most once per turn, never cached longer: a rotation applies to the next turn. Its policy applies:
+  created with `routines` and `subagents` allowed, either can be turned off in Settings › Secrets.
+  A server whose secret cannot be read (another key, removed from the vault, key unavailable,
+  refused by its policy, flagged by the migration) is left out, with a warning in the core log
+  (once an hour per server and reason); it is never connected with part of its secrets.
 - **Flags.** `secret_error` on a server (in `GET /api/settings`, and in the administrator's view
   of the shared library) tells why its secret cannot be used: `undecryptable`,
   `key_unavailable`, `missing` (deleted from the vault) or `not_migrated` (refused by the vault
@@ -1325,10 +1333,11 @@ core log. The value holds 16,384 characters at most.
   auth mode "raw", `basic_auth` → "basic", `headers` and `env` objects). Only what the server
   used is kept (headers for HTTP and SSE, variables for `stdio`, the token when an auth mode is
   set); a server without a type becomes SSE, as the form saves it. A Fernet value that cannot be
-  decrypted stays where it was, unused, flagged `undecryptable` and logged; entering the secret
-  again clears it. Without the vault key or the Fernet key, the migration fails, nothing is
-  written, and it runs again at the next start (`./elpis restart` and `./elpis doctor` list it as
-  pending).
+  decrypted (another key, or no key at all: the migration never creates one) stays where it was,
+  unused, flagged `undecryptable` and logged; the main service tries it again at each start (once
+  the key is back in `APP_ENCRYPTION_KEY` or `user_db/.encryption_key`), and entering the secret
+  again clears it. Without the vault key, the migration fails, nothing is written, and it runs
+  again at the next start (`./elpis restart` and `./elpis doctor` list it as pending).
 
 ### Image generation
 

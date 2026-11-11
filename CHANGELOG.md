@@ -402,6 +402,7 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **pw_a11y contrast.** Light grey text on white was not flagged: the check only looked at a few tags. It now covers every visible text element (up to 500), uses the WCAG 2.x ratio (4.5:1, 3:1 for large text) with the background resolved through the ancestors, and skips image or gradient backgrounds with a note.
 - **pw_visual default threshold.** The default (1 % of pixels) passed a real change on a small page; without `threshold` the comparison now passes only when at most 0.1 % and at most 200 pixels changed, an explicit `threshold` keeps its meaning, and the result reports `diff_pixels` (and `max_diff_pixels` for the default rule).
 - **pw_mock list counts served responses.** `used` stayed 0 for a mock without a `times` limit; every request a mock fulfilled is now counted, per mock.
 - **pw_recorder gestures by `ref`.** A click or fill done with `ref=` was recorded as `page.locator('')`; the recorder now reads a stable selector (test id, role + name, label, placeholder, text, CSS) from the referenced element at action time, in every export format.

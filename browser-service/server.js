@@ -4449,22 +4449,42 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             let prev = 0; root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!visible(h)) return; const lvl = +h.tagName[1]; if (prev && lvl > prev + 1) add('heading-order', 'moderate', h, `saut de titre h${prev}→h${lvl}`); prev = lvl; });
             // 7. tabindex positif
             root.querySelectorAll('[tabindex]').forEach(el => { const t = parseInt(el.getAttribute('tabindex'), 10); if (t > 0) add('tabindex', 'moderate', el, `tabindex=${t} (>0) casse l'ordre de tabulation`); });
-            // 8. contraste couleur (WCAG AA) — best-effort, plafonné
-            const parseRGB = s => { const m = s.match(/\d+(\.\d+)?/g); return m ? m.slice(0, 3).map(Number) : null; };
+            // 8. contraste du texte (WCAG 2.x AA : 4,5:1, 3:1 pour le grand texte) ; fond résolu par les ancêtres, images et dégradés écartés
+            const MAX_CONTRAST = 500;
+            const parseRGBA = (s) => { const m = String(s).match(/[\d.]+/g); return m && m.length >= 3 ? { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 } : null; };
             const lum = rgb => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
-            const bgOf = el => { let e = el; while (e) { const b = getComputedStyle(e).backgroundColor; const rgb = parseRGB(b); if (rgb && b !== 'rgba(0, 0, 0, 0)' && b !== 'transparent') return rgb; e = e.parentElement; } return [255, 255, 255]; };
-            let checked = 0;
-            root.querySelectorAll('p,span,a,li,td,th,label,button,h1,h2,h3,h4,h5,h6').forEach(el => {
-                if (checked > 200 || !visible(el)) return;
-                if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return;
-                const st = getComputedStyle(el); const fg = parseRGB(st.color); if (!fg) return;
+            const over = (top, under) => top.c.map((v, i) => v * top.a + under[i] * (1 - top.a));
+            // Fond effectif : couches de fond des ancêtres composées sur blanc ; `null` si une image ou un dégradé intervient.
+            const bgOf = el => {
+                const couches = [];
+                for (let e = el; e; e = e.parentElement) {
+                    const st = getComputedStyle(e);
+                    if (st.backgroundImage && st.backgroundImage !== 'none') return null;
+                    const k = parseRGBA(st.backgroundColor);
+                    if (k && k.a > 0) { couches.push(k); if (k.a >= 1) break; }
+                }
+                return couches.reduceRight((under, k) => over(k, under), [255, 255, 255]);
+            };
+            const portes = new Set(); let skippedBg = 0, checked = 0, capped = false;
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                const el = n.parentElement;
+                if (!el || portes.has(el) || !n.textContent.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+                portes.add(el);
+                if (!visible(el) || el.closest('[disabled]')) continue;
+                if (checked >= MAX_CONTRAST) { capped = true; break; }
+                const st = getComputedStyle(el);
+                const fgRaw = parseRGBA(st.color); if (!fgRaw) continue;
+                const bg = bgOf(el);
+                if (!bg) { skippedBg++; continue; }
                 checked++;
-                const L1 = lum(fg) + 0.05, L2 = lum(bgOf(el)) + 0.05;
+                const fg = over(fgRaw, bg);
+                const L1 = lum(fg) + 0.05, L2 = lum(bg) + 0.05;
                 const ratio = Math.max(L1, L2) / Math.min(L1, L2);
                 const fs = parseFloat(st.fontSize), large = fs >= 24 || (fs >= 18.66 && +st.fontWeight >= 700);
                 const min = large ? 3 : 4.5;
-                if (ratio < min) add('color-contrast', 'serious', el, `contraste ${ratio.toFixed(2)}:1 < ${min}:1 (AA)`);
-            });
+                if (ratio < min) add('color-contrast', 'serious', el, `contrast ${ratio.toFixed(2)}:1 < ${min}:1 (WCAG AA, ${large ? 'large' : 'normal'} text)`);
+            }
             const by_impact = V.reduce((a, v) => { a[v.impact] = (a[v.impact] || 0) + 1; return a; }, {});
             const by_rule = V.reduce((a, v) => { a[v.rule] = (a[v.rule] || 0) + 1; return a; }, {});
             // Audit tools web 2026-09-05 — `total/by_impact` seuls ne disaient pas
@@ -4472,7 +4492,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             return { ok: true, scope: scopeSel, violations: V.slice(0, 100), total: V.length,
                      truncated: V.length > 100, by_impact, by_rule,
                      rules_run: ['image-alt', 'label', 'control-name', 'duplicate-id', 'html-lang', 'heading-order', 'tabindex', 'color-contrast'],
-                     contrast_sampled: checked, contrast_capped: checked > 200,
+                     contrast_sampled: checked, contrast_capped: capped,
+                     ...(skippedBg ? { contrast_skipped: skippedBg, contrast_note: `${skippedBg} text element(s) on an image or gradient background were not checked: verify them by eye.` } : {}),
                      passed: V.length === 0 };
         }, { scopeSel: scope, srcUnique: sourceDe(selecteurUnique) });
         res.json(report);

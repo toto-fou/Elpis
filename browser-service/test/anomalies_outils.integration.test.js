@@ -92,3 +92,23 @@ test('pw_visual : le seuil par défaut échoue sur un petit changement, le seuil
     assert.equal(explicite.threshold, 0.05);
     assert.equal(explicite.max_diff_pixels, undefined);
 });
+
+test('pw_a11y : texte gris clair sur blanc signalé, grand texte à 3:1, fond hérité des ancêtres, image écartée avec une note', { skip: SAUTER, timeout: 60000 }, async () => {
+    await api('/evaluate', { script: `document.documentElement.lang = 'en'; document.body.innerHTML =
+        '<div id="a" style="color:#ccc">Pale grey</div><strong id="b" style="color:#767676">Fine</strong><h2 id="f" style="color:#888;font-size:30px">Large ok</h2>'
+        + '<div style="background:#000"><p><em id="c" style="color:#222">Dark on black</em></p></div>'
+        + '<h1 id="d" style="color:#999;font-size:30px">Large pale</h1>'
+        + '<div style="background-image:linear-gradient(red, blue)"><span id="e" style="color:#ccc">On gradient</span></div>'; return 1` });
+    const r = (await api('/a11y_audit')).corps;
+    const contrastes = r.violations.filter(v => v.rule === 'color-contrast');
+    const par = (id) => contrastes.find(v => v.selector.includes(id));
+    assert.ok(par('#a'), JSON.stringify(contrastes));
+    assert.match(par('#a').message, /^contrast 1\.6\d:1 < 4\.5:1/);
+    assert.equal(par('#b'), undefined, '#767676 sur blanc = 4.54:1');
+    assert.equal(par('#f'), undefined, 'grand texte #888 = 3.54:1 passe à 3:1');
+    assert.ok(par('#c'), 'fond noir hérité du parent');
+    assert.match(par('#d').message, /< 3:1 \(WCAG AA, large text\)/);
+    assert.equal(par('#e'), undefined);
+    assert.equal(r.contrast_skipped, 1);
+    assert.match(r.contrast_note, /image or gradient/);
+});

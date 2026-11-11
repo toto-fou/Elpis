@@ -37,10 +37,11 @@ pitfalls: [AGENTS.md](AGENTS.md).
 
 ## Before opening a pull request
 
-Pull requests target `devs/main`, the development branch: it is always
-ahead of `main` and carries the full test suite. `main` only receives
-releases, merged from `devs/main` without the tests. Branch from
-`devs/main`, then run:
+Pull requests target `main` and must pass its CI. The tests live on
+`devs/main`, the development branch: always ahead of `main`, it carries the
+work in progress and the full test suite, and is where changes are
+integrated and tested first. Pull requests to `main` do not include the
+tests. Before opening one, run:
 
 ```bash
 npm ci

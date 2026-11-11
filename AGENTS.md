@@ -62,10 +62,10 @@ npm run format         # applies Prettier (npm run format:check to verify)
 Branches: `devs/main` is the development branch. It is always ahead of
 `main`, holds the work in progress and the full test suite (TypeScript,
 Python, real journeys in Chromium): see [docs/testing.md](docs/testing.md).
-Branch from `devs/main`, run the tests of the areas you touched, and open
-the pull request against `devs/main`. `main` only receives releases, merged
-from `devs/main` without the test kit. Describe in the pull request what you
-tried by hand (screen, command, edge case).
+Work is integrated and tested there, with its tests. Pull requests target
+`main`, without the test kit, and must pass its CI (the commands above).
+Describe in the pull request what you tried by hand (screen, command, edge
+case).
 
 Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`
 (rules in `pyproject.toml`, ruff is installed by `requirements.txt`).

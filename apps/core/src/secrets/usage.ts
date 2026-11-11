@@ -87,6 +87,11 @@ async function attache(x: Executeur, l: LigneSecret, c: ContexteUsage): Promise<
   );
 }
 
+/** Politique (sous-agent, routine) et attachement du secret pour ce contexte, contrôlés comme par `lireSecretPourUsage`, sans lecture, compte ni journal (sondage de présence). */
+export function permisPourContexte(x: Executeur, l: LigneSecret, c: ContexteUsage): Promise<boolean> {
+  return attache(x, l, c);
+}
+
 /** Cible normalisée selon l'usage ; illisible : `null`. */
 function cibleNormalisee(usage: GenreSecret, cible: DemandeUsage["cible"]): string | number | null {
   if (parOrigines(usage)) return typeof cible === "string" ? origineExacte(cible) : null;

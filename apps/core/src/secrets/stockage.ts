@@ -2,7 +2,7 @@
 /** apps/core/src/secrets/stockage.ts — table `vault_secrets` : création, modification (« vide = inchangé »), rotation, vérification, suppression et liste, valeur chiffrée jamais relue par l'API et liée aux colonnes qui décident de son usage ; chaque écriture au journal de sécurité, sans valeur. */
 import { POLITIQUE_SECRET_DEFAUT, SECRETS_PAR_PROPRIETAIRE_MAX } from "@elpis/contracts";
 import type { EtatSecret, GenreSecret, PolitiqueSecret, PorteeSecret, Secret } from "@elpis/contracts";
-import { ErreurIntegrite, NOM_CLE_IMAGES } from "@elpis/db";
+import { ErreurIntegrite, NOM_CLE_IMAGES, tableColumns } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 import {
   auditEvent,
@@ -200,13 +200,28 @@ export function aadLigne(l: LigneSecret): string {
   return aadSecret(l.user_id, genreDe(l), l.name, l);
 }
 
-/** Clé pour chiffrer : la courante ; à défaut, la clé de repli n'est posée que sur un coffre vide, sinon ses secrets resteraient illisibles (refus 503). */
-async function cleDeChiffrement(x: Executeur): Promise<CleCoffre> {
+/** Colonne des secrets de webhook des routines posée (absente entre la mise à jour du code et le redémarrage qui pose le schéma) ; lue sans requête en échec, qui romprait une transaction PostgreSQL. */
+export async function colonneWebhooks(x: Executeur): Promise<boolean> {
+  return (await tableColumns(x, "editor_routines")).includes("webhook_secret_enc");
+}
+
+/** Chiffrés posés par la clé du coffre : secrets du coffre et secrets de webhook des routines. */
+async function chiffresExistants(x: Executeur): Promise<number> {
+  const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
+  const w = (await colonneWebhooks(x))
+    ? await x.get<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM editor_routines WHERE webhook_secret_enc IS NOT NULL",
+      )
+    : undefined;
+  return Number(n?.n ?? 0) + Number(w?.n ?? 0);
+}
+
+/** Clé pour chiffrer : la courante ; à défaut, la clé de repli n'est posée que sur un coffre vide (secrets de webhook des routines compris), sinon ses secrets resteraient illisibles (refus 503). */
+export async function cleDeChiffrement(x: Executeur): Promise<CleCoffre> {
   try {
     const cle = cleCoffre();
     if (cle !== null) return cle;
-    const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
-    if (Number(n?.n ?? 0) > 0)
+    if ((await chiffresExistants(x)) > 0)
       throw new ErreurSecret(
         503,
         "secret_key_unavailable",

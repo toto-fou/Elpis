@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/routines/magasin.ts — routines planifiées et journal de leurs exécutions (scheduling/routines_store.py) : CRUD cloisonné par propriétaire, admission atomique, transitions terminales, rétention, dédup des webhooks. */
+/** apps/core/src/routines/magasin.ts — routines planifiées et journal de leurs exécutions (scheduling/routines_store.py) : CRUD cloisonné par propriétaire, admission atomique, transitions terminales, rétention, dédup des webhooks, secret de webhook chiffré par le coffre. */
 import {
   entierOuNulPy,
   ErreurJsonPy,
@@ -19,8 +19,16 @@ import {
 import type { Dict } from "@elpis/commun";
 import { castInt, hasTable } from "@elpis/db";
 import type { Base, Executeur, Ligne, Valeur } from "@elpis/db";
+import {
+  aadWebhookRoutine,
+  chiffrerSecret,
+  CleCoffreIndisponible,
+  dechiffrerSecret,
+  SecretIndechiffrable,
+} from "@elpis/securite";
 
 import { journal } from "../journal";
+import { cleDeChiffrement } from "../secrets/stockage";
 
 const log = journal("routines");
 
@@ -131,7 +139,7 @@ function flottant(v: unknown): unknown {
   return typeof v === "number" ? versFlottantPy(v) : v;
 }
 
-/** `_row_to_routine` : JSON décodés, booléens et compteurs normalisés ; le secret du webhook ne sort jamais (seulement `webhook_has_secret`). */
+/** `_row_to_routine` : JSON décodés, booléens et compteurs normalisés ; le secret du webhook (chiffré) ne sort jamais (seulement `webhook_has_secret`). */
 export function rowToRoutine(row: Ligne): Dict {
   const d: Dict = { ...row };
   for (const c of ["created_at", "updated_at"]) if (Object.hasOwn(d, c)) d[c] = flottant(d[c]);
@@ -141,8 +149,9 @@ export function rowToRoutine(row: Ligne): Dict {
   d["enabled"] = veritePy(d["enabled"]);
   d["connector_id"] = veritePy(d["connector_id"]) ? intPy(d["connector_id"]) : null;
   d["agents_enabled"] = false;
-  const secret = d["webhook_secret"];
+  const secret = d["webhook_secret_enc"];
   delete d["webhook_secret"];
+  delete d["webhook_secret_enc"];
   d["webhook_has_secret"] = veritePy(secret);
   d["webhook_enabled"] = veritePy(d["webhook_enabled"]);
   delete d["webhook_mode"];
@@ -376,7 +385,7 @@ export async function updateRoutine(
   });
 }
 
-/** Déclencheur webhook (cloisonné) ; un champ `undefined` reste inchangé ; faux si rien à écrire ou routine absente. */
+/** Déclencheur webhook (cloisonné) ; un champ `undefined` reste inchangé ; le secret est chiffré par la clé du coffre (refus `secret_key_unavailable` sans clé) ; faux si rien à écrire ou routine absente. */
 export async function setRoutineWebhook(
   base: Base,
   routineId: number,
@@ -390,8 +399,8 @@ export async function setRoutineWebhook(
     params.push(o.enabled ? 1 : 0);
   }
   if (o.secret !== undefined) {
-    sets.push("webhook_secret=?");
-    params.push(o.secret);
+    sets.push("webhook_secret_enc=?", "webhook_secret=NULL");
+    params.push(chiffrerSecret(o.secret, aadWebhookRoutine(intPy(routineId)), await cleDeChiffrement(base)));
   }
   if (o.filter !== undefined) {
     sets.push("webhook_filter=?");
@@ -407,13 +416,22 @@ export async function setRoutineWebhook(
   return r.changes > 0;
 }
 
-/** Secret par id seul : réservé à la vérification de la livraison publique. */
+/** Secret déchiffré, par id seul : réservé à la vérification de la livraison publique ; illisible (clé du coffre) : `null`, journalisé. */
 export async function getRoutineWebhookSecret(x: Executeur, routineId: number): Promise<string | null> {
-  const row = await x.get<{ webhook_secret: unknown }>(
-    "SELECT webhook_secret FROM editor_routines WHERE id=?",
-    [intPy(routineId)],
+  const id = intPy(routineId);
+  const row = await x.get<{ webhook_secret_enc: unknown }>(
+    "SELECT webhook_secret_enc FROM editor_routines WHERE id=?",
+    [id],
   );
-  return row && typeof row.webhook_secret === "string" && row.webhook_secret ? row.webhook_secret : null;
+  const enc = row?.webhook_secret_enc;
+  if (typeof enc !== "string" || !enc) return null;
+  try {
+    return dechiffrerSecret(enc, aadWebhookRoutine(id));
+  } catch (e) {
+    if (!(e instanceof SecretIndechiffrable || e instanceof CleCoffreIndisponible)) throw e;
+    log.warn(`[webhooks] secret du webhook de la routine ${id} illisible (${e.message}) : livraison ignorée`);
+    return null;
+  }
 }
 
 /** Vrai à la première présentation d'une livraison (à traiter), faux si rejouée ; purge du TTL au passage. */

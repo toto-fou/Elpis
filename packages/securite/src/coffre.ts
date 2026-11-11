@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/securite/src/coffre.ts — coffre « Secrets » : AES-256-GCM (AAD propre au secret, `kid` de la clé), clé hors base (env, fichier système, repli 0600 créé sous verrou). */
-import { createCipheriv, createDecipheriv, createSecretKey, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createSecretKey, randomBytes } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 import {
   closeSync,
@@ -256,6 +256,11 @@ export function configurerCoffre(r: ReglagesCoffre): void {
   courante = null;
 }
 
+/** Vrai si ce process a configuré le coffre (core) ; l'hôte d'outils ne le configure jamais. */
+export function coffreConfigure(): boolean {
+  return reglages !== null;
+}
+
 /** Réglages lus dans l'environnement ; le repli est `.vault.key` dans le dossier de la base. */
 export function reglagesCoffreDeLEnvironnement(env: NodeJS.ProcessEnv, dossierBase: string): ReglagesCoffre {
   return {
@@ -337,6 +342,60 @@ export function etatCleCoffre(r: ReglagesCoffre = reglagesExiges()): {
   } catch (e) {
     return { source: "absente", chemin: null, kid: null, erreur: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** Colonnes d'un secret liées à son chiffré, telles qu'enregistrées : les changer sans la clé le rend indéchiffrable. */
+export interface ColonnesLieesCoffre {
+  scope_json: string;
+  policy_json: string;
+  state: string;
+  version: number;
+  username: string | null;
+}
+
+/** AAD d'un secret du coffre : propriétaire (0 = instance), genre, nom et SHA-256 du JSON des colonnes liées (portée, politique, état, version, identifiant) ; partagée par le core et les migrations. */
+export function aadCoffre(
+  proprietaire: number | null,
+  genre: string,
+  nom: string,
+  liees: ColonnesLieesCoffre,
+): string {
+  const colonnes = [
+    liees.scope_json,
+    liees.policy_json,
+    liees.state,
+    Number(liees.version),
+    liees.username ?? null,
+  ];
+  const empreinte = createHash("sha256").update(JSON.stringify(colonnes), "utf8").digest("hex");
+  return `vault|v2|${proprietaire ?? 0}|${genre}|${nom}|${empreinte}`;
+}
+
+/** AAD du secret de webhook d'une routine, chiffré sur place (hors liste du coffre) et lié à la routine. */
+export function aadWebhookRoutine(routine: number): string {
+  return `vault|v1|routine-webhook|${routine}`;
+}
+
+const NOM_MAX = 48;
+
+/** Slug d'un libellé libre : minuscules ASCII sans accents, autres caractères en `-`, sans séparateur en tête ni en fin. */
+function slug(texte: string): string {
+  return texte
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/gu, "-")
+    .replace(/-{2,}/gu, "-")
+    .replace(/^[-._]+|[-._]+$/gu, "");
+}
+
+/** Nom de secret dérivé de libellés (hôte, libellé…) : slug de 48 caractères au plus, suffixé `-2`, `-3`… s'il est déjà pris. */
+export function nomDeriveCoffre(parties: readonly string[], pris: ReadonlySet<string>): string {
+  const base = parties.map(slug).filter(Boolean).join("-") || "secret";
+  const couper = (n: number): string => base.slice(0, n).replace(/[-._]+$/u, "");
+  let nom = couper(NOM_MAX);
+  for (let i = 2; pris.has(nom); i++) nom = `${couper(NOM_MAX - String(i).length - 1)}-${i}`;
+  return nom;
 }
 
 /** `v1.<kid>.<nonce>.<chiffré‖tag>` : nonce aléatoire de 96 bits, tag de 128 bits, AAD liée au secret ; sans clé donnée, la clé courante (jamais créée ici). */

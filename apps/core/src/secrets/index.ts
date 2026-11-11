@@ -13,7 +13,7 @@ export {
   verifierSecret,
 } from "./stockage";
 export type { Acteur, DonneesSecret, ModifSecret, Proprietaire } from "./stockage";
-export { estAttache, lireSecretPourUsage } from "./usage";
+export { estAttache, lireSecretPourUsage, permisPourContexte } from "./usage";
 export type { ContexteUsage, DemandeUsage, SecretResolu } from "./usage";
 export { rechiffrerCoffre, secretsParCle } from "./cle";
 export type { RapportRechiffrement } from "./cle";

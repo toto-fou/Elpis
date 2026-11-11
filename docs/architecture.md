@@ -442,7 +442,8 @@ Reference schemas:
 `editor_routines`: `cron_expr`, `model`, `connector_id` (inference server,
 NULL = built-in), `system_prompt`, `task_prompt`, `mcp_snapshot`,
 `skills`, `thinking_mode`, `agents_enabled`, `enabled`, `last_fire_minute`,
-`webhook_enabled`/`webhook_secret`/`webhook_filter`,
+`webhook_enabled`/`webhook_secret_enc`/`webhook_filter` (the webhook secret is encrypted
+by the [secrets vault](#secrets-vault); the old plain `webhook_secret` stays empty),
 `trigger_after_id`/`trigger_after_on`.
 
 `editor_routine_runs`: `status` (`running`/`ok`/`error`/`skipped`/`cancelled`),
@@ -1411,8 +1412,8 @@ now knows `task` only through its own bound (`bornesDuLot`) and the refusal of a
   `sousAgent`, `outilPermisSousAgent`): categories of the type, removals of the type
   (`OUTILS_RETIRES_PAR_TYPE`), console setting (`toolsDeniedFor("subagent")`), base denials
   (`task`, `task_status`, `task_wait`, `task_send`, `todowrite`, `ask_user`, `routine_save`, `agent_save`) and
-  `OUTILS_JAMAIS_SOUS_AGENT` (`shell_job`, `task`, `ask_user`, `routine_save`, `agent_save`, `git_submit`,
-  `git_set_credential`: what leaves the sandbox, publication or the account's git credential). A child
+  `OUTILS_JAMAIS_SOUS_AGENT` (`shell_job`, `task`, `ask_user`, `routine_save`, `agent_save`, `git_submit`:
+  what leaves the sandbox or publishes). A child
   does not call what it does not see; the tool host does not reapply this scope (the `_meta` of
   local calls carries only `type`, `id` and `browser_session`). **Read-only** (`read_only` of the
   call, account checkbox, default or administrator enforcement, `lectureSeuleEffective`;
@@ -2094,14 +2095,43 @@ there is no read-modify-write race. `sandbox_mode` and
 `discard`, `commit`, `stash`, `merge`, `merge-abort`, `merge-resolve`, `rebase`,
 `remote`, `config`, `revert-last`, `restore-commit` (POST).
 
-**Connectors** (`/api/git/connectors`): CRUD, `POST /parse` (detect the
+**Connectors** (`/api/git/connectors`, Settings › Git accounts): CRUD, `POST /parse` (detect the
 service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
 
 - **Host-only** store, keyed by `(owner_user_id, host[, label])` → self-hosted +
   multi-account.
-- The token is **never** returned by the listing; only the host-side
-  resolvers (`findForHost`, `resolveGitCredential`,
-  `apps/core/src/git/connecteurs.ts`) decrypt it.
+- The token lives in the [secrets vault](#secrets-vault): one `git` secret per connector, scope
+  `{"host": "<host[:port]>"}`, named `git-<host>-<label>` (slug, suffixed when taken), linked by
+  `git_connectors.secret_id`; `token_enc` stays empty and `token_scheme` is `vault`. The `token`
+  field of `POST`/`PUT` is write-only (empty = unchanged); changing the host, the provider type or
+  the API base so that the effective API (`getProvider(type).apiBase(host, api_base)`) changes,
+  without a new token, clears the token (its secret, or a plain `token_enc` not migrated yet): a
+  token never follows an account to another host or API. Deleting the connector deletes its
+  secret. `has_token` is true only when the secret is a `git` secret for that host, active (not
+  `unverified`) and decryptable with the current key.
+- The token is **never** returned by the listing. It is read only through `lireSecretPourUsage`
+  (`resolveGitCredential` and `jetonDuConnecteur`, `apps/core/src/git/connecteurs.ts`), which checks
+  kind, state, scope and policy, counts the use and writes `vault.secret.used` (a refusal,
+  `vault.secret.refused`): connection test, repository list, PR opening, and
+  `GET /api/internal/git/credential` for the tool host, which takes the account from the signed
+  identity (`X-Elpis-Identity`), never from the query. The tool host signs, with the account, the
+  conversation (`chat_id`) and the sub-agent of the tool call taken from its `_meta`; the core
+  reads a routine run from that `chat_id` (`routine:<id>:run:<id>`, its sub-agents' `…#task-<id>`
+  included), so the secret's `subagents` and `routines` policy applies and the audit log carries
+  `chat_id`, `run` and `subagent`. The tool host keys its 15-second cache by that signed caller.
+- `GET /api/internal/git/credential/available` tells the tools whether such a token exists (same
+  rules, nothing decrypted for the caller, no use counted, nothing logged): `git_clone` and
+  `git_submit` use it to choose their message; only the network operation itself reads the token.
+  `GET /api/internal/git/connector-hosts` (hosts allowed by the anti-SSRF guard) also reads the
+  account from the signed identity.
+- An old `/work/.git-credentials.json` (written by the Python core, but writable by the agent) is
+  imported once per account, for a host already registered by the account or by an administrator:
+  its tokens become `git` secrets in state `unverified` with `meta.source` `sandbox-file`, which
+  never resolve until the user verifies them in Settings › Secrets or types the token in
+  Settings › Git accounts.
+- No tool receives a credential: a token is entered by the user, in Settings › Git accounts or in
+  the editor's clone and push/pull dialogs (a token typed at clone time is saved through the
+  internal route, origin `editeur`; push and pull never save it).
 - Providers: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Each one can open a PR/MR.
 - **Anti-SSRF** (`packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts`)
@@ -2787,7 +2817,7 @@ sent to the engine stay as it emitted them.
 |---|---|---|
 | `fs` (tool host) | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
 | `shell` (tool host) | `shell` | `execute_shell` |
-| `git` (tool host) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
+| `git` (tool host) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone` |
 | `browser` (tool host) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_login`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
 | `desktop` (tool host) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` opt-in) |
 | `chart` (main) | `chart` | one tool per type: `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
@@ -2830,12 +2860,13 @@ returning the tool result, otherwise the last chunks are lost.
 Repositories in the user's sandbox. Tools grouped by intent rather than
 by command: querying (`git_query`, `git_inspect`), writing
 (`git_write`, `git_rf`), workflow (`git_start_work` → `git_commit` →
-`git_submit` / `git_abandon`), and `git_clone` / `git_set_credential`.
+`git_submit` / `git_abandon`), and `git_clone`. No git tool takes a credential: clone, push, pull
+and `git_submit` use the token of the account's Git account for the exact host, and when one is
+missing the error tells the model to ask the user to add it in Settings › Git accounts.
 
 `git_submit` opens the PR/MR via the provider resolved from the Git connector. It
 is never offered to a subagent (`OUTILS_JAMAIS_SOUS_AGENT`): the `pr` agent
-prepares the branch and commit, the parent publishes (see "Subagents"). `git_set_credential`
-is not either: it writes the account's Git connector into the core's database, outside the sandbox.
+prepares the branch and commit, the parent publishes (see "Subagents").
 Local command timeout: `APP_GIT_TOOL_TIMEOUT_S` (60 s); network
 commands have their own budget (120 s).
 
@@ -3641,6 +3672,28 @@ image engine key (instance `token` `image-engine`) belong to their connector: `D
 `secret_managed`, the `detail` names where to manage them), and deleting the connector deletes its
 secret. The rotation routes refuse an `mcp` secret too (its value is the server's JSON).
 
+**Git accounts.** Each Git connector keeps its token in a `git` secret of its owner (scope: the
+connector's host), linked by `git_connectors.secret_id`; see
+[Sandbox Git and Git connectors](#sandbox-git-and-git-connectors). Git secrets are created with
+`{"subagents": true, "routines": true}`, as connectors were usable by both before the vault; they
+are listed by `/api/secrets` like the others.
+
+**Routine webhook secrets.** The secret of a routine webhook must stay readable to check the HMAC
+of a delivery: it is encrypted in place with the vault key (`editor_routines.webhook_secret_enc`,
+AAD `vault|v1|routine-webhook|<routine id>`), never listed by `/api/secrets`, and still shown once
+by `POST /api/routines/:routine_id/webhook/rotate`. `vault status` counts these secrets and
+`vault rekey` re-encrypts them with the vault rows.
+
+**Migration `0027_vault_git`** (the first TS migration, `packages/db/src/migrations.ts`): every
+plain `git_connectors.token_enc` becomes a `git` secret (`secret_id` set, `token_enc` emptied,
+`token_scheme` = `vault`), and every plain `webhook_secret` moves to `webhook_secret_enc`, in one
+transaction. It uses the current vault key; with none, it creates the fallback key only while
+nothing is encrypted yet, like the first secret. Without a usable key it fails, leaves everything
+as it was and is retried at the next start (`migration 0027_vault_git en échec` in the log, still
+pending in `./elpis db info`); a process that has no vault (the tool host, which may share the
+database) leaves it to the core. Routine webhook secrets follow the same key rule, and their
+ciphertexts count as existing secrets for it.
+
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
 `sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
 The fallback is created 0600 under a lock the first time a secret is saved, only while
@@ -3654,13 +3707,13 @@ One validator (`validerCleCoffre`) decides for the core, for `vault setup` (thro
 `exploitation.mjs vault check-key`, the key on standard input) and for the doctor: canonical base64
 (44 characters) or 64 hexadecimal digits, 32 bytes, not a single repeated byte. `kid` = first 8
 hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from` re-encrypts the rows of
-an old `kid` ([operations.md](operations.md#secrets-vault-key)).
+an old `kid`, routine webhook secrets included ([operations.md](operations.md#secrets-vault-key)).
 
 `main` and `admin` delete `ELPIS_VAULT_KEY` and `ELPIS_VAULT_KEY_PATH` from their environment
 once read. The other units get `UnsetEnvironment=` for both and `InaccessiblePaths=` for
 `/etc/elpis/vault.key` and the fallback, and `./elpis start` runs them without the variables. The
-Fernet encryption of `packages/securite/src/chiffrement.ts` still holds the MCP and AX secrets
-until they move to the vault.
+Fernet encryption of `packages/securite/src/chiffrement.ts` still holds the MCP secrets until they
+move to the vault.
 
 ### LLM connector and image engine keys
 

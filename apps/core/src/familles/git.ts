@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/git.ts — `/api/git/connectors*` : connecteurs git du compte, jeton en écriture seule, test et dépôts côté serveur sous garde SSRF (shared_infra/git/routes.py). */
+/** apps/core/src/familles/git.ts — `/api/git/connectors*` : comptes git du compte, jeton en écriture seule dans le coffre « Secrets », test et dépôts côté serveur sous garde SSRF (shared_infra/git/routes.py). */
 import {
   copieDict,
   getPy,
@@ -14,21 +14,24 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import type { Executeur } from "@elpis/db";
+import type { CodeErreurSecret } from "@elpis/contracts";
+import type { Base } from "@elpis/db";
 import type { auditEvent } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { textePy } from "../comptes/aides";
 import {
+  contexteUtilisateur,
   createConnector,
   deleteConnector,
-  getConnectorSecret,
+  getConnector,
+  jetonDuConnecteur,
   listConnectors,
   PROVIDER_TYPES,
   updateConnector,
 } from "../git/connecteurs";
-import type { ChampsConnecteur, ConnecteurSecret } from "../git/connecteurs";
+import type { ChampsConnecteur, ContexteGit, LigneConnecteur } from "../git/connecteurs";
 import { defaultProviderType, detectProvider, normalizeHost } from "../git/detection";
 import { getProvider } from "../git/fournisseurs";
 import { gardeGit } from "../git/garde";
@@ -37,6 +40,7 @@ import { httpJson } from "../git/http";
 import type { OptionsHttp } from "../git/http";
 import { auditerRequete, ipDeRequete } from "../journal-securite/auditer";
 import type { Famille } from "../routes";
+import { refusDeCle } from "../secrets/erreurs";
 import { utilisateur } from "./comptes";
 import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
 
@@ -44,7 +48,7 @@ const MAX = 200;
 const CHAMPS_MODIFIABLES = ["provider_type", "host", "api_base", "label", "username"] as const;
 
 export interface DependancesGit {
-  readonly base: Executeur;
+  readonly base: Base;
   /** Client JSON des API git (défaut : `httpJson`). */
   readonly http?: (url: string, options: OptionsHttp) => Promise<Dict>;
   /** Résolution DNS de la garde SSRF (défaut : système). */
@@ -64,7 +68,7 @@ function cid(req: FastifyRequest): number {
 /** Garde SSRF commune au test et aux dépôts : seul l'hôte ENREGISTRÉ sort du réseau public, jamais vers la boucle ni le lien local ; non résolu, refusé avant toute requête. */
 async function preparer(
   dep: DependancesGit,
-  ligne: ConnecteurSecret,
+  ligne: LigneConnecteur,
 ): Promise<{ prov: Fournisseur; apiBase: string; motif: string | null; http: Http }> {
   const prov = getProvider(ligne.provider_type);
   const apiBase = prov.apiBase(ligne.host, ligne.api_base || "");
@@ -91,6 +95,30 @@ function poserSiAbsent(d: Dict, cle: string, valeur: unknown): void {
   if (!Object.hasOwn(d, cle)) poserCle(d, cle, valeur);
 }
 
+/** Refus du coffre rendus en français sur la page Comptes Git ; les autres codes gardent leur statut et leur message. */
+const REFUS_COFFRE: Readonly<Partial<Record<CodeErreurSecret, readonly [number, string]>>> = {
+  secret_key_unavailable: [
+    503,
+    "Clé du coffre indisponible sur ce serveur : jeton non enregistré (./elpis doctor).",
+  ],
+  secret_undecryptable: [409, "Jeton illisible avec la clé actuelle du coffre : saisissez-le à nouveau."],
+  secret_value_invalid: [400, "Jeton invalide : 16 384 caractères au plus."],
+  secret_scope_invalid: [400, "host invalide pour un compte Git"],
+  secret_limit: [409, "Trop de secrets pour ce compte : supprimez-en dans Paramètres › Secrets."],
+};
+
+/** Écriture dans le coffre ; un refus devient une `HttpError` lisible par l'interface. */
+async function avecCoffre<T>(f: () => Promise<T>): Promise<T> {
+  try {
+    return await f();
+  } catch (e) {
+    const r = refusDeCle(e);
+    if (r === null) throw e;
+    const [statut, message] = REFUS_COFFRE[r.code] ?? [r.statut, r.message];
+    throw new HttpError(statut, message);
+  }
+}
+
 function indice(res: Dict, apiBase: string): string | null {
   const st = Object.hasOwn(res, "status") ? res["status"] : null;
   if (st === 401 || st === 403)
@@ -113,6 +141,11 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
           ip: ipDeRequete(req),
         })
       : auditerRequete(req, action, details, { userId: uid });
+  const acteur = (req: FastifyRequest, uid: number): ContexteGit["acteur"] => ({
+    userId: uid,
+    username: req.utilisateur?.username ?? null,
+    ip: ipDeRequete(req),
+  });
   const route = (
     methode: "GET" | "POST" | "PUT" | "DELETE",
     chemin: string,
@@ -160,12 +193,21 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
           );
         if (!host) throw new HttpError(400, "host requis (ex. github.com, gitlab.acme.internal)");
         if (!token) throw new HttpError(400, "token requis");
-        const id = await createConnector(base, uid, type, host, {
-          token,
-          apiBase: nettoyer(getPy(data, "api_base"), 400),
-          label: nettoyer(getPy(data, "label")),
-          username: nettoyer(getPy(data, "username")),
-        });
+        const id = await avecCoffre(() =>
+          createConnector(
+            base,
+            uid,
+            type,
+            host,
+            {
+              token,
+              apiBase: nettoyer(getPy(data, "api_base"), 400),
+              label: nettoyer(getPy(data, "label")),
+              username: nettoyer(getPy(data, "username")),
+            },
+            acteur(req, uid),
+          ),
+        );
         auditer(req, uid, "git.connector.create", { connector_id: id, provider_type: type, host });
         return { ok: true, id };
       }),
@@ -183,7 +225,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
           throw new HttpError(400, "provider_type invalide");
         if (inPy("token", data) && stripPy(textePy(getPy(data, "token"))))
           champs.token = stripPy(getPy(data, "token") as string);
-        if (!(await updateConnector(base, uid, id, champs)))
+        if (!(await avecCoffre(() => updateConnector(base, uid, id, champs, acteur(req, uid)))))
           throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
         auditer(req, uid, "git.connector.update", { connector_id: id });
         return { ok: true };
@@ -191,19 +233,21 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
       route("DELETE", "/api/git/connectors/:cid", async (req) => {
         const uid = utilisateur(req);
         const id = cid(req);
-        if (!(await deleteConnector(base, uid, id))) throw new HttpError(404, "Connecteur introuvable");
+        if (!(await avecCoffre(() => deleteConnector(base, uid, id, acteur(req, uid)))))
+          throw new HttpError(404, "Connecteur introuvable");
         auditer(req, uid, "git.connector.delete", { connector_id: id });
         return { ok: true };
       }),
       route("GET", "/api/git/connectors/:cid/repos", async (req, rep) => {
         const uid = utilisateur(req);
         const id = cid(req);
-        const ligne = await getConnectorSecret(base, uid, id);
+        const ligne = await getConnector(base, uid, id);
         if (!ligne) throw new HttpError(404, "Connecteur introuvable");
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api", repos: [] };
         if (motif) return { ok: false, error: `blocked: ${motif}`, repos: [] };
-        const res = copieDict(await prov.listRepos(http, apiBase, ligne.token, ligne.username || ""));
+        const jeton = await jetonDuConnecteur(base, ligne, contexteUtilisateur(acteur(req, uid)));
+        const res = copieDict(await prov.listRepos(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "repos", []);
         const depots = res["repos"];
@@ -221,12 +265,13 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
       route("POST", "/api/git/connectors/:cid/test", async (req, rep) => {
         const uid = utilisateur(req);
         const id = cid(req);
-        const ligne = await getConnectorSecret(base, uid, id);
+        const ligne = await getConnector(base, uid, id);
         if (!ligne) throw new HttpError(404, "Connecteur introuvable");
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api" };
         if (motif) return { ok: false, error: `blocked: ${motif}` };
-        const res = copieDict(await prov.testConnection(http, apiBase, ligne.token, ligne.username || ""));
+        const jeton = await jetonDuConnecteur(base, ligne, contexteUtilisateur(acteur(req, uid)));
+        const res = copieDict(await prov.testConnection(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "api_base", apiBase);
         if (!veritePy(res["ok"])) {

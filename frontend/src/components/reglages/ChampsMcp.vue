@@ -30,13 +30,18 @@ const cle = computed<"headers" | "env">(() => (f.value?.type === "stdio" ? "env"
 const indiceSecret = (ph: string): string => (f.value?.has_auth ? "inchangé" : ph);
 const ERREURS_SECRET: Readonly<Record<string, string>> = {
   undecryptable: "Secret illisible avec la clé actuelle du coffre : ressaisissez-le.",
-  key_unavailable: "Clé du coffre indisponible sur le serveur : secret inaccessible.",
   missing: "Secret retiré du coffre : ressaisissez-le.",
   not_migrated: "Secret non repris dans le coffre : ressaisissez-le.",
 };
+// Clé du coffre absente : la ressaisie échouerait aussi, seul un administrateur peut la rétablir.
 const erreurSecret = computed(() => {
   const code = f.value?.secret_error;
-  return code ? (ERREURS_SECRET[code] ?? "Secret à ressaisir.") : "";
+  if (!code) return "";
+  if (code === "key_unavailable")
+    return admin.value
+      ? "Clé du coffre indisponible sur le serveur : voir ./elpis doctor."
+      : "Clé du coffre indisponible sur le serveur : prévenez un administrateur.";
+  return ERREURS_SECRET[code] ?? "Secret à ressaisir.";
 });
 </script>
 

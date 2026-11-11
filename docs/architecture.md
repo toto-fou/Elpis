@@ -2977,6 +2977,9 @@ A secret from the vault is never typed through a gesture: it goes into a **secur
 (`POST /start` with `secure: true`), and only through `POST /login`. The adversary is not only a
 hostile page but also the agent itself, which drives a programmable browser; a secure session
 therefore removes every way to read a typed value back.
+Outside a secure session the model may still type credentials it already knows (given in the
+chat, or shown on the page for a demo account) with an ordinary gesture: they are then plain text
+in the chat history. HTTP authentication only comes from an `http-auth` secret.
 
 - **Fixed at start, for the session's lifetime**: Chromium only; TLS verified (`tls: "strict"`,
   default) unless the vault entry allows `"insecure"`; the site's CSP stays in force; service

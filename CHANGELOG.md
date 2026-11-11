@@ -331,8 +331,11 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
-- **`username` and `password` of `pw_session`, and the browser's own login memory.** No tool
-  accepts a password any more: HTTP authentication comes from an attached `http-auth` secret.
+- **`username` and `password` of `pw_session`, and the browser's own login memory.** HTTP
+  authentication comes only from an attached `http-auth` secret. On a login form with no attached
+  secret, the model may still type credentials it already knows (given in the chat, or shown on
+  the page for a demo account); they stay in plain text in the chat history, so real accounts
+  belong in the vault.
   `pw_session` no longer saves or injects site logins (`ax_credentials`); the logins it had saved
   are imported into the vault as `unverified` secrets named after their host (by the core at
   each start while rows remain, and by the tool host in the background at startup), then deleted

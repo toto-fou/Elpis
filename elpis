@@ -17,6 +17,7 @@
 #  ./elpis restart               migrations en attente, puis stop et start
 #  ./elpis status                état des services et des ports
 #  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin browser)
+#  ./elpis logs browser COMPTE [-f]  service navigateur dans le bac du compte
 #  ./elpis service install       services systemd (sudo), démarrage au boot
 #  ./elpis service remove
 #  ./elpis service print         affiche les unités sans rien installer
@@ -525,10 +526,16 @@ cmd_status() {
 }
 
 cmd_logs() {
-    local svc="" follow=0 a
+    local svc="" compte="" follow=0 a c
     for a in "$@"; do
-        case "$a" in -f|--follow) follow=1 ;; *) svc="$a" ;; esac
+        case "$a" in -f|--follow) follow=1 ;; *) if [ -z "$svc" ]; then svc="$a"; else compte="$a"; fi ;; esac
     done
+    # ./elpis logs browser COMPTE : journal du service navigateur dans le bac du compte (browser.mode = sandbox).
+    if [ "$svc" = browser ] && [ -n "$compte" ]; then
+        c="$(docker ps -q --filter "label=elpis.username=$compte" | head -n1)"
+        [ -n "$c" ] || die "Aucun bac en marche pour le compte $compte."
+        exec docker exec "$c" tail -n 50 $([ "$follow" -eq 1 ] && echo -F) /work/.elpis-browser/service.log
+    fi
     if systemd_active && [ -n "$svc" ]; then
         exec journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f)
     fi
@@ -718,6 +725,34 @@ sonde_du_core() {
         else case "$l" in *" WARNING "*|*" ERROR "*) warn "  $msg" ;; *) info "  $msg" ;; esac; fi
         n=$((n+1))
     done <<< "$lignes"
+}
+
+# Navigateur dans le bac (browser.mode = « sandbox ») : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
+doctor_navigateur_bac() {
+    local mode ca pw nm sb s d j n=0
+    mode="$("${PY:-python3}" -c 'import json, sys
+try: print(str((json.load(open(sys.argv[1])).get("browser") or {}).get("mode") or "central").strip().lower())
+except Exception: print("central")' "$ROOT/config.json" 2>/dev/null)"
+    if [ "$mode" != sandbox ]; then info "navigateur : service central (browser.mode = ${mode:-central})"; return 0; fi
+    ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
+    check "navigateur dans le bac : autorité du relais ($ca)" "créée au démarrage de l'hôte d'outils : ./elpis restart" test -s "$ca/ca.crt" -a -s "$ca/ca.key"
+    [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
+    pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+    check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
+    nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
+    check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules}" \
+        test "$(find "$ROOT/browser-service" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 3
+    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
+        [ -S "$s" ] || continue
+        d="$(dirname "$(dirname "$s")")"; j="$d/.browser-service.token"; n=$((n+1))
+        if [ -s "$j" ] && sed -n '1s/^/Authorization: Bearer /p' "$j" | curl --unix-socket "$s" -fsS -m 3 -H @- http://browser/health 2>/dev/null | grep -q '"ok":true'; then
+            check "navigateur du bac ${d##*/} : en marche, relais de l'hôte à l'écoute" "./elpis logs toolhost ; ./elpis logs browser ${d##*/}" test -S "$d/.elpis-agent/browser-relay.sock"
+        else
+            info "navigateur du bac ${d##*/} : arrêté (relancé au prochain outil pw_* ; ./elpis logs browser ${d##*/})"
+        fi
+    done
+    [ "$n" -gt 0 ] || info "navigateur dans le bac : aucun service en marche (démarré au premier outil pw_* d'un compte)"
 }
 
 # Journal de sécurité et centralisation (ANSSI) : dossiers et droits (compte des services), clé de signature, règle rsyslog et ses paquets, journald persistant, horloge ; appelée par cmd_doctor (compteur bad).
@@ -957,6 +992,7 @@ cmd_doctor() {
     done
     check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
     check "service navigateur" "./install.sh" test -d "$ROOT/browser-service/node_modules"
+    doctor_navigateur_bac
     # En marche : son /health doit répondre et dire le navigateur utilisable.
     if port_open "$BROWSER_PORT"; then
         check "service navigateur (/health)" \

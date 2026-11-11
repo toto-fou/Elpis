@@ -1955,15 +1955,20 @@ const ownerStartLocks = new Map();
 // Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
 const requetesEcartees = new WeakSet();
+const documentSansFragment = (u) => String(u || '').split('#')[0];
 function attachPageLoggers(page, consoleLogs, networkLog) {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
+    // Chaque entrée porte l'URL du document (sans fragment) qui l'a émise : l'inspection ne rend que celles du document courant.
+    const noter = (line) => {
+        consoleLogs.push({ line, doc: documentSansFragment(page.url()) });
+        if (consoleLogs.length > 100) consoleLogs.shift();
+    };
     page.on('console', msg => {
-        if (['error', 'warning'].includes(msg.type())) {
-            consoleLogs.push(`[${msg.type()}] ${purgerTexte(msg.text(), networkLog.formes)}`);
-            if (consoleLogs.length > 100) consoleLogs.shift();
-        }
+        if (['error', 'warning'].includes(msg.type())) noter(`[${msg.type()}] ${purgerTexte(msg.text(), networkLog.formes)}`);
     });
+    // Exception non rattrapée de la page (onload compris), que la console ne montre pas.
+    page.on('pageerror', err => noter(`[pageerror] ${purgerTexte(String(err?.message || err), networkLog.formes)}`));
     const pageHost = () => { try { return hostOf(page.url()); } catch (_) { return ''; } };
     const entry = (req, rtype) => {
         const url = req.url();
@@ -4335,7 +4340,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             level, viewport_only: viewportOnly, max_items: maxItems,
             screenshot: skipScreenshot ? null : `smart_${sid}.png`,
             // Répétitions compactées en « (×N) » (audit tools web 2026-09-05).
-            console_errors: compactConsole(req.session.consoleLogs || [], 5),
+            console_errors: compactConsole((req.session.consoleLogs || [])
+                .filter(e => e.doc === documentSansFragment(page.url())).map(e => e.line), 5),
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

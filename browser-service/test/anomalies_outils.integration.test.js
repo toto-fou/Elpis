@@ -9,6 +9,7 @@ import { demarrerService, raisonDeSauter } from './aides/service.js';
 const SAUTER = await raisonDeSauter('chromium');
 const OWNER = 'anomalies';
 const PAGES = {
+    '/avec-onload': '<title>Onload</title><body onload="throw new Error(\'boom du chargement\')">page',
     '/': '<title>Accueil</title><button id="b" onclick="document.title=\'clic\'">Envoyer</button><input placeholder="Votre nom"><div><span>a</span><span class="x" onclick="1">b</span></div>',
 };
 
@@ -125,4 +126,17 @@ test('pw_session start : record_har, trace ou émulation sur une session reprise
     assert.equal((await service.get(`/list_tabs?owner=${OWNER}&session_id=${sid}`)).corps.tabs.length, avant);
     const simple = await service.post('/start', { owner: OWNER, url: `${base}/autre`, record_har: false, trace: false });
     assert.equal(simple.corps.reused, true, simple.texte);
+});
+
+test('pw_page inspect : console_errors du document courant seulement, erreur non rattrapée d\'un onload comprise', { skip: SAUTER, timeout: 60000 }, async () => {
+    const erreurs = async () => (await service.get(`/smart_inspect?owner=${OWNER}&session_id=${sid}&level=lite&skip_screenshot=true`)).corps.console_errors;
+    await ouvrir('/ancienne');
+    await api('/evaluate', { script: "console.error('erreur de l\\'ancienne page'); return 1" });
+    assert.deepEqual(await erreurs(), ["[error] erreur de l'ancienne page"]);
+    await ouvrir('/chargement');
+    assert.deepEqual(await erreurs(), [], 'rien de la page précédente');
+    await ouvrir('/avec-onload');
+    const apres = await erreurs();
+    assert.equal(apres.length, 1, JSON.stringify(apres));
+    assert.match(apres[0], /^\[pageerror\] .*boom du chargement/);
 });

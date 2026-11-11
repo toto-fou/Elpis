@@ -402,6 +402,7 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **pw_page inspect console errors.** `console_errors` accumulated errors from earlier pages and missed an uncaught error thrown in an `onload` handler; uncaught page errors are now captured too, each entry is tagged with its document URL, and inspect returns only the current document's entries.
 - **pw_session start with options on a reused session.** `record_har`, `trace`, `record_video` and emulation options were silently ignored when the account's session (or the secret's) was reused; start now refuses them with `session_options_need_new_session` and says to use `isolated=true` or stop the session first (an `http-auth` secret keeps its `recording_with_credentials` refusal, now also on reuse).
 - **pw_a11y contrast.** Light grey text on white was not flagged: the check only looked at a few tags. It now covers every visible text element (up to 500), uses the WCAG 2.x ratio (4.5:1, 3:1 for large text) with the background resolved through the ancestors, and skips image or gradient backgrounds with a note.
 - **pw_visual default threshold.** The default (1 % of pixels) passed a real change on a small page; without `threshold` the comparison now passes only when at most 0.1 % and at most 200 pixels changed, an explicit `threshold` keeps its meaning, and the result reports `diff_pixels` (and `max_diff_pixels` for the default rule).

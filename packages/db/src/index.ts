@@ -37,24 +37,36 @@ export {
 export type { Col, Fk, Index, RapportFts, RapportSchema, Table, TypeCol } from "./schema";
 export { BASELINE_COVERS, MIGRATIONS_PYTHON, TABLES } from "./schema.gen";
 export {
+  avecEffacementSur,
+  compacterApresMigrations,
   decrireEmplacement,
   durcirDroits,
   ErreurBaseNonAJour,
   infoBase,
   initialiserBase,
-  MigrationDifferee,
-  MIGRATIONS_TS,
   registreMigrations,
   supprimerSansTrace,
   walCheckpoint,
 } from "./init";
-export type { InfoBase, Migration, NotesMigration, OptionsInfo, OptionsInit, RapportInit } from "./init";
+export type { InfoBase, OptionsInfo, OptionsInit, RapportInit } from "./init";
+export { MigrationDifferee, MIGRATIONS_TS } from "./migration";
+export type {
+  CoffreMigration,
+  ContexteMigration,
+  EvenementMigration,
+  LectureFernet,
+  Migration,
+  NotesMigration,
+  PortCoffre,
+  PortFernet,
+  PortsMigration,
+  SecretARanger,
+} from "./migration";
 export {
-  avecEffacementSur,
   cleHeritee,
   cleImagesHeritee,
   genreCleImages,
-  installerRangementCoffre,
+  MIGRATION_COFFRE_LLM_IMAGES,
   NOM_CLE_IMAGES,
   nomCleConnecteur,
   ouvrirSceauImages,
@@ -65,4 +77,4 @@ export {
   SCHEMA_ILLISIBLE,
   semerCleImages,
 } from "./coffre-llm-images";
-export type { BilanReprise, CleLue, RangerSecret, SecretARanger } from "./coffre-llm-images";
+export type { BilanReprise, CleLue, PortsReprise } from "./coffre-llm-images";

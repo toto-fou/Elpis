@@ -11,7 +11,8 @@ import { VerrouFichier, VerrouOccupe } from "@elpis/verrous";
 import type { Base } from "./base";
 import { ErreurOperation } from "./erreurs";
 import { durcirDroits, initialiserBase } from "./init";
-import type { Migration, RapportInit } from "./init";
+import type { RapportInit } from "./init";
+import type { Migration, PortsMigration } from "./migration";
 import { ouvrirBase } from "./ouvrir";
 import type { ReglagesBase } from "./ouvrir";
 
@@ -153,8 +154,9 @@ export interface OptionsDemarrage {
   /** Après le schéma, avant de rendre la base (nettoyage au démarrage) ; une erreur ferme la base. */
   readonly apres?: (b: Base) => Promise<unknown>;
   readonly journal?: FabriqueJournal;
-  /** Migrations propres au process (celles du core, jamais jouées par l'hôte d'outils sur sa base). */
+  /** Implémentations des migrations du registre que ce process applique (main), avec leurs ports ; ailleurs, une migration en attente est laissée à main. */
   readonly migrations?: readonly Migration[];
+  readonly ports?: Partial<PortsMigration>;
 }
 
 /** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis `apres`. */
@@ -171,12 +173,13 @@ export async function demarrerBase(o: OptionsDemarrage = {}): Promise<{ base: Ba
     const verrou = await prendreVerrouSchema(journal);
     let rapport: RapportInit;
     try {
-      rapport = await initialiserBase(nouvelle, { migrations: o.migrations ?? [] });
+      rapport = await initialiserBase(nouvelle, { migrations: o.migrations ?? [], ports: o.ports ?? {} });
     } finally {
       await verrou?.rendre();
     }
     for (const info of rapport.infos) log.info(info);
     for (const avertissement of rapport.avertissements) log.warn(avertissement);
+    if (rapport.appliquees.length) log.info(`migrations appliquées : ${rapport.appliquees.join(", ")}`);
     for (const d of rapport.differees) log.info(`migration ${d.name} différée : ${d.message}`);
     if (rapport.echec) log.error(`migration ${rapport.echec.name} en échec : ${rapport.echec.message}`);
     await o.apres?.(nouvelle);

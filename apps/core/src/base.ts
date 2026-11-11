@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage, reprise des anciens identifiants AX dans le coffre. */
+/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage (migrations du coffre appliquées par main seulement, puis un compactage), reprise des anciens identifiants AX dans le coffre. */
 import { config } from "@elpis/config";
 import {
+  compacterApresMigrations,
   creerGardeGeneration,
   demarrerBase as demarrerBaseCommune,
+  MIGRATION_COFFRE_LLM_IMAGES,
   nettoyerSousVerrou,
   prendreVerrouSchema,
   walCheckpoint,
 } from "@elpis/db";
-import type { Base, RapportInit } from "@elpis/db";
+import type { Base, Migration, RapportInit } from "@elpis/db";
 
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
 import { repriseAxDuCore } from "./secrets/import-ax";
-import { installerRepriseCoffre, reprendreAuDemarrage } from "./secrets/reprise";
+import { journaliserMigrations, portsMigrationsDuCore, reprendreAuDemarrage } from "./secrets/reprise";
+
+/** Implémentations des migrations du registre (`MIGRATIONS_TS` de @elpis/db) que main applique avec les ports du core ; admin, l'hôte d'outils et les commandes les lui laissent. */
+export const MIGRATIONS_DU_CORE: readonly Migration[] = [MIGRATION_COFFRE_LLM_IMAGES];
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -60,18 +65,42 @@ export async function reprendreAxAuDemarrage(b: Base): Promise<void> {
   }
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (clés rangées dans le coffre par ce process, rapport journalisé), puis nettoyage, reprise des anciennes clés et des anciens identifiants AX par main seulement. */
+/** Compactage unique après les migrations du coffre appliquées à ce démarrage (anciennes valeurs hors du fichier), sous le verrou de schéma ; une erreur est journalisée, jamais bloquante. */
+export async function compacterAuDemarrage(b: Base, tables: readonly string[]): Promise<void> {
+  const log = journal("coffre");
+  const verrou = await prendreVerrouSchema(journal);
+  try {
+    const propre = await compacterApresMigrations(b, tables);
+    log.info(
+      `base compactée après les migrations du coffre (${b.dialecte === "sqlite" ? "VACUUM" : `VACUUM FULL ${tables.join(", ")}`})`,
+    );
+    if (!propre)
+      log.warn("compactage : WAL occupé par un autre process, tronqué au prochain point de contrôle");
+  } catch (e) {
+    log.warn(
+      `compactage après les migrations du coffre impossible (${e instanceof Error ? e.message : String(e)}) : ` +
+        "d'anciennes valeurs peuvent rester dans des pages libres jusqu'au prochain VACUUM",
+    );
+  } finally {
+    await verrou?.rendre();
+  }
+}
+
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé) ; main seul applique les migrations du coffre (journal de sécurité écrit après validation), puis nettoyage, reprise des anciennes clés et des anciens identifiants AX, et un compactage si des migrations ont été appliquées. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
-  installerRepriseCoffre();
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
-    ...(mode === "main" ? { apres: nettoyerAuDemarrage } : {}),
+    ...(mode === "main"
+      ? { apres: nettoyerAuDemarrage, migrations: MIGRATIONS_DU_CORE, ports: portsMigrationsDuCore() }
+      : {}),
     journal,
   });
   courante = nouvelle;
+  journaliserMigrations(rapport.audit);
   if (mode === "main") {
     await reprendreAuDemarrage(nouvelle, rapport, journal("coffre"));
     await reprendreAxAuDemarrage(nouvelle);
+    if (rapport.aCompacter.length) await compacterAuDemarrage(nouvelle, rapport.aCompacter);
   }
   return rapport;
 }

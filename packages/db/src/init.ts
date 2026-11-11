@@ -4,32 +4,35 @@ import { chmodSync, closeSync, existsSync, mkdirSync, openSync, realpathSync, st
 import { dirname, join } from "node:path";
 
 import type { Base, Executeur, StatsPool } from "./base";
-import { MIGRATION_COFFRE_LLM_IMAGES } from "./coffre-llm-images";
 import { ErreurBase } from "./erreurs";
-import { MigrationDifferee } from "./migration";
-import type { Migration, NotesMigration } from "./migration";
+import { MigrationDifferee, MIGRATIONS_TS } from "./migration";
+import type {
+  ContexteMigration,
+  EvenementMigration,
+  Migration,
+  NotesMigration,
+  PortsMigration,
+} from "./migration";
 import { createAll, hasTable, isFresh } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
-
-export { MigrationDifferee } from "./migration";
-export type { Migration, NotesMigration } from "./migration";
 
 export class ErreurBaseNonAJour extends ErreurBase {
   override name = "ErreurBaseNonAJour";
 }
-
-/** Migrations propres au TS, numérotées à la suite des migrations Python. */
-export const MIGRATIONS_TS: readonly Migration[] = [MIGRATION_COFFRE_LLM_IMAGES];
 
 export interface RapportInit {
   neuve: boolean;
   tamponnees: number;
   appliquees: string[];
   echec: { name: string; message: string } | null;
-  /** Laissées à un process qui en a les moyens (`MigrationDifferee`) : ni appliquées ni tamponnées. */
+  /** Laissées à un process qui en a les moyens (implémentation absente ici, ou `MigrationDifferee`) : ni appliquées ni tamponnées. */
   differees: { name: string; message: string }[];
   /** Notes des migrations appliquées, à journaliser par l'appelant. */
   infos: string[];
+  /** Événements du journal de sécurité des migrations appliquées, à écrire par l'appelant (la transaction est validée). */
+  audit: EvenementMigration[];
+  /** Tables touchées par les migrations appliquées ici, à compacter une fois par main (`compacterApresMigrations`). */
+  aCompacter: string[];
   fts: boolean;
   unaccent: boolean;
   /** À journaliser par l'appelant (plein texte dégradé, colonnes impossibles à ajouter). */
@@ -39,12 +42,14 @@ export interface RapportInit {
 }
 
 /** Ordre du registre : migrations Python (vides), puis migrations TS numérotées à la suite, noms uniques. */
-export function registreMigrations(ts: readonly Migration[] = MIGRATIONS_TS): string[] {
-  const noms = [...MIGRATIONS_PYTHON, ...ts.map((m) => m.name)];
+export function registreMigrations(ts: readonly string[] = MIGRATIONS_TS): string[] {
+  const noms = [...MIGRATIONS_PYTHON, ...ts];
   const derniere = MIGRATIONS_PYTHON[MIGRATIONS_PYTHON.length - 1] ?? "";
-  for (const m of ts) {
-    if (!/^\d{4}_[a-z0-9_]+$/u.test(m.name) || m.name <= derniere)
-      throw new Error(`migration TS mal numérotée : ${m.name}`);
+  let precedente = derniere;
+  for (const n of ts) {
+    if (!/^\d{4}_[a-z0-9_]+$/u.test(n) || n <= precedente)
+      throw new Error(`migration TS mal numérotée : ${n}`);
+    precedente = n;
   }
   if (new Set(noms).size !== noms.length) throw new Error("nom de migration en double");
   return noms;
@@ -78,15 +83,54 @@ async function tamponner(x: Executeur, name: string): Promise<void> {
   ]);
 }
 
+/** `f` avec `secure_delete` sur la connexion SQLite (anciennes valeurs effacées des pages, pas seulement libérées), réglage d'avant remis ensuite ; PostgreSQL : tel quel. */
+export async function avecEffacementSur<T>(x: Executeur, f: () => Promise<T>): Promise<T> {
+  if (x.dialecte !== "sqlite") return f();
+  const avant = Number(
+    Object.values((await x.get<Record<string, unknown>>("PRAGMA secure_delete")) ?? {})[0],
+  );
+  await x.run("PRAGMA secure_delete = ON");
+  try {
+    return await f();
+  } finally {
+    await x.run(`PRAGMA secure_delete = ${avant === 2 ? "FAST" : avant === 1 ? "ON" : "OFF"}`);
+  }
+}
+
 export interface OptionsInit {
-  /** Migrations numérotées d'un seul process, jouées avec celles du TS dans l'ordre des noms. */
+  /** Implémentations des migrations du registre apportées par ce process (main) ; une migration en attente sans implémentation ici est différée. */
   readonly migrations?: readonly Migration[];
+  /** Ports des migrations (coffre, Fernet sans création de clé) ; absents : `null`. */
+  readonly ports?: Partial<PortsMigration>;
   /** Réservé à l'annonce d'un travail réel (ligne d'essai) ; sans effet sur cette base. */
   readonly annoncerTravail?: () => void;
 }
 
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations du TS et du process (`o.migrations`). */
+/** Contexte d'une migration : le coffre rend l'id du secret rangé et garde son événement avec ceux de la migration. */
+function contexte(ports: Partial<PortsMigration>, evenements: EvenementMigration[]): ContexteMigration {
+  const coffre = ports.coffre ?? null;
+  return {
+    coffre:
+      coffre === null
+        ? null
+        : {
+            async ranger(x, s) {
+              const { id, evenement } = await coffre.ranger(x, s);
+              evenements.push(evenement);
+              return id;
+            },
+          },
+    fernet: ports.fernet ?? null,
+    auditer: (e) => evenements.push(e),
+  };
+}
+
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée (registre entier) ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations TS en attente jouées dans l'ordre du registre avec `secure_delete`, jusqu'à la première différée (implémentation absente de ce process, `MigrationDifferee`) ou en échec. */
 export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<RapportInit> {
+  const implementations = new Map((o.migrations ?? []).map((m) => [m.name, m]));
+  for (const nom of implementations.keys())
+    if (!MIGRATIONS_TS.includes(nom)) throw new Error(`migration hors du registre : ${nom}`);
+  registreMigrations();
   return base.ecriture(async (x) => {
     const neuve = await isFresh(x);
     if (!neuve) {
@@ -108,14 +152,17 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
     }
     const schema = await createAll(base);
     const avant = await appliquees(x);
-    if (neuve) for (const n of BASELINE_COVERS) await tamponner(x, n);
+    const couvertes = [...BASELINE_COVERS, ...MIGRATIONS_TS];
+    if (neuve) for (const n of couvertes) await tamponner(x, n);
     const rapport: RapportInit = {
       neuve,
-      tamponnees: neuve ? BASELINE_COVERS.filter((n) => !avant.has(n)).length : 0,
+      tamponnees: neuve ? couvertes.filter((n) => !avant.has(n)).length : 0,
       appliquees: [],
       echec: null,
       differees: [],
       infos: [],
+      audit: [],
+      aCompacter: [],
       fts: schema.fts,
       unaccent: schema.unaccent,
       avertissements: [
@@ -128,26 +175,35 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
       colonnesImpossibles: schema.impossibles,
     };
     const faites = await appliquees(x);
-    const migrations = [...MIGRATIONS_TS, ...(o.migrations ?? [])].sort((a, b) => (a.name < b.name ? -1 : 1));
-    registreMigrations(migrations);
-    for (const m of migrations) {
-      if (faites.has(m.name)) continue;
+    for (const nom of MIGRATIONS_TS) {
+      if (faites.has(nom)) continue;
+      const m = implementations.get(nom);
+      if (m === undefined) {
+        rapport.differees.push({
+          name: nom,
+          message: "laissée à main (implémentation absente de ce process)",
+        });
+        break;
+      }
+      const evenements: EvenementMigration[] = [];
       let notes: void | NotesMigration;
       try {
         notes = await base.transaction(async (y) => {
-          const n = await m.migrer(y, base);
-          await tamponner(y, m.name);
+          const n = await avecEffacementSur(y, () => m.migrer(y, base, contexte(o.ports ?? {}, evenements)));
+          await tamponner(y, nom);
           return n;
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        if (e instanceof MigrationDifferee) rapport.differees.push({ name: m.name, message });
-        else rapport.echec = { name: m.name, message };
+        if (e instanceof MigrationDifferee) rapport.differees.push({ name: nom, message });
+        else rapport.echec = { name: nom, message };
         break;
       }
-      rapport.appliquees.push(m.name);
-      rapport.infos.push(...(notes?.infos ?? []).map((n) => `migration ${m.name} : ${n}`));
-      rapport.avertissements.push(...(notes?.avertissements ?? []).map((n) => `migration ${m.name} : ${n}`));
+      rapport.appliquees.push(nom);
+      rapport.audit.push(...evenements);
+      for (const t of m.tables) if (!rapport.aCompacter.includes(t)) rapport.aCompacter.push(t);
+      rapport.infos.push(...(notes?.infos ?? []).map((n) => `migration ${nom} : ${n}`));
+      rapport.avertissements.push(...(notes?.avertissements ?? []).map((n) => `migration ${nom} : ${n}`));
     }
     return rapport;
   });
@@ -267,22 +323,7 @@ export async function supprimerSansTrace(
   table: string,
   supprimer: (x: Executeur) => Promise<number>,
 ): Promise<{ supprimees: number; propre: boolean }> {
-  let supprimees = 0;
-  await base.ecriture(async (x) => {
-    if (base.dialecte !== "sqlite") {
-      supprimees = await supprimer(x);
-      return;
-    }
-    const avant = Number(
-      Object.values((await x.get<Record<string, unknown>>("PRAGMA secure_delete")) ?? {})[0],
-    );
-    await x.run("PRAGMA secure_delete = ON");
-    try {
-      supprimees = await supprimer(x);
-    } finally {
-      await x.run(`PRAGMA secure_delete = ${avant === 2 ? "FAST" : avant === 1 ? "ON" : "OFF"}`);
-    }
-  });
+  const supprimees = await base.ecriture((x) => avecEffacementSur(x, () => supprimer(x)));
   if (supprimees === 0) return { supprimees, propre: true };
   if (base.dialecte !== "sqlite") {
     await base.exec(`VACUUM FULL ${table}`);
@@ -290,6 +331,20 @@ export async function supprimerSansTrace(
   }
   const r = await base.get<Record<string, unknown>>("PRAGMA wal_checkpoint(TRUNCATE)");
   return { supprimees, propre: Number(r?.["busy"] ?? 0) === 0 };
+}
+
+/** Compactage unique après les migrations appliquées par main : SQLite `VACUUM` puis WAL tronqué, PostgreSQL `VACUUM FULL` des `tables` touchées ; chaque attente de verrou est bornée par le délai de la base ; faux si le WAL n'a pas pu être tronqué. */
+export async function compacterApresMigrations(base: Base, tables: readonly string[]): Promise<boolean> {
+  if (base.dialecte !== "sqlite") {
+    for (const t of tables) {
+      if (!/^[a-z_][a-z0-9_]*$/u.test(t)) throw new Error(`nom de table invalide : ${t}`);
+      await base.exec(`VACUUM FULL ${t}`);
+    }
+    return true;
+  }
+  await base.exec("VACUUM");
+  const r = await base.get<Record<string, unknown>>("PRAGMA wal_checkpoint(TRUNCATE)");
+  return Number(r?.["busy"] ?? 0) === 0;
 }
 
 /** `wal_checkpoint` : compacte le journal WAL (SQLite seulement), une fois au démarrage parmi les processus. */

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/git/ecriture.ts — `git_write` (git_tools.py) : écrire ou remplacer dans un fichier de dépôt par l'agent du bac, sous le verrou partagé avec l'éditeur et fs, historique de session et `files_changed`. */
 import type { Dict, MotifPy } from "@elpis/commun";
-import { compilerPy, ErreurRe, intPy, lowerPy, stripPy, subn } from "@elpis/commun";
+import { compilerPy, ErreurRe, intPy, lowerPy, stripPy } from "@elpis/commun";
 import { AgentError, MAX_FILE, TOO_BIG } from "@elpis/fichiers";
 import type { ContenuHistorique } from "@elpis/fichiers";
 import { ok } from "@elpis/outils-mcp";
 
+import { avecFilCalcul } from "../../fichiers/calcul-execution";
 import { Espace } from "../espace";
 import { avecVerrou, dansDossierGit, entreeChangee, modeEcrit, noterEcriture } from "../fs/acces";
 import { verifierRegexSure } from "../fs/edition";
@@ -170,7 +171,7 @@ async function ecrireDepot(c: CompteGit, a: ArgsEcritureGit): Promise<Dict> {
         if (e instanceof ErreurRe) return errGit(`bad_regex: ${e.message}`, "Escape special chars with \\ .");
         throw e;
       }
-      [nouveau, n] = subn(m, a.replace, texte);
+      [nouveau, n] = await avecFilCalcul((fil) => fil.subn(m, a.replace, texte));
       if (n === 0) return ok({ path: a.path, replacements: 0, changed: false });
     }
     if (a.dry_run)

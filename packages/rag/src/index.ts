@@ -28,6 +28,7 @@ export {
   PARAMS_DECOUPAGE_DEFAUT,
   VERSION_DECOUPAGE,
 } from "./decoupage";
+export { decouperHorsBoucle } from "./decoupage-fil";
 export type {
   Bloc,
   Boite,

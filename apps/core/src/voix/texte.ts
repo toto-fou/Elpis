@@ -5,6 +5,9 @@ import { compilerRe, echapperPy, estAlnumPy, longueurPy, prefixePy, rfindPy, str
 export const ANNONCE_CODE = "Bloc de code.";
 export const ANNONCE_TABLEAU = "Tableau.";
 
+/** Le double du plafond de `tts.max_chars` : les motifs ci-dessous ne voient jamais plus. */
+const ENTREE_MAX = 8000;
+
 type Remplacement = string | ((m: string, g1: string | undefined) => string);
 
 /** Motif de `re` de Python (sémantique exacte), parcouru en entier comme `re.sub`. */
@@ -28,12 +31,12 @@ const REMPLACEMENTS: readonly (readonly [RegExp, Remplacement])[] = [
   [motif("(?m)^\\s{0,3}>\\s?"), ""],
   [motif("(?m)^\\s{0,3}[-*+]\\s+"), ""],
   [motif("(?m)^\\s{0,3}\\d{1,3}[.)]\\s+"), ""],
-  [motif("(?m)^\\s*\\|[-:\\s|]+\\|\\s*$"), " "],
-  [motif("(?m)^\\s*\\|.*\\|\\s*$"), ` ${ANNONCE_TABLEAU} `],
+  [motif("(?m)^[^\\S\\n]*\\|[-:\\s|]+\\|\\s*$"), " "],
+  [motif("(?m)^[^\\S\\n]*\\|.*\\|\\s*$"), ` ${ANNONCE_TABLEAU} `],
   [motif("~~([^~]+)~~"), groupe1("")],
   [motif("\\*\\*([^*]+)\\*\\*"), groupe1("")],
   [motif("(?<!\\w)[*_]([^*_\\n]+)[*_](?!\\w)"), groupe1("")],
-  [motif("(?m)^\\s*[-*_]{3,}\\s*$"), " "],
+  [motif("(?m)^[^\\S\\n]*[-*_]{3,}\\s*$"), " "],
   [motif("\\[\\^[^\\]]*\\]"), " "],
   [motif("[\u{1F000}-\u{1FAFF}☀-➿⌀-⏿⬀-⯿️‍⃣]"), " "],
 ];
@@ -44,7 +47,7 @@ const PRONONCIATION: readonly (readonly [RegExp, Remplacement])[] = [
   [motif("(?<=\\d)\\s*€"), " euros"],
   [motif("(?<=\\d)\\s*\\$"), " dollars"],
   [motif("(?<=\\s)&(?=\\s)"), " et "],
-  [motif("\\s*(?:-->|->|=>)\\s*"), " vers "],
+  [motif("(?:(?<!\\s)\\s+)?(?:-->|->|=>)\\s*"), " vers "],
   [motif("[•▪●▸→←]"), " "],
   [motif("(?<![\\w@])(?:https?://|www\\.)\\S+"), " lien "],
 ];
@@ -64,7 +67,7 @@ function appliquer(texte: string, re: RegExp, r: Remplacement): string {
 /** `pour_la_voix` : nettoyage puis, si `maxChars` > 0, coupe à la dernière fin de phrase au-delà du tiers du plafond. */
 export function pourLaVoix(texte: string | null | undefined, maxChars = 0): string {
   if (!texte) return "";
-  let sortie = texte;
+  let sortie = prefixePy(texte, ENTREE_MAX);
   for (const [re, r] of REMPLACEMENTS) sortie = appliquer(sortie, re, r);
   for (const [re, r] of PRONONCIATION) sortie = appliquer(sortie, re, r);
   for (const [annonce, re] of ANNONCES_REPETEES) sortie = appliquer(sortie, re, annonce);

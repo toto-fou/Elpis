@@ -280,6 +280,7 @@ verifier_core() {
     local node="$1" core="$2" inst port pid rc=0 sain=0
     [ -f "$core/pixels.mjs" ] && [ -f "$core/webp/dec/webp_dec.wasm" ] && [ -f "$core/webp/enc/webp_enc.wasm" ] \
         || die "Bundle du core : thread des images ou codecs WebP absents (pixels.mjs, webp/)."
+    [ -f "$core/decoupage-fil.mjs" ] || die "Bundle du core : thread du découpage RAG absent (decoupage-fil.mjs)."
     ELPIS_RACINE="$ROOT" "$node" "$core/exploitation.mjs" empreinte || die "Bundle du core : empreinte des sources."
     "$node" "$core/exploitation.mjs" natif || die "Bundle du core : module natif."
     inst="$(mktemp -d)"

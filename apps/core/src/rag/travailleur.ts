@@ -62,6 +62,8 @@ export interface ReglagesTravailleurRag {
   essaisDouteux: number;
   dimensionTtlMs: number;
   arretMs: number;
+  /** Limite du découpage d'un document (thread tué au-delà pour une regex). */
+  decoupageMs: number;
 }
 
 export const REGLAGES_TRAVAILLEUR_RAG: Readonly<ReglagesTravailleurRag> = {
@@ -77,6 +79,7 @@ export const REGLAGES_TRAVAILLEUR_RAG: Readonly<ReglagesTravailleurRag> = {
   essaisDouteux: 3,
   dimensionTtlMs: 10 * 60_000,
   arretMs: 8_000,
+  decoupageMs: 60_000,
 };
 
 /** Notification de fin d'un travail (au propriétaire). */
@@ -198,6 +201,7 @@ export class TravailleurRag {
       extraire: dep.extraire ?? extraireDocument,
       embeddings: dep.embeddings ?? clientEmbeddingsRag,
       dimension: (modele, signal) => this.dimension(modele, dep.embeddings ?? clientEmbeddingsRag, signal),
+      delaiDecoupageMs: this.r.decoupageMs,
       surEtat: (travail, doc) => this.emettre(travail, documentPublic(doc), false),
     };
   }

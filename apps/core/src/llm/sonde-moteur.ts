@@ -169,6 +169,12 @@ export async function reflexionConservable(engine: EngineRef): Promise<boolean> 
   return (await infosServeur(engine)).parseurReflexion !== null;
 }
 
+/** Le moteur dit n'avoir aucun parseur d'appels d'outils (SGLang lancé sans `--tool-call-parser`) : ses appels n'arrivent qu'en texte. */
+export async function outilsEnTexteDeclares(engine: EngineRef): Promise<boolean> {
+  if (engine.profil.type !== "sglang") return false;
+  return (await infosServeur(engine)).parseurOutils === null;
+}
+
 /** Capacité du cache KV en jetons quand le moteur la donne hors métriques (SGLang : `max_total_num_tokens`) ; 0 sinon. */
 export async function capaciteKvConnue(engine: EngineRef): Promise<number> {
   if (engine.profil.type !== "sglang") return 0;

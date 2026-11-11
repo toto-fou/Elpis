@@ -256,7 +256,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
       } else if ((r.type === "requete" && r.statut === 401) || r.type === "refus") {
         loginError.value = "Identifiant ou mot de passe incorrect.";
       } else if (r.type === "requete" && r.statut === 429) {
-        loginError.value = "Trop de tentatives. Patientez une minute avant de réessayer.";
+        loginError.value = "Trop de tentatives. Patientez quelques minutes avant de réessayer.";
       } else if (r.type !== "annulation" && r.type !== "perime" && r.type !== "expiration") {
         const statut = "statut" in r ? r.statut : 0;
         loginError.value =

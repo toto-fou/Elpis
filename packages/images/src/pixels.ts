@@ -265,11 +265,23 @@ const MODES_PNG: Readonly<Record<string, string>> = {
   "16,6": "RGBA",
 };
 
-/** Blocs d'un PNG : eXIf, iCCP, XMP (`XML:com.adobe.xmp`) et `Raw profile type exif`, avant ou après IDAT. */
+const GONFLE_TEXTE_MAX = 1024 * 1024;
+const GONFLE_ICC_MAX = 16 * 1024 * 1024;
+const GONFLE_TOTAL_MAX = 64 * 1024 * 1024;
+
+/** Blocs d'un PNG : eXIf, iCCP, XMP (`XML:com.adobe.xmp`) et `Raw profile type exif`, avant ou après IDAT ; un bloc compressé hors plafond est ignoré. */
 function metadonneesPng(o: Uint8Array): Pick<Ouverte, "exif" | "xmp" | "icc"> {
   const m: Pick<Ouverte, "exif" | "xmp" | "icc"> = { exif: null, xmp: null, icc: null };
   const v = new DataView(o.buffer, o.byteOffset, o.byteLength);
   const textes: Record<string, string> = {};
+  let reste = GONFLE_TOTAL_MAX;
+  const gonfler = (z: Uint8Array, max: number): Buffer => {
+    const plafond = Math.min(max, reste);
+    reste -= plafond;
+    const sortie = inflateSync(z, { maxOutputLength: plafond });
+    reste += plafond - sortie.length;
+    return sortie;
+  };
   for (let i = 8; i + 8 <= o.length;) {
     const n = v.getUint32(i);
     const type = String.fromCharCode(...o.subarray(i + 4, i + 8));
@@ -278,15 +290,16 @@ function metadonneesPng(o: Uint8Array): Pick<Ouverte, "exif" | "xmp" | "icc"> {
     const nul = d.indexOf(0);
     try {
       if (type === "eXIf") m.exif = d;
-      else if (type === "iCCP" && nul >= 0 && d[nul + 1] === 0) m.icc = inflateSync(d.subarray(nul + 2));
+      else if (type === "iCCP" && nul >= 0 && d[nul + 1] === 0)
+        m.icc = gonfler(d.subarray(nul + 2), GONFLE_ICC_MAX);
       else if (type === "tEXt" && nul >= 0) textes[latin1(d.subarray(0, nul))] = latin1(d.subarray(nul + 1));
       else if (type === "zTXt" && nul >= 0)
-        textes[latin1(d.subarray(0, nul))] = latin1(inflateSync(d.subarray(nul + 2)));
+        textes[latin1(d.subarray(0, nul))] = latin1(gonfler(d.subarray(nul + 2), GONFLE_TEXTE_MAX));
       else if (type === "iTXt" && nul >= 0) {
         const [cle, compresse] = [latin1(d.subarray(0, nul)), d[nul + 1] === 1];
         const langue = d.indexOf(0, nul + 3);
         const corps = d.subarray(d.indexOf(0, langue + 1) + 1);
-        textes[cle] = Buffer.from(compresse ? inflateSync(corps) : corps).toString("utf-8");
+        textes[cle] = Buffer.from(compresse ? gonfler(corps, GONFLE_TEXTE_MAX) : corps).toString("utf-8");
       } else if (type === "IEND") break;
     } catch {
       continue;
@@ -300,10 +313,62 @@ function metadonneesPng(o: Uint8Array): Pick<Ouverte, "exif" | "xmp" | "icc"> {
 
 const latin1 = (o: Uint8Array): string => Buffer.from(o).toString("latin1");
 
+const CANAUX_PNG: Readonly<Record<number, number>> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+const PASSES_ADAM7 = [
+  [0, 0, 8, 8],
+  [4, 0, 8, 8],
+  [0, 4, 4, 8],
+  [2, 0, 4, 4],
+  [0, 2, 2, 4],
+  [1, 0, 2, 2],
+  [0, 1, 1, 2],
+] as const;
+const ADAM7_MARGE = 1024;
+/** Plafond de `dimensionsImage` ; ce fichier reste sans import local, il se charge seul en thread de travail. */
+const PNG_PIXELS_MAX = 2 * 89_478_485;
+
+/** Octets bruts d'un PNG entrelacé : pour chaque passe non vide, ses rangées et leur octet de filtre. */
+function tailleAdam7(largeur: number, hauteur: number, bitsParPixel: number): number {
+  let total = 0;
+  for (const [x, y, pasX, pasY] of PASSES_ADAM7) {
+    const [l, h] = [Math.ceil((largeur - x) / pasX), Math.ceil((hauteur - y) / pasY)];
+    if (l > 0 && h > 0) total += h * (1 + Math.ceil((l * bitsParPixel) / 8));
+  }
+  return total;
+}
+
+/** Avant pngjs, qui retient le dernier IHDR et gonfle un entrelacé sans plafond : un seul IHDR, pixels plafonnés, IDAT entrelacé borné par sa taille Adam7. */
+function controlerPng(o: Uint8Array): void {
+  const v = new DataView(o.buffer, o.byteOffset, o.byteLength);
+  const idat: Uint8Array[] = [];
+  let ihdr: Uint8Array | null = null;
+  for (let i = 8; i + 8 <= o.length;) {
+    const n = v.getUint32(i);
+    const type = String.fromCharCode(...o.subarray(i + 4, i + 8));
+    const d = o.subarray(i + 8, Math.min(o.length, i + 8 + n));
+    i += 12 + n;
+    if (type === "IEND") break;
+    if (type === "IDAT" && ihdr?.[12] === 1) idat.push(d);
+    else if (type === "IHDR") {
+      if (ihdr !== null) throw new Error("PNG has more than one IHDR chunk");
+      ihdr = d;
+    }
+  }
+  if (ihdr === null || ihdr.length < 13) return;
+  const e = new DataView(ihdr.buffer, ihdr.byteOffset, ihdr.byteLength);
+  const [largeur, hauteur] = [e.getUint32(0), e.getUint32(4)];
+  if (largeur * hauteur > PNG_PIXELS_MAX) throw new Error("PNG dimensions too large");
+  if (ihdr[12] !== 1) return;
+  const bits = (ihdr[8] ?? 0) * (CANAUX_PNG[ihdr[9] ?? 0] ?? 0);
+  const plafond = tailleAdam7(largeur, hauteur, bits) + ADAM7_MARGE;
+  inflateSync(Buffer.concat(idat), { chunkSize: plafond, maxOutputLength: plafond });
+}
+
 function ouvrirPng(o: Uint8Array): Ouverte {
   const [profondeur, type] = [o[24] ?? 0, o[25] ?? 0];
   const mode = MODES_PNG[`${profondeur},${type}`];
   if (mode === undefined) throw new Error(`unknown PNG mode (${profondeur}, ${type})`);
+  controlerPng(o);
   const png = pngjs.PNG.sync.read(Buffer.from(o.buffer, o.byteOffset, o.byteLength), {
     skipRescale: profondeur === 16,
   });

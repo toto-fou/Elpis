@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import {
   BLANC_PY,
   chercherRe,
+  compilerPy,
   echapperPy,
   ErreurPython,
   ErreurRe,
@@ -14,6 +15,7 @@ import {
   intPy,
   iterPy,
   lire,
+  longueurPy,
   lowerPy,
   ouPy as ou,
   poserCle,
@@ -27,7 +29,7 @@ import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
 import { journal } from "@elpis/http";
 
-import { primitivesBureau } from "./ports";
+import { primitivesBureau, rechercheRegexBureau } from "./ports";
 import { resolveElement, sequencePy } from "./session";
 import type { Proche } from "./session";
 
@@ -64,6 +66,8 @@ export const SETTLE_QUIET_MS = 700;
 export const SETTLE_POLL_MS = 400;
 export const ELEMENT_POLL_MS = 600;
 export const TEXT_POLL_MS = 1500;
+/** Longueur au-delà de laquelle un motif n'est pas compilé (comme `verifierRegexSure` de l'hôte d'outils). */
+const MOTIF_MAX = 2000;
 const sigEnv = process.env["DESKTOP_SIG_SAME"] ?? "2";
 /** Distance de Hamming en dessous de laquelle deux captures sont « identiques » (`DESKTOP_SIG_SAME`). */
 export const SIG_SAME = veritePy(sigEnv) ? intPy(sigEnv) : 2;
@@ -283,7 +287,7 @@ async function waitText(
       derniere = cur;
       premier = false;
     }
-    if (textCmp(meule, aiguille, o.cmp ?? "partiel") === o.present) return [true, nowMs() - debut];
+    if ((await textCmp(meule, aiguille, o.cmp ?? "partiel")) === o.present) return [true, nowMs() - debut];
     if (nowMs() >= echeance) return [false, nowMs() - debut];
     await sleepMs(o.pollMs ?? TEXT_POLL_MS);
   }
@@ -329,9 +333,12 @@ async function waitAppear(
   }
 }
 
-/** `re.search` de Python ; motif refusé : sous-chaîne sans casse (motif intraduisible : idem, signalé au journal). */
-function chercheRegex(meule: string, aiguille: string): boolean {
+/** `re.search` de Python, hors de la boucle si l'application fournit le port ; motif refusé ou trop long : sous-chaîne sans casse (motif intraduisible : idem, signalé au journal). */
+async function chercheRegex(meule: string, aiguille: string): Promise<boolean> {
   try {
+    if (longueurPy(aiguille) > MOTIF_MAX) throw new ErreurRe("pattern too long");
+    const port = rechercheRegexBureau();
+    if (port !== null) return await port(compilerPy(aiguille), meule);
     return chercherRe(aiguille, meule) !== null;
   } catch (e) {
     if (e instanceof RegexNonGeree)
@@ -342,7 +349,7 @@ function chercheRegex(meule: string, aiguille: string): boolean {
 }
 
 /** Comparaison de texte : `exact` (casse et blancs de bord ignorés), `regex` (recherche), sinon `partiel` (sous-chaîne sans casse). */
-export function textCmp(meule: unknown, aiguille: unknown, cmp: unknown = "partiel"): boolean {
+export async function textCmp(meule: unknown, aiguille: unknown, cmp: unknown = "partiel"): Promise<boolean> {
   const h = veritePy(meule) ? strPy(meule) : "";
   const n = veritePy(aiguille) ? strPy(aiguille) : "";
   if (!stripPy(n)) return veritePy(stripPy(h));
@@ -360,7 +367,7 @@ export function expectCmp(attente: unknown): string {
   return veritePy(get(e, "match")) ? "regex" : "partiel";
 }
 
-export function valueMatches(valeur: unknown, aiguille: unknown, cmp: unknown = "partiel"): boolean {
+export function valueMatches(valeur: unknown, aiguille: unknown, cmp: unknown = "partiel"): Promise<boolean> {
   return textCmp(valeur, aiguille, typeof cmp === "boolean" ? (cmp ? "regex" : "partiel") : cmp);
 }
 
@@ -406,7 +413,9 @@ async function waitValue(
       continue;
     }
     const el = query ? await resolveElement(username, target, { query }) : null;
-    if (valueMatches(await readElementValue(username, target, dictOu(el)), attendu, o.cmp) === o.present)
+    if (
+      (await valueMatches(await readElementValue(username, target, dictOu(el)), attendu, o.cmp)) === o.present
+    )
       return [true, nowMs() - debut];
     if (nowMs() >= echeance) {
       if (o.present && query && selfHealAllow()) {
@@ -417,7 +426,10 @@ async function waitValue(
           persist_frame: false,
         });
         const el2 = await resolveElement(username, target, { query });
-        if (valueMatches(await readElementValue(username, target, dictOu(el2)), attendu, o.cmp) === o.present)
+        if (
+          (await valueMatches(await readElementValue(username, target, dictOu(el2)), attendu, o.cmp)) ===
+          o.present
+        )
           return [true, nowMs() - debut];
       }
       return [false, nowMs() - debut];

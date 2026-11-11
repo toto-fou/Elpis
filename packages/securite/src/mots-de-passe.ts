@@ -12,6 +12,7 @@ export const PASSWORD_ITERATIONS = 600_000;
 const ITERATIONS_HISTORIQUES = 150_000;
 const PREFIXE_HACHAGE = "pbkdf2_sha256";
 const LONGUEUR_EMPREINTE = 32;
+const SEL_FACTICE = "00".repeat(16);
 
 const BLANCS_HEX = new Set([0x20, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]);
 
@@ -171,6 +172,12 @@ export async function hashPassword(password: string, saltHex: string): Promise<s
 export function hachageAJour(stocke: string): boolean {
   const h = decouperHachage(stocke);
   return h !== null && h.iterations >= PASSWORD_ITERATIONS;
+}
+
+/** Complète un refus jusqu'au coût d'un hachage courant : nom inconnu (`null`) ou empreinte à moins d'itérations. */
+export async function completerCoutRefus(password: string, stocke: string | null): Promise<void> {
+  const faites = stocke === null ? 0 : (decouperHachage(stocke)?.iterations ?? ITERATIONS_HISTORIQUES);
+  if (faites < PASSWORD_ITERATIONS) await pbkdf2Hex(password, SEL_FACTICE, PASSWORD_ITERATIONS - faites);
 }
 
 /** Le calcul de `verify_user` : format versionné ou historique (150 000 itérations, sel de `pass_salt`), comparé à temps constant. */

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/config.ts — `/api/config` : configuration JSON du compte (copie blanchie de config.json au premier accès), diagnostics de session, 200 Ko au plus (routes/config.py). */
+/** apps/core/src/familles/config.ts — `/api/config` : configuration JSON du compte (sections publiques de config.json seulement), diagnostics de session, 200 Ko au plus (routes/config.py). */
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import type { BigIntStats } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -16,10 +16,8 @@ import {
 import type { DependancesAuth } from "@elpis/auth";
 import {
   clesOrdonnees,
-  copieDict,
   encoderUtf8Py,
   estDict,
-  FlottantPy,
   getPy,
   HttpError,
   intPy,
@@ -42,79 +40,13 @@ export const TAILLE_MAX_CONFIG = 200_000;
 /** Corps de PUT /api/config : 200 000 caractères au plus une fois réécrit, marge pour l'UTF-8 et les échappements. */
 const CORPS_CONFIG_MAX = 2 * 1024 * 1024;
 
-/** `_DEFAULT_CONFIG` : rendu quand config.json est absent, vide ou n'est pas un objet. */
-export function configParDefaut(): Dict {
-  return {
-    llama: {
-      ip: "127.0.0.1",
-      port: "8080",
-      url: "",
-      model: "local-model",
-      timeout_sec: 600,
-      retries: 1,
-      retry_backoff_sec: 0.6,
-    },
-    mcp: { tools_cache_ttl_sec: new FlottantPy(360) },
-    app: {
-      db_path: "user_db/app.db",
-      session_secret: "",
-      max_recent_chats: 100,
-      sandbox_dir: "user_sandboxes",
-    },
-    security: {
-      password_policy: {
-        min_length: 0,
-        require_uppercase: false,
-        require_lowercase: false,
-        require_numbers: false,
-        require_special: false,
-      },
-    },
-  };
-}
+/** Sections de config.json que `/api/public-config` rend déjà sans session : les seules qu'un compte reçoit ou garde dans son fichier. */
+const SECTIONS_COMPTE: readonly string[] = ["welcome", "app_info", "login_page"];
 
-/** `_SECRET_PATHS` : secrets d'instance jamais rendus ni recopiés dans la configuration d'un compte. */
-export const SECRET_PATHS: readonly string[] = [
-  "llama.api_key",
-  "rag.embed.api_key",
-  "rag.ocr.api_key",
-  "app.session_secret",
-  "app.encryption_key",
-  "rag.qdrant_api_key",
-  "rag.service_token",
-  "metrics.scrape_token",
-  "agent_memory.qdrant_api_key",
-  "agent_memory.embed_api_key",
-  "voice.stt.token",
-  "voice.tts.token",
-  "image.api_key_enc",
-  "mcp.local_token",
-  "mcp.local_client_tokens",
-];
-
-/** `_redact_secrets` : copie où chaque secret présent est vidé en gardant son type ; seules les branches traversées sont recopiées. */
-export function redactSecrets(cfg: unknown): unknown {
-  if (!estDict(cfg)) return cfg;
-  const out = copieDict(cfg);
-  for (const chemin of SECRET_PATHS) {
-    const parties = chemin.split(".");
-    const cle = parties.pop() ?? "";
-    let noeud: Dict | null = out;
-    for (const parent of parties) {
-      const enfant: unknown = Object.hasOwn(noeud, parent) ? noeud[parent] : undefined;
-      if (!estDict(enfant)) {
-        noeud = null;
-        break;
-      }
-      const copie = copieDict(enfant);
-      poserCle(noeud, parent, copie);
-      noeud = copie;
-    }
-    if (noeud !== null && Object.hasOwn(noeud, cle)) {
-      const v = noeud[cle];
-      poserCle(noeud, cle, estDict(v) ? {} : Array.isArray(v) ? [] : "");
-    }
-  }
+/** Copie réduite à `SECTIONS_COMPTE` : toute autre section, présente ou future, reste côté instance. */
+function sectionsCompte(cfg: Dict): Dict {
+  const out: Dict = {};
+  for (const cle of clesOrdonnees(cfg)) if (SECTIONS_COMPTE.includes(cle)) poserCle(out, cle, cfg[cle]);
   return out;
 }
 
@@ -231,14 +163,14 @@ export function creerFamilleConfig(dep: DependancesConfig): Famille {
         acces: "public",
         traiter: async (req, rep) => {
           const uid = await uidSession(req);
-          let defaut = await vueConfigInstance();
-          if (!veritePy(defaut)) defaut = configParDefaut();
+          const defaut = sectionsCompte(await vueConfigInstance());
           const username = await nomDe(uid);
           if (uid === null || !veritePy(username)) throw new HttpError(401, "not logged in");
           const chemin = cheminConfigCompte(dep.racine, uid);
-          if (!(await existe(chemin))) ecrireJsonAtomique(chemin, redactSecrets(defaut));
-          let cfgCompte = await lireJsonFichier(chemin);
-          if (!estDict(cfgCompte) || !veritePy(cfgCompte)) cfgCompte = defaut;
+          if (!(await existe(chemin))) ecrireJsonAtomique(chemin, defaut);
+          const fichier = await lireJsonFichier(chemin);
+          let cfgCompte: Dict = estDict(fichier) ? sectionsCompte(fichier) : {};
+          if (!veritePy(cfgCompte)) cfgCompte = defaut;
           return reponseJsonPy(
             rep,
             {
@@ -249,7 +181,7 @@ export function creerFamilleConfig(dep: DependancesConfig): Famille {
               db_user_found: true,
               username,
               session_keys: [...clesOrdonnees(req.session.contenu())],
-              config: redactSecrets(cfgCompte),
+              config: cfgCompte,
             },
             { "cache-control": "no-cache" },
           );
@@ -272,7 +204,7 @@ export function creerFamilleConfig(dep: DependancesConfig): Famille {
           if (longueurPy(pyJsonDumps(cfg, { ensureAscii: false })) > TAILLE_MAX_CONFIG)
             throw new HttpError(413, "config too large");
           const chemin = cheminConfigCompte(dep.racine, uid);
-          ecrireJsonAtomique(chemin, cfg);
+          ecrireJsonAtomique(chemin, sectionsCompte(cfg));
           return { ok: true, path: chemin };
         },
       },

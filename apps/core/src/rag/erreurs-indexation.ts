@@ -69,6 +69,7 @@ export const MESSAGES_ERREUR_DOCUMENT_RAG: Readonly<Record<string, string>> = {
   qdrant_unavailable: "Base vectorielle Qdrant injoignable : nouvel essai automatique.",
   embed_rejected: "Le serveur d'embeddings a refusé ce document.",
   too_many_chunks: "Trop de passages : choisissez un découpage plus grand.",
+  chunking_timeout: "Découpage trop long : simplifiez l'expression régulière ou les redécoupes.",
   source_missing: "Fichier source introuvable dans le magasin.",
   cancelled: "Indexation annulée : relancez-la pour indexer ce document.",
   internal: "Erreur interne pendant l'indexation.",

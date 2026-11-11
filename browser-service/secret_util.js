@@ -54,7 +54,7 @@ export function formesSecret(v) {
     const u4 = (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`;
     const majuscules = (j) => j.replace(/\\u([0-9a-f]{4})/g, (_m, h) => `\\u${h.toUpperCase()}`);
     const json = JSON.stringify(v).slice(1, -1);
-    const ascii = json.replace(/[\u007f-\uffff]/g, u4);
+    const ascii = json.replace(/[\u0080-\uffff]/g, u4);
     const sur = (j) => j.replace(/[<>&']/g, u4);
     for (const j of [json, ascii, sur(json), sur(ascii), v.split('').map(u4).join('')]) {
         out.add(j);

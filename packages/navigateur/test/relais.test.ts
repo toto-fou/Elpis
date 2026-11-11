@@ -122,7 +122,7 @@ function encodages(v: string): string[] {
     JSON.stringify(v).slice(1, -1).replaceAll("/", "\\/"),
     JSON.stringify(v)
       .slice(1, -1)
-      .replace(/[^\u0000-\u007e]/gu, (c) => c.split("").map(u).join("")),
+      .replace(/[^\p{ASCII}]/gu, (c) => c.split("").map(u).join("")),
     v.split("").map(u).join(""),
     JSON.stringify(v).slice(1, -1).replace(/[<>&]/gu, u),
   ];

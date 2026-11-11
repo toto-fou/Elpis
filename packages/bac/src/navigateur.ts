@@ -98,10 +98,11 @@ export function montagesNavigateur(): string[] | null {
   const s = sourcesNavigateur();
   if (s.service === null || s.modules === null || s.node === null || s.playwright === null) return null;
   if (!existsSync(pyJoin(s.node, "bin/node"))) return null;
-  const code = fichiersCodeService(s.service);
+  const service = s.service;
+  const code = fichiersCodeService(service);
   if (!code.includes("server.js")) return null;
   const v = [
-    ...code.map((f) => `${pyJoin(s.service, f)}:${MONTAGES_NAVIGATEUR.service}/${f}:ro`),
+    ...code.map((f) => `${pyJoin(service, f)}:${MONTAGES_NAVIGATEUR.service}/${f}:ro`),
     `${s.modules}:${MONTAGES_NAVIGATEUR.modules}:ro`,
     `${s.node}:${MONTAGES_NAVIGATEUR.node}:ro`,
     `${s.playwright}:${MONTAGES_NAVIGATEUR.playwright}:ro`,

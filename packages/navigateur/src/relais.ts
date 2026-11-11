@@ -4,13 +4,19 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, closeSync, constants, fstatSync, lstatSync, openSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createServer as serveurHttp, request as requeteHttp } from "node:http";
-import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from "node:http";
+import type {
+  ClientRequestArgs,
+  IncomingHttpHeaders,
+  IncomingMessage,
+  Server,
+  ServerResponse,
+} from "node:http";
 import { request as requeteHttps } from "node:https";
 import type { RequestOptions as OptionsHttps } from "node:https";
 import { connect as connexionNet, isIP } from "node:net";
 import type { Socket } from "node:net";
 import { Transform } from "node:stream";
-import type { TransformCallback } from "node:stream";
+import type { Duplex, TransformCallback } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { connect as connexionTls, getCACertificates, TLSSocket } from "node:tls";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
@@ -152,7 +158,7 @@ export function formesValeur(v: string): string[] {
   const majuscules = (j: string): string =>
     j.replace(/\\u([0-9a-f]{4})/gu, (_m, h: string) => `\\u${h.toUpperCase()}`);
   const json = JSON.stringify(v).slice(1, -1);
-  const ascii = json.replace(/[^\u0000-\u007e]/gu, (c) => c.split("").map(u4).join(""));
+  const ascii = json.replace(/[^\p{ASCII}]/gu, (c) => c.split("").map(u4).join(""));
   const sur = (j: string): string => j.replace(/[<>&']/gu, u4);
   for (const j of [json, ascii, sur(json), sur(ascii), v.split("").map(u4).join("")]) {
     f.add(j);
@@ -495,11 +501,10 @@ export class RelaisNavigateur {
     this.interne.on("connect", (_req: IncomingMessage, s: Socket) => {
       s.end("HTTP/1.1 405 Method Not Allowed\r\ncontent-length: 0\r\nconnection: close\r\n\r\n");
     });
-    this.interne.on("upgrade", (req: IncomingMessage, s: Socket, tete: Buffer) =>
-      this.miseANiveau(req, s, tete, (s as Socket & { origineElpis?: string }).origineElpis ?? null).catch(
-        (e: unknown) => this.echec(s, e),
-      ),
-    );
+    this.interne.on("upgrade", (req: IncomingMessage, s: Socket, tete: Buffer) => {
+      const origine = (s as Socket & { origineElpis?: string }).origineElpis ?? null;
+      this.miseANiveau(req, s, tete, origine).catch((e: unknown) => this.echec(s, e));
+    });
   }
 
   /** Échec d'un traitement (client parti, amont coupé) : connexion fermée, jamais de rejet non traité (l'hôte d'outils sert tous les comptes). */
@@ -912,11 +917,11 @@ export class RelaisNavigateur {
       new Promise((ok, ko) => {
         const t = { ...entetes, ...(autorisation ? { authorization: autorisation } : {}) };
         // Connexion par les adresses jugées (essai suivant, délai borné), TLS posé dessus ; sans agent (pas de réutilisation).
-        const connecter = (_o: unknown, fini: (e: Error | null, s?: Socket) => void): undefined => {
+        const connecter = (_o: ClientRequestArgs, fini: (e: Error | null, s: Duplex) => void): undefined => {
           void connecterAdresses(v.adresses ?? [v.adresse], port).then(
             (tcp) =>
               fini(null, https ? connexionTls({ socket: tcp, ...this.optionsTls(hote, exactes) }) : tcp),
-            (e: unknown) => fini(e instanceof Error ? e : new Error(String(e))),
+            (e: unknown) => (fini as (e: Error) => void)(e instanceof Error ? e : new Error(String(e))),
           );
           return undefined;
         };

@@ -24,8 +24,9 @@
 #      sandbox/    image sandbox Docker (.tar.gz), SOURCES.txt et OFFRE-SOURCES.txt
 #                  (GPL : paquets, versions, archives sources, offre écrite) ;
 #                  sources/ avec --with-sources
-#      browser/    dépendances npm + Chromium (ses bibliothèques système sont
-#                  des prérequis apt : deploy/prerequis-apt.txt)
+#      browser/    dépendances npm, headless shell de Chromium et ffmpeg (ses
+#                  bibliothèques système sont des prérequis apt :
+#                  deploy/prerequis-apt.txt, groupe navigateur)
 #      LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, LICENSES/, THIRD_PARTY_LICENSES/   notices d'Elpis et des composants
 #      wheels/LICENCES-PYTHON.txt   licences des roues (lues dans leurs *.dist-info)
 #      sbom/       SBOM CycloneDX JSON : npm (npm sbom), Python (roues), image sandbox (syft)
@@ -393,7 +394,7 @@ fi
 
 # ── 4. Service navigateur (avec le Node.js livré et le npm de son archive) ───
 if [ "$WITH_BROWSER" -eq 1 ]; then
-    info "Service navigateur (npm + Chromium)…"
+    info "Service navigateur (npm + headless shell de Chromium)…"
     ( cd "$ROOT/browser-service" && PATH="$NODE_ARBRE/bin:$PATH" ./fetch_offline_deps.sh --no-apt )
     cp -a "$ROOT/browser-service/offline" "$OUT/browser"
 fi

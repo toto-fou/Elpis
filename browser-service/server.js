@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import express from 'express';
-import { chromium, firefox, webkit, devices } from 'playwright';
+import { chromium, devices } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -213,37 +213,8 @@ async function installerGarde(context) {
     context.on('page', gardePage);
 }
 
-// ── Moteur navigateur configurable (V13) ───────────────────────────────────
-// BROWSER_ENGINE = chromium (défaut) | firefox | webkit. Chromium est le moteur
-// de référence Playwright (le plus complet/stable, meilleure émulation device,
-// CDP pour perfs/trace). Firefox/WebKit restent dispo pour le cross-browser.
-const BROWSER_ENGINE = (process.env.BROWSER_ENGINE || 'chromium').toLowerCase();
-const ENGINES = { chromium, firefox, webkit };
-
-const USER_AGENTS = {
-    chromium: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    firefox:  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
-    webkit:   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-};
-const USER_AGENT = USER_AGENTS[BROWSER_ENGINE] || USER_AGENTS.chromium;
-
-// Prefs Firefox (about:config) — appliquées UNIQUEMENT quand BROWSER_ENGINE=firefox.
-const FIREFOX_PREFS = {
-    "dom.webdriver.enabled": false,
-    "useAutomationExtension": false,
-    "general.useragent.override": USER_AGENT,
-    "intl.accept_languages": "fr-FR, fr, en-US, en",
-    "browser.download.dir": DOWNLOAD_DIR,
-    "browser.download.useDownloadDir": true,
-    "network.auth.use-sspi": false,
-    "network.http.connection-timeout": 90,
-    "dom.max_script_run_time": 60,
-    "dom.disable_beforeunload": true,
-    "browser.tabs.warnOnClose": false,
-    "browser.tabs.warnOnCloseOtherTabs": false,
-    "security.fileuri.strict_origin_policy": false,
-    "security.cert_pinning.enforcement_level": 0,
-};
+// Agent utilisateur des contextes : un Chrome de bureau (le headless shell s'annoncerait « HeadlessChrome »).
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
 
 let globalBrowser = null;
 const sessions = new Map();
@@ -560,73 +531,35 @@ process.on('unhandledRejection', (raison) => {
 // ==========================================
 // BROWSER LIFECYCLE
 // ==========================================
-// Override opérateur : si FIREFOX_FORCE_HEADLESS=true, le service force le
-// headless quelle que soit la valeur envoyée par le client. Robuste même si
-// le backend Python n'a pas été redémarré ou envoie encore headless:false.
-const FORCE_HEADLESS = process.env.BROWSER_FORCE_HEADLESS === 'true'
-                    || process.env.FIREFOX_FORCE_HEADLESS === 'true'; // compat ascendante
-
-// Options de launch par moteur. Les prefs Firefox (about:config) n'ont pas
-// d'équivalent direct sur Chromium/WebKit : ce qui compte (langue, downloads,
-// HTTPS, CSP) est porté côté contexte dans /start. Ici on ne met que le
-// moteur-spécifique (args anti-détection, prefs headless Firefox).
-function buildLaunchOptions(engine, headlessMode) {
-    const common = { headless: headlessMode, args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                     proxy: PROXY_NAVIGATEUR };
-    if (engine === 'firefox') {
-        return {
-            ...common,
-            firefoxUserPrefs: {
-                ...FIREFOX_PREFS,
-                // Sans cela Firefox contourne le proxy pour localhost.
-                'network.proxy.allow_hijacking_localhost': true,
-                'network.proxy.no_proxies_on': '',
-                // WebRTC ouvre des flux UDP en direct, hors du relais : coupé.
-                'media.peerconnection.enabled': false,
-                ...(headlessMode ? {
-                    'layers.acceleration.force-enabled': false,
-                    'gfx.webrender.software': true,
-                    'browser.sessionstore.resume_from_crash': false,
-                } : {}),
-            },
-            env: headlessMode
-                ? { ...process.env, MOZ_HEADLESS_WIDTH: '1920', MOZ_HEADLESS_HEIGHT: '1080' }
-                : undefined,
-        };
-    }
-    if (engine === 'chromium') {
-        return {
-            ...common,
-            args: [
-                '--no-sandbox', '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
-                '--disable-blink-features=AutomationControlled',  // anti-détection
-                // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
-                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
-            ],
-        };
-    }
-    return common; // webkit : pas d'options moteur-spécifiques
+// Chromium headless sans channel (Playwright lance le headless shell) ; langue, téléchargements, HTTPS et CSP : contexte de /start.
+function buildLaunchOptions() {
+    return {
+        headless: true,
+        args: [
+            '--no-sandbox', '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
+            '--disable-blink-features=AutomationControlled',  // anti-détection
+            // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
+            '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+        ],
+        proxy: PROXY_NAVIGATEUR,
+    };
 }
 
 // Une seule promesse de lancement : deux /start simultanés ne lancent plus
 // deux navigateurs (le second écrasait le premier, resté orphelin).
 let _lancement = null;
-async function ensureBrowser(headless) {
+async function ensureBrowser() {
     if (globalBrowser && globalBrowser.isConnected()) return globalBrowser;
     if (_lancement) return _lancement;
-    _lancement = _lancerNavigateur(headless).finally(() => { _lancement = null; });
+    _lancement = _lancerNavigateur().finally(() => { _lancement = null; });
     return _lancement;
 }
 
-async function _lancerNavigateur(headless) {
+async function _lancerNavigateur() {
     if (!globalBrowser || !globalBrowser.isConnected()) {
-        // Headless par défaut. Seul un `false` explicite force le mode fenêtré,
-        // sauf si FORCE_HEADLESS est actif.
-        const headlessMode = FORCE_HEADLESS ? true : (headless !== false);
-        const launcher = ENGINES[BROWSER_ENGINE] || chromium;
-        console.log(`[GLOBAL] Démarrage ${BROWSER_ENGINE} (Headless: ${headlessMode}${FORCE_HEADLESS ? ', forcé' : ''})`);
-        globalBrowser = await launcher.launch(buildLaunchOptions(BROWSER_ENGINE, headlessMode));
+        console.log('[GLOBAL] Démarrage de Chromium (headless shell)');
+        globalBrowser = await chromium.launch(buildLaunchOptions());
         globalBrowser.on('disconnected', () => {
             console.warn('[GLOBAL] Browser déconnecté, reset...');
             globalBrowser = null;
@@ -2345,7 +2278,6 @@ function refusOptionsSecurisees(b, secure) {
     const present = (v) => v !== undefined && v !== null && v !== '' && v !== false;
     if (!secure) return present(b.credentials_origin)
         ? refus('secret_option_refused', 'credentials_origin is only accepted for a secure session (secure=true).') : null;
-    if (BROWSER_ENGINE !== 'chromium') return refus('secret_option_refused', `A secure session needs the chromium engine (this service runs ${BROWSER_ENGINE}).`);
     if (b.tls !== undefined && b.tls !== 'strict' && b.tls !== 'insecure') return refus('secret_option_refused', "tls must be 'strict' or 'insecure'.");
     const interdites = ['record_har', 'trace', 'record_video', 'load_state_id'].filter((k) => present(b[k]));
     if (interdites.length) return refus('secret_option_refused',
@@ -2365,7 +2297,7 @@ function refusOptionsSecurisees(b, secure) {
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, credentials_origin, headless, load_state_id, record_har = false,
+        const { url, username, password, credentials_origin, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2486,7 +2418,7 @@ app.post('/start', async (req, res) => {
             }
         }
 
-        const browser = await ensureBrowser(headless);
+        const browser = await ensureBrowser();
         const sessionId = uuidv4();
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
@@ -2510,9 +2442,6 @@ app.post('/start', async (req, res) => {
         };
         if (secure) contextOpts.serviceWorkers = 'block';
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
-        // isMobile/hasTouch ne sont supportés que sur Chromium → on les retire
-        // pour firefox/webkit (sinon Playwright lève une exception au newContext).
-        if (BROWSER_ENGINE !== 'chromium') { delete contextOpts.isMobile; delete contextOpts.hasTouch; }
         delete contextOpts.defaultBrowserType;  // clé du preset non valide pour newContext
 
         if (record_har) contextOpts.recordHar = { path: path.join(HAR_DIR, `har_${sessionId}.har`), mode: 'minimal' };
@@ -5147,7 +5076,7 @@ app.get('/health', (req, res) => {
         ok: true,
         service: 'browser',
         status: 'running',
-        engine: BROWSER_ENGINE,
+        engine: 'chromium',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
         // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
         sessions: sessionList,
@@ -6350,5 +6279,5 @@ const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
 }
 app.listen(LISTEN_PORT, LISTEN_HOST, () => {
     journaliserMode(jetonAttendu());
-    console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
 });

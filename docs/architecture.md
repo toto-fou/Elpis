@@ -144,7 +144,7 @@ the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assi
 | Charts | Apache ECharts (chat), Chart.js (admin dashboard) — npm packages, loaded on demand |
 | Markdown | Marked + Highlight.js, sanitized by DOMPurify |
 | Icons | Phosphor |
-| Browser | Node 18+, Playwright/Firefox (`browser-service`) |
+| Browser | Node (the core's runtime), Playwright, Chromium headless shell (`browser-service`) |
 | Screen control | `desktop-agent` (pywinauto / AT-SPI) |
 | RAG | TS core (collections, permissions, chunking, BM25, embeddings, Qdrant, search, chat tools); Python extractor (pdfplumber, pypdfium2, LibreOffice, OCR through a vision model) in a bubblewrap jail |
 | TLS front end | Caddy + local openssl PKI (10 years) |
@@ -2829,7 +2829,9 @@ commands have their own budget (120 s).
 
 ### Browser (`browser`)
 
-Playwright/Firefox via `browser-service` (Node, port 3000).
+Playwright via `browser-service` (Node, port 3000), with a single browser: the
+Chromium headless shell, always without a window. A `headless` field sent to
+`/start` is ignored; `/health` still reports `engine: "chromium"`.
 
 **Unified targeting DSL** — a single `target` parameter instead of dozens of
 signatures:
@@ -3778,7 +3780,7 @@ Tool calls are parsed correctly with a recent version.
 
 ### browser-service: orphaned sessions
 
-Firefox processes accumulate if the model forgets to stop its sessions.
+Chromium processes accumulate if the model forgets to stop its sessions.
 Automatic reaper on the Node side (15 min TTL).
 
 ### Streaming: "shorter than Content-Length"

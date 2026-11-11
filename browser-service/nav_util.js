@@ -30,9 +30,9 @@ export function cleanNavError(message) {
     return texte.split(/\r?\n/)[0].replace(/^(page|frame)\.goto:\s*/i, '').trim();
 }
 
-/** Page d'erreur du navigateur engagée après une navigation en échec (Chromium, Firefox). */
+/** Page d'erreur de Chromium engagée après une navigation en échec. */
 export function estPageErreur(url) {
-    return /^(chrome-error:|about:neterror|about:certerror)/i.test(String(url ?? ''));
+    return /^chrome-error:/i.test(String(url ?? ''));
 }
 
 // `restored` : après la page d'erreur, l'onglet est revenu en arrière (page précédente rechargée, `landedUrl`).

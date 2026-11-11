@@ -37,7 +37,8 @@
   [operations.md](operations.md#system-prerequisites-apt-packages).
 - `install.sh` installs the rest: the Python venv and its dependencies, Node.js
   24 without npm in `node/` (core and browser service) and the core bundle
-  (`apps/core/dist`), Qdrant (RAG), Chromium, and the sandbox image.
+  (`apps/core/dist`), Qdrant (RAG), the Chromium headless shell, and the sandbox
+  image.
 
 ### Inference engine
 
@@ -181,7 +182,7 @@ settings (back to the Database page), switching to SQLite, or aborting.
 
 | Question (option that answers it) | Default | Effect |
 |---|---|---|
-| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium (Playwright) |
+| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium headless shell and ffmpeg (Playwright) |
 | Sandbox image (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` of `deploy/docker/sandbox/`, or `docker pull` + tag |
 | Database (`--db sqlite\|postgres-local\|external`) | sqlite (first time; unchanged afterwards) | see [Database](#database) |
 | LibreOffice (`--with-office`, `--no-office`) | yes if already installed | docx/xlsx/pptx previews (LibreOffice nogui + bubblewrap, installed with apt) |
@@ -1261,7 +1262,7 @@ must then be removed before recreating an account with the same name.
 | `BROWSER_SERVICE_TOKEN` | — | Browser service token (Bearer). Without it, `BROWSER_SERVICE_TOKEN_FILE`, then `user_db/.browser_service_token` (written by `./elpis configure`, read by the service, the core and the tool host). Without any token, the service only accepts direct local calls; an unreadable token file makes it refuse every call (503). A remote tool host passes the token in this variable |
 | `PW_STATE_MAX_AGE_D` | `30` | Days to keep a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read at browser service startup (`.env`). States from before 0.0.1, with no account, are never purged: see [operations.md](operations.md#upgrading) |
 | `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours to keep browser downloads, HAR files, videos and traces; `0` = never deleted |
-| `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Playwright options |
+| `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `10` (s) / `false` | Playwright options |
 | `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Visual annotation endpoint |
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, annotation prompt |
 | `APP_DESKTOP_*` | see `config.py` | Control agents: timeouts, observation scope, capture format, caps |

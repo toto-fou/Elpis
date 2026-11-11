@@ -139,6 +139,21 @@ follow [SemVer](https://semver.org/).
   takes an origins scope among tokens; `./elpis configure` refuses to store a key when run as
   root. Each connector key counts toward the vault's 200 secrets per owner (the instance's are
   shared); the policy fields of these secrets are not used.
+- **Browser service: the Chromium headless shell and nothing else.** A new installation
+  downloads only the Chromium headless shell and ffmpeg (`playwright install --only-shell
+  chromium`): about 290 MB on disk instead of 710 MB with the full Chromium. The `navigateur`
+  apt group (`deploy/prerequis-apt.txt`) keeps what the headless shell loads and the fonts of
+  Playwright's list (Latin, CJK, Thai, emoji), 28 lines instead of 32 (no more Xvfb, X server,
+  CUPS, Cairo or Pango): on a minimal Debian 12 that is 50 packages and 37 MB to download
+  instead of 112 and 100 MB; on Debian 13, 68 packages and 87 MB instead of 114 and 100 MB
+  (its `libgbm1` pulls Mesa and LLVM). The offline package carries the same builds
+  (`browser/`: about 120 MB instead of 305 MB); `browser-service/fetch_offline_deps.sh`
+  without `--no-apt` vendors this group with its dependencies missing from a minimal Debian;
+  `install_offline.sh` installs the packages the machine lacks and those they pin to an exact
+  version, stops before changing anything if that would downgrade or break an installed
+  package, and fails if `dpkg --audit` finds a package left unconfigured (bundle built on
+  another point release). **Existing installations keep their packages and browsers**: nothing
+  is removed.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three
@@ -286,6 +301,13 @@ follow [SemVer](https://semver.org/).
   the imported secrets in Settings › Secrets before attaching them. A 401 page now tells the
   model to ask for a secret with `/secret attach <name>`. The AX pages of the console show the
   logins of the vault.
+- **Firefox, WebKit and the windowed browser.** The browser service runs only the Chromium
+  headless shell: `BROWSER_ENGINE`, `BROWSER_FORCE_HEADLESS` and `FIREFOX_FORCE_HEADLESS` are no
+  longer read, a `headless` field sent to `/start` is ignored, and `/health` still reports
+  `engine: "chromium"`; `./elpis` no longer sets `PLAYWRIGHT_HEADLESS` for the service, which
+  never read it. The `pw_session` description no longer offers another engine.
+  `fetch_offline_deps.sh` loses `--engine` and `--all`, and the full Chromium is no longer
+  downloaded.
 - **18 unused browser service routes.** No tool, core or front-end code called them:
   `/accessibility` (always 500 since Playwright removed `page.accessibility`),
   `/capture_response`, `/cleanup_screenshots`, `/clipboard`, `/dispatch_event`,

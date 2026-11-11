@@ -78,9 +78,19 @@ export class CleCoffreIndisponible extends Error {
 
 const ATTENDU = "32 octets en base64 canonique (ou 64 chiffres hexadécimaux) attendus";
 
+/** Texte sans blancs ASCII (tabulation, fins de ligne, espace) aux deux bouts, en un seul passage. */
+function sansBlancsAscii(texte: string): string {
+  const blanc = (c: number): boolean => c === 32 || (c >= 9 && c <= 13);
+  let debut = 0;
+  let fin = texte.length;
+  while (debut < fin && blanc(texte.charCodeAt(debut))) debut++;
+  while (fin > debut && blanc(texte.charCodeAt(fin - 1))) fin--;
+  return texte.slice(debut, fin);
+}
+
 /** Validateur unique des clés du coffre (cœur, `vault setup`, doctor) : base64 canonique de 32 octets (44 caractères, comme `base64`) ou 64 chiffres hexadécimaux, blancs ASCII autour ignorés, jamais un seul octet répété ; rend aussi le `kid`. */
 export function validerCleCoffre(texte: string): { octets: Buffer; kid: string } | { motif: string } {
-  const t = texte.replace(/^[\t\n\v\f\r ]+|[\t\n\v\f\r ]+$/gu, "");
+  const t = sansBlancsAscii(texte);
   let octets: Buffer | null = null;
   if (/^[0-9a-fA-F]{64}$/u.test(t)) octets = Buffer.from(t, "hex");
   else if (/^[A-Za-z0-9+/]{43}=$/u.test(t)) {

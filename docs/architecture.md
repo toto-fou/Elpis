@@ -2086,16 +2086,32 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
 - The token lives in the [secrets vault](#secrets-vault): one `git` secret per connector, scope
   `{"host": "<host[:port]>"}`, named `git-<host>-<label>` (slug, suffixed when taken), linked by
   `git_connectors.secret_id`; `token_enc` stays empty and `token_scheme` is `vault`. The `token`
-  field of `POST`/`PUT` is write-only (empty = unchanged); changing the host or the API base of a
-  connector that has a token requires the token again; deleting the connector deletes its secret.
-  `has_token` is true only when the secret is a `git` secret for that host, active and decryptable
-  with the current key.
+  field of `POST`/`PUT` is write-only (empty = unchanged); changing the host, the provider type or
+  the API base so that the effective API (`getProvider(type).apiBase(host, api_base)`) changes,
+  without a new token, clears the token (its secret, or a plain `token_enc` not migrated yet): a
+  token never follows an account to another host or API. Deleting the connector deletes its
+  secret. `has_token` is true only when the secret is a `git` secret for that host, active (not
+  `unverified`) and decryptable with the current key.
 - The token is **never** returned by the listing. It is read only through `lireSecretPourUsage`
   (`resolveGitCredential` and `jetonDuConnecteur`, `apps/core/src/git/connecteurs.ts`), which checks
-  kind, state and scope, counts the use and writes `vault.secret.used` (a refusal,
+  kind, state, scope and policy, counts the use and writes `vault.secret.used` (a refusal,
   `vault.secret.refused`): connection test, repository list, PR opening, and
   `GET /api/internal/git/credential` for the tool host, which takes the account from the signed
-  identity (`X-Elpis-Identity`), never from the query.
+  identity (`X-Elpis-Identity`), never from the query. The tool host signs, with the account, the
+  conversation (`chat_id`) and the sub-agent of the tool call taken from its `_meta`; the core
+  reads a routine run from that `chat_id` (`routine:<id>:run:<id>`, its sub-agents' `…#task-<id>`
+  included), so the secret's `subagents` and `routines` policy applies and the audit log carries
+  `chat_id`, `run` and `subagent`. The tool host keys its 15-second cache by that signed caller.
+- `GET /api/internal/git/credential/available` tells the tools whether such a token exists (same
+  rules, nothing decrypted for the caller, no use counted, nothing logged): `git_clone` and
+  `git_submit` use it to choose their message; only the network operation itself reads the token.
+  `GET /api/internal/git/connector-hosts` (hosts allowed by the anti-SSRF guard) also reads the
+  account from the signed identity.
+- An old `/work/.git-credentials.json` (written by the Python core, but writable by the agent) is
+  imported once per account, for a host already registered by the account or by an administrator:
+  its tokens become `git` secrets in state `unverified` with `meta.source` `sandbox-file`, which
+  never resolve until the user verifies them in Settings › Secrets or types the token in
+  Settings › Git accounts.
 - No tool receives a credential: a token is entered by the user, in Settings › Git accounts or in
   the editor's clone and push/pull dialogs (a token typed at clone time is saved through the
   internal route, origin `editeur`; push and pull never save it).

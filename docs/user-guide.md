@@ -1330,8 +1330,12 @@ GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 - **Test connection** validates the token and lists the accessible repositories.
 - The token is stored **encrypted in the server's secrets vault** — never written
   to your sandbox, never sent back to your browser, never shown to the assistant.
-  Leave the field empty when editing an account to keep the current token;
-  changing the host or the API address asks for the token again.
+  Leave the field empty when editing an account to keep the current token.
+  Changing the host, the service type or the API address without entering a
+  token clears the token: enter it again for the new address.
+- A token imported from an old `.git-credentials.json` file of your sandbox is
+  not used until you verify it in Settings › Secrets (the assistant could have
+  written that file).
 - An account whose token can no longer be read (for example after a change of
   the server's key) shows no token: enter it again.
 

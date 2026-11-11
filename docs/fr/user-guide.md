@@ -1337,7 +1337,12 @@ GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
 - Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais
   écrit dans votre sandbox, jamais renvoyé à votre navigateur, jamais montré à
   l'assistant. Laissez le champ vide en modifiant un connecteur pour garder le
-  jeton actuel ; changer l'hôte ou l'adresse de l'API le redemande.
+  jeton actuel. Changer l'hôte, le type de service ou l'adresse de l'API sans
+  saisir de jeton efface le jeton : saisissez-le à nouveau pour la nouvelle
+  adresse.
+- Un jeton importé d'un ancien fichier `.git-credentials.json` de votre sandbox
+  ne sert pas tant que vous ne l'avez pas vérifié dans Paramètres › Secrets
+  (l'assistant a pu écrire ce fichier).
 
 Ces connecteurs alimentent le panneau Git de l'éditeur et les outils Git de
 l'assistant : un `git clone` sur une forge privée fonctionne sans que vous

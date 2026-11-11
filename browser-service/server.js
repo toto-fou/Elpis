@@ -5,26 +5,25 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
-import os from 'os';
-import dns from 'dns';
 import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './nav_util.js';
 import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
-         stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
+         stateFileName, resolveStateFile, safeDownloadName,
          planArtifactPurge, planSessionSlot, occupationGroupe, placesEnfants, quotasSessions, sessionsANettoyer,
          sessionsEnfantsAnciennes } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
-import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
-         interfacesDepuisProc, fusionnerInterfaces,
-         messageRefus, makeCache } from './url_guard.js';
+import { analyserUrl, verifierBac, messageRefus } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
-import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
+import { demarrerRelais } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
+import { gardeJeton } from './service_auth.js';
+import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
+         verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -34,51 +33,43 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
+// Service lancé par l'hôte d'outils dans le bac d'un compte : socket unix (FIREFOX_SERVICE_SOCKET) et jeton du bac
+// (BROWSER_SERVICE_TOKEN) exigés ; boucle locale du bac jointe directement, tout le reste par le relais de l'hôte
+// (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
+const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
+const JETON = (process.env.BROWSER_SERVICE_TOKEN || '').trim();
+for (const [manque, nom] of [[!LISTEN_SOCKET, 'FIREFOX_SERVICE_SOCKET (its Unix socket)'], [!JETON, 'BROWSER_SERVICE_TOKEN (its call token)']]) {
+    if (!manque) continue;
+    console.error(`[browser-service] ${nom} is required: the browser service only runs inside an account's sandbox, started by the tool host.`);
+    process.exit(1);
+}
+// Arrêt du service après tant de secondes sans appel (0 = jamais).
+const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || '0', 10) || 0) * 1000;
+let _dernierAppel = Date.now();
+
 const app = express();
+// Jeton d'appel vérifié avant tout, statiques compris.
+app.use(gardeJeton(JETON));
+app.use((_req, _res, next) => { _dernierAppel = Date.now(); next(); });
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
 
-// ════════════════════════════════════════════════════════════════════
-//  SÉCURITÉ — bind interface
-// ════════════════════════════════════════════════════════════════════
-//
-//  Le service n'a pas d'authentification propre : il écoute sur
-//  ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) et ne doit JAMAIS être
-//  exposé publiquement — quiconque atteint le port pilote le navigateur.
-
-// (2026-09-30) Un seul ``/health``, détaillé, plus bas : celui-ci, déclaré
-// en premier, masquait l'autre (Express sert la première route qui correspond).
-
 // ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
 // backend d'Elpis les relit, de serveur à serveur.
+// Données du service : le dossier courant (/work/.elpis-browser du bac).
+const BASE_DIR = process.cwd();
 app.use('/screenshots', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
-}, express.static(path.join(process.cwd(), 'screenshots')));
-
-// ── DELETE single screenshot file (1-shot consume from Python proxy) ──
-app.delete('/screenshots/:filename', (req, res) => {
-    const fname = path.basename(req.params.filename);
-    if (!fname.endsWith('.png') || fname.includes('..')) {
-        return res.status(400).json({ error: 'Invalid filename' });
-    }
-    const fpath = path.join(process.cwd(), 'screenshots', fname);
-    fs.unlink(fpath, (err) => {
-        // Idempotent: ENOENT n'est pas une erreur (déjà supprimé)
-        if (err && err.code !== 'ENOENT') {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ status: 'deleted', filename: fname });
-    });
-});
+}, express.static(path.join(BASE_DIR, 'screenshots')));
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
-const BASE_DIR = process.cwd();
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
-const DOWNLOAD_DIR = path.join(BASE_DIR, 'downloads');
+// BROWSER_DOWNLOAD_DIR (/work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
+const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
 const COOKIES_DIR = path.join(BASE_DIR, 'cookies');
 const HAR_DIR = path.join(BASE_DIR, 'har');
 const BASELINE_DIR = path.join(BASE_DIR, 'baselines');  // goldens régression visuelle (persistants, non reapés)
@@ -89,18 +80,11 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
-const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
-const RACINES_SORTIE = [
-    ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
-    ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
-].sort((a, b) => b.n - a.n);
-
-// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
+// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI (contenu de la page intact).
 app.use((req, res, next) => {
     req.recuA = Date.now();
     const json = res.json.bind(res);
-    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode), RACINES_SORTIE));
+    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode)));
     next();
 });
 
@@ -110,73 +94,24 @@ app.use('/videos', express.static(VIDEO_DIR));
 app.use('/traces', express.static(TRACE_DIR));
 
 // ════════════════════════════════════════════════════════════════════
-//  DESTINATIONS AUTORISÉES (2026-09-30, cf. url_guard.js)
+//  DESTINATIONS (cf. url_guard.js, proxy_guard.js)
 // ════════════════════════════════════════════════════════════════════
 //  Le relais filtrant (proxy_guard.js) fait foi : TOUT le trafic du
 //  navigateur y passe (navigations, redirections, sous-ressources, WebSocket,
-//  service workers). S'y ajoute un refus ANTICIPÉ, avec un message clair pour
-//  le modèle, avant une navigation demandée (goto, nouvel onglet, /start).
-//  Pas de ``context.route`` de garde : le routage Playwright désactive le
-//  cache HTTP et coûte un aller-retour par requête, pour un contrôle que le
-//  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
-//  config.json d'Elpis (relue quand le fichier change) ou la variable
-//  ``BROWSER_URL_ALLOWLIST``.
-const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
-let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
-function listeBlancheCourante() {
-    try {
-        const st = fs.statSync(CONFIG_PATH);
-        if (st.mtimeMs !== _politique.mtime) {
-            const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-            const brut = (cfg && cfg.browser && cfg.browser.url_allowlist) || process.env.BROWSER_URL_ALLOWLIST || '';
-            _politique = { mtime: st.mtimeMs, listeBlanche: analyserListeBlanche(brut) };
-            _verdicts = makeCache({ ttlMs: 30000 });
-        }
-    } catch (_) { /* pas de config lisible : on garde la politique courante */ }
-    return _politique.listeBlanche;
-}
-// os.networkInterfaces() complété par /proc : libuv omet les interfaces sans porteuse (pont Docker vide).
-function _interfaces() {
-    const lire = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } };
-    let vues = {};
-    try { vues = os.networkInterfaces(); } catch (_) { /* /proc seul */ }
-    return fusionnerInterfaces(vues, interfacesDepuisProc({
-        ifInet6: lire('/proc/net/if_inet6'), fibTrie: lire('/proc/net/fib_trie'), route: lire('/proc/net/route'),
-    }));
-}
-let _hote = { t: 0, v: hoteDepuisInterfaces(_interfaces()) };
-function hoteCourant() {
-    if (Date.now() - _hote.t > 60000) {
-        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(_interfaces()) }; } catch (_) {}
-    }
-    return _hote.v;
-}
-const _resoudre = async (nom) => (await dns.promises.lookup(nom, { all: true, verbatim: true })).map(r => r.address);
-// Verdict par nom d'hôte (une page charge des dizaines d'URL du même hôte).
-let _verdicts = makeCache({ ttlMs: 30000 });
+//  service workers) ; la boucle locale du bac y est jointe directement, le
+//  reste part au relais de l'hôte, qui juge la destination (profil réseau du
+//  bac, politique du navigateur). Avant une navigation demandée (goto, nouvel
+//  onglet, /start), seule la forme de l'adresse est contrôlée ici.
 
-/** Motif de refus d'une URL (``null`` = permise). */
+/** Motif de refus d'une URL (``null`` = permise) : forme seule. */
 async function refusUrl(url) {
     const a = analyserUrl(url);
-    if (!a.ok) return a.motif;
-    if (a.vide) return null;
-    const listeBlanche = listeBlancheCourante();
-    const cle = a.hote;
-    const connu = _verdicts.get(cle);
-    if (connu !== undefined) return connu;
-    const m = await motifUrl(url, { resoudre: _resoudre, hote: hoteCourant(), listeBlanche });
-    _verdicts.set(cle, m);
-    return m;
+    return a.ok ? null : a.motif;
 }
 
-// Relais filtrant (proxy_guard.js) : TOUT le trafic du navigateur y passe,
-// boucle locale comprise. C'est lui qui fait foi (redirections, changements
-// d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
-    verifier: verifierDepuisPolitique({
-        resoudre: _resoudre,
-        motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
-    }),
+    verifier: verifierBac(),
+    amont: { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' },
     journal: (m) => console.warn(`[GARDE] ${m}`),
 });
 console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
@@ -217,12 +152,10 @@ const sessions = new Map();
 // ==========================================
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
-// Plafonds de sessions (`quotasSessions`) : global (tous comptes ; les sous-agents à session isolée ont le leur, à part),
-// par propriétaire, et par groupe (le compte et les propriétaires dérivés de ses enfants). Au plafond d'un
-// propriétaire ou du groupe, la plus ancienne session du demandeur cède la place (jamais celle d'un autre
-// propriétaire du groupe ni d'un autre compte) ; sans session à céder, le démarrage est refusé. Une place du
-// groupe reste au compte : ses enfants n'ont que le reste.
-const { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
+// Plafonds de sessions du compte (`quotasSessions`) : par propriétaire, et par groupe (le compte et les propriétaires dérivés
+// de ses enfants). Au plafond, la plus ancienne session du demandeur cède la place (jamais celle d'un autre propriétaire du
+// groupe) ; sans session à céder, le démarrage est refusé. Une place du groupe reste au compte : ses enfants n'ont que le reste.
+const { maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
@@ -257,11 +190,12 @@ async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) 
 // ── Une instance par utilisateur ────────────────────────────────────
 // Retourne [sid, session] de la session vivante appartenant à `owner`,
 // ou null. Une session dont la page a crashé est fermée au passage afin
-// que l'appelant puisse en recréer une proprement.
+// que l'appelant puisse en recréer une proprement. Une session ouverte avec
+// une politique TLS (pour un secret du coffre) n'est jamais reprise.
 async function findLiveSessionByOwner(owner) {
     if (!owner) return null;
     for (const [sid, s] of sessions) {
-        if (s.owner !== owner) continue;
+        if (s.owner !== owner || s.tls) continue;
         // AUDIT 2026-06 — ping borné : une page gelée ne bloque plus la
         // recherche. 'frozen' = fail-open (page sans doute juste occupée,
         // les handlers ont leurs propres timeouts).
@@ -346,7 +280,6 @@ const _reaperInterval = setInterval(async () => {
 // Even with cleanupSessionScreenshots() being called on session close,
 // leaked files accumulate when:
 //   - the Node process crashes between screenshot write and session close
-//   - the client forgets to POST /cleanup_screenshots on tab close
 //   - a session was abandoned with a broken WebSocket
 // This reaper catches both cases:
 //   (1) orphan screenshots — PNG files whose session_id is no longer in
@@ -427,59 +360,39 @@ function reapScreenshots() {
     }
 }
 
-// ── Autres artefacts : purgés par âge (2026-09-30). Téléchargements, HAR,
-// vidéos et traces servent le temps d'une session ; les états sauvegardés
-// (cookies) se rechargent plus tard, d'où une durée plus longue.
+// ── Autres artefacts : purgés par âge (2026-09-30). HAR, vidéos et traces servent le temps d'une session ; les états
+// sauvegardés (cookies) se rechargent plus tard, d'où une durée plus longue ; les téléchargements (/work) ne le sont jamais.
 const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 10) * 3600 * 1000;
 const STATE_MAX_AGE_D = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10);
 const STATE_MAX_AGE_MS = STATE_MAX_AGE_D * 86400 * 1000;
 
-function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
-    let n = 0;
+function _purgerDossier(dir, maxAgeMs) {
     let noms;
     try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
     const entrees = [];
     for (const d of noms) {
-        const f = path.join(dir, d.name);
-        if (d.isDirectory()) {
-            if (recursif) {
-                n += _purgerDossier(f, maxAgeMs);
-                try { if (!fs.readdirSync(f).length) fs.rmdirSync(f); } catch (_) {}
-            }
-            continue;
-        }
-        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(f).mtimeMs }); } catch (_) {}
+        if (!d.isFile()) continue;
+        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(path.join(dir, d.name)).mtimeMs }); } catch (_) {}
     }
-    for (const nom of planArtifactPurge(entrees, { maxAgeMs, keep: garder })) {
+    let n = 0;
+    for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
         try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
     }
     return n;
 }
 
 function reapArtifacts() {
-    // Les états sans propriétaire attendent leur rattachement : jamais purgés.
-    const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
-            + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
+    const n = _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
-            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS, { garder: isLegacyStateName });
+            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS);
     if (n) console.log(`[ARTIFACT-REAPER] ${n} fichier(s) purgé(s).`);
 }
 
-function signalerEtatsSansCompte() {
-    const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
-    if (n) {
-        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
-                   + 'à supprimer à la main (browser-service/cookies/state_<id>.json).');
-    }
-}
-
-// Run once on startup (catches crashes that left files behind across restarts)
-// and then on a timer. Les états sans compte ne sont signalés qu'au démarrage.
+// Run once on startup (catches crashes that left files behind across restarts) and then on a timer.
 setImmediate(() => {
     try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
     try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
-    try { signalerEtatsSansCompte(); } catch (e) { console.error('[STATES] startup:', e.message); }
 });
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(); }
@@ -560,18 +473,6 @@ async function _lancerNavigateur() {
         });
     }
     return globalBrowser;
-}
-
-// ==========================================
-// UTILITAIRES COULEURS
-// ==========================================
-function rgbToHex(rgb) {
-    if (!rgb) return null;
-    const m = rgb.match(/[\d.]+/g);
-    if (!m || m.length < 3) return null;
-    const [r, g, b, a] = m.map(Number);
-    if (a !== undefined && a < 0.05) return 'transparent';
-    return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
 }
 
 // ==========================================
@@ -1634,6 +1535,8 @@ async function getSession(req, res, next) {
         return res.status(404).json({ error: "Session introuvable." });
     }
     const session = sessions.get(sid);
+    // Connexion en cours : refus avant le ping et le verrou, revu sous le verrou (un client parti le rend avant la fin de /login).
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     // AUDIT 2026-06 — ping borné (3 s) : une page gelée ne bloque plus la
     // requête entrante ('frozen' = fail-open, les handlers ont leurs propres
     // timeouts). Crash → closeSession (et plus un simple delete de la Map,
@@ -1670,15 +1573,21 @@ async function getSession(req, res, next) {
         res.once('finish', release);
         res.once('close', release);
     }
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     req.session = session;
     req.sessionId = sid;
     annoncerOnglets(req, res);
     next();
 }
 
-// ── Screenshot write for a specific step number (file I/O only).
+const CONNEXION_EN_COURS = Object.freeze({
+    error: 'A login is in progress on this session: retry once it has finished.',
+    code: 'secret_login_busy', retryable: true,
+});
+
+// ── Screenshot write for a specific step number (file I/O only) ; aucune pendant une connexion.
 async function liveSnapshotForStep(page, sid, n) {
-    if (!page || !sid || !n) return null;
+    if (!page || !sid || !n || sessions.get(sid)?._connexionEnCours) return null;
     const liveName = `live_${sid}.png`;
     const stepName = `step_${sid}_${n}.png`;
     const livePath = path.join(SCREENSHOT_DIR, liveName);
@@ -1890,7 +1799,7 @@ const DIALOG_DEFAULT_WHEN_UNARMED = 'accept';
 function attachDialogHandler(page, dialogState) {
     page.on('dialog', async (dialog) => {
         const type = dialog.type();
-        const message = dialog.message();
+        const message = purgerTexte(dialog.message(), dialogState.formes);
         let action = DIALOG_DEFAULT_WHEN_UNARMED;
         let input = '';
         const pol = dialogState.pending;
@@ -1967,7 +1876,9 @@ const ownerStartLocks = new Map();
 // jamais, et rien ne distinguait l'appli des traqueurs tiers. On garde aussi
 // les documents, on note l'hôte et le same-origin. Attaché à CHAQUE page
 // (onglets compris) — avant, seule la première page de la session l'était.
+// Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
+const requetesEcartees = new WeakSet();
 function attachPageLoggers(page, consoleLogs, networkLog) {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
@@ -1990,13 +1901,15 @@ function attachPageLoggers(page, consoleLogs, networkLog) {
     page.on('request', req => {
         const rtype = req.resourceType();
         if (!NET_TYPES.has(rtype)) return;
-        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: req.postData()?.substring(0, 500) || null });
+        const formes = networkLog.formes;
+        if (formes && requetePorteSecret(req.url(), chargeRequete(req), formes)) return requetesEcartees.add(req);
+        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: formes ? null : (req.postData()?.substring(0, 500) || null) });
         if (networkLog.length > 300) networkLog.shift();
     });
     page.on('response', resp => {
         const req = resp.request();
         const rtype = req.resourceType();
-        if (!NET_TYPES.has(rtype)) return;
+        if (!NET_TYPES.has(rtype) || requetesEcartees.has(req)) return;
         networkLog.push({ ts: Date.now(), dir: 'RES', status: resp.status(), ...entry(req, rtype) });
         if (networkLog.length > 300) networkLog.shift();
     });
@@ -2063,7 +1976,6 @@ function attendreOnglet(s, ms) {
 function peutOuvrirOnglet(req) {
     const b = req.body || {};
     const geste = (type, key) => ['click', 'dblclick', 'double_click'].includes(type) || (type === 'press' && key === 'Enter');
-    if (req.path === '/smart_click') return true;
     if (NAV_GRACE_MS >= ATTENTE_POPUP_MS) return false;
     if (req.path === '/action') return geste(b.type, b.key);
     if (req.path === '/chain' && Array.isArray(b.actions) && b.actions.length) {
@@ -2218,10 +2130,63 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
+// Indice joint à un démarrage arrivé sur un 401/407.
+const indiceAuthDemarrage = (nav) => {
+    const h = authHint(nav.http_status ?? null);
+    return h ? { auth_hint: h } : {};
+};
+
+// Liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
+const ENTETE_LIAISON = 'x-elpis-binding';
+function liaisonRelais(b) {
+    const l = b.relay_binding;
+    if (l === undefined || l === null) return null;
+    if (typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
+        || !Array.isArray(l.origins) || !l.origins.length || l.origins.some((o) => origineDe(o) !== o)) return undefined;
+    return { cle: l.key, origines: new Set(l.origins) };
+}
+
+// Refus (400) d'un démarrage au `tls` inconnu ou à la liaison du relais invalide, ou qui enregistrerait cette liaison (HAR, trace) ; null sinon.
+function refusDemarrage(b) {
+    if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
+    const liaison = liaisonRelais(b);
+    if (liaison === undefined) return { error: 'relay_binding must be { key, origins }.', code: 'invalid_option' };
+    // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
+    if (liaison && (b.record_har || b.trace)) return { error: 'HAR and trace recordings would keep the relay binding of HTTP authentication.', code: 'recording_with_credentials' };
+    return null;
+}
+
+// Plafond qui a fait céder une session, en clair pour le modèle.
+const LIMITES_SESSIONS = {
+    owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
+    group: () => `at most ${MAX_SESSIONS_PER_GROUP} sessions for an account and its sub-agents`,
+};
+
+// Session qui va céder sa place : identifiant, adresse, inactivité et raison.
+function descriptionEviction(sid, limite, now) {
+    const s = sessions.get(sid) || {};
+    let url = ''; try { url = s.page?.url?.() || ''; } catch (_) { /* page fermée */ }
+    return { session_id: sid, url: url.substring(0, 120), idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
+             isolated: Boolean(s.isolated), reason: `closed to stay within ${(LIMITES_SESSIONS[limite] || LIMITES_SESSIONS.owner)()}` };
+}
+
+// Refus quand toutes les sessions du demandeur sont protégées (occupées ou liées à un secret) : lesquelles, et quoi faire.
+function refusSessionsProtegees(slot) {
+    const protegees = (slot.protected || []).map((sid) => {
+        const s = sessions.get(sid) || {};
+        return { session_id: sid, why: s.tls ? 'opened for a secret' : 'busy' };
+    });
+    return {
+        error: `Browser session limit reached (${(LIMITES_SESSIONS[slot.limit] || LIMITES_SESSIONS.owner)()}) and none of your sessions can be closed for this one: each is busy or opened for a secret.`,
+        code: 'browser_quota', protected_sessions: protegees,
+        fix: "Stop a session you no longer need with pw_session(action='stop', session_id=…), or reuse one: start without isolated=true reuses your main session (a new tab), and starting again for the same secret reuses its session.",
+    };
+}
+
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, headless, load_state_id, record_har = false,
+        const { url, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2230,6 +2195,10 @@ app.post('/start', async (req, res) => {
         if (!owner) return res.status(400).json({ error: 'owner requis.' });
         // Groupe du quota : le compte d'un sous-agent à session isolée (absent : le propriétaire seul).
         const group = safeOwner(req.body.group) || owner;
+        // Session ouverte pour un secret du coffre : politique TLS du secret (`tls`), contexte neuf, jamais reprise ensuite.
+        const refus = refusDemarrage(req.body);
+        if (refus) return res.status(400).json(refus);
+        const tls = req.body.tls || null;
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
@@ -2249,7 +2218,7 @@ app.post('/start', async (req, res) => {
             storageState = path.join(COOKIES_DIR, etat.file);
         }
 
-        if (PW_MUTEX && owner && !isolated) {
+        if (PW_MUTEX && owner && !isolated && !tls) {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
@@ -2264,7 +2233,7 @@ app.post('/start', async (req, res) => {
         // échéant) s'ouvre dans un NOUVEL ONGLET de l'instance existante :
         // rien en cours n'est perdu, et l'utilisateur accumule des
         // onglets entre lesquels il peut basculer (switch_tab).
-        if (owner && !isolated) {   // isolated=true → contexte neuf, pas de réutilisation (isolation des tests)
+        if (owner && !isolated && !tls) {   // isolated=true ou politique TLS → contexte neuf, pas de réutilisation
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
@@ -2308,6 +2277,7 @@ app.post('/start', async (req, res) => {
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
                         ...nav,
+                        ...indiceAuthDemarrage(nav),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
                         // Un état ne se pose qu'à la création du contexte : le
@@ -2340,16 +2310,13 @@ app.post('/start', async (req, res) => {
             locale: locale || 'fr-FR',
             timezoneId: timezone || 'Europe/Paris',
             colorScheme: color_scheme || undefined,   // 'light' | 'dark' | 'no-preference'
-            ignoreHTTPSErrors: true,
+            ignoreHTTPSErrors: tls !== 'strict',
             acceptDownloads: true,
             storageState,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
-        // isMobile/hasTouch ne sont supportés que sur Chromium → on les retire
-        // pour firefox/webkit (sinon Playwright lève une exception au newContext).
-        if (BROWSER_ENGINE !== 'chromium') { delete contextOpts.isMobile; delete contextOpts.hasTouch; }
         delete contextOpts.defaultBrowserType;  // clé du preset non valide pour newContext
 
         if (record_har) contextOpts.recordHar = { path: path.join(HAR_DIR, `har_${sessionId}.har`), mode: 'minimal' };
@@ -2358,6 +2325,11 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        const liaison = liaisonRelais(req.body);
+        if (liaison) {
+            await context.route((u) => liaison.origines.has(origineDe(u.href)),
+                (route) => route.fallback({ headers: { ...route.request().headers(), [ENTETE_LIAISON]: liaison.cle } }).catch(() => {}));
+        }
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2387,31 +2359,28 @@ app.post('/start', async (req, res) => {
         const page = await context.newPage();
 
         const dialogState = makeDialogState();
-        attachDialogHandler(page, dialogState);
-
         const consoleLogs = [];
         const networkLog = [];
+        attachDialogHandler(page, dialogState);
         attachPageLoggers(page, consoleLogs, networkLog);
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
+        const slot = planSessionSlot(sessions, owner, { maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
-            return res.status(503).json(slot.cause === 'groupe' ? {
+            if (slot.cause === 'protegees') return res.status(503).json(refusSessionsProtegees(slot));
+            return res.status(503).json({
                 error: `Browser session quota reached for this account (${MAX_SESSIONS_PER_GROUP} sessions, sub-agents included).`,
                 code: 'browser_quota',
                 fix: "Close a session you no longer need with pw_session(action='stop'), or wait for a running browser sub-agent to finish: "
                    + 'the account and its sub-agents share this quota. A sub-agent that hits it returns Status: blocked to its parent.',
-            } : {
-                error: 'Browser service saturated: too many sessions are open across all accounts.',
-                code: 'browser_saturated',
-                fix: 'Do not loop on it: retry in a few minutes, or continue without the browser.',
             });
         }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
+                                tls });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -2431,29 +2400,356 @@ app.post('/start', async (req, res) => {
 });
 
 
-// ======================== SMART CLICK (endpoint dédié) ========================
-app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
+// ======================== CONNEXION AVEC UN SECRET DU COFFRE ========================
+// Le modèle ne saisit jamais un secret par un geste : /login_precheck contrôle les champs sans valeur ; /login, en une requête exclusive (toute
+// autre route de la session répond 409 secret_login_busy), isole la session, recharge la page depuis le réseau, saisit, soumet, juge l'issue et
+// remplace les documents qui ont reçu le secret. Avant et après, la session est ordinaire.
+const BUDGET_LOGIN_MS = parseInt(process.env.PW_LOGIN_BUDGET_MS || '40000', 10);
+// Attente d'une réaction de la page après la soumission (navigation, champ retiré), sauf requête porteuse encore en vol.
+const REACTION_LOGIN_MS = parseInt(process.env.PW_LOGIN_REACTION_MS || '15000', 10);
+const POST_BUDGET_MS = parseInt(process.env.PW_LOGIN_POST_BUDGET_MS || '15000', 10);
+// Plafond absolu d'une connexion depuis l'arrivée de la requête, post-traitement compris.
+const PLAFOND_LOGIN_MS = parseInt(process.env.PW_LOGIN_CEILING_MS || '62000', 10);
+const FERMETURE_MS = 4000;
+const CLES_CIBLE_LOGIN = ['ref', 'by_role', 'by_name', 'by_text', 'by_label', 'by_placeholder', 'by_test_id', 'by_alt', 'by_title', 'by_css'];
+const MDP_VISIBLE = 'input[type=password i]:not([autocomplete~=new-password i])';
+const avecDelai = (promesse, ms) => Promise.race([promesse, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('délai'), { name: 'TimeoutError' })), ms))]);
+
+// Candidats d'une cible de connexion (ref ou by_*) ; null sans cible, secret_target_required si elle ne désigne rien.
+async function candidatsLogin(req, t, quoi) {
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+    const params = {};
+    for (const k of CLES_CIBLE_LOGIN) if (t[k] !== undefined && t[k] !== null && t[k] !== '') params[k] = t[k];
+    if (!Object.keys(params).length) return null;
+    const c = await cibleDepuisParams(req.session.page, params, req.sessionId, NOT_FOUND_GRACE_MS);
+    if (!c) throw erreurSecret('secret_target_required', `${quoi} matches nothing on this page.`, 400);
+    const nth = Number.isInteger(t.nth) && t.nth >= 0 && !String(params.ref || '').includes('#') ? t.nth : null;
+    return { candidats: c.liste || c.loc, nth, params };
+}
+
+async function libererLogin(p) {
+    if (p) for (const h of p.handles) await h.dispose().catch(() => {});
+}
+
+// Champs (cibles ou détectés), formulaires, bouton et origine contrôlés sans valeur ; `valeurs` (login) limite la détection aux champs à remplir.
+async function preparerLogin(req, { fin = Infinity, valeurs = null } = {}) {
+    const b = req.body;
+    const timeout = Math.max(500, Math.min(Number(b.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2, fin - Date.now()));
+    const p = { handles: [], champs: {}, origines: {}, detectes: [], submit: null, origine: null, timeout, cw: null };
     try {
-        const { page } = req.session;
-        const { selector, human = false, button = 'left', modifiers = [], wait_after = null, timeout = 8000 } = req.body;
-        const result = await smartClick(page, selector, { human, button, modifiers, timeout });
-        await postActionWait(page, wait_after);
-        res.json({ status: 'success', ...result });
+        const auto = [];
+        for (const champ of ['username', 'password']) {
+            const c = await candidatsLogin(req, b[`${champ}_target`], `${champ}_target`);
+            if (c && valeurs && !valeurs[champ])
+                throw erreurSecret('secret_target_required', `${champ}_target is given but no ${champ} value comes with it.`, 400);
+            if (c) {
+                const r = await controlerChamp(c.candidats, { champ, timeout, nth: c.nth });
+                p.handles.push(r.h);
+                p.champs[champ] = r.h;
+                p.origines[champ] = r.origine;
+            } else if (!valeurs || valeurs[champ]) auto.push(champ);
+        }
+        if (auto.length) {
+            const d = await detecterChamps(req.session.page, { champs: auto, timeout });
+            for (const champ of auto) if (d[champ]) p.handles.push(d[champ]);
+            for (const champ of auto) {
+                if (!d[champ]) continue;
+                p.origines[champ] = await controlerPoignee(d[champ], champ);
+                p.champs[champ] = d[champ];
+                p.detectes.push(champ);
+            }
+        }
+        if (!Object.keys(p.champs).length)
+            throw erreurSecret('secret_target_required', 'No login field found on this page.', 400,
+                { fix: 'Pass username_target and/or password_target (label, placeholder, role and name, or a ref from pw_find).' });
+        const origines = new Set(Object.values(p.origines));
+        if (origines.size > 1) throw erreurSecret('secret_scope_mismatch', `The login fields are in frames of different origins (${[...origines].join(', ')}): refused.`, 403);
+        p.origine = [...origines][0];
+        for (const h of Object.values(p.champs)) await verifierFormulaire(h, p.origine);
+        const cs = await candidatsLogin(req, b.submit_target, 'submit_target');
+        if (cs) {
+            p.submit = await choisirVisible(cs.candidats, { timeout, nth: cs.nth, quoi: 'submit_target' });
+            p.handles.push(p.submit);
+            const fr = await p.submit.ownerFrame();
+            if (!fr || origineDe(fr.url()) !== p.origine)
+                throw erreurSecret('secret_scope_mismatch', "submit_target is not on the login fields' origin: refused.", 403);
+            await verifierFormulaire(p.submit, p.origine);
+        } else await verifierBoutonParDefaut(p.champs.password || p.champs.username, p.origine);
+        p.cw = await candidatsLogin(req, b.wait_for, 'wait_for');
+        return p;
     } catch (e) {
-        // Feature 3: Smart retry — find alternatives
-        const alternatives = await findAlternatives(req.session.page, req.body.selector).catch(() => []);
-        // Feature 4: Screenshot on failure
-        const ss = await screenshotOnFailure(req.session.page, req.sessionId, 'smart_click');
-        res.status(500).json({
-            error: e.message,
-            selector: req.body.selector,
-            alternatives,
-            hint: alternatives.length > 0
-                ? `${alternatives.length} similar element(s) found. Try: ${alternatives.map(a => a.selector || a.text).join(', ')}`
-                : 'No similar elements found. Try pw_inspect to see the page structure.',
-            ...ss,
-        });
+        await libererLogin(p);
+        throw e;
     }
+}
+
+// Réponse d'une erreur de connexion : erreur codée telle quelle, sinon échec générique (jamais un message Playwright, qui peut citer une saisie).
+function erreurLogin(e) {
+    if (e && e.code && e.statut) return { statut: e.statut, corps: { error: e.message, code: e.code, ...(e.details || {}) } };
+    if (e && e.name === 'TimeoutError') return { statut: 408, corps: { error: 'Timed out during login.', code: 'secret_login_failed' } };
+    return { statut: 500, corps: { error: 'Login failed: the page could not be driven.', code: 'secret_login_failed' } };
+}
+
+// Identifiant (frame + chargement) du document principal : il change à chaque vraie navigation.
+async function idPrincipal(page) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+        const { frameTree } = await cdp.send('Page.getFrameTree');
+        return `${frameTree.frame.id}:${frameTree.frame.loaderId}`;
+    } finally { await cdp.detach().catch(() => {}); }
+}
+
+// Chaque onglet qui a reçu le secret est remplacé par un onglet neuf, chargé en GET sur son adresse si elle ne porte aucun secret, historique vidé (aucun retour ne rejoue le POST) ; sinon fermé, puis la session.
+async function remplacerDocuments(s, saisies, finPost, formes) {
+    const bilan = { remplacees: 0, fermees: 0, sessionFermee: false };
+    const borne = () => Math.max(300, Math.min(4000, finPost - Date.now()));
+    for (const vieux of saisies) {
+        if (vieux.isClosed()) continue;
+        let cible = null;
+        try { const u = vieux.url(); if (/^https?:/i.test(u) && purgerTexte(u, formes) === u) cible = u; } catch (e) { cible = null; }
+        const neuf = await avecDelai(s.context.newPage(), borne()).catch(() => null);
+        if (neuf) {
+            brancherOnglet(s, neuf);
+            const i = s.tabs.indexOf(vieux);
+            if (i >= 0) s.tabs[i] = neuf; else s.tabs.push(neuf);
+            if (s.page === vieux) s.page = neuf;
+        }
+        vieux.__elpisFermeParService = true;
+        try { await avecDelai(vieux.close(), borne()); } catch (e) { bilan.sessionFermee = true; return bilan; }
+        if (!neuf) { bilan.fermees++; continue; }
+        bilan.remplacees++;
+        if (cible) await avecDelai(neuf.goto(cible, { waitUntil: 'commit' }), borne()).catch(() => {});
+        await avecDelai(s.context.newCDPSession(neuf).then((cdp) => cdp.send('Page.resetNavigationHistory').finally(() => cdp.detach().catch(() => {}))), borne()).catch(() => {});
+    }
+    if (!s.tabs.some((t) => !t.isClosed())) {
+        try {
+            const np = await avecDelai(s.context.newPage(), 3000);
+            brancherOnglet(s, np);
+            s.tabs.push(np);
+            s.page = np;
+        } catch (e) { bilan.sessionFermee = true; }
+    }
+    return bilan;
+}
+
+// Un champ mot de passe visible sur l'origine du secret (formulaire de connexion réaffiché).
+async function motDePasseVisible(page, origineSecret) {
+    for (const f of page.frames()) {
+        if (f.isDetached() || origineDe(f.url()) !== origineSecret) continue;
+        if ((await avecDelai(f.locator(MDP_VISIBLE).filter({ visible: true }).count(), 1000).catch(() => 0)) > 0) return true;
+    }
+    return false;
+}
+
+// Message d'erreur affiché par la page (alerte, région live), purgé et borné, pour expliquer un échec avant le remplacement des documents.
+async function messagePage(page, formes) {
+    const textes = await avecDelai(page.evaluate(() => Array.from(document.querySelectorAll('[role=alert], [aria-live=assertive], [aria-live=polite], .error, .alert'))
+        .map((e) => (e.innerText || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3)), 1500).catch(() => []);
+    return purgerTexte(textes.join(' | '), formes).substring(0, 300);
+}
+
+// Issue après la soumission : navigation, onglet, cible wait_for, champ retiré, formulaire invalide ou rien (réponse porteuse sans suite 3 s, fenêtre écoulée) ; puis mot de passe réaffiché 1 s ou cible absente.
+async function issueConnexion(page, p, ctx) {
+    const { fin, nouvelles, etat, avecSecret, origineSecret } = ctx;
+    const observe = p.champs.password || p.champs.username;
+    const debut = Date.now();
+    const finReaction = Math.min(fin, debut + REACTION_LOGIN_MS);
+    const lim = () => Math.max(300, Math.min(2000, fin - Date.now()));
+    let issue = 'no_change';
+    while (Date.now() < fin) {
+        if (etat.navigue || nouvelles.length) { issue = 'navigated'; break; }
+        if (p.cw && (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), lim()).catch(() => 0)) > 0) { issue = 'wait_for'; break; }
+        const vu = await avecDelai(observe.evaluate((el) => ({ parti: !el.isConnected || el.getClientRects().length === 0, invalide: Boolean(el.form && el.form.querySelector(':invalid')) })), lim())
+            .catch((e) => ({ parti: !(e && e.name === 'TimeoutError'), invalide: false }));
+        if (vu.parti) { issue = 'field_gone'; break; }
+        if (vu.invalide && !etat.enVol && !etat.repondu && Date.now() - debut > 1000) { issue = 'form_invalid'; break; }
+        if (!etat.enVol && ((etat.repondu && Date.now() - etat.repondu > 3000) || Date.now() >= finReaction)) break;
+        await page.waitForTimeout(150).catch(() => {});
+    }
+    for (const t = Math.min(fin, Date.now() + 1000); issue === 'field_gone' && !etat.navigue && Date.now() < t; ) await page.waitForTimeout(100).catch(() => {});
+    if (issue === 'field_gone' && etat.navigue) issue = 'navigated';
+    if (issue === 'navigated' || issue === 'field_gone')
+        await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+    if (issue === 'no_change' || issue === 'form_invalid' || issue === 'wait_for' || nouvelles.length) return issue;
+    const limite = p.cw ? fin : Math.min(fin, Date.now() + 1500);
+    let depuis = 0;
+    while (Date.now() < limite) {
+        if (p.cw && (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), lim()).catch(() => 0)) > 0) return 'wait_for';
+        if (avecSecret && (await motDePasseVisible(page, origineSecret))) {
+            depuis ||= Date.now();
+            if (Date.now() - depuis >= 1000) return 'login_form_shown_again';
+        } else depuis = 0;
+        await page.waitForTimeout(150).catch(() => {});
+    }
+    return p.cw ? 'wait_for_missing' : issue;
+}
+
+// Garde réseau de /login : aucun script de service worker enregistré ; pendant la saisie, toute requête vers une autre origine est coupée ; ensuite, une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
+function gardeReseau(formes, origineSecret, etat) {
+    return async (route) => {
+        const rq = route.request();
+        if (rq.headers()['service-worker'] === 'script') return route.abort('blockedbyclient').catch(() => {});
+        const avecSecret = requetePorteSecret(rq.url(), chargeRequete(rq), formes);
+        if (etat.saisie && origineDe(rq.url()) !== origineSecret) {
+            if (avecSecret) etat.bloquees++; else etat.coupees++;
+            return route.abort('blockedbyclient').catch(() => {});
+        }
+        if (!avecSecret) return route.fallback().catch(() => {});
+        const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
+        if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
+        etat.enVol++;
+        // La requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
+        rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
+        return route.fallback().catch(() => {});
+    };
+}
+
+// Corps d'une issue de connexion : succès (200), requête porteuse bloquée (403 secret_scope_mismatch), sinon échec (422 secret_login_failed).
+function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
+    const commun = { outcome: issue, navigated: docChange, fields: Object.keys(p.champs), detected: p.detectes, ...(nouvelles.length ? { opened_tab: true } : {}) };
+    if (bloquee) return { statut: 403, corps: { ok: false, ...commun, outcome: 'blocked', code: 'secret_scope_mismatch',
+        error: 'A request carrying the secret was blocked (not a POST, another origin, or a redirect to another origin): this page does not allow a safe login.',
+        fix: 'Ask the user to check the login page; do not retry on this page.' } };
+    if (['navigated', 'field_gone', 'wait_for'].includes(issue)) return { statut: 200, corps: { ok: true, status: 'submitted', ...commun } };
+    const raisons = {
+        no_change: 'nothing changed after submission (credentials refused, extra field, captcha or two-factor step)',
+        login_form_shown_again: 'the login form came back after submission (credentials refused?)',
+        wait_for_missing: 'the page changed but the wait_for target never appeared',
+        form_invalid: 'the browser refused to submit the form (a field is invalid, e.g. a username that is not an e-mail address)',
+    };
+    return { statut: 422, corps: { ok: false, ...commun, code: 'secret_login_failed',
+        error: `The login did not succeed: ${raisons[issue] || issue}. The fields were cleared.`,
+        fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
+}
+
+// Isolement avant toute saisie (le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret) : journaux sans corps ni requête porteuse, mocks suspendus, garde réseau, service workers de l'origine retirés, page rechargée depuis le réseau (aucun script d'avant n'y reste) ; chaque étape faite ajoute son retour à `defaire`.
+async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }) {
+    s.networkLog.formes = formes;
+    if (s.dialogState) s.dialogState.formes = formes;
+    s._mocksSuspendus = true;
+    defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
+    await s.context.route('**/*', garde);
+    defaire.push(() => s.context.unroute('**/*', garde));
+    const cdp = await s.context.newCDPSession(page);
+    try {
+        await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
+        const avant = await idPrincipal(page);
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: Math.max(500, fin - Date.now()) });
+        if ((await idPrincipal(page)) === avant)
+            throw erreurSecret('secret_login_failed', 'The login page could not be loaded again from the network: nothing was typed.', 422);
+    } finally { await cdp.detach().catch(() => {}); }
+    await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(Math.max(0, Math.min(3000, fin - Date.now() - 20000)))]);
+}
+
+app.post('/login_precheck', getSession, async (req, res) => {
+    let p = null;
+    try {
+        p = await preparerLogin(req);
+        const targets = {};
+        for (const [champ, h] of Object.entries(p.champs)) targets[champ] = await decrireChamp(h);
+        res.json({ ok: true, frame_origin: p.origine, fields: Object.keys(p.champs), detected: p.detectes, submit: Boolean(p.submit), targets });
+    } catch (e) {
+        const r = erreurLogin(e);
+        res.status(r.statut).json(r.corps);
+    } finally {
+        await libererLogin(p);
+    }
+});
+
+app.post('/login', getSession, async (req, res) => {
+    const s = req.session;
+    const b = req.body;
+    const origineSecret = origineDe(b.secret_origin);
+    const uv = typeof b.username_value === 'string' ? b.username_value : '';
+    const pv = typeof b.password_value === 'string' ? b.password_value : '';
+    const formes = formesSecret(pv);
+    const fin = req.recuA + BUDGET_LOGIN_MS - 500;
+    // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
+    s._connexionEnCours = true;
+    const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
+    const garde = gardeReseau(formes, origineSecret, etat);
+    const phaseSaisie = (oui) => { etat.saisie = oui; };
+    const saisies = new Set();
+    const nouvelles = [];
+    const surPage = (pg) => { nouvelles.push(pg); };
+    const defaire = [];
+    let p = null, avecSecret = false, tape = false, sortie = null, message = '';
+    let post = { remplacees: 0, fermees: 0, sessionFermee: false };
+    s.context.on('page', surPage);
+    try {
+        try {
+            if (!origineSecret) throw erreurSecret('secret_scope_mismatch', 'secret_origin must be an http(s) origin (scheme://host[:port]).', 400);
+            if (!uv && !pv) throw erreurSecret('secret_target_required', 'Nothing to type: username_value and password_value are both empty.', 400);
+            if (pv && !formes.length) throw erreurSecret('secret_login_failed', 'A password shorter than 3 characters cannot be guarded or purged: login refused.', 400);
+            if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
+            const prep = preparerLogin(req, { fin, valeurs: { username: uv, password: pv } });
+            try { p = await avecDelai(prep, Math.max(500, fin - Date.now())); }
+            catch (e) { prep.then(libererLogin, () => {}); throw e; }
+            if (p.origine !== origineSecret)
+                throw erreurSecret('secret_scope_mismatch', `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`, 403);
+            avecSecret = Boolean(p.champs.password);
+            if (avecSecret) for (const h of Object.values(p.champs)) saisies.add((await avecDelai(h.ownerFrame(), 3000)).page());
+            const page = s.page;
+            const surNav = (f) => { if (f === page.mainFrame()) etat.navigue = true; };
+            page.on('framenavigated', surNav);
+            try {
+                for (const champ of ['username', 'password']) {
+                    const h = p.champs[champ];
+                    if (!h) continue;
+                    if ((await controlerPoignee(h, champ)) !== origineSecret)
+                        throw erreurSecret('secret_scope_mismatch', "The field's frame left the secret's origin: nothing more was typed.", 403);
+                    await verifierFormulaire(h, origineSecret);
+                    tape = true;
+                    if (avecSecret) phaseSaisie(true);
+                    await remplirChamp(h, champ === 'password' ? pv : uv, { champ, timeout: p.timeout, delaiAvant: fin });
+                }
+                const observe = p.champs.password || p.champs.username;
+                const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => '');
+                const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+                if (etat.saisie) await page.waitForTimeout(150).catch(() => {});
+                phaseSaisie(false);
+                if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
+                else await observe.press('Enter', { timeout: t, noWaitAfter: true });
+                const issue = await issueConnexion(page, p, { fin, nouvelles, etat, avecSecret, origineSecret });
+                const apresId = await avecDelai(idPrincipal(page), 2000).catch(() => avantId);
+                const bloquee = issue !== 'wait_for' && (etat.bloquees > 0 || /^chrome-error:/.test(page.url()));
+                sortie = sortieConnexion(issue, { bloquee, docChange: avantId !== '' && apresId !== avantId, p, nouvelles });
+            } finally {
+                phaseSaisie(false);
+                page.off('framenavigated', surNav);
+            }
+        } catch (e) {
+            sortie = erreurLogin(e);
+            console.warn(`[login] ${req.sessionId.substring(0, 8)}… ${purgerTexte(sansAnsi(String(e && e.message)), formes).split('\n')[0].substring(0, 200)}`);
+        }
+        s.context.off('page', surPage);
+        if (p && tape && sortie.statut !== 200) {
+            message = await messagePage(s.page, formes);
+            for (const h of Object.values(p.champs)) await viderChamp(h);
+        }
+        await libererLogin(p).catch(() => {});
+        if (avecSecret && saisies.size) {
+            try { post = await remplacerDocuments(s, saisies, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS)), formes); }
+            catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
+            if (post.sessionFermee) await avecDelai(closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }), FERMETURE_MS).catch(() => {});
+        }
+    } finally {
+        for (const retour of defaire.reverse()) await Promise.resolve().then(retour).catch(() => {});
+        s._connexionEnCours = false;
+    }
+    let url = '', titre = '';
+    if (!post.sessionFermee) { try { url = s.page.url(); titre = await avecDelai(s.page.title(), 1500).catch(() => ''); } catch (e) { url = ''; } }
+    const corps = {
+        ...sortie.corps,
+        ...(message ? { page_message: message } : {}),
+        ...(post.sessionFermee ? { ok: false, outcome: 'session_closed', session_closed: true, code: 'secret_login_failed',
+            error: 'The documents that received the secret could not be replaced: the session was closed for safety.',
+            fix: 'Start a new session.' } : {}),
+        url: purgerTexte(url, formes).substring(0, 300), title: purgerTexte(titre, formes).substring(0, 200),
+        documents_replaced: post.remplacees,
+        ...(post.fermees ? { page_closed: true, warning: 'A document that received the secret could not be replaced: its page was closed for safety.' } : {}),
+    };
+    res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
 });
 
 
@@ -2526,9 +2822,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 }
             }
             const outcome = classifyNavOutcome(targetUrl, prevUrl, landed, navError, { restored });
-            // GUIDAGE MODÈLE : si la page répond 401/407, elle est protégée par
-            // auth HTTP. On joint un hint expliquant que username/password se
-            // passent au pw_session(start) (httpCredentials), pas au goto.
+            // GUIDAGE MODÈLE : une page en 401/407 est protégée par une auth HTTP ; l'indice renvoie au secret attaché (pw_session start), jamais à un mot de passe.
             // Toute réponse rend aussi son statut (un 404 reste un succès), l'adresse finale et un certificat douteux.
             if (outcome.httpStatus === 200) Object.assign(outcome.body, await detailsNavigation(gotoResp, targetUrl, landed));
             const hint = authHint(outcome.body.http_status ?? null);
@@ -3215,426 +3509,6 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== LOCATE (legacy, kept for compat) ========================
-app.post('/locate', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            text,                  // Texte affiché (ex: "Login", "S'inscrire")
-            role,                  // ARIA role (button, link, textbox, checkbox, radio, combobox, ...)
-            label,                 // aria-label OU <label for=> associé
-            placeholder,           // input placeholder
-            test_id,               // data-testid / data-cy / data-qa
-            tag,                   // restriction par tag (button, a, input, ...)
-            exact = false,         // matching exact ou contains
-            visible_only = true,
-            max = 5,
-        } = req.body;
-
-        if (!text && !role && !label && !placeholder && !test_id && !tag) {
-            return res.status(400).json({ error: "Au moins un critère requis: text, role, label, placeholder, test_id, ou tag" });
-        }
-
-        const matches = await page.evaluate((opts) => {
-            const { text, role, label, placeholder, test_id, tag, exact, visible_only, max } = opts;
-
-            function isVisible(el) {
-                const r = el.getBoundingClientRect();
-                if (r.width < 2 || r.height < 2) return false;
-                const cs = window.getComputedStyle(el);
-                if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return false;
-                return true;
-            }
-            function txtMatch(haystack, needle) {
-                if (!needle) return true;
-                if (!haystack) return false;
-                if (exact) return haystack.trim() === needle.trim();
-                return haystack.toLowerCase().includes(needle.toLowerCase());
-            }
-            function getXPath(el) {
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) return `//*[@id="${el.id}"]`;
-                const parts = [];
-                while (el && el.nodeType === 1 && el.tagName !== 'HTML') {
-                    let i = 1, sib = el.previousElementSibling;
-                    while (sib) { if (sib.tagName === el.tagName) i++; sib = sib.previousElementSibling; }
-                    parts.unshift(`${el.tagName.toLowerCase()}[${i}]`);
-                    el = el.parentElement;
-                }
-                return '/html/' + parts.join('/');
-            }
-            function escapeAttr(v) { return String(v).replace(/[\\"]/g, '\\$&'); }
-            function escapeCssIdent(v) {
-                // Escape pour utilisation dans un sélecteur CSS class (.xxx)
-                return String(v).replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
-            }
-            function isStableClass(cls) {
-                // Filtre les classes générées (CSS-in-JS, BEM hashés, framework runtime)
-                if (!cls || cls.length < 2 || cls.length > 60) return false;
-                // Heuristiques de hashes (jss-123, css-1abc2de, sc-xxx, _abc123, MuiButton-root-23)
-                if (/^(jss|css|sc-|emotion-|styled-|_)[\w-]{3,}/i.test(cls)) return false;
-                if (/-\d{2,}$/.test(cls)) return false;       // suffix numérique long (Mui-root-123)
-                if (/^[a-f0-9]{6,}$/i.test(cls)) return false; // hash hex pur
-                if (/^[A-Za-z]{1,2}_[A-Za-z0-9]{4,}$/.test(cls)) return false; // pattern type "a_xY3z"
-                return true;
-            }
-            function buildCssSelectors(el) {
-                const sel = [];
-                const tag = el.tagName.toLowerCase();
-
-                // 1. ID stable
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) sel.push(`#${el.id}`);
-
-                // 2. Test-IDs (les plus fiables pour SPA)
-                const tid = el.getAttribute('data-testid') || el.getAttribute('data-cy') ||
-                            el.getAttribute('data-qa') || el.getAttribute('data-test') || el.getAttribute('data-id');
-                if (tid) sel.push(`[data-testid="${escapeAttr(tid)}"]`);
-
-                // 3. Name attribute
-                const name = el.getAttribute('name');
-                if (name) sel.push(`${tag}[name="${escapeAttr(name)}"]`);
-
-                // 4. ARIA label
-                const aria = el.getAttribute('aria-label');
-                if (aria && aria.length < 80) sel.push(`[aria-label="${escapeAttr(aria)}"]`);
-
-                // 5. Placeholder
-                const ph = el.getAttribute('placeholder');
-                if (ph && ph.length < 80) sel.push(`${tag}[placeholder="${escapeAttr(ph)}"]`);
-
-                // 6. Role attribute
-                const role = el.getAttribute('role');
-                if (role) sel.push(`[role="${escapeAttr(role)}"]`);
-
-                // 7. href pour les liens
-                if (tag === 'a' && el.getAttribute('href')) {
-                    const h = el.getAttribute('href');
-                    if (h.length < 100) sel.push(`a[href="${escapeAttr(h)}"]`);
-                }
-
-                // 8. SPA-friendly : classes stables (filtrées)
-                const cls = el.className && typeof el.className === 'string' ? el.className.trim() : '';
-                if (cls) {
-                    const stable = cls.split(/\s+/).filter(isStableClass);
-                    if (stable.length > 0) {
-                        // Utilise jusqu'à 2 classes stables pour spécificité raisonnable
-                        const c1 = stable[0];
-                        sel.push(`${tag}.${escapeCssIdent(c1)}`);
-                        if (stable.length > 1) {
-                            sel.push(`${tag}.${escapeCssIdent(c1)}.${escapeCssIdent(stable[1])}`);
-                        }
-                    }
-                }
-
-                // 9. Fallback : nth-of-type avec parent contexte (utile quand rien d'autre)
-                if (sel.length === 0) {
-                    const parent = el.parentElement;
-                    if (parent) {
-                        const parentTag = parent.tagName.toLowerCase();
-                        const parentId = parent.id && /^[a-zA-Z][\w-]*$/.test(parent.id) ? `#${parent.id}` : null;
-                        const sameTag = Array.from(parent.children).filter(c => c.tagName === el.tagName);
-                        const idx = sameTag.indexOf(el) + 1;
-                        if (parentId) {
-                            sel.push(`${parentId} > ${tag}:nth-of-type(${idx})`);
-                        } else if (sameTag.length > 1) {
-                            sel.push(`${parentTag} > ${tag}:nth-of-type(${idx})`);
-                        }
-                    }
-                }
-
-                return sel;
-            }
-            function buildPlaywrightSelectors(el, txt) {
-                // ⚠️ IMPORTANT : on émet :has-text() (CSS extension Playwright)
-                // PLUTÔT QUE text= ou tag:text=, car :has-text() est compatible
-                // avec page.locator() ET page.click() de manière fiable.
-                // Le format "tag:text=..." n'est pas valide CSS et échoue souvent.
-                const sel = [];
-                const tag = el.tagName.toLowerCase();
-                let role = el.getAttribute('role');
-                if (!role) {
-                    if (el.tagName === 'BUTTON') role = 'button';
-                    else if (el.tagName === 'A' && el.getAttribute('href')) role = 'link';
-                    else if (el.tagName === 'INPUT') {
-                        const t = (el.getAttribute('type') || 'text').toLowerCase();
-                        if (t === 'checkbox') role = 'checkbox';
-                        else if (t === 'radio') role = 'radio';
-                        else if (t === 'submit' || t === 'button') role = 'button';
-                        else role = 'textbox';
-                    }
-                    else if (el.tagName === 'SELECT') role = 'combobox';
-                    else if (el.tagName === 'TEXTAREA') role = 'textbox';
-                }
-                if (!role) {
-                    let cs;
-                    try { cs = window.getComputedStyle(el); } catch (e) { cs = null; }
-                    if (cs && cs.cursor === 'pointer') role = 'button';
-                }
-
-                const accName = el.getAttribute('aria-label') || (txt && txt.trim().substring(0, 60));
-                // 1. role= (Playwright officiel, recommandé)
-                if (role && accName) sel.push(`role=${role}[name="${escapeAttr(accName)}"]`);
-                // 2. :has-text() — fiable, CSS pur Playwright (préféré à text=)
-                if (txt && txt.trim().length > 0 && txt.trim().length < 50) {
-                    sel.push(`${tag}:has-text("${escapeAttr(txt.trim())}")`);
-                }
-                return sel;
-            }
-
-            // 1. Sélection candidate par tag/role/test_id
-            // SPA-friendly : pour les apps modernes (React/Vue/Angular), les éléments
-            // cliquables sont souvent des <div>/<span> sans semantic. On élargit.
-            let pool;
-            if (test_id) {
-                pool = Array.from(document.querySelectorAll(
-                    `[data-testid="${test_id}"], [data-cy="${test_id}"], [data-qa="${test_id}"]`
-                ));
-            } else if (tag) {
-                pool = Array.from(document.querySelectorAll(tag));
-            } else {
-                // Pool large : éléments natifs interactifs + heuristique SPA
-                const candidates = new Set();
-
-                // (a) Éléments natifs / ARIA-rolés (rapide, indispensable)
-                document.querySelectorAll(
-                    'a, button, input, select, textarea, label, summary, ' +
-                    '[role], [tabindex]:not([tabindex="-1"]), ' +
-                    '[data-testid], [data-cy], [data-qa], [data-test], [data-id], ' +
-                    '[onclick], [contenteditable="true"]'
-                ).forEach(el => candidates.add(el));
-
-                // (b) Heuristique SPA : div/span/li/p avec signaux d'interactivité
-                // - cursor:pointer (le plus fiable pour les SPA modernes)
-                // - classnames typiques (btn, button, click, action, link, item, card, tab, menu, option)
-                // - ng-click / v-on:click / @click attributes (Angular/Vue)
-                const SPA_TAGS = 'div, span, li, p, td, th, section, article, header, footer, nav, aside, figure, h1, h2, h3, h4, h5, h6, img, svg, i';
-                const CLASS_HINTS = /\b(btn|button|click|clickable|action|link|item|card|tab|menu|option|toggle|trigger|select|control|nav-item|menu-item|list-item|tile|chip|badge|cta|press|tap)\b/i;
-
-                document.querySelectorAll(SPA_TAGS).forEach(el => {
-                    if (candidates.has(el)) return;
-
-                    // Skip rapides : très grand container, body wrapper
-                    const r = el.getBoundingClientRect();
-                    if (r.width === 0 || r.height === 0) return;
-                    // skip "page wrappers" : trop gros (probable container, pas un bouton)
-                    if (r.width > window.innerWidth * 0.95 && r.height > window.innerHeight * 0.7) return;
-
-                    // Signal 1: cursor pointer (très bon indicateur SPA)
-                    let cs;
-                    try { cs = window.getComputedStyle(el); } catch (e) { return; }
-                    if (cs.cursor === 'pointer') {
-                        candidates.add(el);
-                        return;
-                    }
-
-                    // Signal 2: classes évocatrices
-                    const cls = el.className && typeof el.className === 'string' ? el.className : '';
-                    if (cls && CLASS_HINTS.test(cls)) {
-                        candidates.add(el);
-                        return;
-                    }
-
-                    // Signal 3: framework markers (Angular/Vue/React handlers serializés en attribut)
-                    const attrs = el.attributes;
-                    for (let i = 0; i < attrs.length; i++) {
-                        const an = attrs[i].name;
-                        if (an.startsWith('ng-click') || an.startsWith('v-on:click') ||
-                            an === '@click' || an.startsWith('(click)') ||
-                            an.startsWith('data-on-') || an.startsWith('data-action')) {
-                            candidates.add(el);
-                            return;
-                        }
-                    }
-                });
-
-                pool = Array.from(candidates);
-            }
-
-            const found = [];
-            for (const el of pool) {
-                if (visible_only && !isVisible(el)) continue;
-
-                const elText = (el.textContent || el.value || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
-                const elLabel = el.getAttribute('aria-label') ||
-                                (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || '';
-                const elPlaceholder = el.getAttribute('placeholder') || '';
-
-                // Role inference SPA-friendly
-                let elRole = el.getAttribute('role');
-                let cs;
-                try { cs = window.getComputedStyle(el); } catch (e) { cs = null; }
-                if (!elRole) {
-                    if (el.tagName === 'BUTTON') elRole = 'button';
-                    else if (el.tagName === 'A' && el.getAttribute('href')) elRole = 'link';
-                    else if (el.tagName === 'INPUT') {
-                        const t = (el.getAttribute('type') || 'text').toLowerCase();
-                        elRole = (t === 'checkbox') ? 'checkbox' :
-                                 (t === 'radio') ? 'radio' :
-                                 (t === 'submit' || t === 'button') ? 'button' : 'textbox';
-                    }
-                    else if (el.tagName === 'SELECT') elRole = 'combobox';
-                    else if (el.tagName === 'TEXTAREA') elRole = 'textbox';
-                    else if (cs && cs.cursor === 'pointer') elRole = 'button'; // SPA pseudo-button
-                }
-
-                // Filtres
-                if (text && !txtMatch(elText, text) && !txtMatch(elLabel, text) && !txtMatch(elPlaceholder, text)) continue;
-                if (label && !txtMatch(elLabel, label)) continue;
-                if (placeholder && !txtMatch(elPlaceholder, placeholder)) continue;
-                if (role && elRole !== role) continue;
-
-                const r = el.getBoundingClientRect();
-                const cssSelectors = buildCssSelectors(el);
-                const pwSelectors = buildPlaywrightSelectors(el, elText);
-
-                // Score : favorise id > test_id > aria > role+name > href > class stable > cursor:pointer > text
-                let score = 0;
-                if (cssSelectors.find(s => s.startsWith('#'))) score += 100;
-                if (cssSelectors.find(s => s.includes('data-testid'))) score += 90;
-                if (cssSelectors.find(s => s.includes('aria-label'))) score += 70;
-                if (pwSelectors.find(s => s.startsWith('role='))) score += 60;
-                if (cssSelectors.find(s => s.includes('[name='))) score += 50;
-                if (cssSelectors.find(s => s.includes('placeholder'))) score += 40;
-                if (cssSelectors.find(s => /^[a-z]+\.[\w-]+/i.test(s))) score += 30; // class stable
-                if (cs && cs.cursor === 'pointer') score += 15;                       // SPA pseudo-button
-                if (r.top >= 0 && r.top <= window.innerHeight) score += 10;          // viewport bonus
-
-                found.push({
-                    tag: el.tagName.toLowerCase(),
-                    text: elText.substring(0, 80),
-                    role: elRole,
-                    visible: isVisible(el),
-                    enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
-                    in_viewport: r.top >= 0 && r.top <= window.innerHeight,
-                    // Sélecteurs : on garde 3 candidats max, ordonnés par robustesse.
-                    // Le LLM doit utiliser `selector` en priorité ; alternatives en fallback.
-                    selector: cssSelectors[0] || pwSelectors[0] || getXPath(el),
-                    alt_selectors: [
-                        ...cssSelectors.slice(1, 3),
-                        ...pwSelectors.slice(0, 2),
-                    ].filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 3),
-                    xpath: getXPath(el),
-                    score,
-                    _meta: {
-                        // Champs internes ignorables par le LLM, utiles pour debug
-                        label: elLabel.substring(0, 80),
-                        placeholder: elPlaceholder.substring(0, 80),
-                        href: el.getAttribute('href'),
-                        test_id: el.getAttribute('data-testid') || el.getAttribute('data-cy') || el.getAttribute('data-qa'),
-                        cursor_pointer: cs ? cs.cursor === 'pointer' : false,
-                        rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
-                    },
-                });
-            }
-
-            // Tri par score décroissant
-            found.sort((a, b) => b.score - a.score);
-            return found.slice(0, max);
-        }, { text, role, label, placeholder, test_id, tag, exact, visible_only, max });
-
-        // Format de retour compact : best en haut, alternatives uniquement si pertinent.
-        // On omet _meta du top-level pour réduire le contexte vu par le LLM.
-        const cleanMatch = (m) => {
-            const { _meta, ...rest } = m;
-            return rest;
-        };
-        const best = matches[0] ? cleanMatch(matches[0]) : null;
-        // Si 1 seul match : pas besoin d'alternatives. Si plusieurs : top 3.
-        const altMatches = matches.length > 1 ? matches.slice(1, 3).map(cleanMatch) : [];
-
-        res.json({
-            count: matches.length,
-            best,                   // ← À utiliser directement : best.selector
-            alternatives: altMatches,
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== QUERY (raw CSS/XPath, returns matches with details) ========================
-app.post('/query', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, xpath, max = 20, visible_only = false } = req.body;
-
-        if (!selector && !xpath) {
-            return res.status(400).json({ error: "Fournir 'selector' (CSS) ou 'xpath'" });
-        }
-
-        const result = await page.evaluate(({ selector, xpath, max, visible_only }) => {
-            function isVisible(el) {
-                const r = el.getBoundingClientRect();
-                if (r.width < 2 || r.height < 2) return false;
-                const cs = window.getComputedStyle(el);
-                if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return false;
-                return true;
-            }
-            function getXPath(el) {
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) return `//*[@id="${el.id}"]`;
-                const parts = [];
-                while (el && el.nodeType === 1 && el.tagName !== 'HTML') {
-                    let i = 1, sib = el.previousElementSibling;
-                    while (sib) { if (sib.tagName === el.tagName) i++; sib = sib.previousElementSibling; }
-                    parts.unshift(`${el.tagName.toLowerCase()}[${i}]`);
-                    el = el.parentElement;
-                }
-                return '/html/' + parts.join('/');
-            }
-
-            let nodes = [];
-            try {
-                if (xpath) {
-                    const it = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                    for (let i = 0; i < it.snapshotLength && nodes.length < max * 2; i++) {
-                        nodes.push(it.snapshotItem(i));
-                    }
-                } else {
-                    nodes = Array.from(document.querySelectorAll(selector)).slice(0, max * 2);
-                }
-            } catch (e) {
-                return { error: 'Sélecteur invalide: ' + e.message, count: 0, matches: [] };
-            }
-
-            const matches = [];
-            for (const el of nodes) {
-                if (matches.length >= max) break;
-                if (!el || el.nodeType !== 1) continue;
-                if (visible_only && !isVisible(el)) continue;
-
-                // Garde uniquement les attrs utiles : id/class/href/data-*/name/type/aria-*
-                // Évite d'envoyer 50 attrs framework (style, srcset gigantesque, etc.)
-                const usefulAttrs = {};
-                for (const a of el.attributes) {
-                    const n = a.name;
-                    if (n === 'id' || n === 'class' || n === 'href' || n === 'name' ||
-                        n === 'type' || n === 'value' || n === 'placeholder' || n === 'title' ||
-                        n === 'alt' || n === 'role' || n === 'src' ||
-                        n.startsWith('data-') || n.startsWith('aria-')) {
-                        if (a.value && a.value.length < 120) usefulAttrs[n] = a.value;
-                        else if (a.value) usefulAttrs[n] = a.value.substring(0, 120) + '…';
-                    }
-                }
-                matches.push({
-                    tag: el.tagName.toLowerCase(),
-                    text: (el.textContent || '').trim().substring(0, 100),
-                    value: el.value !== undefined && el.value !== '' ? String(el.value).substring(0, 100) : undefined,
-                    attrs: usefulAttrs,
-                    visible: isVisible(el),
-                    enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
-                    xpath: getXPath(el),
-                });
-            }
-
-            return { count: matches.length, matches };
-        }, { selector, xpath, max, visible_only });
-
-        if (result.error) return res.status(400).json({ error: result.error });
-        // Drop undefined fields (JSON sérialise pas, mais c'est plus propre)
-        result.matches = result.matches.map(m => Object.fromEntries(Object.entries(m).filter(([_, v]) => v !== undefined)));
-        res.json(result);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== HANDLE DROPDOWN (custom + natif) ========================
 app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
     try {
@@ -3650,6 +3524,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
                 option_value, option_label: option_value ? undefined : option_text, timeout: ACTION_TIMEOUT_MS });
             return res.json({ status: 'success', type: 'native-select', selected });
         }
+
 
         // Cas 2 : combobox/input avec datalist
         const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
@@ -4597,196 +4472,6 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== INSPECT (vue textuelle complète) ========================
-app.get('/inspect', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const sid = req.query.session_id;
-        const skipScreenshot = req.query.skip_screenshot === 'true';
-
-        if (!skipScreenshot) {
-            try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `view_${sid}.png`) }); } catch (e) {}
-        }
-
-        const mainView = await inspectFrame(page, 'MAIN');
-        let iframeViews = '';
-        const frames = getAllFrames(page);
-        let frameIdx = 0;
-        for (const frame of frames) {
-            if (frame === page.mainFrame() || frame.isDetached()) continue;
-            try {
-                const frameUrl = frame.url();
-                if (frameUrl.includes('doubleclick') || frameUrl.includes('facebook.com/tr') || frameUrl.includes('google-analytics')) continue;
-                const content = await inspectFrame(frame, `IFRAME_${frameIdx}`);
-                if (content && content.trim().length > 10) {
-                    iframeViews += `\n\n===== IFRAME #${frameIdx} (${frameUrl.substring(0, 80)}) =====\n${content}`;
-                    frameIdx++;
-                }
-            } catch (e) {}
-        }
-        res.json({
-            url: page.url(),
-            title: await page.title().catch(() => ''),
-            view: (mainView + iframeViews).replace(/\n{3,}/g, '\n\n').trim(),
-            screenshot: skipScreenshot ? null : `view_${sid}.png`,
-            console_errors: compactConsole(req.session.consoleLogs || [], 10),
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-async function inspectFrame(frame, label) {
-    try {
-        return await frame.evaluate(() => {
-            const MAX_DEPTH = 30, MAX_TEXT = 200;
-            function toHex(rgb) {
-                const m = rgb?.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            function isVisible(el) {
-                if (!el?.getBoundingClientRect) return false;
-                const style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
-            }
-            function clean(s) { return s ? s.replace(/\s+/g, ' ').trim().substring(0, MAX_TEXT) : ''; }
-            function isTableLike(el) {
-                const style = window.getComputedStyle(el);
-                return ['table', 'table-row', 'table-cell', 'grid', 'inline-grid'].includes(style.display) ||
-                    ['table', 'grid', 'row', 'gridcell', 'columnheader'].includes(el.getAttribute('role'));
-            }
-            function buildSelector(node) {
-                const attrs = [];
-                if (node.id && !/^\d/.test(node.id) && !/^:r/.test(node.id) && !node.id.startsWith('ext-')) attrs.push(`#${node.id}`);
-                if (node.className && typeof node.className === 'string') {
-                    const cls = node.className.split(' ').filter(c => c.length > 2 && c.length < 50 && !/\d{3,}/.test(c) && !['active', 'hover', 'focus', 'selected', 'open', 'show'].some(s => c === s)).slice(0, 3);
-                    if (cls.length) attrs.push(`.${cls.join('.')}`);
-                }
-                for (const a of ['name', 'data-testid', 'data-cy', 'data-automation', 'data-qa', 'aria-label', 'placeholder', 'title']) {
-                    const val = node.getAttribute(a);
-                    if (val && val.length < 80) attrs.push(`[${a}="${val.replace(/[\\"]/g, '\\$&')}"]`);
-                }
-                return attrs.join('').substring(0, 150);
-            }
-            function getColorHint(node) {
-                const style = window.getComputedStyle(node);
-                const bg = toHex(style.backgroundColor);
-                const clr = toHex(style.color);
-                const parts = [];
-                if (bg) parts.push(`bg:${bg}`);
-                if (clr) parts.push(`clr:${clr}`);
-                if (node.disabled || node.getAttribute('aria-disabled') === 'true') parts.push('DISABLED');
-                return parts.length ? ` {${parts.join(' ')}}` : '';
-            }
-            function traverse(node, depth = 0, inTable = false) {
-                if (depth > MAX_DEPTH) return '';
-                if (node.nodeType === Node.TEXT_NODE) { const t = clean(node.textContent); return t.length > 1 ? t : ''; }
-                if (node.nodeType !== Node.ELEMENT_NODE) return '';
-                if (!isVisible(node)) return '';
-                const tag = node.tagName.toLowerCase();
-                if (['script', 'style', 'noscript', 'link', 'meta', 'br', 'hr', 'wbr', 'head'].includes(tag)) return '';
-                const role = node.getAttribute('role');
-                const ariaLabel = node.getAttribute('aria-label');
-                const style = window.getComputedStyle(node);
-                const isPointer = style.cursor === 'pointer';
-                const hasClick = node.getAttribute('onclick') || node.getAttribute('@click') || node.getAttribute('ng-click') || node.getAttribute('data-action') || node.getAttribute('v-on:click');
-                const isNativeInteractive = ['a', 'button', 'input', 'select', 'textarea', 'details', 'summary'].includes(tag);
-                const isAriaInteractive = ['button', 'checkbox', 'link', 'menuitem', 'option', 'radio', 'switch', 'tab', 'combobox', 'textbox', 'searchbox', 'slider', 'spinbutton', 'treeitem'].includes(role);
-                const isCustomInteractive = (hasClick || (isPointer && node.children.length < 5)) && ['div', 'span', 'li', 'td', 'label', 'img', 'i', 'p', 'section'].includes(tag);
-                const isInteractive = isNativeInteractive || isAriaInteractive || isCustomInteractive || tag === 'svg';
-                const sel = buildSelector(node);
-                const colorHint = isInteractive ? getColorHint(node) : '';
-
-                // Tables
-                if (tag === 'table' || (isTableLike(node) && role === 'table'))
-                    return `\n📋 TABLE${sel ? ' ' + sel : ''}\n${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}\n`;
-                if (tag === 'thead') return `  [HEADER]${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}\n`;
-                if (tag === 'tbody' || tag === 'tfoot') return Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('');
-                if (tag === 'tr' || role === 'row') return `\n  |${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}`;
-                if (tag === 'td' || tag === 'th' || role === 'gridcell' || role === 'columnheader') {
-                    const content = Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join(' ');
-                    const interactive = node.querySelector('button, a, input, select, [role="button"]');
-                    if (interactive) return ` ${clean(content)} (→${buildSelector(interactive)}) |`;
-                    return ` ${clean(content)} |`;
-                }
-                if (isTableLike(node) && !['table'].includes(tag)) {
-                    const dt = style.display;
-                    if (dt === 'table-row' || role === 'row') return `\n  |${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}`;
-                    if (dt === 'table-cell' || role === 'gridcell' || role === 'columnheader') return ` ${clean(Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join(' '))} |`;
-                }
-
-                // Éléments interactifs
-                if (isInteractive) {
-                    let type = tag.toUpperCase(), lbl = '';
-                    if (tag === 'input') {
-                        const it = node.getAttribute('type') || 'text';
-                        type = `INPUT:${it}`;
-                        lbl = node.value || node.getAttribute('placeholder') || ariaLabel || '';
-                        if (it === 'checkbox' || it === 'radio') lbl += node.checked ? ' ✓' : ' ○';
-                        if (it === 'color') lbl += ` [valeur: ${node.value}]`;
-                        if (it === 'date' || it === 'datetime-local') lbl += ` [date: ${node.value}]`;
-                        if (it === 'range') lbl += ` [${node.min || 0}-${node.max || 100}, val: ${node.value}]`;
-                    } else if (tag === 'select') {
-                        type = 'SELECT';
-                        const selected = node.options?.[node.selectedIndex];
-                        lbl = selected ? selected.text : (ariaLabel || '');
-                        const options = Array.from(node.options || []).slice(0, 12).map(o => o.text.trim()).filter(Boolean);
-                        if (options.length) lbl += ` [Options: ${options.join(', ')}]`;
-                    } else if (tag === 'textarea') {
-                        type = 'TEXTAREA'; lbl = clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
-                    } else if (tag === 'svg' || tag === 'img' || tag === 'i') {
-                        type = 'ICON'; lbl = ariaLabel || node.getAttribute('alt') || node.getAttribute('data-icon') || node.getAttribute('title') || node.className?.toString().match(/fa-[\w-]+|icon-[\w-]+|mdi-[\w-]+|bi-[\w-]+/)?.[0] || 'Graphic';
-                    } else if (tag === 'a') {
-                        type = 'LINK'; lbl = clean(node.textContent) || ariaLabel || '';
-                        const href = node.getAttribute('href');
-                        if (href && !href.startsWith('javascript:') && href !== '#') lbl += ` → ${href.substring(0, 60)}`;
-                    } else {
-                        if (role === 'checkbox') type = 'CHECKBOX';
-                        else if (role === 'radio') type = 'RADIO';
-                        else if (role === 'tab') type = 'TAB';
-                        else if (role === 'menuitem' || role === 'menuitemcheckbox') type = 'MENUITEM';
-                        else if (role === 'switch') type = 'SWITCH';
-                        else if (role === 'slider') type = 'SLIDER';
-                        else if (role === 'option') type = 'OPTION';
-                        else if (role === 'combobox') type = 'COMBOBOX';
-                        else if (tag === 'button' || role === 'button') type = 'BUTTON';
-                        else type = `CLICKABLE:${tag}`;
-                        lbl = clean(node.textContent) || ariaLabel || '';
-                    }
-                    if (!lbl) lbl = '(sans texte)';
-                    const ariaExpanded = node.getAttribute('aria-expanded');
-                    const ariaSelected = node.getAttribute('aria-selected');
-                    const stateHint = [ariaExpanded ? `expanded:${ariaExpanded}` : '', ariaSelected ? `selected:${ariaSelected}` : ''].filter(Boolean).join(' ');
-                    return `\n[${type}] "${lbl.substring(0, 120)}" ${sel}${colorHint}${stateHint ? ` (${stateHint})` : ''}`;
-                }
-
-                // Structure
-                const children = Array.from(node.childNodes).map(c => traverse(c, depth + 1, inTable)).join(' ');
-                if (['h1', 'h2', 'h3', 'h4', 'h5'].includes(tag)) return `\n${'#'.repeat(parseInt(tag[1]))} ${clean(children)}\n`;
-                if (tag === 'form') return `\n─── FORM${sel ? ' ' + sel : ''} ───\n${children}\n─── /FORM ───\n`;
-                if (tag === 'nav') return `\n[NAV]\n${children}\n`;
-                if (tag === 'main' || role === 'main') return `\n[MAIN]\n${children}\n`;
-                if (tag === 'header' || role === 'banner') return `\n[HEADER]\n${children}\n`;
-                if (tag === 'footer' || role === 'contentinfo') return `\n[FOOTER]\n${children}\n`;
-                if (tag === 'aside' || role === 'complementary') return `\n[SIDEBAR]\n${children}\n`;
-                if (tag === 'section' || tag === 'article') return `\n${children}\n`;
-                if (tag === 'label') { const forId = node.getAttribute('for'); return `LABEL${forId ? `(for=${forId})` : ''}: ${clean(children)} `; }
-                if (tag === 'li') return `\n  • ${children}`;
-                if (tag === 'option') return '';
-                if (tag === 'iframe') return `\n[IFRAME: ${node.src?.substring(0, 60) || 'embedded'}]\n`;
-                if (tag === 'dialog' || role === 'dialog') return `\n[DIALOG]\n${children}\n[/DIALOG]\n`;
-                if (role === 'alert' || role === 'status') return `\n[ALERTE: ${clean(children)}]\n`;
-                return children;
-            }
-            return traverse(document.body);
-        });
-    } catch (e) { return `(Erreur inspection: ${e.message})`; }
-}
-
-
 // ======================== SCREENSHOT ANNOTÉ ========================
 app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
     try {
@@ -5153,37 +4838,6 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== INTERCEPT REQUESTS ========================
-app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { block_patterns = [], modify_headers = {} } = req.body;
-        await page.route('**/*', (route, request) => {
-            const url = request.url();
-            for (const pattern of block_patterns) { if (url.includes(pattern)) { route.abort(); return; } }
-            // fallback (et non continue) : la garde des destinations, posée
-            // sur le contexte, doit encore voir la requête.
-            if (Object.keys(modify_headers).length > 0) { route.fallback({ headers: { ...request.headers(), ...modify_headers } }); return; }
-            route.fallback();
-        });
-        res.json({ status: 'intercepting', blocking: block_patterns.length, modifying_headers: Object.keys(modify_headers).length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== CAPTURE API RESPONSE ========================
-app.post('/capture_response', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { url_pattern, timeout = 15000 } = req.body;
-        const response = await page.waitForResponse(resp => resp.url().includes(url_pattern), { timeout });
-        let body;
-        try { body = await response.json(); } catch { body = await response.text(); }
-        res.json({ status: response.status(), url: response.url(), headers: response.headers(), body });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== EXTRACT TABLE ========================
 app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
     try {
@@ -5435,54 +5089,6 @@ app.get('/frames', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== CLIPBOARD ========================
-app.post('/clipboard', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { action, text } = req.body;
-        if (action === 'copy') { await page.keyboard.press('Control+c'); const content = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null); return res.json({ status: 'success', text: content }); }
-        if (action === 'paste') { if (text) await page.evaluate(t => navigator.clipboard.writeText(t), text); await page.keyboard.press('Control+v'); return res.json({ status: 'success' }); }
-        if (action === 'select_all') { await page.keyboard.press('Control+a'); return res.json({ status: 'success' }); }
-        if (action === 'cut') { await page.keyboard.press('Control+x'); return res.json({ status: 'success' }); }
-        if (action === 'read') { return res.json({ text: await page.evaluate(() => navigator.clipboard.readText()).catch(() => null) }); }
-        res.status(400).json({ error: `Action clipboard inconnue: ${action}` });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== MUTATION OBSERVER ========================
-app.post('/watch_changes', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector = 'body', timeout = 10000, attribute_filter } = req.body;
-        const changes = await page.evaluate(({ selector, timeout, attribute_filter }) => {
-            return new Promise((resolve) => {
-                const target = document.querySelector(selector);
-                if (!target) { resolve({ error: 'Element not found' }); return; }
-                const mutations = [];
-                const config = { childList: true, subtree: true, attributes: true, characterData: true };
-                if (attribute_filter) config.attributeFilter = attribute_filter;
-                const observer = new MutationObserver(list => {
-                    for (const m of list) {
-                        if (m.type === 'childList') {
-                            m.addedNodes.forEach(n => { if (n.nodeType === Node.ELEMENT_NODE) mutations.push({ type: 'added', tag: n.tagName, text: n.textContent?.trim().substring(0, 100) }); });
-                            m.removedNodes.forEach(n => { if (n.nodeType === Node.ELEMENT_NODE) mutations.push({ type: 'removed', tag: n.tagName, text: n.textContent?.trim().substring(0, 100) }); });
-                        } else if (m.type === 'attributes') {
-                            mutations.push({ type: 'attr_changed', attr: m.attributeName, tag: m.target.tagName, newValue: m.target.getAttribute(m.attributeName)?.substring(0, 100) });
-                        } else if (m.type === 'characterData') {
-                            mutations.push({ type: 'text_changed', text: m.target.textContent?.substring(0, 100) });
-                        }
-                    }
-                });
-                observer.observe(target, config);
-                setTimeout(() => { observer.disconnect(); resolve(mutations); }, timeout);
-            });
-        }, { selector, timeout, attribute_filter });
-        res.json({ changes, count: changes.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== PDF / PRINT ========================
 app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
     try {
@@ -5568,7 +5174,7 @@ app.post('/trace_export', getSession, async (req, res) => {
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
         await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
         req.session.traceActive = false;
-        res.json({ ok: true, trace_url: `/traces/${file}`, hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
+        res.json({ ok: true, trace_url: `/traces/${file}`, file: path.join(TRACE_DIR, file), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5600,14 +5206,12 @@ app.get('/health', (req, res) => {
         status: 'running',
         engine: 'chromium',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
-        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
+        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes celles du compte.
         sessions: sessionList,
         session_count: sessions.size,
-        max_sessions: MAX_SESSIONS,
         ...(groupe ? { group_sessions: groupe.compte + groupe.enfants, max_sessions_per_group: MAX_SESSIONS_PER_GROUP, child_slots_left: Math.max(0, placesEnfants(groupe, MAX_SESSIONS_PER_GROUP) - groupe.enfants) } : {}),
         session_ttl_min: SESSION_TTL_MS / 60000,
         browser_connected: globalBrowser?.isConnected() || false,
-        url_allowlist: !listeBlancheCourante().vide,
     });
 });
 
@@ -5715,182 +5319,6 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== DISPATCH EVENT ========================
-// Déclenche n'importe quel événement DOM sur un élément
-app.post('/dispatch_event', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            selector,
-            event,          // 'click' | 'input' | 'change' | 'focus' | 'blur' | 'keydown' | ...
-            event_type = 'Event',  // 'Event' | 'MouseEvent' | 'KeyboardEvent' | 'InputEvent' | 'CustomEvent'
-            event_init = {},       // propriétés de l'événement
-            use_native = true,     // true = déclenche aussi l'event natif Playwright si possible
-        } = req.body;
-
-        if (!selector || !event) return res.status(400).json({ error: 'selector et event requis' });
-
-        const { locator, strategy } = await smartResolveLocator(page, selector);
-
-        // Déclencher via Playwright natif si possible
-        if (use_native) {
-            if (event === 'click') { await locator.click({ timeout: 5000 }).catch(() => {}); }
-            else if (event === 'focus') { await locator.focus({ timeout: 3000 }).catch(() => {}); }
-            else if (event === 'blur') { await locator.blur({ timeout: 3000 }).catch(() => {}); }
-        }
-
-        // Dispatch JS complet pour les événements custom ou non-natifs
-        const result = await locator.evaluate((el, { event, event_type, event_init }) => {
-            let evt;
-            switch (event_type) {
-                case 'MouseEvent':
-                    evt = new MouseEvent(event, { bubbles: true, cancelable: true, ...event_init });
-                    break;
-                case 'KeyboardEvent':
-                    evt = new KeyboardEvent(event, { bubbles: true, cancelable: true, ...event_init });
-                    break;
-                case 'InputEvent':
-                    evt = new InputEvent(event, { bubbles: true, ...event_init });
-                    break;
-                case 'FocusEvent':
-                    evt = new FocusEvent(event, { bubbles: ['focusin','focusout'].includes(event), ...event_init });
-                    break;
-                case 'CustomEvent':
-                    evt = new CustomEvent(event, { bubbles: true, detail: event_init.detail || null });
-                    break;
-                default:
-                    evt = new Event(event, { bubbles: true, cancelable: true, ...event_init });
-            }
-            el.dispatchEvent(evt);
-            return { dispatched: true, event, tag: el.tagName, id: el.id };
-        }, { event, event_type, event_init });
-
-        res.json({ status: 'success', ...result, strategy });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== TRIGGER REACT/VUE/ANGULAR ========================
-// Force la mise à jour des frameworks JS en simulant une vraie saisie utilisateur
-app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, value, framework = 'auto' } = req.body;
-
-        if (!selector) return res.status(400).json({ error: 'selector requis' });
-
-        const { locator } = await smartResolveLocator(page, selector);
-        const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => 'input');
-
-        const detected = await locator.evaluate((el, { value, framework }) => {
-            const tag = el.tagName.toLowerCase();
-            const results = [];
-
-            // ─── Détection framework ───
-            let fw = framework;
-            if (fw === 'auto') {
-                if (el._reactFiber || el.__reactFiber || el.__reactProps || document.querySelector('[data-reactroot]')) fw = 'react';
-                else if (el.__vue__ || el.__vue3 || document.querySelector('[data-v-app]')) fw = 'vue';
-                else if (window.ng || document.querySelector('[ng-version]')) fw = 'angular';
-                else fw = 'vanilla';
-            }
-
-            // ─── React : passer par le synthetic event system ───
-            if (fw === 'react') {
-                try {
-                    // React 16+
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-                        || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                    if (nativeInputValueSetter && value !== undefined) {
-                        nativeInputValueSetter.call(el, value);
-                        results.push('react:native-setter');
-                    }
-                    // Déclencher les events dans l'ordre exact React
-                    ['focus', 'keydown', 'keypress', 'input', 'keyup', 'change', 'blur'].forEach(evName => {
-                        const evCls = ['keydown','keypress','keyup'].includes(evName) ? KeyboardEvent
-                            : ['focus','blur'].includes(evName) ? FocusEvent : Event;
-                        el.dispatchEvent(new evCls(evName, { bubbles: true, cancelable: true }));
-                    });
-                    results.push('react:events-dispatched');
-                } catch (e) { results.push('react:error:' + e.message); }
-            }
-
-            // ─── Vue 3 : proxy reactif ───
-            if (fw === 'vue') {
-                try {
-                    if (value !== undefined) el.value = value;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    results.push('vue:events');
-                    // Vue 3 internal update
-                    const __vue = el.__vueParentComponent;
-                    if (__vue?.emit) { __vue.emit('update:modelValue', value); results.push('vue:emit'); }
-                } catch (e) { results.push('vue:error:' + e.message); }
-            }
-
-            // ─── Angular : NgModel zone trigger ───
-            if (fw === 'angular') {
-                try {
-                    if (value !== undefined) el.value = value;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    // Angular Zone.js
-                    if (window.getAllAngularRootElements) {
-                        const ngZone = window.ng?.getComponent?.(el)?.ngZone;
-                        if (ngZone) { ngZone.run(() => {}); results.push('angular:zone'); }
-                    }
-                    results.push('angular:events');
-                } catch (e) { results.push('angular:error:' + e.message); }
-            }
-
-            // ─── Vanilla / fallback ───
-            if (fw === 'vanilla' || results.length === 0) {
-                try {
-                    if (value !== undefined) el.value = value;
-                    ['input', 'change', 'blur'].forEach(evName => {
-                        el.dispatchEvent(new Event(evName, { bubbles: true }));
-                    });
-                    results.push('vanilla:events');
-                } catch (e) { results.push('vanilla:error:' + e.message); }
-            }
-
-            return { fw, results, tag: el.tagName, currentValue: el.value };
-        }, { value, framework });
-
-        res.json({ status: 'success', ...detected });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== POLL UNTIL ========================
-// Exécute un script JS en boucle jusqu'à ce qu'il retourne true
-app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            script,           // JS retournant true/false : "return document.querySelector('#result') !== null"
-            timeout = 15000,
-            poll_interval = 300,
-        } = req.body;
-
-        if (!script || typeof script !== 'string') return res.status(400).json({ error: 'script (string) required' });
-
-        // Le corps n'est compilé que dans la page, comme pour /evaluate.
-        const condition = (body) => new Function(body)();
-        try {
-            await page.waitForFunction(condition, script, { timeout, polling: poll_interval });
-            // Capturer le résultat final
-            const finalValue = await page.evaluate(condition, script).catch(() => null);
-            return res.json({ status: 'success', result: finalValue, elapsed_ms: timeout });
-        } catch (e) {
-            return res.status(408).json({ error: `Timeout après ${timeout}ms — condition non atteinte`, script });
-        }
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== INTERCEPT NEXT DIALOG ========================
-// Configure la gestion du prochain dialog avant de déclencher l'action qui l'ouvre
 // ======================== DIALOGUE : POLITIQUE ARMABLE ====================
 // Contrairement à une attente bloquante (qui retiendrait la réponse HTTP jusqu'à ce
 // qu'un dialogue apparaisse — inutilisable pour un agent, qui doit rendre la
@@ -5926,50 +5354,6 @@ app.post('/dialog', getSession, async (req, res) => {
             sticky: sticky === true || sticky === 'true',
         };
         res.json({ status: 'armed', ...view() });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-app.post('/handle_next_dialog', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            action = 'accept',   // accept | dismiss
-            input_text = '',     // Pour les prompt() dialogs
-            timeout = 10000,
-        } = req.body;
-        const attente = Number(timeout);
-        if (!(attente >= 0 && attente <= 60000)) return res.status(400).json({ error: 'timeout must be 0 to 60000 ms' });
-
-        // Remplacer le handler dialog par défaut pour la prochaine occurrence seulement
-        let resolved = false;
-        const handler = async (dialog) => {
-            if (resolved) return;
-            resolved = true;
-            page.off('dialog', handler);
-            const type = dialog.type();
-            const message = dialog.message();
-            try {
-                if (action === 'dismiss') await dialog.dismiss();
-                else if (input_text && type === 'prompt') await dialog.accept(input_text);
-                else await dialog.accept();
-                res.json({ status: 'handled', dialog_type: type, message, action });
-            } catch (e) {
-                res.json({ status: 'handled_error', error: e.message, dialog_type: type });
-            }
-        };
-
-        page.on('dialog', handler);
-
-        // Timeout si aucun dialog n'apparaît
-        setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                page.off('dialog', handler);
-                res.json({ status: 'no_dialog', timeout_ms: timeout });
-            }
-        }, attente);
-
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6298,6 +5682,7 @@ app.get('/sessions', (req, res) => {
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
+            ...(s.isolated ? { isolated: true } : {}), ...(s.tls ? { secret: true } : {}),
         });
     }
     res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
@@ -6314,30 +5699,13 @@ app.post('/cleanup', async (req, res) => {
     res.json({ cleaned: siennes.length });
 });
 
-// Sessions des sous-agents de tous les comptes ouvertes depuis `older_than_ms`, jamais celle d'un compte ; sans propriétaire : le core, seul client du service, au démarrage (celles du process précédent).
+// Sessions des sous-agents ouvertes depuis `older_than_ms`, jamais celle du compte ; sans propriétaire : le core, à son démarrage (celles des runs du process précédent).
 app.post('/cleanup_children', async (req, res) => {
     const ageMinMs = req.body?.older_than_ms;
     if (typeof ageMinMs !== 'number' || !(ageMinMs >= 0)) return res.status(400).json({ error: 'older_than_ms requis (ms, >= 0).' });
     const sids = sessionsEnfantsAnciennes(sessions, { ageMinMs });
     for (const sid of sids) await closeSession(sid, 'orphan_children');
     res.json({ cleaned: sids.length });
-});
-
-// Cleanup les screenshots de session(s) sans fermer les sessions Playwright.
-// Usage : appelé par le frontend quand il n'a plus besoin des images affichées
-// (nouveau message, navigation, fermeture d'onglet via beacon).
-// Body : { session_ids: ["sid1", "sid2", ...] }
-app.post('/cleanup_screenshots', async (req, res) => {
-    const sids = (req.body && req.body.session_ids) || [];
-    if (!Array.isArray(sids)) return res.status(400).json({ error: 'session_ids must be an array' });
-    let cleaned = 0;
-    for (const sid of sids) {
-        if (typeof sid === 'string' && sid.length >= 8 && sid.length <= 64 && /^[A-Za-z0-9\-]+$/.test(sid)) {
-            cleanupSessionScreenshots(sid);
-            cleaned++;
-        }
-    }
-    res.json({ cleaned });
 });
 
 
@@ -6741,13 +6109,14 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
 // ════════════════════════════════════════════════════════════════════
 // Each session keeps its own mock list under session._mocks. The route
 // handler is registered ONCE per session lazily; subsequent add/remove
-// calls only mutate the list (no double-route registration).
+// calls only mutate the list (no double-route registration); none during a vault login.
 async function ensureMockHandler(session) {
     if (session._mockHandlerRegistered) return;
     const { context } = session;
     session._mocks = session._mocks || [];
     // Use context.route so it covers all pages in the session (incl. new tabs).
     await context.route('**/*', async (route, request) => {
+        if (session._mocksSuspendus) return route.fallback().catch(() => {});
         const url = request.url();
         const method = request.method();
         const mocks = session._mocks || [];
@@ -7015,18 +6384,28 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     const { secret_variables, notes } = notesDuScript(events);
-    res.json({ format, count: events.length, script,
+    // Le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
+    const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
+    let fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+    try {
+        fs.mkdirSync('/work/recordings', { recursive: true });
+        fs.writeFileSync(fichier, script);
+    } catch (e) { fichier = null; }
+    res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 
 
-// SECURITY FIX (critique) : on bind explicitement à 127.0.0.1 par défaut
-// pour empêcher l'exposition externe. L'opérateur peut exposer le service
-// sur d'autres interfaces via FIREFOX_SERVICE_HOST=0.0.0.0, en sachant que
-// le service n'a alors AUCUNE barrière. Le port reste configurable via
-// FIREFOX_SERVICE_PORT.
-const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
-const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
-app.listen(LISTEN_PORT, LISTEN_HOST, () => {
-    console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
+// Socket unix du bac (/run/elpis/browser.sock), joint par l'hôte d'outils avec le jeton du bac.
+try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+app.listen(LISTEN_SOCKET, () => {
+    try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); }
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET} (TTL: 15min, ${MAX_SESSIONS_PER_OWNER} sessions par propriétaire, ${MAX_SESSIONS_PER_GROUP} pour le compte, sous-agents compris)`);
 });
+// Sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
+if (ARRET_INACTIF_MS > 0) {
+    let arret = false;
+    setInterval(() => {
+        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; gracefulShutdown('idle', 0); }
+    }, Math.min(30000, ARRET_INACTIF_MS)).unref();
+}

@@ -6,9 +6,9 @@ import { ouPy, stripPy, strPy } from "@elpis/commun";
 import { pyJoin, pyPath, racineDepot } from "@elpis/config";
 
 /** Image livrée avec cette version d'Elpis (`deploy/docker/sandbox`). */
-export const DEFAULT_IMAGE = "elpis/sandbox:1.7.0";
+export const DEFAULT_IMAGE = "elpis/sandbox:1.8.0";
 
-/** `_image_repo` : `elpis/sandbox:1.7.0` → `elpis/sandbox` (registre à port compris). */
+/** `_image_repo` : `elpis/sandbox:1.8.0` → `elpis/sandbox` (registre à port compris). */
 function imageRepo(ref: string): string {
   const r = ref.split("@", 1)[0] ?? "";
   const i = r.lastIndexOf(":");

@@ -48,7 +48,7 @@ ROOT = C.ROOT
 State = Dict[str, Any]
 
 COMPONENTS = [
-    ("browser", "Navigateur piloté", "Chromium : navigation web par l'assistant"),
+    ("browser", "Navigateur piloté", "Chromium, dans la sandbox de chaque compte : navigation web par l'assistant"),
     ("office", "LibreOffice", "aperçus Word, Excel, PowerPoint ; pages de ces documents dans la visionneuse du RAG (~400 Mo)"),
     ("caddy", "Caddy (HTTPS)", "frontal TLS devant l'application"),
     ("agpl", "Extras AGPL", "PyMuPDF, pdf2docx (licence AGPL) : plus utilisés depuis le RAG intégré"),
@@ -613,7 +613,7 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
 def apt_groups(st: State, ctx: Ctx) -> List[str]:
     """Groupes de deploy/prerequis-apt.txt qu'exigent les choix, comme GROUPES_APT d'install.sh."""
     groups = ["socle"] + (["sandbox"] if st.get("sandbox") != "none" else [])
-    groups += [g for k, g in (("office", "apercus-office"), ("browser", "navigateur"), ("caddy", "https")) if _has(st, k)]
+    groups += [g for k, g in (("office", "apercus-office"), ("caddy", "https")) if _has(st, k)]
     groups += (["postgresql-local"] if st.get("db_mode") == "postgres-local" else [])
     return groups + ([] if ctx.offline else ["construction-hote"])
 

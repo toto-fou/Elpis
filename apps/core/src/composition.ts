@@ -335,7 +335,7 @@ export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeV
   return planificateur;
 }
 
-/** Sessions de navigateur des sous-agents laissées par le process précédent fermées au démarrage de main, en arrière-plan et en un appel ; `BROWSER_CHILD_CLEANUP=0` le coupe (tests). */
+/** Sessions de navigateur des sous-agents laissées par le process précédent fermées au démarrage de main, en arrière-plan, par le service de chaque bac ; `BROWSER_CHILD_CLEANUP=0` le coupe (tests). */
 export function brancherNettoyageNavigateursEnfants(
   cycle: CycleDeVie,
   journal: Journal,

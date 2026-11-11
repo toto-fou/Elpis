@@ -9,14 +9,15 @@
 #                                options : sans assistant.  --yes = sans
 #                                question ; --help = toutes les options
 #  ./elpis start [--foreground]  démarre Qdrant, RAG, outils, app et admin (core
-#                                Node, apps/core/dist/main.mjs), navigateur ;
-#                                attend /api/health de main et admin (120 s au
-#                                plus, ELPIS_ATTENTE_SANTE), sinon code non nul
+#                                Node, apps/core/dist/main.mjs) ; attend
+#                                /api/health de main et admin (120 s au plus,
+#                                ELPIS_ATTENTE_SANTE), sinon code non nul
 #  ./elpis stop                  arrête les services lancés par « elpis start »
 #                                (le core finit ses requêtes : 300 s au plus)
 #  ./elpis restart               migrations en attente, puis stop et start
 #  ./elpis status                état des services et des ports
-#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin browser)
+#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin)
+#  ./elpis logs browser COMPTE [-f]  navigateur dans la sandbox du compte
 #  ./elpis service install       services systemd (sudo), démarrage au boot
 #  ./elpis service remove
 #  ./elpis service print         affiche les unités sans rien installer
@@ -55,9 +56,9 @@ VENV="$ROOT/venv"
 PY="$VENV/bin/python"
 RUN_DIR="$ROOT/user_db/run"
 LOG_DIR="$ROOT/logs"
-SERVICES=(qdrant rag toolhost main admin browser)
+SERVICES=(qdrant rag toolhost main admin)
 # Services retirés : leurs unités systemd sont supprimées par « service install » et « service remove ».
-SERVICES_RETIRES=(appmcp tools)
+SERVICES_RETIRES=(appmcp tools browser)
 UNIT_PREFIX="elpis"
 # Journal de sécurité (audit) et journal technique hors du dépôt (sudo ./elpis audit setup) ;
 # ELPIS_PREFIXE_SYSTEME ne sert qu'aux essais (arborescence factice).
@@ -81,7 +82,7 @@ HOTE_DIST="$ROOT/apps/toolhost/dist"
 . "$ROOT/deploy/node/runtime.sh"
 
 MAIN_PORT=8001; ADMIN_PORT=8002; RAG_PORT=8000; MCP_PORT="${LOCAL_MCP_PORT:-8765}"
-QDRANT_PORT=6333; BROWSER_PORT="${FIREFOX_SERVICE_PORT:-3000}"
+QDRANT_PORT=6333
 
 info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[ ok  ]\033[0m %s\n' "$*"; }
@@ -203,8 +204,7 @@ svc_spec() {
             SPEC_ENV+=(ENABLE_CLI=1 APP_MODE=main APP_SERVICE=main "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=$mcp_url"
                        "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
                        "CHART_CACHE_DIR=$CHART_DIR" "RAG_STORE_DIR=$RAG_STORE"
-                       "ADMIN_PUBLIC_URL=${ADMIN_PUBLIC_URL:-http://localhost:$ADMIN_PORT/admin}"
-                       "PLAYWRIGHT_API_URL=${PLAYWRIGHT_API_URL:-http://127.0.0.1:$BROWSER_PORT}")
+                       "ADMIN_PUBLIC_URL=${ADMIN_PUBLIC_URL:-http://localhost:$ADMIN_PORT/admin}")
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         admin)
@@ -213,10 +213,6 @@ svc_spec() {
                        "CHART_CACHE_DIR=$CHART_DIR" "RAG_STORE_DIR=$RAG_STORE" "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
-        browser)
-            SPEC_DIR="$ROOT/browser-service"
-            SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT")
-            SPEC_CMD=("$NODE" server.js) ;;
         *) die "service inconnu : $1" ;;
     esac
     env_journaux "$1"
@@ -245,7 +241,6 @@ apt_groupe_sert() {
         socle) return 0 ;;
         sandbox) command -v docker >/dev/null 2>&1 || command -v dockerd >/dev/null 2>&1 ;;
         apercus-office) command -v soffice >/dev/null 2>&1 ;;
-        navigateur) [ -d "$ROOT/browser-service/node_modules" ] ;;
         construction-hote) [ -d "$ROOT/node_modules" ] ;;
         https) _https_enabled ;;
         postgresql-local) _db_postgres_local ;;
@@ -266,7 +261,6 @@ svc_available() {
         qdrant)  [ -x "$ROOT/rag_app/qdrant/qdrant" ] ;;
         toolhost) [ -f "$HOTE_DIST/main.mjs" ] ;;
         main|admin) [ -f "$CORE_DIST/main.mjs" ] ;;
-        browser) [ -d "$ROOT/browser-service/node_modules" ] && command -v "$(node_bin)" >/dev/null ;;
         *)       return 0 ;;
     esac
 }
@@ -274,7 +268,7 @@ svc_available() {
 svc_port() {
     case "$1" in
         qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;;
-        main) echo "$MAIN_PORT" ;; admin) echo "$ADMIN_PORT" ;; browser) echo "$BROWSER_PORT" ;;
+        main) echo "$MAIN_PORT" ;; admin) echo "$ADMIN_PORT" ;;
     esac
 }
 
@@ -483,7 +477,7 @@ arreter() {
     done
 }
 
-# Le core d'abord, main et admin ensemble : outils, RAG et navigateur servent encore pendant qu'il finit.
+# Le core d'abord, main et admin ensemble : outils et RAG servent encore pendant qu'il finit.
 cmd_stop() {
     local i s
     arreter main admin
@@ -523,10 +517,20 @@ cmd_status() {
 }
 
 cmd_logs() {
-    local svc="" follow=0 a
+    local svc="" compte="" follow=0 a c
     for a in "$@"; do
-        case "$a" in -f|--follow) follow=1 ;; *) svc="$a" ;; esac
+        case "$a" in -f|--follow) follow=1 ;; *) if [ -z "$svc" ]; then svc="$a"; else compte="$a"; fi ;; esac
     done
+    # ./elpis logs browser COMPTE : journal du service navigateur dans le bac du compte (le seul navigateur).
+    if [ "$svc" = browser ]; then
+        [ -n "$compte" ] || die "Le navigateur tourne dans la sandbox de chaque compte : ./elpis logs browser COMPTE [-f]."
+        c="$(docker ps -q --filter "label=elpis.username=$compte" | head -n1)"
+        [ -n "$c" ] || die "Aucun bac en marche pour le compte $compte."
+        # Journal écrit dans le bac (hostile) : caractères de contrôle et séquences C1 retirés avant le terminal (tabulation et fin de ligne gardées).
+        docker exec "$c" tail -n 50 $([ "$follow" -eq 1 ] && echo -F) /work/.elpis-browser/service.log \
+            | LC_ALL=C sed -u -e 's/[\x00-\x08\x0b-\x1f\x7f]//g' -e 's/\xc2[\x80-\x9f]//g'
+        exit "${PIPESTATUS[0]}"
+    fi
     if systemd_active && [ -n "$svc" ]; then
         exec journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f)
     fi
@@ -557,7 +561,7 @@ _render_units() {
             case "$s" in
                 rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
                 toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
-                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service ${UNIT_PREFIX}-browser.service caddy.service${db_unit:+ $db_unit}" ;;
+                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service caddy.service${db_unit:+ $db_unit}" ;;
             esac
             case "$s" in
                 toolhost|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
@@ -578,12 +582,9 @@ _render_units() {
                    echo "InaccessiblePaths=-$repli" ;;
             esac
             printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
-            # Navigateur : relancé même après un arrêt « propre » inattendu
-            # (un seul processus sert toutes les sessions de tous les comptes).
             # Core : relancé après SIGHUP (sortie 75, tenue pour un succès) ; 310 s = 300 s de générations + 5 s de fermeture forcée.
             # Hôte d'outils : relancé après SIGHUP (sortie 75) comme le core ; ses PTY sont tués à l'arrêt.
             case "$s" in
-                browser) echo "Restart=always" ;;
                 main|admin|toolhost) echo "Restart=always"; echo "SuccessExitStatus=75" ;;
                 *)       echo "Restart=on-failure" ;;
             esac
@@ -716,6 +717,60 @@ sonde_du_core() {
         else case "$l" in *" WARNING "*|*" ERROR "*) warn "  $msg" ;; *) info "  $msg" ;; esac; fi
         n=$((n+1))
     done <<< "$lignes"
+}
+
+# /health du service navigateur d'un bac (socket $1, jeton du fichier $2) : socket saisi sans suivre de lien (le bac écrit dans son dossier) en O_PATH|O_NOFOLLOW, vérifié, joint par /proc/self/fd ; vrai s'il répond ok.
+sante_navigateur_bac() {
+    "${PY:-python3}" -I - "$1" "$2" <<'PY' 2>/dev/null
+import os, socket, stat, sys
+fd = os.open(sys.argv[1], os.O_PATH | os.O_NOFOLLOW)
+if not stat.S_ISSOCK(os.fstat(fd).st_mode):
+    sys.exit(1)
+with open(sys.argv[2], encoding="utf-8") as f:
+    jeton = f.readline().strip()
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(3)
+s.connect(f"/proc/self/fd/{fd}")
+s.sendall(f"GET /health HTTP/1.0\r\nHost: browser\r\nAuthorization: Bearer {jeton}\r\n\r\n".encode())
+lu = b""
+while len(lu) < 65536:
+    m = s.recv(65536)
+    if not m:
+        break
+    lu += m
+sys.exit(0 if lu.startswith(b"HTTP/1.1 200") and b'"ok":true' in lu else 1)
+PY
+}
+
+# Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
+doctor_navigateur_bac() {
+    local ca cpu pw nm sb s d j n=0
+    # Navigateur non installé : déjà signalé par le contrôle « service navigateur ».
+    [ -d "$ROOT/browser-service/node_modules" ] || return 0
+    ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
+    check "navigateur dans le bac : autorité du relais ($ca)" "créée au démarrage de l'hôte d'outils : ./elpis restart" test -s "$ca/ca.crt" -a -s "$ca/ca.key"
+    [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
+    # Chromium partage le quota CPU du bac : à 1 CPU, les captures d'étape des pages lourdes dépassent leur délai de 3 s (mesuré : ~5 % des actions, aucune à 2 CPU).
+    cpu="$("${PY:-python3}" -c 'import json, sys
+try: print(int(((json.load(open(sys.argv[1])).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
+except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
+    [ "${cpu:-100}" -ge 200 ] || info "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
+    pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+    check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
+    nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
+    check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules}" \
+        test "$(find "$ROOT/browser-service" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 3
+    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
+        [ -S "$s" ] || continue
+        d="$(dirname "$(dirname "$s")")"; j="$d/.browser-service.token"; n=$((n+1))
+        if [ -s "$j" ] && sante_navigateur_bac "$s" "$j"; then
+            check "navigateur du bac ${d##*/} : en marche, relais de l'hôte à l'écoute" "./elpis logs toolhost ; ./elpis logs browser ${d##*/}" test ! -L "$d/.elpis-agent/browser-relay.sock" -a -S "$d/.elpis-agent/browser-relay.sock"
+        else
+            info "navigateur du bac ${d##*/} : arrêté (relancé au prochain outil pw_* ; ./elpis logs browser ${d##*/})"
+        fi
+    done
+    [ "$n" -gt 0 ] || info "navigateur dans le bac : aucun service en marche (démarré au premier outil pw_* d'un compte)"
 }
 
 # Journal de sécurité et centralisation (ANSSI) : dossiers et droits (compte des services), clé de signature, règle rsyslog et ses paquets, journald persistant, horloge ; appelée par cmd_doctor (compteur bad).
@@ -870,7 +925,6 @@ cmd_doctor() {
     check_out() { local lib="$1" conseil="$2"; shift 2; if sortie="$("$@" 2>&1)"; then ok "$lib : $sortie"; else warn "$lib : NON (${sortie:+$sortie ; }$conseil)"; bad=$((bad+1)); fi; }
     doctor_runtime() { [ "$(runtime_empreinte "$NODE_DIR")" = "$1" ]; }
     doctor_office() { (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); }
-    doctor_navigateur() { curl --noproxy '*' -fsS -m 3 "http://127.0.0.1:$BROWSER_PORT/health" | grep -q '"ok":true'; }
     doctor_hote_empreinte() { ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
     doctor_llm() { ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; }
     # Paquets apt d'un groupe : manquants = problème si le groupe sert ici, sinon simple information.
@@ -948,12 +1002,8 @@ cmd_doctor() {
         [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/operations.md), à retirer de .env"
     done
     check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
-    check "service navigateur" "./install.sh" test -d "$ROOT/browser-service/node_modules"
-    # En marche : son /health doit répondre et dire le navigateur utilisable.
-    if curl --noproxy '*' -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
-        check "service navigateur (/health)" \
-            "./elpis logs browser" doctor_navigateur
-    fi
+    check "service navigateur (monté dans la sandbox de chaque compte)" "./install.sh" test -d "$ROOT/browser-service/node_modules"
+    doctor_navigateur_bac
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
     local distants core_ok=0
     [ -f "$CORE_DIST/exploitation.mjs" ] && core_ok=1
@@ -965,10 +1015,10 @@ cmd_doctor() {
         warn "verrous de fichiers : NON (${distants:-vérification impossible} ; NFS/CIFS non pris en charge)"
         bad=$((bad+1))
     fi
-    check "Docker joignable" "installer docker, groupe docker" docker info
+    check "Docker joignable" "installer docker, groupe docker ; sans lui, ni sandbox ni navigateur" docker info
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
-    check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh" docker image inspect "$image"
+    check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh ; sans elle, ni sandbox ni navigateur" docker image inspect "$image"
     check "bubblewrap (analyses du RAG et aperçus Office isolés)" \
         "apt install bubblewrap ; user namespaces autorisés ; core construit requis" core_cmd bwrap
     check_opt "LibreOffice (aperçus Office, facultatif)" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt" command -v soffice

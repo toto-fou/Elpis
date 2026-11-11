@@ -441,6 +441,11 @@ secret was asked for, never the page's path or query.
 | `vault.ax.imported`     | success | Former AX credentials imported, per account: by the core at startup (`source` `core`) or the tool host (`toolhost`).              | `source`, `imported`, `existing`, `skipped`, `failed`, `skipped_sites` (up to 10 `{site, reason}`), `undecryptable` (core)                                                       |
 | `vault.key.rekeyed`     | success | `./elpis vault rekey --from FILE` (service `cli`, `user_id` `null`); `failure` for any exit code but 0.                           | `from_kid`, `to_kid`, `rekeyed`, `failed`, `remaining`, `os_user`                                                                                                                |
 
+Each secret the import creates also writes `vault.secret.created` (`state` `unverified`), once
+committed. The `reason` of a skipped site is `no_origin`, `empty_value`, `invalid_username`,
+`invalid_value` or `owner_unknown`. A tripwire refusal (`code` `secret_session_closed`) also carries
+`reason` `tripwire` and `detached` (whether the secret was attached to the conversation).
+
 ### Command line (`./elpis`)
 
 Written by the `cli` service for `backup`, `db transfer`, `db use`, `audit verify` and `vault rekey`

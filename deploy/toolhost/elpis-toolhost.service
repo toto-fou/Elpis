@@ -16,7 +16,7 @@ ExecStart=/opt/elpis/node/bin/node --enable-source-maps --use-system-ca /opt/elp
 Restart=always
 SuccessExitStatus=75
 RestartSec=3
-# Les PTY et les sessions navigateur vivent dans CE processus : un seul ; ils sont fermés à l'arrêt.
+# Les PTY et les relais du navigateur des sandboxes vivent dans CE processus : un seul ; ils sont fermés à l'arrêt.
 KillMode=mixed
 TimeoutStopSec=30
 

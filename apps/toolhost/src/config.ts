@@ -48,7 +48,6 @@ export interface ToolhostConfig {
   sandbox_dir: string;
   db_path: string;
   app_url: string;
-  playwright_api_url: string;
   pw_dir: string;
   desktop_dir: string;
   identity_max_skew_s: number;
@@ -72,7 +71,6 @@ export function configParDefaut(): ToolhostConfig {
     sandbox_dir: "",
     db_path: "",
     app_url: "",
-    playwright_api_url: "",
     pw_dir: "",
     desktop_dir: "",
     identity_max_skew_s: 60,
@@ -100,7 +98,6 @@ export function publicDict(tc: ToolhostConfig): Dict {
     sandbox_dir: tc.sandbox_dir,
     db_path: tc.db_path,
     app_url: tc.app_url,
-    playwright_api_url: tc.playwright_api_url,
     source: tc.source,
     path: tc.path ?? "",
     warnings: [...tc.warnings],
@@ -361,7 +358,6 @@ export function chargerConfig(chemin?: string, env: NodeJS.ProcessEnv = process.
     sandbox_dir: sandboxDir,
     db_path: dbPath,
     app_url: rstripPy(texte("TOOLHOST_APP_URL", lire(raw, "app_url")), "/"),
-    playwright_api_url: texte("PLAYWRIGHT_API_URL", lire(raw, "playwright_api_url")),
     pw_dir: texte("PW_SCREENS_DIR", lire(assets, "pw_dir")),
     desktop_dir: texte("DESKTOP_SCREENS_DIR", lire(assets, "desktop_dir")),
     identity_max_skew_s: decalage(raw, warnings),
@@ -384,7 +380,6 @@ export function appliquerEnvironnement(tc: ToolhostConfig, env: NodeJS.ProcessEn
     env["APP_DB_PATH"] = tc.db_path;
     env["APP_DB_BACKEND"] = "sqlite";
   }
-  if (tc.playwright_api_url) env["PLAYWRIGHT_API_URL"] = tc.playwright_api_url;
   if (tc.pw_dir) env["PW_SCREENS_DIR"] = tc.pw_dir;
   if (tc.desktop_dir) env["DESKTOP_SCREENS_DIR"] = tc.desktop_dir;
   if (tc.token) env["LOCAL_MCP_TOKEN"] = tc.token;

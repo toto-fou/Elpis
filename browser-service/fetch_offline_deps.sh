@@ -4,9 +4,11 @@
 #  fetch_offline_deps.sh — Vendore TOUT le nécessaire au browser-service dans
 #                          ./offline/, pour une install 100 % HORS-LIGNE.
 # ----------------------------------------------------------------------------
-#  À lancer UNE FOIS, sur une machine AVEC internet, EN TANT QUE l'utilisateur
-#  qui fera tourner le service (Playwright range ses navigateurs dans le
-#  ~/.cache de l'utilisateur courant).
+#  À lancer UNE FOIS, sur une machine AVEC internet, de même architecture que
+#  la cible, EN TANT QUE l'utilisateur qui fera tourner les services
+#  (Playwright range ses navigateurs dans le ~/.cache de l'utilisateur
+#  courant). Les bibliothèques de Chromium sont dans l'image de la sandbox,
+#  où le navigateur tourne : aucun paquet apt à vendorer.
 #
 #  Produit (dans ./offline/) :
 #    • node_modules.tar.gz   → deps npm (express/playwright/uuid) — pur JS, même-arch
@@ -19,11 +21,7 @@
 #  et lance `./install_offline.sh` là-bas — aucun accès réseau requis.
 #
 #  Usage :
-#    ./fetch_offline_deps.sh                      # défaut : chromium (+ffmpeg+debs)
-#    ./fetch_offline_deps.sh --engine firefox     # firefox au lieu de chromium
-#    ./fetch_offline_deps.sh --all                # chromium + firefox + webkit
-#    ./fetch_offline_deps.sh --no-apt             # ne pas vendorer les .deb
-#    ./fetch_offline_deps.sh --engine chromium --engine webkit
+#    ./fetch_offline_deps.sh            # deps npm + headless shell + ffmpeg
 # ============================================================================
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"          # = browser-service/
@@ -37,15 +35,9 @@ warn(){ printf '%s[warn]%s %s\n' "$C_Y" "$C_0" "$*" >&2; }
 die(){  printf '%s[FAIL]%s %s\n' "$C_R" "$C_0" "$*" >&2; exit 1; }
 
 # ── options ─────────────────────────────────────────────────────────────────
-ENGINES=()
-WITH_APT=1
 while [ $# -gt 0 ]; do
   case "$1" in
-    --engine) ENGINES+=("${2:-chromium}"); shift 2;;
-    --engine=*) ENGINES+=("${1#*=}"); shift;;
-    --all) ENGINES=(chromium firefox webkit); shift;;
-    --no-apt) WITH_APT=0; shift;;
-    -h|--help) sed -n '2,33p' "$0"; exit 0;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0;;
     *) die "Option inconnue : $1 (voir --help)";;
   esac
 done
@@ -118,42 +110,7 @@ info "Archive des navigateurs → $OFFLINE/ms-playwright.tar.gz…"
 tar czf "$OFFLINE/ms-playwright.tar.gz" -C "$CACHE" "${WANT_DIRS[@]}"
 ok "ms-playwright.tar.gz ($(du -h "$OFFLINE/ms-playwright.tar.gz" | cut -f1))"
 
-# ── 6. libs système (.deb) — liste autoritative par moteur ──────────────────
-DEB_COUNT=0
-if [ "$WITH_APT" -eq 1 ] && command -v apt-get >/dev/null 2>&1; then
-  info "Récupération des libs système (.deb) via install-deps --dry-run…"
-  declare -A PKGS=()
-  for e in "${ENGINES[@]}"; do
-    line="$(node "$PW_CLI" install-deps --dry-run "$e" 2>/dev/null \
-            | sed -nE 's/.*--no-install-recommends (.*)"[[:space:]]*$/\1/p' || true)"
-    for p in $line; do PKGS["$p"]=1; done
-  done
-  if [ ${#PKGS[@]} -gt 0 ]; then
-    mkdir -p "$OFFLINE/apt"
-    # Listes apt FRAÎCHES en espace utilisateur (sans root) : évite les 404 quand
-    # les listes système pointent une version de point release déjà remplacée sur
-    # le miroir (ex : libglib2.0-0t64 ~deb13u2 → ~deb13u3).
-    APT_TMP="$(mktemp -d)"; mkdir -p "$APT_TMP/lists/partial" "$APT_TMP/cache/archives/partial"
-    APT_OPTS=()
-    if apt-get update -o Dir::State::Lists="$APT_TMP/lists" -o Dir::Cache="$APT_TMP/cache" >/dev/null 2>&1; then
-      APT_OPTS=(-o Dir::State::Lists="$APT_TMP/lists" -o Dir::Cache="$APT_TMP/cache")
-      info "listes apt rafraîchies (user-space)."
-    else
-      warn "apt-get update user-space indisponible — listes système utilisées (risque de 404 sur point release)."
-    fi
-    ( cd "$OFFLINE/apt" && apt-get download "${APT_OPTS[@]+"${APT_OPTS[@]}"}" "${!PKGS[@]}" ) \
-      || warn "apt-get download partiel — certains .deb manquent (deps système supposées présentes sur la cible)."
-    rm -rf "$APT_TMP"
-    DEB_COUNT="$(find "$OFFLINE/apt" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')"
-    ok "$DEB_COUNT .deb vendorés (${#PKGS[@]} demandés)."
-  else
-    warn "Liste de paquets vide (install-deps --dry-run a échoué) — étape .deb sautée."
-  fi
-elif [ "$WITH_APT" -eq 1 ]; then
-  warn "apt-get absent — étape .deb sautée (cible non-Debian ?)."
-fi
-
-# ── 7. MANIFEST ─────────────────────────────────────────────────────────────
+# ── 6. MANIFEST ─────────────────────────────────────────────────────────────
 sha(){ command -v sha256sum >/dev/null 2>&1 && sha256sum "$1" | cut -d' ' -f1 || echo "n/a"; }
 {
   echo "browser-service — bundle offline"

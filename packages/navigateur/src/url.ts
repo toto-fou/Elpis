@@ -290,3 +290,117 @@ export function refusMessageAnglais(url: string | null | undefined, motif: strin
     `outside the machine hosting Elpis.`
   );
 }
+
+/** Profil réseau d'un bac, vu du relais : identifiant, mode (`none`, `bridge`, `allowlist_ip`), adresses ou réseaux, domaines, ports. */
+export interface ProfilRelais {
+  readonly id: string;
+  readonly mode: unknown;
+  readonly ips: readonly unknown[];
+  readonly domains: readonly string[];
+  readonly ports: readonly number[];
+}
+
+let hoteEnCache: { t: number; v: Promise<HoteNavigateur> } | null = null;
+
+/** Adresses de l'hôte relues au plus toutes les 60 s (une page ouvre des dizaines de connexions). */
+function hoteRecent(): Promise<HoteNavigateur> {
+  if (hoteEnCache === null || Date.now() - hoteEnCache.t > 60_000)
+    hoteEnCache = { t: Date.now(), v: hostAddresses() };
+  return hoteEnCache.v;
+}
+
+/** Verdict du juge d'un bac (adresses jugées, la première d'abord, ou motif). */
+type VerdictBac = { ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string };
+
+/** Cache des verdicts du juge d'un bac (comme le relais du service central, proxy_guard.js) ; réglable par les tests. */
+export const reglagesJugeBac = {
+  /** Verdict favorable gardé (ms). */
+  cacheMs: 10_000,
+  /** Refus gardé (ms) : un nom introuvable ne repasse pas par le résolveur à chaque connexion. */
+  cacheNegatifMs: 5_000,
+  /** Noms gardés au plus. */
+  max: 2000,
+};
+
+/**
+ * Juge du relais d'un bac (`hôte`, `port`) → adresses à joindre ou motif en anglais : le profil réseau du bac
+ * d'abord (`none` : rien hors du bac ; `allowlist_ip` : ses adresses, domaines et ports), puis la politique du
+ * navigateur (jamais la machine d'Elpis, ses réseaux de conteneurs, la boucle locale ni le lien-local ; liste
+ * blanche du réseau local). Verdict par nom et profil gardé 10 s (refus 5 s), une seule résolution à la fois par
+ * nom : une page ouvre des dizaines de connexions vers les mêmes hôtes, chacune passait par le pool de threads.
+ */
+export function jugeRelaisBac(
+  profil: () => ProfilRelais,
+  options: OptionsGardeNavigateur = {},
+): (hote: string, port: number) => Promise<VerdictBac> {
+  const cache = new Map<string, { expire: number; v: Promise<VerdictBac> }>();
+  const juger = async (p: ProfilRelais, nom: string): Promise<VerdictBac> => {
+    const litterale = ipNav(nom);
+    let adresses: string[];
+    if (litterale !== null) adresses = [texteIp(litterale)];
+    else
+      try {
+        adresses = await (options.resoudre ?? resoudreSysteme)(nom, null);
+      } catch {
+        return { ok: false, motif: `name not found (${nom})` };
+      }
+    if (adresses.length === 0) return { ok: false, motif: `name not found (${nom})` };
+    let allowlist = options.allowlist;
+    if (allowlist === undefined || allowlist === null) {
+      try {
+        allowlist = liveConfigValue("browser.url_allowlist", []) || [];
+      } catch {
+        allowlist = [];
+      }
+    }
+    const liste = listeBlanche(allowlist);
+    const h = options.hote ?? (await hoteRecent());
+    const reseauxProfil = p.ips.map((x) => reseauPy(strPy(x))).filter((r): r is Reseau => r !== null);
+    for (const a of adresses) {
+      const ip = ipNav(a);
+      if (ip === null) return { ok: false, motif: `invalid address (${a})` };
+      const m = motifIp(ip, nom, h, liste);
+      if (m) return { ok: false, motif: motifEnAnglais(m) };
+      if (
+        p.mode === "allowlist_ip" &&
+        !p.domains.includes(nom) &&
+        !reseauxProfil.some((r) => r.version === ip.version && dansReseau(ip, r))
+      )
+        return { ok: false, motif: `${nom} is not allowed by the sandbox network profile '${p.id}'` };
+    }
+    const jugees = adresses.map((a) => texteIp(ipNav(a) as AdresseIp));
+    return { ok: true, adresse: jugees[0] ?? "", adresses: jugees };
+  };
+  return async (hote, portVoulu) => {
+    const p = profil();
+    if (p.mode === "none")
+      return {
+        ok: false,
+        motif: `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
+      };
+    if (p.mode === "allowlist_ip" && p.ports.length > 0 && !p.ports.includes(portVoulu))
+      return {
+        ok: false,
+        motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
+      };
+    const nom = lowerPy(hote);
+    const cle = `${strPy(p.id)}\u0000${strPy(p.mode)}\u0000${nom}`;
+    const t = Date.now();
+    const connu = cache.get(cle);
+    if (connu !== undefined && t < connu.expire) return connu.v;
+    const v = juger(p, nom);
+    if (cache.size >= reglagesJugeBac.max) {
+      const premiere = cache.keys().next();
+      if (!premiere.done) cache.delete(premiere.value);
+    }
+    const entree = { expire: t + reglagesJugeBac.cacheMs, v };
+    cache.set(cle, entree);
+    void v.then(
+      (r) => {
+        if (!r.ok) entree.expire = t + reglagesJugeBac.cacheNegatifMs;
+      },
+      () => cache.delete(cle),
+    );
+    return v;
+  };
+}

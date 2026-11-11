@@ -2949,6 +2949,123 @@ Gotchas:
 - `pw_page(action="extract")` only extracts **tables** (`target=` to
   pick which one). For running text, use `action="text"`.
 
+#### Browser in the sandbox (`browser.mode = "sandbox"`)
+
+With `browser.mode` set to `"sandbox"` in `config.json` (optionally limited to the accounts named
+in `browser.sandbox_users`), each account gets its own browser service **inside its sandbox
+container**; the central service on port 3000 keeps serving the other accounts, and setting the
+mode back to `"central"` is the runtime rollback (read live, no restart).
+
+- **Container.** The image `elpis/sandbox:1.8.0` is 1.7.0 plus `certutil`
+  (`deploy/docker/sandbox-browser/`). Nothing of Elpis is copied into it: the host mounts
+  read-only the **code** of `browser-service/` only, file by file (each `*.js` module and
+  `package.json`, at `/opt/elpis/browser-service/`; no subfolder, token or other file of that
+  folder), its resolved `node_modules` at `/opt/elpis/browser-service/node_modules`, the
+  installation's Node runtime at `/opt/elpis/node` and the Playwright cache at
+  `/opt/elpis/ms-playwright` (`packages/bac/src/navigateur.ts`). The `elpis.browser` label (hash of
+  the mounts and of their sources' inodes) recreates a container whose mounts changed or whose
+  code files were replaced by an update; central-mode containers keep their run arguments. The
+  mounted files must be readable by the sandbox UID (10001): `./elpis doctor` checks it.
+- **Central data out of the code.** The central service keeps its data (saved states, HAR,
+  traces, screenshots, downloads, videos, baselines) in `BROWSER_DATA_DIR`, which `./elpis` sets
+  to `user_db/browser` (created 0700); at start it moves there the data folders an earlier
+  installation left in `browser-service/` (merged without overwriting). In sandbox mode,
+  `./elpis doctor` fails while a data folder remains in the code folder.
+- **Start and stop.** The first `pw_*` call of the account (`serviceDuCompte`,
+  `apps/toolhost/src/mcp/browser/bac.ts`) makes sure the container runs, opens the account's
+  secret relay, copies the relay CA certificate to `/run/elpis/browser-ca.crt`, then starts
+  `server.js` detached as `exec_user` (`docker exec -d`, environment passed through a 0600 file
+  of the host, never on a command line). The start script imports the CA into the NSS database of
+  the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service listens on
+  `/run/elpis/browser.sock` (`FIREFOX_SERVICE_SOCKET`), requires the sandbox token
+  (`<P>/.browser-service.token`, host only), and stops after `browser.sandbox_idle_minutes`
+  (15) without a call; the next tool starts it again. Tool calls count as sandbox activity.
+  A stopped or recreated container takes the service with it; the relay forgets the secrets
+  bound to sessions of a service that restarted.
+- **Data.** Screenshots, saved states, HAR, traces, videos and the service log live in
+  `/work/.elpis-browser/`; downloads land in `/work/downloads/<owner>/`, recorder dumps are also
+  written to `/work/recordings/`, and returned paths are the real `/work` paths. Uploads still
+  read `/work` through the sandbox agent.
+- **Routing.** `serviceNavigateur(username)` (`packages/navigateur/src/mode.ts`) is the only
+  resolver: the central URL and token, or the account's socket and sandbox token. The `pw_*`
+  tools, the screenshot route (chat images and vision models) and the AX session URL of the core
+  use it; the socket is opened without following links (`O_PATH|O_NOFOLLOW`, checked to be a
+  socket). The core's startup cleanup of orphaned sub-agent sessions only reaches the central
+  service; sandbox services end such sessions with their 15-minute session TTL or idle stop.
+- **Network.** Inside the sandbox, the service's filtering proxy (`proxy_guard.js`) reaches the
+  sandbox loopback directly (`localhost`, `127.0.0.0/8`, `::1`: sites served in `/work`), and
+  sends everything else to the **secret relay** of the host over `/run/elpis/browser-relay.sock`
+  (`CONNECT` for https, absolute-form requests for http, a relay token). The relay
+  (`packages/navigateur/src/relais.ts`, one per account, in the tool host) judges each
+  destination: the account's network profile first (no network: only the sandbox loopback,
+  with a clear `url_blocked` before navigation; IP allowlist: its addresses, domains and ports),
+  then the browser policy (never the Elpis host, its container networks, loopback or link-local;
+  `browser.url_allowlist` for the local network). Egress therefore leaves from the host.
+
+**Secret relay.** A session opened for a vault secret binds the secret's origins to the relay.
+For those origins only, the relay terminates TLS with a leaf certificate signed by the
+**instance CA** (ECDSA P-256, `user_db/browser-relay-ca/`, key 0600, built with `node:crypto`
+only, created when the tool host starts in sandbox mode, valid 365 days and renewed when less
+than 30 remain; a relay signed by the previous CA is recreated and the sandbox service
+restarted) and verifies the upstream according to the secret's `tls` policy (strict unless every
+exact binding of the origin relaxes it, WebSocket upgrades included); every other `CONNECT` is a
+plain tunnel. Coverage is decided on the **checked destination**: the name lower-cased without a
+trailing dot, or any address the judge accepted at the same port, so the origin is intercepted
+and scrubbed however it is addressed (IP, trailing dot, another name of the same address); a
+`CONNECT` to the port of a covered `http` origin is intercepted in clear. Substitution and HTTP
+authentication still require the exact origin. `pw_login` keeps its contract
+and field checks, but the service types a **one-time placeholder** (`Ep.<16 hex>-X`) instead of the
+password. The relay replaces it with the value, resolved from the core through the signed
+internal route at that moment (audited as before), only in POST/PUT/PATCH bodies sent to one of
+the secret's origins while the login window is armed (75 s, **one** submission), encoded
+for the body (form, JSON, raw); a placeholder in a URL, outside the window or towards another
+origin is left as it is and logged. Responses from covered origins are decoded (one `gzip`,
+`deflate` or `br` coding; any other or stacked coding is answered 502) and the value in any of its
+encoded forms (raw, URL and form with upper- or lower-case `%xx` or every byte encoded, named,
+decimal and hexadecimal HTML entities, JSON with `\/` and `\uXXXX`, base64, hex; the same list
+as the service's `formesSecret`), plus `user:secret` and its base64 for Basic, is replaced by
+the placeholder, in bodies and headers. `Range` is dropped towards a covered origin, `TRACE` and
+`TRACK` are never relayed and a `CONNECT` inside an intercepted stream gets 405. `http-auth`
+secrets never reach the service: the relay answers the 401 challenges itself (Basic, Digest
+MD5/SHA-256 with `qop=auth`), but only for requests that carry the **binding key** of the session
+that opened the secret: the tool host passes a random key to `/start` (`relay_binding`), the
+service adds it (`x-elpis-binding`) to that context's requests towards the secret's origins only,
+and the relay strips it before the upstream; HAR and trace are refused for such a session. Bindings
+expire after the sandbox service's idle period, extended by each `pw_*` call, and leave with the
+session; the relay of an account is released a minute after its service's idle exit. The value
+stays in the tool host's memory while the binding lives, to scrub responses.
+
+**Relay hygiene.** Everything the sandbox can write or send is treated as hostile. Host-side
+writes in `/run/elpis` never follow a link (the CA certificate goes to an `O_EXCL|O_NOFOLLOW`
+temporary file renamed over the target; the socket mode is set on the inode opened
+`O_PATH|O_NOFOLLOW`; `./elpis doctor` connects through the same no-follow descriptor). Every
+handler catches its promise (an aborted body cannot stop the tool host). A request body is held in
+memory only when it must be inspected (a possible substitution, or the retry of a 401 with a small
+known body), up to 1 MiB (413 beyond, connection closed) within an 8 MiB budget per relay (503);
+any other body is streamed. Responses of a sandbox service are read up to 64 MiB. Verdicts are
+cached per name and profile like the central guard (10 s, refusals 5 s, one resolution shared by
+concurrent connections), and upstream connections try the judged addresses with Happy Eyeballs
+(next address after 250 ms or on failure, 10 s in all). `./elpis logs browser <account>` strips
+control characters from the sandbox-written log.
+
+Limits and residual risks: a page that hashes or encrypts the password before sending it cannot
+log in (`secret_not_substituted`, detected when no substitution happened); session cookies live
+in the sandbox; WebSocket traffic is relayed but never substituted or scrubbed; the sandbox user
+is root in its container, so it can use the service socket and its token (no more than the `pw_*`
+tools already do), read the session cookies, read the browser service's memory (and so a live
+placeholder or binding key), and send the placeholder to the secret's own origin during an armed
+login window (one submission): the value then only reaches that origin, and what it reflects is
+scrubbed while the binding lives unless the origin transforms it (case change, hashing). **An
+origin that stores the submitted value and shows it later** (a profile field, an echo page) can
+give it back once the binding is gone (session closed or expired): the relay no longer knows the
+value then. Sites sharing a covered origin's address and port (CDN) are intercepted too while the
+binding lives, with strict upstream TLS. Chromium shares the sandbox's CPU quota: at the default
+one CPU, step screenshots of heavy pages miss their 3 s delay on about 5 % of actions (none with
+two CPUs or on the central service); `./elpis doctor` warns below 200 %. The instance CA cannot
+carry name constraints (the
+intercepted origins are those of the secrets in use): rotation is by expiry (365 days, renewed 30
+days before) or by deleting `user_db/browser-relay-ca/` and restarting the tool host.
+
 #### Precision: dropdowns, GWT, iframes
 
 Six gaps measured on a real bench, all fixed:

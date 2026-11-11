@@ -1,16 +1,27 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/browser/login.ts — `pw_login` : connexion avec un secret attaché à la conversation, valeur jamais vue du modèle, dans une session ouverte pour un secret ; ordre fixe : pré-contrôle des champs sans valeur, secret choisi sans valeur et contrôlé contre le TLS de la session, résolution par le core sur l'origine du frame des champs, puis étape isolée du service (page rechargée, saisie, soumission, remplacement des documents) en une requête. */
-import { estDict, veritePy } from "@elpis/commun";
+import { randomBytes } from "node:crypto";
+
+import { estDict, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { buildLocatorPayload, errPw } from "@elpis/navigateur";
+import type { ClientNavigateur } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import type { SecretApplicable } from "../../rappel";
 import { ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
+import { dureeLiaisonMs, lierAuRelais, relaisDe } from "./bac";
 import { liaison } from "./liaisons";
 import type { LiaisonSession } from "./liaisons";
-import { applicables, conseilSecret, HORS_APPLICATION, refusSecret, resoudre } from "./secrets";
+import {
+  applicables,
+  conseilSecret,
+  HORS_APPLICATION,
+  refusSecret,
+  resolutionDifferee,
+  resoudre,
+} from "./secrets";
 
 /** Clés de cible que le service accepte pour une connexion (jamais xpath). */
 const CLES_CIBLE = [
@@ -131,6 +142,8 @@ export function pwLogin(s: ServicesBrowser) {
     if ("refus" in choix) return choix.refus;
     const refus = refusTls(lien, choix.secret);
     if (refus !== null) return refus;
+    if (client.bac !== null)
+      return connexionParRelais(s, client, lien, charge, champs, pre["frame_origin"], choix.secret);
     const r = await resoudre(s.secrets ?? null, "web-login", pre["frame_origin"], choix.secret.name);
     if ("refus" in r) return r.refus;
     const tardif = refusTls(lien, { ...choix.secret, tls: r.valeur.tls });
@@ -148,4 +161,71 @@ export function pwLogin(s: ServicesBrowser) {
     if (!estDict(conseil)) return conseil;
     return client.finishAct({ ...conseil, secret: r.valeur.name }, sid, true, 25);
   };
+}
+
+/** Substitut à usage unique : lettres, chiffres, « . » et « - », identiques encodés en formulaire, en JSON ou en multipart. */
+function substitut(): string {
+  return `Ep.${randomBytes(8).toString("hex")}-X`;
+}
+
+/** Mode bac : le service saisit un substitut ; le relais de l'hôte le remplace par la valeur (résolue au dernier moment par le core) dans les seules requêtes vers les origines du secret, pendant la connexion ; la valeur n'entre jamais dans le bac. */
+async function connexionParRelais(
+  s: ServicesBrowser,
+  client: ClientNavigateur,
+  lien: LiaisonSession,
+  charge: Dict,
+  champs: unknown[],
+  origine: string,
+  secret: SecretApplicable,
+): Promise<unknown> {
+  const compte = lien.relais?.compte ?? "";
+  const relais = relaisDe(compte);
+  const differee = resolutionDifferee(s.secrets ?? null, "web-login", origine, secret.name);
+  if (differee === null) return HORS_APPLICATION;
+  if (relais === null || !compte)
+    return errPw("browser_sandbox_unavailable", "", {
+      message: "The secret relay of your sandbox browser is not running.",
+      fix: 'Open the login page again with pw_session(action="start", url=..., secret=...), then call pw_login.',
+    });
+  const sub = substitut();
+  const id = `login-${randomBytes(8).toString("hex")}`;
+  lierAuRelais(compte, {
+    id,
+    nom: secret.name,
+    kind: "web-login",
+    origines: secret.origins.length ? secret.origins : [origine],
+    tls: lien.tls,
+    substitut: sub,
+    dureeMs: dureeLiaisonMs(),
+    resoudre: differee,
+  });
+  lien.relais?.ids.push(id);
+  relais.armer(id, DELAI_LOGIN_S * 1000);
+  const brut = await client
+    .req("POST", "/login", {
+      json: {
+        ...charge,
+        secret_origin: origine,
+        username_value: champs.includes("username") ? (secret.username ?? "") : "",
+        password_value: champs.includes("password") ? sub : "",
+      },
+      timeout: DELAI_LOGIN_S,
+    })
+    .catch((e: unknown) => {
+      relais.desarmer(id);
+      throw e;
+    });
+  const bilan = relais.desarmer(id);
+  const conseil = conseilSecret(brut);
+  if (!estDict(conseil)) return conseil;
+  if (champs.includes("password") && bilan.substitutions === 0 && conseil["ok"] !== true)
+    return errPw("secret_not_substituted", "", {
+      message:
+        bilan.refus > 0
+          ? "The password was not sent to the secret's origin as typed (another origin, outside the login, or in the URL): the relay did not substitute it."
+          : "The page never sent the typed password to the secret's origin (it may hash or encrypt it in the page): a vault login is not supported on this site from the sandbox browser.",
+      fix: "Tell the user; do not retry on this page.",
+      outcome: conseil["outcome"] ?? null,
+    });
+  return client.finishAct({ ...conseil, secret: secret.name }, strPy(charge["session_id"]), true, 25);
 }

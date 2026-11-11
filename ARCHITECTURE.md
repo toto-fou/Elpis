@@ -164,7 +164,7 @@ container (`/opt/elpis/agent`) and started on demand by the host
   `user_db/.local_mcp_token` + signed identity header.
 - `rag_app/`: RAG extractor, called by `apps/core/src/rag/`.
 - `browser-service/`, `desktop-agent/`: see the process table.
-- `deploy/`: Caddy, sandbox image (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
+- `deploy/`: Caddy, sandbox image (`docker/sandbox/` then `docker/sandbox-browser/`, `elpis/sandbox:1.8.0`),
   Qdrant, remote toolhost, voice (whisper.cpp :8090, Piper :8091),
   configuration wizard (`configure.py`, `wizard.py`, `tui.py`).
 - `install.sh`, `elpis` (operations CLI), `make_release.sh` (offline

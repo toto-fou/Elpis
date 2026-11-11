@@ -14,14 +14,13 @@ import {
   mergeTarget,
   mergeValue,
   recordInspection,
-  refusUrl,
   screenshotResult,
 } from "@elpis/navigateur";
 import type { ClientNavigateur } from "@elpis/navigateur";
 import { Heartbeat } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
-import { borne, entierEnv, ouChamps, ouvrirAppel } from "./appel";
+import { borne, entierEnv, ouChamps, ouvrirAppel, refusUrlAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
 import { byNonNuls } from "./elements";
 
@@ -154,7 +153,7 @@ export function pwPage(s: ServicesBrowser) {
     if (op === "tabs") return client.req("GET", "/list_tabs", { params: { session_id: sid } });
     if (op === "tab_new") {
       if (v) {
-        const bloque = await refusUrl(v);
+        const bloque = await refusUrlAppel(o.appel, v);
         if (bloque !== null) return bloque;
       }
       return client.req("POST", "/new_tab", {

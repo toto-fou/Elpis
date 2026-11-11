@@ -171,7 +171,7 @@ describe.skipIf(!ACTIF)(
               "rm",
               "-v",
               `${dossier}:/d`,
-              "elpis/sandbox:1.7.0",
+              "elpis/sandbox:1.8.0",
               "-rf",
               "/d/sb",
             ],

@@ -50,6 +50,7 @@ function _liste(reseaux) {
 }
 const _REFUSES = _liste(_TOUJOURS_REFUSES);
 const _LOCAUX = _liste(_RESEAUX_LOCAUX);
+const _BOUCLE = _liste([['127.0.0.0', 8, 'ipv4'], ['::1', 128, 'ipv6']]);
 
 /** IPv6 → ses 8 groupes de 16 bits (forme pointée finale comprise), ou null. */
 function _groupes6(s) {
@@ -225,7 +226,7 @@ export function motifIp(ip0, { hote = null, listeBlanche = null, nomHote = '' } 
  * vide (about:blank), toujours permise. Les noms ``localhost`` et
  * ``*.localhost`` sont refusés sans résolution.
  */
-export function analyserUrl(brut) {
+export function analyserUrl(brut, { boucleLocale = false } = {}) {
     const s = String(brut || '').trim();
     if (!s) return { ok: false, motif: 'adresse vide' };
     if (/^about:blank$/i.test(s)) return { ok: true, vide: true, url: 'about:blank' };
@@ -237,7 +238,7 @@ export function analyserUrl(brut) {
     }
     const hote = normaliserIp(u.hostname.toLowerCase());
     if (!hote) return { ok: false, motif: 'adresse sans hôte' };
-    if (hote === 'localhost' || hote.endsWith('.localhost')) {
+    if (!boucleLocale && (hote === 'localhost' || hote.endsWith('.localhost'))) {
         return { ok: false, motif: `adresse réservée à l'hôte ou au réseau local de la machine (${hote})` };
     }
     return { ok: true, url: u.href, hote };
@@ -290,5 +291,27 @@ export function makeCache({ ttlMs = 30000, max = 2000 } = {}) {
             m.set(k, { v, t: now });
         },
         size() { return m.size; },
+    };
+}
+
+/** Hôte de la boucle locale : adresse 127.0.0.0/8 ou ::1 (littérale), `localhost` ou `*.localhost`. */
+export function estBoucleLocale(hote) {
+    const h = normaliserIp(String(hote || '').toLowerCase());
+    if (h === 'localhost' || h.endsWith('.localhost')) return true;
+    const t = _type(h);
+    return Boolean(t && _BOUCLE.check(h, t));
+}
+
+/**
+ * Vérificateur du relais local en mode bac (service lancé dans le bac du compte) : la boucle locale
+ * du bac est jointe directement (sites servis dans le bac), sans résolution DNS ; tout le reste part
+ * au relais de l'hôte (``amont``), qui résout, juge (profil réseau du bac, machine d'Elpis) et injecte
+ * les secrets.
+ */
+export function verifierBac() {
+    return async (hote) => {
+        if (!estBoucleLocale(hote)) return { ok: true, amont: true };
+        const ip = normaliserIp(hote);
+        return { ok: true, adresse: _type(ip) ? ip : '127.0.0.1' };
     };
 }

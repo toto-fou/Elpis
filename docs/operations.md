@@ -824,6 +824,50 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
   that cannot be read or is invalid, for secrets encrypted with another key
   (`./elpis vault rekey`), and for secrets left without any key (restore it).
 
+## Browser in the sandbox
+
+`browser.mode = "sandbox"` runs each account's browser inside its sandbox (see
+`docs/configuration.md`). To enable it:
+
+1. Image `elpis/sandbox:1.8.0`: `./install.sh --sandbox build` (or
+   `deploy/docker/sandbox/build_offline.sh`, which builds 1.7.0 then the browser layer of
+   `deploy/docker/sandbox-browser/`); offline, `deploy/docker/sandbox/load_image.sh
+   elpis-sandbox-1.8.0.tar.gz`. Existing containers are recreated on it at their next use
+   (`/work` is kept).
+2. The files mounted read-only in the sandboxes must be readable by the sandbox UID 10001:
+   the code of `browser-service/` (`*.js`, `package.json`; nothing else of the folder is
+   mounted), its `node_modules` (`chmod o+rx browser-service/node_modules` if npm created it
+   0700) and the Playwright cache. Restart the central browser service once after updating: it
+   moves its data (saved states, HAR, traces, screenshots…) out of `browser-service/` into
+   `user_db/browser/` (0700, `BROWSER_DATA_DIR`).
+3. Give the sandboxes two CPUs (`"executors": {"limits": {"cpu_quota_pct": 200}}`): Chromium
+   shares the sandbox's CPU quota, and at the default 100 % the step screenshot of a heavy page
+   misses its 3 s delay on about 5 % of actions (none at 200 %; `./elpis doctor` warns).
+4. `"browser": {"mode": "sandbox"}` in `config.json` (or `"sandbox_users": ["alice"]` for a
+   gradual roll-out), then restart the tool host: it creates the relay CA.
+5. `./elpis doctor`.
+
+Rolling back: `"mode": "central"` (read live); the central service on port 3000 must be running.
+
+**Relay CA.** `user_db/browser-relay-ca/` (or `ELPIS_BROWSER_CA_DIR`): `ca.key` (ECDSA P-256,
+0600, never copied into a sandbox) and `ca.crt` (365 days). Only the certificate goes to the
+sandboxes (`/run/elpis/browser-ca.crt`, imported into the NSS database of each service). Back
+the folder up with `user_db`. Rotation is automatic: when less than 30 days remain, the tool host
+creates a new CA at its next use, recreates the relays and each sandbox service is restarted at
+its account's next `pw_*` call with the new certificate. To rotate at once (suspected leak): stop
+the tool host, delete the folder, start the tool host.
+
+**Doctor.** With `browser.mode = "sandbox"`, `./elpis doctor` checks the CA (and its 0600 key),
+the Chromium headless shell, that no data folder of the central service remains in
+`browser-service/` and that `user_db/browser/` is 0700, that the mounted files are readable by
+the sandbox UID, and, for each running sandbox service (reached without following links), that
+the relay socket of its account is listening.
+
+**Logs.** `./elpis logs browser <account> [-f]` shows the service log of that account's sandbox
+(`/work/.elpis-browser/service.log`, rotated at 5 MB), without control characters (the sandbox
+writes it). Relay refusals and upstream failures are in
+the tool host log (`[relay <account>]`).
+
 ## Recovering from an incident
 
 - **Database server unreachable**: `./elpis db use sqlite` then

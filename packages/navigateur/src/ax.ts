@@ -24,6 +24,7 @@ import { Verrou } from "@elpis/mcp";
 import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
 import { enTetesServiceNavigateur, urlServiceNavigateur } from "./client";
+import { requeteService, serviceNavigateur } from "./mode";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -490,13 +491,24 @@ export async function detectSessionUrl(
   }
   if (!sessionId || !owner) return null;
   try {
-    const base = urlServiceNavigateur();
     const qs = new URLSearchParams({
       session_id: sessionId,
       owner: pwOwner(owner),
       skip_screenshot: "true",
       level: "lite",
     });
+    const service = serviceNavigateur(owner);
+    if (service.mode === "sandbox") {
+      const r = await requeteService(service, `/smart_inspect?${qs.toString()}`, {
+        delaiMs: 2000,
+        ...(signal ? { signal } : {}),
+      });
+      if (r.statut !== 200) return null;
+      const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
+      const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
+      return typeof u === "string" && u ? u : null;
+    }
+    const base = urlServiceNavigateur();
     const delai = AbortSignal.timeout(2000);
     const r = await fetch(`${base}/smart_inspect?${qs.toString()}`, {
       method: "GET",

@@ -24,6 +24,15 @@ test('formesSecret : brute, URL, formulaire, HTML, JSON, base64 (trois variantes
     assert.deepEqual(formesSecret('ab'), []);
 });
 
+test('formesSecret : %xx en minuscules, entités numériques, JSON \\/ et \\uXXXX', () => {
+    const v = 'Pa/ss&<é>';
+    const f = formesSecret(v);
+    for (const attendu of [encodeURIComponent(v).replace(/%[0-9A-F]{2}/g, (x) => x.toLowerCase()),
+        '&#80;&#97;&#47;&#115;&#115;&#38;&#60;&#233;&#62;', '&#x50;&#x61;&#x2f;&#x73;&#x73;&#x26;&#x3c;&#xe9;&#x3e;',
+        'Pa\\/ss&<é>', 'Pa/ss&<\\u00e9>', 'Pa/ss\\u0026\\u003c\\u00e9\\u003e', 'Pa/ss&#38;&#60;é&#62;'])
+        assert.ok(f.includes(attendu), attendu);
+});
+
 test('purgerTexte : toutes les formes données, tel quel sans formes', () => {
     const formes = formesSecret(SECRET);
     assert.equal(purgerTexte(`x ${SECRET}`, null), `x ${SECRET}`);

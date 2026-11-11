@@ -15,8 +15,37 @@ export {
   trackPwSessionOwnership,
   unregisterPwSessionOwner,
 } from "./session";
-export { browserUrlBlockReason, hostAddresses, refusMessage } from "./url";
-export type { HoteNavigateur, OptionsGardeNavigateur } from "./url";
+export { browserUrlBlockReason, hostAddresses, jugeRelaisBac, refusMessage, reglagesJugeBac } from "./url";
+export type { HoteNavigateur, OptionsGardeNavigateur, ProfilRelais } from "./url";
+export {
+  cheminsNavigateurBac,
+  enTetesDuService,
+  FICHIER_JETON_BAC,
+  jetonDuBac,
+  requeteService,
+  serviceNavigateur,
+} from "./mode";
+export type { ServiceNavigateur } from "./mode";
+export {
+  autoriteARenouveler,
+  chargerAutorite,
+  dossierAutorite,
+  Feuilles,
+  reglagesAutorite,
+} from "./autorite";
+export type { Autorite } from "./autorite";
+export {
+  defisAuth,
+  formesValeur,
+  origineDe as origineDuRelais,
+  Purgeur,
+  reglagesRelaisNavigateur,
+  RelaisNavigateur,
+  remplacerOctets,
+  reponseDigest,
+  valeurPourCorps,
+} from "./relais";
+export type { IdentifiantsRelais, JugeRelais, LiaisonRelais, VerdictRelais } from "./relais";
 export {
   AX_INJECT_MIN_SIGNAL,
   cheminInerte,

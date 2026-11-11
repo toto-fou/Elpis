@@ -15,9 +15,10 @@ import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatche
          sessionsEnfantsAnciennes, identifiantsPourOrigine, avisIdentifiants } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
-         interfacesDepuisProc, fusionnerInterfaces,
+         interfacesDepuisProc, fusionnerInterfaces, verifierBac,
          messageRefus, makeCache } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
+import { preparerDonnees } from './donnees_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
@@ -37,9 +38,17 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
+// Mode bac (BROWSER_SANDBOX=1) : service lancé par l'hôte d'outils dans le bac d'un compte ; boucle locale du bac jointe
+// directement, tout le reste par le relais de l'hôte (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
+const MODE_BAC = process.env.BROWSER_SANDBOX === '1';
+// Arrêt du service après tant de secondes sans appel (mode bac ; 0 = jamais).
+const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || '0', 10) || 0) * 1000;
+let _dernierAppel = Date.now();
+
 const app = express();
 // Jeton d'appel vérifié avant tout, statiques compris : sans jeton configuré, appels locaux directs seuls.
 app.use(gardeJeton);
+app.use((_req, _res, next) => { _dernierAppel = Date.now(); next(); });
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
@@ -57,17 +66,24 @@ app.use((req, _res, next) => { req.body ??= {}; next(); });
 
 // ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
 // backend d'Elpis les relit, de serveur à serveur.
+// Données du service : BROWSER_DATA_DIR (service central : user_db/browser, 0700, hors du code monté dans les bacs), sinon le dossier courant (mode bac : /work/.elpis-browser).
+const CODE_DIR = process.cwd();
+const BASE_DIR = path.resolve(process.env.BROWSER_DATA_DIR || CODE_DIR);
+if (process.env.BROWSER_DATA_DIR) {
+    const repris = preparerDonnees(CODE_DIR, BASE_DIR, (m) => console.warn(`[DONNEES] ${m}`));
+    if (repris.length) console.log(`[DONNEES] repris du dossier du code dans ${BASE_DIR} : ${repris.join(', ')}`);
+}
 app.use('/screenshots', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
-}, express.static(path.join(process.cwd(), 'screenshots')));
+}, express.static(path.join(BASE_DIR, 'screenshots')));
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
-const BASE_DIR = process.cwd();
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
-const DOWNLOAD_DIR = path.join(BASE_DIR, 'downloads');
+// BROWSER_DOWNLOAD_DIR (mode bac : /work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
+const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
 const COOKIES_DIR = path.join(BASE_DIR, 'cookies');
 const HAR_DIR = path.join(BASE_DIR, 'har');
 const BASELINE_DIR = path.join(BASE_DIR, 'baselines');  // goldens régression visuelle (persistants, non reapés)
@@ -80,9 +96,12 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
 
 // Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
 const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
-const RACINES_SORTIE = [
+// Mode bac : rien à masquer, tout est dans le /work de l'utilisateur (chemins rendus tels quels, ouvrables par ses outils).
+const RACINES_SORTIE = MODE_BAC ? [] : [
     ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
     ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
+    ...racinesMasquees({ base: CODE_DIR }),
+    ...racinesMasquees({ base: _reel(CODE_DIR) }),
 ].sort((a, b) => b.n - a.n);
 
 // Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
@@ -110,7 +129,7 @@ app.use('/traces', express.static(TRACE_DIR));
 //  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
 //  config.json d'Elpis (relue quand le fichier change) ou la variable
 //  ``BROWSER_URL_ALLOWLIST``.
-const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
+const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(CODE_DIR, '..', 'config.json');
 let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
 function listeBlancheCourante() {
     try {
@@ -146,6 +165,8 @@ let _verdicts = makeCache({ ttlMs: 30000 });
 
 /** Motif de refus d'une URL (``null`` = permise). */
 async function refusUrl(url) {
+    // Mode bac : forme seule (boucle locale admise) ; le relais de l'hôte juge le reste à la connexion.
+    if (MODE_BAC) { const b = analyserUrl(url, { boucleLocale: true }); return b.ok ? null : b.motif; }
     const a = analyserUrl(url);
     if (!a.ok) return a.motif;
     if (a.vide) return null;
@@ -162,10 +183,11 @@ async function refusUrl(url) {
 // boucle locale comprise. C'est lui qui fait foi (redirections, changements
 // d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
-    verifier: verifierDepuisPolitique({
+    verifier: MODE_BAC ? verifierBac() : verifierDepuisPolitique({
         resoudre: _resoudre,
         motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
     }),
+    amont: MODE_BAC ? { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' } : null,
     journal: (m) => console.warn(`[GARDE] ${m}`),
 });
 console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
@@ -447,7 +469,7 @@ function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
 
 function reapArtifacts() {
     // Les états sans propriétaire attendent leur rattachement : jamais purgés.
-    const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
+    const n = (process.env.BROWSER_DOWNLOAD_DIR ? 0 : _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true }))
             + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
@@ -459,7 +481,7 @@ function signalerEtatsSansCompte() {
     const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
     if (n) {
         console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
-                   + 'à supprimer à la main (browser-service/cookies/state_<id>.json).');
+                   + `à supprimer à la main (${COOKIES_DIR}/state_<id>.json).`);
     }
 }
 
@@ -2212,9 +2234,23 @@ const indiceAuthDemarrage = (nav, poses) => {
     return h ? { auth_hint: h } : {};
 };
 
+// Mode bac : liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
+const ENTETE_LIAISON = 'x-elpis-binding';
+function liaisonRelais(b) {
+    const l = b.relay_binding;
+    if (l === undefined || l === null) return null;
+    if (!MODE_BAC || typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
+        || !Array.isArray(l.origins) || !l.origins.length || l.origins.some((o) => origineDe(o) !== o)) return undefined;
+    return { cle: l.key, origines: new Set(l.origins) };
+}
+
 // Refus (400) d'un démarrage au `tls` inconnu ou au `credentials_origin` invalide (origine http(s), identifiants, adresse de départ sur elle) ; null sinon.
 function refusDemarrage(b) {
     if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
+    const liaison = liaisonRelais(b);
+    if (liaison === undefined) return { error: 'relay_binding must be { key, origins } in sandbox mode.', code: 'invalid_option' };
+    // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
+    if (liaison && (b.record_har || b.trace)) return { error: 'HAR and trace recordings would keep the relay binding of HTTP authentication.', code: 'recording_with_credentials' };
     if (b.credentials_origin === undefined || b.credentials_origin === null || b.credentials_origin === '') return null;
     const o = origineDe(b.credentials_origin);
     if (!o) return { error: 'credentials_origin must be an http(s) origin (scheme://host[:port]).', code: 'secret_scope_mismatch' };
@@ -2377,6 +2413,11 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        const liaison = liaisonRelais(req.body);
+        if (liaison) {
+            await context.route((u) => liaison.origines.has(origineDe(u.href)),
+                (route) => route.fallback({ headers: { ...route.request().headers(), [ENTETE_LIAISON]: liaison.cle } }).catch(() => {}));
+        }
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2652,6 +2693,11 @@ function gardeReseau(formes, origineSecret, etat) {
         const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
         if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
         etat.enVol++;
+        // Mode bac : la requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
+        if (MODE_BAC) {
+            rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
+            return route.fallback().catch(() => {});
+        }
         try {
             let r;
             try { r = await route.fetch({ maxRedirects: 0, timeout: 30000 }); } catch (e) { return bloquer('failed'); }
@@ -2681,8 +2727,9 @@ function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
         fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
 }
 
-// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie.
+// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie (mode bac : seul le substitut est saisi).
 function refusEnregistrement(s) {
+    if (MODE_BAC) return;
     if (s.har) throw erreurSecret('secret_recording_active', 'A HAR recording is active on this session: it would keep the typed value.', 409,
         { fix: 'A HAR records until the session is closed: log in from a session started without record_har.' });
     if (s.traceActive) throw erreurSecret('secret_recording_active', 'A trace recording is active on this session: it would keep the typed value.', 409,
@@ -2731,9 +2778,12 @@ async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }
     defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
     await s.context.route('**/*', garde);
     defaire.push(() => s.context.unroute('**/*', garde));
-    await garderWebSockets(s);
-    const figees = await figerAutresPages(s, page);
-    defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
+    // Mode bac : le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret ; ni WebSocket ni autres onglets à figer.
+    if (!MODE_BAC) {
+        await garderWebSockets(s);
+        const figees = await figerAutresPages(s, page);
+        defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
+    }
     const cdp = await s.context.newCDPSession(page);
     try {
         await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
@@ -5006,7 +5056,7 @@ app.post('/trace_export', getSession, async (req, res) => {
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
         await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
         req.session.traceActive = false;
-        res.json({ ok: true, trace_url: `/traces/${file}`, hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
+        res.json({ ok: true, trace_url: `/traces/${file}`, ...(MODE_BAC ? { file: path.join(TRACE_DIR, file) } : {}), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5037,6 +5087,7 @@ app.get('/health', (req, res) => {
         service: 'browser',
         status: 'running',
         engine: 'chromium',
+        mode: MODE_BAC ? 'sandbox' : 'central',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
         // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
         sessions: sessionList,
@@ -6217,7 +6268,17 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     const { secret_variables, notes } = notesDuScript(events);
-    res.json({ format, count: events.length, script,
+    // Mode bac : le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
+    let fichier = null;
+    if (MODE_BAC) {
+        const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
+        try {
+            fs.mkdirSync('/work/recordings', { recursive: true });
+            fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+            fs.writeFileSync(fichier, script);
+        } catch (e) { fichier = null; }
+    }
+    res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 
@@ -6229,8 +6290,24 @@ app.get('/recorder/dump', getSession, async (req, res) => {
 // FIREFOX_SERVICE_PORT.
 const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
 const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
+// FIREFOX_SERVICE_SOCKET : socket unix à la place du port (mode bac : /run/elpis/browser.sock, joint par l'hôte d'outils, jeton exigé).
+const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
 
-app.listen(LISTEN_PORT, LISTEN_HOST, () => {
+const _ecoute = () => {
     journaliserMode(jetonAttendu());
-    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
-});
+    if (LISTEN_SOCKET) { try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); } }
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET || `${LISTEN_HOST}:${LISTEN_PORT}`}${MODE_BAC ? ' (sandbox mode)' : ''} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
+};
+if (LISTEN_SOCKET) {
+    try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+    app.listen(LISTEN_SOCKET, _ecoute);
+} else {
+    app.listen(LISTEN_PORT, LISTEN_HOST, _ecoute);
+}
+// Mode bac : sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
+if (ARRET_INACTIF_MS > 0) {
+    let arret = false;
+    setInterval(() => {
+        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; gracefulShutdown('idle', 0); }
+    }, Math.min(30000, ARRET_INACTIF_MS)).unref();
+}

@@ -70,6 +70,21 @@ export {
   RELAY_DIR,
   RELAY_MOUNT,
 } from "./montages";
+export {
+  BROWSER_CA_CERT,
+  BROWSER_DATA,
+  BROWSER_DOWNLOADS,
+  BROWSER_RELAY_SOCKET,
+  BROWSER_SOCKET,
+  empreinteNavigateur,
+  MONTAGES_NAVIGATEUR,
+  montagesNavigateur,
+  navigateurDansLeBac,
+  NOMS_HOTE,
+  reglagesNavigateurBac,
+  SCRIPT_NAVIGATEUR,
+  sourcesNavigateur,
+} from "./navigateur";
 export * as privdrop from "./privdrop";
 export { messageSuppression, supprimerDossierBac } from "./suppression";
 export {

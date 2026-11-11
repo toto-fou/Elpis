@@ -8,6 +8,27 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Browser in the sandbox.** With `browser.mode = "sandbox"` (optionally `browser.sandbox_users`),
+  each account's `pw_*` tools drive Elpis's own browser service started inside the account's
+  sandbox container on the first call (image `elpis/sandbox:1.8.0`; service, Node runtime and
+  Chromium headless shell mounted read-only; Unix socket and per-sandbox token; idle stop after
+  `browser.sandbox_idle_minutes`). Sites served inside the sandbox are reachable at
+  `http://localhost:<port>`, downloads land in `/work/downloads`, recorder scripts in
+  `/work/recordings`, HAR/trace/video files in `/work/.elpis-browser`. All other traffic goes
+  through a per-account **secret relay** on the host, which applies the sandbox network profile
+  and the browser policy, terminates TLS only for the origins of a secret in use (instance CA,
+  `user_db/browser-relay-ca`), replaces the one-time placeholder typed by `pw_login` with the
+  value only in requests to the secret's origins during the login, answers Basic and Digest
+  challenges itself and scrubs the value from responses: vault values never enter the sandbox.
+  The relay treats the sandbox as hostile: only the service code is mounted (never its data), no
+  host-side write follows a link planted in `/run/elpis`, coverage is decided on the checked
+  destination (IP or trailing-dot names included), one submission per login window, HTTP
+  authentication only for the session that asked (binding key, expiry), every common encoding
+  scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with Happy
+  Eyeballs connections, and a 365-day relay CA renewed automatically.
+  `./elpis doctor` and `./elpis logs browser <account>` cover it. The default stays
+  `"central"`, which is also the runtime rollback.
+
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
   to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
@@ -129,6 +150,13 @@ follow [SemVer](https://semver.org/).
   and writes a test event to find in the collector.
 
 ### Changed
+
+- **Central browser service data in `user_db/browser`.** Saved states, HAR, traces, screenshots,
+  downloads, videos and baselines leave `browser-service/` for `user_db/browser/` (0700,
+  `BROWSER_DATA_DIR`); the service moves them there at its first start after the update.
+- **Sandbox image 1.8.0.** `elpis/sandbox:1.8.0` is 1.7.0 plus the NSS tools of the browser
+  relay; `build_offline.sh` builds both layers and exports `elpis-sandbox-1.8.0.tar.gz`.
+  Containers are recreated on it at their next use (`/work` is kept).
 
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret

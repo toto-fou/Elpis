@@ -4819,12 +4819,10 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
             ? await locator.evaluate(el => el.textContent)
             : await locator.innerText();
         const clean = (t) => (t || '').replace(/\s+/g, ' ').trim();
-        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans
-        // innerText du document — seul le contenu « slotté » (DOM léger) y est.
-        // Audit tools web 2026-09-05 : /shadowdom rendait la coquille.
+        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans innerText : celui des hôtes DANS la cible (elle comprise) est ajouté.
         let shadowText = '';
         if (pierce_shadow !== false) {
-            shadowText = await page.evaluate(() => {
+            shadowText = await locator.evaluate((cible) => {
                 const parts = [];
                 const textOf = (root) => {
                     let out = '';
@@ -4834,18 +4832,20 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
                     let n; while ((n = it.nextNode())) out += n.textContent + ' ';
                     return out.replace(/\s+/g, ' ').trim();
                 };
+                const hote = (host, depth) => {
+                    const sr = host.shadowRoot; if (!sr) return;
+                    const t = textOf(sr);
+                    if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
+                    walk(sr, depth + 1);
+                };
                 const walk = (root, depth) => {
                     if (depth > 4) return;
-                    for (const host of root.querySelectorAll('*')) {
-                        const sr = host.shadowRoot; if (!sr) continue;
-                        const t = textOf(sr);
-                        if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
-                        walk(sr, depth + 1);
-                    }
+                    for (const host of root.querySelectorAll('*')) hote(host, depth);
                 };
-                walk(document, 0);
+                hote(cible, 0);
+                walk(cible, 0);
                 return parts.join('\n');
-            }).catch(() => '');
+            }, undefined, { timeout: 3000 }).catch(() => '');
         }
         // Le texte d'une <iframe> n'apparaît JAMAIS dans celui du document
         // parent : sur une appli encadrée, extract_text rendait la coquille et

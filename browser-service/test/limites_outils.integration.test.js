@@ -23,6 +23,10 @@ const PAGES = {
     '/temporaire': `<title>Temporaire</title><button id="c" onclick="document.getElementById('out').textContent='clic'">Couvert</button>
         <p id="out">rien</p><div id="voile" style="position:fixed;inset:0;z-index:5"></div>
         <script>setTimeout(() => document.getElementById('voile').remove(), 6000);</script>`,
+    '/texte': `<title>Texte</title><p id="out">Résultat</p><div id="carte"></div><section id="zone"><div id="dedans"></div></section><script>
+        document.getElementById('carte').attachShadow({ mode: 'open' }).innerHTML = '<div>Profond sans rapport</div>';
+        document.getElementById('dedans').attachShadow({ mode: 'open' }).innerHTML = '<span>Contenu du composant</span>';
+    </script>`,
 };
 
 let service = null;
@@ -83,4 +87,19 @@ test('pw_act : pas de faux succès par repli (shadow fermé, élément pas encor
     assert.equal(r.statut, 200, r.texte);
     assert.equal(r.corps.resolved_element?.css, 'button', r.texte);
     assert.equal(await texteDe('#out'), 'clic');
+});
+
+test('pw_page text : avec une cible, son texte seul ; le texte shadow ajouté ne vient que des hôtes qu\'elle contient', { skip: SAUTER, timeout: 60000 }, async () => {
+    await ouvrir('/texte');
+    const texte = async (selector) => (await api('/extract_text', selector ? { selector } : {})).corps;
+    const out = await texte('#out');
+    assert.equal(out.text, 'Résultat');
+    assert.equal(out.shadow_text_included, undefined);
+    const zone = await texte('#zone');
+    assert.match(zone.text, /Contenu du composant/);
+    assert.doesNotMatch(zone.text, /Profond/);
+    const page = await texte('');
+    assert.match(page.text, /Résultat/);
+    assert.match(page.text, /Profond sans rapport/);
+    assert.match(page.text, /Contenu du composant/);
 });

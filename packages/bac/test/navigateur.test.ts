@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/test/navigateur.test.ts — navigateur dans le bac : bascule par compte (`browser.mode`, `browser.sandbox_users`), montages et étiquette en mode bac seulement, recréation sur changement, démarrage détaché à l'environnement passé par un fichier 0600 retiré ensuite, arrêt. */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { surchargerConfig } from "@elpis/config";
@@ -32,9 +32,18 @@ function config(browser: unknown): void {
 }
 
 beforeAll(() => {
-  for (const d of ["service/node_modules", "node/bin", "pw"])
+  for (const d of ["service/node_modules", "service/cookies", "service/test", "node/bin", "pw"])
     mkdirSync(path.join(tmp, d), { recursive: true });
   writeFileSync(path.join(tmp, "node/bin/node"), "");
+  for (const f of [
+    "server.js",
+    "url_guard.js",
+    "package.json",
+    "package-lock.json",
+    ".token",
+    "cookies/state_x.json",
+  ])
+    writeFileSync(path.join(tmp, "service", f), "x");
   Object.assign(reglagesNavigateurBac, {
     service: path.join(tmp, "service"),
     node: path.join(tmp, "node"),
@@ -84,11 +93,35 @@ describe("conteneur en mode bac", () => {
     expect(central.join(" ")).not.toContain("/opt/elpis/browser-service");
     sb.navigateur = true;
     const bac = sb.buildRunArgs(sb.networkProfile);
-    for (const dst of [MONTAGES_NAVIGATEUR.service, MONTAGES_NAVIGATEUR.node, MONTAGES_NAVIGATEUR.playwright])
+    for (const dst of [
+      `${MONTAGES_NAVIGATEUR.service}/server.js`,
+      MONTAGES_NAVIGATEUR.modules,
+      MONTAGES_NAVIGATEUR.node,
+      MONTAGES_NAVIGATEUR.playwright,
+    ])
       expect(bac).toContain(bac.find((x) => x.endsWith(`:${dst}:ro`)));
     expect(bac).toContain(`elpis.browser=${empreinteNavigateur()}`);
     expect(empreinteNavigateur()).toMatch(/^[0-9a-f]{12}$/u);
     expect(bac.slice(-3)).toEqual(central.slice(-3));
+  });
+
+  it("seul le code du service est monté : ni ses données, ni ses jetons, ni ses autres dossiers ; un fichier remplacé change l'empreinte", () => {
+    const m = (montagesNavigateur() ?? []).filter((x) => x !== "-v");
+    const service = m
+      .filter((x) => x.includes(`:${MONTAGES_NAVIGATEUR.service}/`))
+      .map((x) => x.split(":")[1]);
+    expect(service.sort()).toEqual(
+      ["node_modules", "package.json", "server.js", "url_guard.js"].map(
+        (f) => `${MONTAGES_NAVIGATEUR.service}/${f}`,
+      ),
+    );
+    expect(m.some((x) => x.split(":")[1] === MONTAGES_NAVIGATEUR.service)).toBe(false);
+    expect(m.join(" ")).not.toMatch(/cookies|\.token|package-lock|\/test/u);
+    const avant = empreinteNavigateur();
+    const f = path.join(tmp, "service", "url_guard.js");
+    writeFileSync(`${f}.neuf`, "y");
+    renameSync(`${f}.neuf`, f);
+    expect(empreinteNavigateur()).not.toBe(avant);
   });
 
   it("sans cache Playwright, le mode bac n'ajoute rien au conteneur", () => {

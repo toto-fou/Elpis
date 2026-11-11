@@ -217,7 +217,8 @@ svc_spec() {
         browser)
             SPEC_DIR="$ROOT/browser-service"
             SPEC_ENV+=("FIREFOX_SERVICE_PORT=$BROWSER_PORT"
-                       "BROWSER_SERVICE_TOKEN_FILE=${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}")
+                       "BROWSER_SERVICE_TOKEN_FILE=${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}"
+                       "BROWSER_DATA_DIR=${BROWSER_DATA_DIR:-$ROOT/user_db/browser}")
             # Magasin de CA du système : le POST de connexion rejoué par Node (route.fetch) fait confiance à une CA interne en TLS strict.
             SPEC_CMD=("$NODE" --use-system-ca server.js) ;;
         *) die "service inconnu : $1" ;;
@@ -739,6 +740,11 @@ except Exception: print("central")' "$ROOT/config.json" 2>/dev/null)"
     [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
     pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
     check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
+    # Le code du service est monté dans chaque bac : aucune donnée du service central n'y reste (reprises dans user_db/browser, 0700, au démarrage du service).
+    d="$(find "$ROOT/browser-service" -mindepth 1 -maxdepth 1 \( -name screenshots -o -name downloads -o -name cookies -o -name har -o -name baselines -o -name videos -o -name traces \) 2>/dev/null | head -n1)"
+    check "navigateur dans le bac : dossier du service sans données du service central" "./elpis restart (le service les reprend dans user_db/browser), sinon déplacez ${d:-ce dossier}" test -z "$d"
+    d="${BROWSER_DATA_DIR:-$ROOT/user_db/browser}"
+    [ -d "$d" ] && check "navigateur : données du service central privées ($d en 0700)" "chmod 700 $d" test "$(stat -c %a "$d")" = 700
     nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
     check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules}" \
         test "$(find "$ROOT/browser-service" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 3

@@ -18,6 +18,7 @@ import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlan
          interfacesDepuisProc, fusionnerInterfaces, verifierBac,
          messageRefus, makeCache } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
+import { preparerDonnees } from './donnees_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
@@ -65,15 +66,21 @@ app.use((req, _res, next) => { req.body ??= {}; next(); });
 
 // ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
 // backend d'Elpis les relit, de serveur à serveur.
+// Données du service : BROWSER_DATA_DIR (service central : user_db/browser, 0700, hors du code monté dans les bacs), sinon le dossier courant (mode bac : /work/.elpis-browser).
+const CODE_DIR = process.cwd();
+const BASE_DIR = path.resolve(process.env.BROWSER_DATA_DIR || CODE_DIR);
+if (process.env.BROWSER_DATA_DIR) {
+    const repris = preparerDonnees(CODE_DIR, BASE_DIR, (m) => console.warn(`[DONNEES] ${m}`));
+    if (repris.length) console.log(`[DONNEES] repris du dossier du code dans ${BASE_DIR} : ${repris.join(', ')}`);
+}
 app.use('/screenshots', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
-}, express.static(path.join(process.cwd(), 'screenshots')));
+}, express.static(path.join(BASE_DIR, 'screenshots')));
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
-const BASE_DIR = process.cwd();
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
 // BROWSER_DOWNLOAD_DIR (mode bac : /work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
 const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
@@ -93,6 +100,8 @@ const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; 
 const RACINES_SORTIE = MODE_BAC ? [] : [
     ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
     ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
+    ...racinesMasquees({ base: CODE_DIR }),
+    ...racinesMasquees({ base: _reel(CODE_DIR) }),
 ].sort((a, b) => b.n - a.n);
 
 // Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
@@ -120,7 +129,7 @@ app.use('/traces', express.static(TRACE_DIR));
 //  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
 //  config.json d'Elpis (relue quand le fichier change) ou la variable
 //  ``BROWSER_URL_ALLOWLIST``.
-const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
+const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(CODE_DIR, '..', 'config.json');
 let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
 function listeBlancheCourante() {
     try {
@@ -472,7 +481,7 @@ function signalerEtatsSansCompte() {
     const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
     if (n) {
         console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
-                   + 'à supprimer à la main (browser-service/cookies/state_<id>.json).');
+                   + `à supprimer à la main (${COOKIES_DIR}/state_<id>.json).`);
     }
 }
 

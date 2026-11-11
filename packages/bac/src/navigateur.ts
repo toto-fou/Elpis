@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/src/navigateur.ts — navigateur dans le bac : mode par compte (`browser.mode`, `browser.sandbox_users`), montages en lecture seule (service, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
+/** packages/bac/src/navigateur.ts — navigateur dans le bac : mode par compte (`browser.mode`, `browser.sandbox_users`), montages en lecture seule (code du service fichier par fichier, ses modules, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -27,10 +27,13 @@ export const NOMS_HOTE = {
 /** Destinations des montages (lecture seule). */
 export const MONTAGES_NAVIGATEUR = {
   service: "/opt/elpis/browser-service",
-  modules: "/opt/elpis/node_modules",
+  modules: "/opt/elpis/browser-service/node_modules",
   node: "/opt/elpis/node",
   playwright: "/opt/elpis/ms-playwright",
 } as const;
+
+/** Code du service monté dans le bac : modules `*.js` et `package.json` du dossier, jamais ses sous-dossiers ni ses autres fichiers (données du service central, jetons, paquets hors ligne). */
+const CODE_SERVICE = /^(?:[\w.-]+\.(?:js|mjs|cjs)|package\.json)$/u;
 
 /** Surcharges de test des sources des montages (`null` : celles de l'installation). */
 export const reglagesNavigateurBac: {
@@ -59,7 +62,7 @@ function dossier(p: string): string | null {
   }
 }
 
-/** Sources des montages : `browser-service/` du dépôt (et ses modules s'ils sont ailleurs), runtime Node de l'installation, cache Playwright. */
+/** Sources des montages : `browser-service/` du dépôt et ses modules (résolus), runtime Node de l'installation, cache Playwright. */
 export function sourcesNavigateur(): {
   service: string | null;
   modules: string | null;
@@ -67,8 +70,7 @@ export function sourcesNavigateur(): {
   playwright: string | null;
 } {
   const service = dossier(reglagesNavigateurBac.service ?? pyJoin(racineDepot(), "browser-service"));
-  const mods = service === null ? null : dossier(pyJoin(service, "node_modules"));
-  const modules = mods !== null && service !== null && !mods.startsWith(service + path.sep) ? mods : null;
+  const modules = service === null ? null : dossier(pyJoin(service, "node_modules"));
   const node =
     dossier(reglagesNavigateurBac.node ?? pyJoin(config.PROJECT_ROOT, "node")) ??
     dossier(path.dirname(path.dirname(realpathPy(process.execPath))));
@@ -79,24 +81,51 @@ export function sourcesNavigateur(): {
   return { service, modules, node, playwright };
 }
 
-/** `-v source:destination:ro` du navigateur ; `null` si une source manque (service, Node ou Playwright). */
+/** Fichiers de code du service (fichiers ordinaires, liens exclus), triés. */
+export function fichiersCodeService(service: string): string[] {
+  try {
+    return readdirSync(service, { withFileTypes: true })
+      .filter((d) => d.isFile() && CODE_SERVICE.test(d.name))
+      .map((d) => d.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** `-v source:destination:ro` du navigateur, le code du service fichier par fichier ; `null` si une source manque (service, modules, Node ou Playwright). */
 export function montagesNavigateur(): string[] | null {
   const s = sourcesNavigateur();
-  if (s.service === null || s.node === null || s.playwright === null) return null;
+  if (s.service === null || s.modules === null || s.node === null || s.playwright === null) return null;
   if (!existsSync(pyJoin(s.node, "bin/node"))) return null;
+  const code = fichiersCodeService(s.service);
+  if (!code.includes("server.js")) return null;
   const v = [
-    `${s.service}:${MONTAGES_NAVIGATEUR.service}:ro`,
+    ...code.map((f) => `${pyJoin(s.service, f)}:${MONTAGES_NAVIGATEUR.service}/${f}:ro`),
+    `${s.modules}:${MONTAGES_NAVIGATEUR.modules}:ro`,
     `${s.node}:${MONTAGES_NAVIGATEUR.node}:ro`,
     `${s.playwright}:${MONTAGES_NAVIGATEUR.playwright}:ro`,
   ];
-  if (s.modules !== null) v.push(`${s.modules}:${MONTAGES_NAVIGATEUR.modules}:ro`);
   return v.flatMap((m) => ["-v", m]);
 }
 
-/** Étiquette `elpis.browser` : 12 hex du SHA-256 des montages ; un changement fait recréer les conteneurs en mode bac. */
+/** Étiquette `elpis.browser` : 12 hex du SHA-256 des montages et des inodes de leurs sources (un fichier remplacé par une mise à jour reste monté à l'ancien inode) ; un changement fait recréer les conteneurs en mode bac. */
 export function empreinteNavigateur(): string {
   const m = montagesNavigateur();
-  return m === null ? "" : createHash("sha256").update(m.join("\n"), "utf8").digest("hex").slice(0, 12);
+  if (m === null) return "";
+  const inodes = m
+    .filter((x) => x !== "-v")
+    .map((x) => {
+      try {
+        return String(statSync(x.slice(0, x.indexOf(":"))).ino);
+      } catch {
+        return "?";
+      }
+    });
+  return createHash("sha256")
+    .update([...m, ...inodes].join("\n"), "utf8")
+    .digest("hex")
+    .slice(0, 12);
 }
 
 /** Script de démarrage (sh) : dossiers de données, base NSS du profil avec le certificat du relais, journal borné, puis le service. */

@@ -10,6 +10,7 @@ import {
   sandboxUsageBytes,
 } from "@elpis/bac";
 import type { IpConteneurApercu } from "@elpis/bac";
+import { liveConfigValue } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { AgentClient, installerImportAncien } from "@elpis/fichiers";
 import { commandeStdioHote } from "@elpis/mcp";
@@ -43,6 +44,7 @@ import { creerFamilleJobs } from "./mcp/shell/jobs/routes";
 import { agentVeilleDuCompte, installerVeilleurJobs, VeilleurJobs } from "./mcp/shell/jobs/veilleur";
 import type { FabriqueNative, ServiceNatif } from "./mcp/natives";
 import { FABRIQUES_NATIVES } from "./mcp/registre";
+import { arreterNavigateursBac, autoriteInstance } from "./mcp/browser/bac";
 import { arreterWorkerOffice } from "./mcp/office/famille";
 import { arreterOffice } from "./office/apercu";
 import { ClientRappel } from "./rappel";
@@ -164,6 +166,11 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     cycle.alArret("conversions Office", arreterOffice);
     cycle.alArret("worker Office", arreterWorkerOffice);
     cycle.alArret("abonnement docker events", arreterReadinessCache);
+    cycle.auDemarrage("autorité du relais du navigateur dans le bac", () => {
+      if (String(liveConfigValue("browser.mode", "central")).trim().toLowerCase() === "sandbox")
+        autoriteInstance();
+    });
+    cycle.alArret("relais des navigateurs des bacs", arreterNavigateursBac);
     cycle.auDemarrage(
       "nettoyage des terminaux",
       () => balayer(nettoyerTerminaux, cycle.signalArret, o.journal),

@@ -73,7 +73,7 @@ function texte(v: unknown): string {
   return stripPy(w);
 }
 
-/** `import_legacy_git_credentials` : comptes git créés depuis l'ancien fichier, jetons dans le coffre (un hôte déjà présent est gardé, un hôte non `admis` compté par `refus`) ; `-1` si l'import échoue (fichier gardé). */
+/** `import_legacy_git_credentials` : comptes git créés depuis l'ancien fichier du bac (que l'agent peut écrire), jetons dans le coffre à vérifier par l'utilisateur (`unverified`, source `sandbox-file`) : aucun ne sert avant ; un hôte déjà présent est gardé, un hôte non `admis` compté par `refus` ; `-1` si l'import échoue (fichier gardé). */
 export async function importLegacyGitCredentials(
   base: Base,
   uid: number,
@@ -117,7 +117,12 @@ export async function importLegacyGitCredentials(
         uid,
         defaultProviderType(fournisseur),
         hote,
-        { token: jeton, username: user === true ? "1" : strPy(user), label: "imported" },
+        {
+          token: jeton,
+          username: user === true ? "1" : strPy(user),
+          label: "imported",
+          source: "sandbox-file",
+        },
         acteur,
       );
       crees += 1;

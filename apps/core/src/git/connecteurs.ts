@@ -15,6 +15,7 @@ import {
   modifierSecret,
   porteeDe,
   supprimerSecret,
+  verifierSecret,
 } from "../secrets/stockage";
 import type { Acteur, LigneSecret } from "../secrets/stockage";
 import { lireSecretPourUsage, permisPourContexte } from "../secrets/usage";
@@ -75,6 +76,9 @@ export interface ContexteGit {
 export function contexteUtilisateur(acteur: Acteur): ContexteGit {
   return { acteur, chatId: null, run: null, sousAgent: false, routine: false };
 }
+
+/** Provenance d'un jeton qu'aucun humain n'a saisi : le fichier `/work/.git-credentials.json` du bac, que l'agent peut écrire. */
+export type SourceJeton = "sandbox-file";
 
 function colonnes(r: Record<string, unknown>): Dict {
   const d: Dict = {};
@@ -168,13 +172,21 @@ async function secretDe(x: Executeur, l: LigneConnecteur): Promise<LigneSecret |
   return s !== null && s.kind === "git" ? s : null;
 }
 
-/** Jeton écrit dans le coffre : secret du compte git mis à jour (valeur, portée, identifiant ; renommé si l'hôte change), sinon créé et relié. */
-async function ecrireJeton(base: Base, l: LigneConnecteur, jeton: string, acteur: Acteur): Promise<void> {
+/** Jeton écrit dans le coffre : secret du compte git mis à jour (valeur, portée, identifiant ; renommé si l'hôte change ; saisi par l'humain, un secret à vérifier devient utilisable), sinon créé et relié ; d'une `source` sans humain, créé à vérifier (`unverified`). */
+async function ecrireJeton(
+  base: Base,
+  l: LigneConnecteur,
+  jeton: string,
+  acteur: Acteur,
+  source?: SourceJeton,
+): Promise<void> {
   const uid = l.owner_user_id;
   const s = await secretDe(base, l);
   if (s !== null) {
+    if (source !== undefined) return;
     const hoteChange = (porteeDe(s) as { host?: unknown }).host !== hoteExact(l.host);
     const nom = hoteChange ? await nomLibre(base, uid, l.host, l.label, s.name) : s.name;
+    const aVerifier = s.state === "unverified";
     await modifierSecret(
       base,
       uid,
@@ -184,9 +196,11 @@ async function ecrireJeton(base: Base, l: LigneConnecteur, jeton: string, acteur
         scope: { host: l.host },
         username: identifiant(l.username),
         ...(nom === s.name ? {} : { name: nom }),
+        ...(aVerifier ? { meta: { connector_id: l.id } } : {}),
       },
       acteur,
     );
+    if (aVerifier) await verifierSecret(base, uid, Number(s.id), acteur);
     return;
   }
   const cree = await creerSecret(
@@ -199,7 +213,8 @@ async function ecrireJeton(base: Base, l: LigneConnecteur, jeton: string, acteur
       username: identifiant(l.username),
       value: jeton,
       policy: POLITIQUE_GIT,
-      meta: { connector_id: l.id },
+      meta: { connector_id: l.id, ...(source === undefined ? {} : { source }) },
+      ...(source === undefined ? {} : { state: "unverified" as const }),
     },
     acteur,
   );
@@ -210,13 +225,13 @@ async function ecrireJeton(base: Base, l: LigneConnecteur, jeton: string, acteur
   ]);
 }
 
-/** Compte git créé, son jeton écrit dans le coffre (une seule transaction) ; son id. */
+/** Compte git créé, son jeton écrit dans le coffre (une seule transaction ; à vérifier s'il vient d'une `source` sans humain) ; son id. */
 export async function createConnector(
   base: Base,
   uid: number,
   providerType: string,
   host: string,
-  champs: { token: string; apiBase?: string; label?: string; username?: string },
+  champs: { token: string; apiBase?: string; label?: string; username?: string; source?: SourceJeton },
   acteur: Acteur,
 ): Promise<number> {
   const t = maintenant();
@@ -237,7 +252,13 @@ export async function createConnector(
       ],
     );
     if (champs.token)
-      await ecrireJeton(base, (await getConnector(base, uid, id)) as LigneConnecteur, champs.token, acteur);
+      await ecrireJeton(
+        base,
+        (await getConnector(base, uid, id)) as LigneConnecteur,
+        champs.token,
+        acteur,
+        champs.source,
+      );
     return id;
   });
 }

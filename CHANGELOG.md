@@ -545,6 +545,11 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Login: no timing difference for unknown usernames.** A refused login now costs one current
+  password hash (600,000 PBKDF2 iterations) whether the username exists or not, and an account
+  still on the old 150,000-iteration hash is topped up to the same cost, so the response time no
+  longer tells which usernames exist. A password that is not valid Unicode is refused without
+  being compared.
 - **Account config: public sections only.** `GET /api/config` gave each account a copy of the
   whole instance `config.json` with a fixed list of secrets blanked, so any other sensitive value
   (desktop agent addresses and tokens, internal URLs, a future secret key) reached every session.

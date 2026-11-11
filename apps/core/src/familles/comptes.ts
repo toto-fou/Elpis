@@ -19,7 +19,6 @@ import {
   estLocalDirect,
   exigerUtilisateur,
   getAllUsers,
-  getUser,
   getUserGroups,
   getUsernameById,
   getUsersLite,
@@ -313,14 +312,13 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const brut = getPy(data, "password", null);
           const motDePasse: unknown = veritePy(brut) ? brut : "";
           if (!username || !veritePy(motDePasse)) throw new HttpError(400, "username/password required");
+          const secret = textePy(motDePasse);
           const ip = adresseClient(req, dep);
           const ua = entete(req, "user-agent") ?? null;
-          let uid = (await getUser(base, username))
-            ? await verifyUser(base, username, textePy(motDePasse))
-            : null;
+          let uid = await verifyUser(base, username, secret);
           if (uid !== null) {
             const verifie = uid;
-            await sansEchec(() => rehacherSiAncien(base, verifie, textePy(motDePasse)));
+            await sansEchec(() => rehacherSiAncien(base, verifie, secret));
           }
           if (uid === null) {
             uid = await sousVerrouAmorcage(async () => {
@@ -328,7 +326,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
               const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
               const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
               if (amorcage && mode) {
-                const cree = await createUser(base, username, textePy(motDePasse), {
+                const cree = await createUser(base, username, secret, {
                   isAdmin: 1,
                   mustChangePwd: mode === "file" ? 1 : 0,
                 });

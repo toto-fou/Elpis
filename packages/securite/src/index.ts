@@ -66,6 +66,7 @@ export type { ChampsIdentite, Identity, OptionsSignature, OptionsVerification } 
 export {
   bytesFromHex,
   compareDigest,
+  completerCoutRefus,
   egauxEnTempsConstant,
   hachageAJour,
   hashPassword,

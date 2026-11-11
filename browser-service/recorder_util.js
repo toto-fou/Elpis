@@ -112,3 +112,38 @@ export function notesDuScript(events) {
         notes.push(`${urls} goto URL(s) had credentials or sensitive parameters replaced by ***: put the real values back before replaying.`);
     return { secret_variables: secrets, notes };
 }
+
+/** Exécutée dans la page : sélecteur stable d'un élément (test id, rôle + nom, libellé, indice, texte, CSS), `null` si rien d'exploitable. */
+export function decrireElement(el) {
+    const txt = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const testId = el.getAttribute('data-testid') || el.getAttribute('data-test-id') || el.getAttribute('data-test');
+    if (testId) return { test_id: testId };
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const implicite = { button: 'button', a: el.hasAttribute('href') ? 'link' : '', select: 'combobox', textarea: 'textbox', h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading', h5: 'heading', h6: 'heading', img: 'img' }[tag]
+        || (tag === 'input' ? ({ button: 'button', submit: 'button', reset: 'button', checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', search: 'searchbox' }[type] || (['hidden', 'file', 'image', 'color', 'date', 'time'].includes(type) ? '' : 'textbox')) : '');
+    const role = el.getAttribute('role') || implicite;
+    const labels = Array.from(el.labels || []).map((l) => txt(l.textContent)).filter(Boolean);
+    const aria = txt(el.getAttribute('aria-label'));
+    const contenu = ['button', 'a'].includes(tag) || role === 'button' || role === 'link' || /^h[1-6]$/.test(tag) ? txt(el.innerText || el.textContent) : '';
+    const valeur = tag === 'input' && ['button', 'submit', 'reset'].includes(type) ? txt(el.value) : '';
+    const nom = aria || labels[0] || contenu || valeur || txt(el.getAttribute('title')) || txt(el.getAttribute('alt'));
+    if (role && nom && nom.length <= 80) return { role, name: nom };
+    if (labels[0] && labels[0].length <= 80) return { label: labels[0] };
+    const indice = txt(el.getAttribute('placeholder'));
+    if (indice) return { placeholder: indice };
+    const direct = txt(Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' '));
+    if (direct && direct.length <= 80) return { text: direct };
+    const unique = (s) => { try { return document.querySelectorAll(s).length === 1; } catch (_) { return false; } };
+    if (el.id && unique(`#${CSS.escape(el.id)}`)) return { css: `#${CSS.escape(el.id)}` };
+    const nameAttr = el.getAttribute('name');
+    if (nameAttr && unique(`${tag}[name="${CSS.escape(nameAttr)}"]`)) return { css: `${tag}[name="${CSS.escape(nameAttr)}"]` };
+    const chemin = [];
+    for (let n = el; n && n.nodeType === 1 && n !== document.documentElement; n = n.parentElement) {
+        const t = n.tagName.toLowerCase();
+        if (n.id && unique(`#${CSS.escape(n.id)}`)) { chemin.unshift(`#${CSS.escape(n.id)}`); break; }
+        const freres = n.parentElement ? Array.from(n.parentElement.children).filter((c) => c.tagName === n.tagName) : [n];
+        chemin.unshift(freres.length > 1 ? `${t}:nth-of-type(${freres.indexOf(n) + 1})` : t);
+    }
+    return chemin.length ? { css: chemin.join(' > ') } : null;
+}

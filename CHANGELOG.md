@@ -402,6 +402,7 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **pw_recorder gestures by `ref`.** A click or fill done with `ref=` was recorded as `page.locator('')`; the recorder now reads a stable selector (test id, role + name, label, placeholder, text, CSS) from the referenced element at action time, in every export format.
 - **Browser screenshots shown in the chat again with a vision model.** The tool host deleted a
   capture as soon as it had served it once: the core fetched it first to show it to the model, so
   the chat then got a 404. Captures now stay until the browser service's own sweep removes them

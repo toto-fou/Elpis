@@ -24,7 +24,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement } from './recorder_util.js';
 import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
 import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
          verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
@@ -5447,7 +5447,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
+                    }, (saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -6053,6 +6053,11 @@ async function attributsDuChamp(locator) {
 // Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
 async function recordEvent(session, evt, locator = null) {
     if (!session || !session._recorder || !session._recorder.recording) return;
+    // Geste par `ref` : le sélecteur stable est lu sur l'élément visé, au moment du geste.
+    if (evt.ref && locator && !evt.selector && !Object.values(evt.locator || {}).some(Boolean)) {
+        const l = await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
+        if (l) evt = { ...evt, locator: l };
+    }
     if (evt.action === 'fill' || evt.action === 'type')
         evt = masquerSecret(evt, locator ? await attributsDuChamp(locator) : {}, session._recorder.variables || (session._recorder.variables = new Map()));
     if (evt.action === 'eval') evt = { ...evt, script: masquerScript(evt.script).slice(0, 300) };
@@ -6130,6 +6135,7 @@ app.get('/recorder/dump', getSession, async (req, res) => {
             if (l.test_id) return `cy.get('[data-testid="${escape(l.test_id)}"]')`;
             if (l.role && l.name) return `cy.findByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
             if (l.label) return `cy.findByLabelText('${escape(l.label)}')`;
+            if (l.placeholder) return `cy.findByPlaceholderText('${escape(l.placeholder)}')`;
             if (l.text) return `cy.contains('${escape(l.text)}')`;
             if (l.css) return `cy.get('${escape(l.css)}')`;
             return `cy.get('${escape(evt.selector || '')}')`;
@@ -6139,6 +6145,7 @@ app.get('/recorder/dump', getSession, async (req, res) => {
             if (l.role && l.name) return `role=${l.role}[name="${l.name}"]`;
             if (l.test_id) return `[data-testid="${l.test_id}"]`;
             if (l.label) return `label=${l.label}`;
+            if (l.placeholder) return `[placeholder="${l.placeholder.replace(/"/g, '\\"')}"]`;
             if (l.text) return `text=${l.text}`;
             if (l.css) return l.css;
             return evt.selector || '';

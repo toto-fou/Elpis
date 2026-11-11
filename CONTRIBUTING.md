@@ -37,8 +37,10 @@ pitfalls: [AGENTS.md](AGENTS.md).
 
 ## Before opening a pull request
 
-The tests live in the maintainers' development repository, not in this
-repository. Before opening a pull request, run:
+Pull requests target `devs/main`, the development branch: it is always
+ahead of `main` and carries the full test suite. `main` only receives
+releases, merged from `devs/main` without the tests. Branch from
+`devs/main`, then run:
 
 ```bash
 npm ci
@@ -47,9 +49,10 @@ npm run lint        # ESLint
 npm run build       # core, tool host and frontend
 ```
 
-The public CI (GitHub Actions) runs the same commands on Node 24. The
-maintainers then run the full suite (TypeScript, Python, real
-journeys in Chromium) before merging.
+Then run the tests of the areas you touched: how to run each suite
+(TypeScript, browser service, Python, PostgreSQL) is in
+[docs/testing.md](docs/testing.md). The public CI (GitHub Actions) runs
+the commands above on Node 24.
 
 - Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`.
 - Formatting: `npm run format` (Prettier).

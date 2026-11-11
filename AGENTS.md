@@ -59,10 +59,13 @@ npm run build          # core, tool host and frontend bundles
 npm run format         # applies Prettier (npm run format:check to verify)
 ```
 
-The tests live in the maintainers' development repository, not in this
-repository: they run the full suite (TypeScript, Python, real journeys in
-Chromium) before merging a pull request. Describe in the pull request
-what you tried by hand (screen, command, edge case).
+Branches: `devs/main` is the development branch. It is always ahead of
+`main`, holds the work in progress and the full test suite (TypeScript,
+Python, real journeys in Chromium): see [docs/testing.md](docs/testing.md).
+Branch from `devs/main`, run the tests of the areas you touched, and open
+the pull request against `devs/main`. `main` only receives releases, merged
+from `devs/main` without the test kit. Describe in the pull request what you
+tried by hand (screen, command, edge case).
 
 Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`
 (rules in `pyproject.toml`, ruff is installed by `requirements.txt`).

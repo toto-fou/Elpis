@@ -6328,7 +6328,7 @@ app.get('/recorder/dump', getSession, async (req, res) => {
             if (l.role && l.name) return `${cadres}role=${l.role}[name="${l.name}"]`;
             if (l.test_id) return `${cadres}[data-testid="${l.test_id}"]`;
             if (l.label) return `${cadres}label=${l.label}`;
-            if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/"/g, '\\"')}"]`;
+            if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/[\\"]/g, '\\$&')}"]`;
             if (l.text) return `${cadres}text=${l.text}`;
             if (l.css) return `${cadres}${l.css}`;
             return `${cadres}${evt.selector || ''}`;

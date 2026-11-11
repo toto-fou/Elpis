@@ -376,8 +376,16 @@ notes for the startup log; its security journal events are written once the oute
 committed, and dropped if it is rolled back. A pending migration without an implementation in the
 process (admin, tool host, commands), or that throws `MigrationDifferee`, is deferred: not
 stamped, logged as info, and the ones after it wait. A failure is logged as an error and retried
-at the next start. After the migrations it applied, `main` compacts the database once
-(`VACUUM` and `wal_checkpoint(TRUNCATE)` on SQLite, `VACUUM FULL` of the touched tables on
+at the next start. The registry is `0027_vault_git`, `0028_vault_llm_images` and `0029_vault_mcp`;
+`main` passes their implementations (`MIGRATIONS_DU_CORE`) with the core's ports
+(`portsMigrationsDuCore`: `ranger` inserts a row as `creerSecret` does and returns its id, or
+`null` when the vault rules refuse the value; `chiffrer(x, valeur, aad)` encrypts outside
+`vault_secrets`, for routine webhook secrets). Then, still at startup and under the schema lock,
+`main` runs the catch-ups of these migrations (`reprendreCoffreAuDemarrage`: kept LLM keys and the
+image key, MCP values left outside the vault, former AX credentials); each one returns at once when
+nothing is left, erases with `secure_delete` and writes the journal after commit. Last, it compacts
+the database once, for the tables of the migrations it applied and those a catch-up removed old
+values from (`VACUUM` and `wal_checkpoint(TRUNCATE)` on SQLite, `VACUUM FULL` of the tables on
 PostgreSQL); an error there is logged and never blocks the start.
 
 ```mermaid
@@ -3685,9 +3693,11 @@ fields: an empty field keeps the value, the auth mode "None" or an emptied list 
 secret that cannot be decrypted or was removed is only replaced by new input (or deleted with its
 server), and old values not yet in the vault are listed and kept until new values replace them.
 `PUT /api/settings` reads the list, writes the vault and the settings in one write transaction
-(the URL guard is asked beforehand, outside it). Migration `0029_vault_mcp` moved the earlier
-values; the ones it could not read (another Fernet key, or none: `decryptStrict` never creates
-one) are tried again by main at each start (`reprendreMcpAuDemarrage`)
+(the URL guard is asked beforehand, outside it). Migration `0029_vault_mcp`
+(`apps/core/src/secrets/migration-mcp.ts`, Fernet read through the port of its context) moved the
+earlier values; the ones it could not read stay in place, flagged `undecryptable` (another Fernet
+key) or `not_migrated` (no Fernet key: the port never creates one), and are tried again by main at
+each start while some are left (`reprendreMcpAuDemarrage`)
 ([configuration.md](configuration.md#mcp-servers-secrets)). The MCP pool keys use an HMAC of the
 auth material under a key drawn at process start, and the pool logs server names, not keys.
 
@@ -3715,15 +3725,17 @@ AAD `vault|v1|routine-webhook|<routine id>`), never listed by `/api/secrets`, an
 by `POST /api/routines/:routine_id/webhook/rotate`. `vault status` counts these secrets and
 `vault rekey` re-encrypts them with the vault rows.
 
-**Migration `0027_vault_git`** (the first TS migration, `packages/db/src/migrations.ts`): every
-plain `git_connectors.token_enc` becomes a `git` secret (`secret_id` set, `token_enc` emptied,
-`token_scheme` = `vault`), and every plain `webhook_secret` moves to `webhook_secret_enc`, in one
-transaction. It uses the current vault key; with none, it creates the fallback key only while
-nothing is encrypted yet, like the first secret. Without a usable key it fails, leaves everything
-as it was and is retried at the next start (`migration 0027_vault_git en échec` in the log, still
-pending in `./elpis db info`); a process that has no vault (the tool host, which may share the
-database) leaves it to the core. Routine webhook secrets follow the same key rule, and their
-ciphertexts count as existing secrets for it.
+**Migration `0027_vault_git`** (the first TS migration, `packages/db/src/coffre-git.ts`): every
+plain `git_connectors.token_enc` becomes a `git` secret through the `ranger` port (`secret_id` set,
+`token_enc` emptied, `token_scheme` = `vault`), and every plain `webhook_secret` moves to
+`webhook_secret_enc` through the `chiffrer` port (AAD `aadWebhookRoutine`), in one transaction. A
+token that the vault rules refuse (an invalid host) stays as it was, with a warning in the startup
+log. The ports use the current vault key; with none, they create the fallback key only while
+nothing is encrypted yet, like the first secret. Without a usable key the migration fails, leaves
+everything as it was and is retried at the next start (`migration 0027_vault_git en échec` in the
+log, still pending in `./elpis db info`); admin, the tool host and the commands leave it to `main`.
+Routine webhook secrets follow the same key rule, and their ciphertexts count as existing secrets
+for it.
 
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
 `sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
@@ -3779,10 +3791,12 @@ key, to move the former values into the vault (migrations and startup catch-ups)
   stay as they are (`legacy_pending`). A row that cannot be read only holds back itself: clear keys
   and the other rows move. After the migration, `main` retries the kept keys at each start, seeds
   the image key if the vault has none, and removes `image.api_key_enc` from `config.json` and
-  `config.json.bak` once the vault holds it. The secrets created are reported in the startup log
-  and written to the security journal (`vault.secret.created`) once committed. The rewrite and the
-  startup retry run with `PRAGMA secure_delete` on (SQLite), then `main` compacts the database once
-  (older backups still hold the keys: rotate the provider keys).
+  `config.json.bak` once the vault holds it; this catch-up runs under the schema lock and opens no
+  transaction while no key is left in `llm_connectors` and no image key waits. The secrets created
+  are reported in the startup log and written to the security journal (`vault.secret.created`)
+  once committed. The rewrite and the startup retry run with `PRAGMA secure_delete` on (SQLite),
+  then `main` compacts the database once, and again after a retry that moved keys (older backups
+  still hold the keys: rotate the provider keys).
 - **Downgrades are not supported.** If an older version writes a key again (Fernet
   `api_key_enc` on a connector that has a `secret_id`, `image.api_key_enc` back in
   `config.json`), the next start of `main` compares it with the vault, keeps the vault value,

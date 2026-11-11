@@ -749,6 +749,9 @@ Set the key up **before** that restart (`sudo ./elpis vault setup`), so that the
   (`vault.secret.created`);
 - `main` then compacts the database once (`VACUUM` on SQLite, `VACUUM FULL` of the connectors
   table on PostgreSQL; a failure is logged as a warning and does not stop the start);
+- at the next starts, `main` retries what is left (kept keys, MCP values not moved yet, former AX
+  credentials) under the schema lock, writes nothing when nothing is left, and compacts again only
+  after a retry that removed old values;
 - **rotate the provider keys afterwards** (in the provider's console, then in Administration ›
   Connexions and Images): the backups taken before the update still hold the old keys, encrypted
   with the Fernet key, which they or the machine may also hold. The update removes them from the

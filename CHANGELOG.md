@@ -175,9 +175,10 @@ follow [SemVer](https://semver.org/).
   `git_submit` messages) is not counted as a use. Routine webhook secrets are encrypted in place
   with the vault key (they must stay readable to check the HMAC of a delivery) and are not
   listed in Secrets; `./elpis vault status` and `rekey` include them. The first start after the
-  update migrates existing tokens and webhook secrets (migration `0027_vault_git`); without a
-  usable vault key (unreadable, or missing while secrets exist) it changes nothing, logs an error
-  and is retried at the next start.
+  update migrates existing tokens and webhook secrets (migration `0027_vault_git`, applied by
+  `main`); without a usable vault key (unreadable, or missing while secrets exist) it changes
+  nothing, logs an error and is retried at the next start, and a token the vault refuses (an
+  invalid host) stays where it was with a warning.
 - **MCP server secrets in the secrets vault.** The token, headers and environment variables of an
   MCP server, personal or shared, are now one vault secret per server (kind `mcp`, named
   `mcp-<server id>`, an instance secret for a shared server), referenced by the server and read
@@ -188,8 +189,10 @@ follow [SemVer](https://semver.org/).
   migration `0029_vault_mcp` moves the existing values, Fernet and older plain ones
   (`authorization`, `basic_auth`, `headers`/`env` objects), into the vault; without the vault
   key it fails, writes nothing and runs again at the next start. A Fernet value it cannot read
-  (another key, or no key: none is ever created for it) stays in place, flagged, and is tried
-  again at each start of the main service. A server whose secret cannot be read, or was removed
+  stays in place, flagged `undecryptable` (another key) or `not_migrated` (no key: none is ever
+  created for it), and is tried again at each start of the main service while some are left; like
+  the other catch-ups of the vault migrations, this runs under the schema lock, writes nothing when
+  nothing is left, and the tables are compacted again when old values go. A server whose secret cannot be read, or was removed
   from the vault, is left out of the turn, never connected without it. A list sent with the same
   server id twice is refused (400) (`docs/configuration.md`, MCP servers: secrets).
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache

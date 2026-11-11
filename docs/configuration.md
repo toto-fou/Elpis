@@ -925,11 +925,13 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
   doctor still reports what the core sees: key source, `kid`, secrets under another key.
 
 The tokens of Git accounts and the secrets of routine webhooks are encrypted with this key. The
-first start after the update moves the existing ones out of their plain columns (migration
-`0027_vault_git`); if no usable key is available (a key file that cannot be read, or no key while
-secrets already exist), the migration is not applied (error in the `main` log, nothing is lost),
-Git accounts show no token and webhooks are ignored until the key is fixed and the services
-restarted.
+first start of `main` after the update moves the existing ones out of their plain columns
+(migration `0027_vault_git`; admin, the tool host and the commands leave it to `main`); if no
+usable key is available (a key file that cannot be read, or no key while secrets already exist),
+the migration is not applied (error in the `main` log, nothing is lost), Git accounts show no
+token and webhooks are ignored until the key is fixed and the services restarted. A token that the
+vault refuses (an invalid host) stays where it was, unused, with a warning in the log: enter it
+again in the Git account.
 
 **Upgrade (migration `0028_vault_llm_images`).** At the first start of `main`, the
 keys of the LLM connectors (encrypted with the Fernet key `APP_ENCRYPTION_KEY` /
@@ -1374,17 +1376,18 @@ core log. The value holds 16,384 characters at most.
 - **Flags.** `secret_error` on a server (in `GET /api/settings`, and in the administrator's view
   of the shared library) tells why its secret cannot be used: `undecryptable`,
   `key_unavailable`, `missing` (deleted from the vault) or `not_migrated` (refused by the vault
-  during the migration: too long, or too many secrets; or an older secret field still filled in).
+  during the migration: too long, or too many secrets; a Fernet value waiting for its key; or an
+  older secret field still filled in).
   The server form shows it.
 - **Migration `0029_vault_mcp`** (at core startup) moves the existing values into the vault:
   Fernet ones (`auth_enc`, `headers_enc`, `env_enc`) and older plain ones (`authorization` →
   auth mode "raw", `basic_auth` → "basic", `headers` and `env` objects). Only what the server
   used is kept (headers for HTTP and SSE, variables for `stdio`, the token when an auth mode is
   set); a server without a type becomes SSE, as the form saves it. A Fernet value that cannot be
-  decrypted (another key, or no key at all: the migration never creates one) stays where it was,
-  unused, flagged `undecryptable` and logged; the main service tries it again at each start (once
-  the key is back in `APP_ENCRYPTION_KEY` or `user_db/.encryption_key`), and entering the secret
-  again clears it. Without the vault key, the migration fails, nothing is written, and it runs
+  decrypted stays where it was, unused, flagged `undecryptable` (another key) or `not_migrated`
+  (no key at all: the migration never creates one) and logged; the main service tries it again at
+  each start while such values are left (once the key is back in `APP_ENCRYPTION_KEY` or
+  `user_db/.encryption_key`), and entering the secret again clears it. Without the vault key, the migration fails, nothing is written, and it runs
   again at the next start (`./elpis restart` and `./elpis doctor` list it as pending).
 
 ### Image generation

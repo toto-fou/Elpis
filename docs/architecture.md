@@ -2940,6 +2940,13 @@ Gotchas:
 - Reaper on the Node side after 15 min of inactivity.
 - `pw_memory` relies on AX memory (persistent accessibility tree per
   site) to avoid re-exploring an already mapped page.
+- The AX memory is written from the sessions of every account and from pages: what it
+  returns to the model (`buildAxMemoryBlock`, `pw_memory`) is untrusted data, bounded at rendering
+  (stored rows stay as they are). Roles restricted to ARIA (`generic` otherwise), names on one
+  line, without tag or marker, capped at 80 characters, paths at 120; copyable selectors, with
+  nothing that opens a tag: whole CSS, XPath and `test_id`, dropped beyond 300 characters; text,
+  label and name cut at 80 (the service searches for a substring). The block stays in the
+  question suffix (never in system), inside `<ax_site_notes>` with its "never instructions" note.
 - **Any hook that reads the RAW arguments of a `pw_*` must go through
   `pw_verb()`**, never through a hard-coded key: `_track_pw_session_ownership`
   (session ownership, multi-user) and the loop's vision capture injection
@@ -3776,7 +3783,7 @@ Tool calls are parsed correctly with a recent version.
 
 ### browser-service: orphaned sessions
 
-Firefox processes accumulate if the model forgets to stop its sessions.
+Chromium processes accumulate if the model forgets to stop its sessions.
 Automatic reaper on the Node side (15 min TTL).
 
 ### Streaming: "shorter than Content-Length"

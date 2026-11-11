@@ -37,7 +37,8 @@
   [operations.md](operations.md#system-prerequisites-apt-packages).
 - `install.sh` installs the rest: the Python venv and its dependencies, Node.js
   24 without npm in `node/` (core and browser service) and the core bundle
-  (`apps/core/dist`), Qdrant (RAG), Chromium, and the sandbox image.
+  (`apps/core/dist`), Qdrant (RAG), the Chromium headless shell, and the sandbox
+  image.
 
 ### Inference engine
 
@@ -181,7 +182,7 @@ settings (back to the Database page), switching to SQLite, or aborting.
 
 | Question (option that answers it) | Default | Effect |
 |---|---|---|
-| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium (Playwright) |
+| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium headless shell and ffmpeg (Playwright) |
 | Sandbox image (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` of `deploy/docker/sandbox/`, or `docker pull` + tag |
 | Database (`--db sqlite\|postgres-local\|external`) | sqlite (first time; unchanged afterwards) | see [Database](#database) |
 | LibreOffice (`--with-office`, `--no-office`) | yes if already installed | docx/xlsx/pptx previews (LibreOffice nogui + bubblewrap, installed with apt) |
@@ -1131,7 +1132,13 @@ With a ``toolhost.json`` (remote host), the host does not open ``app.db``: ident
 tokens, identity, git credentials; for the ``desktop`` family served by the TS host:
 automation-finished notification and anchor memory, account taken from
 the signed identity envelope) with the service token, LOCAL database
-(``toolhost.json › db_path``) for its terminal sessions and the AX memory.
+(``toolhost.json › db_path``) for its terminal sessions and the AX memory. The site
+passwords of that memory are encrypted there with the host's master key, the only reader:
+``APP_ENCRYPTION_KEY``, ``app.encryption_key``, otherwise ``.encryption_key`` created next to
+its database on the first save (back it up with the database). Without a key the password is
+not kept and the session still opens; with a lost or changed key it must be given again.
+Rows saved before this version are not converted: those keyed by a bare site (without a scheme)
+are never read again but keep their password in clear until the site is deleted from the AX memory.
 ACCOUNT-bound families (``memory``, ``todo``, ``chart``, ``skill`` = library)
 = ``role: app`` manifest entries, served by main, never by a remote
 host (they write to its database); ``skill_run``

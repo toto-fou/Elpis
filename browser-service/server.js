@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import express from 'express';
-import { chromium, firefox, webkit, devices } from 'playwright';
+import { chromium, devices } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -206,37 +206,8 @@ async function installerGarde(context) {
     context.on('page', gardePage);
 }
 
-// ── Moteur navigateur configurable (V13) ───────────────────────────────────
-// BROWSER_ENGINE = chromium (défaut) | firefox | webkit. Chromium est le moteur
-// de référence Playwright (le plus complet/stable, meilleure émulation device,
-// CDP pour perfs/trace). Firefox/WebKit restent dispo pour le cross-browser.
-const BROWSER_ENGINE = (process.env.BROWSER_ENGINE || 'chromium').toLowerCase();
-const ENGINES = { chromium, firefox, webkit };
-
-const USER_AGENTS = {
-    chromium: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    firefox:  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
-    webkit:   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-};
-const USER_AGENT = USER_AGENTS[BROWSER_ENGINE] || USER_AGENTS.chromium;
-
-// Prefs Firefox (about:config) — appliquées UNIQUEMENT quand BROWSER_ENGINE=firefox.
-const FIREFOX_PREFS = {
-    "dom.webdriver.enabled": false,
-    "useAutomationExtension": false,
-    "general.useragent.override": USER_AGENT,
-    "intl.accept_languages": "fr-FR, fr, en-US, en",
-    "browser.download.dir": DOWNLOAD_DIR,
-    "browser.download.useDownloadDir": true,
-    "network.auth.use-sspi": false,
-    "network.http.connection-timeout": 90,
-    "dom.max_script_run_time": 60,
-    "dom.disable_beforeunload": true,
-    "browser.tabs.warnOnClose": false,
-    "browser.tabs.warnOnCloseOtherTabs": false,
-    "security.fileuri.strict_origin_policy": false,
-    "security.cert_pinning.enforcement_level": 0,
-};
+// Agent utilisateur des contextes : un Chrome de bureau (le headless shell s'annoncerait « HeadlessChrome »).
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
 
 let globalBrowser = null;
 const sessions = new Map();
@@ -553,73 +524,35 @@ process.on('unhandledRejection', (raison) => {
 // ==========================================
 // BROWSER LIFECYCLE
 // ==========================================
-// Override opérateur : si FIREFOX_FORCE_HEADLESS=true, le service force le
-// headless quelle que soit la valeur envoyée par le client. Robuste même si
-// le backend Python n'a pas été redémarré ou envoie encore headless:false.
-const FORCE_HEADLESS = process.env.BROWSER_FORCE_HEADLESS === 'true'
-                    || process.env.FIREFOX_FORCE_HEADLESS === 'true'; // compat ascendante
-
-// Options de launch par moteur. Les prefs Firefox (about:config) n'ont pas
-// d'équivalent direct sur Chromium/WebKit : ce qui compte (langue, downloads,
-// HTTPS, CSP) est porté côté contexte dans /start. Ici on ne met que le
-// moteur-spécifique (args anti-détection, prefs headless Firefox).
-function buildLaunchOptions(engine, headlessMode) {
-    const common = { headless: headlessMode, args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                     proxy: PROXY_NAVIGATEUR };
-    if (engine === 'firefox') {
-        return {
-            ...common,
-            firefoxUserPrefs: {
-                ...FIREFOX_PREFS,
-                // Sans cela Firefox contourne le proxy pour localhost.
-                'network.proxy.allow_hijacking_localhost': true,
-                'network.proxy.no_proxies_on': '',
-                // WebRTC ouvre des flux UDP en direct, hors du relais : coupé.
-                'media.peerconnection.enabled': false,
-                ...(headlessMode ? {
-                    'layers.acceleration.force-enabled': false,
-                    'gfx.webrender.software': true,
-                    'browser.sessionstore.resume_from_crash': false,
-                } : {}),
-            },
-            env: headlessMode
-                ? { ...process.env, MOZ_HEADLESS_WIDTH: '1920', MOZ_HEADLESS_HEIGHT: '1080' }
-                : undefined,
-        };
-    }
-    if (engine === 'chromium') {
-        return {
-            ...common,
-            args: [
-                '--no-sandbox', '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
-                '--disable-blink-features=AutomationControlled',  // anti-détection
-                // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
-                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
-            ],
-        };
-    }
-    return common; // webkit : pas d'options moteur-spécifiques
+// Chromium headless sans channel (Playwright lance le headless shell) ; langue, téléchargements, HTTPS et CSP : contexte de /start.
+function buildLaunchOptions() {
+    return {
+        headless: true,
+        args: [
+            '--no-sandbox', '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
+            '--disable-blink-features=AutomationControlled',  // anti-détection
+            // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
+            '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+        ],
+        proxy: PROXY_NAVIGATEUR,
+    };
 }
 
 // Une seule promesse de lancement : deux /start simultanés ne lancent plus
 // deux navigateurs (le second écrasait le premier, resté orphelin).
 let _lancement = null;
-async function ensureBrowser(headless) {
+async function ensureBrowser() {
     if (globalBrowser && globalBrowser.isConnected()) return globalBrowser;
     if (_lancement) return _lancement;
-    _lancement = _lancerNavigateur(headless).finally(() => { _lancement = null; });
+    _lancement = _lancerNavigateur().finally(() => { _lancement = null; });
     return _lancement;
 }
 
-async function _lancerNavigateur(headless) {
+async function _lancerNavigateur() {
     if (!globalBrowser || !globalBrowser.isConnected()) {
-        // Headless par défaut. Seul un `false` explicite force le mode fenêtré,
-        // sauf si FORCE_HEADLESS est actif.
-        const headlessMode = FORCE_HEADLESS ? true : (headless !== false);
-        const launcher = ENGINES[BROWSER_ENGINE] || chromium;
-        console.log(`[GLOBAL] Démarrage ${BROWSER_ENGINE} (Headless: ${headlessMode}${FORCE_HEADLESS ? ', forcé' : ''})`);
-        globalBrowser = await launcher.launch(buildLaunchOptions(BROWSER_ENGINE, headlessMode));
+        console.log('[GLOBAL] Démarrage de Chromium (headless shell)');
+        globalBrowser = await chromium.launch(buildLaunchOptions());
         globalBrowser.on('disconnected', () => {
             console.warn('[GLOBAL] Browser déconnecté, reset...');
             globalBrowser = null;
@@ -2392,7 +2325,7 @@ app.post('/start', async (req, res) => {
             }
         }
 
-        const browser = await ensureBrowser(headless);
+        const browser = await ensureBrowser();
         const sessionId = uuidv4();
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
@@ -2410,7 +2343,6 @@ app.post('/start', async (req, res) => {
             ignoreHTTPSErrors: true,
             acceptDownloads: true,
             storageState,
-            httpCredentials: (username && password) ? { username, password } : undefined,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
@@ -4407,7 +4339,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4461,7 +4393,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value) item.value = el.value.substring(0, 100);
+                    if (el.value && el.type !== 'password') item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4509,7 +4441,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: f.value?.substring(0, 100), label: (() => {
+                    value: f.type === 'password' ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -4892,7 +4824,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || (el.type === 'password' ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -5160,11 +5092,12 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: el.value, href: el.href, src: el.src,
+                // Valeur d'un champ mot de passe jamais rendue, ni par la propriété ni par l'attribut.
+                value: el.type === 'password' ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(el.type === 'password' && a.name === 'value')).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5665,7 +5598,7 @@ app.get('/health', (req, res) => {
         ok: true,
         service: 'browser',
         status: 'running',
-        engine: BROWSER_ENGINE,
+        engine: 'chromium',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
         // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
         sessions: sessionList,
@@ -5722,11 +5655,16 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         const label = selector || describeLocator(params, { first: false }) || '?';
 
         let polled = null;
+        let attrReel = null;
         const probe = async () => {
             const count = await loc.count().catch(() => 0);
-            if (!count) return { count: 0, text: null, attr: null, visible: false };
+            if (!count) { attrReel = null; return { count: 0, text: null, attr: null, visible: false }; }
             const text = ((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim().substring(0, 500);
-            const attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            let attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            attrReel = attr;
+            // Attribut value d'un champ mot de passe : jamais rendu (masqué aussi si le contrôle échoue).
+            if (attr !== null && String(attribute).toLowerCase() === 'value'
+                && await first.evaluate(el => el.type === 'password', undefined, { timeout: 800 }).catch(() => true)) attr = '[password value hidden]';
             const visible = await first.isVisible().catch(() => false);
             return { count, text, attr, visible };
         };
@@ -5767,7 +5705,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
             if (condition === 'count_decreases' && cur.count < (initial.count || 0))
                 return done('changed', { from: initial.count || 0, to: cur.count });
             if (condition === 'attribute_changes' && attribute && cur.count) {
-                if (expected_value && cur.attr === expected_value) return done('matched', { attribute, value: cur.attr });
+                if (expected_value && attrReel === expected_value) return done('matched', { attribute, value: cur.attr });
                 if (!expected_value && initial.attr !== null && cur.attr !== initial.attr) return done('changed', { attribute, from: initial.attr, to: cur.attr });
             }
             await page.waitForTimeout(poll_interval);
@@ -5954,7 +5892,7 @@ app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
 // ======================== INTERCEPT NEXT DIALOG ========================
 // Configure la gestion du prochain dialog avant de déclencher l'action qui l'ouvre
 // ======================== DIALOGUE : POLITIQUE ARMABLE ====================
-// Contrairement à /handle_next_dialog (qui retient la réponse HTTP jusqu'à ce
+// Contrairement à une attente bloquante (qui retiendrait la réponse HTTP jusqu'à ce
 // qu'un dialogue apparaisse — inutilisable pour un agent, qui doit rendre la
 // main pour déclencher l'action qui l'ouvre), on arme et on rend la main tout
 // de suite. Le handler global consulte la politique au moment voulu.
@@ -6475,7 +6413,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
 
-        let pass = false, actual = null, expected = value;
+        let pass = false, actual = null, expected = value, champSecret = false;
         try {
             // Most assertions tolerate a brief wait. We use a manual loop because
             // Playwright's `expect` API isn't loaded server-side.
@@ -6518,7 +6456,11 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         return actual.includes(value);
                     }
                     case 'value-equals': {
-                        actual = await loc.inputValue({ timeout: POLL }).catch(() => '');
+                        // Valeur et nature du champ lues ensemble : le masque ne dépend pas d'une seconde lecture.
+                        const lu = await loc.evaluate(el => ({ v: el.value ?? '', pw: el.type === 'password' }), undefined, { timeout: POLL })
+                            .catch(() => ({ v: '', pw: false }));
+                        champSecret = lu.pw;
+                        actual = lu.v;
                         return actual === value;
                     }
                     case 'count-eq': {
@@ -6541,6 +6483,10 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         }
                         if (!attrName) return false;
                         const got = await loc.getAttribute(attrName, { timeout: POLL }).catch(() => null);
+                        // Attribut value d'un champ mot de passe (recopié par React) : masqué, et masqué aussi si le contrôle échoue.
+                        if (String(attrName).toLowerCase() === 'value' && got !== null) {
+                            champSecret = await loc.evaluate(el => el.type === 'password', undefined, { timeout: POLL }).catch(() => true);
+                        }
                         actual = got;
                         return got === attrVal;
                     }
@@ -6557,6 +6503,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             return res.status(400).json({ error: e.message, assertion, duration_ms: Date.now() - startMs });
         }
 
+        // Valeur d'un champ mot de passe : comparée, jamais renvoyée.
+        if (champSecret && actual) actual = '[password value hidden]';
         const out = { pass, assertion, expected, actual, duration_ms: Date.now() - startMs };
         if (!pass) {
             // Always attach a screenshot on failed assertion — invaluable for debugging.
@@ -6705,7 +6653,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,

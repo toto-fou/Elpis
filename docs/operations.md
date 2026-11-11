@@ -111,7 +111,8 @@ git archive --format=tar.gz -o elpis-<version>.tar.gz <tag>
 ```
 
 `make_release.sh` writes `dist/elpis-offline-<version>-<arch>.tar`: Python
-wheels, Qdrant, sandbox image, browser (without the OS packages, which
+wheels, Qdrant, sandbox image, browser (npm dependencies, the Chromium
+headless shell and ffmpeg, about 120 MB; without the OS packages, which
 `install.sh` takes through apt from the LAN mirror, Caddy included), and for
 the core:
 

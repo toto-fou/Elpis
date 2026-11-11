@@ -10,11 +10,9 @@
 #
 #  Produit (dans ./offline/) :
 #    • node_modules.tar.gz   → deps npm (express/playwright/uuid) — pur JS, même-arch
-#    • ms-playwright.tar.gz   → les builds navigateur EXACTS attendus par le
-#                               playwright-core vendorisé (révisions lues dans
-#                               browsers.json — pas de devinette) + ffmpeg
-#    • apt/*.deb              → libs système du navigateur (liste autoritative
-#                               via `playwright install-deps --dry-run`)
+#    • ms-playwright.tar.gz   → le headless shell de Chromium et ffmpeg, aux
+#                               révisions EXACTES du playwright-core vendorisé
+#                               (lues dans browsers.json — pas de devinette)
 #    • MANIFEST.txt           → versions, sha256, contenu
 #
 #  Ensuite : copie tout le dossier browser-service/ sur la VM cible (offline)
@@ -51,15 +49,6 @@ while [ $# -gt 0 ]; do
     *) die "Option inconnue : $1 (voir --help)";;
   esac
 done
-[ ${#ENGINES[@]} -gt 0 ] || ENGINES=(chromium)          # défaut
-# dédoublonnage + validation
-declare -A _seen=(); _eng=()
-for e in "${ENGINES[@]}"; do
-  case "$e" in chromium|firefox|webkit) ;; *) die "engine invalide : $e";; esac
-  [ -n "${_seen[$e]:-}" ] || { _eng+=("$e"); _seen[$e]=1; }
-done
-ENGINES=("${_eng[@]}")
-info "moteurs à vendorer : ${ENGINES[*]}"
 
 OFFLINE="offline"
 CACHE="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
@@ -90,22 +79,14 @@ done
 PW_VER="$(node -e "process.stdout.write(require('./node_modules/playwright-core/package.json').version)")"
 info "Playwright v$PW_VER (CLI: $PW_CLI)"
 
-# moteur → noms de builds (tels que dans browsers.json). ffmpeg = toujours (vidéo).
-json_names_for(){
-  case "$1" in
-    chromium) echo "chromium chromium-headless-shell ffmpeg";;
-    firefox)  echo "firefox ffmpeg";;
-    webkit)   echo "webkit ffmpeg";;
-  esac
-}
-WANT_JSON=()
-for e in "${ENGINES[@]}"; do for n in $(json_names_for "$e"); do WANT_JSON+=("$n"); done; done
+# builds vendorés (noms de browsers.json) : le headless shell de Chromium, et ffmpeg pour la vidéo.
+WANT_JSON=(chromium-headless-shell ffmpeg)
 
 # ── 3. s'assurer que les builds EXACTS sont dans le cache (download si absent) ─
-info "Téléchargement/validation des navigateurs (${ENGINES[*]}) via Playwright…"
-node "$PW_CLI" install "${ENGINES[@]}" || die "playwright install a échoué (réseau ?)."
+info "Téléchargement/validation du headless shell de Chromium et de ffmpeg via Playwright…"
+node "$PW_CLI" install --only-shell chromium || die "playwright install a échoué (réseau ?)."
 
-# browsers.json → dossiers de cache exacts (chromium-1248, chromium_headless_shell-1248, …)
+# browsers.json → dossiers de cache exacts (chromium_headless_shell-1248, ffmpeg-1013, …)
 mapfile -t WANT_DIRS < <(node -e '
 const j = require("./node_modules/playwright-core/browsers.json");
 const want = new Set(process.argv.slice(1));
@@ -179,9 +160,8 @@ sha(){ command -v sha256sum >/dev/null 2>&1 && sha256sum "$1" | cut -d' ' -f1 ||
   echo "généré le        : $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo '?')"
   echo "playwright       : v$PW_VER"
   echo "node (build)     : $(node -v)"
-  echo "moteurs          : ${ENGINES[*]}"
+  echo "navigateur       : headless shell de Chromium + ffmpeg"
   echo "builds           : ${WANT_DIRS[*]}"
-  echo "libs .deb        : $DEB_COUNT"
   echo "arch             : $(uname -m)"
   echo ""
   echo "sha256:"

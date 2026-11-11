@@ -42,24 +42,24 @@ function _type(ip) {
 /** Analyse syntaxique : ``{ ok, motif, url, hote, vide }`` ; ``vide`` = page vide (about:blank), toujours permise. */
 export function analyserUrl(brut) {
     const s = String(brut || '').trim();
-    if (!s) return { ok: false, motif: 'adresse vide' };
+    if (!s) return { ok: false, motif: 'empty address' };
     if (/^about:blank$/i.test(s)) return { ok: true, vide: true, url: 'about:blank' };
     let u;
-    try { u = new URL(s); } catch (_) { return { ok: false, motif: 'adresse mal formée' }; }
+    try { u = new URL(s); } catch (_) { return { ok: false, motif: 'malformed address' }; }
     const schema = u.protocol.replace(/:$/, '').toLowerCase();
     if (schema !== 'http' && schema !== 'https' && schema !== 'ws' && schema !== 'wss') {
-        return { ok: false, motif: `schéma non autorisé (${schema}:) — seuls http et https le sont` };
+        return { ok: false, motif: `scheme not allowed (${schema}:): only http and https are` };
     }
     const hote = normaliserIp(u.hostname.toLowerCase());
-    if (!hote) return { ok: false, motif: 'adresse sans hôte' };
+    if (!hote) return { ok: false, motif: 'address without a host' };
     return { ok: true, url: u.href, hote };
 }
 
 /** Message renvoyé au modèle (et à l'utilisateur) pour une adresse refusée. */
 export function messageRefus(url, motif) {
-    return `Adresse refusée par la politique du navigateur : ${motif}. `
-         + `URL : ${String(url || '').slice(0, 200)}. `
-         + `Le navigateur ne peut joindre que des sites http/https hors de la machine qui héberge Elpis.`;
+    return `Address refused by the browser policy: ${motif}. `
+         + `URL: ${String(url || '').slice(0, 200)}. `
+         + 'The browser reaches only http(s) sites allowed by the sandbox network profile and sites served inside the sandbox (localhost).';
 }
 
 /** Hôte de la boucle locale : adresse 127.0.0.0/8 ou ::1 (littérale), `localhost` ou `*.localhost`. */

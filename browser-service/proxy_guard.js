@@ -62,9 +62,9 @@ function _hotePort(brut, portDefaut) {
 }
 
 function _pageRefus(motif) {
-    const texte = `Adresse refusée par la politique du navigateur : ${motif}. `
-        + 'Le navigateur ne peut joindre que des sites http/https hors de la machine qui héberge Elpis.';
-    return `<!doctype html><meta charset="utf-8"><title>Adresse refusée</title><p>${texte
+    const texte = `Address refused by the browser policy: ${motif}. `
+        + 'The browser reaches only http(s) sites allowed by the sandbox network profile and sites served inside the sandbox (localhost).';
+    return `<!doctype html><meta charset="utf-8"><title>Address refused</title><p>${texte
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`;
 }
 
@@ -132,7 +132,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {}, amont =
             return res.end('Requête de proxy invalide.');
         }
         const hp = _hotePort(cible.host, 80);
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (!v.ok) {
             journal(`refus http ${cible.host} : ${v.motif}`);
             res.writeHead(403, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
@@ -168,7 +168,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {}, amont =
         // jugement ferait sinon tomber tout le service.
         client.on('error', () => client.destroy());
         const hp = _hotePort(req.url, 443);
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (client.destroyed) return;
         if (!v.ok) {
             journal(`refus tunnel ${req.url} : ${v.motif}`);
@@ -211,7 +211,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {}, amont =
         let cible;
         try { cible = new URL(req.url); } catch (_) { cible = null; }
         const hp = cible ? _hotePort(cible.host, 80) : null;
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (client.destroyed) return;
         if (!v.ok) { client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n'); return; }
         const relaye = Boolean(v.amont);

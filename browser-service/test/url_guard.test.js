@@ -9,13 +9,13 @@ test('schémas : http/https/ws(s) et about:blank seulement', () => {
     for (const u of ['file:///etc/passwd', 'ftp://exemple.org/', 'chrome://settings',
                      'view-source:https://exemple.org', 'javascript:alert(1)', 'data:text/html,x']) {
         const a = analyserUrl(u);
-        assert.ok(!a.ok && /schéma|mal formée/.test(a.motif), `${u} → ${a.motif}`);
+        assert.ok(!a.ok && /scheme|malformed/.test(a.motif), `${u} → ${a.motif}`);
     }
     assert.deepEqual(analyserUrl('about:blank'), { ok: true, vide: true, url: 'about:blank' });
     for (const u of ['https://93.184.216.34/', 'wss://exemple.org/ws', 'http://localhost:8080/', 'http://[::1]:3000/'])
         assert.equal(analyserUrl(u).ok, true, u);
-    assert.equal(analyserUrl('').motif, 'adresse vide');
-    assert.equal(analyserUrl('pas une url').motif, 'adresse mal formée');
+    assert.equal(analyserUrl('').motif, 'empty address');
+    assert.equal(analyserUrl('pas une url').motif, 'malformed address');
     assert.equal(analyserUrl('HTTPS://Exemple.ORG/a').hote, 'exemple.org');
 });
 
@@ -38,5 +38,5 @@ test('boucle locale du bac : 127/8, ::1, localhost ; le reste part au relais', a
 });
 
 test('message de refus', () => {
-    assert.match(messageRefus('http://x/', 'motif'), /politique du navigateur : motif\. URL : http:\/\/x\//);
+    assert.match(messageRefus('http://x/', 'motif'), /browser policy: motif\. URL: http:\/\/x\//);
 });

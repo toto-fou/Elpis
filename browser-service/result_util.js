@@ -141,7 +141,7 @@ export function sansAnsi(texte) {
 // Code stable d'un message d'erreur sans code : motif connu, sinon `browser_error` (jamais un morceau du message).
 const CODES_MESSAGE = [
     [/^Navigation (échouée|failed)|net::ERR_/, 'navigation_failed'],
-    [/^Adresse refusée par la politique|^URL blocked/i, 'url_blocked'],
+    [/^Address refused by the browser policy|^URL blocked/i, 'url_blocked'],
     [/No <option> matching|^Option .+ (introuvable|not found)/, 'option_not_found'],
     [/is not a native <select>/, 'not_a_select'],
     [/select requires option_value/, 'option_required'],

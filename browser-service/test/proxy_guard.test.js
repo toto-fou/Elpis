@@ -65,7 +65,7 @@ test('http : destination refusée → 403 avec message clair', async () => {
     try {
         const r = await viaRelais(relais.port, 'http://127.0.0.1:9/secret');
         assert.equal(r.status, 403);
-        assert.match(r.corps, /politique du navigateur : interdit \(127\.0\.0\.1\)/);
+        assert.match(r.corps, /browser policy: interdit \(127\.0\.0\.1\)/);
     } finally { await relais.close(); }
 });
 

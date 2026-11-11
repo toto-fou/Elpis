@@ -152,6 +152,8 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Browser refusal messages in English.** An address refused by the browser policy (scheme,
+  malformed address, destination) is reported to the model in English, like the relay's reasons.
 - **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision
   and the AX session URL use the browser service of the account's sandbox only; it needs Docker,
   the sandbox image 1.8.0 and the browser files (`./install.sh --with-browser`). A sub-agent

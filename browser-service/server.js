@@ -62,22 +62,6 @@ app.use('/screenshots', (req, res, next) => {
     next();
 }, express.static(path.join(process.cwd(), 'screenshots')));
 
-// ── DELETE single screenshot file (1-shot consume from Python proxy) ──
-app.delete('/screenshots/:filename', (req, res) => {
-    const fname = path.basename(req.params.filename);
-    if (!fname.endsWith('.png') || fname.includes('..')) {
-        return res.status(400).json({ error: 'Invalid filename' });
-    }
-    const fpath = path.join(process.cwd(), 'screenshots', fname);
-    fs.unlink(fpath, (err) => {
-        // Idempotent: ENOENT n'est pas une erreur (déjà supprimé)
-        if (err && err.code !== 'ENOENT') {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ status: 'deleted', filename: fname });
-    });
-});
-
 // ==========================================
 // CONFIGURATION
 // ==========================================

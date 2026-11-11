@@ -97,7 +97,7 @@ export function pwVisual(s: ServicesBrowser) {
     const corps: Dict = {
       session_id: a["session_id"],
       name: a["name"] || "default",
-      threshold: versFlottantPy(a["threshold"] as number),
+      ...(typeof a["threshold"] === "number" ? { threshold: versFlottantPy(a["threshold"]) } : {}),
       update: veritePy(a["update"]),
     };
     const sel = stripPy((a["selector"] as string) || "") || dslToSelector(a["target"] as string);

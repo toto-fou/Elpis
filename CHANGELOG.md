@@ -402,6 +402,7 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **pw_visual default threshold.** The default (1 % of pixels) passed a real change on a small page; without `threshold` the comparison now passes only when at most 0.1 % and at most 200 pixels changed, an explicit `threshold` keeps its meaning, and the result reports `diff_pixels` (and `max_diff_pixels` for the default rule).
 - **pw_mock list counts served responses.** `used` stayed 0 for a mock without a `times` limit; every request a mock fulfilled is now counted, per mock.
 - **pw_recorder gestures by `ref`.** A click or fill done with `ref=` was recorded as `page.locator('')`; the recorder now reads a stable selector (test id, role + name, label, placeholder, text, CSS) from the referenced element at action time, in every export format.
 - **Browser screenshots shown in the chat again with a vision model.** The tool host deleted a

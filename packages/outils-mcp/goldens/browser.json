@@ -3275,7 +3275,7 @@
     {
       "name": "pw_visual",
       "title": "Pw Visual",
-      "description": "Visual regression: compare the page (or one element) to a \"golden\" baseline.\n\nFirst call (or update=true) \u2192 records the baseline (baseline_created=true).\nSubsequent calls \u2192 pixel diff, returning: passed (diff_ratio<=threshold),\ndiff_ratio, diff_pixels + 3 image URLs (screenshot_url, baseline_url,\ndiff_url). diff_url is a RED heatmap of the changed pixels \u2014 inspect it if\nyou have vision capability. WHERE it changed: diff_regions = up to 10 boxes\n{x, y, w, h, pixels} (largest first; diff_regions_total, diff_regions_truncated)\nand diff_bbox = one box around all of them, in screenshot pixels of the page\n(or of the selector element).\n\nname=       : baseline key (one per screen/state under watch).\nselector=   : narrow to one element (otherwise full page). Synonym: target=.\nthreshold=  : tolerated ratio of differing pixels (default 0.01 = 1%).\nupdate=true : replace the baseline with the current state (after a deliberate UI change).",
+      "description": "Visual regression: compare the page (or one element) to a \"golden\" baseline.\n\nFirst call (or update=true) \u2192 records the baseline (baseline_created=true).\nSubsequent calls \u2192 pixel diff, returning: passed (diff_ratio<=threshold, or the default rule below),\ndiff_ratio, diff_pixels + 3 image URLs (screenshot_url, baseline_url,\ndiff_url). diff_url is a RED heatmap of the changed pixels \u2014 inspect it if\nyou have vision capability. WHERE it changed: diff_regions = up to 10 boxes\n{x, y, w, h, pixels} (largest first; diff_regions_total, diff_regions_truncated)\nand diff_bbox = one box around all of them, in screenshot pixels of the page\n(or of the selector element).\n\nname=       : baseline key (one per screen/state under watch).\nselector=   : narrow to one element (otherwise full page). Synonym: target=.\nthreshold=  : tolerated ratio of differing pixels, e.g. 0.01 = 1%. Default (not set): passes only when\nat most 0.1% of the pixels AND at most 200 pixels changed, so a small change on a small page fails.\nupdate=true : replace the baseline with the current state (after a deliberate UI change).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3291,7 +3291,7 @@
             "type": "string"
           },
           "threshold": {
-            "default": 0.01,
+            "default": null,
             "type": "number"
           },
           "update": {
@@ -3355,7 +3355,7 @@
                       }
                     ],
                     "default": null,
-                    "description": "True if diff_ratio <= threshold."
+                    "description": "True if diff_ratio <= threshold (default rule when threshold is not set: at most 0.1% and 200 pixels)."
                   },
                   "diff_ratio": {
                     "anyOf": [
@@ -4725,9 +4725,7 @@
           "nom": "threshold",
           "annotation": "float",
           "requis": false,
-          "defaut": {
-            "$f": "0.01"
-          }
+          "defaut": null
         },
         {
           "nom": "update",

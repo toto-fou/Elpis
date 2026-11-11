@@ -75,3 +75,20 @@ test('pw_mock list : chaque réponse servie par un mock est comptée, avec ou sa
     assert.deepEqual(liste.find(m => m.id === limite), { ...liste.find(m => m.id === limite), used: 2, exhausted: true });
     await api('/mock/clear');
 });
+
+test('pw_visual : le seuil par défaut échoue sur un petit changement, le seuil explicite reste respecté, les pixels changés sont rapportés', { skip: SAUTER, timeout: 60000 }, async () => {
+    await api('/action', { type: 'goto', url: `${base}/` });
+    await api('/evaluate', { script: "document.body.innerHTML = '<div style=\"width:300px;height:300px\"></div>'; document.body.style.margin = '0'" });
+    assert.equal((await api('/visual', { name: 'petit', update: true })).corps.baseline_created, true);
+    await api('/evaluate', { script: "document.body.firstChild.innerHTML = '<div style=\"width:100px;height:100px;background:#000\"></div>'" });
+    const defaut = (await api('/visual', { name: 'petit' })).corps;
+    assert.equal(defaut.passed, false, JSON.stringify(defaut));
+    assert.equal(defaut.pixel_diff_failed, true);
+    assert.ok(defaut.diff_pixels >= 5000 && defaut.diff_pixels <= 20000, defaut.diff_pixels);
+    assert.equal(defaut.max_diff_pixels, 200);
+    assert.ok(defaut.diff_ratio < 0.01, 'passerait avec l\'ancien seuil de 1 %');
+    const explicite = (await api('/visual', { name: 'petit', threshold: 0.05 })).corps;
+    assert.equal(explicite.passed, true, JSON.stringify(explicite));
+    assert.equal(explicite.threshold, 0.05);
+    assert.equal(explicite.max_diff_pixels, undefined);
+});

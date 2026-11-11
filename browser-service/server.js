@@ -4487,12 +4487,16 @@ app.post('/a11y_audit', getSession, async (req, res) => {
 // à vision. passed = diff_ratio <= threshold.
 // Zones modifiées rendues par /visual (les plus fournies d'abord ; diff_bbox couvre toutes les zones).
 const VISUAL_MAX_REGIONS = 10;
+// Nombre de pixels changés toléré au plus quand aucun seuil n'est donné.
+const VISUAL_DEFAUT_MAX_PIXELS = 200;
 app.post('/visual', getSession, async (req, res) => {
     try {
         const { page } = req.session;
         const name = (req.body.name || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
         const selector = req.body.selector || null;
-        const threshold = typeof req.body.threshold === 'number' ? req.body.threshold : 0.01;
+        // Sans seuil explicite : au plus 0,1 % des pixels ET au plus VISUAL_DEFAUT_MAX_PIXELS (0,86 % d'une petite page passait à 1 %).
+        const seuilExplicite = typeof req.body.threshold === 'number';
+        const threshold = seuilExplicite ? req.body.threshold : 0.001;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
         // Références par propriétaire : un compte ne compare ni n'écrase
@@ -4575,9 +4579,10 @@ app.post('/visual', getSession, async (req, res) => {
 
         // Audit tools web 2026-09-05 — deux causes d'échec DISTINCTES, dites
         // séparément : pixels au-delà du seuil, et/ou dimensions qui ont bougé.
-        const pixelFailed = result.diff_ratio > threshold;
+        const pixelFailed = result.diff_ratio > threshold || (!seuilExplicite && result.diff_pixels > VISUAL_DEFAUT_MAX_PIXELS);
         const failReason = [pixelFailed ? 'pixel_diff' : null, sizeChanged ? 'size_mismatch' : null].filter(Boolean).join('+') || null;
         res.json({ ok: true, name, passed: !pixelFailed && !sizeChanged, threshold,
+            ...(seuilExplicite ? {} : { max_diff_pixels: VISUAL_DEFAUT_MAX_PIXELS }),
             pixel_diff_failed: pixelFailed, size_mismatch: sizeChanged, fail_reason: failReason,
             diff_ratio: result.diff_ratio, diff_pixels: result.diff_pixels,
             diff_bbox: result.zones.bbox, diff_regions: result.zones.regions,

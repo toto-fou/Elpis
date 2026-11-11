@@ -495,7 +495,11 @@ describe("relais des secrets (socket unix réel)", () => {
       [`cible.test.:${port(https)}`, "cible.test"],
     ] as const) {
       const t = await tunnel(cible);
-      const tls = connexionTls({ socket: t.s, ca: ac.certPem, ...(sni ? { servername: sni } : {}) });
+      const tls = connexionTls({
+        socket: t.s,
+        ca: ac.certPem,
+        ...(sni ? { servername: sni } : { host: "127.0.0.1" }),
+      });
       await new Promise<void>((ok, ko) => {
         tls.once("secureConnect", () => ok());
         tls.once("error", ko);

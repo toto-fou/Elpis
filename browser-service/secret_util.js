@@ -24,7 +24,7 @@ export function erreurSecret(code, message, statut = 403, details = null) {
 
 // ── Formes du mot de passe et purge ─────────────────────────────────────
 
-/** Formes sous lesquelles une valeur peut revenir : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales et hexadécimales, texte et attribut sérialisés), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64 (trois variantes), hexadécimal ; même liste que formesValeur du relais (packages/navigateur/src/relais.ts). */
+/** Formes sous lesquelles une valeur peut revenir : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales et hexadécimales, texte et attribut sérialisés), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML, des deux ou de tous), base64 (trois variantes), hexadécimal ; même liste que formesValeur du relais (packages/navigateur/src/relais.ts). */
 export function formesSecret(v) {
     if (typeof v !== 'string' || v.length < LONGUEUR_MIN_PURGE) return [];
     const octets = Buffer.from(v, 'utf8');
@@ -55,7 +55,8 @@ export function formesSecret(v) {
     const majuscules = (j) => j.replace(/\\u([0-9a-f]{4})/g, (_m, h) => `\\u${h.toUpperCase()}`);
     const json = JSON.stringify(v).slice(1, -1);
     const ascii = json.replace(/[\u007f-\uffff]/g, u4);
-    for (const j of [json, ascii, ascii.replace(/[<>&']/g, u4), v.split('').map(u4).join('')]) {
+    const sur = (j) => j.replace(/[<>&']/g, u4);
+    for (const j of [json, ascii, sur(json), sur(ascii), v.split('').map(u4).join('')]) {
         out.add(j);
         out.add(j.replaceAll('/', '\\/'));
         out.add(majuscules(j));

@@ -153,7 +153,8 @@ export function formesValeur(v: string): string[] {
     j.replace(/\\u([0-9a-f]{4})/gu, (_m, h: string) => `\\u${h.toUpperCase()}`);
   const json = JSON.stringify(v).slice(1, -1);
   const ascii = json.replace(/[^\u0000-\u007e]/gu, (c) => c.split("").map(u4).join(""));
-  for (const j of [json, ascii, ascii.replace(/[<>&']/gu, u4), v.split("").map(u4).join("")]) {
+  const sur = (j: string): string => j.replace(/[<>&']/gu, u4);
+  for (const j of [json, ascii, sur(json), sur(ascii), v.split("").map(u4).join("")]) {
     f.add(j);
     f.add(j.replaceAll("/", "\\/"));
     f.add(majuscules(j));

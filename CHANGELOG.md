@@ -8,6 +8,27 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
+  (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
+  to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
+  reduced to its origin, per-row errors, http and https accepted), and the table and detail show
+  every site instead of the first one and a count.
+- **Secrets in the interface.** Settings › Secrets shows the account's vault in one table (`name`,
+  `type`, `scope`, `user`, `tls`, `version`, last use, uses), with `unverified` and `⚠ kid` (value
+  encrypted with another key) visible. **New** creates `web-login`, `http-auth` and `token`
+  secrets (slug checked as you type, exact origins one per line, write-only value, `tls`,
+  subagents and routines policy); the row menu offers **Rotation**, **Edit** (an empty value
+  keeps it; widening the scope or `tls insecure` asks for it again), **Verify** for any imported
+  secret (`git` included) and **Delete** confirmed by the same button. `git` and `llm` secrets
+  offer rotation only and `mcp` secrets are read-only, each with a link to the place that manages
+  it; value fields are masked, not copyable and kept out of password managers, and a refusal is
+  one line read from its `secret_*` code. In the chat, `/secret` lists the attached then the
+  available secrets, `/secret attach <name>…` and `/secret detach <name>|--all` complete the
+  names, and a chip `secret:<name>` with a × stays above the input; a new conversation keeps the
+  selection and sends it with its first message. Changes to the attached set go one at a time,
+  after the chat's chips are loaded, so the chips and the server agree. The console lists the
+  instance secrets (*Models & services › Secrets*) with rotation (not for `mcp`); connector keys
+  (shared LLM and MCP, image engine) are deleted from their own page.
 - **Secrets vault (core).** One store, the `vault_secrets` table, for the secrets an account
   (or the instance, for shared connectors) gives to Elpis: website logins, HTTP authentication,
   Git, LLM and MCP keys, tokens. Each value is encrypted with AES-256-GCM and tagged with the

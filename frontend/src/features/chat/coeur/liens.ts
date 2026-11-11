@@ -67,6 +67,9 @@ export interface LiensChat {
   /** Collections RAG à sceller à la création d'un chat neuf (vide pour un chat existant). */
   ragEnAttente(): string[];
   ragCreation(ids: unknown): void;
+  /** Secrets choisis sur un chat neuf, envoyés avec son premier tour (`null` : l'ensemble du serveur reste). */
+  secretsEnAttente(): number[] | null;
+  secretsEnvoyes(chatId: string): void;
   stopGeneration(): void;
   closeToolStreamsFor(chatId: string | null): void;
   purgeToolStreams(chatId: string): void;

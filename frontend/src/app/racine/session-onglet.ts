@@ -27,6 +27,7 @@ export interface ChatSession {
   scrollToBottom?(force?: boolean): unknown;
   loadChat?(id: string, opts?: { force?: boolean }): unknown;
   readonly ragChat?: { recharger(chatId: string): unknown };
+  readonly secretsChat?: { recharger(chatId: string): unknown };
 }
 
 export interface DependancesSessionOnglet {
@@ -199,6 +200,7 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
       // Rechargement pendant un tour : si le run tourne encore, le chat est relu depuis la base pour s'y rattacher.
       const id = data.chatId;
       if (id) void chat?.ragChat?.recharger(id);
+      if (id) void chat?.secretsChat?.recharger(id);
       if (id && chat?.loadChat) {
         void dep
           .fetchAuth("/api/chat/" + encodeURIComponent(id) + "/generation-status", {}, true)

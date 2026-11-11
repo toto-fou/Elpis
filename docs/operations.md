@@ -676,6 +676,13 @@ TLS, disk queues, what can still be lost), follow
 
 ## Secrets vault key
 
+Secrets saved in Elpis (website logins, HTTP authentication, Git, LLM and MCP keys, tokens) are
+rows of the `vault_secrets` table. Each value is encrypted with AES-256-GCM and bound to its owner,
+kind, name and to the columns that decide its use (scope, policy, state, version, user name): a
+row changed directly in the database no longer decrypts. The secrets of routine webhooks are
+encrypted with the same key, in their routine's row; `status` and `rekey` include them. The key is
+never in the database; the services take the first of:
+
 1. `ELPIS_VAULT_KEY` (environment): avoid it, prefer the key file (see
    [configuration.md](configuration.md#secrets-vault));
 2. `/etc/elpis/vault.key` (or `ELPIS_VAULT_KEY_PATH`);

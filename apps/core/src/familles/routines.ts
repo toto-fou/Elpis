@@ -47,6 +47,7 @@ import {
 import { ORPHAN_STALE_AFTER_S } from "../routines/planificateur";
 import type { Planificateur } from "../routines/planificateur";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
+import { refusDeCle } from "../secrets/erreurs";
 import { utilisateur } from "./comptes";
 import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
 
@@ -235,8 +236,18 @@ export function creerFamilleRoutines(dep: DependancesRoutines): Famille {
         const uid = utilisateur(req);
         await exiger(rid, uid);
         const secret = jetonSecret();
-        if (!(await setRoutineWebhook(base, rid, uid, { enabled: true, secret })))
-          throw new HttpError(404, INTROUVABLE);
+        let pose: boolean;
+        try {
+          pose = await setRoutineWebhook(base, rid, uid, { enabled: true, secret });
+        } catch (e) {
+          const r = refusDeCle(e);
+          if (r === null) throw e;
+          throw new HttpError(
+            r.statut,
+            "Clé du coffre indisponible sur ce serveur : secret du webhook non créé (./elpis doctor).",
+          );
+        }
+        if (!pose) throw new HttpError(404, INTROUVABLE);
         return { ok: true, secret, path: `/api/webhooks/routines/${rid}` };
       }),
       route("POST", "/api/routines/:routine_id/webhook/disable", async (req) => {

@@ -3059,7 +3059,10 @@ scrubbed while the binding lives unless the origin transforms it (case change, h
 origin that stores the submitted value and shows it later** (a profile field, an echo page) can
 give it back once the binding is gone (session closed or expired): the relay no longer knows the
 value then. Sites sharing a covered origin's address and port (CDN) are intercepted too while the
-binding lives, with strict upstream TLS. The instance CA cannot carry name constraints (the
+binding lives, with strict upstream TLS. Chromium shares the sandbox's CPU quota: at the default
+one CPU, step screenshots of heavy pages miss their 3 s delay on about 5 % of actions (none with
+two CPUs or on the central service); `./elpis doctor` warns below 200 %. The instance CA cannot
+carry name constraints (the
 intercepted origins are those of the secrets in use): rotation is by expiry (365 days, renewed 30
 days before) or by deleting `user_db/browser-relay-ca/` and restarting the tool host.
 

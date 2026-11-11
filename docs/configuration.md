@@ -768,8 +768,10 @@ upgrade; check the types to keep in the console.
 
 Each user also has settings in the database (`users.settings_json`);
 
-`user_db/configs/{user_id}.json` keeps a personal copy of the application
-config.
+`user_db/configs/{user_id}.json` keeps only the sections that are already
+public (`welcome`, `app_info`, `login_page`): `GET /api/config` returns only
+them and removes any other key from the file when it reads it. No setting is
+read from this file.
 
 > **GLOBAL feature flags** (`config.json › features`): read by
 > `feature_enabled(name)` (default `true` if missing), **re-read from disk on every

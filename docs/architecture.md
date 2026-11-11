@@ -2036,7 +2036,7 @@ main and admin reload on the next read instead of waiting for the TTL.
 | Endpoint | Description |
 |---|---|
 | `GET /api/settings` · `PUT /api/settings` | Per-user settings (allowed keys: `apps/core/src/comptes/reglages.ts`); `assistant_name` is read-only: the application name, `app_info.name` |
-| `GET /api/config` · `PUT /api/config` | Personal copy of the application config |
+| `GET /api/config` · `PUT /api/config` | Personal copy of the public config sections (`welcome`, `app_info`, `login_page`) |
 | `POST /api/settings/avatar` · `DELETE` | User avatar (max 5 MB) |
 | `POST /api/settings/assistant-avatar` | Refused (403): the assistant's avatar is the application logo |
 | `GET /avatars/{filename}` | Avatar serving (cross-site guard) |

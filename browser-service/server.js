@@ -15,7 +15,7 @@ import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatche
          sessionsEnfantsAnciennes, identifiantsPourOrigine, avisIdentifiants } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
-         interfacesDepuisProc, fusionnerInterfaces,
+         interfacesDepuisProc, fusionnerInterfaces, verifierBac,
          messageRefus, makeCache } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
@@ -37,9 +37,17 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
+// Mode bac (BROWSER_SANDBOX=1) : service lancé par l'hôte d'outils dans le bac d'un compte ; boucle locale du bac jointe
+// directement, tout le reste par le relais de l'hôte (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
+const MODE_BAC = process.env.BROWSER_SANDBOX === '1';
+// Arrêt du service après tant de secondes sans appel (mode bac ; 0 = jamais).
+const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || '0', 10) || 0) * 1000;
+let _dernierAppel = Date.now();
+
 const app = express();
 // Jeton d'appel vérifié avant tout, statiques compris : sans jeton configuré, appels locaux directs seuls.
 app.use(gardeJeton);
+app.use((_req, _res, next) => { _dernierAppel = Date.now(); next(); });
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
@@ -67,7 +75,8 @@ app.use('/screenshots', (req, res, next) => {
 // ==========================================
 const BASE_DIR = process.cwd();
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
-const DOWNLOAD_DIR = path.join(BASE_DIR, 'downloads');
+// BROWSER_DOWNLOAD_DIR (mode bac : /work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
+const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
 const COOKIES_DIR = path.join(BASE_DIR, 'cookies');
 const HAR_DIR = path.join(BASE_DIR, 'har');
 const BASELINE_DIR = path.join(BASE_DIR, 'baselines');  // goldens régression visuelle (persistants, non reapés)
@@ -146,6 +155,8 @@ let _verdicts = makeCache({ ttlMs: 30000 });
 
 /** Motif de refus d'une URL (``null`` = permise). */
 async function refusUrl(url) {
+    // Mode bac : forme seule (boucle locale admise) ; le relais de l'hôte juge le reste à la connexion.
+    if (MODE_BAC) { const b = analyserUrl(url, { boucleLocale: true }); return b.ok ? null : b.motif; }
     const a = analyserUrl(url);
     if (!a.ok) return a.motif;
     if (a.vide) return null;
@@ -162,10 +173,11 @@ async function refusUrl(url) {
 // boucle locale comprise. C'est lui qui fait foi (redirections, changements
 // d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
-    verifier: verifierDepuisPolitique({
+    verifier: MODE_BAC ? verifierBac() : verifierDepuisPolitique({
         resoudre: _resoudre,
         motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
     }),
+    amont: MODE_BAC ? { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' } : null,
     journal: (m) => console.warn(`[GARDE] ${m}`),
 });
 console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
@@ -447,7 +459,7 @@ function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
 
 function reapArtifacts() {
     // Les états sans propriétaire attendent leur rattachement : jamais purgés.
-    const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
+    const n = (process.env.BROWSER_DOWNLOAD_DIR ? 0 : _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true }))
             + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
@@ -2652,6 +2664,11 @@ function gardeReseau(formes, origineSecret, etat) {
         const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
         if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
         etat.enVol++;
+        // Mode bac : la requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
+        if (MODE_BAC) {
+            rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
+            return route.fallback().catch(() => {});
+        }
         try {
             let r;
             try { r = await route.fetch({ maxRedirects: 0, timeout: 30000 }); } catch (e) { return bloquer('failed'); }
@@ -5037,6 +5054,7 @@ app.get('/health', (req, res) => {
         service: 'browser',
         status: 'running',
         engine: 'chromium',
+        mode: MODE_BAC ? 'sandbox' : 'central',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
         // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
         sessions: sessionList,
@@ -6229,8 +6247,24 @@ app.get('/recorder/dump', getSession, async (req, res) => {
 // FIREFOX_SERVICE_PORT.
 const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
 const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
+// FIREFOX_SERVICE_SOCKET : socket unix à la place du port (mode bac : /run/elpis/browser.sock, joint par l'hôte d'outils, jeton exigé).
+const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
 
-app.listen(LISTEN_PORT, LISTEN_HOST, () => {
+const _ecoute = () => {
     journaliserMode(jetonAttendu());
-    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
-});
+    if (LISTEN_SOCKET) { try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); } }
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET || `${LISTEN_HOST}:${LISTEN_PORT}`}${MODE_BAC ? ' (sandbox mode)' : ''} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
+};
+if (LISTEN_SOCKET) {
+    try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+    app.listen(LISTEN_SOCKET, _ecoute);
+} else {
+    app.listen(LISTEN_PORT, LISTEN_HOST, _ecoute);
+}
+// Mode bac : sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
+if (ARRET_INACTIF_MS > 0) {
+    let arret = false;
+    setInterval(() => {
+        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; gracefulShutdown('idle', 0); }
+    }, Math.min(30000, ARRET_INACTIF_MS)).unref();
+}

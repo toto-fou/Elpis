@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { connect as connexionTls } from "node:tls";
+import { gzipSync } from "node:zlib";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -104,6 +105,25 @@ let echo: ServeurNet;
 const recus: { url: string; corps: string; auth: string }[] = [];
 let resolutions = 0;
 
+let dernier = "";
+
+/** Encodages d'une valeur qu'un amont peut renvoyer, écrits ici indépendamment de formesValeur. */
+function encodages(v: string): string[] {
+  const u = (c: string): string => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  return [
+    encodeURIComponent(v).replace(/%[0-9A-F]{2}/gu, (x) => x.toLowerCase()),
+    [...Buffer.from(v)].map((o) => `%${o.toString(16).padStart(2, "0")}`).join(""),
+    [...v].map((c) => `&#${c.codePointAt(0) ?? 0};`).join(""),
+    [...v].map((c) => `&#x${(c.codePointAt(0) ?? 0).toString(16)};`).join(""),
+    JSON.stringify(v).slice(1, -1).replaceAll("/", "\\/"),
+    JSON.stringify(v)
+      .slice(1, -1)
+      .replace(/[^\u0000-\u007e]/gu, (c) => c.split("").map(u).join("")),
+    v.split("").map(u).join(""),
+    JSON.stringify(v).slice(1, -1).replace(/[<>&]/gu, u),
+  ];
+}
+
 function site(req: IncomingMessage, res: ServerResponse): void {
   const m: Buffer[] = [];
   req.on("data", (d: Buffer) => m.push(d));
@@ -111,6 +131,21 @@ function site(req: IncomingMessage, res: ServerResponse): void {
     const corps = Buffer.concat(m).toString();
     const auth = String(req.headers["authorization"] ?? "");
     recus.push({ url: req.url ?? "", corps, auth });
+    if (req.url === "/formes") {
+      dernier = new URLSearchParams(corps).get("p") ?? "";
+      return void res.writeHead(200, { "content-type": "text/plain" }).end(encodages(dernier).join("\n"));
+    }
+    if (req.url === "/gzip")
+      return void res.writeHead(200, { "content-encoding": "gzip" }).end(gzipSync(`x ${dernier} y`));
+    if (req.url === "/zstd") return void res.writeHead(200, { "content-encoding": "zstd" }).end("zz");
+    if (req.url === "/empile") return void res.writeHead(200, { "content-encoding": "gzip, br" }).end("zz");
+    if (req.url === "/plage") return void res.end(`range=${String(req.headers["range"] ?? "none")}`);
+    if (req.url === "/echo-auth") {
+      if (!auth) return void res.writeHead(401, { "www-authenticate": 'Basic realm="x"' }).end("no");
+      return void res
+        .writeHead(200, { "x-auth": auth })
+        .end(`${auth} ${Buffer.from(auth.slice(6), "base64").toString()}`);
+    }
     if (req.url === "/basic") {
       if (auth !== "Basic " + Buffer.from(`alice:${SECRET}`).toString("base64"))
         return void res.writeHead(401, { "www-authenticate": 'Basic realm="x"' }).end("no");
@@ -163,7 +198,7 @@ function liaison(o: Partial<LiaisonRelais> & { id: string; origines: string[] })
 /** Requête http en forme absolue au relais. */
 function viaRelais(
   url: string,
-  o: { methode?: string; corps?: string; type?: string; jeton?: string } = {},
+  o: { methode?: string; corps?: string; type?: string; jeton?: string; entetes?: string } = {},
 ): Promise<{ statut: number; corps: string; entetes: Record<string, unknown> }> {
   return new Promise((ok, ko) => {
     const u = new URL(url);
@@ -171,7 +206,7 @@ function viaRelais(
     r.on("error", ko);
     const corps = o.corps ?? "";
     r.write(
-      `${o.methode ?? "GET"} ${url} HTTP/1.1\r\nHost: ${u.host}\r\nProxy-Authorization: Bearer ${o.jeton ?? JETON}\r\n` +
+      `${o.methode ?? "GET"} ${url} HTTP/1.1\r\nHost: ${u.host}\r\nProxy-Authorization: Bearer ${o.jeton ?? JETON}\r\n${o.entetes ?? ""}` +
         `Content-Type: ${o.type ?? "application/x-www-form-urlencoded"}\r\nContent-Length: ${Buffer.byteLength(corps)}\r\nConnection: close\r\n\r\n${corps}`,
     );
     lireReponse(r).then(ok, ko);
@@ -359,6 +394,56 @@ describe("relais des secrets (socket unix réel)", () => {
       }),
     ).rejects.toThrow();
     relais.oublier("s2");
+  });
+
+  it("purge : %xx en minuscules, entités numériques, JSON \\/ et \\uXXXX, Basic renvoyé par l'amont ; TRACE, CONNECT dans le flux déchiffré, codage inconnu ou empilé refusés ; plage retirée", async () => {
+    const riche = "Pa/ss&<é>\u{1F600}x";
+    const origine = `http://formes.test:${port(http)}`;
+    relais.lier(
+      liaison({
+        id: "f1",
+        origines: [origine, `https://formes.test:${port(https)}`],
+        substitut: SUB,
+        resoudre: async () => ({ username: "alice", secret: riche }),
+      }),
+    );
+    relais.armer("f1", 10_000);
+    const r = await viaRelais(`${origine}/formes`, { methode: "POST", corps: `p=${SUB}` });
+    expect(dernier).toBe(riche);
+    expect(r.statut).toBe(200);
+    expect(r.corps.split("\n")).toEqual(encodages(riche).map(() => SUB));
+    const z = await viaRelais(`${origine}/gzip`);
+    expect([z.statut, z.corps, z.entetes["content-encoding"]]).toEqual([200, `x ${SUB} y`, undefined]);
+    for (const c of ["/zstd", "/empile"]) expect((await viaRelais(`${origine}${c}`)).statut).toBe(502);
+    expect((await viaRelais(`${origine}/x`, { methode: "TRACE" })).statut).toBe(405);
+    expect((await viaRelais(`${origine}/plage`, { entetes: "Range: bytes=0-3\r\n" })).corps).toBe(
+      "range=none",
+    );
+    const t = await tunnel(`formes.test:${port(https)}`);
+    const tls = connexionTls({ socket: t.s, servername: "formes.test", ca: ac.certPem });
+    await new Promise<void>((ok) => tls.once("secureConnect", () => ok()));
+    tls.write("CONNECT ailleurs.test:443 HTTP/1.1\r\nHost: ailleurs.test:443\r\n\r\n");
+    expect((await lireReponse(tls)).statut).toBe(405);
+    relais.oublier("f1");
+    const basic = `http://echo.test:${port(http)}`;
+    relais.lier(liaison({ id: "b1", kind: "http-auth", origines: [basic] }));
+    const e = await viaRelais(`${basic}/echo-auth`);
+    expect(e.statut).toBe(200);
+    expect(recus.at(-1)?.auth).toBe("Basic " + Buffer.from(`alice:${SECRET}`).toString("base64"));
+    expect(JSON.stringify(e)).not.toMatch(
+      new RegExp(`${Buffer.from(`alice:${SECRET}`).toString("base64").slice(0, 12)}|alice:`, "u"),
+    );
+    relais.oublier("b1");
+  });
+
+  it("formes du relais et du service identiques", async () => {
+    const service = (await import(
+      new URL("../../../browser-service/secret_util.js", import.meta.url).href
+    )) as {
+      formesSecret: (v: string) => string[];
+    };
+    for (const v of [SECRET, "Pa/ss&<é>\u{1F600}x", "x'y\"z\u00a0q"])
+      expect(formesValeur(v)).toEqual(service.formesSecret(v));
   });
 
   it("client qui abandonne au milieu du corps (fenêtre armée, origine couverte en clair et en TLS) : aucun rejet non traité, le relais sert encore", async () => {

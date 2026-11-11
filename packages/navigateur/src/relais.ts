@@ -85,20 +85,27 @@ const SAUT_PAR_SAUT = new Set([
 const METHODES_SUBSTITUTION = new Set(["POST", "PUT", "PATCH"]);
 const MASQUE = "[secret]";
 
-/** Formes sous lesquelles une valeur peut revenir (browser-service/secret_util.js) : brute, URL, formulaire, HTML, JSON, base64, hexadécimal. */
+/** Formes sous lesquelles une valeur peut revenir, même liste que `formesSecret` du service (browser-service/secret_util.js) : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales, hexadécimales), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64, hexadécimal. */
 export function formesValeur(v: string): string[] {
   if (v.length < 3) return [];
   const o = Buffer.from(v, "utf8");
   const b64 = o.toString("base64");
   const f = new Set([v, b64, b64.replace(/=+$/u, ""), o.toString("base64url"), o.toString("hex")]);
+  const pourcents = [[...o].map((x) => `%${x.toString(16).padStart(2, "0").toUpperCase()}`).join("")];
   try {
     const u = encodeURIComponent(v);
-    f.add(u);
-    f.add(u.replaceAll("%20", "+"));
-    f.add(new URLSearchParams({ x: v }).toString().slice(2));
-    f.add(encodeURI(v));
+    pourcents.push(
+      u,
+      u.replaceAll("%20", "+"),
+      new URLSearchParams({ x: v }).toString().slice(2),
+      encodeURI(v),
+    );
   } catch {
     // valeur non encodable (demi-paire) : formes brutes seules
+  }
+  for (const p of pourcents) {
+    f.add(p);
+    f.add(p.replace(/%[0-9A-F]{2}/gu, (m) => m.toLowerCase()));
   }
   f.add(
     v
@@ -111,8 +118,34 @@ export function formesValeur(v: string): string[] {
   f.add(
     v.replaceAll("&", "&amp;").replaceAll("\u00a0", "&nbsp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
   );
-  f.add(JSON.stringify(v).slice(1, -1));
+  f.add(v.replaceAll("&", "&amp;").replaceAll("\u00a0", "&nbsp;").replaceAll('"', "&quot;"));
+  const car = [...v];
+  const html = (c: string): boolean => /[&<>"']/u.test(c);
+  const dec = (c: string): string => `&#${c.codePointAt(0) ?? 0};`;
+  const hex = (c: string): string => `&#x${(c.codePointAt(0) ?? 0).toString(16)};`;
+  f.add(car.map((c) => (html(c) ? dec(c) : c)).join(""));
+  f.add(car.map((c) => (html(c) ? hex(c) : c)).join(""));
+  f.add(car.map(dec).join(""));
+  f.add(car.map(hex).join(""));
+  f.add(car.map((c) => hex(c).toUpperCase().replace("&#X", "&#x")).join(""));
+  const u4 = (c: string): string => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  const majuscules = (j: string): string =>
+    j.replace(/\\u([0-9a-f]{4})/gu, (_m, h: string) => `\\u${h.toUpperCase()}`);
+  const json = JSON.stringify(v).slice(1, -1);
+  const ascii = json.replace(/[^\u0000-\u007e]/gu, (c) => c.split("").map(u4).join(""));
+  for (const j of [json, ascii, ascii.replace(/[<>&']/gu, u4), v.split("").map(u4).join("")]) {
+    f.add(j);
+    f.add(j.replaceAll("/", "\\/"));
+    f.add(majuscules(j));
+  }
   return [...f].filter((x) => x.length >= 3).sort((a, b) => b.length - a.length);
+}
+
+/** Formes d'un en-tête `Authorization: Basic` (identifiant et valeur), que l'amont peut renvoyer : brute, base64 (trois variantes). */
+export function formesBasic(username: string, secret: string): string[] {
+  const brut = `${username}:${secret}`;
+  const b64 = Buffer.from(brut, "utf8").toString("base64");
+  return [brut, b64, b64.replace(/=+$/u, ""), Buffer.from(brut, "utf8").toString("base64url")];
 }
 
 /** Valeur encodée pour le corps où elle remplace le substitut : formulaire, JSON, sinon brute. */
@@ -311,6 +344,10 @@ export class RelaisNavigateur {
       const origine = (req.socket as Socket & { origineElpis?: string }).origineElpis ?? "";
       this.versOrigine(req, res, origine, req.url ?? "/").catch((e: unknown) => this.echec(res, e));
     });
+    // CONNECT dans un flux déchiffré : un tunnel y échapperait à la purge.
+    this.interne.on("connect", (_req: IncomingMessage, s: Socket) => {
+      s.end("HTTP/1.1 405 Method Not Allowed\r\ncontent-length: 0\r\nconnection: close\r\n\r\n");
+    });
     this.interne.on("upgrade", (req: IncomingMessage, s: Socket, tete: Buffer) =>
       this.miseANiveau(req, s, tete, (s as Socket & { origineElpis?: string }).origineElpis ?? null).catch(
         (e: unknown) => this.echec(s, e),
@@ -447,7 +484,11 @@ export class RelaisNavigateur {
     const v = await e.l.resoudre().catch(() => null);
     if (v === null || !v.secret) return null;
     e.valeur = v;
-    e.formes = formesValeur(v.secret).map((f) => Buffer.from(f, "utf8"));
+    const formes = new Set([
+      ...formesValeur(v.secret),
+      ...(e.l.kind === "http-auth" ? formesBasic(v.username, v.secret) : []),
+    ]);
+    e.formes = [...formes].sort((a, b) => b.length - a.length).map((f) => Buffer.from(f, "utf8"));
     return v;
   }
 
@@ -526,6 +567,9 @@ export class RelaisNavigateur {
     chemin: string,
   ): Promise<void> {
     req.on("error", () => undefined);
+    const methode = (req.method ?? "GET").toUpperCase();
+    // TRACE et TRACK renvoient la requête reçue par l'amont (substitution, Authorization) : jamais relayées.
+    if (methode === "TRACE" || methode === "TRACK") return refuser(res, 405, `${methode} is not relayed`);
     const u = new URL(origine);
     const https = u.protocol === "https:";
     const port = Number(u.port || (https ? 443 : 80));
@@ -539,7 +583,6 @@ export class RelaisNavigateur {
     const armees = [...this.liaisons.values()].filter(
       (e) => e.l.kind === "web-login" && e.l.substitut !== null && e.fenetreJusqua > Date.now(),
     );
-    const methode = (req.method ?? "GET").toUpperCase();
     const lire = liees.length > 0 || armees.length > 0;
     let corps: Buffer | null = lire ? await lireCorps(req, reglagesRelaisNavigateur.corpsMax) : null;
     for (const e of this.liaisons.values()) {
@@ -576,7 +619,12 @@ export class RelaisNavigateur {
     for (const [k, val] of Object.entries(req.headers as IncomingHttpHeaders))
       if (val !== undefined && !SAUT_PAR_SAUT.has(k)) entetes[k] = val;
     entetes["host"] = u.host;
-    if (liees.length > 0) entetes["accept-encoding"] = "identity";
+    if (liees.length > 0) {
+      // Réponse entière et sans codage inconnu : une plage ne porterait qu'un morceau de la valeur, hors d'atteinte de la purge.
+      entetes["accept-encoding"] = "identity";
+      delete entetes["range"];
+      delete entetes["if-range"];
+    }
     if (corps !== null) {
       delete entetes["transfer-encoding"];
       entetes["content-length"] = String(corps.length);
@@ -626,7 +674,7 @@ export class RelaisNavigateur {
       this.journal(`upstream ${origine} unreachable: ${e instanceof Error ? e.message : String(e)}`);
       return refuser(res, 502, "upstream unreachable");
     }
-    const formes = liees.flatMap((e) => e.formes);
+    const formes = [...new Set(liees.flatMap((e) => e.formes))].sort((a, b) => b.length - a.length);
     const par = Buffer.from(
       liees.find((e) => e.l.substitut !== null && e.formes.length)?.l.substitut ?? MASQUE,
       "utf8",
@@ -651,7 +699,7 @@ export class RelaisNavigateur {
       await pipeline(r, res).catch(() => res.destroy());
       return;
     }
-    res.writeHead(r.statusCode ?? 502, r.statusMessage, sortie);
+    // Un seul codage connu est décodé puis purgé ; tout autre (zstd, codages empilés « gzip, br ») passerait sans purge : refusé.
     const codage = String(r.headers["content-encoding"] ?? "")
       .toLowerCase()
       .trim();
@@ -659,6 +707,12 @@ export class RelaisNavigateur {
     if (codage === "gzip" || codage === "x-gzip") etapes.push(createGunzip());
     else if (codage === "deflate") etapes.push(createInflate());
     else if (codage === "br") etapes.push(createBrotliDecompress());
+    else if (codage !== "" && codage !== "identity") {
+      r.resume();
+      this.journal(`response of ${origine} refused: content encoding '${codage}' cannot be scrubbed`);
+      return refuser(res, 502, `content encoding '${codage}' of an origin covered by a secret`);
+    }
+    res.writeHead(r.statusCode ?? 502, r.statusMessage, sortie);
     if (formes.length) etapes.push(new Purgeur(formes, par));
     await (pipeline as (...f: unknown[]) => Promise<void>)(r, ...etapes, res).catch(() => res.destroy());
   }

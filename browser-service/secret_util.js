@@ -24,23 +24,42 @@ export function erreurSecret(code, message, statut = 403, details = null) {
 
 // ── Formes du mot de passe et purge ─────────────────────────────────────
 
-/** Formes sous lesquelles une valeur peut revenir : brute, URL, formulaire, HTML (entités, texte et attribut sérialisés), JSON, base64 (trois variantes), hexadécimal. */
+/** Formes sous lesquelles une valeur peut revenir : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales et hexadécimales, texte et attribut sérialisés), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64 (trois variantes), hexadécimal ; même liste que formesValeur du relais (packages/navigateur/src/relais.ts). */
 export function formesSecret(v) {
     if (typeof v !== 'string' || v.length < LONGUEUR_MIN_PURGE) return [];
     const octets = Buffer.from(v, 'utf8');
     const b64 = octets.toString('base64');
     const out = new Set([v, b64, b64.replace(/=+$/, ''), octets.toString('base64url'), octets.toString('hex')]);
+    const pourcents = [[...octets].map((o) => `%${o.toString(16).padStart(2, '0').toUpperCase()}`).join('')];
     try {
         const url = encodeURIComponent(v);
-        out.add(url);
-        out.add(url.replaceAll('%20', '+'));
-        out.add(new URLSearchParams({ x: v }).toString().slice(2));
-        out.add(encodeURI(v));
+        pourcents.push(url, url.replaceAll('%20', '+'), new URLSearchParams({ x: v }).toString().slice(2), encodeURI(v));
     } catch {}
+    for (const p of pourcents) {
+        out.add(p);
+        out.add(p.replace(/%[0-9A-F]{2}/g, (m) => m.toLowerCase()));
+    }
     out.add(v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'));
     out.add(v.replaceAll('&', '&amp;').replaceAll('\u00a0', '&nbsp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'));
     out.add(v.replaceAll('&', '&amp;').replaceAll('\u00a0', '&nbsp;').replaceAll('"', '&quot;'));
-    out.add(JSON.stringify(v).slice(1, -1));
+    const car = [...v];
+    const html = (c) => /[&<>"']/.test(c);
+    const dec = (c) => `&#${c.codePointAt(0)};`;
+    const hex = (c) => `&#x${c.codePointAt(0).toString(16)};`;
+    out.add(car.map((c) => (html(c) ? dec(c) : c)).join(''));
+    out.add(car.map((c) => (html(c) ? hex(c) : c)).join(''));
+    out.add(car.map(dec).join(''));
+    out.add(car.map(hex).join(''));
+    out.add(car.map((c) => hex(c).toUpperCase().replace('&#X', '&#x')).join(''));
+    const u4 = (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`;
+    const majuscules = (j) => j.replace(/\\u([0-9a-f]{4})/g, (_m, h) => `\\u${h.toUpperCase()}`);
+    const json = JSON.stringify(v).slice(1, -1);
+    const ascii = json.replace(/[\u007f-\uffff]/g, u4);
+    for (const j of [json, ascii, ascii.replace(/[<>&']/g, u4), v.split('').map(u4).join('')]) {
+        out.add(j);
+        out.add(j.replaceAll('/', '\\/'));
+        out.add(majuscules(j));
+    }
     return [...out].filter((x) => x.length >= LONGUEUR_MIN_PURGE).sort((a, b) => b.length - a.length);
 }
 

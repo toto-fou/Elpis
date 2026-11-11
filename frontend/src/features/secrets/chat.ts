@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/secrets/chat.ts — secrets attachés à la conversation : puces `secret:<name>` (chat existant : `PUT /api/chats/:id/secrets` ; chat neuf : sélection gardée puis envoyée avec le premier tour) et commande `/secret` (liste, attach, detach, complétion des noms). */
+/** frontend/src/features/secrets/chat.ts — secrets attachés à la conversation : puces `secret:<name>` (chat existant : `PUT /api/chats/:id/secrets`, une requête à la fois et réponses d'un autre chat ignorées ; chat neuf : sélection gardée puis envoyée avec le premier tour) et commande `/secret` (liste, attach, detach, complétion des noms). */
 import { SECRETS_ATTACHES_MAX } from "@elpis/contracts";
 import type { Secret } from "@elpis/contracts";
 import { computed, ref } from "vue";
@@ -51,6 +51,22 @@ const idsValides = (brut: unknown): number[] =>
     ? brut.filter((v): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0)
     : [];
 
+/** Nouvel ensemble calculé sur l'ensemble courant, ou refus (`info` : rien à faire, sans erreur). */
+type Calcul = (
+  courants: readonly Secret[],
+  chat: string | null,
+) => readonly Secret[] | { readonly message: string; readonly info?: boolean };
+
+/** Issue d'un changement : retenu, refusé, ou périmé (conversation changée entre-temps : rien à dire). */
+type IssueEnsemble =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly message: string; readonly info?: boolean }
+  | { readonly ok: false; readonly perime: true };
+
+const PERIME = { ok: false, perime: true } as const;
+const memesIds = (a: readonly Secret[], b: readonly Secret[]): boolean =>
+  a.length === b.length && a.every((s, i) => s.id === b[i]?.id);
+
 export function creerSecretsChat(dep: DepsSecretsChat) {
   const maintenant = dep.maintenant ?? ((): number => Date.now());
   const attaches = ref<readonly Secret[]>([]);
@@ -59,7 +75,11 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
   let lecture: Promise<void> | null = null;
   /** Sélection faite sur un chat neuf, pas encore partie avec un tour. */
   let aSceller = false;
-  let jeton = 0;
+  /** Chat ouvert avec des secrets dont la lecture n'a pas encore abouti : les puces vides ne disent rien. */
+  let inconnu = false;
+  /** Lectures et écritures de l'ensemble attaché, une à la fois ; un changement de chat ouvre une nouvelle file. */
+  let file: Promise<unknown> = Promise.resolve();
+  let generation = 0;
 
   const disponibles = computed(() =>
     compte.value.filter((s) => estAttachable(s) && !attaches.value.some((a) => a.id === s.id)),
@@ -85,47 +105,103 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
     void lireCompte();
   }
 
-  /** Nouvel ensemble attaché ; message d'erreur (`detail` du serveur), ou `null` s'il est retenu. */
-  async function definir(liste: readonly Secret[]): Promise<string | null> {
-    if (liste.length > SECRETS_ATTACHES_MAX)
-      return `${SECRETS_ATTACHES_MAX} secrets au plus par conversation.`;
-    const chat = dep.currentChatId.value;
-    if (!chat) {
-      attaches.value = [...liste];
-      aSceller = liste.length > 0;
-      return null;
-    }
-    jeton++;
-    const r = await dep.api.attacher(
-      chat,
-      liste.map((s) => s.id),
+  /** Tâche mise en file : elle part après la précédente et sait si la conversation a changé depuis. */
+  function enFile<T>(tache: (gen: number) => Promise<T>): Promise<T> {
+    const gen = generation;
+    const suite = file.then(
+      () => tache(gen),
+      () => tache(gen),
     );
-    if (dep.currentChatId.value !== chat) return null;
-    if (!r.ok) return r.message || "Secrets non enregistrés.";
-    attaches.value = r.valeur;
+    file = suite.catch(() => undefined);
+    return suite;
+  }
+
+  function nouvelleConversation(): void {
+    generation++;
+    file = Promise.resolve();
     aSceller = false;
+    inconnu = false;
+    attaches.value = [];
+  }
+
+  const courante = (gen: number, chat: string | null): boolean =>
+    gen === generation && dep.currentChatId.value === chat;
+
+  /** Puces relues du serveur, après les changements en cours ; ignorées si le chat a changé. */
+  function recharger(chatId: string): Promise<void> {
+    return enFile(async (gen) => {
+      if (!courante(gen, chatId)) return;
+      const r = await dep.api.attaches(chatId);
+      if (courante(gen, chatId) && r.ok) {
+        attaches.value = r.valeur;
+        inconnu = false;
+      }
+    });
+  }
+
+  /** Ensemble du chat relu si sa lecture à l'ouverture a échoué : rien n'est calculé sur des puces inconnues. */
+  async function assurerEnsemble(gen: number, chat: string): Promise<IssueEnsemble | null> {
+    if (!inconnu) return null;
+    const r = await dep.api.attaches(chat);
+    if (!courante(gen, chat)) return PERIME;
+    if (!r.ok) return { ok: false, message: r.message || "Secrets de la conversation illisibles." };
+    attaches.value = r.valeur;
+    inconnu = false;
     return null;
   }
 
-  async function recharger(chatId: string): Promise<void> {
-    const j = ++jeton;
-    const r = await dep.api.attaches(chatId);
-    if (j !== jeton || dep.currentChatId.value !== chatId) return;
-    if (r.ok) attaches.value = r.valeur;
+  /** Changement de l'ensemble calculé sur les puces à jour ; un secret supprimé ailleurs (`secret_unknown`) fait relire l'ensemble et rejouer le calcul une fois. */
+  function muter(calcul: Calcul): Promise<IssueEnsemble> {
+    return enFile(async (gen): Promise<IssueEnsemble> => {
+      const chat = dep.currentChatId.value;
+      if (gen !== generation) return PERIME;
+      const avant = chat ? await assurerEnsemble(gen, chat) : null;
+      if (avant) return avant;
+      const liste = calcul(attaches.value, chat);
+      if ("message" in liste) return { ok: false, ...liste };
+      if (liste.length > SECRETS_ATTACHES_MAX)
+        return { ok: false, message: `${SECRETS_ATTACHES_MAX} secrets au plus par conversation.` };
+      if (!chat) {
+        attaches.value = [...liste];
+        aSceller = liste.length > 0;
+        return { ok: true };
+      }
+      if (memesIds(liste, attaches.value)) return { ok: true };
+      let r = await dep.api.attacher(
+        chat,
+        liste.map((s) => s.id),
+      );
+      if (!r.ok && r.code === "secret_unknown" && courante(gen, chat)) {
+        const relu = await dep.api.attaches(chat);
+        if (!courante(gen, chat)) return PERIME;
+        if (relu.ok) {
+          attaches.value = relu.valeur;
+          const encore = calcul(relu.valeur, chat);
+          if ("message" in encore) return { ok: false, ...encore };
+          r = await dep.api.attacher(
+            chat,
+            encore.map((s) => s.id),
+          );
+        }
+      }
+      if (!courante(gen, chat)) return PERIME;
+      if (!r.ok) return { ok: false, message: r.message || "Secrets non enregistrés." };
+      attaches.value = r.valeur;
+      aSceller = false;
+      return { ok: true };
+    });
   }
 
   /** Chat chargé : ses ids enregistrés (`secrets` de la conversation) ; métadonnées relues s'il y en a. */
   function appliquerDuChat(ids: unknown, chatId: string): void {
-    jeton++;
-    aSceller = false;
-    attaches.value = [];
-    if (chatId && idsValides(ids).length) void recharger(chatId);
+    nouvelleConversation();
+    if (!chatId || !idsValides(ids).length) return;
+    inconnu = true;
+    void recharger(chatId);
   }
 
   function reinitialiser(): void {
-    jeton++;
-    aSceller = false;
-    attaches.value = [];
+    nouvelleConversation();
   }
 
   function vider(): void {
@@ -154,8 +230,8 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
   }
 
   async function detacher(id: number): Promise<void> {
-    const err = await definir(attaches.value.filter((s) => s.id !== id));
-    if (err) dep.toast(err, "error");
+    const r = await muter((courants) => courants.filter((s) => s.id !== id));
+    if (!r.ok && !("perime" in r)) dep.toast(r.message, "error");
   }
 
   function valeurs(avant: readonly string[]): readonly ValeurMenuSecret[] {
@@ -177,7 +253,14 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
   }
 
   async function lister(): Promise<ResultatCommandeSecret> {
-    await lireCompte(true);
+    const [, ensemble] = await Promise.all([
+      lireCompte(true),
+      enFile((gen) => {
+        const chat = dep.currentChatId.value;
+        return chat ? assurerEnsemble(gen, chat) : Promise.resolve(null);
+      }),
+    ]);
+    if (ensemble) return resultat(ensemble, "");
     const noms = (l: readonly Secret[]): string => l.map((s) => s.name).join(", ") || "aucun";
     return {
       ok: true,
@@ -194,12 +277,18 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
     return null;
   }
 
+  /** Résultat de la commande pour une issue : une issue périmée (chat changé) ne dit rien. */
+  function resultat(r: IssueEnsemble, succes: string): ResultatCommandeSecret {
+    if (r.ok) return { ok: true, msg: succes };
+    if ("perime" in r) return { ok: false, silent: true };
+    return r.info ? { ok: true, info: true, msg: r.message } : { ok: false, msg: r.message };
+  }
+
   async function attacher(noms: readonly string[]): Promise<ResultatCommandeSecret> {
     if (!noms.length) return { ok: false, msg: "Usage : /secret attach <name>…" };
     await lireCompte();
     let relu = false;
-    const liste = [...attaches.value];
-    const ajoutes: string[] = [];
+    const trouves: Secret[] = [];
     for (const nom of noms) {
       let trouve = compte.value.find((x) => x.name === nom);
       if (!trouve && !relu) {
@@ -207,30 +296,37 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
         await lireCompte(true);
         trouve = compte.value.find((x) => x.name === nom);
       }
-      const s = trouve;
-      if (!s) return { ok: false, msg: `Secret inconnu : ${nom}.` };
-      const refus = dep.currentChatId.value ? null : refusLocal(s);
-      if (refus) return { ok: false, msg: refus };
-      if (liste.some((x) => x.id === s.id)) continue;
-      liste.push(s);
-      ajoutes.push(s.name);
+      if (!trouve) return { ok: false, msg: `Secret inconnu : ${nom}.` };
+      trouves.push(trouve);
     }
-    if (!ajoutes.length) return { ok: true, info: true, msg: `Déjà attaché : ${noms.join(", ")}.` };
-    const err = await definir(liste);
-    if (err) return { ok: false, msg: err };
-    return { ok: true, msg: `Attaché : ${ajoutes.join(", ")}.` };
+    let ajoutes: string[] = [];
+    const r = await muter((courants, chat) => {
+      const liste = [...courants];
+      ajoutes = [];
+      for (const s of trouves) {
+        const refus = chat ? null : refusLocal(s);
+        if (refus) return { message: refus };
+        if (liste.some((x) => x.id === s.id)) continue;
+        liste.push(s);
+        ajoutes.push(s.name);
+      }
+      return ajoutes.length ? liste : { message: `Déjà attaché : ${noms.join(", ")}.`, info: true };
+    });
+    return resultat(r, `Attaché : ${ajoutes.join(", ")}.`);
   }
 
   async function detacherNoms(noms: readonly string[]): Promise<ResultatCommandeSecret> {
     if (!noms.length) return { ok: false, msg: "Usage : /secret detach <name>|--all" };
-    if (!attaches.value.length) return { ok: true, info: true, msg: "Aucun secret attaché." };
     const tout = noms.includes("--all");
-    const absent = tout ? undefined : noms.find((n) => !attaches.value.some((s) => s.name === n));
-    if (absent !== undefined) return { ok: false, msg: `Non attaché : ${absent}.` };
-    const retires = tout ? attaches.value.map((s) => s.name) : [...noms];
-    const err = await definir(tout ? [] : attaches.value.filter((s) => !noms.includes(s.name)));
-    if (err) return { ok: false, msg: err };
-    return { ok: true, msg: `Détaché : ${retires.join(", ")}.` };
+    let retires: string[] = [];
+    const r = await muter((courants) => {
+      if (!courants.length) return { message: "Aucun secret attaché.", info: true };
+      const absent = tout ? undefined : noms.find((n) => !courants.some((s) => s.name === n));
+      if (absent !== undefined) return { message: `Non attaché : ${absent}.` };
+      retires = tout ? courants.map((s) => s.name) : [...noms];
+      return tout ? [] : courants.filter((s) => !noms.includes(s.name));
+    });
+    return resultat(r, `Détaché : ${retires.join(", ")}.`);
   }
 
   async function lancer(raw: string): Promise<ResultatCommandeSecret> {
@@ -246,7 +342,6 @@ export function creerSecretsChat(dep: DepsSecretsChat) {
     compte,
     disponibles,
     actualiser,
-    definir,
     recharger,
     appliquerDuChat,
     reinitialiser,

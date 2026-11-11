@@ -14,6 +14,7 @@ import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
 import { repriseAxDuCore } from "./secrets/import-ax";
+import { installerRepriseCoffre, reprendreAuDemarrage } from "./secrets/reprise";
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -59,14 +60,18 @@ export async function reprendreAxAuDemarrage(b: Base): Promise<void> {
   }
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage et reprise des anciens identifiants AX par main seulement. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (clés rangées dans le coffre par ce process, rapport journalisé), puis nettoyage, reprise des anciennes clés et des anciens identifiants AX par main seulement. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
+  installerRepriseCoffre();
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
     ...(mode === "main" ? { apres: nettoyerAuDemarrage } : {}),
     journal,
   });
   courante = nouvelle;
-  if (mode === "main") await reprendreAxAuDemarrage(nouvelle);
+  if (mode === "main") {
+    await reprendreAuDemarrage(nouvelle, rapport, journal("coffre"));
+    await reprendreAxAuDemarrage(nouvelle);
+  }
   return rapport;
 }

@@ -118,7 +118,7 @@ function actif(ligne: ConnecteurSecret): boolean {
   return ligne.enabled === undefined ? true : veritePy(ligne.enabled);
 }
 
-/** Cible de `(userId, connectorId, model)` : intégré sans connecteur, sinon le connecteur visible par ce compte ; `strict` lève au lieu du repli. */
+/** Cible de `(userId, connectorId, model)` : intégré sans connecteur, sinon le connecteur visible par ce compte, clé lue du coffre à chaque résolution (portée par la cible pour le tour) ; `strict` lève au lieu du repli. */
 export async function resolveLlmTarget(
   userId: unknown,
   connectorId: unknown,
@@ -150,6 +150,10 @@ export async function resolveLlmTarget(
       ligne = null;
       raison = "provider";
     }
+  }
+  if (ligne !== null && veritePy(ligne) && actif(ligne) && veritePy(ligne.key_error)) {
+    ligne = null;
+    raison = "key";
   }
   if (ligne === null || !veritePy(ligne) || !actif(ligne) || port === null) {
     if (options.strict) throw new EngineUnavailable(raison, MESSAGES[raison]);

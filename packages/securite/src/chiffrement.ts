@@ -452,6 +452,20 @@ export function encrypt(plaintext: string | null | undefined): string {
   return f.encrypt(encoderUtf8Py(plaintext || ""));
 }
 
+/** Clair d'un jeton de la clé maître pour une reprise de données : `InvalidToken` (jeton illisible, autre clé) ou `EncryptionUnavailable` (aucune clé), jamais "". */
+export function decryptStrict(token: string): string {
+  const f = getCipher();
+  if (f === null)
+    throw new EncryptionUnavailable("Clé de chiffrement indisponible — définir APP_ENCRYPTION_KEY.");
+  try {
+    if (!estAscii(token)) throw new InvalidToken();
+    return decoderUtf8Py(f.decrypt(token));
+  } catch (e) {
+    if (e instanceof InvalidToken || estErreurPython(e, "ValueError", "TypeError")) throw new InvalidToken();
+    throw e;
+  }
+}
+
 /** "" (et un avertissement) sur jeton invalide ou clé changée ; "" sans bruit si aucune clé n'existe. */
 export function decrypt(token: string | null | undefined): string {
   const f = getCipher();

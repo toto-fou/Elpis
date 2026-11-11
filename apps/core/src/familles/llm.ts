@@ -12,7 +12,6 @@ import {
   intPy,
   HttpError,
   nomTypePy,
-  prefixePy,
   pyJsonDumps,
   quotePy,
   stripPy,
@@ -77,8 +76,9 @@ import { profilDe, vuePubliqueProfil } from "../llm/profils";
 import { contexteAnnonce, getLlmHealth, setLoadedModelCache } from "../llm/sante";
 import { infosServeur, reflexionConservable } from "../llm/sonde-moteur";
 import type { Famille } from "../routes";
-import { auditer } from "./admin-llm";
+import { auditer, refusStockage } from "./admin-llm";
 import { utilisateur } from "./comptes";
+import { acteurDe } from "./secrets";
 import { corpsJson, entrees, ouvrirFlux, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
 export interface DependancesLlm {
@@ -301,22 +301,23 @@ async function creerConnecteur(dep: DependancesLlm, req: FastifyRequest): Promis
   if (!apiKey) throw new HttpError(400, "Clé API requise pour un connecteur cloud");
   let cid: number;
   try {
-    cid = await createConnector(dep.base, {
-      scope: "user",
-      owner_user_id: uid,
-      api_key: apiKey,
-      provider_type: champs["provider_type"] as string,
-      wire: champs["wire"] as string,
-      base_url: champs["base_url"] as string,
-      label: champs["label"] as string,
-      default_model: champs["default_model"] as string,
-      models_json: champs["models_json"] as string,
-    });
-  } catch (e) {
-    throw new HttpError(
-      503,
-      `Stockage du connecteur impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
+    cid = await createConnector(
+      dep.base,
+      {
+        scope: "user",
+        owner_user_id: uid,
+        api_key: apiKey,
+        provider_type: champs["provider_type"] as string,
+        wire: champs["wire"] as string,
+        base_url: champs["base_url"] as string,
+        label: champs["label"] as string,
+        default_model: champs["default_model"] as string,
+        models_json: champs["models_json"] as string,
+      },
+      acteurDe(req),
     );
+  } catch (e) {
+    throw refusStockage("Stockage du connecteur impossible", e);
   }
   auditer(req, "llm.connector.create", {
     connector_id: cid,
@@ -339,12 +340,9 @@ async function modifierConnecteur(dep: DependancesLlm, req: FastifyRequest): Pro
   if (cle) champs.api_key = cle;
   let ok: boolean;
   try {
-    ok = await updateUserConnector(dep.base, uid, cid, champs);
+    ok = await updateUserConnector(dep.base, uid, cid, champs, acteurDe(req));
   } catch (e) {
-    throw new HttpError(
-      503,
-      `Mise à jour impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
-    );
+    throw refusStockage("Mise à jour impossible", e);
   }
   if (!ok) throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
   auditer(req, "llm.connector.update", { connector_id: cid });
@@ -355,7 +353,8 @@ async function modifierConnecteur(dep: DependancesLlm, req: FastifyRequest): Pro
 async function supprimerConnecteur(dep: DependancesLlm, req: FastifyRequest): Promise<Dict> {
   const uid = utilisateur(req);
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
-  if (!(await deleteUserConnector(dep.base, uid, cid))) throw new HttpError(404, "Connecteur introuvable");
+  if (!(await deleteUserConnector(dep.base, uid, cid, acteurDe(req))))
+    throw new HttpError(404, "Connecteur introuvable");
   oublierServeur(connectorKey(cid));
   auditer(req, "llm.connector.delete", { connector_id: cid });
   oublierFenetres();

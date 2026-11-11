@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-images.ts — console du moteur d'images : test et modèles sur les valeurs du formulaire, état et enregistrement de la clé scellée (shared_infra/routes/admin/image.py). */
+/** apps/core/src/familles/admin-images.ts — console du moteur d'images : test et modèles sur les valeurs du formulaire, état et enregistrement de la clé, rangée dans le coffre pour l'origine du moteur (shared_infra/routes/admin/image.py). */
 import {
   encoderUtf8Py,
   ErreurJsonPy,
@@ -19,25 +19,24 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { encrypt, EncryptionUnavailable } from "@elpis/securite";
+import type { Base } from "@elpis/db";
 import type { FastifyRequest } from "fastify";
 
-import { SkinError } from "../apparence/skins";
 import { journal } from "../journal";
 import { ImageError } from "../images/base";
-import {
-  apiKey,
-  engineOrigin,
-  getImageConfig,
-  imageReady,
-  keyState,
-  PROVIDERS,
-  sealApiKey,
-  writeApiKey,
-} from "../images/config";
+import { cleImages, enregistrerCleImages, etatCleImages } from "../images/cle";
+import { engineOrigin, getImageConfig, imageReady, PROVIDERS, retirerCleHeritee } from "../images/config";
 import { forgetCapabilities, getProvider } from "../images/service";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
+import { refusEcritureCle } from "../llm/cle-coffre";
+import { origineExacte } from "../secrets/portee";
+import type { Acteur } from "../secrets/stockage";
+import { acteurDe } from "./secrets";
 import { repondreAnnote } from "@elpis/http";
+
+export interface DependancesAdminImages {
+  readonly base: Base;
+}
 
 const log = journal("admin");
 
@@ -67,8 +66,8 @@ function normUrl(url: unknown): string {
 
 const fourni = (data: Dict, cle: string): boolean => getOu(data, cle, null) !== null;
 
-/** Configuration enregistrée + surcharges du formulaire ; la clé saisie, sinon l'enregistrée si elle est scellée pour l'adresse testée. */
-function merged(data: Dict): Dict {
+/** Configuration enregistrée + surcharges du formulaire ; la clé saisie, sinon celle du coffre si sa portée couvre l'adresse testée. */
+async function merged(data: Dict, base: Base): Promise<Dict> {
   const cfg: Dict = { ...getImageConfig() };
   const choix = getOu(data, "provider", null);
   const provider = lowerPy(stripPy(strPy(veritePy(choix) ? choix : "")));
@@ -81,7 +80,7 @@ function merged(data: Dict): Dict {
   if (fourni(data, "ca_pem")) cfg["ca_pem"] = prefixePy(stripPy(strPy(data["ca_pem"])), CA_MAX);
   const typee = getOu(data, "api_key", null);
   const saisie = stripPy(strPy(veritePy(typee) ? typee : ""));
-  cfg["api_key"] = saisie || apiKey(cfg);
+  cfg["api_key"] = saisie || (await cleImages(cfg, base));
   cfg["timeout_sec"] = Math.min(intPy(veritePy(cfg["timeout_sec"]) ? cfg["timeout_sec"] : 30), 30);
   return cfg;
 }
@@ -96,13 +95,13 @@ function echec(route: string, e: unknown): string {
   return ERREUR_INTERNE;
 }
 
-async function tester(data: Dict): Promise<Dict> {
+async function tester(data: Dict, base: Base): Promise<Dict> {
   const saved = getImageConfig();
-  const cfg = merged(data);
+  const cfg = await merged(data, base);
   const out: Dict = {
     ok: false,
     provider: cfg["provider"],
-    ...keyState(saved),
+    ...(await etatCleImages(saved, base)),
     enabled: saved.enabled,
     ready: imageReady(saved),
   };
@@ -145,8 +144,8 @@ async function tester(data: Dict): Promise<Dict> {
   return out;
 }
 
-async function modeles(data: Dict): Promise<Dict> {
-  const cfg = merged(data);
+async function modeles(data: Dict, base: Base): Promise<Dict> {
+  const cfg = await merged(data, base);
   if (!veritePy(cfg["url"])) return { ok: false, models: [], error: SANS_ADRESSE };
   try {
     return { ok: true, models: await getProvider(cfg).listModels() };
@@ -155,32 +154,36 @@ async function modeles(data: Dict): Promise<Dict> {
   }
 }
 
-/** `{api_key, url?}` : clé scellée pour l'origine de `url` (sinon de l'adresse enregistrée), `""` l'efface. */
-async function enregistrerCle(data: Dict): Promise<Dict> {
+/** Ancienne clé retirée de config.json et de config.json.bak une fois la nouvelle rangée, au mieux (le démarrage de main réessaie). */
+async function retirerAncienne(): Promise<void> {
+  try {
+    await retirerCleHeritee();
+  } catch (e) {
+    log.warn(
+      `[admin/image/key] ancienne clé de config.json non retirée : ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+}
+
+/** `{api_key, url?}` : clé rangée dans le coffre pour l'origine de `url` (sinon de l'adresse enregistrée), `""` l'efface. */
+async function enregistrerCle(data: Dict, base: Base, acteur: Acteur): Promise<Dict> {
   const brute = getOu(data, "api_key", null);
   const key = stripPy(strPy(veritePy(brute) ? brute : ""));
   if (longueurPy(key) > KEY_MAX) throw new HttpError(400, "Clé trop longue.");
   const url = fourni(data, "url") ? normUrl(data["url"]) : getImageConfig().url;
-  if (key && !engineOrigin(url)) throw new HttpError(400, "Renseignez d'abord l'adresse du moteur.");
-  let enc = "";
-  if (key) {
-    const scelle = sealApiKey(key, url);
-    encoderUtf8Py(scelle);
-    try {
-      enc = encrypt(scelle);
-    } catch (e) {
-      if (e instanceof EncryptionUnavailable) throw new HttpError(503, e.message);
-      throw e;
-    }
-  }
+  if (key && (!engineOrigin(url) || origineExacte(url) === null))
+    throw new HttpError(400, "Renseignez d'abord l'adresse du moteur.");
+  encoderUtf8Py(key);
   try {
-    await writeApiKey(enc);
+    await enregistrerCleImages(base, key, url, acteur);
   } catch (e) {
-    if (e instanceof SkinError) throw new HttpError(500, e.message);
+    const refus = refusEcritureCle(e);
+    if (refus !== null) throw new HttpError(refus.statut, refus.message);
     throw e;
   }
+  await retirerAncienne();
   forgetCapabilities();
-  return { ok: true, ...keyState(getImageConfig()) };
+  return { ok: true, ...(await etatCleImages(getImageConfig(), base)) };
 }
 
 function route(methode: DefinitionRoute["methode"], chemin: string, traiter: Traitement): DefinitionRoute {
@@ -188,19 +191,22 @@ function route(methode: DefinitionRoute["methode"], chemin: string, traiter: Tra
 }
 
 /** Test et modèles répondent toujours 200 avec `ok` (un test raté n'est pas une requête ratée) ; la clé n'est jamais renvoyée. */
-export function creerFamilleAdminImages(): Famille {
+export function creerFamilleAdminImages(dep: DependancesAdminImages): Famille {
+  const base = dep.base;
   return {
     nom: "admin-images",
     routes: [
       route("POST", "/api/admin/image/test", async (req, rep) =>
-        repondreAnnote(rep, await tester(corpsObjet(req))),
+        repondreAnnote(rep, await tester(corpsObjet(req), base)),
       ),
       route("POST", "/api/admin/image/models", async (req, rep) =>
-        repondreAnnote(rep, await modeles(corpsObjet(req))),
+        repondreAnnote(rep, await modeles(corpsObjet(req), base)),
       ),
-      route("GET", "/api/admin/image/key", (_req, rep) => repondreAnnote(rep, keyState(getImageConfig()))),
+      route("GET", "/api/admin/image/key", async (_req, rep) =>
+        repondreAnnote(rep, await etatCleImages(getImageConfig(), base)),
+      ),
       route("PUT", "/api/admin/image/key", async (req, rep) =>
-        repondreAnnote(rep, await enregistrerCle(corpsObjet(req))),
+        repondreAnnote(rep, await enregistrerCle(corpsObjet(req), base, acteurDe(req))),
       ),
     ],
   };

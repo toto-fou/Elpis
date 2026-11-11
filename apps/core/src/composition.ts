@@ -507,7 +507,7 @@ export async function composer(
       creerFamilleExecutions({ base }),
       creerFamilleChatControle({ base, auth, arret: cycle.signalArret }),
       creerFamilleImages({ base }),
-      creerFamilleAdminImages(),
+      creerFamilleAdminImages({ base }),
       creerFamilleChat({ base, auth, arret: cycle.signalArret }),
       creerFamilleChatCompression({ base }),
       ...(mode === "main"

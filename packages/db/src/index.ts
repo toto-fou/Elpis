@@ -46,4 +46,4 @@ export {
   registreMigrations,
   walCheckpoint,
 } from "./init";
-export type { InfoBase, Migration, OptionsInfo, RapportInit } from "./init";
+export type { InfoBase, Migration, OptionsInfo, OptionsInit, RapportInit } from "./init";

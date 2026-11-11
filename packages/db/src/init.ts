@@ -74,8 +74,15 @@ async function tamponner(x: Executeur, name: string): Promise<void> {
   ]);
 }
 
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; `propres` : migrations numérotées d'un seul process (le core), jouées avec celles du TS dans l'ordre des noms. */
-export async function initialiserBase(base: Base, propres: readonly Migration[] = []): Promise<RapportInit> {
+export interface OptionsInit {
+  /** Migrations numérotées d'un seul process, jouées avec celles du TS dans l'ordre des noms. */
+  readonly migrations?: readonly Migration[];
+  /** Réservé à l'annonce d'un travail réel (ligne d'essai) ; sans effet sur cette base. */
+  readonly annoncerTravail?: () => void;
+}
+
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations du TS et du process (`o.migrations`). */
+export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<RapportInit> {
   return base.ecriture(async (x) => {
     const neuve = await isFresh(x);
     if (!neuve) {
@@ -115,7 +122,7 @@ export async function initialiserBase(base: Base, propres: readonly Migration[] 
       colonnesImpossibles: schema.impossibles,
     };
     const faites = await appliquees(x);
-    const migrations = [...MIGRATIONS_TS, ...propres].sort((a, b) => (a.name < b.name ? -1 : 1));
+    const migrations = [...MIGRATIONS_TS, ...(o.migrations ?? [])].sort((a, b) => (a.name < b.name ? -1 : 1));
     registreMigrations(migrations);
     for (const m of migrations) {
       if (faites.has(m.name)) continue;

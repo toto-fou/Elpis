@@ -478,6 +478,42 @@ describe("relais des secrets (socket unix réel)", () => {
     relais.oublier("i1");
   });
 
+  it("WebSocket chiffré vers une origine de secret : amont vérifié (TLS strict par défaut), relâché seulement par la politique du secret", async () => {
+    const autreAc = chargerAutorite(path.join(dossier, "ca-inconnue"));
+    const feuilles = new Feuilles(autreAc);
+    const ws = createServerHttps({ SNICallback: (h, cb) => cb(null, feuilles.contexte(h)) }, (_q, r) =>
+      r.end(),
+    );
+    ws.on("upgrade", (_q: IncomingMessage, s: Socket) => {
+      s.end("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+    });
+    await new Promise<void>((ok) => ws.listen(0, "127.0.0.1", () => ok()));
+    try {
+      const origine = `https://ws.test:${port(ws)}`;
+      const essai = async (): Promise<string> => {
+        const t = await tunnel(`ws.test:${port(ws)}`);
+        const tls = connexionTls({ socket: t.s, servername: "ws.test", ca: ac.certPem });
+        tls.on("error", () => undefined);
+        await new Promise<void>((ok) => tls.once("secureConnect", () => ok()));
+        tls.write(
+          "GET /flux HTTP/1.1\r\nHost: ws.test\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n",
+        );
+        const m: Buffer[] = [];
+        tls.on("data", (d: Buffer) => m.push(d));
+        await new Promise((ok) => tls.once("close", ok));
+        return Buffer.concat(m).toString().split("\r\n")[0] ?? "";
+      };
+      relais.lier(liaison({ id: "w1", origines: [origine] }));
+      expect(await essai()).toBe("");
+      relais.oublier("w1");
+      relais.lier(liaison({ id: "w2", origines: [origine], tls: "insecure" }));
+      expect(await essai()).toBe("HTTP/1.1 101 Switching Protocols");
+      relais.oublier("w2");
+    } finally {
+      ws.close();
+    }
+  });
+
   it("formes du relais et du service identiques", async () => {
     const service = (await import(
       new URL("../../../browser-service/secret_util.js", import.meta.url).href

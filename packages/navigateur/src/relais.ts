@@ -835,32 +835,30 @@ export class RelaisNavigateur {
     req: IncomingMessage,
     client: Socket,
     tete: Buffer,
-    origineTls: string | null,
+    origineInterceptee: string | null,
   ): Promise<void> {
     this.suivre(client);
     let u: URL;
     try {
-      u = new URL(origineTls === null ? (req.url ?? "") : `${origineTls}${req.url ?? "/"}`);
+      u = new URL(origineInterceptee === null ? (req.url ?? "") : `${origineInterceptee}${req.url ?? "/"}`);
     } catch {
       return void client.destroy();
     }
-    if (origineTls === null && !this.autorise(req)) return void client.destroy();
+    if (origineInterceptee === null && !this.autorise(req)) return void client.destroy();
     const tls = u.protocol === "https:" || u.protocol === "wss:";
     const port = Number(u.port || (tls ? 443 : 80));
-    const hote = u.hostname.replace(/^\[|\]$/gu, "");
+    const hote = hoteNormal(u.hostname);
     const v = await this.o.juger(hote, port);
     if (!v.ok || client.destroyed) return void client.destroy();
+    // Amont en TLS comme pour une requête : strict, sauf liaisons exactes qui le relâchent toutes.
+    const { exactes } = await this.couvrant(tls ? "https" : "http", hote, port, v);
+    if (client.destroyed) return;
     const lignes = [`${req.method ?? "GET"} ${u.pathname}${u.search} HTTP/1.1`];
     for (let i = 0; i + 1 < req.rawHeaders.length; i += 2)
       if (!/^proxy-/iu.test(req.rawHeaders[i] ?? ""))
         lignes.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
     const amont = tls
-      ? connexionTls({
-          host: v.adresse,
-          port,
-          servername: isIP(hote) ? undefined : hote,
-          rejectUnauthorized: false,
-        })
+      ? connexionTls({ host: v.adresse, port, ...this.optionsTls(hote, exactes) })
       : connexionNet(port, v.adresse);
     this.suivre(amont);
     amont.once(tls ? "secureConnect" : "connect", () => {

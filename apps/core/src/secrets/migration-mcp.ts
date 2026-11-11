@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/migration-mcp.ts — migration 0029_vault_mcp : secrets des serveurs MCP (perso dans `users.settings_json`, partagés dans `mcp_shared_servers`), Fernet ou clair hérité, repris au coffre ; un chiffré illisible (clé Fernet changée ou absente, jamais créée ici) reste en place, signalé (`secret_error`), journalisé et réessayé à chaque démarrage de main ; sans clé du coffre, rien n'est validé et la migration est rejouée au démarrage suivant. */
+/** apps/core/src/secrets/migration-mcp.ts — migration 0029_vault_mcp : secrets des serveurs MCP (perso dans `users.settings_json`, partagés dans `mcp_shared_servers`), Fernet (port du contexte, clé jamais créée) ou clair hérité, repris au coffre ; un chiffré illisible ou sans clé Fernet reste en place, signalé (`secret_error`) et réessayé à chaque démarrage de main s'il en reste ; sans clé du coffre, rien n'est validé et la migration est rejouée au démarrage suivant. */
 import { reglagesDepuis, reglagesEnJson } from "@elpis/auth";
-import { estDict, intPy, reprPy, strPy } from "@elpis/commun";
+import { estDict, intPy, reprPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import type { Base, Executeur, Migration, RapportInit } from "@elpis/db";
+import { avecEffacementSur } from "@elpis/db";
+import type { Base, Executeur, Migration, NotesMigration, PortFernet, RapportInit } from "@elpis/db";
 import {
+  CLES_HERITEES,
   completerSecrets,
+  drapeauReprise,
   entreeReprise,
   idSecretServeur,
   publicId,
@@ -13,23 +16,37 @@ import {
   SecretMcpIndisponible,
   serveurDePortee,
 } from "@elpis/mcp";
-import type { ActeurMcp, RepriseHeritee, SecretsServeur } from "@elpis/mcp";
-import { cleFernetPresente } from "@elpis/securite";
+import type { ActeurMcp, LecteurFernet, RepriseHeritee, SecretsServeur } from "@elpis/mcp";
 
-import { journal } from "../journal";
 import type { Journal } from "../journal";
 import { ErreurSecret } from "./erreurs";
 import { ecrireSecretMcp, lireSecretMcp } from "./mcp";
+import { FERNET_SANS_CREATION } from "./reprise";
 
 const NOM = "0029_vault_mcp";
+const TABLES = ["users", "mcp_shared_servers"];
 const SYSTEME: ActeurMcp = { userId: null, username: null };
-const log = journal("db");
 
 interface Bilan {
   entrees: number;
   secrets: number;
   illisibles: number;
   refuses: number;
+  /** Entrées et lignes dont une ancienne valeur est partie (tables à compacter). */
+  retirees: number;
+  avertissements: string[];
+}
+
+/** Fernet du contexte ; absent : clé absente, valeurs gardées pour le démarrage suivant. */
+function lecteurDe(fernet: PortFernet | null): LecteurFernet {
+  return fernet === null ? () => ({ erreur: "cle_absente" }) : (jeton) => fernet.ouvrir(jeton);
+}
+
+/** Vrai si la reprise retire une ancienne valeur (champ hérité rempli, hors schémas, non gardé). */
+function retireValeur(src: Dict, r: RepriseHeritee): boolean {
+  return r.cles.some(
+    (k) => !r.gardees.includes(k) && k !== "key_scheme" && k !== "extra_scheme" && veritePy(src[k]),
+  );
 }
 
 /** Échec de la migration : message explicite, la transaction est annulée et la migration rejouée. */
@@ -77,23 +94,29 @@ async function reprendre(
   }
 }
 
-function signaler(qui: string, srv: Dict, quoi: string): void {
-  log.warn(
-    `${NOM} : ${qui}, serveur ${reprPy(strPy(srv["id"] ?? srv["name"] ?? "?").slice(0, 80))} : ${quoi}`,
+function signaler(bilan: Bilan, qui: string, srv: Dict, quoi: string): void {
+  bilan.avertissements.push(
+    `${qui}, serveur ${reprPy(strPy(srv["id"] ?? srv["name"] ?? "?").slice(0, 80))} : ${quoi}`,
   );
 }
 
 /** Pourquoi un chiffré n'a pas pu être lu, pour le journal. */
 function motifIllisible(r: RepriseHeritee): string {
-  const cause = cleFernetPresente()
-    ? "illisible avec la clé de chiffrement actuelle"
-    : "clé de chiffrement indisponible (APP_ENCRYPTION_KEY, user_db/.encryption_key)";
+  const cause = r.cleAbsente
+    ? "clé de chiffrement indisponible (APP_ENCRYPTION_KEY, user_db/.encryption_key)"
+    : "illisible avec la clé de chiffrement actuelle";
   return `chiffré ${r.illisibles.join(", ")} ${cause} : laissé en place, signalé, réessayé au prochain démarrage`;
 }
 
 /** Une entrée perso : secret repris (`secret_id`), champs hérités retirés sauf les chiffrés illisibles ; vrai si elle a changé. */
-async function migrerEntree(base: Base, uid: number, srv: Dict, bilan: Bilan): Promise<boolean> {
-  const r = repriseHeritee(srv);
+async function migrerEntree(
+  base: Base,
+  uid: number,
+  srv: Dict,
+  bilan: Bilan,
+  lire: LecteurFernet,
+): Promise<boolean> {
+  const r = repriseHeritee(srv, lire);
   if (r === null) return false;
   bilan.entrees += 1;
   const existant = idSecretServeur(srv["secret_id"]);
@@ -104,6 +127,7 @@ async function migrerEntree(base: Base, uid: number, srv: Dict, bilan: Bilan): P
       bilan.refuses += 1;
       srv["secret_error"] = "not_migrated";
       signaler(
+        bilan,
         `compte ${uid}`,
         srv,
         "valeur refusée par le coffre (taille, nombre de secrets, ou secret déjà au coffre illisible), laissée en place",
@@ -112,16 +136,17 @@ async function migrerEntree(base: Base, uid: number, srv: Dict, bilan: Bilan): P
     }
     bilan.secrets += 1;
   }
+  if (retireValeur(srv, r)) bilan.retirees += 1;
   entreeReprise(srv, r, id);
   if (r.illisibles.length > 0) {
     bilan.illisibles += 1;
-    signaler(`compte ${uid}`, srv, motifIllisible(r));
+    signaler(bilan, `compte ${uid}`, srv, motifIllisible(r));
   }
   return true;
 }
 
 /** Serveurs perso de chaque compte ; un `settings_json` illisible est laissé tel quel. */
-async function migrerComptes(x: Executeur, base: Base, bilan: Bilan): Promise<void> {
+async function migrerComptes(x: Executeur, base: Base, bilan: Bilan, lire: LecteurFernet): Promise<void> {
   const comptes = await x.all<{ id: number; settings_json: unknown }>(
     "SELECT id, settings_json FROM users ORDER BY id",
   );
@@ -134,16 +159,17 @@ async function migrerComptes(x: Executeur, base: Base, bilan: Bilan): Promise<vo
     const liste = reglages["mcp_servers"];
     if (corrompu || !Array.isArray(liste)) continue;
     let change = false;
-    for (const srv of liste) if (estDict(srv) && (await migrerEntree(base, uid, srv, bilan))) change = true;
+    for (const srv of liste)
+      if (estDict(srv) && (await migrerEntree(base, uid, srv, bilan, lire))) change = true;
     if (change) await x.run("UPDATE users SET settings_json=? WHERE id=?", [reglagesEnJson(reglages), uid]);
   }
 }
 
 /** Bibliothèque partagée : secrets d'instance (`mcp-shared-<n>`), colonnes héritées vidées sauf les chiffrés illisibles. */
-async function migrerPartages(x: Executeur, base: Base, bilan: Bilan): Promise<void> {
+async function migrerPartages(x: Executeur, base: Base, bilan: Bilan, lire: LecteurFernet): Promise<void> {
   const lignes = await x.all("SELECT * FROM mcp_shared_servers ORDER BY id");
   for (const ligne of lignes) {
-    const r = repriseHeritee(ligne);
+    const r = repriseHeritee(ligne, lire);
     if (r === null || !r.aVider) continue;
     bilan.entrees += 1;
     const rid = intPy(ligne["id"]);
@@ -154,7 +180,7 @@ async function migrerPartages(x: Executeur, base: Base, bilan: Bilan): Promise<v
       id = await reprendre(base, null, serveur, r, existant);
       if (id === null) {
         bilan.refuses += 1;
-        signaler("bibliothèque partagée", ligne, "valeur refusée par le coffre, laissée en place");
+        signaler(bilan, "bibliothèque partagée", ligne, "valeur refusée par le coffre, laissée en place");
         await x.run("UPDATE mcp_shared_servers SET secret_error=? WHERE id=?", ["not_migrated", rid]);
         continue;
       }
@@ -162,9 +188,10 @@ async function migrerPartages(x: Executeur, base: Base, bilan: Bilan): Promise<v
     }
     const garder = (k: string, vide: string): string =>
       r.gardees.includes(k) ? strPy(ligne[k] ?? vide) : vide;
+    if (retireValeur(ligne, r)) bilan.retirees += 1;
     if (r.illisibles.length > 0) {
       bilan.illisibles += 1;
-      signaler("bibliothèque partagée", ligne, motifIllisible(r));
+      signaler(bilan, "bibliothèque partagée", ligne, motifIllisible(r));
     }
     await x.run(
       "UPDATE mcp_shared_servers SET auth_mode=?, auth_user=?, auth_enc=?, key_scheme=?, headers_enc=?, env_enc=?, " +
@@ -178,40 +205,83 @@ async function migrerPartages(x: Executeur, base: Base, bilan: Bilan): Promise<v
         garder("env_enc", ""),
         garder("extra_scheme", "plain"),
         id,
-        r.illisibles.length > 0 ? "undecryptable" : "",
+        drapeauReprise(r),
         rid,
       ],
     );
   }
 }
 
-/** `0029_vault_mcp` (et sa reprise au démarrage) : comptes puis bibliothèque partagée, dans la transaction de l'appelant. */
-export async function migrerSecretsMcp(x: Executeur, base: Base): Promise<void> {
-  const bilan: Bilan = { entrees: 0, secrets: 0, illisibles: 0, refuses: 0 };
-  await migrerComptes(x, base, bilan);
-  await migrerPartages(x, base, bilan);
-  if (bilan.entrees > 0)
-    log.info(
-      `${NOM} : ${bilan.entrees} serveur(s) MCP repris, ${bilan.secrets} secret(s) au coffre, ` +
-        `${bilan.illisibles} chiffré(s) illisible(s) signalé(s), ${bilan.refuses} refusé(s) par le coffre`,
-    );
+/** `0029_vault_mcp` (et sa reprise au démarrage) : comptes puis bibliothèque partagée, dans la transaction de l'appelant ; rend son bilan (avertissements sans valeur). */
+export async function migrerSecretsMcp(x: Executeur, base: Base, lire: LecteurFernet): Promise<Bilan> {
+  const bilan: Bilan = { entrees: 0, secrets: 0, illisibles: 0, refuses: 0, retirees: 0, avertissements: [] };
+  await migrerComptes(x, base, bilan, lire);
+  await migrerPartages(x, base, bilan, lire);
+  return bilan;
+}
+
+/** Notes d'un bilan pour le journal du démarrage. */
+function notes(b: Bilan): NotesMigration {
+  return {
+    infos:
+      b.entrees > 0
+        ? [
+            `${b.entrees} serveur(s) MCP repris, ${b.secrets} secret(s) au coffre, ` +
+              `${b.illisibles} chiffré(s) illisible(s) signalé(s), ${b.refuses} refusé(s) par le coffre`,
+          ]
+        : [],
+    avertissements: b.avertissements,
+  };
 }
 
 export const MIGRATION_MCP: Migration = {
   name: NOM,
-  tables: ["users", "mcp_shared_servers"],
-  migrer: migrerSecretsMcp,
+  tables: TABLES,
+  async migrer(x, base, ctx) {
+    return notes(await migrerSecretsMcp(x, base, lecteurDe(ctx.fernet)));
+  },
 };
 
-/** Main, migration faite à un démarrage précédent : entrées et lignes restées hors du coffre (chiffré illisible, clé Fernet absente, refus du coffre) réessayées ; jamais d'échec du démarrage. */
-export async function reprendreMcpAuDemarrage(base: Base, rapport: RapportInit, j: Journal): Promise<void> {
+/** Reste de 0029 : une ligne partagée ou une entrée perso porte encore un champ hérité (chiffré gardé, refus du coffre, clé Fernet absente) ; sinon la reprise n'ouvre aucune transaction. */
+async function resteMcp(base: Base): Promise<boolean> {
+  const partage = await base.get(
+    "SELECT 1 AS un FROM mcp_shared_servers WHERE auth_enc <> '' OR headers_enc <> '' OR env_enc <> '' LIMIT 1",
+  );
+  if (partage !== undefined) return true;
+  const motifs = CLES_HERITEES.map((k) => `%"${k}"%`);
+  const comptes = await base.all<{ settings_json: unknown }>(
+    `SELECT settings_json FROM users WHERE ${motifs.map(() => "settings_json LIKE ?").join(" OR ")}`,
+    motifs,
+  );
+  return comptes.some((c) => {
+    const liste = reglagesDepuis(c.settings_json, () => undefined)["mcp_servers"];
+    return (
+      Array.isArray(liste) &&
+      liste.some((srv) => estDict(srv) && CLES_HERITEES.some((k) => Object.hasOwn(srv, k)))
+    );
+  });
+}
+
+/** Suite de 0029 au démarrage de main (sous le verrou de schéma), migration faite à un démarrage précédent et seulement s'il en reste : entrées et lignes restées hors du coffre réessayées sous `secure_delete`, journal après validation ; rend les tables dont d'anciennes valeurs sont parties (à compacter) ; jamais d'échec du démarrage. */
+export async function reprendreMcpAuDemarrage(
+  base: Base,
+  rapport: RapportInit,
+  j: Journal,
+): Promise<string[]> {
   try {
-    if (rapport.appliquees.includes(NOM)) return;
-    if (!(await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [NOM]))) return;
-    await base.ecriture((x) => migrerSecretsMcp(x, base));
+    if (rapport.appliquees.includes(NOM)) return [];
+    if (!(await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [NOM]))) return [];
+    if (!(await resteMcp(base))) return [];
+    const lire = lecteurDe(FERNET_SANS_CREATION);
+    const bilan = await base.ecriture((x) => avecEffacementSur(x, () => migrerSecretsMcp(x, base, lire)));
+    const n = notes(bilan);
+    for (const i of n.infos ?? []) j.info(`${NOM} : ${i}`);
+    for (const a of n.avertissements ?? []) j.warn(`${NOM} : ${a}`);
+    return bilan.retirees > 0 ? [...TABLES] : [];
   } catch (e) {
     j.warn(
       `${NOM} : reprise des secrets MCP restés hors du coffre reportée au prochain démarrage (${e instanceof Error ? e.message : String(e)})`,
     );
+    return [];
   }
 }

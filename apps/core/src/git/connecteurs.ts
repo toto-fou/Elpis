@@ -2,8 +2,9 @@
 /** apps/core/src/git/connecteurs.ts — comptes git (connecteurs) par compte (shared_infra/git/connectors.py) : jeton en écriture seule dans le coffre « Secrets » (genre `git`, portée : l'hôte), relu côté serveur seulement, jamais rendu par les vues publiques. */
 import { hostname, lowerPy, port, stripPy, strPy, urlsplit, veritePy, versFlottantPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { nomDeriveCoffre } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
-import { nomDeriveCoffre, urlNonAmbigue } from "@elpis/securite";
+import { urlNonAmbigue } from "@elpis/securite";
 
 import { ErreurSecret } from "../secrets/erreurs";
 import { hoteExact, validerIdentifiant } from "../secrets/portee";

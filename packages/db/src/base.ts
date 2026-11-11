@@ -328,7 +328,7 @@ function lancerSuites(suites: readonly (() => void)[]): void {
 }
 
 /** `fn` une fois la transaction englobante de `base` validée (tout de suite hors transaction, ou pour une base qui n'en tient pas) ; annulée, `fn` est oubliée. */
-export function apresValidation(base: Base, fn: () => void): void {
+export function apresValidation(base: Executeur, fn: () => void): void {
   if (base instanceof BaseCommune) base.apresValidation(fn);
   else fn();
 }

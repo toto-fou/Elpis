@@ -4,7 +4,7 @@ import { configView } from "@elpis/config";
 
 import type { Executeur } from "./base";
 import { MigrationDifferee } from "./migration";
-import type { CoffreMigration, Migration, PortFernet } from "./migration";
+import type { Migration, PortCoffre, PortFernet } from "./migration";
 
 /** Secret d'instance qui porte la clé du moteur d'images. */
 export const NOM_CLE_IMAGES = "image-engine";
@@ -21,7 +21,7 @@ export const POLITIQUE_CLE_MOTEUR = {
 
 /** Coffre et Fernet de la reprise (contexte de la migration, ou ceux de main à son démarrage). */
 export interface PortsReprise {
-  readonly coffre: CoffreMigration;
+  readonly coffre: Pick<PortCoffre, "ranger">;
   readonly fernet: PortFernet | null;
 }
 
@@ -136,6 +136,13 @@ export async function reprendreClesLlm(
       valeur: clair,
       politique: { ...POLITIQUE_CLE_MOTEUR },
     });
+    if (sid === null) {
+      b.restantes += 1;
+      b.avertissements.push(
+        `connecteur LLM #${id} : ancienne clé refusée par le coffre (valeur trop longue ou mal formée), gardée en place`,
+      );
+      continue;
+    }
     await x.run("UPDATE llm_connectors SET secret_id = ?, api_key_enc = '', key_scheme = ? WHERE id = ?", [
       sid,
       SCHEMA_COFFRE,
@@ -220,7 +227,7 @@ export async function semerCleImages(
     return b;
   }
   if (!sceau.cle) return b;
-  await ports.coffre.ranger(x, {
+  const sid = await ports.coffre.ranger(x, {
     proprietaire: null,
     genre: "token",
     nom: NOM_CLE_IMAGES,
@@ -228,6 +235,13 @@ export async function semerCleImages(
     valeur: sceau.cle,
     politique: { ...POLITIQUE_CLE_MOTEUR },
   });
+  if (sid === null) {
+    b.restantes = 1;
+    b.avertissements.push(
+      "clé du moteur d'images (config.json › image.api_key_enc) refusée par le coffre : laissée en place, à ressaisir (console › Images)",
+    );
+    return b;
+  }
   b.infos.push(`clé du moteur d'images rangée dans le coffre (${NOM_CLE_IMAGES})`);
   return b;
 }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/secrets/cle.ts — clé du coffre vue des commandes d'exploitation : secrets comptés par clé (`kid`), rechiffrement des secrets d'une ancienne clé vers la clé courante ; les secrets de webhook des routines, chiffrés sur place par la même clé, suivent. */
+import { aadWebhookRoutine } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
-import { aadWebhookRoutine, chiffrerSecret, dechiffrerSecret, kidDe } from "@elpis/securite";
+import { chiffrerSecret, dechiffrerSecret, kidDe } from "@elpis/securite";
 import type { CleCoffre } from "@elpis/securite";
 
 import { estGenre } from "./portee";

@@ -52,9 +52,7 @@ export {
 export type { InfoBase, OptionsInfo, OptionsInit, RapportInit } from "./init";
 export { MigrationDifferee, MIGRATIONS_TS } from "./migration";
 export type {
-  CoffreMigration,
   ContexteMigration,
-  EvenementMigration,
   LectureFernet,
   Migration,
   NotesMigration,
@@ -79,3 +77,4 @@ export {
   semerCleImages,
 } from "./coffre-llm-images";
 export type { BilanReprise, CleLue, PortsReprise } from "./coffre-llm-images";
+export { aadWebhookRoutine, MIGRATION_COFFRE_GIT, nomDeriveCoffre } from "./coffre-git";

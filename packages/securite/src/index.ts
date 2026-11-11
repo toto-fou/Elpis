@@ -17,13 +17,10 @@ export {
 } from "./chiffrement";
 export type { SourceCle } from "./chiffrement";
 export {
-  aadCoffre,
-  aadWebhookRoutine,
   chargerCleCoffre,
   chiffrerSecret,
   cleCoffre,
   CleCoffreIndisponible,
-  coffreConfigure,
   configurerCoffre,
   dechiffrerSecret,
   etatCleCoffre,
@@ -31,14 +28,13 @@ export {
   kidCoffre,
   kidDe,
   lireCleCoffre,
-  nomDeriveCoffre,
   octetsCleCoffre,
   reglagesCoffreDeLEnvironnement,
   REPLI_CLE_COFFRE,
   SecretIndechiffrable,
   validerCleCoffre,
 } from "./coffre";
-export type { CleCoffre, ColonnesLieesCoffre, ReglagesCoffre, SourceCleCoffre } from "./coffre";
+export type { CleCoffre, ReglagesCoffre, SourceCleCoffre } from "./coffre";
 export {
   avecIdentite,
   creerIdentite,

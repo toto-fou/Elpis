@@ -17,10 +17,9 @@ import {
   versFlottantPy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { castInt, hasTable } from "@elpis/db";
+import { aadWebhookRoutine, castInt, hasTable } from "@elpis/db";
 import type { Base, Executeur, Ligne, Valeur } from "@elpis/db";
 import {
-  aadWebhookRoutine,
   chiffrerSecret,
   CleCoffreIndisponible,
   dechiffrerSecret,

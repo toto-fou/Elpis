@@ -6,13 +6,7 @@ import { dirname, join } from "node:path";
 import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
 import { MigrationDifferee, MIGRATIONS_TS } from "./migration";
-import type {
-  ContexteMigration,
-  EvenementMigration,
-  Migration,
-  NotesMigration,
-  PortsMigration,
-} from "./migration";
+import type { ContexteMigration, Migration, NotesMigration, PortsMigration } from "./migration";
 import { createAll, hasTable, isFresh } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
 
@@ -29,8 +23,6 @@ export interface RapportInit {
   differees: { name: string; message: string }[];
   /** Notes des migrations appliquées, à journaliser par l'appelant. */
   infos: string[];
-  /** Événements du journal de sécurité des migrations appliquées, à écrire par l'appelant (la transaction est validée). */
-  audit: EvenementMigration[];
   /** Tables touchées par les migrations appliquées ici, à compacter une fois par main (`compacterApresMigrations`). */
   aCompacter: string[];
   fts: boolean;
@@ -106,27 +98,9 @@ export interface OptionsInit {
   readonly annoncerTravail?: () => void;
 }
 
-/** Contexte d'une migration : le coffre rend l'id du secret rangé et garde son événement avec ceux de la migration. */
-function contexte(ports: Partial<PortsMigration>, evenements: EvenementMigration[]): ContexteMigration {
-  const coffre = ports.coffre ?? null;
-  return {
-    coffre:
-      coffre === null
-        ? null
-        : {
-            async ranger(x, s) {
-              const { id, evenement } = await coffre.ranger(x, s);
-              evenements.push(evenement);
-              return id;
-            },
-          },
-    fernet: ports.fernet ?? null,
-    auditer: (e) => evenements.push(e),
-  };
-}
-
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée (registre entier) ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations TS en attente jouées dans l'ordre du registre avec `secure_delete`, jusqu'à la première différée (implémentation absente de ce process, `MigrationDifferee`) ou en échec. */
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée (registre entier) ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations TS en attente jouées dans l'ordre du registre avec `secure_delete`, jusqu'à la première différée (implémentation absente de ce process, `MigrationDifferee`) ou en échec ; leur journal de sécurité part après la validation (`apresValidation`). */
 export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<RapportInit> {
+  const ctx: ContexteMigration = { coffre: o.ports?.coffre ?? null, fernet: o.ports?.fernet ?? null };
   const implementations = new Map((o.migrations ?? []).map((m) => [m.name, m]));
   for (const nom of implementations.keys())
     if (!MIGRATIONS_TS.includes(nom)) throw new Error(`migration hors du registre : ${nom}`);
@@ -161,7 +135,6 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
       echec: null,
       differees: [],
       infos: [],
-      audit: [],
       aCompacter: [],
       fts: schema.fts,
       unaccent: schema.unaccent,
@@ -185,11 +158,10 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
         });
         break;
       }
-      const evenements: EvenementMigration[] = [];
       let notes: void | NotesMigration;
       try {
         notes = await base.transaction(async (y) => {
-          const n = await avecEffacementSur(y, () => m.migrer(y, base, contexte(o.ports ?? {}, evenements)));
+          const n = await avecEffacementSur(y, () => m.migrer(y, base, ctx));
           await tamponner(y, nom);
           return n;
         });
@@ -200,7 +172,6 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
         break;
       }
       rapport.appliquees.push(nom);
-      rapport.audit.push(...evenements);
       for (const t of m.tables) if (!rapport.aCompacter.includes(t)) rapport.aCompacter.push(t);
       rapport.infos.push(...(notes?.infos ?? []).map((n) => `migration ${nom} : ${n}`));
       rapport.avertissements.push(...(notes?.avertissements ?? []).map((n) => `migration ${nom} : ${n}`));

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage (migrations du coffre appliquées par main seulement, puis un compactage), reprise des anciens identifiants AX dans le coffre. */
+/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage (migrations du coffre appliquées par main seulement), puis suites du coffre et un compactage sous le verrou de schéma. */
 import { config } from "@elpis/config";
 import {
   compacterApresMigrations,
   creerGardeGeneration,
   demarrerBase as demarrerBaseCommune,
+  MIGRATION_COFFRE_GIT,
   MIGRATION_COFFRE_LLM_IMAGES,
   nettoyerSousVerrou,
   prendreVerrouSchema,
@@ -16,11 +17,15 @@ import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
 import { repriseAxDuCore } from "./secrets/import-ax";
-import { reprendreMcpAuDemarrage } from "./secrets/migration-mcp";
-import { journaliserMigrations, portsMigrationsDuCore, reprendreAuDemarrage } from "./secrets/reprise";
+import { MIGRATION_MCP, reprendreMcpAuDemarrage } from "./secrets/migration-mcp";
+import { portsMigrationsDuCore, reprendreAuDemarrage } from "./secrets/reprise";
 
 /** Implémentations des migrations du registre (`MIGRATIONS_TS` de @elpis/db) que main applique avec les ports du core ; admin, l'hôte d'outils et les commandes les lui laissent. */
-export const MIGRATIONS_DU_CORE: readonly Migration[] = [MIGRATION_COFFRE_LLM_IMAGES];
+export const MIGRATIONS_DU_CORE: readonly Migration[] = [
+  MIGRATION_COFFRE_GIT,
+  MIGRATION_COFFRE_LLM_IMAGES,
+  MIGRATION_MCP,
+];
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -47,10 +52,9 @@ export function nettoyerAuDemarrage(b: Base): Promise<boolean> {
   return nettoyerSousVerrou(b, nettoyer, journal);
 }
 
-/** Anciens identifiants AX de la base du core repris dans le coffre sous le verrou de schéma (un seul process à la fois) ; une panne n'empêche pas le démarrage, les lignes restantes attendent le suivant. */
-export async function reprendreAxAuDemarrage(b: Base): Promise<void> {
+/** Anciens identifiants AX de la base du core repris dans le coffre ; une panne n'empêche pas le démarrage, les lignes restantes attendent le suivant. */
+async function reprendreAx(b: Base): Promise<void> {
   const log = journal("secrets");
-  const verrou = await prendreVerrouSchema(journal);
   try {
     const bilan = await repriseAxDuCore(b);
     if (bilan.retirees || bilan.gardees)
@@ -61,15 +65,12 @@ export async function reprendreAxAuDemarrage(b: Base): Promise<void> {
       log.warn("anciens identifiants AX : WAL occupé, fichier nettoyé au prochain démarrage");
   } catch (e) {
     log.warn(`anciens identifiants AX non repris : ${e instanceof Error ? e.message : String(e)}`);
-  } finally {
-    await verrou?.rendre();
   }
 }
 
-/** Compactage unique après les migrations du coffre appliquées à ce démarrage (anciennes valeurs hors du fichier), sous le verrou de schéma ; une erreur est journalisée, jamais bloquante. */
-export async function compacterAuDemarrage(b: Base, tables: readonly string[]): Promise<void> {
+/** Compactage unique des `tables` (anciennes valeurs hors du fichier) ; une erreur est journalisée, jamais bloquante. */
+async function compacter(b: Base, tables: readonly string[]): Promise<void> {
   const log = journal("coffre");
-  const verrou = await prendreVerrouSchema(journal);
   try {
     const propre = await compacterApresMigrations(b, tables);
     log.info(
@@ -82,12 +83,24 @@ export async function compacterAuDemarrage(b: Base, tables: readonly string[]): 
       `compactage après les migrations du coffre impossible (${e instanceof Error ? e.message : String(e)}) : ` +
         "d'anciennes valeurs peuvent rester dans des pages libres jusqu'au prochain VACUUM",
     );
+  }
+}
+
+/** Suites du coffre au démarrage de main, après les migrations et sous le verrou de schéma (un seul process) : anciennes clés LLM et du moteur d'images, secrets MCP et anciens identifiants AX restés hors du coffre ; chacune ne fait rien sans reste, efface sous `secure_delete` et journalise après validation ; puis un seul compactage des tables des migrations appliquées et de celles dont une suite a retiré d'anciennes valeurs. */
+export async function reprendreCoffreAuDemarrage(b: Base, rapport: RapportInit): Promise<void> {
+  const verrou = await prendreVerrouSchema(journal);
+  try {
+    const tables = new Set(rapport.aCompacter);
+    for (const t of await reprendreAuDemarrage(b, rapport, journal("coffre"))) tables.add(t);
+    for (const t of await reprendreMcpAuDemarrage(b, rapport, journal("coffre"))) tables.add(t);
+    await reprendreAx(b);
+    if (tables.size) await compacter(b, [...tables]);
   } finally {
     await verrou?.rendre();
   }
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé) ; main seul applique les migrations du coffre (journal de sécurité écrit après validation), puis nettoyage, reprise des anciennes clés et des anciens identifiants AX, et un compactage si des migrations ont été appliquées. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé) ; main seul applique les migrations du coffre (journal de sécurité écrit après validation), puis nettoyage et suites du coffre. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
@@ -97,12 +110,6 @@ export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
     journal,
   });
   courante = nouvelle;
-  journaliserMigrations(rapport.audit);
-  if (mode === "main") {
-    await reprendreAuDemarrage(nouvelle, rapport, journal("coffre"));
-    await reprendreMcpAuDemarrage(nouvelle, rapport, journal("coffre"));
-    await reprendreAxAuDemarrage(nouvelle);
-    if (rapport.aCompacter.length) await compacterAuDemarrage(nouvelle, rapport.aCompacter);
-  }
+  if (mode === "main") await reprendreCoffreAuDemarrage(nouvelle, rapport);
   return rapport;
 }

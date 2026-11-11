@@ -2,7 +2,7 @@
 /** packages/mcp/src/serveurs.ts — serveurs MCP des comptes : bibliothèque partagée (admin, en base) et serveurs perso ; leurs secrets (jeton, en-têtes, variables) forment un secret du coffre par serveur, relu à chaque connexion, jamais renvoyé au navigateur ; reprise des anciens champs (Fernet, clair). */
 import { ErreurPython, intPy, strPy, stripPy, veritePy } from "@elpis/commun";
 import { parseJsonPy } from "@elpis/config";
-import type { Base, Ligne } from "@elpis/db";
+import type { Base, LectureFernet, Ligne } from "@elpis/db";
 import { decryptStrict, EncryptionUnavailable, InvalidToken } from "@elpis/securite";
 
 import { coffreMcp, estVide, SecretMcpIndisponible, secretsVides, serveurDePortee } from "./coffre";
@@ -359,27 +359,41 @@ const CLES_DES_PARTIES: Readonly<Record<PartieSecrete, readonly string[]>> = {
 export interface Heritage {
   /** Parties lisibles : Fernet déchiffré avec la clé actuelle, ou clair hérité. */
   valeur: SecretsServeur;
-  /** Parties dont le chiffré est illisible (clé changée, donnée altérée). */
+  /** Parties dont le chiffré est illisible (clé changée, donnée altérée, clé Fernet absente). */
   illisibles: PartieSecrete[];
+  /** Un chiffré n'a pas pu être lu faute de clé Fernet (jamais créée) : à réessayer, pas illisible. */
+  cleAbsente: boolean;
   /** Mode d'un ancien clair : `basic_auth` → basic, `authorization` → raw (bearer s'il l'était déjà). */
   mode: { auth_mode: string; auth_user: string } | null;
 }
 
-/** Chiffré d'avant le coffre : texte, `null` s'il est illisible (jeton invalide, clé Fernet changée ou absente : jamais créée ici). */
-function lireChiffre(enc: unknown, scheme: unknown): string | null {
-  if (!veritePy(enc)) return "";
-  if (scheme !== "fernet") return strPy(enc);
+/** Lecture d'un jeton Fernet de la clé maître, sans jamais créer de clé. */
+export type LecteurFernet = (jeton: string) => LectureFernet;
+
+/** Lecture par défaut (connexion, enregistrement) : `decryptStrict`. */
+function lireFernet(jeton: string): LectureFernet {
   try {
-    return decryptStrict(strPy(enc));
+    return { clair: decryptStrict(jeton) };
   } catch (e) {
-    if (e instanceof InvalidToken || e instanceof EncryptionUnavailable) return null;
+    if (e instanceof InvalidToken) return { erreur: "illisible" };
+    if (e instanceof EncryptionUnavailable) return { erreur: "cle_absente" };
     throw e;
   }
 }
 
+/** Chiffré d'avant le coffre : texte, `null` s'il est illisible (jeton invalide, clé Fernet changée ou absente, notée dans `h`). */
+function lireChiffre(enc: unknown, scheme: unknown, lire: LecteurFernet, h: Heritage): string | null {
+  if (!veritePy(enc)) return "";
+  if (scheme !== "fernet") return strPy(enc);
+  const r = lire(strPy(enc));
+  if ("clair" in r) return r.clair;
+  if (r.erreur === "cle_absente") h.cleAbsente = true;
+  return null;
+}
+
 /** Paires d'un chiffré d'avant le coffre ; illisible ou mal formé : `null`. */
-function pairesChiffrees(enc: unknown, scheme: unknown): Paire[] | null {
-  const t = lireChiffre(enc, scheme);
+function pairesChiffrees(enc: unknown, scheme: unknown, lire: LecteurFernet, h: Heritage): Paire[] | null {
+  const t = lireChiffre(enc, scheme, lire, h);
   if (t === null) return null;
   if (!t) return [];
   let data: unknown;
@@ -400,10 +414,15 @@ function pairesEnClair(brut: unknown, kind: string): Paire[] {
 }
 
 /** Secrets d'avant le coffre d'une entrée perso ou d'une ligne partagée, lus comme à la connexion : chiffré d'abord, sinon clair hérité ; chiffré illisible (ou sans clé Fernet) : partie signalée. */
-export function secretsHerites(src: Dict): Heritage {
-  const h: Heritage = { valeur: secretsVides(), illisibles: [], mode: null };
+export function secretsHerites(src: Dict, lire: LecteurFernet = lireFernet): Heritage {
+  const h: Heritage = { valeur: secretsVides(), illisibles: [], cleAbsente: false, mode: null };
   if (veritePy(src["auth_enc"])) {
-    const t = lireChiffre(src["auth_enc"], veritePy(src["key_scheme"]) ? src["key_scheme"] : "plain");
+    const t = lireChiffre(
+      src["auth_enc"],
+      veritePy(src["key_scheme"]) ? src["key_scheme"] : "plain",
+      lire,
+      h,
+    );
     if (t === null) h.illisibles.push("auth");
     else h.valeur.auth = t;
   } else {
@@ -422,7 +441,7 @@ export function secretsHerites(src: Dict): Heritage {
   }
   const scheme = veritePy(src["extra_scheme"]) ? src["extra_scheme"] : "plain";
   for (const kind of ["headers", "env"] as const) {
-    const lues = pairesChiffrees(src[`${kind}_enc`], scheme);
+    const lues = pairesChiffrees(src[`${kind}_enc`], scheme, lire, h);
     if (lues === null) h.illisibles.push(kind);
     h.valeur[kind] = lues !== null && lues.length > 0 ? lues : pairesEnClair(src[kind], kind);
   }
@@ -442,10 +461,10 @@ export interface RepriseHeritee extends Heritage {
 }
 
 /** Reprise au coffre d'une entrée perso ou d'une ligne partagée : parties utiles à son type et à son mode (les autres n'étaient jamais envoyées) ; `null` sans champ hérité. */
-export function repriseHeritee(src: Dict): RepriseHeritee | null {
+export function repriseHeritee(src: Dict, lire: LecteurFernet = lireFernet): RepriseHeritee | null {
   const cles = CLES_HERITEES.filter((k) => Object.hasOwn(src, k));
   if (cles.length === 0) return null;
-  const h = secretsHerites(src);
+  const h = secretsHerites(src, lire);
   const brut = stripPy(texte(veritePy(src["type"]) ? src["type"] : "sse")).toLowerCase();
   const type = (SERVER_TYPES as readonly string[]).includes(brut) ? brut : "sse";
   const http = estHttp(type);
@@ -463,6 +482,7 @@ export function repriseHeritee(src: Dict): RepriseHeritee | null {
     type,
     valeur,
     illisibles,
+    cleAbsente: h.cleAbsente && illisibles.length > 0,
     mode,
     aReprendre: !estVide(valeur),
     aVider: cles.some((k) => k !== "key_scheme" && k !== "extra_scheme" && veritePy(src[k])),
@@ -471,13 +491,20 @@ export function repriseHeritee(src: Dict): RepriseHeritee | null {
   };
 }
 
+/** Drapeau d'une reprise aux chiffrés gardés : `not_migrated` faute de clé Fernet (réessayé), `undecryptable` sinon ; rien de gardé : aucun. */
+export function drapeauReprise(r: RepriseHeritee): "not_migrated" | "undecryptable" | "" {
+  if (r.illisibles.length === 0) return "";
+  return r.cleAbsente ? "not_migrated" : "undecryptable";
+}
+
 /** Entrée perso telle que la migration la laisse : type et mode repris, champs hérités retirés sauf les chiffrés illisibles (signalés, sinon le drapeau d'avant est levé), `secret_id` posé. */
 export function entreeReprise(srv: Dict, r: RepriseHeritee, secretId: number | null): void {
   if (srv["type"] !== r.type) poser(srv, "type", r.type);
   if (r.mode !== null) for (const [k, v] of Object.entries(r.mode)) poser(srv, k, v);
   for (const k of r.cles) if (!r.gardees.includes(k)) delete srv[k];
   if (secretId !== null) poser(srv, "secret_id", secretId);
-  if (r.illisibles.length > 0) poser(srv, "secret_error", "undecryptable");
+  const drapeau = drapeauReprise(r);
+  if (drapeau) poser(srv, "secret_error", drapeau);
   else delete srv["secret_error"];
 }
 

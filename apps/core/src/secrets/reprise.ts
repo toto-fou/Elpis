@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/reprise.ts — ports des migrations du coffre passés par main (secret inséré comme `creerSecret`, Fernet relu sans jamais créer de clé, journal de sécurité après validation), puis suite au démarrage de main (clés illisibles réessayées, clés réécrites par une version antérieure confrontées au coffre, clé du moteur d'images semée et retirée de config.json et config.json.bak). */
+/** apps/core/src/secrets/reprise.ts — ports des migrations du coffre passés par main (secret rangé comme `creerSecret` ou chiffré hors liste, Fernet relu sans jamais créer de clé, journal de sécurité après validation), puis suite de 0028 au démarrage de main (clés illisibles réessayées, clés réécrites par une version antérieure confrontées au coffre, clé du moteur d'images semée et retirée de config.json et config.json.bak). */
 import { basename } from "node:path";
 
 import type { Dict } from "@elpis/commun";
 import { POLITIQUE_SECRET_DEFAUT, schemaPolitiqueSecret } from "@elpis/contracts";
+import type { GenreSecret } from "@elpis/contracts";
 import {
+  apresValidation,
   avecEffacementSur,
   cleHeritee,
   cleImagesHeritee,
+  genreCleImages,
   NOM_CLE_IMAGES,
   ouvrirSceauImages,
   reprendreClesLlm,
@@ -17,8 +20,8 @@ import {
 import type {
   Base,
   BilanReprise,
-  EvenementMigration,
   Executeur,
+  PortCoffre,
   PortFernet,
   PortsMigration,
   PortsReprise,
@@ -50,53 +53,77 @@ import {
   validerIdentifiant,
   validerMeta,
   validerNom,
+  validerValeur,
 } from "./portee";
 import type { ColonnesLiees } from "./portee";
-import { dechiffrerLigne, journaliser, lireLigneParNom, maintenant, porteeDe } from "./stockage";
+import {
+  chiffresExistants,
+  dechiffrerLigne,
+  journaliser,
+  lireLigneParNom,
+  maintenant,
+  porteeDe,
+} from "./stockage";
 
 const MIGRATION = "0028_vault_llm_images";
 
-/** Clé pour chiffrer hors de `creerSecret` (reprise, assistant), même règle : la courante ; à défaut, la clé de repli posée seulement sur un coffre vide, sinon `CleCoffreIndisponible` avec sa cause. */
+/** Clé pour chiffrer hors de `creerSecret` (migrations, reprise, installation), même règle que `cleDeChiffrement` : la courante ; à défaut, la clé de repli posée seulement si aucun chiffré du coffre n'existe (secrets de webhook compris), sinon `CleCoffreIndisponible`. */
 export async function clePourChiffrer(x: Executeur): Promise<CleCoffre> {
   const cle = cleCoffre();
   if (cle !== null) return cle;
-  const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
-  if (Number(n?.n ?? 0) > 0)
+  if ((await chiffresExistants(x)) > 0)
     throw new CleCoffreIndisponible(
       "clé du coffre absente alors que des secrets existent : restaurer /etc/elpis/vault.key",
     );
   return chargerCleCoffre();
 }
 
-/** Secret repris inséré comme `creerSecret` le crée (actif, version 1, AAD de `aadSecret` liée aux colonnes enregistrées), politique donnée complétée par les défauts ; rend son id et son événement `vault.secret.created` ; clé du coffre indisponible : erreur explicite, rien d'écrit. */
-export async function insererSecretRepris(
-  x: Executeur,
-  s: SecretARanger,
-): Promise<{ id: number; evenement: EvenementMigration }> {
-  if (!estGenre(s.genre)) throw new Error(`genre de secret inconnu : ${s.genre}`);
-  const genre = s.genre;
-  const nom = validerNom(s.nom);
-  const portee = normaliserPortee(genre, s.portee, { proprietaire: s.proprietaire, nom });
-  const politique = fusionnerPolitique(
-    POLITIQUE_SECRET_DEFAUT,
-    schemaPolitiqueSecret.partial().parse(s.politique ?? {}),
-  );
-  const meta = validerMeta(s.meta ?? {});
-  const liees: ColonnesLiees = {
-    scope_json: JSON.stringify(portee),
-    policy_json: JSON.stringify(politique),
-    state: "active",
-    version: 1,
-    username: validerIdentifiant(s.username ?? null),
-  };
-  let cle: CleCoffre;
+/** Clé d'une migration ou d'une reprise ; indisponible : erreur explicite, la migration échoue et rien n'est écrit. */
+async function cleExigee(x: Executeur): Promise<CleCoffre> {
   try {
-    cle = await clePourChiffrer(x);
+    return await clePourChiffrer(x);
   } catch (e) {
     if (!(e instanceof CleCoffreIndisponible)) throw e;
     throw new Error(`clé du coffre indisponible (./elpis doctor) : ${e.message}`, { cause: e });
   }
-  const enc = chiffrerSecret(s.valeur, aadSecret(s.proprietaire, genre, nom, liees), cle);
+}
+
+/** Champs d'un secret repris passés par les règles du coffre (nom, portée, valeur, identifiant, méta) ; refusés : `null`. */
+function champsRepris(s: SecretARanger, genre: GenreSecret) {
+  try {
+    const nom = validerNom(s.nom);
+    const portee = normaliserPortee(genre, s.portee, { proprietaire: s.proprietaire, nom });
+    return {
+      nom,
+      portee,
+      valeur: validerValeur(s.valeur),
+      meta: validerMeta(s.meta ?? {}),
+      username: validerIdentifiant(s.username ?? null),
+    };
+  } catch (e) {
+    if (e instanceof ErreurSecret) return null;
+    throw e;
+  }
+}
+
+/** Secret repris rangé comme `creerSecret` le crée (actif, version 1, AAD de `aadSecret` liée aux colonnes enregistrées), politique donnée complétée par les défauts, `vault.secret.created` journalisé après la validation ; refusé par les règles du coffre : `null`, rien d'écrit ; clé indisponible : erreur explicite. */
+export async function insererSecretRepris(x: Executeur, s: SecretARanger): Promise<number | null> {
+  if (!estGenre(s.genre)) throw new Error(`genre de secret inconnu : ${s.genre}`);
+  const genre = s.genre;
+  const politique = fusionnerPolitique(
+    POLITIQUE_SECRET_DEFAUT,
+    schemaPolitiqueSecret.partial().parse(s.politique ?? {}),
+  );
+  const c = champsRepris(s, genre);
+  if (c === null) return null;
+  const liees: ColonnesLiees = {
+    scope_json: JSON.stringify(c.portee),
+    policy_json: JSON.stringify(politique),
+    state: "active",
+    version: 1,
+    username: c.username,
+  };
+  const enc = chiffrerSecret(c.valeur, aadSecret(s.proprietaire, genre, c.nom, liees), await cleExigee(x));
   const t = maintenant();
   const id = await x.insertId(
     "INSERT INTO vault_secrets (user_id, kind, name, scope_json, username, secret_enc, kid, version, state, " +
@@ -104,7 +131,7 @@ export async function insererSecretRepris(
     [
       s.proprietaire,
       genre,
-      nom,
+      c.nom,
       liees.scope_json,
       liees.username,
       enc,
@@ -112,20 +139,23 @@ export async function insererSecretRepris(
       liees.version,
       liees.state,
       liees.policy_json,
-      JSON.stringify(meta),
+      JSON.stringify(c.meta),
       t,
       t,
     ],
   );
-  const owner = s.proprietaire === null ? "instance" : "user";
-  return {
-    id,
-    evenement: {
-      userId: s.proprietaire,
-      action: "vault.secret.created",
-      details: { secret_id: id, name: nom, kind: genre, owner, scope: portee, state: "active" },
-    },
+  const details = {
+    secret_id: id,
+    name: c.nom,
+    kind: genre,
+    owner: s.proprietaire === null ? "instance" : "user",
+    scope: c.portee,
+    state: "active",
   };
+  apresValidation(x, () =>
+    journaliser({ userId: s.proprietaire, username: null, ip: null }, "vault.secret.created", details),
+  );
+  return id;
 }
 
 /** Ancien chiffrement Fernet relu sans jamais créer de clé : une clé absente laisse les valeurs en attente du démarrage suivant. */
@@ -141,29 +171,17 @@ export const FERNET_SANS_CREATION: PortFernet = {
   },
 };
 
-/** Ports des migrations du coffre passés par main à `demarrerBase` (aucun effet de bord à l'import). */
+/** Coffre du core vu des migrations : secrets rangés comme `creerSecret`, chiffrés hors liste (secrets de webhook) avec la même clé. */
+export const COFFRE_DU_CORE: PortCoffre = {
+  ranger: insererSecretRepris,
+  async chiffrer(x, valeur, aad) {
+    return chiffrerSecret(valeur, aad, await cleExigee(x));
+  },
+};
+
+/** Ports des migrations du coffre et de leurs reprises, passés par main (aucun effet de bord à l'import). */
 export function portsMigrationsDuCore(): PortsMigration {
-  return { coffre: { ranger: insererSecretRepris }, fernet: FERNET_SANS_CREATION };
-}
-
-/** Événements des migrations écrits au journal de sécurité, une fois leur transaction validée. */
-export function journaliserMigrations(evenements: readonly EvenementMigration[]): void {
-  for (const e of evenements)
-    journaliser({ userId: e.userId, username: null, ip: null }, e.action, e.details);
-}
-
-/** Ports de la reprise hors migration (démarrage de main, essais) : les événements des secrets rangés attendent la validation de la transaction. */
-export function portsDeReprise(evenements: EvenementMigration[]): PortsReprise {
-  return {
-    coffre: {
-      async ranger(x, s) {
-        const { id, evenement } = await insererSecretRepris(x, s);
-        evenements.push(evenement);
-        return id;
-      },
-    },
-    fernet: FERNET_SANS_CREATION,
-  };
+  return { coffre: COFFRE_DU_CORE, fernet: FERNET_SANS_CREATION };
 }
 
 /** Clés réécrites par une version antérieure (retour en arrière, non pris en charge) sur des connecteurs déjà liés au coffre : celle du coffre est gardée et l'autre effacée, avec un avertissement si elles diffèrent ; celle du coffre illisible : l'autre reste ; secret disparu : l'autre est reprise comme à la migration. */
@@ -230,13 +248,26 @@ async function retirerCleImagesHeritee(base: Base, log: Journal): Promise<void> 
     );
 }
 
-/** Suite au démarrage de main, migration déjà faite : clés gardées réessayées (clé de chiffrement rétablie), clés réécrites confrontées au coffre, clé du moteur d'images semée puis retirée de config.json ; anciennes valeurs effacées des pages SQLite ; secrets créés journalisés après validation ; jamais d'échec du démarrage. */
-export async function reprendreAuDemarrage(base: Base, rapport: RapportInit, log: Journal): Promise<void> {
+/** Clés encore dans `llm_connectors` (illisibles gardées, sans clé Fernet, réécrites par une version antérieure). */
+async function clesRestantes(base: Base): Promise<number> {
+  const n = await base.get<{ n: number }>("SELECT COUNT(*) AS n FROM llm_connectors WHERE api_key_enc <> ''");
+  return Number(n?.n ?? 0);
+}
+
+/** Suite de 0028 au démarrage de main (sous le verrou de schéma), migration faite à un démarrage précédent et seulement s'il en reste : clés gardées réessayées, clés réécrites confrontées au coffre, clé du moteur d'images semée, sous `secure_delete`, journal après validation ; puis ancienne clé du moteur d'images retirée de config.json ; rend les tables dont d'anciennes valeurs sont parties (à compacter) ; jamais d'échec du démarrage. */
+export async function reprendreAuDemarrage(
+  base: Base,
+  rapport: RapportInit,
+  log: Journal,
+): Promise<string[]> {
+  const effacees: string[] = [];
   try {
-    if (!(await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [MIGRATION]))) return;
-    if (!rapport.appliquees.includes(MIGRATION)) {
-      const evenements: EvenementMigration[] = [];
-      const ports = portsDeReprise(evenements);
+    if (!(await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [MIGRATION])))
+      return effacees;
+    const avant = await clesRestantes(base);
+    const image = cleImagesHeritee() !== "" && (await genreCleImages(base)) !== "token";
+    if (!rapport.appliquees.includes(MIGRATION) && (avant > 0 || image)) {
+      const ports: PortsReprise = { coffre: COFFRE_DU_CORE, fernet: FERNET_SANS_CREATION };
       const bilans = await base.ecriture((x) =>
         avecEffacementSur(x, async () => [
           await reprendreReecritures(x),
@@ -244,11 +275,11 @@ export async function reprendreAuDemarrage(base: Base, rapport: RapportInit, log
           await semerCleImages(x, ports),
         ]),
       );
-      journaliserMigrations(evenements);
       for (const b of bilans) {
         for (const i of b.infos) log.info(`coffre : ${i}`);
         for (const a of b.avertissements) log.warn(`coffre : ${a}`);
       }
+      if ((await clesRestantes(base)) < avant) effacees.push("llm_connectors");
     }
     await retirerCleImagesHeritee(base, log);
   } catch (e) {
@@ -256,4 +287,5 @@ export async function reprendreAuDemarrage(base: Base, rapport: RapportInit, log
       `coffre : reprise des anciennes clés reportée au prochain démarrage (${e instanceof Error ? e.message : String(e)})`,
     );
   }
+  return effacees;
 }

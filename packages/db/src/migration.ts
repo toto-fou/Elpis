@@ -3,7 +3,7 @@
 import type { Base, Executeur } from "./base";
 
 /** Registre des migrations TS, dans l'ordre, numérotées à la suite des migrations Python : une base neuve les reçoit toutes tamponnées, quel que soit le process qui la crée. */
-export const MIGRATIONS_TS: readonly string[] = ["0028_vault_llm_images"];
+export const MIGRATIONS_TS: readonly string[] = ["0027_vault_git", "0028_vault_llm_images", "0029_vault_mcp"];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */
 export interface NotesMigration {
@@ -23,21 +23,12 @@ export interface SecretARanger {
   meta?: Record<string, unknown>;
 }
 
-/** Événement du journal de sécurité d'une migration, écrit par l'appelant une fois la transaction externe validée. */
-export interface EvenementMigration {
-  userId: number | null;
-  action: string;
-  details: Record<string, unknown>;
-}
-
-/** Coffre du core, passé par main : range le secret dans `x` (même chiffrement, même AAD que `creerSecret`) et rend son id avec son événement `vault.secret.created` ; clé du coffre indisponible : lève. */
+/** Coffre du core, passé par main ; clé du coffre indisponible : ses méthodes lèvent, rien n'est écrit. */
 export interface PortCoffre {
-  ranger(x: Executeur, s: SecretARanger): Promise<{ id: number; evenement: EvenementMigration }>;
-}
-
-/** Coffre vu d'une migration : l'id du secret rangé ; son événement part avec ceux de la migration. */
-export interface CoffreMigration {
-  ranger(x: Executeur, s: SecretARanger): Promise<number>;
+  /** Secret rangé dans `x` comme `creerSecret` le crée (même AAD), `vault.secret.created` écrit après la validation ; rend son id, ou `null` si les règles du coffre le refusent (nom, portée, valeur). */
+  ranger(x: Executeur, s: SecretARanger): Promise<number | null>;
+  /** Chiffré du coffre hors de `vault_secrets` (secret de webhook d'une routine), même clé et même règle de repli ; `aad` liée à son usage. */
+  chiffrer(x: Executeur, valeur: string, aad: string): Promise<string>;
 }
 
 /** Jeton Fernet de la clé maître ouvert : clair, clé absente (jamais créée : à réessayer au démarrage suivant) ou jeton illisible. */
@@ -48,25 +39,19 @@ export interface PortFernet {
   ouvrir(jeton: string): LectureFernet;
 }
 
-/** Ports passés par le process qui applique les migrations ; absents : `null` (une migration qui en a besoin lève `MigrationDifferee`). */
+/** Ports passés par le process qui applique les migrations, aussi le contexte d'une migration ; absents : `null` (une migration qui en a besoin lève `MigrationDifferee`). */
 export interface PortsMigration {
   readonly coffre: PortCoffre | null;
   readonly fernet: PortFernet | null;
 }
-
-/** Contexte d'une migration : coffre, Fernet, et événements du journal de sécurité écrits seulement si elle est validée. */
-export interface ContexteMigration {
-  readonly coffre: CoffreMigration | null;
-  readonly fernet: PortFernet | null;
-  auditer(e: EvenementMigration): void;
-}
+export type ContexteMigration = PortsMigration;
 
 export interface Migration {
   /** Nom du registre (`MIGRATIONS_TS`). */
   readonly name: string;
   /** Tables dont elle efface d'anciennes valeurs, compactées par main après coup (`VACUUM FULL` en PostgreSQL). */
   readonly tables: readonly string[];
-  /** `x` : la transaction de la migration ; `base` : la même base, dont les transactions imbriquées deviennent des points de sauvegarde. */
+  /** `x` : la transaction de la migration ; `base` : la même base, dont les transactions imbriquées deviennent des points de sauvegarde ; journal de sécurité par `apresValidation`. */
   migrer(x: Executeur, base: Base, ctx: ContexteMigration): Promise<void | NotesMigration>;
 }
 

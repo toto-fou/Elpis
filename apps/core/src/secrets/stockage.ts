@@ -216,7 +216,7 @@ export async function colonneWebhooks(x: Executeur): Promise<boolean> {
 }
 
 /** Chiffrés posés par la clé du coffre : secrets du coffre et secrets de webhook des routines. */
-async function chiffresExistants(x: Executeur): Promise<number> {
+export async function chiffresExistants(x: Executeur): Promise<number> {
   const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
   const w = (await colonneWebhooks(x))
     ? await x.get<{ n: number }>(

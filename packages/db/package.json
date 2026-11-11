@@ -12,7 +12,6 @@
   "dependencies": {
     "@elpis/commun": "0.1.2",
     "@elpis/config": "0.1.2",
-    "@elpis/securite": "0.1.2",
     "@elpis/verrous": "0.1.2",
     "better-sqlite3": "13.0.3",
     "pg": "8.23.1"

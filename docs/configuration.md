@@ -924,21 +924,21 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
   (0440, root and a group holding the service account alone, readable by no other unit). The
   doctor still reports what the core sees: key source, `kid`, secrets under another key.
 
-**Upgrade (migration `0028_vault_llm_images`).** At the first start of `main` or `admin`, the
+**Upgrade (migration `0028_vault_llm_images`).** At the first start of `main`, the
 keys of the LLM connectors (encrypted with the Fernet key `APP_ENCRYPTION_KEY` /
 `user_db/.encryption_key`, or stored in clear by old versions) and the image engine's key of
-`config.json` move into the vault; the startup log lists them. The tool host and the installer
-leave the connector keys to the core, which holds the vault key (the image engine key alone
-does not hold the migration back: `main` seeds it at its next start). Without any key, the fallback
+`config.json` move into the vault; the startup log lists them. Admin, the tool host and the
+installer leave the migration to `main`, which holds the vault key. Without any key, the fallback
 `user_db/.vault.key` is created only while the vault is still empty. If the vault key is
 unavailable (unreadable, or missing while secrets exist), the migration fails, is logged as an
 error and is retried at the next start (`./elpis doctor` lists it as pending); nothing is lost
 meanwhile. A key that the current Fernet key cannot
-decrypt, or any Fernet key when no Fernet key is configured, is kept and reported, never dropped,
-and does not hold back the others: enter it again, or restore the former encryption key and
-restart, and `main` moves it at startup. The secrets created by the migration are listed in the
-startup log, not in the security journal. Once the vault holds the image engine key, it is also
-removed from `config.json.bak`. **After the upgrade, rotate the provider keys** (LLM connectors,
+decrypt is kept and reported, never dropped, and does not hold back the others: enter it again, or
+restore the former encryption key and restart, and `main` moves it at startup. Without any Fernet
+key, none is created: the Fernet keys wait as they are for a start with the key. The secrets
+created by the migration are listed in the startup log and written to the security journal
+(`vault.secret.created`), then `main` compacts the database once. Once the vault holds the image
+engine key, it is also removed from `config.json.bak`. **After the upgrade, rotate the provider keys** (LLM connectors,
 image engine): earlier backups of the database and of `config.json` still hold them, encrypted
 with the old Fernet key. Downgrades are not supported: a key written again by an older version
 is compared with the vault at the next start, and the vault value is kept.

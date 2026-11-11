@@ -54,8 +54,10 @@ follow [SemVer](https://semver.org/).
   (0440, never replaced; otherwise a fallback `user_db/.vault.key`, created only while the vault
   is empty and reported by `./elpis doctor`). Only `main` and `admin` can read it. Prefer this
   file to `ELPIS_VAULT_KEY` in `.env`. `./elpis vault status` and `./elpis vault rekey --from
-  <old key>` check and change the key, and `./elpis secret ls` lists the metadata. **Back the key
-  up separately from the backups** (`docs/operations.md`). **After updating, run
+  <old key>` check and change the key, and `./elpis secret ls` lists the metadata. A secret held
+  by a connector (LLM key, Git token, MCP server, image engine key) is deleted with its connector:
+  the vault routes refuse to delete it (`409 secret_managed`) and to rotate an MCP server's
+  secret. **Back the key up separately from the backups** (`docs/operations.md`). **After updating, run
   `sudo ./elpis service install`** so that the other units lose access to the key.
 - **Browser: secure session and vault login.** `POST /start` with `secure: true` opens a locked
   session for vault secrets: TLS verified unless `tls: "insecure"`, the site's CSP kept, service
@@ -122,12 +124,15 @@ follow [SemVer](https://semver.org/).
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's
   key the instance secret `image-engine`, reserved to the engine's exact origin by its scope. The
   forms keep their write-only key field; deleting a connector deletes its secret; rotating or
-  deleting the secret applies at the next turn. At the first start after the update, migration
+  deleting the secret applies at the next turn. At the first start of `main` after the update
+  (admin, the tool host and the commands leave it to `main`), migration
   `0028_vault_llm_images` moves the Fernet (or clear) keys of `llm_connectors` and
   `config.json › image.api_key_enc` into the vault, then `image.api_key_enc` is removed from
-  `config.json` and `config.json.bak`; a key that cannot be decrypted (or any Fernet key when no
-  Fernet key is configured) is kept and reported, never dropped, and does not hold back the
-  others. The secrets it creates are reported in the startup log, not in the security journal. A
+  `config.json` and `config.json.bak`; a key that cannot be decrypted is kept and reported, never
+  dropped, and does not hold back the others; without any Fernet key (none is created for this),
+  the Fernet keys wait for a later start. The secrets it creates are reported in the startup log
+  and written to the security journal once committed (`vault.secret.created`), and `main` then
+  compacts the database once (`VACUUM` on SQLite, `VACUUM FULL` of the table on PostgreSQL). A
   connector whose key cannot be used now says so (`key_error`, "clé à ressaisir" in the console)
   and is refused instead of being called without a key. These keys now depend on the vault key:
   run `sudo ./elpis vault setup` first (otherwise the fallback `user_db/.vault.key` is created for
@@ -296,7 +301,8 @@ follow [SemVer](https://semver.org/).
   are imported into the vault as `unverified` secrets named after their host (by the core at
   each start while rows remain, and by the tool host in the background at startup), then deleted
   without leaving the passwords in the database file (`secure_delete` and a truncated WAL on
-  SQLite, `VACUUM FULL` of the table on PostgreSQL). Keys without an origin (older site keys) cannot be
+  SQLite, `VACUUM FULL` of the table on PostgreSQL); encrypted rows wait while the Fernet key is
+  missing, as no key is created to read them. Keys without an origin (older site keys) cannot be
   imported: they are listed in the logs and the security journal (`vault.ax.imported`). Check
   the imported secrets in Settings › Secrets before attaching them. A 401 page now tells the
   model to ask for a secret with `/secret attach <name>`. The AX pages of the console show the

@@ -352,7 +352,7 @@ position.
 | `postgres.ts`, `sql.ts` | pg: bounded pool, `?` → `$n`, values and errors reread as in SQLite |
 | `schema.ts`, `schema.gen.ts` | declarative reference schema (tables, indexes, foreign keys), rendered for each engine; full text |
 | `dialecte.ts` | what differs between engines: write start, inserted identifier, case-insensitive `LIKE`, local dates, JSON… |
-| `init.ts`, `demarrage.ts` | schema creation and migrations under lock (`schema_migrations` table, `MIGRATIONS_TS`), permissions, cleanup at startup |
+| `init.ts`, `demarrage.ts`, `migration.ts` | schema creation and migrations under lock (`schema_migrations` table, registry `MIGRATIONS_TS`, implementations passed by `main`), permissions, cleanup at startup |
 | `erreurs.ts` | errors classified like those of `sqlite3` (integrity, operation, data…) |
 
 Copy between engines: `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
@@ -364,6 +364,21 @@ covers are stamped; an existing database receives its missing tables and columns
 then its pending migrations. Full text: FTS5 (SQLite),
 `tsvector` + GIN with `unaccent` (PostgreSQL).
 The maintainers' tests run on each engine.
+
+**TS migrations.** Numbered after the Python ones, their names form one registry
+(`MIGRATIONS_TS`, `packages/db/src/migration.ts`) that every process knows: an empty database is
+stamped with all of them, whichever process creates it. Their implementations are passed
+explicitly by the process that applies them, `main` (`demarrerBase({ migrations, ports })`, no
+registration at import). Each runs in its own transaction, in registry order, with
+`PRAGMA secure_delete` on (SQLite): `migrer(x, base, ctx)` reaches the vault and the former
+Fernet key only through the ports of `ctx` (the Fernet port never creates a key) and returns
+notes for the startup log; its security journal events are written once the outer transaction is
+committed, and dropped if it is rolled back. A pending migration without an implementation in the
+process (admin, tool host, commands), or that throws `MigrationDifferee`, is deferred: not
+stamped, logged as info, and the ones after it wait. A failure is logged as an error and retried
+at the next start. After the migrations it applied, `main` compacts the database once
+(`VACUUM` and `wal_checkpoint(TRUNCATE)` on SQLite, `VACUUM FULL` of the touched tables on
+PostgreSQL); an error there is logged and never blocks the start.
 
 ```mermaid
 erDiagram
@@ -3552,10 +3567,10 @@ whose scope covers the origin is used (`secret_ambiguous` when there are several
 `last_used_at` are updated and `vault.secret.used` is written, a refusal writes
 `vault.secret.refused` ([audit-events.md](audit-events.md#secrets-vault)). A ciphertext of another
 key gives `secret_undecryptable`, a missing key `secret_key_unavailable`, an `http-auth` secret
-without a user name `secret_username_required` (no use counted). `lireSecretPourUsage` takes an
-explicit `exigeAttachement`: `true` for the tool host's calls, `false` for the core's own connector
-readers (Git, LLM, MCP, image engine), which have no conversation; `web-login` and `http-auth`
-always require it, whatever the caller passes. When attachment is required, a name that is unknown,
+without a user name `secret_username_required` (no use counted). `lireSecretPourUsage` derives
+`exigeAttachement` from the kind, whatever the caller passes: `web-login` and `http-auth` always
+require attachment, `git`, `token` and `mcp` never (the core's connector readers have no
+conversation). When attachment is required, a name that is unknown,
 of another kind or of another account gets the same answer as a secret that is not attached
 (`secret_not_attached`), and so does an origin that only non-attached secrets cover: the tool host
 learns nothing about secrets it may not use.
@@ -3618,7 +3633,13 @@ Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_inva
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
 `secret_meta_invalid`, `secret_limit`, `secret_unknown`, `secret_type_mismatch`,
 `secret_unverified`, `secret_scope_mismatch`, `secret_not_attached`, `secret_ambiguous`,
-`secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`.
+`secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`, `secret_managed`.
+
+**Secrets held by a connector.** LLM keys (`llm`), Git tokens (`git`), MCP servers (`mcp`) and the
+image engine key (instance `token` `image-engine`) belong to their connector: `DELETE
+/api/secrets/:secret_id` and `DELETE /api/admin/secrets/:secret_id` refuse them (409
+`secret_managed`, the `detail` names where to manage them), and deleting the connector deletes its
+secret. The rotation routes refuse an `mcp` secret too (its value is the server's JSON).
 
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
 `sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
@@ -3647,7 +3668,7 @@ until they move to the vault.
 |---|---|---|
 | Connector keys | `apps/core/src/llm/cle-coffre.ts`, `apps/core/src/llm/connecteurs.ts` | `llm_connectors.secret_id` links a connector to its secret (kind `llm`, scope `{"connector_id": N}`, owner = the account, `NULL` for a shared connector, name `llm-<provider>-<id>`). Every read joins the secret to the connector (`SELECT_CONNECTEUR`) and decrypts it with `dechiffrerLigne`; nothing is cached across requests |
 | Image engine key | `apps/core/src/images/cle.ts` | Instance secret `image-engine`, kind `token`, scope `{"origins": ["<engine origin>"]}` (exact WHATWG origin): returned only while the configured `url` has that origin, otherwise `stale` |
-| Migration | `packages/db/src/coffre-llm-images.ts` (`0028_vault_llm_images`), `apps/core/src/secrets/reprise.ts` | Moves the old keys (Fernet or clear `api_key_enc`, `config.json › image.api_key_enc`) into the vault in one transaction; the core installs the inserter (same row and AAD v2 as `creerSecret`; fallback key only on an empty vault) |
+| Migration | `packages/db/src/coffre-llm-images.ts` (`0028_vault_llm_images`), `apps/core/src/secrets/reprise.ts` | Moves the old keys (Fernet or clear `api_key_enc`, `config.json › image.api_key_enc`) into the vault in one transaction; `main` passes it with the core's ports (`portsMigrationsDuCore`: same row and AAD v2 as `creerSecret`, fallback key only on an empty vault; Fernet read without creating a key) |
 
 - **Writes.** Creating, editing or deleting a connector writes its secret in the same database
   transaction (`creerSecret`, `rotation`, `supprimerSecret`, journalled as `vault.secret.*`); a key
@@ -3666,19 +3687,18 @@ until they move to the vault.
   key could not decrypt: kept in `api_key_enc`, `key_scheme` `unreadable`), `legacy_pending`
   (migration not applied yet). `key_scheme` is `vault` for a key in the vault, `plain` without a
   key.
-- **Migration.** `0028_vault_llm_images` runs in `main` or `admin`, which install the inserter
-  (`installerRepriseCoffre`) before opening the database; a process without it (tool host,
-  installer, commands) that finds connector keys to move leaves the migration pending
-  (`MigrationDifferee`, logged as info), while the image engine key alone never holds it back:
-  the migration is recorded and `main` seeds that key at its next start. An unavailable vault key makes it fail loudly (error in the log, retried at the
-  next start); a key that cannot be decrypted is kept and reported, never dropped. After the
-  migration, `main` retries the kept keys at each start, seeds the image key if the vault has none,
-  and removes `image.api_key_enc` from `config.json` and `config.json.bak` once the vault holds
-  it. A Fernet key that cannot be read (wrong key, or no Fernet key at all) only holds back its
-  own row; clear keys and the other rows move. The secrets created there are reported in the
-  startup log, not in the security journal, which opens after the database. On SQLite the
-  rewrite and the startup retry run with `PRAGMA secure_delete` on, so the old values are
-  overwritten in the database pages (older backups still hold them: rotate the provider keys).
+- **Migration.** `0028_vault_llm_images` is applied by `main` only (`MIGRATIONS_DU_CORE` with
+  `portsMigrationsDuCore`, see [TS migrations](#database)); admin, the tool host, the installer and
+  the commands leave it pending (logged as info). An unavailable vault key makes it fail loudly
+  (error in the log, retried at the next start); a key that cannot be decrypted is kept and marked
+  `unreadable`, never dropped; without any Fernet key (never created for this), the Fernet keys
+  stay as they are (`legacy_pending`). A row that cannot be read only holds back itself: clear keys
+  and the other rows move. After the migration, `main` retries the kept keys at each start, seeds
+  the image key if the vault has none, and removes `image.api_key_enc` from `config.json` and
+  `config.json.bak` once the vault holds it. The secrets created are reported in the startup log
+  and written to the security journal (`vault.secret.created`) once committed. The rewrite and the
+  startup retry run with `PRAGMA secure_delete` on (SQLite), then `main` compacts the database once
+  (older backups still hold the keys: rotate the provider keys).
 - **Downgrades are not supported.** If an older version writes a key again (Fernet
   `api_key_enc` on a connector that has a `secret_id`, `image.api_key_enc` back in
   `config.json`), the next start of `main` compares it with the vault, keeps the vault value,

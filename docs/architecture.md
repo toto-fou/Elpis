@@ -2971,32 +2971,27 @@ by attribute) never runs. The fallback itself is capped at 5 s.
 session (`pw_dialog`). Do not set a `page.on('dialog', … accept())` again on
 a new page — that is what made it impossible to dismiss a confirm.
 
-#### Secure session and vault login
+#### Vault login
 
-A secret from the vault is never typed through a gesture: it goes into a **secure session**
-(`POST /start` with `secure: true`), and only through `POST /login`. The adversary is not only a
-hostile page but also the agent itself, which drives a programmable browser; a secure session
-therefore removes every way to read a typed value back.
-Outside a secure session the model may still type credentials it already knows (given in the
-chat, or shown on the page for a demo account) with an ordinary gesture: they are then plain text
-in the chat history. HTTP authentication only comes from an `http-auth` secret.
+A secret from the vault is never typed through a gesture: it only goes through `POST /login`, one
+exclusive request that is the protected step. The adversary is not only a hostile page but also the
+agent itself, which drives a programmable browser: the password must never be visible to the model,
+in the chat, in a recording or in the network log, while it is typed or sent. Before and after that
+step the session is an ordinary one: eval, mocks, the recorder, exports, captures and selectors on
+`value` all work. The model may still type credentials it already knows (given in the chat, or shown
+on the page for a demo account) with an ordinary gesture, like any test data: they are then plain
+text in the chat history. HTTP authentication only comes from an `http-auth` secret.
 
-- **Fixed at start, for the session's lifetime**: Chromium only; TLS verified (`tls: "strict"`,
-  default) unless the vault entry allows `"insecure"`; the site's CSP stays in force; service
-  workers blocked; HAR, trace, video and saved state refused (`secret_option_refused`). A secure
-  session is never reused by an ordinary start and never reuses one; at the quota it is never
-  evicted and never evicts (`browser_quota`). HTTP credentials sent with `credentials_origin` are
-  bound to that exact origin (the start URL must be on it).
-- **Route policy**: one table, `browser-service/route_policy.js`, gives every route a capability
-  class (`read_dom`, `exec_js`, `network_control`, `export`, `gesture`, `admin`, `secret`).
-  `getSession` applies it to every session route: on a secure session `exec_js` (eval),
-  `network_control` (mocks) and `export` (state, trace, PDF, visual baselines, recorder) answer
-  403 `secret_route_refused`, as does a route missing from the table; `/login` and
-  `/login_precheck` answer the same on an ordinary session. While a login runs, every other route
-  of the session answers 409 `secret_login_busy`. On a secure session, a selector or attribute name
-  that reads `value` (`[value…]` in CSS, `@value` in XPath, `attr`/`attribute` = `value`) answers
-  400 `secret_option_refused`: it would be an oracle on a field's value. The service logs
-  `[POLICY]` at startup if a route has no class.
+- **Session opened for a secret**: `POST /start` with `tls` (`"strict"`, the default for a secret, or
+  `"insecure"` when the vault entry allows it) verifies certificates accordingly for the session's
+  lifetime; plain `http://` origins work as usual. Such a session always gets a new context, is never
+  reused by another start and never reuses one; it counts against the quota like any other session.
+  HTTP credentials sent with `credentials_origin` (an `http-auth` secret) are bound to that exact
+  origin (the start URL must be on it) and are only sent when that origin answers 401; HAR and trace
+  are refused for the whole session (`recording_with_credentials`), since the HAR keeps the
+  `Authorization` header and the trace copies the context options. No route returns request headers
+  (the network log keeps method, URL and body only), and a mock matches on URL and method and keeps
+  nothing from the request, so the `Authorization` header cannot be read back through one.
 - **`/login_precheck`** (no values) and **`/login`** (values): targets are optional. Without them,
   fields are detected on all frames: `autocomplete=current-password`, otherwise the single visible
   `input[type=password]`; username by `autocomplete=username`, then `email`, then the text field
@@ -3007,63 +3002,65 @@ in the chat history. HTTP authentication only comes from an `http-auth` secret.
   (400). The origin is the one of the frame that owns each field (`about:blank`, `srcdoc` and
   `data:` frames are refused); every ancestor frame up to the page must share it, both fields
   share it, it must equal `secret_origin`, and the form, or the default button that Enter
-  triggers, must POST to it (403 `secret_scope_mismatch`).
-- **During `/login`**: a `context.route` guard aborts every request to another origin while the
-  fields are being typed, and every WebSocket of the session (routed through the service) is closed
-  if it sends a message then. After the submission, a request that carries the password (URL, body
-  or headers, under its encoded forms) leaves only as a POST to the secret's origin, fetched with
-  `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after submission
-  (navigation, `wait_for` target, field removed; login form shown again, browser validation,
-  nothing changed → 422 `secret_login_failed`, fields cleared, page message returned). Each tab
-  that received the secret is then replaced by a new tab loaded with a GET of its address (its
-  history, and its `sessionStorage`, are dropped, so Back cannot replay the POST), or closed, or the
-  session is closed.
-- **Afterwards**: the password stays in the service's memory for the session's lifetime only. A
-  page "contains" it when any retained form (raw, encoded, `user:pass` for HTTP credentials)
-  appears in the browser's DOM snapshot (text, attributes, typed values, shadow roots, frames) or in
-  the serialized HTML read outside the page's JavaScript world. Pages are checked when a document
-  of any frame commits or loads, and before and after every request: a page that contains it is
-  blanked, a response produced while one did is withheld (409 `secret_in_page`), and `/login`
-  reports it as `secret_in_page: true`. A page that cannot be read in time counts as containing it.
-  Screenshots run the same check (the after-reply capture takes the session lock). JSON responses,
-  console lines, dialog messages and network-log URLs are purged of whole occurrences only (a part
-  of the secret is never masked, so masking cannot be used as an oracle); request bodies are not
-  logged.
+  triggers, must POST to it (403 `secret_scope_mismatch`). Both routes answer 409
+  `secret_recording_active` while the session records a HAR (for its lifetime) or a trace (until
+  `/trace_export`): either would keep the typed value.
+- **The login step** (with a password): while it runs, every other route of the session answers 409
+  `secret_login_busy`. In order, the service: keeps no request body in the network log, drops the
+  request that carries the password (and its response) and purges console lines and dialog messages;
+  suspends the session's mocks; installs a `context.route` guard; routes the session's WebSockets
+  through the service (from the first login on) so that one that sends while the fields are typed is
+  closed; disables script execution in every other tab of the session (a script there could reach
+  the login page through a window reference); removes the service workers of the secret's origin
+  (`Storage.clearDataForOrigin`) and aborts any service worker script fetched until the end; then
+  reloads the login page from the network (the cache is off while a route is installed) and checks
+  that a new document was loaded, so that nothing the agent ran in the old document receives the
+  value. Only then are the fields checked and filled. The guard aborts every request to another
+  origin while the fields are typed; after the submission, a request that carries the password
+  (URL, body or headers, under its encoded forms) leaves only as a POST to the secret's origin,
+  fetched with `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged
+  after submission (navigation, `wait_for` target, field removed; login form shown again, browser
+  validation, nothing changed → 422 `secret_login_failed`, fields cleared, page message returned).
+  Each tab that received the password is then replaced by a new tab loaded with a GET of its
+  address (its history, and its `sessionStorage`, are dropped, so Back cannot replay the POST), or
+  closed, or the session is closed. Last, everything is restored: other tabs run again, mocks are
+  active again, the guard is removed. The answer's URL, title and page message are purged of the
+  password's forms (whole occurrences only); the service keeps no copy of the value afterwards.
 - **Through the tools**: no `pw_*` tool accepts a username or a password, and only the Elpis
   application (service token, `trusted_meta`) can use secrets; an external MCP client gets
   `secret_not_attached`. `pw_session(action="start", url, secret?)` asks the core which secrets
   attached to the conversation cover the URL's origin (`POST /api/internal/secrets/match`, no value):
-  none gives an ordinary session; one, or the one named by `secret=`, a secure session with the
-  secret's `tls`; several without `secret=` give `secret_ambiguous`. For an `http-auth` secret the
-  tool host resolves the value (`/api/internal/secrets/resolve`, usage `http-auth`) and passes
+  none gives an ordinary session without a TLS policy; one, or the one named by `secret=`, a session
+  opened for it with the secret's `tls`; several without `secret=` give `secret_ambiguous`. For an
+  `http-auth` secret the tool host refuses `record_har` and `trace` before any resolution, then
+  resolves the value (`/api/internal/secrets/resolve`, usage `http-auth`) and passes
   `credentials_origin`, `username` and `password` to `/start`; the answer carries the secret's name
   (`secret`). `pw_login` (`session_id`, optional `secret`, `username_target`, `password_target`,
   `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin
   of the frame that holds the fields; only then is the `web-login` secret resolved for that origin
   (by name, or the single attached one), and `/login` receives the values with `secret_origin`
-  (HTTP timeout 75 s, above the service's 62 s ceiling). The result is the service's purged answer
-  plus the secret's name and a lite view of the page (`page_after`), never a value; with
-  `secret_in_page: true` its `warning` tells the model to navigate elsewhere. A page that answers
-  401 carries an `auth_hint` that asks for a secret attached with `/secret attach <name>`. The tool
-  host rewrites the `secret_*` refusals for the model, in the tools' vocabulary: `secret_in_page`
-  (the page showed the secret and was blanked: navigate elsewhere) and `secret_option_refused`
-  (never target a field through its value) for every `pw_*` tool; `secret_scope_mismatch`,
-  `secret_target_required` and `secret_login_failed` for `pw_login`; and the vault's codes
-  (`secret_unknown`, `secret_unverified`, `secret_type_mismatch`, `secret_scope_mismatch`,
+  (HTTP timeout 75 s, above the service's 62 s ceiling). The result is the service's answer plus the
+  secret's name and a lite view of the page (`page_after`), never a value. A page that answers 401
+  carries an `auth_hint` that asks for a secret attached with `/secret attach <name>`. The tool host
+  gives `pw_login` refusals a fix in the tools' vocabulary (`secret_scope_mismatch`,
+  `secret_target_required`, `secret_login_failed`, `secret_recording_active`), and the vault's
+  codes (`secret_unknown`, `secret_unverified`, `secret_type_mismatch`, `secret_scope_mismatch`,
   `secret_ambiguous`, `secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`)
-  each with its own `fix`. The tool host binds every secure session it opens to its secret (name,
-  kind, origins, TLS, `policy.subagents`), in memory, until the session is stopped, cleaned up,
-  expires or trips: `pw_login` refuses a session it did not bind, a secret with verified TLS in a
-  session opened with `tls: insecure`, and a secret whose origins the binding does not cover unless
-  the session was opened for it (`secret_scope_mismatch`); a sub-agent cannot drive a session bound
-  to a secret whose policy excludes sub-agents (`secret_not_attached`). `pw_session(start)` on an
-  origin of a secret that already has a secure session of the caller reuses it (the URL opens there;
-  no new session, no use of the secret). When the browser service closes a secure session on a
-  tripwire (`409 secret_session_closed`), the tool host forgets the binding, asks the core to detach
+  each their own `fix`; other service errors reach the model unchanged. The tool host binds every
+  session it opens for a secret (name, kind, origins, TLS, `policy.subagents`), in memory, until the
+  session is stopped, cleaned up, expires or trips: `pw_login` refuses a session it did not bind
+  (`secret_session_required`) and a secret with verified TLS in a session opened with
+  `tls: insecure` (`secret_scope_mismatch`); a sub-agent cannot drive a session bound to a secret
+  whose policy excludes sub-agents (`secret_not_attached`). `pw_session(start)` on an origin of a
+  secret that already has a session of the caller reuses it (the URL opens there; no new session,
+  no use of the secret). The tripwire mapping is kept but inert: if the browser service ever
+  answers `409 secret_session_closed`, the tool host forgets the binding, asks the core to detach
   the secret (`/api/internal/secrets/tripwire`) and tells the model in plain English.
-- **Limits**: a script on the secret's own origin receives the password, as when a person types
-  it. Text supplied by the agent that equals the whole secret is purged, which tells it the guess
-  was right (one guess per call). With strict TLS and an internal CA, the CA must be trusted by
+- **Residual risks, out of scope by design**: a site that displays the password after the login
+  (in a page, a field, a URL) shows it to whoever reads that page, the model included, like any
+  other content of the site; a script of the secret's own origin, including a stored XSS on the site
+  or a script that trusts data the agent wrote earlier in the origin's storage, receives the
+  password as when a person types it. With strict TLS and an internal CA, the CA must be trusted by
   Chromium (NSS) and by Node, because the guarded POST is replayed from Node (`route.fetch`):
   `./elpis` starts the service with `--use-system-ca`, so a CA installed in the system store is
   enough (`NODE_EXTRA_CA_CERTS` still adds one).
@@ -3589,7 +3586,7 @@ vault_secrets
 | `GET /api/chats/:chat_id/secrets` · `PUT /api/chats/:chat_id/secrets` | main, session | Secrets attached to a conversation (below) |
 | `POST /api/internal/secrets/resolve` | main, service token and signed identity (`X-Elpis-Identity`) | Value for the tool host |
 | `POST /api/internal/secrets/match` | main, service token and signed identity | Attached secrets that cover an origin, without value (`pw_session`) |
-| `POST /api/internal/secrets/tripwire` | main, service token and signed identity | A secure session closed by the browser service (`secret_session_closed`): detach the secret, journal the refusal |
+| `POST /api/internal/secrets/tripwire` | main, service token and signed identity | A session closed by the browser service on a tripwire (`secret_session_closed`, inert): detach the secret, journal the refusal |
 | `POST /api/internal/secrets/import-ax` | main, service token and signed identity | The tool host's former AX credentials of one account |
 
 Responses carry metadata only (`schemaSecret`: scope, user name, state, version, policy, uses,

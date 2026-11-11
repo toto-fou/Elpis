@@ -31,17 +31,18 @@ follow [SemVer](https://semver.org/).
   (`secrets: [ids]`, applied before any tool runs, a new chat included) or through
   `GET`/`PUT /api/chats/:chat_id/secrets`. The model receives a `<secrets>` block with the
   question when the set changes (names, kinds, origins and user names, never a value; never in
-  the system prompt). `pw_session(action="start")` opens a secure session when an attached
-  secret covers the URL's origin (`secret=` picks one; an `http-auth` secret is applied at once),
-  and the new `pw_login` (`session_id`, optional `secret`, `username_target`,
+  the system prompt). `pw_session(action="start")` opens a session for the attached secret that
+  covers the URL's origin, with the secret's TLS policy (`secret=` picks one; an `http-auth` secret
+  is applied at once, and that session refuses HAR and trace); it is an ordinary session where
+  every tool works. The new `pw_login` (`session_id`, optional `secret`, `username_target`,
   `password_target`, `submit_target`, `wait_for`) logs in without the model ever receiving the
   value: the fields are checked first, the core resolves the secret for the frame's origin, then
-  the browser service types, submits and replaces the tabs that received it. A secure session is
-  bound to the secret it was opened for: `pw_login` refuses a secret with verified TLS in a session
-  opened without, or a secret of other origins; sub-agents cannot drive it when the secret's policy
-  excludes them; starting again on the same origin reuses it. If the browser service closes it on a
-  tripwire, the secret is detached from the conversation. Attaching and detaching are written to
-  the security journal (`vault.secret.attached`, `vault.secret.detached`).
+  the browser service runs the protected login step. `pw_login` only runs in a session opened for
+  a secret (`secret_session_required`) and refuses a secret with verified TLS in a session opened
+  without; sub-agents cannot drive such a session when the secret's policy excludes them; starting
+  again for the same secret reuses it. The model may type credentials it already knows, like any
+  test data. Attaching and detaching are written to the security journal
+  (`vault.secret.attached`, `vault.secret.detached`).
 - **Secrets vault (core).** One store, the `vault_secrets` table, for the secrets an account
   (or the instance, for shared connectors) gives to Elpis: website logins, HTTP authentication,
   Git, LLM and MCP keys, tokens. Each value is encrypted with AES-256-GCM and tagged with the
@@ -62,19 +63,21 @@ follow [SemVer](https://semver.org/).
   the vault routes refuse to delete it (`409 secret_managed`) and to rotate an MCP server's
   secret. **Back the key up separately from the backups** (`docs/operations.md`). **After updating, run
   `sudo ./elpis service install`** so that the other units lose access to the key.
-- **Browser: secure session and vault login.** `POST /start` with `secure: true` opens a locked
-  session for vault secrets: TLS verified unless `tls: "insecure"`, the site's CSP kept, service
-  workers blocked, no HAR, trace, video or saved state, never reused or evicted, HTTP credentials
-  bound to `credentials_origin`. A single route table (`browser-service/route_policy.js`) gives
-  every route a capability class; on a secure session eval, mocks and exports are refused. New
+- **Browser: vault login.** Only the login step is protected; the session around it is an
+  ordinary one (eval, mocks, recorder, exports and captures work before and after). `POST /start`
+  with `tls` keeps that TLS policy for the session's lifetime (certificates verified unless
+  `tls: "insecure"`; plain `http://` origins work), gives it a new context and never reuses it for
+  another start; HTTP credentials are bound to `credentials_origin` and refuse HAR and trace. New
   `POST /login_precheck` and `POST /login` type a username and password into fields that are
   targeted or detected (`autocomplete`, the single visible password field), checked against the
-  secret's origin, with a network guard during the login, an outcome check, and the documents
-  that received the secret replaced by new tabs afterwards; pages that contain it are blanked and
-  answers read from them withheld, selectors on `value` refused, screenshots refused and responses
-  purged. Stable error codes: `secret_route_refused`, `secret_login_busy`, `secret_in_page`,
-  `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
-  `secret_option_refused`.
+  secret's origin. `/login` is one exclusive request: refused while a HAR or a trace records,
+  mocks suspended, service workers of the origin removed and blocked, other tabs paused, the login
+  page reloaded from the network so that no earlier script receives the value, a network guard
+  while the value is typed and sent, an outcome check, and the documents that received the secret
+  replaced by new tabs afterwards; the network log keeps no body during the login and drops the
+  request that carried the password. Stable error codes: `secret_login_busy`,
+  `secret_recording_active`, `secret_scope_mismatch`, `secret_target_required`,
+  `secret_login_failed`.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and
@@ -529,9 +532,9 @@ follow [SemVer](https://semver.org/).
   as text by a "show password" toggle is not.
 - **Browser: no HAR or trace with HTTP credentials.** Both store them in clear (the
   `Authorization` header, the context options), so the browser service refuses to combine
-  `record_har` or `trace` with a username and password (`recording_with_credentials`); a secure
-  session, the only one that receives an `http-auth` secret, refuses every recording (video
-  included). Video recording of an ordinary session is unaffected.
+  `record_har` or `trace` with a username and password (`recording_with_credentials`), for the
+  session's lifetime; a session opened for an `http-auth` secret is such a session. Video
+  recording is unaffected.
 
 ## 0.1.2 — 2026-11-01
 

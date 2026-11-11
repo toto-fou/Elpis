@@ -807,18 +807,21 @@ Secrets the user attached to this conversation and its sub-agents, from this mes
 </secrets>
 ```
 
-When it opens a page on one of these addresses, the browser starts a **secure session** (verified
-certificates, no scripts or recordings from the assistant); an `http-auth` secret is applied at
-once. For a login form it calls `pw_login`: the browser service checks the form, types the user name
+When it opens a page on one of these addresses, the browser opens a session for that secret, with
+the certificate check of the secret (verified unless you allowed otherwise); an `http-auth` secret is
+applied at once, and that session cannot be recorded (HAR or trace). Otherwise the session is an
+ordinary one: the assistant keeps all its testing tools there (scripts, mocks, recorder, exports).
+For a login form it calls `pw_login`, the only protected step: the browser service reloads the
+login page, sets the assistant's mocks and other tabs aside, checks the form, types the user name
 and password, submits, then reopens the page in a new tab so that the password is no longer in it.
-The assistant only learns whether the login worked. If a site shows the password back on a page,
-that page is blanked and the assistant is told to go elsewhere; a form placed inside another
-site's frame is refused. If the browser service suspects that the password is about to leak, it
-closes the session and the secret is detached from the conversation: check the site, then attach
-it again if you trust it. A secure session serves one secret: the assistant goes back to it for that
-secret instead of opening new ones. If a page asks for a login that is not attached,
-the assistant asks you to attach one with `/secret attach <name>`: never give it a password in the
-chat. Each use is written to the security journal.
+The assistant only learns whether the login worked; the password stays out of its view, of
+recordings and of the network log. A form placed inside another site's frame is refused, and so is
+a login while the session records a HAR or a trace. If the site itself shows the password back on a
+page after the login, that page is the site's content: the assistant can read it like any other. A
+session serves one secret: the assistant goes back to it for that secret instead of opening new
+ones. If a page asks for a login that is not attached, the assistant asks you to attach one with
+`/secret attach <name>`, or to give the credentials in the chat if they are only test data (they then
+stay in plain text in the chat history). Each use is written to the security journal.
 
 Logins that the browser used to remember by itself (before the vault) are moved into it at the
 update, as **unverified** secrets named after their site: check them in Settings › Secrets before

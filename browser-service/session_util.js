@@ -288,16 +288,15 @@ export function placesEnfants(occupation, maxPerGroup) {
 // sa plus ancienne session cède la place ; sans session à céder, le plafond
 // du groupe ou le plafond global refuse. Un sous-agent n'évince donc ni la
 // session du compte ni celle d'un frère ; une place du groupe reste au compte, et les enfants ont leur plafond global (`maxChildren`).
-// `cedable(s)` exclut des sessions de l'éviction (session sécurisée) : sans session cédable, refus `protegee`.
-// → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global'|'protegee' }
-export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, maxChildren = maxTotal, now = Date.now(), cedable = () => true } = {}) {
+// → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
+export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, maxChildren = maxTotal, now = Date.now() } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
     const enfant = owner !== group;
     const own = [];
     let total = 0;
     for (const [sid, s] of sessions) {
         if ((!!s && (s.group || s.owner) !== s.owner) === enfant) total += 1;
-        if (s && s.owner === owner) own.push([sid, age(s), cedable(s)]);
+        if (s && s.owner === owner) own.push([sid, age(s)]);
     }
     own.sort((a, b) => a[1] - b[1]);
     const occupation = occupationGroupe(sessions, group);
@@ -306,8 +305,7 @@ export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group 
         : occupation.enfants >= placesEnfants(occupation, maxPerGroup);
     const plafond = enfant ? maxChildren : maxTotal;
     if (own.length >= maxPerOwner || ((total >= plafond || groupePlein) && own.length)) {
-        const c = own.find((o) => o[2]);
-        return c ? { evict: c[0], refuse: false } : { evict: null, refuse: true, cause: 'protegee' };
+        return { evict: own[0][0], refuse: false };
     }
     if (groupePlein) return { evict: null, refuse: true, cause: 'groupe' };
     if (total >= plafond) return { evict: null, refuse: true, cause: 'global' };

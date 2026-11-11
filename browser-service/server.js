@@ -26,9 +26,7 @@ import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
-import { classeRoute, refusRoute, refusSelecteurValeur, ecartsTable } from './route_policy.js';
-import { origineDe, erreurSecret, formesSecret, retenirSecret, oublierSecrets, purgerValeurs, purgerTexte, requetePorteSecret,
-         viderPagesAvecSecret, surveillerPage, garderCaptures, CAPTURE_REFUSEE, choisirVisible, controlerChamp, controlerPoignee,
+import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
          verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
@@ -258,18 +256,18 @@ async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) 
         catch (e) { /* timeout → force close */ }
     }
     try { await s.context.close(); } catch (e) {}
-    oublierSecrets(s);
     cleanupSessionScreenshots(sid);
 }
 
 // ── Une instance par utilisateur ────────────────────────────────────
 // Retourne [sid, session] de la session vivante appartenant à `owner`,
 // ou null. Une session dont la page a crashé est fermée au passage afin
-// que l'appelant puisse en recréer une proprement.
+// que l'appelant puisse en recréer une proprement. Une session ouverte avec
+// une politique TLS (pour un secret du coffre) n'est jamais reprise.
 async function findLiveSessionByOwner(owner) {
     if (!owner) return null;
     for (const [sid, s] of sessions) {
-        if (s.owner !== owner || s.secure) continue;
+        if (s.owner !== owner || s.tls) continue;
         // AUDIT 2026-06 — ping borné : une page gelée ne bloque plus la
         // recherche. 'frozen' = fail-open (page sans doute juste occupée,
         // les handlers ont leurs propres timeouts).
@@ -563,7 +561,6 @@ async function _lancerNavigateur() {
         globalBrowser.on('disconnected', () => {
             console.warn('[GLOBAL] Browser déconnecté, reset...');
             globalBrowser = null;
-            for (const s of sessions.values()) oublierSecrets(s);
             sessions.clear();
         });
     }
@@ -1630,10 +1627,8 @@ async function getSession(req, res, next) {
         return res.status(404).json({ error: "Session introuvable." });
     }
     const session = sessions.get(sid);
-    // Politique des routes (route_policy.js) avant le ping et le verrou ; connexion en cours revue sous le verrou (un client parti le rend avant la fin de /login).
-    const classe = classeRoute(req.method, req.route?.path);
-    const refus = refusRoute({ classe, route: req.route?.path, secure: !!session.secure, connexionEnCours: !!session._connexionEnCours });
-    if (refus) return res.status(refus.statut).json(refus.corps);
+    // Connexion en cours : refus avant le ping et le verrou, revu sous le verrou (un client parti le rend avant la fin de /login).
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     // AUDIT 2026-06 — ping borné (3 s) : une page gelée ne bloque plus la
     // requête entrante ('frozen' = fail-open, les handlers ont leurs propres
     // timeouts). Crash → closeSession (et plus un simple delete de la Map,
@@ -1670,72 +1665,31 @@ async function getSession(req, res, next) {
         res.once('finish', release);
         res.once('close', release);
     }
-    if (session._connexionEnCours) {
-        const occupe = refusRoute({ classe, route: req.route?.path, secure: true, connexionEnCours: true });
-        return res.status(occupe.statut).json(occupe.corps);
-    }
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     req.session = session;
     req.sessionId = sid;
-    if (session.secure && !(await preparerSessionSecurisee(req, res, session))) return;
     annoncerOnglets(req, res);
     next();
 }
 
-const SECRET_DANS_PAGE = Object.freeze({
-    error: 'A page contained a vault secret (echoed by the site): it was cleared, and nothing read from it is returned.',
-    code: 'secret_in_page',
-    fix: 'Navigate again to the page you need; never ask the site to display the secret.',
+const CONNEXION_EN_COURS = Object.freeze({
+    error: 'A login is in progress on this session: retry once it has finished.',
+    code: 'secret_login_busy', retryable: true,
 });
 
-// Session sécurisée : page qui contient un secret vidée avant la route (409), sélecteur sur `value` refusé (400), puis réponse retenue (409) si une page l'a contenu pendant ou après la route, sinon purgée.
-async function preparerSessionSecurisee(req, res, s) {
-    const route = req.route?.path;
-    if (route !== '/stop' && (await viderPagesAvecSecret(s))) {
-        res.status(409).json(SECRET_DANS_PAGE);
-        return false;
-    }
-    const refusSel = refusSelecteurValeur(req.body, req.query);
-    if (refusSel) {
-        res.status(refusSel.statut).json(refusSel.corps);
-        return false;
-    }
-    const epoque = s._blanchiments || 0;
-    const json = res.json.bind(res);
-    res.json = (corps) => {
-        const envoyer = (sortie) => json(purgerValeurs(sortie, s));
-        if (route === '/stop' || route === '/login') return envoyer(corps);
-        viderPagesAvecSecret(s).catch(() => true).then((vue) => {
-            if (vue || (s._blanchiments || 0) !== epoque) { res.status(409); return envoyer(SECRET_DANS_PAGE); }
-            if (res.statusCode >= 500 && corps && typeof corps.error === 'string' && corps.error.includes(CAPTURE_REFUSEE)) {
-                res.status(409);
-                return envoyer({ ...corps, code: 'secret_in_page' });
-            }
-            return envoyer(corps);
-        }).catch((e) => console.error('[secure] réponse non envoyée :', e.message));
-        return res;
-    };
-    return true;
-}
-
-// ── Screenshot write for a specific step number (file I/O only) ; session sécurisée : sous son verrou (aucune connexion ne commence), drapeau revu juste avant.
+// ── Screenshot write for a specific step number (file I/O only) ; aucune pendant une connexion.
 async function liveSnapshotForStep(page, sid, n) {
-    const sv = sessions.get(sid);
-    if (!page || !sid || !n || sv?._connexionEnCours) return null;
+    if (!page || !sid || !n || sessions.get(sid)?._connexionEnCours) return null;
     const liveName = `live_${sid}.png`;
     const stepName = `step_${sid}_${n}.png`;
     const livePath = path.join(SCREENSHOT_DIR, liveName);
     const stepPath = path.join(SCREENSHOT_DIR, stepName);
-    let rendre = null;
     try {
-        if (sv?.secure && PW_MUTEX && sv._lock) rendre = await acquireLock(sv._lock, { waitMs: 2000, maxWaiters: LOCK_MAX_W });
-        if (sv?.secure && (sv._connexionEnCours || !sessions.has(sid))) return null;
         await page.screenshot({ path: livePath, fullPage: false, timeout: 3000 });
         try { fs.copyFileSync(livePath, stepPath); } catch (e) {}
         return stepName;
     } catch (e) {
         return null;
-    } finally {
-        if (rendre) rendre();
     }
 }
 
@@ -1937,7 +1891,7 @@ const DIALOG_DEFAULT_WHEN_UNARMED = 'accept';
 function attachDialogHandler(page, dialogState) {
     page.on('dialog', async (dialog) => {
         const type = dialog.type();
-        const message = dialogState.purger ? dialogState.purger(dialog.message()) : dialog.message();
+        const message = purgerTexte(dialog.message(), dialogState.formes);
         let action = DIALOG_DEFAULT_WHEN_UNARMED;
         let input = '';
         const pol = dialogState.pending;
@@ -2014,20 +1968,21 @@ const ownerStartLocks = new Map();
 // jamais, et rien ne distinguait l'appli des traqueurs tiers. On garde aussi
 // les documents, on note l'hôte et le same-origin. Attaché à CHAQUE page
 // (onglets compris) — avant, seule la première page de la session l'était.
+// Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
+const requetesEcartees = new WeakSet();
 function attachPageLoggers(page, consoleLogs, networkLog) {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
-    const purger = networkLog.purger || ((t) => t);
     page.on('console', msg => {
         if (['error', 'warning'].includes(msg.type())) {
-            consoleLogs.push(`[${msg.type()}] ${purger(msg.text())}`);
+            consoleLogs.push(`[${msg.type()}] ${purgerTexte(msg.text(), networkLog.formes)}`);
             if (consoleLogs.length > 100) consoleLogs.shift();
         }
     });
     const pageHost = () => { try { return hostOf(page.url()); } catch (_) { return ''; } };
     const entry = (req, rtype) => {
-        const url = purger(req.url());
+        const url = req.url();
         const host = hostOf(url);
         let sameOrigin = host !== '' && host === pageHost();
         // Une navigation principale vers un autre hôte DEVIENT la page : c'est
@@ -2038,13 +1993,15 @@ function attachPageLoggers(page, consoleLogs, networkLog) {
     page.on('request', req => {
         const rtype = req.resourceType();
         if (!NET_TYPES.has(rtype)) return;
-        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: networkLog.sansCorps ? null : (req.postData()?.substring(0, 500) || null) });
+        const formes = networkLog.formes;
+        if (formes && requetePorteSecret(req.url(), chargeRequete(req), formes)) return requetesEcartees.add(req);
+        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: formes ? null : (req.postData()?.substring(0, 500) || null) });
         if (networkLog.length > 300) networkLog.shift();
     });
     page.on('response', resp => {
         const req = resp.request();
         const rtype = req.resourceType();
-        if (!NET_TYPES.has(rtype)) return;
+        if (!NET_TYPES.has(rtype) || requetesEcartees.has(req)) return;
         networkLog.push({ ts: Date.now(), dir: 'RES', status: resp.status(), ...entry(req, rtype) });
         if (networkLog.length > 300) networkLog.shift();
     });
@@ -2070,7 +2027,6 @@ function brancherOnglet(s, page) {
     attachDialogHandler(page, s.dialogState || (s.dialogState = makeDialogState()));
     attachPageLoggers(page, s.consoleLogs, s.networkLog);
     suivreOnglets(s, page);
-    if (s.secure) surveillerPage(s, page);
 }
 
 // Popup ajouté à la session et mis en attente d'annonce.
@@ -2272,25 +2228,14 @@ const indiceAuthDemarrage = (nav, poses) => {
     return h ? { auth_hint: h } : {};
 };
 
-// Refus (400) d'un démarrage aux options incompatibles avec une session sécurisée, ou d'identifiants du coffre hors d'elle ; null s'il peut se faire.
-function refusOptionsSecurisees(b, secure) {
-    const refus = (code, error, fix = null) => ({ statut: 400, corps: { error, code, ...(fix ? { fix } : {}) } });
-    const present = (v) => v !== undefined && v !== null && v !== '' && v !== false;
-    if (!secure) return present(b.credentials_origin)
-        ? refus('secret_option_refused', 'credentials_origin is only accepted for a secure session (secure=true).') : null;
-    if (b.tls !== undefined && b.tls !== 'strict' && b.tls !== 'insecure') return refus('secret_option_refused', "tls must be 'strict' or 'insecure'.");
-    const interdites = ['record_har', 'trace', 'record_video', 'load_state_id'].filter((k) => present(b[k]));
-    if (interdites.length) return refus('secret_option_refused',
-        `A secure session refuses ${interdites.join(', ')}: recordings and saved states would keep or replay the typed secret.`,
-        'Start the secure session without these options.');
-    if (typeof b.url === 'string' && URL.canParse(b.url) && (new URL(b.url).username || new URL(b.url).password))
-        return refus('secret_option_refused', 'A secure session refuses credentials inside the start URL.');
-    if (present(b.credentials_origin)) {
-        const o = origineDe(b.credentials_origin);
-        if (!o) return refus('secret_scope_mismatch', 'credentials_origin must be an http(s) origin (scheme://host[:port]).');
-        if (!(b.username && b.password)) return refus('secret_option_refused', 'credentials_origin needs username and password.');
-        if (b.url && origineDe(b.url) !== o) return refus('secret_scope_mismatch', `The start URL is not on the credentials' origin (${o}).`);
-    }
+// Refus (400) d'un démarrage au `tls` inconnu ou au `credentials_origin` invalide (origine http(s), identifiants, adresse de départ sur elle) ; null sinon.
+function refusDemarrage(b) {
+    if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
+    if (b.credentials_origin === undefined || b.credentials_origin === null || b.credentials_origin === '') return null;
+    const o = origineDe(b.credentials_origin);
+    if (!o) return { error: 'credentials_origin must be an http(s) origin (scheme://host[:port]).', code: 'secret_scope_mismatch' };
+    if (!(b.username && b.password)) return { error: 'credentials_origin needs username and password.', code: 'invalid_option' };
+    if (b.url && origineDe(b.url) !== o) return { error: `The start URL is not on the credentials' origin (${o}).`, code: 'secret_scope_mismatch' };
     return null;
 }
 
@@ -2306,11 +2251,10 @@ app.post('/start', async (req, res) => {
         if (!owner) return res.status(400).json({ error: 'owner requis.' });
         // Groupe du quota : le compte d'un sous-agent à session isolée (absent : le propriétaire seul).
         const group = safeOwner(req.body.group) || owner;
-        // Session sécurisée (coffre), pour toute sa vie : jamais reprise ni reprenante, jamais évincée, TLS vérifié sauf tls='insecure', CSP du site, sans service worker, WebSocket fermé s'il émet pendant une saisie, pages surveillées, journaux purgés.
-        const secure = req.body.secure === true;
-        const refusSecure = refusOptionsSecurisees(req.body, secure);
-        if (refusSecure) return res.status(refusSecure.statut).json(refusSecure.corps);
-        const tls = secure ? (req.body.tls || 'strict') : null;
+        // Session ouverte pour un secret du coffre : politique TLS du secret (`tls`), contexte neuf, jamais reprise ensuite.
+        const refus = refusDemarrage(req.body);
+        if (refus) return res.status(400).json(refus);
+        const tls = req.body.tls || null;
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
@@ -2340,7 +2284,7 @@ app.post('/start', async (req, res) => {
             storageState = path.join(COOKIES_DIR, etat.file);
         }
 
-        if (PW_MUTEX && owner && !isolated && !secure) {
+        if (PW_MUTEX && owner && !isolated && !tls) {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
@@ -2355,7 +2299,7 @@ app.post('/start', async (req, res) => {
         // échéant) s'ouvre dans un NOUVEL ONGLET de l'instance existante :
         // rien en cours n'est perdu, et l'utilisateur accumule des
         // onglets entre lesquels il peut basculer (switch_tab).
-        if (owner && !isolated && !secure) {   // isolated=true ou session sécurisée → contexte neuf, pas de réutilisation
+        if (owner && !isolated && !tls) {   // isolated=true ou politique TLS → contexte neuf, pas de réutilisation
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
@@ -2433,14 +2377,13 @@ app.post('/start', async (req, res) => {
             locale: locale || 'fr-FR',
             timezoneId: timezone || 'Europe/Paris',
             colorScheme: color_scheme || undefined,   // 'light' | 'dark' | 'no-preference'
-            ignoreHTTPSErrors: secure ? tls === 'insecure' : true,
+            ignoreHTTPSErrors: tls !== 'strict',
             acceptDownloads: true,
             storageState,
             httpCredentials: identifiants,
             permissions: ['geolocation'],
-            bypassCSP: !secure,
+            bypassCSP: true,
         };
-        if (secure) contextOpts.serviceWorkers = 'block';
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
         delete contextOpts.defaultBrowserType;  // clé du preset non valide pour newContext
 
@@ -2450,16 +2393,6 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
-        const etatWs = { saisie: false };
-        if (secure) await context.routeWebSocket(/.*/, (ws) => {
-            if (etatWs.saisie) return ws.close({ code: 1008, reason: 'Login in progress' });
-            const serveur = ws.connectToServer();
-            ws.onMessage((m) => {
-                if (!etatWs.saisie) return serveur.send(m);
-                ws.close({ code: 1008, reason: 'Login in progress' });
-                serveur.close({ code: 1008, reason: 'Login in progress' });
-            });
-        });
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2491,18 +2424,12 @@ app.post('/start', async (req, res) => {
         const dialogState = makeDialogState();
         const consoleLogs = [];
         const networkLog = [];
-        if (secure) {
-            networkLog.purger = (t) => purgerTexte(t, sessions.get(sessionId));
-            networkLog.sansCorps = true;
-            dialogState.purger = networkLog.purger;
-        }
         attachDialogHandler(page, dialogState);
         attachPageLoggers(page, consoleLogs, networkLog);
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now,
-                                                         cedable: (s) => !secure && !s.secure });
+        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
             return res.status(503).json(slot.cause === 'groupe' ? {
@@ -2510,11 +2437,6 @@ app.post('/start', async (req, res) => {
                 code: 'browser_quota',
                 fix: "Close a session you no longer need with pw_session(action='stop'), or wait for a running browser sub-agent to finish: "
                    + 'the account and its sub-agents share this quota. A sub-agent that hits it returns Status: blocked to its parent.',
-            } : slot.cause === 'protegee' ? {
-                error: secure ? 'Browser session quota reached: a secure session never closes another session to make room.'
-                              : 'Browser session quota reached: the sessions that could make room are secure sessions, which are never closed silently.',
-                code: 'browser_quota',
-                fix: "Close a session you no longer need with pw_session(action='stop'), then retry.",
             } : {
                 error: 'Browser service saturated: too many sessions are open across all accounts.',
                 code: 'browser_saturated',
@@ -2525,15 +2447,8 @@ app.post('/start', async (req, res) => {
 
         sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
                                 identifiantsLies: identifiants ? { origin: identifiants.origin, username: identifiants.username } : null,
-                                ...(secure ? { secure: true, tls } : {}) });
-        const sess = sessions.get(sessionId);
-        suivreOnglets(sess, page);
-        if (secure) {
-            sess.ws = etatWs;
-            garderCaptures(context, page, sess);
-            surveillerPage(sess, page);
-            if (identifiants) retenirSecret(sess, identifiants.password, { identifiant: identifiants.username, basic: true });
-        }
+                                har: Boolean(record_har), tls });
+        suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
         try {
@@ -2546,18 +2461,19 @@ app.post('/start', async (req, res) => {
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json(purgerValeurs({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
                    ...indiceAuthDemarrage(nav, Boolean(identifiants)),
                    ...avisIdentifiants(identifiantsFournis, identifiants, identifiants, nav.http_status, page.url()),
-                   ...(secure ? { secure: true, tls, ...(tls === 'insecure' ? { tls_note: 'Certificates are not verified in this secure session (tls=insecure).' } : {}) } : {}) }, sess));
+                   ...(tls ? { tls } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });
 
 
 // ======================== CONNEXION AVEC UN SECRET DU COFFRE ========================
-// Le modèle ne saisit jamais un secret par un geste : /login_precheck contrôle les champs sans valeur, /login saisit, soumet, juge l'issue et
-// remplace les documents qui ont reçu le secret, en une requête exclusive (toute autre route de la session répond 409 secret_login_busy).
+// Le modèle ne saisit jamais un secret par un geste : /login_precheck contrôle les champs sans valeur ; /login, en une requête exclusive (toute
+// autre route de la session répond 409 secret_login_busy), isole la session, recharge la page depuis le réseau, saisit, soumet, juge l'issue et
+// remplace les documents qui ont reçu le secret. Avant et après, la session est ordinaire.
 const BUDGET_LOGIN_MS = parseInt(process.env.PW_LOGIN_BUDGET_MS || '40000', 10);
 // Attente d'une réaction de la page après la soumission (navigation, champ retiré), sauf requête porteuse encore en vol.
 const REACTION_LOGIN_MS = parseInt(process.env.PW_LOGIN_REACTION_MS || '15000', 10);
@@ -2654,13 +2570,13 @@ async function idPrincipal(page) {
 }
 
 // Chaque onglet qui a reçu le secret est remplacé par un onglet neuf, chargé en GET sur son adresse si elle ne porte aucun secret, historique vidé (aucun retour ne rejoue le POST) ; sinon fermé, puis la session.
-async function remplacerDocuments(s, saisies, finPost) {
+async function remplacerDocuments(s, saisies, finPost, formes) {
     const bilan = { remplacees: 0, fermees: 0, sessionFermee: false };
     const borne = () => Math.max(300, Math.min(4000, finPost - Date.now()));
     for (const vieux of saisies) {
         if (vieux.isClosed()) continue;
         let cible = null;
-        try { const u = vieux.url(); if (/^https?:/i.test(u) && purgerTexte(u, s) === u) cible = u; } catch (e) { cible = null; }
+        try { const u = vieux.url(); if (/^https?:/i.test(u) && purgerTexte(u, formes) === u) cible = u; } catch (e) { cible = null; }
         const neuf = await avecDelai(s.context.newPage(), borne()).catch(() => null);
         if (neuf) {
             brancherOnglet(s, neuf);
@@ -2696,10 +2612,10 @@ async function motDePasseVisible(page, origineSecret) {
 }
 
 // Message d'erreur affiché par la page (alerte, région live), purgé et borné, pour expliquer un échec avant le remplacement des documents.
-async function messagePage(page, s) {
+async function messagePage(page, formes) {
     const textes = await avecDelai(page.evaluate(() => Array.from(document.querySelectorAll('[role=alert], [aria-live=assertive], [aria-live=polite], .error, .alert'))
         .map((e) => (e.innerText || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3)), 1500).catch(() => []);
-    return purgerTexte(textes.join(' | '), s).substring(0, 300);
+    return purgerTexte(textes.join(' | '), formes).substring(0, 300);
 }
 
 // Issue après la soumission : navigation, onglet, cible wait_for, champ retiré, formulaire invalide ou rien (réponse porteuse sans suite 3 s, fenêtre écoulée) ; puis mot de passe réaffiché 1 s ou cible absente.
@@ -2738,13 +2654,12 @@ async function issueConnexion(page, p, ctx) {
     return p.cw ? 'wait_for_missing' : issue;
 }
 
-// Garde réseau de /login : pendant la saisie, toute requête vers une autre origine est coupée ; ensuite, une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
+// Garde réseau de /login : aucun script de service worker enregistré ; pendant la saisie, toute requête vers une autre origine est coupée ; ensuite, une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
 function gardeReseau(formes, origineSecret, etat) {
     return async (route) => {
         const rq = route.request();
-        let porte = '';
-        try { porte = [rq.postData() || '', ...Object.values(rq.headers())].join('\n'); } catch (e) { porte = ''; }
-        const avecSecret = requetePorteSecret(rq.url(), porte, formes);
+        if (rq.headers()['service-worker'] === 'script') return route.abort('blockedbyclient').catch(() => {});
+        const avecSecret = requetePorteSecret(rq.url(), chargeRequete(rq), formes);
         if (etat.saisie && origineDe(rq.url()) !== origineSecret) {
             if (avecSecret) etat.bloquees++; else etat.coupees++;
             return route.abort('blockedbyclient').catch(() => {});
@@ -2782,9 +2697,74 @@ function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
         fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
 }
 
+// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie.
+function refusEnregistrement(s) {
+    if (s.har) throw erreurSecret('secret_recording_active', 'A HAR recording is active on this session: it would keep the typed value.', 409,
+        { fix: 'A HAR records until the session is closed: log in from a session started without record_har.' });
+    if (s.traceActive) throw erreurSecret('secret_recording_active', 'A trace recording is active on this session: it would keep the typed value.', 409,
+        { fix: 'Export the trace first (/trace_export, which stops it), then log in.' });
+}
+
+// Autres pages du contexte sans script le temps de la connexion (un script d'un onglet de même origine lirait le champ) ; sessions CDP à détacher pour les rétablir.
+async function figerAutresPages(s, page) {
+    const cdps = [];
+    const echec = async () => {
+        for (const c of cdps) await c.detach().catch(() => {});
+        throw erreurSecret('secret_login_failed', 'Another tab of this session could not be paused for the login: nothing was typed.', 500);
+    };
+    for (const pg of s.context.pages()) {
+        if (pg === page || pg.isClosed()) continue;
+        for (const cible of [pg, ...pg.frames().filter((f) => f !== pg.mainFrame())]) {
+            const cdp = await s.context.newCDPSession(cible).catch(() => null);
+            if (!cdp) { if (cible === pg && !pg.isClosed()) await echec(); continue; }
+            cdps.push(cdp);
+            if (!(await cdp.send('Emulation.setScriptExecutionDisabled', { value: true }).then(() => true, () => pg.isClosed()))) await echec();
+        }
+    }
+    return cdps;
+}
+
+// WebSocket de la session routés par le service dès sa première connexion : fermé s'il émet pendant la saisie d'un mot de passe.
+async function garderWebSockets(s) {
+    if (s._wsGardes) return;
+    await s.context.routeWebSocket(/.*/, (ws) => {
+        if (s._saisie) return ws.close({ code: 1008, reason: 'Login in progress' });
+        const serveur = ws.connectToServer();
+        ws.onMessage((m) => {
+            if (!s._saisie) return serveur.send(m);
+            ws.close({ code: 1008, reason: 'Login in progress' });
+            serveur.close({ code: 1008, reason: 'Login in progress' });
+        });
+    });
+    s._wsGardes = true;
+}
+
+// Isolement avant toute saisie : journaux sans corps ni requête porteuse, mocks suspendus, garde réseau, WebSocket gardés, autres pages figées, service workers de l'origine retirés, page rechargée depuis le réseau (aucun script d'avant n'y reste) ; chaque étape faite ajoute son retour à `defaire`.
+async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }) {
+    s.networkLog.formes = formes;
+    if (s.dialogState) s.dialogState.formes = formes;
+    s._mocksSuspendus = true;
+    defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
+    await s.context.route('**/*', garde);
+    defaire.push(() => s.context.unroute('**/*', garde));
+    await garderWebSockets(s);
+    const figees = await figerAutresPages(s, page);
+    defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
+    const cdp = await s.context.newCDPSession(page);
+    try {
+        await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
+        const avant = await idPrincipal(page);
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: Math.max(500, fin - Date.now()) });
+        if ((await idPrincipal(page)) === avant)
+            throw erreurSecret('secret_login_failed', 'The login page could not be loaded again from the network: nothing was typed.', 422);
+    } finally { await cdp.detach().catch(() => {}); }
+    await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(Math.max(0, Math.min(3000, fin - Date.now() - 20000)))]);
+}
+
 app.post('/login_precheck', getSession, async (req, res) => {
     let p = null;
     try {
+        refusEnregistrement(req.session);
         p = await preparerLogin(req);
         const targets = {};
         for (const [champ, h] of Object.entries(p.champs)) targets[champ] = await decrireChamp(h);
@@ -2803,35 +2783,34 @@ app.post('/login', getSession, async (req, res) => {
     const origineSecret = origineDe(b.secret_origin);
     const uv = typeof b.username_value === 'string' ? b.username_value : '';
     const pv = typeof b.password_value === 'string' ? b.password_value : '';
+    const formes = formesSecret(pv);
     const fin = req.recuA + BUDGET_LOGIN_MS - 500;
     // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
     s._connexionEnCours = true;
     const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
-    const garde = gardeReseau(formesSecret(pv), origineSecret, etat);
-    const phaseSaisie = (oui) => { etat.saisie = oui; if (s.ws) s.ws.saisie = oui; };
+    const garde = gardeReseau(formes, origineSecret, etat);
+    const phaseSaisie = (oui) => { etat.saisie = oui; s._saisie = oui; };
     const saisies = new Set();
     const nouvelles = [];
     const surPage = (pg) => { nouvelles.push(pg); };
-    let p = null, avecSecret = false, gardee = false, tape = false, sortie = null, message = '', secretVu = false;
+    const defaire = [];
+    let p = null, avecSecret = false, tape = false, sortie = null, message = '';
     let post = { remplacees: 0, fermees: 0, sessionFermee: false };
     s.context.on('page', surPage);
     try {
         try {
             if (!origineSecret) throw erreurSecret('secret_scope_mismatch', 'secret_origin must be an http(s) origin (scheme://host[:port]).', 400);
             if (!uv && !pv) throw erreurSecret('secret_target_required', 'Nothing to type: username_value and password_value are both empty.', 400);
-            if (pv && !formesSecret(pv).length) throw erreurSecret('secret_login_failed', 'A password shorter than 3 characters cannot be guarded or purged: login refused.', 400);
+            if (pv && !formes.length) throw erreurSecret('secret_login_failed', 'A password shorter than 3 characters cannot be guarded or purged: login refused.', 400);
+            refusEnregistrement(s);
+            if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
             const prep = preparerLogin(req, { fin, valeurs: { username: uv, password: pv } });
             try { p = await avecDelai(prep, Math.max(500, fin - Date.now())); }
             catch (e) { prep.then(libererLogin, () => {}); throw e; }
             if (p.origine !== origineSecret)
                 throw erreurSecret('secret_scope_mismatch', `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`, 403);
             avecSecret = Boolean(p.champs.password);
-            if (avecSecret) {
-                for (const h of Object.values(p.champs)) saisies.add((await avecDelai(h.ownerFrame(), 3000)).page());
-                retenirSecret(s, pv);
-                await s.context.route('**/*', garde);
-                gardee = true;
-            }
+            if (avecSecret) for (const h of Object.values(p.champs)) saisies.add((await avecDelai(h.ownerFrame(), 3000)).page());
             const page = s.page;
             const surNav = (f) => { if (f === page.mainFrame()) etat.navigue = true; };
             page.on('framenavigated', surNav);
@@ -2863,22 +2842,21 @@ app.post('/login', getSession, async (req, res) => {
             }
         } catch (e) {
             sortie = erreurLogin(e);
-            console.warn(`[login] ${req.sessionId.substring(0, 8)}… ${purgerTexte(sansAnsi(String(e && e.message)), s).split('\n')[0].substring(0, 200)}`);
+            console.warn(`[login] ${req.sessionId.substring(0, 8)}… ${purgerTexte(sansAnsi(String(e && e.message)), formes).split('\n')[0].substring(0, 200)}`);
         }
         s.context.off('page', surPage);
         if (p && tape && sortie.statut !== 200) {
-            message = await messagePage(s.page, s);
+            message = await messagePage(s.page, formes);
             for (const h of Object.values(p.champs)) await viderChamp(h);
         }
         await libererLogin(p).catch(() => {});
         if (avecSecret && saisies.size) {
-            try { post = await remplacerDocuments(s, saisies, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS))); }
+            try { post = await remplacerDocuments(s, saisies, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS)), formes); }
             catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
             if (post.sessionFermee) await avecDelai(closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }), FERMETURE_MS).catch(() => {});
         }
-        if (gardee) await s.context.unroute('**/*', garde).catch(() => {});
-        if (!post.sessionFermee) secretVu = await viderPagesAvecSecret(s).catch(() => true);
     } finally {
+        for (const retour of defaire.reverse()) await Promise.resolve().then(retour).catch(() => {});
         s._connexionEnCours = false;
     }
     let url = '', titre = '';
@@ -2888,11 +2866,10 @@ app.post('/login', getSession, async (req, res) => {
         ...(message ? { page_message: message } : {}),
         ...(post.sessionFermee ? { ok: false, outcome: 'session_closed', session_closed: true, code: 'secret_login_failed',
             error: 'The documents that received the secret could not be replaced: the session was closed for safety.',
-            fix: 'Start a new secure session.' } : {}),
-        url: purgerTexte(url, s).substring(0, 300), title: purgerTexte(titre, s).substring(0, 200),
+            fix: 'Start a new session.' } : {}),
+        url: purgerTexte(url, formes).substring(0, 300), title: purgerTexte(titre, formes).substring(0, 200),
         documents_replaced: post.remplacees,
         ...(post.fermees ? { page_closed: true, warning: 'A document that received the secret could not be replaced: its page was closed for safety.' } : {}),
-        ...(secretVu ? { secret_in_page: true, warning: 'The page after the login contained the secret (echoed by the site): it was cleared.' } : {}),
     };
     res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
 });
@@ -3678,7 +3655,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             // Chercher dans les suggestions (datalist, autocomplete)
             const suggestions = [
                 `[role="option"]:has-text("${option_text || option_value}")`,
-                ...(req.session.secure ? [] : [`datalist option[value="${option_value || option_text}"]`]),
+                `datalist option[value="${option_value || option_text}"]`,
                 `li:has-text("${option_text || option_value}")`,
                 `.autocomplete-suggestion:has-text("${option_text || option_value}")`,
             ];
@@ -5064,10 +5041,9 @@ app.get('/health', (req, res) => {
             id: sid.substring(0, 8) + '…',
             idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
-            url: purgerTexte(s.page?.url?.() || '', s).substring(0, 80) || '?',
+            url: s.page?.url?.()?.substring(0, 80) || '?',
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
-            ...(s.secure ? { secure: true } : {}),
         });
     }
     // Propriétaire indiqué : places des sous-agents dans son groupe (le compte et ses enfants à session isolée).
@@ -5552,11 +5528,10 @@ app.get('/sessions', (req, res) => {
             owner: s.owner || null,
             idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
-            url: purgerTexte(s.page?.url?.() || '', s).substring(0, 120) || '?',
+            url: s.page?.url?.()?.substring(0, 120) || '?',
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
-            ...(s.secure ? { secure: true } : {}),
         });
     }
     res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
@@ -5983,13 +5958,14 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
 // ════════════════════════════════════════════════════════════════════
 // Each session keeps its own mock list under session._mocks. The route
 // handler is registered ONCE per session lazily; subsequent add/remove
-// calls only mutate the list (no double-route registration).
+// calls only mutate the list (no double-route registration); none during a vault login.
 async function ensureMockHandler(session) {
     if (session._mockHandlerRegistered) return;
     const { context } = session;
     session._mocks = session._mocks || [];
     // Use context.route so it covers all pages in the session (incl. new tabs).
     await context.route('**/*', async (route, request) => {
+        if (session._mocksSuspendus) return route.fallback().catch(() => {});
         const url = request.url();
         const method = request.method();
         const mocks = session._mocks || [];
@@ -6270,13 +6246,6 @@ app.get('/recorder/dump', getSession, async (req, res) => {
 const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
 const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
 
-// Politique des routes : une route enregistrée sans classe de capacité (route_policy.js) est signalée ; en session sécurisée, elle est refusée.
-{
-    const routes = [];
-    for (const couche of app.router.stack) if (couche.route) for (const m of Object.keys(couche.route.methods)) if (m !== '_all') routes.push([m, couche.route.path]);
-    const { sansClasse } = ecartsTable(routes);
-    if (sansClasse.length) console.error(`[POLICY] route(s) without a capability class, refused in secure sessions: ${sansClasse.join(', ')}`);
-}
 app.listen(LISTEN_PORT, LISTEN_HOST, () => {
     journaliserMode(jetonAttendu());
     console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);

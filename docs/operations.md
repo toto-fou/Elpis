@@ -824,6 +824,40 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
   that cannot be read or is invalid, for secrets encrypted with another key
   (`./elpis vault rekey`), and for secrets left without any key (restore it).
 
+## Browser in the sandbox
+
+`browser.mode = "sandbox"` runs each account's browser inside its sandbox (see
+`docs/configuration.md`). To enable it:
+
+1. Image `elpis/sandbox:1.8.0`: `./install.sh --sandbox build` (or
+   `deploy/docker/sandbox/build_offline.sh`, which builds 1.7.0 then the browser layer of
+   `deploy/docker/sandbox-browser/`); offline, `deploy/docker/sandbox/load_image.sh
+   elpis-sandbox-1.8.0.tar.gz`. Existing containers are recreated on it at their next use
+   (`/work` is kept).
+2. The folders mounted read-only in the sandboxes must be readable by the sandbox UID 10001:
+   `browser-service/`, its `node_modules` (`chmod o+rx browser-service/node_modules` if npm
+   created it 0700) and the Playwright cache.
+3. `"browser": {"mode": "sandbox"}` in `config.json` (or `"sandbox_users": ["alice"]` for a
+   gradual roll-out), then restart the tool host: it creates the relay CA.
+4. `./elpis doctor`.
+
+Rolling back: `"mode": "central"` (read live); the central service on port 3000 must be running.
+
+**Relay CA.** `user_db/browser-relay-ca/` (or `ELPIS_BROWSER_CA_DIR`): `ca.key` (ECDSA P-256,
+0600, never copied into a sandbox) and `ca.crt` (10 years). Only the certificate goes to the
+sandboxes (`/run/elpis/browser-ca.crt`, imported into the NSS database of each service). Back
+the folder up with `user_db`. Rotation: stop the tool host, delete the folder, start the tool
+host (a new CA is created); each sandbox service is restarted at its account's next `pw_*` call
+with the new certificate.
+
+**Doctor.** With `browser.mode = "sandbox"`, `./elpis doctor` checks the CA (and its 0600 key),
+the Chromium headless shell, that the mounted folders are readable by the sandbox UID, and, for
+each running sandbox service, that the relay socket of its account is listening.
+
+**Logs.** `./elpis logs browser <account> [-f]` shows the service log of that account's sandbox
+(`/work/.elpis-browser/service.log`, rotated at 5 MB). Relay refusals and upstream failures are in
+the tool host log (`[relay <account>]`).
+
 ## Recovering from an incident
 
 - **Database server unreachable**: `./elpis db use sqlite` then

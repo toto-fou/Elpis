@@ -1329,6 +1329,25 @@ Restart the service together with the core. A service or tool host older than th
 core does not know the group quota (each child counts separately) or the
 safe closing of a child's sessions: upgrade them together.
 
+### Controlled browser: central service or inside each sandbox
+
+| Key (`config.json`) | Default | Effect |
+|---|---|---|
+| `browser.mode` | `"central"` | `"sandbox"`: each account's `pw_*` tools use a browser service started inside its own sandbox container (image `elpis/sandbox:1.8.0`), its egress through the account's secret relay on the host; `"central"`: the shared service on port 3000. Read live. |
+| `browser.sandbox_users` | `[]` | With `"sandbox"`, limits the sandbox browser to these account names (`[]` or `"*"`: every account); the others keep the central service. |
+| `browser.sandbox_idle_minutes` | `15` | Minutes without a call before a sandbox browser service stops (started again by the next `pw_*` tool). |
+
+| Variable | Default | Effect |
+|---|---|---|
+| `ELPIS_BROWSER_CA_DIR` | `user_db/browser-relay-ca` | Folder of the instance CA of the secret relay (`ca.key` 0600, `ca.crt`). |
+| `PLAYWRIGHT_BROWSERS_PATH` | `~/.cache/ms-playwright` | Playwright cache mounted read-only in the sandboxes (Chromium headless shell). |
+
+In sandbox mode the account's network profile decides where its browser may go: with the
+default `isolated` profile only sites served inside the sandbox (`http://localhost:<port>`) are
+reachable, and other URLs are refused with a clear error. The browser policy above still applies
+to the rest (never the Elpis host or its container networks). See `docs/architecture.md`,
+"Browser in the sandbox", and `docs/operations.md`, "Browser in the sandbox".
+
 ⚠ **Upgrade**: an automation that navigated to `localhost`,
 the host's address or a local container is now refused.
 

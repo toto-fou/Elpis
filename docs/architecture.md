@@ -2949,6 +2949,76 @@ Gotchas:
 - `pw_page(action="extract")` only extracts **tables** (`target=` to
   pick which one). For running text, use `action="text"`.
 
+#### Browser in the sandbox (`browser.mode = "sandbox"`)
+
+With `browser.mode` set to `"sandbox"` in `config.json` (optionally limited to the accounts named
+in `browser.sandbox_users`), each account gets its own browser service **inside its sandbox
+container**; the central service on port 3000 keeps serving the other accounts, and setting the
+mode back to `"central"` is the runtime rollback (read live, no restart).
+
+- **Container.** The image `elpis/sandbox:1.8.0` is 1.7.0 plus `certutil`
+  (`deploy/docker/sandbox-browser/`). Nothing of Elpis is copied into it: the host mounts
+  read-only `browser-service/` at `/opt/elpis/browser-service` (its `node_modules` too, at
+  `/opt/elpis/node_modules` when it is a link elsewhere), the installation's Node runtime at
+  `/opt/elpis/node` and the Playwright cache at `/opt/elpis/ms-playwright`
+  (`packages/bac/src/navigateur.ts`). The `elpis.browser` label (hash of the mounts) recreates a
+  container whose mounts changed; central-mode containers keep their run arguments. The mounted
+  folders must be readable by the sandbox UID (10001): `./elpis doctor` checks it.
+- **Start and stop.** The first `pw_*` call of the account (`serviceDuCompte`,
+  `apps/toolhost/src/mcp/browser/bac.ts`) makes sure the container runs, opens the account's
+  secret relay, copies the relay CA certificate to `/run/elpis/browser-ca.crt`, then starts
+  `server.js` detached as `exec_user` (`docker exec -d`, environment passed through a 0600 file
+  of the host, never on a command line). The start script imports the CA into the NSS database of
+  the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service listens on
+  `/run/elpis/browser.sock` (`FIREFOX_SERVICE_SOCKET`), requires the sandbox token
+  (`<P>/.browser-service.token`, host only), and stops after `browser.sandbox_idle_minutes`
+  (15) without a call; the next tool starts it again. Tool calls count as sandbox activity.
+  A stopped or recreated container takes the service with it; the relay forgets the secrets
+  bound to sessions of a service that restarted.
+- **Data.** Screenshots, saved states, HAR, traces, videos and the service log live in
+  `/work/.elpis-browser/`; downloads land in `/work/downloads/<owner>/`, recorder dumps are also
+  written to `/work/recordings/`, and returned paths are the real `/work` paths. Uploads still
+  read `/work` through the sandbox agent.
+- **Routing.** `serviceNavigateur(username)` (`packages/navigateur/src/mode.ts`) is the only
+  resolver: the central URL and token, or the account's socket and sandbox token. The `pw_*`
+  tools, the screenshot route (chat images and vision models) and the AX session URL of the core
+  use it; the socket is opened without following links (`O_PATH|O_NOFOLLOW`, checked to be a
+  socket). The core's startup cleanup of orphaned sub-agent sessions only reaches the central
+  service; sandbox services end such sessions with their 15-minute session TTL or idle stop.
+- **Network.** Inside the sandbox, the service's filtering proxy (`proxy_guard.js`) reaches the
+  sandbox loopback directly (`localhost`, `127.0.0.0/8`, `::1`: sites served in `/work`), and
+  sends everything else to the **secret relay** of the host over `/run/elpis/browser-relay.sock`
+  (`CONNECT` for https, absolute-form requests for http, a relay token). The relay
+  (`packages/navigateur/src/relais.ts`, one per account, in the tool host) judges each
+  destination: the account's network profile first (no network: only the sandbox loopback,
+  with a clear `url_blocked` before navigation; IP allowlist: its addresses, domains and ports),
+  then the browser policy (never the Elpis host, its container networks, loopback or link-local;
+  `browser.url_allowlist` for the local network). Egress therefore leaves from the host.
+
+**Secret relay.** A session opened for a vault secret binds the secret's origins to the relay.
+For those origins only, the relay terminates TLS with a leaf certificate signed by the
+**instance CA** (ECDSA P-256, `user_db/browser-relay-ca/`, key 0600, built with `node:crypto`
+only, created when the tool host starts in sandbox mode) and verifies the upstream according to
+the secret's `tls` policy; every other `CONNECT` is a plain tunnel. `pw_login` keeps its contract
+and field checks, but the service types a **one-time placeholder** (`Ep.<16 hex>-X`) instead of the
+password. The relay replaces it with the value, resolved from the core through the signed
+internal route at that moment (audited as before), only in POST/PUT/PATCH bodies sent to one of
+the secret's origins while the login window is armed (75 s, at most three submissions), encoded
+for the body (form, JSON, raw); a placeholder in a URL, outside the window or towards another
+origin is left as it is and logged. Responses from the secret's origins are decompressed and the
+value in any of its encoded forms (raw, URL, form, HTML, JSON, base64, hex) is replaced by the
+placeholder, in bodies and headers. `http-auth` secrets never reach the service: the relay
+answers the 401 challenges itself (Basic, Digest MD5/SHA-256 with `qop=auth`). The value stays in
+the tool host's memory while the session's binding lives, to scrub responses.
+
+Limits: a page that hashes or encrypts the password before sending it cannot log in
+(`secret_not_substituted`, detected when no substitution happened); session cookies live in the
+sandbox; WebSocket traffic is relayed but never substituted or scrubbed; the sandbox user is root
+in its container, so it can use the service socket and its token (no more than the `pw_*` tools
+already do), read the session cookies, and send the placeholder to the secret's own origin
+during an armed login window: the value then only reaches that origin, and what it reflects is
+scrubbed unless the origin transforms it (case change, hashing) or stores it for later display.
+
 #### Precision: dropdowns, GWT, iframes
 
 Six gaps measured on a real bench, all fixed:

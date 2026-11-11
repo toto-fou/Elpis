@@ -427,12 +427,38 @@ export function loadOrCreateKey(source: SourceCle): string | null {
 let source: SourceCle | null = null;
 let chiffreur: Fernet | null = null;
 let resolu = false;
+let lecteur: Fernet | null = null;
 
 /** Source de la clé maître (démarrage, tests) ; la résolution reste paresseuse et mémorisée. */
 export function configurerChiffrement(s: SourceCle): void {
   source = s;
   chiffreur = null;
   resolu = false;
+  lecteur = null;
+}
+
+/** Clé maître déjà posée (env, config.json, fichier lisible), jamais créée ; `null` sinon. */
+function cleExistante(s: SourceCle): string | null {
+  const env = texteDefini(s.cleEnv);
+  if (env) return coerceToFernetKey(env);
+  if (s.cleConfig !== null && s.cleConfig !== undefined && typeof s.cleConfig !== "string") return null;
+  const json = texteDefini(s.cleConfig as string | null | undefined);
+  if (json) return coerceToFernetKey(json);
+  if (!isAbsolute(s.fichierCle)) return null;
+  const lue = lireCle(s.fichierCle);
+  return !lue.absent && lue.texte ? coerceToFernetKey(lue.texte) : null;
+}
+
+/** Chiffreur pour relire seulement : celui déjà résolu, sinon la clé existante ; jamais de clé neuve (elle rendrait tout illisible). */
+function cipherExistant(): Fernet | null {
+  if (resolu) return chiffreur;
+  if (source === null)
+    throw new Error("chiffrement non configuré : appeler configurerChiffrement() au démarrage");
+  if (lecteur === null) {
+    const cle = cleExistante(source);
+    if (cle) lecteur = new Fernet(cle);
+  }
+  return lecteur;
 }
 
 function getCipher(): Fernet | null {
@@ -452,9 +478,14 @@ export function encrypt(plaintext: string | null | undefined): string {
   return f.encrypt(encoderUtf8Py(plaintext || ""));
 }
 
-/** Sans repli, pour reprendre un secret ailleurs : `EncryptionUnavailable` sans clé, `InvalidToken` sur jeton invalide ou clé changée. */
+/** Une clé maître existe pour relire les anciens chiffrés (aucune n'est créée pour le savoir). */
+export function cleFernetPresente(): boolean {
+  return cipherExistant() !== null;
+}
+
+/** Sans repli, pour reprendre un secret ailleurs : `EncryptionUnavailable` sans clé (jamais créée ici), `InvalidToken` sur jeton invalide ou clé changée. */
 export function decryptStrict(token: string): string {
-  const f = getCipher();
+  const f = cipherExistant();
   if (f === null)
     throw new EncryptionUnavailable("Clé de chiffrement indisponible — définir APP_ENCRYPTION_KEY.");
   try {

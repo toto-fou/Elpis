@@ -4,6 +4,7 @@ export {
   coerceToFernetKey,
   configurerChiffrement,
   decrypt,
+  cleFernetPresente,
   decryptStrict,
   deriveFernetKey,
   encrypt,

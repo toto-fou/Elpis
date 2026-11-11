@@ -13,7 +13,7 @@ import type { Base, RapportInit } from "@elpis/db";
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
-import { MIGRATION_MCP } from "./secrets/migration-mcp";
+import { MIGRATION_MCP, reprendreMcpAuDemarrage } from "./secrets/migration-mcp";
 
 // Migrations du core, qui ont besoin de ses clés (coffre, Fernet) : connues de tout process qui ouvre cette base.
 brancherMigrations([MIGRATION_MCP]);
@@ -43,7 +43,7 @@ export function nettoyerAuDemarrage(b: Base): Promise<boolean> {
   return nettoyerSousVerrou(b, nettoyer, journal);
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage par main seulement. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage et reprise des secrets MCP restés hors du coffre par main seulement. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
@@ -51,5 +51,6 @@ export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
     journal,
   });
   courante = nouvelle;
+  if (mode === "main") await reprendreMcpAuDemarrage(nouvelle, rapport, journal("coffre"));
   return rapport;
 }

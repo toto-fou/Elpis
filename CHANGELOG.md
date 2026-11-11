@@ -545,6 +545,13 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Login: failed attempts throttled.** `POST /api/login-lite` counts attempts per (username,
+  client address), 8 refilled one every 5 minutes, and per client address, 50 refilled one every
+  15 seconds, before any password hashing. Repeated failures are answered more slowly (up to
+  2 s), then with `429` and `Retry-After`; a successful login resets the (username, address) pair,
+  an attempt that fails on a server error is not counted, and no account is locked for other
+  addresses. Reaching the limit writes one `auth.login.denied` line with `reason: rate_limited`.
+  The counters live in the memory of each process.
 - **Login: no timing difference for unknown usernames.** A refused login now costs one current
   password hash (600,000 PBKDF2 iterations) whether the username exists or not, and an account
   still on the old 150,000-iteration hash is topped up to the same cost, so the response time no

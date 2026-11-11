@@ -1772,6 +1772,11 @@ curl -X POST http://localhost:8001/api/login-lite \
 
 Response: `{"ok": true, "is_admin": false, "must_change_pwd": false}`
 
+Attempts are throttled per (username, IP address) and, more broadly, per IP
+address, in the memory of each process: repeated failures are answered more
+slowly, then with `429` and `Retry-After`. A successful login resets the
+(username, IP address) pair. No account is ever locked for every address.
+
 | Endpoint | Description |
 |---|---|
 | `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes) |

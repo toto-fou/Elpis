@@ -267,7 +267,12 @@ export type ChampsConnecteur = Partial<
   Record<"provider_type" | "host" | "api_base" | "label" | "username" | "token", string | null>
 >;
 
-/** `update_connector` : champs non nuls remplacés, jeton seulement s'il est non vide (dans le coffre) ; changer l'hôte ou l'API d'un compte git qui a un jeton exige de le saisir à nouveau ; faux si rien à faire ou introuvable. */
+/** API que joint le jeton d'un compte git : celle de son type pour son hôte (surcharge comprise). */
+function apiEffective(l: LigneConnecteur): string {
+  return getProvider(l.provider_type).apiBase(l.host, l.api_base || "");
+}
+
+/** `update_connector` : champs non nuls remplacés, jeton seulement s'il est non vide (dans le coffre) ; l'hôte ou l'API effective (type compris) changés sans nouveau jeton effacent le jeton (secret du coffre ou ancien clair pas encore migré), qui ne suit jamais le compte ailleurs ; faux si rien à faire ou introuvable. */
 export async function updateConnector(
   base: Base,
   uid: number,
@@ -289,21 +294,20 @@ export async function updateConnector(
       apres[k] = k === "host" ? lowerPy(v) : v;
     }
     const jeton = champs.token || "";
-    const secret = await secretDe(base, avant);
-    if (!jeton && secret !== null && (apres.host !== avant.host || apres.api_base !== avant.api_base))
-      throw new ErreurSecret(
-        422,
-        "secret_value_required",
-        "Changing the host or the API base of a Git account requires re-entering its token.",
-      );
     if (sets.length === 0 && !jeton) return false;
+    const secret = await secretDe(base, avant);
+    const ailleurs = apres.host !== avant.host || apiEffective(apres) !== apiEffective(avant);
+    const effacer = !jeton && ailleurs && (secret !== null || strPy(avant["token_enc"] ?? "") !== "");
+    if (effacer) sets.push("secret_id=NULL", "token_enc=''", `token_scheme='${SCHEMA_COFFRE}'`);
     if (sets.length > 0) {
       sets.push("updated_at=?");
       vals.push(maintenant(), cid, uid);
       await base.run(`UPDATE git_connectors SET ${sets.join(", ")} WHERE id=? AND owner_user_id=?`, vals);
     } else await base.run("UPDATE git_connectors SET updated_at=? WHERE id=?", [maintenant(), cid]);
     if (jeton) await ecrireJeton(base, apres, jeton, acteur);
-    else if (secret !== null && apres.username !== avant.username && jetonLisible(secret, avant.host))
+    else if (effacer) {
+      if (secret !== null) await supprimerSecret(base, uid, Number(secret.id), acteur);
+    } else if (secret !== null && apres.username !== avant.username && jetonLisible(secret, avant.host))
       await modifierSecret(base, uid, Number(secret.id), { username: identifiant(apres.username) }, acteur);
     return true;
   });

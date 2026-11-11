@@ -122,7 +122,7 @@ watch(
                 <span
                   v-if="s.state === 'unverified'"
                   class="elpis-secrets__etat font-mono"
-                  title="Importé : inutilisable avant Vérifier"
+                  title="Importé : inutilisable avant vérification"
                   >unverified</span
                 >
                 <span
@@ -304,11 +304,20 @@ watch(
                     Vérifier
                   </button>
                   <button
+                    v-if="g.droits(s).modification"
                     type="button"
                     class="adm-btn adm-tool adm-btn--sm"
                     @click="g.choisir(s.id, 'modifier')"
                   >
                     Modifier le scope
+                  </button>
+                  <button
+                    v-else-if="g.droits(s).gere"
+                    type="button"
+                    class="adm-btn adm-tool adm-btn--sm"
+                    @click="g.choisir(s.id, 'gerer')"
+                  >
+                    {{ g.droits(s).gere?.libelle }}
                   </button>
                   <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="g.fermerPanneau()">
                     Annuler

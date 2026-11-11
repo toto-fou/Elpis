@@ -41,6 +41,12 @@ const GERE_INSTANCE: Readonly<Partial<Record<GenreSecret, Gestionnaire>>> = {
 /** Genres dont le secret appartient à un connecteur : modifié et supprimé depuis sa page (refus `secret_managed`). */
 const GENRES_CONNECTEUR: readonly GenreSecret[] = ["git", "llm", "mcp"];
 
+/** Secrets web du compte sans les secrets de connecteur (gérés dans Modèles IA, Serveurs MCP, Comptes Git), sauf un jeton git importé à vérifier ; la console les liste tous. */
+export function visibleDansPortee(s: Pick<Secret, "kind" | "state">, portee: PorteeCoffre): boolean {
+  if (portee === "instance" || !GENRES_CONNECTEUR.includes(s.kind)) return true;
+  return s.kind === "git" && s.state === "unverified";
+}
+
 export function estCreable(kind: string): kind is GenreCreable {
   return (GENRES_CREABLES as readonly string[]).includes(kind);
 }

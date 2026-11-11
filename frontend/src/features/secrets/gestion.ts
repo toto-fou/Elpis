@@ -5,7 +5,14 @@ import { computed, inject, provide, ref } from "vue";
 import type { InjectionKey, UnwrapNestedRefs } from "vue";
 
 import type { ApiSecrets, PorteeCoffre } from "./api";
-import { droitsDe, formulaireDe, formulaireModifie, formulaireVide, verdictFormulaire } from "./format";
+import {
+  droitsDe,
+  formulaireDe,
+  formulaireModifie,
+  formulaireVide,
+  verdictFormulaire,
+  visibleDansPortee,
+} from "./format";
 import type { DroitsSecret, FormulaireSecret, GenreCreable } from "./format";
 
 export type ModePanneau = "rotation" | "verifier" | "modifier";
@@ -70,7 +77,7 @@ export function creerGestionSecrets(dep: DepsGestionSecrets) {
       const r = await dep.api.lister(dep.portee);
       if (j !== jetonListe) return;
       if (r.ok) {
-        secrets.value = [...r.valeur].sort(parNom);
+        secrets.value = r.valeur.filter((s) => visibleDansPortee(s, dep.portee)).sort(parNom);
         erreurListe.value = "";
         charge.value = true;
       } else {

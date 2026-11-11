@@ -88,10 +88,9 @@ export async function compteSigne(
   req: FastifyRequest,
 ): Promise<{ uid: number; username: string; identite: Identity }> {
   const ident = verify(premierEntete(req, IDENTITY_HEADER), jetonServiceDuManifeste());
-  if (ident === null || ident.user_id <= 0)
-    throw new HttpError(401, "enveloppe d'identité absente ou invalide");
+  if (ident === null || ident.user_id <= 0) throw new HttpError(401, "identity envelope missing or invalid");
   const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
-  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "compte inconnu");
+  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "unknown account");
   return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 

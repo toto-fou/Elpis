@@ -1092,7 +1092,7 @@
       "DOCKER",
       "",
       {
-        "ps-a.out": "{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.7.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\"}\npas du json\n\n{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\"}\n",
+        "ps-a.out": "{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.8.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\"}\npas du json\n\n{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\"}\n",
         "inspect-elpis-sb-bob.out": "3|bob\n",
         "inspect-elpis-sb-anon.out": "|\n"
       }
@@ -1576,31 +1576,31 @@
     "images": [
       [
         null,
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
         "",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
         "  ",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
-        "elpis/sandbox:1.7.0",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0",
+        "elpis/sandbox:1.8.0"
       ],
       [
         "elpis/sandbox:1.0.0",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
         "elpis/sandbox",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
         "elpis/sandbox@sha256:ab",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0"
       ],
       [
         "  registre.lan:5000/elpis/sandbox:2  ",
@@ -1631,8 +1631,8 @@
         "True"
       ],
       [
-        "elpis/sandbox:1.7.0@sha256:x",
-        "elpis/sandbox:1.7.0"
+        "elpis/sandbox:1.8.0@sha256:x",
+        "elpis/sandbox:1.8.0"
       ],
       [
         "ELPIS/SANDBOX:1.7.0",
@@ -1840,7 +1840,7 @@
     null,
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"p\",\"a\",\"s\",\"u\",\"n\",\"e\",\"l\",\"i\",\"s\",\"t\",\"e\"]},\"image\":\"elpis/sandbox:1.7.0\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"p\",\"a\",\"s\",\"u\",\"n\",\"e\",\"l\",\"i\",\"s\",\"t\",\"e\"]},\"image\":\"elpis/sandbox:1.8.0\"}"
     },
     {
       "statut": 400,
@@ -1870,7 +1870,7 @@
     null,
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":\"abc\"},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"Mauvais\",\"name\":\"m\"}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.7.0\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":\"abc\"},\"force_user_docker\":false,\"idle_kill_hours\":24,\"network_profiles\":[{\"id\":\"Mauvais\",\"name\":\"m\"}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.8.0\"}"
     },
     {
       "statut": 500,
@@ -1883,7 +1883,7 @@
     null,
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":0,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.7.0\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":0,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9 total\",\"mode\":\"none\",\"ips\":[],\"description\":\"Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.\",\"domains\":[],\"ports\":[],\"dns\":[]}],\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[]},\"image\":\"elpis/sandbox:1.8.0\"}"
     },
     null,
     {
@@ -1892,7 +1892,7 @@
     },
     {
       "statut": 200,
-      "corps": "{\"containers\":[{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.7.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\",\"user_id\":3,\"username\":\"bob\"},{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\",\"user_id\":null,\"username\":null}],\"count\":2}"
+      "corps": "{\"containers\":[{\"id\":\"a1\",\"name\":\"elpis-sb-bob\",\"image\":\"elpis/sandbox:1.8.0\",\"state\":\"running\",\"status\":\"Up 2 hours\",\"created\":\"2026-10-01 10:00:00 +0000 UTC\",\"user_id\":3,\"username\":\"bob\"},{\"id\":\"b2\",\"name\":\"elpis-sb-anon\",\"image\":\"x\",\"state\":\"exited\",\"status\":\"Exited (0)\",\"created\":\"c\",\"user_id\":null,\"username\":null}],\"count\":2}"
     },
     null,
     {

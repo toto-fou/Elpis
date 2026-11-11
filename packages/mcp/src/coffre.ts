@@ -11,11 +11,15 @@ export interface SecretsServeur {
   env: Paire[];
 }
 
-/** Lecture pour une routine ou un sous-agent : permise seulement si la politique du secret l'accepte. */
+/** Lecture pour une routine ou un sous-agent : permise seulement si la politique du secret l'accepte ; `cache` : valeurs déchiffrées le temps d'un tour, par id, version et clé. */
 export interface ContexteSecretMcp {
   routine?: boolean;
   sousAgent?: boolean;
+  cache?: CacheSecretsMcp;
 }
+
+/** Secrets déchiffrés pendant un tour (jamais au-delà) : `<id>:<version>:<kid>` → valeur. */
+export type CacheSecretsMcp = Map<string, SecretsServeur>;
 
 /** Qui écrit, pour le journal de sécurité (`null` : la migration ou une commande). */
 export interface ActeurMcp {

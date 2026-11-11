@@ -3,7 +3,7 @@
 import { ErreurPython, intPy, strPy, stripPy, veritePy } from "@elpis/commun";
 import { parseJsonPy } from "@elpis/config";
 import type { Base, Ligne } from "@elpis/db";
-import { decryptStrict, InvalidToken } from "@elpis/securite";
+import { decryptStrict, EncryptionUnavailable, InvalidToken } from "@elpis/securite";
 
 import { coffreMcp, estVide, SecretMcpIndisponible, secretsVides, serveurDePortee } from "./coffre";
 import type { ActeurMcp, ContexteSecretMcp, MotifSecretMcp, SecretsServeur } from "./coffre";
@@ -146,10 +146,13 @@ function pairesSaisies(raw: unknown): boolean {
 }
 
 const signales = new Set<string>();
+const ignores = new Map<string, number>();
+const RAPPEL_IGNORE_MS = 3_600_000;
 
-/** Tests : oublie les noms de paires déjà signalés (`_SIGNALES.clear()`). */
+/** Tests : oublie les noms de paires et les serveurs ignorés déjà signalés (`_SIGNALES.clear()`). */
 export function oublierAvertissementsPaires(): void {
   signales.clear();
+  ignores.clear();
 }
 
 /** Paires → dict pour le transport : valeur vide = créneau en attente ; nom refusé par la validation ignoré, signalé une fois par processus. */
@@ -316,11 +319,16 @@ export function drapeauSecret(src: unknown): MotifSecretMcp | null {
   return reste ? "not_migrated" : null;
 }
 
-/** Serveur laissé de côté à la connexion faute de pouvoir lire son secret : jamais connecté avec une partie de ses secrets. */
+/** Serveur laissé de côté à la connexion faute de pouvoir lire son secret (jamais connecté avec une partie de ses secrets) : signalé une fois par heure et par motif, pas à chaque tour. */
 export function signalerServeurIgnore(nom: unknown, motif: MotifSecretMcp): void {
-  journalDe("mcp").warn(
-    `serveur MCP ${repr(prefixe(strPy(nom ?? "?"), 80))} ignoré : secret ${MOTIFS[motif]}`,
-  );
+  const libelle = repr(prefixe(strPy(nom ?? "?"), 80));
+  const cle = `${motif}\u0000${libelle}`;
+  const t = Date.now();
+  const vu = ignores.get(cle);
+  if (vu !== undefined && t - vu < RAPPEL_IGNORE_MS) return;
+  if (ignores.size >= 1000) ignores.clear();
+  ignores.set(cle, t);
+  journalDe("mcp").warn(`serveur MCP ${libelle} ignoré : secret ${MOTIFS[motif]}`);
 }
 
 // ── Reprise des champs d'avant le coffre (Fernet, clair) ─────────────────────
@@ -357,14 +365,14 @@ export interface Heritage {
   mode: { auth_mode: string; auth_user: string } | null;
 }
 
-/** Chiffré d'avant le coffre : texte, `null` s'il est illisible ; sans clé Fernet : `EncryptionUnavailable`. */
+/** Chiffré d'avant le coffre : texte, `null` s'il est illisible (jeton invalide, clé Fernet changée ou absente : jamais créée ici). */
 function lireChiffre(enc: unknown, scheme: unknown): string | null {
   if (!veritePy(enc)) return "";
   if (scheme !== "fernet") return strPy(enc);
   try {
     return decryptStrict(strPy(enc));
   } catch (e) {
-    if (e instanceof InvalidToken) return null;
+    if (e instanceof InvalidToken || e instanceof EncryptionUnavailable) return null;
     throw e;
   }
 }
@@ -391,7 +399,7 @@ function pairesEnClair(brut: unknown, kind: string): Paire[] {
   );
 }
 
-/** Secrets d'avant le coffre d'une entrée perso ou d'une ligne partagée, lus comme à la connexion : chiffré d'abord, sinon clair hérité ; sans clé Fernet : `EncryptionUnavailable`. */
+/** Secrets d'avant le coffre d'une entrée perso ou d'une ligne partagée, lus comme à la connexion : chiffré d'abord, sinon clair hérité ; chiffré illisible (ou sans clé Fernet) : partie signalée. */
 export function secretsHerites(src: Dict): Heritage {
   const h: Heritage = { valeur: secretsVides(), illisibles: [], mode: null };
   if (veritePy(src["auth_enc"])) {
@@ -463,13 +471,14 @@ export function repriseHeritee(src: Dict): RepriseHeritee | null {
   };
 }
 
-/** Entrée perso telle que la migration la laisse : type et mode repris, champs hérités retirés sauf les chiffrés illisibles (signalés), `secret_id` posé. */
+/** Entrée perso telle que la migration la laisse : type et mode repris, champs hérités retirés sauf les chiffrés illisibles (signalés, sinon le drapeau d'avant est levé), `secret_id` posé. */
 export function entreeReprise(srv: Dict, r: RepriseHeritee, secretId: number | null): void {
   if (srv["type"] !== r.type) poser(srv, "type", r.type);
   if (r.mode !== null) for (const [k, v] of Object.entries(r.mode)) poser(srv, k, v);
   for (const k of r.cles) if (!r.gardees.includes(k)) delete srv[k];
   if (secretId !== null) poser(srv, "secret_id", secretId);
   if (r.illisibles.length > 0) poser(srv, "secret_error", "undecryptable");
+  else delete srv["secret_error"];
 }
 
 // ── Fusion « vide = inchangé » ───────────────────────────────────────────────
@@ -493,7 +502,8 @@ interface Fusion {
   utilisateur: string | null;
 }
 
-function completer(a: SecretsServeur, b: SecretsServeur | undefined): SecretsServeur {
+/** `a` complété partie par partie de `b` (jeton, en-têtes, variables). */
+export function completer(a: SecretsServeur, b: SecretsServeur | undefined): SecretsServeur {
   if (b === undefined) return a;
   return {
     auth: a.auth || b.auth,
@@ -502,27 +512,34 @@ function completer(a: SecretsServeur, b: SecretsServeur | undefined): SecretsSer
   };
 }
 
-/** Nouvelle valeur : jeton et paires saisis sur l'ancienne (coffre, sinon champs hérités lisibles), parties inutiles au type ou au mode retirées ; ancienne illisible et rien de saisi : gardée telle quelle (`null`). */
+/** Nouvelle valeur : jeton et paires saisis sur l'ancienne (coffre, sinon champs hérités lisibles, gardés tels quels sans nouvelle valeur), parties inutiles au type ou au mode retirées ; secret du coffre illisible ou retiré et rien de saisi : gardé tel quel (`null`). */
 function fusionnerSecrets(s: Saisie, etat: EtatSecrets, herite: Heritage | null): Fusion {
   const http = estHttp(s.type);
   const stdio = s.type === "stdio";
   const secret = s.mode ? normalizeSecret(s.mode, s.secret) : "";
-  const saisie = secret !== "" || pairesSaisies(s.headers) || pairesSaisies(s.env);
-  const utiles = (herite?.illisibles ?? []).filter((p) =>
-    p === "auth" ? s.mode !== "" : p === "headers" ? http : stdio,
+  const saisies: Readonly<Record<PartieSecrete, boolean>> = {
+    auth: secret !== "",
+    headers: pairesSaisies(s.headers),
+    env: pairesSaisies(s.env),
+  };
+  const illisibles = (herite?.illisibles ?? []).filter(
+    (p) => !saisies[p] && (p === "auth" ? s.mode !== "" : p === "headers" ? http : stdio),
   );
-  const illisibles = saisie ? [] : utiles;
-  if (!saisie && (etat.erreur === "undecryptable" || etat.erreur === "key_unavailable"))
+  if (!saisies.auth && !saisies.headers && !saisies.env && etat.erreur !== null)
     return { valeur: null, changee: false, illisibles, utilisateur: null };
   const avant = completer(etat.valeur, herite?.valeur);
+  const paires = (kind: "headers" | "env", recues: unknown): Paire[] => {
+    if (recues === undefined) return avant[kind];
+    const fusion = mergePairs(avant[kind], recues, kind);
+    const heritees = etat.valeur[kind].length === 0 ? (herite?.valeur[kind] ?? []) : [];
+    if (heritees.length === 0 || saisies[kind]) return fusion;
+    const noms = new Set(fusion.map((p) => p.name));
+    return [...fusion, ...heritees.filter((p) => !noms.has(p.name))].slice(0, MAX_PAIRS);
+  };
   const valeur: SecretsServeur = {
     auth: !s.mode ? "" : secret || avant.auth,
-    headers: !http
-      ? []
-      : s.headers === undefined
-        ? avant.headers
-        : mergePairs(avant.headers, s.headers, "headers"),
-    env: !stdio ? [] : s.env === undefined ? avant.env : mergePairs(avant.env, s.env, "env"),
+    headers: http ? paires("headers", s.headers) : [],
+    env: stdio ? paires("env", s.env) : [],
   };
   const heriteLisible = herite !== null && !estVide(herite.valeur);
   const authHeritee = valeur.auth !== "" && !secret && !etat.valeur.auth;
@@ -555,20 +572,31 @@ const COLONNES_ADMIN = [
   "updated_at",
 ] as const;
 
-/** Vue sans secret ; un compte ordinaire n'a que de quoi reconnaître le serveur ; `has_auth`, `has_value` : valeurs lisibles avec la clé actuelle ; `secret_error` pour l'admin. */
-function vuePublique(r: Ligne, admin: boolean, etat: EtatSecrets): Dict {
+/** Secrets montrés (noms seulement) : ceux du coffre, complétés des anciens champs lisibles encore en place, que le prochain enregistrement reprend. */
+function secretsMontres(r: RepriseHeritee | null, etat: EtatSecrets): SecretsServeur {
+  return r === null ? etat.valeur : completer(etat.valeur, r.valeur);
+}
+
+/** Vue sans secret ; un compte ordinaire n'a que de quoi reconnaître le serveur (`has_auth` : un secret est enregistré, sans le déchiffrer ; drapeau de la migration) ; l'admin : `has_auth`, `has_value` lisibles avec la clé actuelle (`etat`). */
+function vuePublique(r: Ligne, admin: boolean, etat: EtatSecrets | null): Dict {
   const d: Dict = {};
   for (const k of admin ? COLONNES_ADMIN : COLONNES_COMPTE) poser(d, k, r[k]);
   d["id"] = publicId(d["id"]);
   d["enabled"] = veritePy(d["enabled"]);
-  d["has_auth"] = veritePy(etat.valeur.auth);
   d["shared"] = true;
-  if (admin) {
-    d["headers"] = pairsPublic(etat.valeur.headers);
-    d["env"] = pairsPublic(etat.valeur.env);
-    const erreur = etat.erreur ?? drapeauSecret(r);
-    if (erreur !== null) d["secret_error"] = erreur;
+  if (!admin || etat === null) {
+    d["has_auth"] =
+      idSecretServeur(colonne(r, "secret_id", null)) !== null || veritePy(colonne(r, "auth_enc"));
+    const drapeau = drapeauSecret(r);
+    if (drapeau !== null) d["secret_error"] = drapeau;
+    return d;
   }
+  const vus = secretsMontres(repriseHeritee(r), etat);
+  d["has_auth"] = veritePy(vus.auth);
+  d["headers"] = pairsPublic(vus.headers);
+  d["env"] = pairsPublic(vus.env);
+  const erreur = etat.erreur ?? drapeauSecret(r);
+  if (erreur !== null) d["secret_error"] = erreur;
   return d;
 }
 
@@ -583,7 +611,8 @@ export async function listShared(
   if (!inclure) sql += " WHERE enabled=1";
   sql += " ORDER BY name ASC, id ASC";
   const out: Dict[] = [];
-  for (const r of await base.all(sql)) out.push(vuePublique(r, admin, await secretsPartage(base, r)));
+  for (const r of await base.all(sql))
+    out.push(vuePublique(r, admin, admin ? await secretsPartage(base, r) : null));
   return out;
 }
 
@@ -593,7 +622,9 @@ export async function getShared(
   options: { admin?: boolean } = {},
 ): Promise<Dict | null> {
   const r = await base.get("SELECT * FROM mcp_shared_servers WHERE id=?", [intPy(serverId)]);
-  return r ? vuePublique(r, options.admin ?? false, await secretsPartage(base, r)) : null;
+  if (!r) return null;
+  const admin = options.admin ?? false;
+  return vuePublique(r, admin, admin ? await secretsPartage(base, r) : null);
 }
 
 // ── Bibliothèque partagée : écritures (admin) ────────────────────────────────
@@ -836,14 +867,17 @@ const CLES_PRIVEES_PERSO = new Set([...CLES_HERITEES, "has_auth", "secret_id", "
 /** Jamais dans une config : champs hérités et propres à l'enregistrement. */
 const CLES_HORS_CONFIG = new Set([...CLES_HERITEES, "has_auth", "visible", "secret_id", "secret_error"]);
 
-/** Vue navigateur d'un serveur perso : sans secret ni champ hérité ; `has_auth`, `has_value` lisibles avec la clé actuelle ; `secret_error` quand un secret ne peut pas être lu. */
+/** Vue navigateur d'un serveur perso : sans secret ni champ hérité ; `has_auth`, `has_value` lisibles avec la clé actuelle (coffre, et anciens champs encore en place, mode implicite compris) ; `secret_error` quand un secret ne peut pas être lu. */
 export function personalPublic(srv: unknown, etat: EtatSecrets = etatSansSecret()): Dict {
   if (!estDict(srv)) return {};
   const out: Dict = {};
   for (const [k, v] of Object.entries(srv)) if (!CLES_PRIVEES_PERSO.has(k)) poser(out, k, v);
-  out["has_auth"] = veritePy(etat.valeur.auth);
-  poser(out, "headers", pairsPublic(etat.valeur.headers));
-  poser(out, "env", pairsPublic(etat.valeur.env));
+  const r = repriseHeritee(srv);
+  if (r?.mode) for (const [k, v] of Object.entries(r.mode)) poser(out, k, v);
+  const vus = secretsMontres(r, etat);
+  out["has_auth"] = veritePy(vus.auth);
+  poser(out, "headers", pairsPublic(vus.headers));
+  poser(out, "env", pairsPublic(vus.env));
   const erreur = etat.erreur ?? drapeauSecret(srv);
   if (erreur !== null) poser(out, "secret_error", erreur);
   return out;
@@ -868,6 +902,19 @@ export async function personalUrlBlockReason(url: unknown): Promise<string | nul
 /** Tests : oublie les verdicts mémorisés de la garde d'URL. */
 export function oublierVerdictsUrl(): void {
   verdicts.clear();
+}
+
+/** Verdicts de la garde demandés d'avance (mémorisés 60 s) pour les adresses HTTP reçues neuves ou changées : la fusion, faite ensuite dans la transaction d'écriture, ne résout plus de nom. */
+export async function prechaufferGardeUrl(recus: unknown, anciens: unknown): Promise<void> {
+  const connues = new Map<string, string>();
+  for (const s of Array.isArray(anciens) ? anciens : [])
+    if (estDict(s) && veritePy(s["id"])) connues.set(strPy(s["id"]), texte(s["url"]));
+  for (const srv of Array.isArray(recus) ? recus : []) {
+    if (!estDict(srv)) continue;
+    const type = stripPy(texte(veritePy(srv["type"]) ? srv["type"] : "sse")).toLowerCase();
+    const url = prefixe(texte(srv["url"]), 2000);
+    if (estHttp(type) && connues.get(strPy(srv["id"] ?? null)) !== url) await personalUrlBlockReason(url);
+  }
 }
 
 /** Entrée perso → config MCP, secrets lus au coffre par l'appelant ; `stdio` (et URL interne) refusés à un propriétaire non admin : `{}` ; celle d'un admin est de confiance. */

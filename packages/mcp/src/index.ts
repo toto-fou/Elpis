@@ -54,6 +54,7 @@ export {
   AUTH_MODES,
   CLES_HERITEES,
   clientBuiltinRef,
+  completer as completerSecrets,
   createShared,
   DEFAULT_HEADER_NAME,
   deleteShared,
@@ -77,6 +78,7 @@ export {
   pairsPublic,
   personalPublic,
   personalToConfig,
+  prechaufferGardeUrl,
   personalUrlBlockReason,
   publicId,
   rawShared,
@@ -115,7 +117,14 @@ export {
   secretsVides,
   serveurDePortee,
 } from "./coffre";
-export type { ActeurMcp, CoffreMcp, ContexteSecretMcp, MotifSecretMcp, SecretsServeur } from "./coffre";
+export type {
+  ActeurMcp,
+  CacheSecretsMcp,
+  CoffreMcp,
+  ContexteSecretMcp,
+  MotifSecretMcp,
+  SecretsServeur,
+} from "./coffre";
 export { localServers, opencodeEntryFor, opencodeLocalServers } from "./registre-local";
 export { allowedOrigins, originAllowed } from "./origines";
 export { DELEGATION_TOKEN_PREFIX, delegationToken, verifyDelegation } from "./delegation";

@@ -24,6 +24,7 @@ export {
   jetonDuBac,
   requeteService,
   serviceNavigateur,
+  servicesDesBacs,
 } from "./mode";
 export type { ServiceNavigateur } from "./mode";
 export {

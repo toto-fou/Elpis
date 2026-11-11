@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/outils/integres/task/controles.test.ts — appels du harnais de `task` à l'hôte d'outils : branche relue par un seul `git_query(action="branches")`, en lecture seule, `null` sur toute panne ; navigateur des sous-agents (fix du quota, sessions orphelines fermées au démarrage). */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { surchargerConfig } from "@elpis/config";
+import type { ServiceNavigateur } from "@elpis/navigateur";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Dict } from "../../../../src/python";
@@ -77,42 +81,59 @@ describe("navigateur des sous-agents", () => {
     expect(fix.indexOf("action='stop'")).toBeLessThan(fix.indexOf("action='cleanup'"));
   });
 
-  it("démarrage : un seul POST /cleanup_children sans propriétaire, quel que soit le nombre de comptes ; service absent : 0", async () => {
+  it("démarrage : un POST /cleanup_children sans propriétaire par service de bac, nombres additionnés ; service en panne : 0", async () => {
     const corps: unknown[] = [];
+    const a: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: "/a", jeton: "j" };
+    const b: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: "/b", jeton: "j" };
+    const services = (): ServiceNavigateur[] => [a, b];
     const n = await fermerNavigateursEnfantsOrphelins({
       ageMs: () => 4200,
-      poster: async (c) => (corps.push(c), { cleaned: 3 }),
+      services,
+      poster: async (s, c) => (corps.push([s === a ? "a" : "b", c]), { cleaned: s === a ? 3 : 1 }),
     });
-    expect(n).toBe(3);
-    expect(corps).toEqual([{ older_than_ms: 4200 }]);
-    expect(await fermerNavigateursEnfantsOrphelins({ poster: async () => null })).toBe(0);
-    expect(await fermerNavigateursEnfantsOrphelins({ poster: async () => ({ error: "x" }) })).toBe(0);
+    expect(n).toBe(4);
+    expect(corps).toEqual([
+      ["a", { older_than_ms: 4200 }],
+      ["b", { older_than_ms: 4200 }],
+    ]);
+    expect(await fermerNavigateursEnfantsOrphelins({ services, poster: async () => null })).toBe(0);
+    expect(await fermerNavigateursEnfantsOrphelins({ services, poster: async () => ({ error: "x" }) })).toBe(
+      0,
+    );
   });
 
-  it("démarrage : la requête part sans propriétaire vers PLAYWRIGHT_API_URL ; service injoignable : 0 sans lever", async () => {
-    const recus: { url: string; corps: unknown }[] = [];
+  it("démarrage : socket de chaque bac à jeton de SANDBOX_DIR joint avec son jeton ; bac sans jeton ignoré, service arrêté : 0 sans lever", async () => {
+    const sb = mkdtempSync(join(tmpdir(), "elpis-sb-"));
+    const restaurer = surchargerConfig({ SANDBOX_DIR: sb });
+    const recus: { url: string; auth: unknown; corps: unknown }[] = [];
     const serveur = createServer((req, res) => {
       let texte = "";
       req.on("data", (b: Buffer) => (texte += b.toString()));
       req.on("end", () => {
-        recus.push({ url: `${req.method} ${req.url}`, corps: JSON.parse(texte) });
+        recus.push({
+          url: `${req.method} ${req.url}`,
+          auth: req.headers.authorization,
+          corps: JSON.parse(texte),
+        });
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({ cleaned: 2 }));
       });
     });
-    await new Promise<void>((ok) => serveur.listen(0, "127.0.0.1", ok));
-    const avant = process.env["PLAYWRIGHT_API_URL"];
     try {
-      process.env["PLAYWRIGHT_API_URL"] = `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`;
+      for (const compte of ["alice", "bob"]) mkdirSync(join(sb, compte, ".elpis-agent"), { recursive: true });
+      writeFileSync(join(sb, "alice", ".browser-service.token"), "jeton-a\n");
+      await new Promise<void>((ok) => serveur.listen(join(sb, "alice", ".elpis-agent", "browser.sock"), ok));
       expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(2);
-      expect(recus).toEqual([{ url: "POST /cleanup_children", corps: { older_than_ms: 7 } }]);
+      expect(recus).toEqual([
+        { url: "POST /cleanup_children", auth: "Bearer jeton-a", corps: { older_than_ms: 7 } },
+      ]);
       serveur.closeAllConnections();
       await new Promise<void>((ok) => serveur.close(() => ok()));
       expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(0);
     } finally {
-      if (avant === undefined) delete process.env["PLAYWRIGHT_API_URL"];
-      else process.env["PLAYWRIGHT_API_URL"] = avant;
+      restaurer();
       if (serveur.listening) serveur.close();
+      rmSync(sb, { recursive: true, force: true });
     }
   });
 });

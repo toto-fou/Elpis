@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/src/mode.ts — service navigateur d'un compte : le service central (URL et jeton de l'instance) ou celui de son bac (socket de `<P>/.elpis-agent`, jeton du bac), et la requête qui le joint. */
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readdirSync, readFileSync } from "node:fs";
 
 import { navigateurDansLeBac, NOMS_HOTE } from "@elpis/bac";
 import { config, pyJoin, safeSandboxName } from "@elpis/config";
@@ -60,6 +60,23 @@ export function serviceNavigateur(username: string | null | undefined): ServiceN
     return { mode: "central", base: urlServiceNavigateur(), jeton: jetonServiceNavigateur() };
   const c = cheminsNavigateurBac(username);
   return { mode: "sandbox", base: "http://browser", socket: c.socket, jeton: jetonDuBac(c.jeton) };
+}
+
+/** Services des bacs dont le jeton existe (service lancé au moins une fois) : un par dossier de `SANDBOX_DIR`, nom sûr d'un compte. */
+export function servicesDesBacs(): ServiceNavigateur[] {
+  let noms: string[];
+  try {
+    noms = readdirSync(config.SANDBOX_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+  } catch {
+    return [];
+  }
+  return noms.flatMap((nom): ServiceNavigateur[] => {
+    const c = cheminsNavigateurBac(nom);
+    const jeton = jetonDuBac(c.jeton);
+    return jeton ? [{ mode: "sandbox", base: "http://browser", socket: c.socket, jeton }] : [];
+  });
 }
 
 /** En-têtes d'appel d'un service : `authorization` quand il a un jeton. */

@@ -33,6 +33,8 @@ import type { Construction } from "../scripts/construire";
 import { CODE_SORTIE_REDEMARRAGE, codeDeSortie } from "../src/cycle";
 import { empreinteSources } from "@elpis/commun/empreinte";
 import type { ReponsePixels, RequetePixels } from "@elpis/images/pixels";
+import { decouperAvecRedecoupes } from "@elpis/rag";
+import type { Bloc } from "@elpis/rag";
 
 const CIBLE = `${process.platform}-${process.arch}`;
 const VECTEURS = JSON.parse(readFileSync(new URL("./vecteurs/licences.json", import.meta.url), "utf-8")) as {
@@ -235,6 +237,24 @@ describe.skipIf(!CIBLES.includes(CIBLE))("bundle de production du core", () => {
       const relu = reponses[2];
       if (relu === undefined || !("resultat" in relu)) throw new Error(JSON.stringify(relu));
       expect(entete(relu.resultat)).toBe("WEBP");
+    } finally {
+      await thread.terminate();
+    }
+  }, 60_000);
+
+  it("le thread du découpage RAG (decoupage-fil.mjs) démarre hors du dépôt : mêmes passages qu'en place", async () => {
+    const blocs: Bloc[] = [{ kind: "paragraph", text: "# Un\nalpha\n# Deux\nbeta\n# Trois\ngamma" }];
+    const params = { methode: "regex" as const, valeur: "^# " };
+    const options = { regexLenteFatale: true, echeance: Date.now() + 30_000 };
+    const thread = new Worker(path.join(dist, "decoupage-fil.mjs"), {
+      workerData: { elpis: "decoupage", blocs, params, redecoupes: [], options },
+    });
+    try {
+      const reponse = await new Promise<unknown>((ok, ko) => {
+        thread.once("message", ok);
+        thread.once("error", ko);
+      });
+      expect(reponse).toEqual({ resultat: decouperAvecRedecoupes(blocs, params, [], options) });
     } finally {
       await thread.terminate();
     }

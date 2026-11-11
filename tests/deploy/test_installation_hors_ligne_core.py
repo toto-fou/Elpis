@@ -316,7 +316,8 @@ def _paquet_core(paquet: Path, empreinte: str) -> None:
     core = paquet / "core"
     for d in ("node_modules/better-sqlite3", "webp/dec", "webp/enc"):
         (core / d).mkdir(parents=True)
-    for nom in ("main.mjs", "exploitation.mjs", "pixels.mjs", "webp/dec/webp_dec.wasm", "webp/enc/webp_enc.wasm"):
+    for nom in ("main.mjs", "exploitation.mjs", "pixels.mjs", "decoupage-fil.mjs", "webp/dec/webp_dec.wasm",
+                "webp/enc/webp_enc.wasm"):
         (core / nom).write_text(f"// {empreinte}\n", encoding="utf-8")
     (core / "construction.json").write_text(f'{{"empreinte": "{empreinte}"}}\n', encoding="utf-8")
 
@@ -375,6 +376,18 @@ def test_core_sans_thread_des_images_refuse(depot, tmp_path, manquant):
     (paquet / "core" / manquant).unlink()
     r = _installer(depot, "core", "--offline", str(paquet), ELPIS_NODE=str(node))
     assert r.returncode == 1 and "refusé (thread des images ou codecs WebP absents" in r.stderr, r.stderr
+    assert not (depot / "apps/core/dist").exists()
+
+
+def test_core_sans_thread_du_decoupage_rag_refuse(depot, tmp_path):
+    node = depot / "faux-node"
+    node.write_text(FAUX_NODE, encoding="utf-8")
+    node.chmod(0o755)
+    paquet = tmp_path / "paquet"
+    _paquet_core(paquet, "aaa")
+    (paquet / "core" / "decoupage-fil.mjs").unlink()
+    r = _installer(depot, "core", "--offline", str(paquet), ELPIS_NODE=str(node))
+    assert r.returncode == 1 and "refusé (thread du découpage RAG absent" in r.stderr, r.stderr
     assert not (depot / "apps/core/dist").exists()
 
 

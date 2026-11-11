@@ -545,6 +545,14 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
+  a regular expression ran it on the core's event loop, with a 2-second limit per run but none
+  per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a
+  regex now runs in its own worker thread, killed after 60 seconds for the document; a pattern
+  that hits its per-run limit fails the document (`chunking_timeout`) instead of silently falling
+  back to size chunking. Previews use the same thread, one at a time per account (`429` while
+  another one runs). Other chunking methods stay in place and give the same passages. The core
+  bundle gains `decoupage-fil.mjs`, checked by the installer and the release script.
 - **MCP: output schemas cannot hang the core.** The `outputSchema` of a remote MCP tool was
   compiled and run by ajv on the core's event loop with no bound, so a hostile server could hold
   the core at 100 % CPU with a pattern such as `^(a+)+$`, a chain of `$ref` or a deeply nested

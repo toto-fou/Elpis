@@ -99,12 +99,13 @@ installer_npm() {
     ok "npm de Node.js $NODE_VERSION prêt dans $1, le temps de la construction."
 }
 
-# bundle_sain DOSSIER NODE : complet (thread des images et codecs WebP compris), mêmes sources que le dépôt et module natif chargé ; MOTIF dit sinon pourquoi.
+# bundle_sain DOSSIER NODE : complet (threads du découpage RAG et des images, codecs WebP compris), mêmes sources que le dépôt et module natif chargé ; MOTIF dit sinon pourquoi.
 bundle_sain() {
     local dossier="$1" node="$2" rc=0
     [ -f "$dossier/exploitation.mjs" ] || { MOTIF="exploitation.mjs absent"; return 1; }
     [ -f "$dossier/pixels.mjs" ] && [ -f "$dossier/webp/dec/webp_dec.wasm" ] && [ -f "$dossier/webp/enc/webp_enc.wasm" ] \
         || { MOTIF="thread des images ou codecs WebP absents (pixels.mjs, webp/)"; return 1; }
+    [ -f "$dossier/decoupage-fil.mjs" ] || { MOTIF="thread du découpage RAG absent (decoupage-fil.mjs)"; return 1; }
     MOTIF="$(ELPIS_RACINE="$ROOT" "$node" "$dossier/exploitation.mjs" empreinte 2>&1)" || rc=$?
     if [ "$rc" -ne 0 ]; then MOTIF="autre version que ce dépôt : ${MOTIF:-contrôle interrompu (code $rc)}"; return 1; fi
     MOTIF="$("$node" "$dossier/exploitation.mjs" natif 2>&1)" || rc=$?

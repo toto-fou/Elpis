@@ -124,10 +124,12 @@ function routesProprietaire(
     route("POST", `${prefixe}/:secret_id/rotate`, acces, async (req) => {
       const p = proprietaire(req);
       const { value } = corpsValide(req, schemaCorpsRotationSecret);
-      return { secret: await rotation(base, p, idSecret(req), value, acteurDe(req)) };
+      return {
+        secret: await rotation(base, p, idSecret(req), value, acteurDe(req), { refuserGeres: true }),
+      };
     }),
     route("DELETE", `${prefixe}/:secret_id`, acces, async (req) => {
-      await supprimerSecret(base, proprietaire(req), idSecret(req), acteurDe(req));
+      await supprimerSecret(base, proprietaire(req), idSecret(req), acteurDe(req), { refuserGeres: true });
       return { ok: true };
     }),
   ];

@@ -46,6 +46,7 @@ export const CODES_ERREUR_SECRET = [
   "secret_undecryptable",
   "secret_key_unavailable",
   "secret_username_required",
+  "secret_managed",
 ] as const;
 export type CodeErreurSecret = (typeof CODES_ERREUR_SECRET)[number];
 

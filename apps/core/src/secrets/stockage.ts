@@ -2,7 +2,7 @@
 /** apps/core/src/secrets/stockage.ts — table `vault_secrets` : création, modification (« vide = inchangé »), rotation, vérification, suppression et liste, valeur chiffrée jamais relue par l'API et liée aux colonnes qui décident de son usage ; chaque écriture au journal de sécurité, sans valeur. */
 import { POLITIQUE_SECRET_DEFAUT, SECRETS_PAR_PROPRIETAIRE_MAX } from "@elpis/contracts";
 import type { EtatSecret, GenreSecret, PolitiqueSecret, PorteeSecret, Secret } from "@elpis/contracts";
-import { ErreurIntegrite } from "@elpis/db";
+import { ErreurIntegrite, NOM_CLE_IMAGES } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 import {
   auditEvent,
@@ -452,19 +452,44 @@ export async function modifierSecret(
   return vueSecret(r.ligne);
 }
 
-/** `rotation` : nouvelle valeur, `version` à n+1, `rotated_at` posé. */
+/** Secret tenu par un connecteur (clé LLM, jeton Git, serveur MCP, clé du moteur d'images) : où le gérer, en anglais ; `null` pour un secret libre. */
+export function gereParConnecteur(l: Pick<LigneSecret, "kind" | "user_id" | "name">): string | null {
+  if (l.kind === "llm")
+    return "This secret is the key of an LLM connector: change or delete it with the connector (Settings › AI models; Administration › Models and services for a shared connector).";
+  if (l.kind === "git")
+    return "This secret is the token of a Git account: change or delete it with the account (Settings › Git accounts).";
+  if (l.kind === "mcp")
+    return "This secret holds the credentials of an MCP server: change or delete them with the server (MCP servers; Administration › Models and services › MCP for a shared server).";
+  if (l.kind === "token" && l.user_id === null && l.name === NOM_CLE_IMAGES)
+    return "This secret is the image engine key: change or delete it in Administration › Models and services › Images.";
+  return null;
+}
+
+/** Options des routes du coffre : un secret tenu par un connecteur ne s'y supprime pas, celui d'un serveur MCP ne s'y tourne pas (le connecteur garde ses propres chemins). */
+export interface OptionsRoute {
+  readonly refuserGeres?: boolean;
+}
+
+/** `rotation` : nouvelle valeur, `version` à n+1, `rotated_at` posé ; depuis les routes, un secret MCP (JSON du serveur) est refusé (`secret_managed`). */
 export async function rotation(
   base: Base,
   p: Proprietaire,
   id: number,
   valeur: unknown,
   acteur: Acteur,
+  o: OptionsRoute = {},
 ): Promise<Secret> {
   const v = validerValeur(valeur);
   const t = maintenant();
   const ligne = await base.ecriture(async (x) => {
     const l = await lireLigne(x, p, id);
     if (l === null) throw introuvable();
+    if (o.refuserGeres && l.kind === "mcp")
+      throw new ErreurSecret(
+        409,
+        "secret_managed",
+        `${gereParConnecteur(l) ?? ""} A rotation would replace them with a single value.`.trim(),
+      );
     const version = Number(l.version) + 1;
     const enc = chiffrer(v, await cleDeChiffrement(x), p, genreDe(l), l.name, { ...l, version });
     await x.run(
@@ -513,16 +538,19 @@ export async function verifierSecret(
   return vueSecret(r.ligne);
 }
 
-/** `supprimerSecret` : la ligne et son chiffré disparaissent. */
+/** `supprimerSecret` : la ligne et son chiffré disparaissent ; depuis les routes, un secret tenu par un connecteur est refusé (`secret_managed`), le connecteur le supprime avec lui. */
 export async function supprimerSecret(
   base: Base,
   p: Proprietaire,
   id: number,
   acteur: Acteur,
+  o: OptionsRoute = {},
 ): Promise<void> {
   const l = await base.ecriture(async (x) => {
     const ligne = await lireLigne(x, p, id);
     if (ligne === null) throw introuvable();
+    const gere = o.refuserGeres ? gereParConnecteur(ligne) : null;
+    if (gere !== null) throw new ErreurSecret(409, "secret_managed", gere);
     await x.run("DELETE FROM vault_secrets WHERE id = ?", [id]);
     return ligne;
   });

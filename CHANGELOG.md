@@ -117,6 +117,22 @@ follow [SemVer](https://semver.org/).
   `main`); without a usable vault key (unreadable, or missing while secrets exist) it changes
   nothing, logs an error and is retried at the next start, and a token the vault refuses (an
   invalid host) stays where it was with a warning.
+- **MCP server secrets in the secrets vault.** The token, headers and environment variables of an
+  MCP server, personal or shared, are now one vault secret per server (kind `mcp`, named
+  `mcp-<server id>`, an instance secret for a shared server), referenced by the server and read
+  and decrypted once per turn, routine run or sub-agent call: a new value applies to the next turn,
+  and its policy (routines, sub-agents, both allowed) can be changed in Settings › Secrets. The
+  MCP forms keep their write-only fields (empty = unchanged; auth mode "None" or an emptied list
+  removes), and `has_auth` / `has_value` now mean "readable with the current key". At startup,
+  migration `0029_vault_mcp` moves the existing values, Fernet and older plain ones
+  (`authorization`, `basic_auth`, `headers`/`env` objects), into the vault; without the vault
+  key it fails, writes nothing and runs again at the next start. A Fernet value it cannot read
+  stays in place, flagged `undecryptable` (another key) or `not_migrated` (no key: none is ever
+  created for it), and is tried again at each start of the main service while some are left; like
+  the other catch-ups of the vault migrations, this runs under the schema lock, writes nothing when
+  nothing is left, and the tables are compacted again when old values go. A server whose secret cannot be read, or was removed
+  from the vault, is left out of the turn, never connected without it. A list sent with the same
+  server id twice is refused (400) (`docs/configuration.md`, MCP servers: secrets).
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three
@@ -473,6 +489,16 @@ follow [SemVer](https://semver.org/).
 - **A Git token never follows its account elsewhere.** Changing the host, the service type or the
   API address of a Git account without a new token clears its token (a not yet migrated plain
   token included), so the connection test or a PR cannot send it to another server.
+- **MCP secrets no longer lost in silence.** Saving an MCP server without a Fernet key dropped its
+  header and variable values without a word, and a value that could not be decrypted still showed
+  as set and was sent empty. Values now go to the vault (a missing vault key refuses the save,
+  503), and an unreadable one stays in place, is flagged on the server (`secret_error`, shown in
+  its form, logged) and is never sent. Old values not yet in the vault are listed in the form and
+  kept by a save that brings nothing new for them; the account that owns a personal server can
+  enter a flagged secret again. A save is read and written in one transaction, so concurrent saves
+  no longer lose a server or leave a secret behind, and a vault change rolled back is no longer
+  written to the security log. The Test button never sends a stored secret to another address,
+  and the MCP pool keys no longer carry a plain hash of the secrets or appear in the log.
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

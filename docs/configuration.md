@@ -1325,8 +1325,99 @@ Restart the service together with the core. A service or tool host older than th
 core does not know the group quota (each child counts separately) or the
 safe closing of a child's sessions: upgrade them together.
 
-⚠ **Upgrade**: an automation that navigated to `localhost`,
-the host's address or a local container is now refused.
+Sessions, saved states, downloads and visual references stay in the account's sandbox
+(`/work/.elpis-browser`, `/work/downloads`). The service of a sandbox keeps at most 3 sessions per
+owner and 4 for the account and its subagents together, one place of which stays with the chat
+(`BROWSER_MAX_SESSIONS_PER_OWNER`, `BROWSER_MAX_SESSIONS_PER_GROUP` in the service's environment,
+which the tool host does not fill: the defaults apply). A new session never closes the account's
+or a sibling's session when a subagent is the one asking. At a cap, the requester's oldest idle
+session gives way (an isolated one before the account's main session), never one that is busy or
+opened for a vault secret; the start result names it (`evicted_sessions` and a warning), and when
+none can give way the start is refused (`browser_quota`, `protected_sessions`). Each `task`
+subagent that drives the browser has its own private session, which counts toward its account's
+quota: the chat and three `web` agents fit in the four places, and a batch that contains a `web`
+agent launches only three at a time. At the quota, startup is refused with the error
+`browser_quota` (with its `fix`, readable by the model), and the launch of a `web` agent is
+refused even before it tries (`task_unavailable`).
+
+| Key (`config.json`) | Default | Effect |
+|---|---|---|
+| `browser.sandbox_idle_minutes` | `15` | Minutes without a call before a sandbox browser service stops (started again by the next `pw_*` tool). |
+| `browser.url_allowlist` | `[]` | Local-network allowlist of the browser policy (above). |
+
+`browser.mode` and `browser.sandbox_users`, from earlier versions, are ignored (the tool host
+says so once at start).
+
+| Variable | Default | Effect |
+|---|---|---|
+| `ELPIS_BROWSER_CA_DIR` | `user_db/browser-relay-ca` | Folder of the instance CA of the secret relay (`ca.key` 0600, `ca.crt`, 365 days, renewed 30 days before its end). |
+| `PLAYWRIGHT_BROWSERS_PATH` | `~/.cache/ms-playwright` | Playwright cache mounted read-only in the sandboxes (Chromium headless shell). |
+
+When the sandbox cannot serve (Docker missing or stopped, image missing, browser not installed),
+the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its fix, and
+`./elpis doctor` reports the same. See `docs/architecture.md`, "Browser in the sandbox", and
+`docs/operations.md`, "Browser in the sandbox".
+
+⚠ **Upgrade**: an automation that navigated to the host's address or a local container from the
+browser is refused; `localhost` now means the account's sandbox.
+
+### MCP servers: secrets
+
+The MCP servers of an account (Settings › MCP, `users.settings_json › mcp_servers`) and those of
+the shared library (published by an administrator from the same dialog, `mcp_shared_servers`)
+keep their secret parts in the [secrets vault](#secrets-vault): one secret per server, kind `mcp`,
+named `mcp-<server id>` (`mcp-shared-<n>`, an instance secret, for a shared server), with the scope
+`{"server": "<server id>"}`. The server keeps its other settings (type, address or command, auth
+mode, user or header name) and the id of its secret (`secret_id`). The value is a JSON object with
+the non-empty parts:
+
+```json
+{"auth": "<token, password or header value of the auth mode>",
+ "headers": [{"name": "X-API-Key", "value": "…"}],
+ "env": [{"name": "WIKIJS_TOKEN", "value": "…"}]}
+```
+
+`headers` and `env` are also read as objects (`{"X-API-Key": "…"}`), and a value that is not a
+JSON object is the `auth` part: a rotation from Settings › Secrets can be the bare token, but it
+then replaces the headers and variables. Header and variable names are checked when the server
+connects: an invalid or reserved name (`Host`, `PYTHONPATH`…) is skipped, with a warning in the
+core log. The value holds 16,384 characters at most.
+
+- **Forms.** The secret fields stay write-only: an empty field keeps the value, the auth mode
+  "None" removes the token, and removing a header or a variable removes it. `has_auth` and
+  `has_value` mean "readable with the current vault key". A secret that cannot be read, or was
+  removed from the vault, is never overwritten or removed by a save of the list: only a new value
+  replaces it, or deleting the server removes it. Old values still on the server (not yet in the
+  vault) are listed by name, with the auth mode they imply, and a save that brings no new value for
+  them keeps them and moves them into the vault. The account that owns a personal server can enter
+  a secret that cannot be used again, even when it may not otherwise change that server; for a
+  server of the shared library, an administrator does.
+- **Saves.** A save of the list reads and writes the settings and the vault in one transaction, so
+  two saves at the same time never lose a server or leave a secret behind. A list that names the
+  same server id twice is refused (400). The Test button joins the stored secret only to a test of
+  the same type and address (or command).
+- **Connection.** The secret is read and decrypted for each turn, routine run and sub-agent, at
+  most once per turn, never cached longer: a rotation applies to the next turn. Its policy applies:
+  created with `routines` and `subagents` allowed, either can be turned off in Settings › Secrets.
+  A server whose secret cannot be read (another key, removed from the vault, key unavailable,
+  refused by its policy, flagged by the migration) is left out, with a warning in the core log
+  (once an hour per server and reason); it is never connected with part of its secrets.
+- **Flags.** `secret_error` on a server (in `GET /api/settings`, and in the administrator's view
+  of the shared library) tells why its secret cannot be used: `undecryptable`,
+  `key_unavailable`, `missing` (deleted from the vault) or `not_migrated` (refused by the vault
+  during the migration: too long, or too many secrets; a Fernet value waiting for its key; or an
+  older secret field still filled in).
+  The server form shows it.
+- **Migration `0029_vault_mcp`** (at core startup) moves the existing values into the vault:
+  Fernet ones (`auth_enc`, `headers_enc`, `env_enc`) and older plain ones (`authorization` →
+  auth mode "raw", `basic_auth` → "basic", `headers` and `env` objects). Only what the server
+  used is kept (headers for HTTP and SSE, variables for `stdio`, the token when an auth mode is
+  set); a server without a type becomes SSE, as the form saves it. A Fernet value that cannot be
+  decrypted stays where it was, unused, flagged `undecryptable` (another key) or `not_migrated`
+  (no key at all: the migration never creates one) and logged; the main service tries it again at
+  each start while such values are left (once the key is back in `APP_ENCRYPTION_KEY` or
+  `user_db/.encryption_key`), and entering the secret again clears it. Without the vault key, the migration fails, nothing is written, and it runs
+  again at the next start (`./elpis restart` and `./elpis doctor` list it as pending).
 
 ### Image generation
 

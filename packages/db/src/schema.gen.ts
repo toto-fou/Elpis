@@ -411,6 +411,8 @@ export const TABLES: readonly Table[] = [
       { name: "headers_enc", type: "text", null: false, default: "" },
       { name: "env_enc", type: "text", null: false, default: "" },
       { name: "extra_scheme", type: "text", null: false, default: "plain" },
+      { name: "secret_id", type: "int", default: null },
+      { name: "secret_error", type: "text", null: false, default: "" },
     ],
     indexes: [{"name": "idx_mcpshared_enabled", "cols": ["enabled"]}],
   },

@@ -66,6 +66,9 @@ export interface FenetreElpis {
   location: { href: string };
 }
 
+/** Au-delà, la carte de connexion s'affiche même si la session n'est toujours pas connue (serveur qui ne répond pas). */
+export const DELAI_SESSION_MS = 3000;
+
 const objet = z.record(z.string(), z.unknown());
 const schemaConfigPublique = z.looseObject({
   welcome: objet.nullish(),
@@ -96,6 +99,8 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
   const loginForm = ref({ username: "", password: "" });
   const loginError = ref("");
   const isLoading = ref(false);
+  // Vrai jusqu'à la première réponse sur la session : la carte de connexion attend, sinon elle clignote avant l'application.
+  const sessionEnAttente = ref(true);
   const mustChangePassword = ref(false);
   const newPasswordForce = ref("");
   const showNewUserModal = ref(false);
@@ -179,8 +184,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     }
   }
 
-  /** Relit `/api/me-lite` ; une réponse partie avant un changement de session est ignorée (génération). */
-  async function checkAuth(): Promise<void> {
+  async function relireSession(): Promise<void> {
     const adminOnly = !!fen().__ADMIN_ONLY_MODE__;
     const r = await http.requete("/api/me-lite", {}, { schema: schemaReponseMoi, sans401: true });
     if (r.type !== "ok") return;
@@ -212,6 +216,21 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
       if (!session.fermer("expiration")) session.constaterDeconnecte();
       user.value = null;
       mustChangePassword.value = false;
+    }
+  }
+
+  /** Relit `/api/me-lite` ; une réponse partie avant un changement de session est ignorée (génération). */
+  async function checkAuth(): Promise<void> {
+    const secours = sessionEnAttente.value
+      ? setTimeout(() => {
+          sessionEnAttente.value = false;
+        }, DELAI_SESSION_MS)
+      : null;
+    try {
+      await relireSession();
+    } finally {
+      if (secours !== null) clearTimeout(secours);
+      sessionEnAttente.value = false;
     }
   }
 
@@ -417,6 +436,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     loginForm,
     loginError,
     isLoading,
+    sessionEnAttente,
     mustChangePassword,
     newPasswordForce,
     showNewUserModal,

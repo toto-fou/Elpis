@@ -85,6 +85,30 @@ describe("carte de connexion", () => {
   });
 });
 
+describe("carte de connexion avant la session", () => {
+  it("rien n'est peint tant que la session n'est pas connue, puis la carte paraît", async () => {
+    const { domaine, hote } = monter({ sessionEnAttente: true });
+    expect(hote.querySelector("form")).toBeNull();
+    domaine.sessionEnAttente = false;
+    await nextTick();
+    expect(hote.querySelector("#login-identifiant")).not.toBeNull();
+  });
+
+  it("session connue et utilisateur présent : aucune carte ; utilisateur retiré : la carte revient aussitôt", async () => {
+    const { domaine, hote } = monter({ sessionEnAttente: false, user: { id: 1 } });
+    expect(hote.querySelector("form")).toBeNull();
+    domaine.user = null;
+    await nextTick();
+    expect(hote.querySelector("#login-identifiant")).not.toBeNull();
+  });
+
+  it("le changement de mot de passe imposé ne dépend pas de l'attente", () => {
+    const { hote } = monter({ sessionEnAttente: false, mustChangePassword: true });
+    expect(hote.querySelector("#force-nouveau")).not.toBeNull();
+    expect(hote.querySelector("#login-identifiant")).toBeNull();
+  });
+});
+
 describe("changement de mot de passe imposé", () => {
   it("deux saisies différentes : rien n'est envoyé, l'erreur est annoncée sur la confirmation", async () => {
     const { domaine, hote } = monter({ mustChangePassword: true });

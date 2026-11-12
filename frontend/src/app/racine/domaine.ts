@@ -29,6 +29,8 @@ export interface DomaineChrome {
 
 export interface DomaineConnexion {
   user: unknown;
+  /** Vrai tant que la session n'est pas connue : la carte de connexion n'est pas peinte. */
+  sessionEnAttente?: boolean;
   mustChangePassword: boolean;
   loginConfig: Record<string, unknown>;
   loginForm: { username: string; password: string };

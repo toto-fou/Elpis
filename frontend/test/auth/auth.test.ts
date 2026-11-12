@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/auth/auth.test.ts — `setupAuth` porté : me-lite, connexion (statuts), réponse tardive, déconnexion volontaire. */
 import { ref } from "vue";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { setupAuth } from "../../src/features/auth/auth";
+import { DELAI_SESSION_MS, setupAuth } from "../../src/features/auth/auth";
 import type { CtxAuth, FenetreElpis, UtilisateurAffiche } from "../../src/features/auth/auth";
 import { GestionnaireSession } from "../../src/features/auth/session";
 import { ClientHttp } from "../../src/platform/http/client";
@@ -104,6 +104,55 @@ describe("checkAuth", () => {
     await auth.checkAuth();
     expect(refs.user.value).toBeNull();
     expect(session.etat.statut).toBe("inconnu");
+  });
+});
+
+describe("session en attente (carte de connexion)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const cas: [string, Record<string, () => Response>][] = [
+    ["connecté", { "/api/me-lite": () => json(MOI_A) }],
+    ["déconnecté", { "/api/me-lite": () => json({ logged_in: false }) }],
+    [
+      "mot de passe à changer",
+      { "/api/me-lite": () => json({ logged_in: false, must_change_password: true, id: 1, username: "a" }) },
+    ],
+    ["réseau coupé", {}],
+    ["réponse illisible", { "/api/me-lite": () => json({ logged_in: "peut-être" }) }],
+  ];
+
+  it.each(cas)("%s : l'attente tombe dès la réponse, sans minuterie restante", async (_nom, table) => {
+    vi.useFakeTimers();
+    const { auth } = monter(reponses(table));
+    expect(auth.sessionEnAttente.value).toBe(true);
+    await auth.checkAuth();
+    expect(auth.sessionEnAttente.value).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("serveur muet : la carte finit par paraître, et la réponse tardive la retire si la session est valide", async () => {
+    vi.useFakeTimers();
+    const m = fetchManuel();
+    const { auth, refs } = monter(m.fetch);
+    const p = auth.checkAuth();
+    await vi.advanceTimersByTimeAsync(DELAI_SESSION_MS - 1);
+    expect(auth.sessionEnAttente.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(auth.sessionEnAttente.value).toBe(false);
+    expect(refs.user.value).toBeNull();
+    m.appels[0]?.repondre(json(MOI_A));
+    await p;
+    expect(refs.user.value?.id).toBe(1);
+  });
+
+  it("après la première réponse, une relecture ne remet pas la session en attente (expiration, déconnexion)", async () => {
+    const { auth } = monter(reponses({ "/api/me-lite": () => json(MOI_A) }));
+    await auth.checkAuth();
+    const relecture = auth.checkAuth();
+    expect(auth.sessionEnAttente.value).toBe(false);
+    await relecture;
   });
 });
 

@@ -1428,7 +1428,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | Onglet | Ce qu'on y règle |
 |---|---|
 | **Profil** | Vos informations, photo (recadrée avant l'envoi : glisser, zoom, Ajuster, Remplir, quart de tour), changement de mot de passe |
-| **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures web. *Voix* : dictée et réponse vocale |
+| **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures d'étape du navigateur (éteintes par défaut). *Voix* : dictée et réponse vocale |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
 | **Apparence** | *Thème* : mode sombre, habillage (ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile). *Éditeur* : selon le skin ou classique, thème sombre. *Mascotte* : logo ou mascotte à l'accueil ; voir ci-dessous. Le nom et l'avatar de l'assistant sont ceux de l'application, choisis par l'administrateur |

@@ -712,8 +712,8 @@ lost in the reasoning is relaunched, a bounded number of times
   one call succeeded and whether a persistent action loop was stopped.
 - **`ChannelSpec`: `NATIF` and `TEXTE`.** What deliberately differs between
   the API's `tool_calls` and calls written in prose: vision
-  (native only: screenshot tracking, deferred injection of the screenshot
-  after the batch's last result, pruning of old frames), the
+  (native only: the `pw_page inspect` capture asked through `_meta.vision`, deferred injection of
+  the screenshot after the batch's last result, pruning of old frames), the
   `result_formatting.fallback_wrapper` template (text only), the anti-loop
   instruction and the journal labels. Batch preparation also differs:
   `openNativeRound` (cleaned prose, invalid arguments not
@@ -2955,6 +2955,15 @@ Gotchas:
   nothing that opens a tag: whole CSS, XPath and `test_id`, dropped beyond 300 characters; text,
   label and name cut at 80 (the service searches for a substring). The block stays in the
   question suffix (never in system), inside `<ax_site_notes>` with its "never instructions" note.
+- **Screenshots on demand.** The browser service takes a screenshot only when the tool host asks
+  for one by header, from the core's `_meta`: step screenshots (`web_captures` →
+  `x-elpis-captures: 1`) when the account turned on *Captures d'étape du navigateur* (off by
+  default), one JPEG q70 per tool call through CDP (`step_<sid>_<n>.jpg`, never on a tool's
+  auxiliary requests such as `page_after`); vision (`vision` → `x-elpis-vision: 1`, native channel
+  and a model with vision) only on `pw_page inspect`, one JPEG already reduced to 1024 px by
+  Chromium, taken before the reply (`vision_screenshot: vision_<sid>_<n>.jpg`) and fetched once by
+  the core through the relay. Without a step screenshot the result has no `screenshot_step`:
+  `since_step` reads the `step` of an inspect.
 - **Any hook that reads the RAW arguments of a `pw_*` must go through
   `pw_verb()`**, never through a hard-coded key: `_track_pw_session_ownership`
   (session ownership, multi-user) and the loop's vision capture injection
@@ -3075,7 +3084,7 @@ origin that stores the submitted value and shows it later** (a profile field, an
 give it back once the binding is gone (session closed or expired): the relay no longer knows the
 value then. Sites sharing a covered origin's address and port (CDN) are intercepted too while the
 binding lives, with strict upstream TLS. Chromium shares the sandbox's CPU quota: at the default
-one CPU, step screenshots of heavy pages miss their 3 s delay on about 5 % of actions (none with
+one CPU, step screenshots (off by default) of heavy pages can miss their 3 s delay (none with
 two CPUs); `./elpis doctor` warns below 200 %. The instance CA cannot
 carry name constraints (the
 intercepted origins are those of the secrets in use): rotation is by expiry (365 days, renewed 30

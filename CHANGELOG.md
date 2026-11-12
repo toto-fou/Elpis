@@ -8,6 +8,15 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Browser step screenshots on demand.** New account setting *Captures d'étape du navigateur*
+  (Settings › Chat, `web_step_screenshots`), off by default for every account, existing ones
+  included. The browser service takes a step screenshot only when the tool host asks for it
+  (`_meta.web_captures` from the core, header `x-elpis-captures`): one per tool call, a
+  `pw_chain` included, never for a tool's auxiliary requests (`page_after`, the URL read for AX
+  memory), in JPEG q70 through CDP (`step_<sid>_<n>.jpg`, 2 to 3 times faster than the former
+  PNG); the `live_<sid>.png` copy is gone. Off, there is no screenshot, no `screenshot_step` and
+  nothing in the chat. Screenshots already taken stay visible in the history (`.png` still served).
+
 - **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
   started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;
   service, Node runtime and Chromium headless shell mounted read-only; Unix socket and
@@ -152,6 +161,14 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
+  downscales a screenshot after every browser action. `pw_page inspect` asks the service
+  (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken
+  before the reply (`vision_screenshot`); the core fetches it once through the relay and injects it
+  as before, without a second downscale. No capture, no image: never a stale one.
+- **« Masquer les captures web » retired.** It only hid thumbnails; the step screenshot setting
+  replaces it and the stored `hide_web_screenshots` is ignored. `pw_page inspect` and `pw_observe`
+  return `step` for `since_step` (`screenshot_step` now comes only with a step screenshot).
 - **Browser refusal messages in English.** An address refused by the browser policy (scheme,
   malformed address, destination) is reported to the model in English, like the relay's reasons.
 - **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision

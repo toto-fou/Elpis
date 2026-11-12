@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// test/session_securisee.integration.test.js — connexion avec un secret du coffre (/login) sur un vrai Chromium, dans une session ordinaire : saisie, détection des champs, issue, documents remplacés, secret absent des réponses et du journal réseau, fuites bloquées, étape isolée (page rechargée, mocks suspendus, service workers), outils libres avant et après, TLS. Le site d'essai est sur la boucle locale (jointe directement, sans le relais de l'hôte) : la valeur tapée y arrive telle quelle.
+// test/session_securisee.integration.test.ts — connexion avec un secret du coffre (/login) sur un vrai Chromium, dans une session ordinaire : saisie, détection des champs, issue, documents remplacés, secret absent des réponses et du journal réseau, fuites bloquées, étape isolée (page rechargée, mocks suspendus, service workers), outils libres avant et après, TLS. Le site d'essai est sur la boucle locale (jointe directement, sans le relais de l'hôte) : la valeur tapée y arrive telle quelle.
 //
-//     node --test test/session_securisee.integration.test.js
+//     node --test test/session_securisee.integration.test.ts
 //
 // Sans les dépendances du service (npm ci) ou sans Chromium, tout est ignoré. Aucun accès réseau : serveurs d'essai sur 127.0.0.1.
 import { test, before, after } from 'node:test';
@@ -13,27 +13,70 @@ import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, portDe, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
-const SAUTER = await raisonDeSauter('chromium');
+const SAUTER = await raisonDeSauter();
 const SECRET = 'Mdp-tres-secret-42';
 const IDENTIFIANT = 'alice.essai';
 const ENCODAGES = [SECRET, encodeURIComponent(SECRET), Buffer.from(SECRET).toString('base64').replace(/=+$/, ''), Buffer.from(SECRET).toString('hex')];
 
-let service = null;
-let site = null;
-let autre = null;
-let tlsSite = null;
-const recus = [];
-const fuites = [];
+// Requête relevée par /network.
+interface Requete { method: string; url: string; postData?: string }
+
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    tls: string;
+    secure: boolean;
+    frame_origin: string;
+    fields: string[];
+    detected: string[];
+    submit: boolean;
+    targets: { username: { autocomplete: string }; password: { type: string } };
+    ok: boolean;
+    outcome: string;
+    navigated: boolean;
+    documents_replaced: number;
+    secret_in_page: boolean;
+    url: string;
+    logs: Requete[];
+    code: string;
+    candidates: unknown[];
+    page_message: string;
+    value: string;
+    result: unknown;
+    count: number;
+    status: string;
+    reused: boolean;
+    evicted_sessions: { session_id: string }[];
+    sessions: { session_id: string }[];
+    protected_sessions: { why: string }[];
+    nav_warning: string;
+    title: string;
+    tabs: { url: string }[];
+}
+
+// Serveur d'essai qui écoute, et son adresse de base.
+interface Ecoute { serveur: http.Server | https.Server; base: string }
+// Gestionnaire d'un serveur d'essai, asynchrone quand il lit le corps de la requête.
+type Gestionnaire = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown> | void;
+
+let service!: Service<Corps>;
+let site!: Ecoute;
+let autre!: Ecoute;
+let tlsSite: Ecoute | null = null;
+const recus: string[] = [];
+const fuites: string[] = [];
 let dernierMdp = '';
 let n = 0;
 
-const contient = (texte) => ENCODAGES.some((f) => String(texte).includes(f));
-const corpsDe = (req) => new Promise((r) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => r(b)); });
+const contient = (texte: unknown) => ENCODAGES.some((f) => String(texte).includes(f));
+const corpsDe = (req: http.IncomingMessage) => new Promise<string>((r) => { let b = ''; req.on('data', (d: Buffer) => { b += d; }); req.on('end', () => r(b)); });
 
 // Formulaire de connexion : `script` ajouté en fin de page, attributs des champs et du formulaire réglables.
-function formulaire({ methode = 'post', action = '/session', u = '', p = '', script = '', titre = 'Connexion' } = {}) {
+function formulaire({ methode = 'post', action = '/session', u = '', p = '', script = '', titre = 'Connexion' }:
+    { methode?: string | null; action?: string; u?: string; p?: string; script?: string; titre?: string } = {}) {
     return `<title>${titre}</title><form${methode ? ` method="${methode}"` : ''} action="${action}">`
         + `<label>Identifiant <input name="u" type="text"${u}></label>`
         + `<label>Mot de passe <input name="p" type="password"${p}></label>`
@@ -51,10 +94,12 @@ const go = async () => {
 b.onclick = go; p.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
 </script>`;
 
-async function ecouter(gerer, options = null) {
-    const serveur = options ? https.createServer(options, gerer) : http.createServer(gerer);
-    await new Promise((r) => serveur.listen(0, '127.0.0.1', r));
-    return { serveur, base: `${options ? 'https' : 'http'}://127.0.0.1:${serveur.address().port}` };
+async function ecouter(gerer: Gestionnaire, options: https.ServerOptions | null = null): Promise<Ecoute> {
+    // Promesse du gestionnaire laissée au serveur, comme Node le fait d'un écouteur asynchrone.
+    const ecoute = (req: http.IncomingMessage, res: http.ServerResponse) => { void gerer(req, res); };
+    const serveur = options ? https.createServer(options, ecoute) : http.createServer(ecoute);
+    await new Promise<void>((r) => serveur.listen(0, '127.0.0.1', r));
+    return { serveur, base: `${options ? 'https' : 'http'}://127.0.0.1:${portDe(serveur)}` };
 }
 
 // Certificat auto-signé pour 127.0.0.1 (openssl) ; null sans openssl.
@@ -64,7 +109,7 @@ function certificat() {
         execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=127.0.0.1',
             '-addext', 'subjectAltName=IP:127.0.0.1', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem')], { stdio: 'ignore' });
         return { key: fs.readFileSync(path.join(dir, 'k.pem')), cert: fs.readFileSync(path.join(dir, 'c.pem')) };
-    } catch (_) { return null; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    } catch { return null; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 before(async () => {
@@ -72,18 +117,18 @@ before(async () => {
     autre = await ecouter(async (req, res) => {
         fuites.push(`${req.method} ${req.url} ${req.headers.authorization || ''} ${await corpsDe(req)}`);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'access-control-allow-origin': '*' });
-        if (req.url.startsWith('/cadre')) return res.end(`<title>Cadre</title><iframe src="${site.base}/login" width="600" height="300"></iframe>`);
-        res.end(req.url.startsWith('/form') ? formulaire({ action: '/session' }) : 'ok');
+        if (req.url!.startsWith('/cadre')) return res.end(`<title>Cadre</title><iframe src="${site.base}/login" width="600" height="300"></iframe>`);
+        return res.end(req.url!.startsWith('/form') ? formulaire({ action: '/session' }) : 'ok');
     });
     site = await ecouter(async (req, res) => {
         const recu = await corpsDe(req);
         recus.push(`${req.method} ${req.url} ${recu}`);
-        const chemin = req.url.split('?')[0];
+        const chemin = req.url!.split('?')[0]!;
         const champs = new URLSearchParams(recu);
         const bon = champs.get('u') === IDENTIFIANT && champs.get('p') === SECRET;
-        if (req.method === 'POST' && champs.get('p')) dernierMdp = champs.get('p');
-        const html = (code, corps, entetes = {}) => { res.writeHead(code, { 'content-type': 'text/html; charset=utf-8', ...entetes }); res.end(corps); };
-        const pages = {
+        if (req.method === 'POST' && champs.get('p')) dernierMdp = champs.get('p')!;
+        const html = (code: number, corps: string, entetes: http.OutgoingHttpHeaders = {}) => { res.writeHead(code, { 'content-type': 'text/html; charset=utf-8', ...entetes }); res.end(corps); };
+        const pages: Record<string, () => string> = {
             '/login': () => formulaire(),
             '/login-auto': () => formulaire({ u: ' autocomplete="username"', p: ' autocomplete="current-password"' }).replace(/<label>[^<]*/g, '<label>'),
             '/login-prec': () => '<title>P</title><form method="post" action="/session"><input name="q" type="search"><input name="u" type="text"><input name="p" type="password"><button>Go</button></form>',
@@ -129,8 +174,8 @@ before(async () => {
         if (chemin === '/session-any') { res.writeHead(303, { location: '/home-any' }); return res.end(); }
         if (chemin === '/session-echo') return html(200, `<title>Erreur</title><h1>Bienvenue</h1><input type="text" value="${dernierMdp}">`);
         if (chemin === '/api/login') {
-            let j = {};
-            try { j = JSON.parse(recu); } catch (_) { j = {}; }
+            let j: { u?: string; p?: string };
+            try { j = JSON.parse(recu); } catch { j = {}; }
             res.writeHead(j.u === IDENTIFIANT && j.p === SECRET ? 200 : 401, { 'content-type': 'application/json', 'set-cookie': 'sid=ok; Path=/' });
             return res.end('{}');
         }
@@ -138,7 +183,7 @@ before(async () => {
     });
     const cle = certificat();
     if (cle) tlsSite = await ecouter((req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>TLS</title><h1>Chiffré</h1>'); }, cle);
-    service = await demarrerService({ env: { BROWSER_MAX_SESSIONS_PER_OWNER: '2' } });
+    service = await demarrerService<Corps>({ env: { BROWSER_MAX_SESSIONS_PER_OWNER: '2' } });
 });
 
 after(async () => {
@@ -150,7 +195,7 @@ after(async () => {
 const proprio = () => `coffre${++n}`;
 
 // Session ouverte pour un secret (politique TLS stricte) : ordinaire pour tout le reste.
-async function ouvrir(owner, chemin, extra = {}) {
+async function ouvrir(owner: string, chemin: string, extra: Record<string, unknown> = {}) {
     const r = await service.post('/start', { owner, url: `${site.base}${chemin}`, tls: 'strict', ...extra });
     assert.equal(r.statut, 200, r.texte);
     assert.equal(r.corps.tls, 'strict');
@@ -163,12 +208,12 @@ const cibles = {
     submit_target: { by_role: 'button', by_name: 'Connexion' },
 };
 
-function connecter(owner, sid, extra = {}) {
+function connecter(owner: string, sid: string, extra: Record<string, unknown> = {}) {
     return service.post('/login', { owner, session_id: sid, secret_origin: site.base, username_value: IDENTIFIANT, password_value: SECRET, ...extra });
 }
 
-const arreter = (owner, sid) => service.post('/stop', { owner, session_id: sid });
-const evaluer = (owner, sid, script) => service.post('/evaluate', { owner, session_id: sid, script });
+const arreter = (owner: string, sid: string) => service.post('/stop', { owner, session_id: sid });
+const evaluer = (owner: string, sid: string, script: string) => service.post('/evaluate', { owner, session_id: sid, script });
 
 test('connexion POST avec cibles : cookie posé, page d\'accueil atteinte, secret absent des réponses ; journal réseau sans corps ni requête porteuse', { skip: SAUTER }, async () => {
     const o = proprio();
@@ -194,8 +239,8 @@ test('connexion POST avec cibles : cookie posé, page d\'accueil atteinte, secre
     const lectures = [await service.post('/extract_text', { owner: o, session_id: sid }), await service.get(`/smart_inspect?${q}`),
         await service.get(`/observe?${q}`), await service.get(`/network?${q}`), await service.get(`/list_tabs?${q}`), await service.get(`/sessions?owner=${o}`)];
     for (const v of lectures) assert.ok(v.statut === 200 && !contient(v.texte), v.texte.slice(0, 300));
-    assert.ok(lectures[0].texte.includes('Compte connecté'), lectures[0].texte);
-    const reseau = lectures[3].corps.logs;
+    assert.ok(lectures[0]!.texte.includes('Compte connecté'), lectures[0]!.texte);
+    const reseau = lectures[3]!.corps.logs;
     assert.ok(!reseau.some((e) => e.method === 'POST' && e.url.endsWith('/session')), JSON.stringify(reseau));
     assert.ok(reseau.some((e) => e.url.endsWith('/home')), JSON.stringify(reseau));
     assert.ok(reseau.every((e) => !e.postData), JSON.stringify(reseau));
@@ -404,7 +449,7 @@ test('site qui réaffiche le mot de passe après la connexion : la réponse de /
     assert.ok(!contient(r.texte), r.texte);
     assert.equal(r.corps.secret_in_page, undefined);
     const apres = await service.get(`/list_tabs?owner=${o}&session_id=${sid}`);
-    assert.match(apres.corps.tabs[0].url, /\/session-echo$/);
+    assert.match(apres.corps.tabs[0]!.url, /\/session-echo$/);
     await arreter(o, sid);
 });
 
@@ -425,7 +470,7 @@ test('session ordinaire : eval, mocks, état, PDF, enregistreur et sélecteurs s
         const e = await evaluer(o, sid, 'return document.title');
         assert.equal(e.statut, 200, e.texte);
         for (const [route, corps] of [['/mock/add', { url_pattern: `${site.base}/rien`, status: 204 }], ['/mock/clear', {}], ['/save_state', {}],
-            ['/print_pdf', {}], ['/recorder/start', {}], ['/recorder/stop', {}], ['/locator', { by_css: 'input[value]' }]]) {
+            ['/print_pdf', {}], ['/recorder/start', {}], ['/recorder/stop', {}], ['/locator', { by_css: 'input[value]' }]] as const) {
             const r = await service.post(route, { owner: o, session_id: sid, ...corps });
             assert.ok(r.statut !== 403 && !String(r.corps?.code || '').startsWith('secret_'), `${route} ${r.texte.slice(0, 200)}`);
         }
@@ -601,7 +646,7 @@ test('onglet remplacé après la connexion : sans historique, un retour arrière
     await service.post('/action', { owner: o, session_id: sid, type: 'back' });
     const apres = (await service.get(`/list_tabs?owner=${o}&session_id=${sid}`)).corps.tabs;
     assert.equal(apres.length, 1);
-    assert.equal(apres[0].url, avant[0].url);
+    assert.equal(apres[0]!.url, avant[0]!.url);
     assert.equal(postes(), n0);
     await arreter(o, sid);
 });

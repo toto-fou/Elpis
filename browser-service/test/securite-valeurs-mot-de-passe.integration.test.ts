@@ -1,24 +1,36 @@
 // SPDX-License-Identifier: MIT
-// test/securite-valeurs-mot-de-passe.integration.test.js — aucune route d'inspection ne rend la valeur d'un champ mot de passe (propriété ni attribut).
+// test/securite-valeurs-mot-de-passe.integration.test.ts — aucune route d'inspection ne rend la valeur d'un champ mot de passe (propriété ni attribut).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.ts';
+import type { Reponse, Service } from './aides/service.ts';
 
 const SITE = 'http://93.184.216.34';
 const TEMOIN = 'Temoin-9f3c-Secret';
 const OWNER = 'essai';
-let svc = null;
-let sid = '';
-let saut = false;
 
-const post = (route, corps = {}) => svc.post(route, { owner: OWNER, session_id: sid, ...corps });
-const get = (route, q = {}) => svc.get(`${route}?${new URLSearchParams({ owner: OWNER, session_id: sid, ...q })}`);
-const sansTemoin = (r, quoi) => assert.ok(!r.texte.includes(TEMOIN), `${quoi} rend le mot de passe : ${r.texte.slice(0, 400)}`);
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    attributes?: { type: string };
+    value: string;
+    pass: boolean;
+    actual: string;
+    status: string;
+}
+
+let svc!: Service<Corps>;
+let sid = '';
+let saut: string | false = false;
+
+const post = (route: string, corps: Record<string, unknown> = {}) => svc.post(route, { owner: OWNER, session_id: sid, ...corps });
+const get = (route: string, q: Record<string, string> = {}) => svc.get(`${route}?${new URLSearchParams({ owner: OWNER, session_id: sid, ...q })}`);
+const sansTemoin = (r: Reponse<unknown>, quoi: string) => assert.ok(!r.texte.includes(TEMOIN), `${quoi} rend le mot de passe : ${r.texte.slice(0, 400)}`);
 
 before(async () => {
     saut = await raisonDeSauter();
     if (saut) return;
-    svc = await demarrerService();
+    svc = await demarrerService<Corps>();
     const r = await svc.post('/start', { owner: OWNER, url: 'about:blank', isolated: true });
     assert.equal(r.statut, 200, r.texte);
     sid = r.corps.session_id;

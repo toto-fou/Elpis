@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// test/securite-jeton-service.test.js — jeton d'appel du service : Bearer exact exigé sur chaque appel ; sans socket ni jeton, le service ne démarre pas.
+// test/securite-jeton-service.test.ts — jeton d'appel du service : Bearer exact exigé sur chaque appel ; sans socket ni jeton, le service ne démarre pas.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { refusAppel } from '../src/service_auth.ts';
-import { demarrerService, NEUTRE_PS, raisonDeSauter, SERVEUR } from './aides/service.js';
+import { demarrerService, NEUTRE_PS, raisonDeSauter, SERVEUR } from './aides/service.ts';
 
 const req = (headers = {}) => ({ socket: {}, headers });
 
@@ -25,7 +25,7 @@ test('sans socket ou sans jeton : arrêt au démarrage, message clair', async ()
     const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-pw-sans-'));
     try {
         for (const [env, attendu] of [[{ BROWSER_SERVICE_TOKEN: 'x' }, /FIREFOX_SERVICE_SOCKET \(its Unix socket\) is required/],
-                                      [{ FIREFOX_SERVICE_SOCKET: path.join(dossier, 's.sock') }, /BROWSER_SERVICE_TOKEN \(its call token\) is required/]]) {
+                                      [{ FIREFOX_SERVICE_SOCKET: path.join(dossier, 's.sock') }, /BROWSER_SERVICE_TOKEN \(its call token\) is required/]] as const) {
             const base = { ...process.env };
             delete base.FIREFOX_SERVICE_SOCKET;
             delete base.BROWSER_SERVICE_TOKEN;
@@ -47,7 +47,7 @@ test('service réel : routes, santé et captures refusées sans le jeton', async
     if (raison) return t.skip(raison);
     const svc = await demarrerService();
     try {
-        for (const [methode, route] of [['GET', '/health'], ['GET', '/sessions?owner=alice'], ['POST', '/start'], ['GET', '/screenshots/live_x.png'], ['GET', '/traces/t.zip']]) {
+        for (const [methode, route] of [['GET', '/health'], ['GET', '/sessions?owner=alice'], ['POST', '/start'], ['GET', '/screenshots/live_x.png'], ['GET', '/traces/t.zip']] as const) {
             for (const entetes of [{}, { Authorization: 'Bearer faux' }]) {
                 const r = await svc.brute(methode, route, { entetes });
                 assert.equal(r.statut, 401, `${methode} ${route}`);

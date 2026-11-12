@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/geste_util.test.js — suivi de la navigation déclenchée par un geste, sur une page factice.
+// browser-service/test/geste_util.test.ts — suivi de la navigation déclenchée par un geste, sur une page factice.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -7,12 +7,15 @@ import { suivreNavigation, champsNavigation } from '../src/geste_util.ts';
 
 // Page factice : événements Playwright émis à la main, URL et chargement pilotés.
 class FaussePage extends EventEmitter {
-    constructor(url) { super(); this.adresse = url; this.cadre = {}; this.chargements = 0; }
+    adresse: string;
+    cadre: object;
+    chargements: number;
+    constructor(url: string) { super(); this.adresse = url; this.cadre = {}; this.chargements = 0; }
     mainFrame() { return this.cadre; }
     url() { return this.adresse; }
-    async waitForLoadState() { this.chargements++; }
+    async waitForLoadState(_etat: string, _options: { timeout: number }) { this.chargements++; }
 }
-const requete = (page) => ({ isNavigationRequest: () => true, frame: () => page.cadre });
+const requete = (page: FaussePage) => ({ isNavigationRequest: () => true, frame: () => page.cadre });
 
 test('suivreNavigation : sans navigation, null après la grâce ; écouteurs retirés', async () => {
     const page = new FaussePage('http://s/login');
@@ -52,7 +55,7 @@ test('suivreNavigation : navigation échouée ou téléchargement, arrêt sans a
 
 test('suivreNavigation : échéance de la requête atteinte, page arrivée en chargement ou pas encore arrivée → loading, sans attendre la borne', async () => {
     const page = new FaussePage('http://s/a');
-    page.waitForLoadState = (_etat, { timeout }) => new Promise((_ok, ko) => setTimeout(() => ko(new Error('Timeout')), timeout));
+    page.waitForLoadState = (_etat, { timeout }) => new Promise<void>((_ok, ko) => setTimeout(() => ko(new Error('Timeout')), timeout));
     const fin = suivreNavigation(page, { graceMs: 10, maxMs: 10000 });
     page.emit('request', requete(page));
     page.adresse = 'http://s/b';
@@ -62,14 +65,14 @@ test('suivreNavigation : échéance de la requête atteinte, page arrivée en ch
     assert.deepEqual(nav, { url_before: 'http://s/a', url: 'http://s/b', loading: true });
     assert.ok(Date.now() - t0 < 1000);
     assert.equal(champsNavigation(nav).navigated, true);
-    assert.match(champsNavigation(nav).nav_warning, /^navigation still loading: http:\/\/s\/b is not fully loaded yet/);
+    assert.match(champsNavigation(nav).nav_warning!, /^navigation still loading: http:\/\/s\/b is not fully loaded yet/);
     const lente = new FaussePage('http://s/a');
     const fin2 = suivreNavigation(lente, { graceMs: 10, maxMs: 10000 });
     lente.emit('request', requete(lente));
     const nav2 = await fin2({ limite: Date.now() + 200 });
     assert.deepEqual(nav2, { url_before: 'http://s/a', url: 'http://s/a', loading: true });
     assert.equal(champsNavigation(nav2).navigated, undefined);
-    assert.match(champsNavigation(nav2).nav_warning, /tab still shows the page before/);
+    assert.match(champsNavigation(nav2).nav_warning!, /tab still shows the page before/);
     assert.deepEqual(champsNavigation({ url_before: 'http://s/a', url: 'http://s/b' }), { url: 'http://s/b', url_before: 'http://s/a', navigated: true });
     assert.deepEqual(champsNavigation(null), {});
 });

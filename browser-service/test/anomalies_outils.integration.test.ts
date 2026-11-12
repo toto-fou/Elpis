@@ -1,35 +1,67 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/anomalies_outils.integration.test.js — vrai service et Chromium contre des pages locales : recorder par ref, compteur des mocks, seuil visuel, contraste a11y, options de session réutilisée, erreurs par document.
+// browser-service/test/anomalies_outils.integration.test.ts — vrai service et Chromium contre des pages locales : recorder par ref, compteur des mocks, seuil visuel, contraste a11y, options de session réutilisée, erreurs par document.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, portDe, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
-const SAUTER = await raisonDeSauter('chromium');
+const SAUTER = await raisonDeSauter();
 const OWNER = 'anomalies';
-const PAGES = {
+const PAGES: Record<string, string> = {
     '/avec-onload': '<title>Onload</title><body onload="throw new Error(\'boom du chargement\')">page',
     '/': '<title>Accueil</title><button id="b" onclick="document.title=\'clic\'">Envoyer</button><input placeholder="Votre nom"><div><span>a</span><span class="x" onclick="1">b</span></div>',
 };
 
-let service = null;
-let pages = null;
+// Violation relevée par /a11y_audit.
+interface Violation { rule: string; selector: string; message: string }
+// Événement noté par le recorder (format json).
+interface Evenement { action: string; locator: unknown }
+
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    matches?: { ref: string }[];
+    ref: string;
+    script: string;
+    id: string;
+    mocks: { id: string; used: number; exhausted: boolean }[];
+    baseline_created: boolean;
+    passed: boolean;
+    pixel_diff_failed: boolean;
+    diff_pixels: number;
+    max_diff_pixels: number;
+    diff_ratio: number;
+    threshold: number;
+    violations: Violation[];
+    contrast_skipped: number;
+    contrast_note: string;
+    tabs: unknown[];
+    code: string;
+    ignored_options: string[];
+    fix: string;
+    reused: boolean;
+    console_errors: string[];
+}
+
+let service!: Service<Corps>;
+let pages!: http.Server;
 let base = '';
 let sid = '';
 
-const api = (route, corps = {}) => service.post(route, { owner: OWNER, session_id: sid, ...corps });
-const ouvrir = (chemin) => api('/action', { type: 'goto', url: `${base}${chemin}` });
+const api = (route: string, corps: Record<string, unknown> = {}) => service.post(route, { owner: OWNER, session_id: sid, ...corps });
+const ouvrir = (chemin: string) => api('/action', { type: 'goto', url: `${base}${chemin}` });
 
 before(async () => {
     if (SAUTER) return;
     pages = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(PAGES[req.url.split('?')[0]] || `<title>${req.url}</title>`);
+        res.end(PAGES[req.url!.split('?')[0]!] || `<title>${req.url}</title>`);
     });
-    await new Promise(r => pages.listen(0, '127.0.0.1', r));
-    base = `http://127.0.0.1:${pages.address().port}`;
-    service = await demarrerService();
+    await new Promise<void>(r => pages.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${portDe(pages)}`;
+    service = await demarrerService<Corps>();
     const r = await service.post('/start', { owner: OWNER, url: `${base}/`, isolated: true });
     assert.equal(r.statut, 200, r.texte);
     sid = r.corps.session_id;
@@ -58,8 +90,8 @@ test('recorder : un geste par ref est noté avec un sélecteur stable dans tous 
             assert.match(d.corps.script, /getByPlaceholder\('Votre nom'\)\.fill\('Zoé'\)/, d.corps.script);
         }
         if (format === 'json') {
-            const [clic] = JSON.parse(d.corps.script).filter(e => e.action === 'click');
-            assert.deepEqual(clic.locator, { role: 'button', name: 'Envoyer' });
+            const [clic] = (JSON.parse(d.corps.script) as Evenement[]).filter(e => e.action === 'click');
+            assert.deepEqual(clic!.locator, { role: 'button', name: 'Envoyer' });
         }
     }
 });
@@ -68,11 +100,11 @@ test('pw_mock list : chaque réponse servie par un mock est comptée, avec ou sa
     await ouvrir('/');
     const illimite = (await api('/mock/add', { url_pattern: '/api/libre', body: '{"a":1}' })).corps.id;
     const limite = (await api('/mock/add', { url_pattern: '/api/limite', body: '{"b":1}', times: 2 })).corps.id;
-    const appels = (chemin, n) => api('/evaluate', { script: `for (let i = 0; i < ${n}; i++) await fetch('${chemin}'); return 1` });
+    const appels = (chemin: string, n: number) => api('/evaluate', { script: `for (let i = 0; i < ${n}; i++) await fetch('${chemin}'); return 1` });
     assert.equal((await appels('/api/libre', 3)).statut, 200);
     assert.equal((await appels('/api/limite', 2)).statut, 200);
     const liste = (await service.get(`/mock/list?owner=${OWNER}&session_id=${sid}`)).corps.mocks;
-    assert.equal(liste.find(m => m.id === illimite).used, 3);
+    assert.equal(liste.find(m => m.id === illimite)!.used, 3);
     assert.deepEqual(liste.find(m => m.id === limite), { ...liste.find(m => m.id === limite), used: 2, exhausted: true });
     await api('/mock/clear');
 });
@@ -85,7 +117,7 @@ test('pw_visual : le seuil par défaut échoue sur un petit changement, le seuil
     const defaut = (await api('/visual', { name: 'petit' })).corps;
     assert.equal(defaut.passed, false, JSON.stringify(defaut));
     assert.equal(defaut.pixel_diff_failed, true);
-    assert.ok(defaut.diff_pixels >= 5000 && defaut.diff_pixels <= 20000, defaut.diff_pixels);
+    assert.ok(defaut.diff_pixels >= 5000 && defaut.diff_pixels <= 20000, String(defaut.diff_pixels));
     assert.equal(defaut.max_diff_pixels, 200);
     assert.ok(defaut.diff_ratio < 0.01, 'passerait avec l\'ancien seuil de 1 %');
     const explicite = (await api('/visual', { name: 'petit', threshold: 0.05 })).corps;
@@ -102,13 +134,13 @@ test('pw_a11y : texte gris clair sur blanc signalé, grand texte à 3:1, fond h�
         + '<div style="background-image:linear-gradient(red, blue)"><span id="e" style="color:#ccc">On gradient</span></div>'; return 1` });
     const r = (await api('/a11y_audit')).corps;
     const contrastes = r.violations.filter(v => v.rule === 'color-contrast');
-    const par = (id) => contrastes.find(v => v.selector.includes(id));
+    const par = (id: string) => contrastes.find(v => v.selector.includes(id));
     assert.ok(par('#a'), JSON.stringify(contrastes));
-    assert.match(par('#a').message, /^contrast 1\.6\d:1 < 4\.5:1/);
+    assert.match(par('#a')!.message, /^contrast 1\.6\d:1 < 4\.5:1/);
     assert.equal(par('#b'), undefined, '#767676 sur blanc = 4.54:1');
     assert.equal(par('#f'), undefined, 'grand texte #888 = 3.54:1 passe à 3:1');
     assert.ok(par('#c'), 'fond noir hérité du parent');
-    assert.match(par('#d').message, /< 3:1 \(WCAG AA, large text\)/);
+    assert.match(par('#d')!.message, /< 3:1 \(WCAG AA, large text\)/);
     assert.equal(par('#e'), undefined);
     assert.equal(r.contrast_skipped, 1);
     assert.match(r.contrast_note, /image or gradient/);
@@ -138,5 +170,5 @@ test('pw_page inspect : console_errors du document courant seulement, erreur non
     await ouvrir('/avec-onload');
     const apres = await erreurs();
     assert.equal(apres.length, 1, JSON.stringify(apres));
-    assert.match(apres[0], /^\[pageerror\] .*boom du chargement/);
+    assert.match(apres[0]!, /^\[pageerror\] .*boom du chargement/);
 });

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/recorder_util.test.js — recorder : champs secrets remplacés par une variable d'environnement (une par champ), secrets retirés des évaluations et des URL, évaluations notées.
+// browser-service/test/recorder_util.test.ts — recorder : champs secrets remplacés par une variable d'environnement (une par champ), secrets retirés des évaluations et des URL, évaluations notées.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { variableSecrete, masquerSecret, masquerScript, masquerUrl, variablePourChamp, commentaireEval, notesDuScript, celluleRobot } from '../src/recorder_util.ts';
+import type { EvenementEnregistre } from '../src/recorder_util.ts';
 
 test('variableSecrete : type password, noms et libellés qui évoquent un secret ; champs ordinaires laissés', () => {
     assert.equal(variableSecrete({ type: 'password' }), 'PASSWORD');
@@ -32,11 +33,11 @@ test('commentaireEval et notesDuScript : une ligne bornée, variables et évalua
     assert.equal(commentaireEval('1\x1c\x1f\x1fEvaluate\x85x'), '1 Evaluate x');
     assert.equal(commentaireEval('x'.repeat(200)).length, 120);
     const n = notesDuScript([{ action: 'fill', secret: 'PASSWORD' }, { action: 'fill', secret: 'OTP' },
-        { action: 'fill', secret: 'PASSWORD' }, { action: 'eval', script: '1' }]);
+        { action: 'fill', secret: 'PASSWORD' }, { action: 'eval', script: '1' } as EvenementEnregistre]);
     assert.deepEqual(n.secret_variables, ['OTP', 'PASSWORD']);
     assert.equal(n.notes.length, 2);
-    assert.match(n.notes[0], /set OTP, PASSWORD in the environment/);
-    assert.match(n.notes[1], /^1 eval call\(s\) kept as comments, not replayed/);
+    assert.match(n.notes[0]!, /set OTP, PASSWORD in the environment/);
+    assert.match(n.notes[1]!, /^1 eval call\(s\) kept as comments, not replayed/);
     assert.deepEqual(notesDuScript([{ action: 'click' }]), { secret_variables: [], notes: [] });
 });
 
@@ -51,14 +52,14 @@ test('celluleRobot : ni variable évaluée, ni ligne, ni cellule ajoutée ; blan
 });
 
 test('masquerSecret avec variables : une variable par champ (PASSWORD, PASSWORD_2…), la même pour le même champ', () => {
-    const variables = new Map();
-    const saisie = (id, label) => masquerSecret({ action: 'fill', locator: { css: `#${id}` }, value: 's' }, { type: 'password', id, labels: label }, variables).secret;
+    const variables = new Map<string, string>();
+    const saisie = (id: string, label: string) => masquerSecret<EvenementEnregistre>({ action: 'fill', locator: { css: `#${id}` }, value: 's' }, { type: 'password', id, labels: label }, variables).secret;
     assert.equal(saisie('actuel', 'Current password'), 'PASSWORD');
     assert.equal(saisie('nouveau', 'New password'), 'PASSWORD_2');
     assert.equal(saisie('confirme', 'Confirm'), 'PASSWORD_3');
     assert.equal(saisie('actuel', 'Current password'), 'PASSWORD');
-    assert.equal(masquerSecret({ action: 'fill', locator: { label: 'PIN' }, value: '1' }, {}, variables).secret, 'PIN');
-    assert.equal(masquerSecret({ action: 'fill', locator: { label: 'PIN code' }, value: '1' }, {}, variables).secret, 'PIN_2');
+    assert.equal(masquerSecret<EvenementEnregistre>({ action: 'fill', locator: { label: 'PIN' }, value: '1' }, {}, variables).secret, 'PIN');
+    assert.equal(masquerSecret<EvenementEnregistre>({ action: 'fill', locator: { label: 'PIN code' }, value: '1' }, {}, variables).secret, 'PIN_2');
     assert.equal(variablePourChamp('TOKEN', 'x'), 'TOKEN');
 });
 
@@ -90,5 +91,5 @@ test('masquerUrl : identifiants et paramètres sensibles (requête et fragment) 
         assert.equal(masquerUrl(u), u);
     assert.equal(masquerUrl(undefined), undefined);
     const n = notesDuScript([{ action: 'goto', url: 'u', url_masked: true }, { action: 'click', url: 'u', url_masked: true }]);
-    assert.match(n.notes[0], /^1 goto URL\(s\) had credentials or sensitive parameters replaced by \*\*\*/);
+    assert.match(n.notes[0]!, /^1 goto URL\(s\) had credentials or sensitive parameters replaced by \*\*\*/);
 });

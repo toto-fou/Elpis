@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// test/session_util.test.js — pingPage borné + quota screenshots par session
+// test/session_util.test.ts — pingPage borné + quota screenshots par session
 // (AUDIT 2026-06). Sans Playwright : pages factices.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,7 +50,7 @@ test('pingPage: evaluate qui ne résout jamais → frozen sous le timeout', asyn
 
 // ── planScreenshotQuota ──────────────────────────────────────────────
 
-function mkEntries(sid, kind, n, { size = 1000, t0 = 1_000_000 } = {}) {
+function mkEntries(sid: string, kind: string, n: number, { size = 1000, t0 = 1_000_000 } = {}) {
     return Array.from({ length: n }, (_, i) => ({
         name: `${kind}_${sid}_${i}.png`, sid, mtimeMs: t0 + i, size,
     }));
@@ -113,9 +113,10 @@ test('quota: fail_ éligibles (timestampés, ils s\'accumulent)', () => {
 
 // ── Place d'une nouvelle session : jamais au détriment d'un autre propriétaire ────
 import { occupationGroupe, placesEnfants, planSessionSlot, quotasSessions, sessionCessible } from '../src/session_util.ts';
+import type { SessionPlace } from '../src/session_util.ts';
 import { makeLock } from '../src/session_lock.ts';
 
-const _sess = (entries) => new Map(entries.map(([sid, owner, t]) => [sid, { owner, lastActivity: t }]));
+const _sess = (entries: [string, string, number][]) => new Map(entries.map(([sid, owner, t]): [string, SessionPlace] => [sid, { owner, lastActivity: t }]));
 
 test('planSessionSlot : sous les plafonds → rien à évincer', () => {
     assert.deepEqual(planSessionSlot(_sess([['a1', 'alice', 1]]), 'alice', { maxPerOwner: 3, maxPerGroup: 4 }),
@@ -128,7 +129,7 @@ test('planSessionSlot : quota du propriétaire atteint → SA plus ancienne cèd
 });
 
 // Sessions d'un compte (`alice`) et de ses sous-agents (`alice~t1`… groupe `alice`).
-const _grp = (entries) => new Map(entries.map(([sid, owner, group, t]) => [sid, { owner, group, lastActivity: t }]));
+const _grp = (entries: [string, string, string, number][]) => new Map(entries.map(([sid, owner, group, t]): [string, SessionPlace] => [sid, { owner, group, lastActivity: t }]));
 const _quota = { maxPerOwner: 3, maxPerGroup: 4 };
 
 test('quotasSessions : défauts 3/4, groupe jamais sous le quota par propriétaire', () => {
@@ -195,7 +196,7 @@ test('sessionsEnfantsAnciennes : enfants plus vieux que le seuil, jamais une ses
 test('planSessionSlot : une session occupée ou liée à un secret ne cède jamais ; une isolée cède avant la principale ; rien à céder → refus', () => {
     const occupee = makeLock();
     occupee.held = 1;
-    const s = new Map([
+    const s = new Map<string, SessionPlace>([
         ['main', { owner: 'o', lastActivity: 1 }],
         ['iso', { owner: 'o', lastActivity: 5, isolated: true }],
         ['occ', { owner: 'o', lastActivity: 0, isolated: true, _lock: occupee }],

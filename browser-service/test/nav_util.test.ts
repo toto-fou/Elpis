@@ -52,8 +52,8 @@ test("IP:port injoignable sur page neuve (reste about:blank) → 502 nav_error",
   );
   assert.equal(o.httpStatus, 502);
   assert.equal(o.body.status, "nav_error");
-  assert.match(o.body.error, /192\.1\.1\.1:8080/);
-  assert.match(o.body.error, /ERR_CONNECTION_REFUSED/);
+  assert.match(o.body.error!, /192\.1\.1\.1:8080/);
+  assert.match(o.body.error!, /ERR_CONNECTION_REFUSED/);
 });
 
 test("goto refusé qui ne quitte pas la page courante → 502 (pas un faux succès)", () => {
@@ -96,8 +96,8 @@ test("le message nav_error inclut TOUJOURS l'URL cible et la cause", () => {
     "about:blank",
     "net::ERR_CONNECTION_TIMED_OUT",
   );
-  assert.match(o.body.error, /http:\/\/10\.0\.0\.5:9000\/api/);
-  assert.match(o.body.error, /ERR_CONNECTION_TIMED_OUT/);
+  assert.match(o.body.error!, /http:\/\/10\.0\.0\.5:9000\/api/);
+  assert.match(o.body.error!, /ERR_CONNECTION_TIMED_OUT/);
 });
 
 // ── authHint : guidage du modèle sur les pages protégées par auth HTTP ──
@@ -121,7 +121,7 @@ test("200/404/null → pas de hint d'auth", () => {
   assert.equal(authHint(200), null);
   assert.equal(authHint(404), null);
   assert.equal(authHint(null), null);
-  assert.equal(authHint(undefined), null);
+  assert.equal(authHint(undefined as unknown as null), null);
 });
 
 // ── Navigation en échec : code stable, cause sans séquences ANSI ni journal d'appel ──
@@ -148,7 +148,8 @@ test("échec réel : code navigation_failed, message anglais nettoyé, correctif
     o.body.error,
     "Navigation to https://x.invalid/ failed: net::ERR_TUNNEL_CONNECTION_FAILED at https://x.invalid/",
   );
-  assert.match(o.body.fix, /^The tab still shows the page it showed before \(https:\/\/exemple\.fr\/\)/);
+  assert.match(o.body.fix!, /^The tab still shows the page it showed before \(https:\/\/exemple\.fr\/\)/);
+  // eslint-disable-next-line no-control-regex -- aucune séquence ANSI brute ne doit rester dans le corps
   assert.ok(!/\u001b|Call log/.test(JSON.stringify(o.body)));
 });
 
@@ -158,12 +159,12 @@ test("échec avec la page d'erreur du navigateur engagée : jamais un succès pa
   assert.equal(o.httpStatus, 502);
   assert.equal(o.body.url, erreur);
   assert.match(
-    o.body.fix,
+    o.body.fix!,
     /^The tab now shows the browser error page \(chrome-error:\/\/chromewebdata\/\), no longer http:\/\/lan\/form: go back to it with pw_act\(action='back'\)/,
   );
   const neuf = classifyNavOutcome("https://x.invalid/", "about:blank", erreur, ERREUR_PLAYWRIGHT);
   assert.equal(neuf.httpStatus, 502);
-  assert.doesNotMatch(neuf.body.fix, /back/);
+  assert.doesNotMatch(neuf.body.fix!, /back/);
   const revenu = classifyNavOutcome(
     "https://x.invalid/",
     "http://lan/form",
@@ -172,10 +173,10 @@ test("échec avec la page d'erreur du navigateur engagée : jamais un succès pa
     { restored: true },
   );
   assert.match(
-    revenu.body.fix,
+    revenu.body.fix!,
     /^The tab went back to the page it showed before \(http:\/\/lan\/form\), reloaded/,
   );
-  for (const r of [o, neuf, revenu]) assert.doesNotMatch(r.body.fix, /intact/);
+  for (const r of [o, neuf, revenu]) assert.doesNotMatch(r.body.fix!, /intact/);
   assert.ok(
     estPageErreur(erreur) && !estPageErreur("about:blank") && !estPageErreur("http://lan/"),
   );
@@ -221,7 +222,7 @@ test("tlsWarning : expiré, pas encore valide, auto-signé ; rien pour un certif
     tlsWarning(
       { ...expire, validFrom: maintenant + 10, validTo: maintenant + 99, issuer: "site" },
       maintenant,
-    ).problems,
+    )!.problems,
     ["not_yet_valid", "self_signed"],
   );
   assert.equal(tlsWarning({ ...expire, validTo: maintenant + 3600 }, maintenant), null);

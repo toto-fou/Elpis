@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-// test/session_lock.test.js — mutex FIFO par session (AUDIT 2026-06).
+// test/session_lock.test.ts — mutex FIFO par session (AUDIT 2026-06).
 // Sans Playwright ni serveur : le verrou est un module pur.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeLock, acquireLock } from '../src/session_lock.ts';
+import type { ErreurVerrou } from '../src/session_lock.ts';
 
 const tick = () => new Promise(r => setImmediate(r));
 
 test('exclusion : un seul détenteur à la fois, ordre FIFO', async () => {
     const lock = makeLock();
-    const order = [];
+    const order: number[] = [];
 
     const r1 = await acquireLock(lock);
     const p2 = acquireLock(lock).then(rel => { order.push(2); return rel; });
@@ -36,7 +37,7 @@ test('timeout d’attente → 423, et la chaîne ne deadlocke pas', async () => 
     // 2e acquéreur avec timeout court : doit rejeter 423
     await assert.rejects(
         acquireLock(lock, { waitMs: 30 }),
-        e => e.code === 423,
+        e => (e as ErreurVerrou).code === 423,
     );
 
     // 3e acquéreur (timeout confortable) : doit passer quand r1 release,
@@ -55,7 +56,7 @@ test('file pleine → 429 immédiat', async () => {
     for (let i = 0; i < 3; i++) pending.push(acquireLock(lock, { maxWaiters: 3, waitMs: 5000 }));
     await assert.rejects(
         acquireLock(lock, { maxWaiters: 3 }),
-        e => e.code === 429,
+        e => (e as ErreurVerrou).code === 429,
     );
     // drain propre
     r1();
@@ -65,7 +66,7 @@ test('file pleine → 429 immédiat', async () => {
 test('release idempotent : double release ne libère pas deux tours', async () => {
     const lock = makeLock();
     const r1 = await acquireLock(lock);
-    const got = [];
+    const got: string[] = [];
     const p2 = acquireLock(lock).then(rel => { got.push('2'); return rel; });
     const p3 = acquireLock(lock).then(rel => { got.push('3'); return rel; });
 
@@ -89,9 +90,9 @@ test('filet de sécurité : handler qui ne release jamais → libéré après sa
 test('scénario closeSession : maxWaiters contournable (Infinity)', async () => {
     const lock = makeLock();
     const r1 = await acquireLock(lock);
-    for (let i = 0; i < 8; i++) acquireLock(lock, { waitMs: 5000 }).then(rel => rel());
+    for (let i = 0; i < 8; i++) void acquireLock(lock, { waitMs: 5000 }).then(rel => rel());
     // la file est pleine pour un client normal…
-    await assert.rejects(acquireLock(lock, { maxWaiters: 8 }), e => e.code === 429);
+    await assert.rejects(acquireLock(lock, { maxWaiters: 8 }), e => (e as ErreurVerrou).code === 429);
     // …mais closeSession passe outre pour fermer proprement
     const pClose = acquireLock(lock, { waitMs: 5000, maxWaiters: Infinity });
     r1();

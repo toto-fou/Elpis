@@ -23,7 +23,7 @@ test('une session ne se donne qu’à son propriétaire', () => {
     assert.equal(ownerMatches(s, 'alice'), true);
     assert.equal(ownerMatches(s, 'bob'), false);
     assert.equal(ownerMatches(s, ''), false);
-    assert.equal(ownerMatches({ owner: null }, ''), false);
+    assert.equal(ownerMatches({ owner: null as unknown as string }, ''), false);
     assert.equal(ownerMatches(null, 'alice'), false);
 });
 

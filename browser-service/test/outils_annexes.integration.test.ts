@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/outils_annexes.integration.test.js — vrai server.js + Chromium, hors ligne (pages servies par les réponses simulées du service sous une adresse publique) : sélecteurs uniques, gestes qui naviguent, recorder sans secret, zones d'un diff visuel.
+// browser-service/test/outils_annexes.integration.test.ts — vrai service construit (dist/main.mjs) + Chromium, hors ligne (pages servies par les réponses simulées du service sous une adresse publique) : sélecteurs uniques, gestes qui naviguent, recorder sans secret, zones d'un diff visuel.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
 const SAUT = await raisonDeSauter();
 
@@ -29,28 +30,57 @@ const PAGES = {
         <div id="b" style="position:absolute;left:300px;top:200px;width:40px;height:40px;background:#0f0"></div></body></html>`,
 };
 
-let svc = null;
+// Élément proposé par /observe ou /smart_inspect.
+interface ElementPropose { text: string; selector: string; target_dsl: string }
+// Geste ou étape de chaîne qui peut naviguer.
+interface Geste { url_before: string; url: string; navigated: boolean }
+// Boîte d'une zone modifiée d'un diff visuel.
+interface Boite { x: number; y: number; w: number; h: number }
+
+// Champs des réponses lus par ces essais.
+interface Corps extends Geste {
+    session_id: string;
+    items: ElementPropose[];
+    interactives: ElementPropose[];
+    total: number;
+    by_rule: Record<string, number>;
+    violations: { selector: string; rule: string; id: string; count: number }[];
+    pass: boolean;
+    ok: boolean;
+    results: Geste[];
+    script: string;
+    secret_variables: string[];
+    notes: string[];
+    baseline_created: boolean;
+    diff_pixels: number;
+    diff_regions: (Boite & { pixels: number })[];
+    diff_bbox: Boite;
+    diff_regions_total: number;
+    diff_regions_truncated: boolean;
+}
+
+let svc!: Service<Corps>;
 let sid = '';
 
-async function api(route, corps = {}) {
+async function api(route: string, corps: Record<string, unknown> = {}) {
     const r = await svc.post(route, { owner: OWNER, session_id: sid, ...corps });
     return { status: r.statut, corps: r.corps };
 }
 
-async function lire(route, params = {}) {
+async function lire(route: string, params: Record<string, string> = {}) {
     const q = new URLSearchParams({ owner: OWNER, session_id: sid, ...params });
     return (await svc.get(`${route}?${q}`)).corps;
 }
 
 // Nombre d'éléments que Playwright trouve pour ce sélecteur (cachés compris).
-async function nombre(selecteur) {
+async function nombre(selecteur: string) {
     const { corps } = await api('/locator', { by_css: selecteur, visible_only: false, max: 1 });
     return corps.total;
 }
 
 before(async () => {
     if (SAUT) return;
-    svc = await demarrerService();
+    svc = await demarrerService<Corps>();
     const { status, corps } = await api('/start', { url: 'about:blank', isolated: true });
     assert.equal(status, 200, JSON.stringify(corps));
     sid = corps.session_id;
@@ -94,7 +124,7 @@ test('/a11y_audit : chaque violation désigne UN élément (img, button, input, 
     const { corps } = await api('/a11y_audit', {});
     assert.deepEqual(corps.by_rule, { 'image-alt': 3, 'control-name': 2, label: 2, 'duplicate-id': 1 });
     for (const v of corps.violations) assert.equal(await nombre(v.selector), 1, `${v.rule} ${v.selector}`);
-    const dup = corps.violations.find(v => v.rule === 'duplicate-id');
+    const dup = corps.violations.find(v => v.rule === 'duplicate-id')!;
     assert.equal(dup.id, 'dup');
     assert.equal(dup.count, 2);
 });
@@ -139,9 +169,9 @@ test('/chain : l\'étape qui soumet le formulaire porte url_before, url et navig
     ] });
     assert.equal(status, 200);
     assert.equal(corps.ok, true, JSON.stringify(corps));
-    assert.deepEqual([corps.results[2].url_before, corps.results[2].url, corps.results[2].navigated],
+    assert.deepEqual([corps.results[2]!.url_before, corps.results[2]!.url, corps.results[2]!.navigated],
         [`${SITE}/login`, `${SITE}/secure`, true]);
-    assert.equal(corps.results[1].navigated, undefined);
+    assert.equal(corps.results[1]!.navigated, undefined);
 });
 
 test('/recorder : mot de passe saisi par /action masqué (playwright, robot, json), eval notée sans être rejouée', { skip: SAUT, timeout: 60000 }, async () => {
@@ -165,7 +195,7 @@ test('/recorder : mot de passe saisi par /action masqué (playwright, robot, jso
     assert.match(robot.script, /# eval not replayed: document\.title/);
     const brut = await lire('/recorder/dump', { format: 'json' });
     assert.ok(!brut.script.includes(SECRET));
-    assert.ok(JSON.parse(brut.script).some(e => e.action === 'eval' && e.script === 'document.title'));
+    assert.ok((JSON.parse(brut.script) as { action: string; script: string }[]).some(e => e.action === 'eval' && e.script === 'document.title'));
     await api('/recorder/stop');
 });
 
@@ -180,12 +210,14 @@ test('/recorder : cellules robot échappées (option de la page, saisie, URL, ev
     assert.equal((await api('/evaluate', { script: "'b\x1c\x1f\x1fEvaluate\x1f\x1f2'" })).status, 200);
     assert.equal((await api('/action', { type: 'double_click', by_css: '#v', text: '\u2028globalThis.x = 1//' })).status, 200);
     const robot = await lire('/recorder/dump', { format: 'robot' });
+    // eslint-disable-next-line no-control-regex -- séparateurs de lignes de Python (\x1c-\x1e, splitlines) voulus.
     const lignes = robot.script.split(/\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/);
     assert.ok(lignes.includes(String.raw`    New Page    http://93.184.216.35/choix?q\=\${{1+1}}`), robot.script);
     assert.ok(lignes.includes(String.raw`    Select Options By    \#s    label    France \${{1+1}}`), robot.script);
     assert.ok(lignes.includes(String.raw`    Fill Text    \#v    a\u000a\u0020\u0020\u0020 Log\u0020\u0020\u0020 x\u001c\u001f\u001fEvaluate\u001f\u001f1`), robot.script);
     assert.ok(lignes.includes(`    # eval not replayed: 'b Evaluate 2'`), robot.script);
     assert.ok(!/(?<!\\)\$\{\{/.test(robot.script), robot.script);
+    // eslint-disable-next-line no-control-regex -- blancs de Python (\x1c-\x1f) voulus.
     assert.ok(!lignes.some(l => /^[\s\x1c-\x1f]*(Log|Evaluate)\b/.test(l)), robot.script);
     const pw = await lire('/recorder/dump', { format: 'playwright' });
     assert.match(pw.script, /\/\/ dblclick: /);

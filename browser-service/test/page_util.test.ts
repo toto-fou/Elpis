@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/page_util.test.js — zones modifiées d'un diff visuel (fonction exécutée dans la page, rejouée ici sans navigateur).
+// browser-service/test/page_util.test.ts — zones modifiées d'un diff visuel (fonction exécutée dans la page, rejouée ici sans navigateur).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { regionsModifiees, sourceDe } from '../src/page_util.ts';
 
 // Grille de cellules : `marques` = [[col, ligne, pixels]], chaque cellule marquée couvrant ses 16 × 16 px.
-function grille(cols, rows, marques) {
+function grille(cols: number, rows: number, marques: [number, number, number][]) {
     const n = cols * rows;
     const t = { compte: new Uint32Array(n), x0: new Uint32Array(n), y0: new Uint32Array(n), x1: new Uint32Array(n), y1: new Uint32Array(n) };
     for (const [c, r, p] of marques) {
@@ -35,6 +35,6 @@ test('regionsModifiees : zones séparées, voisinage diagonal fusionné, plus gr
 
 test('regionsModifiees reconstruite depuis sa source (comme dans la page) donne le même résultat', () => {
     const g = grille(4, 4, [[0, 0, 2], [3, 3, 7]]);
-    const refaite = new Function(`return (${sourceDe(regionsModifiees)})`)();
+    const refaite = new Function(`return (${sourceDe(regionsModifiees)})`)() as typeof regionsModifiees;
     assert.deepEqual(refaite(4, 4, g.compte, g.x0, g.y0, g.x1, g.y1, 10), regionsModifiees(4, 4, g.compte, g.x0, g.y0, g.x1, g.y1, 10));
 });

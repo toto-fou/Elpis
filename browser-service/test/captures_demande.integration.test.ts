@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/captures_demande.integration.test.js — vrai server.js + Chromium, hors ligne : captures d'étape seulement sur demande de l'hôte (en-tête), en JPEG, une par requête ; vision réduite à 1024 px à l'inspection ; pas compté sans capture (since_step).
+// browser-service/test/captures_demande.integration.test.ts — vrai service construit (dist/main.mjs) + Chromium, hors ligne : captures d'étape seulement sur demande de l'hôte (en-tête), en JPEG, une par requête ; vision réduite à 1024 px à l'inspection ; pas compté sans capture (since_step).
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
 const SAUT = await raisonDeSauter();
 
@@ -17,25 +18,37 @@ const PAGE = `<html lang="en"><body style="margin:0;background:#fff">
     ${Array.from({ length: 30 }, (_, i) => `<div style="height:200px;background:hsl(${i * 30},70%,50%)">Bloc coloré ${i}</div>`).join('')}
     </body></html>`;
 
-let svc = null;
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    screenshot_step: number;
+    vision_screenshot: string;
+    step: number;
+    diff?: { since_step: number };
+}
+
+// Corps de la requête et en-têtes de l'hôte d'outils demandés.
+interface OptionsAppel { corps?: Record<string, unknown>; captures?: boolean; vision?: boolean }
+
+let svc!: Service<Corps>;
 let sid = '';
 
 // Appel au service avec les en-têtes de l'hôte d'outils (`captures`, `vision`) en plus du jeton.
-async function appel(methode, route, { corps, captures = false, vision = false } = {}) {
-    const entetes = { Authorization: `Bearer ${svc.jeton}` };
+async function appel(methode: string, route: string, { corps, captures = false, vision = false }: OptionsAppel = {}) {
+    const entetes: Record<string, string> = { Authorization: `Bearer ${svc.jeton}` };
     if (captures) entetes['x-elpis-captures'] = '1';
     if (vision) entetes['x-elpis-vision'] = '1';
     const r = await svc.brute(methode, route, { corps: methode === 'GET' ? undefined : { owner: OWNER, session_id: sid, ...corps }, entetes });
     return { status: r.statut, corps: r.corps, entetes: r.entetes, texte: r.texte };
 }
 
-const inspecter = (params = {}, o = {}) =>
+const inspecter = (params: Record<string, string> = {}, o: OptionsAppel = {}) =>
     appel('GET', `/smart_inspect?${new URLSearchParams({ owner: OWNER, session_id: sid, level: 'lite', skip_screenshot: 'true', ...params })}`, o);
 
 const captures = () => fs.readdirSync(path.join(svc.dossier, 'screenshots')).filter(f => f.includes(sid)).sort();
 
 // Largeur et hauteur d'un JPEG (premier marqueur SOF).
-function tailleJpeg(octets) {
+function tailleJpeg(octets: Buffer) {
     assert.equal(octets.readUInt16BE(0), 0xffd8, 'pas un JPEG');
     for (let i = 2; i < octets.length - 9;) {
         const marqueur = octets.readUInt16BE(i);
@@ -45,7 +58,7 @@ function tailleJpeg(octets) {
     throw new Error('SOF absent');
 }
 
-async function attendreFichier(nom, ms = 5000) {
+async function attendreFichier(nom: string, ms = 5000) {
     const chemin = path.join(svc.dossier, 'screenshots', nom);
     for (const fin = Date.now() + ms; Date.now() < fin;) {
         if (fs.existsSync(chemin) && fs.statSync(chemin).size > 0) return fs.readFileSync(chemin);
@@ -56,7 +69,7 @@ async function attendreFichier(nom, ms = 5000) {
 
 before(async () => {
     if (SAUT) return;
-    svc = await demarrerService();
+    svc = await demarrerService<Corps>();
     const r = await svc.post('/start', { owner: OWNER, url: 'about:blank', isolated: true });
     assert.equal(r.statut, 200, r.texte);
     sid = r.corps.session_id;

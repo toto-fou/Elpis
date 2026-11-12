@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// test/session_navigation.integration.test.js — vrai service et vrai navigateur (headless shell de Chromium) contre des pages d'essai locales : navigation en échec, popups, onglets, statut HTTP, certificat expiré, /health.
+// test/session_navigation.integration.test.ts — vrai service et vrai navigateur (headless shell de Chromium) contre des pages d'essai locales : navigation en échec, popups, onglets, statut HTTP, certificat expiré, /health.
 //
-//     node --test test/session_navigation.integration.test.js
+//     node --test test/session_navigation.integration.test.ts
 //
 // Sans les dépendances du service (npm ci) ou sans navigateur installé, tout est ignoré. Aucun accès réseau :
 // les pages sont servies sur 127.0.0.1, boucle locale jointe directement comme dans le bac.
@@ -12,16 +12,18 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import type net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { demarrerService, portLibre, raisonDeSauter } from './aides/service.js';
+import { demarrerService, portDe, portLibre, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
 const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'packages', 'outils-mcp', 'goldens', 'browser.json');
 const SAUTER = await raisonDeSauter();
 
-const PAGES = {
+const PAGES: Record<string, string> = {
     '/': '<title>Accueil</title><a id="nouvel" target="_blank" href="/fenetre">Click Here</a>'
        + '<button id="ouvrir" onclick="window.open(\'/fenetre-script\')">Open</button>'
        + '<button id="ephemere" onclick="window.open(\'/se-ferme\')">Ephemeral</button>',
@@ -29,25 +31,77 @@ const PAGES = {
     '/se-ferme': '<title>Bref</title><script>setTimeout(() => window.close(), 100)</script>',
     '/cible': '<title>Cible</title><p>cible</p>',
 };
-const STATUTS = { '/introuvable': 404, '/indisponible': 503 };
+const STATUTS: Record<string, number> = { '/introuvable': 404, '/indisponible': 503 };
 
-let service = null;
-let pages = null;
-let tls = null;
-let dossierTls = null;
+// Onglet ouvert par la page (actif ou non, comment y basculer).
+interface OngletOuvert { index: number; url: string; active: boolean; note: string; switch_with: string }
+// Onglet fermé par la page, et l'index de l'onglet actif.
+interface OngletFerme { index: number; url: string; active: number }
+// Session listée par /sessions ou /health.
+interface Session { session_id: string; active_tab: number; id: string }
+// Avertissement sur le certificat d'une page chargée malgré lui.
+interface AvertissementTls { problems: string[]; issuer: string; valid_to: string; message: string }
+
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    code: string;
+    error: string;
+    count: number;
+    sessions: Session[];
+    http_status: number;
+    opened_tab: OngletOuvert;
+    closed_tab?: OngletFerme;
+    active: number;
+    text?: string;
+    content?: string;
+    tab_index: number;
+    switched: boolean;
+    note: string;
+    tab_hint: string;
+    active_tab: number;
+    remaining_tabs: number;
+    tabs: { url: string }[];
+    status: string;
+    final_url: string;
+    tls_warning: AvertissementTls;
+    session_count: number;
+    engine: string;
+    cleaned: number;
+}
+
+// Serveur d'essai qui écoute, et son adresse de base.
+interface Ecoute { serveur: net.Server; base: string }
+
+// Sous-ensemble du schéma JSON lu par ecartsSchema.
+interface Schema {
+    anyOf?: Schema[];
+    const?: unknown;
+    type?: string;
+    items?: Schema;
+    properties?: Record<string, Schema>;
+    required?: string[];
+}
+// Outil publié (golden de outils-mcp) : nom, description, schéma de sortie.
+interface Outil { name: string; description: string; outputSchema: Schema }
+
+let service!: Service<Corps>;
+let pages!: Ecoute;
+let tls: Ecoute | null = null;
+let dossierTls: string | null = null;
 
 // Pages d'essai : liens et scripts qui ouvrent des onglets, statuts 404/503, redirection.
-function gestionnaire(req, res) {
-    const chemin = req.url.split('?')[0];
+function gestionnaire(req: http.IncomingMessage, res: http.ServerResponse) {
+    const chemin = req.url!.split('?')[0]!;
     if (chemin === '/redirige') { res.writeHead(302, { location: '/cible' }); res.end(); return; }
     res.writeHead(STATUTS[chemin] || 200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(PAGES[chemin] || `<title>${chemin}</title><p>page ${chemin}</p>`);
 }
 
 // Serveur local écoutant sur un port libre de 127.0.0.1.
-async function ecouter(serveur) {
-    await new Promise(r => serveur.listen(0, '127.0.0.1', r));
-    return { serveur, base: `${serveur instanceof https.Server ? 'https' : 'http'}://127.0.0.1:${serveur.address().port}` };
+async function ecouter(serveur: net.Server): Promise<Ecoute> {
+    await new Promise<void>(r => serveur.listen(0, '127.0.0.1', r));
+    return { serveur, base: `${serveur instanceof https.Server ? 'https' : 'http'}://127.0.0.1:${portDe(serveur)}` };
 }
 
 // Serveur HTTPS au certificat auto-signé expiré (openssl 3 requis), sinon null.
@@ -59,30 +113,35 @@ async function serveurTlsExpire() {
         execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes',
                                  '-keyout', cle, '-out', cert, '-subj', '/CN=127.0.0.1',
                                  '-not_before', '20200101000000Z', '-not_after', '20210101000000Z'], { stdio: 'ignore' });
-    } catch (_) { return null; }
+    } catch { return null; }
     return ecouter(https.createServer({ key: fs.readFileSync(cle), cert: fs.readFileSync(cert) }, gestionnaire));
 }
 
 // Écarts d'une valeur au schéma JSON (anyOf, const, type, items, properties, required) : [] si conforme.
-function ecartsSchema(schema, v, chemin = '$') {
+function ecartsSchema(schema: Schema, v: unknown, chemin = '$'): string[] {
     if (schema.anyOf) return schema.anyOf.some(s => !ecartsSchema(s, v, chemin).length) ? [] : [`${chemin} : ${JSON.stringify(v)} hors de anyOf`];
     if ('const' in schema && v !== schema.const) return [`${chemin} ≠ ${JSON.stringify(schema.const)}`];
-    const types = {
+    const types: Record<string, boolean> = {
         null: v === null, boolean: typeof v === 'boolean', string: typeof v === 'string', integer: Number.isInteger(v),
-        number: typeof v === 'number', array: Array.isArray(v), object: v !== null && typeof v === 'object' && !Array.isArray(v),
+        number: typeof v === 'number', array: Array.isArray(v), object: estObjet(v),
     };
     if (schema.type && !types[schema.type]) return [`${chemin} : ${JSON.stringify(v)} n'est pas ${schema.type}`];
-    const ecarts = [];
-    if (schema.type === 'array' && schema.items) v.forEach((x, i) => ecarts.push(...ecartsSchema(schema.items, x, `${chemin}[${i}]`)));
-    if (schema.type === 'object') {
+    const ecarts: string[] = [];
+    if (schema.type === 'array' && schema.items && Array.isArray(v)) v.forEach((x: unknown, i) => ecarts.push(...ecartsSchema(schema.items!, x, `${chemin}[${i}]`)));
+    if (schema.type === 'object' && estObjet(v)) {
         for (const k of schema.required || []) if (!(k in v)) ecarts.push(`${chemin}.${k} manquant`);
         for (const [k, s] of Object.entries(schema.properties || {})) if (k in v) ecarts.push(...ecartsSchema(s, v[k], `${chemin}.${k}`));
     }
     return ecarts;
 }
 
+// Objet JSON (ni null ni liste).
+function estObjet(v: unknown): v is Record<string, unknown> {
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
 // Session isolée (ou partagée) d'un compte ouverte sur une page d'essai.
-async function ouvrir(owner, url, isolated = true) {
+async function ouvrir(owner: string, url: string, isolated = true) {
     const r = await service.post('/start', { owner, url, isolated });
     assert.equal(r.statut, 200, r.texte);
     return r.corps;
@@ -92,7 +151,7 @@ before(async () => {
     if (SAUTER) return;
     pages = await ecouter(http.createServer(gestionnaire));
     tls = await serveurTlsExpire();
-    service = await demarrerService();
+    service = await demarrerService<Corps>();
 });
 
 after(async () => {
@@ -112,6 +171,7 @@ test('goto injoignable : navigation_failed sans séquences ANSI, session et ongl
             assert.equal(r.statut, 502, r.texte);
             assert.equal(r.corps.code, 'navigation_failed');
             assert.ok(r.corps.error.startsWith(`Navigation to ${cible} failed: `), r.corps.error);
+            // eslint-disable-next-line no-control-regex -- ESC des séquences ANSI voulu.
             assert.ok(!/\u001b|Call log/.test(r.texte), r.texte);
             const onglets = await service.get(`/list_tabs?owner=${owner}&session_id=${sid}`);
             assert.equal(onglets.statut, 200, `session perdue après l'échec : ${onglets.texte}`);
@@ -131,7 +191,7 @@ test('popup (target=_blank, window.open) : onglet ajouté sans bascule, annoncé
      { skip: SAUTER, timeout: 120000 }, async () => {
     const owner = 'popups';
     const { session_id: sid } = await ouvrir(owner, `${pages.base}/`);
-    const clic = (css) => service.post('/action', { owner, session_id: sid, type: 'click', by_css: css });
+    const clic = (css: string) => service.post('/action', { owner, session_id: sid, type: 'click', by_css: css });
     let r = await clic('#nouvel');
     assert.equal(r.statut, 200, r.texte);
     assert.deepEqual({ ...r.corps.opened_tab, note: undefined },
@@ -156,7 +216,7 @@ test('popup (target=_blank, window.open) : onglet ajouté sans bascule, annoncé
         if (annonces.some(a => a.closed_tab)) break;
         await new Promise(res => setTimeout(res, 200));
     } while (Date.now() < limite);
-    assert.deepEqual(annonces.find(a => a.closed_tab).closed_tab, { index: 3, url: `${pages.base}/se-ferme`, active: 0 });
+    assert.deepEqual(annonces.find(a => a.closed_tab)!.closed_tab, { index: 3, url: `${pages.base}/se-ferme`, active: 0 });
     assert.equal(onglets.statut, 200);
     assert.equal(onglets.corps.count, 3, onglets.texte);
     assert.equal(onglets.corps.active, 0);
@@ -181,12 +241,12 @@ test('tab_new : onglet actif indiqué (active), switch=true pour basculer ; une 
     assert.equal(r.corps.active, 2);
     assert.equal(r.corps.switched, true);
     r = await service.get(`/sessions?owner=${owner}`);
-    assert.equal(r.corps.sessions[0].active_tab, 2);
+    assert.equal(r.corps.sessions[0]!.active_tab, 2);
     r = await service.post('/close_tab', { owner, session_id: sid, tab_index: 1 });
     assert.equal(r.corps.remaining_tabs, 2);
     assert.equal(r.corps.active, 1);
     r = await service.get(`/list_tabs?owner=${owner}&session_id=${sid}`);
-    assert.equal(r.corps.tabs[r.corps.active].url, `${pages.base}/fenetre`);
+    assert.equal(r.corps.tabs[r.corps.active]!.url, `${pages.base}/fenetre`);
     await service.post('/stop', { owner, session_id: sid });
 });
 
@@ -195,8 +255,8 @@ test('goto : http_status (un 404 ou un 503 reste une navigation réussie), final
     const owner = 'statuts';
     const debut = await ouvrir(owner, `${pages.base}/`);
     assert.equal(debut.http_status, 200);
-    const aller = (chemin) => service.post('/action', { owner, session_id: debut.session_id, type: 'goto', url: `${pages.base}${chemin}` });
-    for (const [chemin, statut] of [['/introuvable', 404], ['/indisponible', 503], ['/cible', 200]]) {
+    const aller = (chemin: string) => service.post('/action', { owner, session_id: debut.session_id, type: 'goto', url: `${pages.base}${chemin}` });
+    for (const [chemin, statut] of [['/introuvable', 404], ['/indisponible', 503], ['/cible', 200]] as const) {
         const r = await aller(chemin);
         assert.equal(r.statut, 200, r.texte);
         assert.equal(r.corps.status, 'success');
@@ -227,7 +287,7 @@ test('certificat expiré : la page se charge (pas de blocage) avec tls_warning ;
 
 test('/health : conforme au schéma de sortie publié de pw_session (sessions = liste du compte), moteur annoncé par la description',
      { skip: SAUTER }, async () => {
-    const outil = JSON.parse(fs.readFileSync(GOLDEN, 'utf8')).outils.find(o => o.name === 'pw_session');
+    const outil = (JSON.parse(fs.readFileSync(GOLDEN, 'utf8')) as { outils: Outil[] }).outils.find(o => o.name === 'pw_session')!;
     const owner = 'sante';
     const { session_id: sid } = await ouvrir(owner, 'about:blank');
     const r = await service.get(`/health?owner=${owner}`);
@@ -242,11 +302,11 @@ test('/health : conforme au schéma de sortie publié de pw_session (sessions = 
 
 test('/cleanup du compte ferme aussi les sessions de ses sous-agents, jamais un autre compte ; /cleanup_children, sans propriétaire, ne ferme que les enfants de tous les comptes',
      { skip: SAUTER, timeout: 120000 }, async () => {
-    const enfant = async (owner, group) => {
+    const enfant = async (owner: string, group: string) => {
         const r = await service.post('/start', { owner, group, url: 'about:blank' });
         assert.equal(r.statut, 200, r.texte);
     };
-    const nombre = async (owner) => (await service.get(`/sessions?owner=${owner}`)).corps.count;
+    const nombre = async (owner: string) => (await service.get(`/sessions?owner=${owner}`)).corps.count;
     await ouvrir('nettoie-a', 'about:blank', false);
     await enfant('s_nettoie_a1', 'nettoie-a');
     await ouvrir('nettoie-b', 'about:blank', false);

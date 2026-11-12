@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
-// test/securite-enregistrement-identifiants.integration.test.js — HAR et trace refusés pour une session liée à l'authentification HTTP du relais (ils garderaient sa clé) ; vidéo admise, liaison mal formée refusée.
+// test/securite-enregistrement-identifiants.integration.test.ts — HAR et trace refusés pour une session liée à l'authentification HTTP du relais (ils garderaient sa clé) ; vidéo admise, liaison mal formée refusée.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
 const LIAISON = { key: 'ab'.repeat(16), origins: ['http://127.0.0.1:9'] };
 
-let svc = null;
-let saut = false;
-before(async () => { saut = await raisonDeSauter(); if (!saut) svc = await demarrerService(); });
+// Champs des réponses lus par ces essais.
+interface Corps { code: string; error: string; session_id: string; sessions?: unknown[] }
+
+let svc!: Service<Corps>;
+let saut: string | false = false;
+before(async () => { saut = await raisonDeSauter(); if (!saut) svc = await demarrerService<Corps>(); });
 after(async () => { if (svc) await svc.arreter(); });
 
 test('record_har ou trace avec une liaison du relais : 400 recording_with_credentials, rien démarré', async (t) => {

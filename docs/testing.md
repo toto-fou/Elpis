@@ -7,7 +7,7 @@ releases ship without it.
 |---|---|
 | `apps/*/test/`, `packages/*/test/` | Vitest, project `core` (Node) |
 | `frontend/test/` | Vitest, project `web` (happy-dom), `frontend/vitest.config.mts` |
-| `browser-service/test/` | `node --test` |
+| `browser-service/test/` | `node --test` (TypeScript run by Node's type stripping) |
 | `tests/` | pytest (`pytest.ini`): deployment scripts, sandbox and desktop agents, Office worker, RAG app, legacy frontend JS units |
 | `tests/goldens/`, `migration-kit/` | stream goldens, route inventory and frozen-vector notes read by the tests |
 | `tests/perf/`, `tests/load/`, `tests/frontend/*-verify.mjs` | benchmarks and Playwright harnesses, run by hand |
@@ -63,12 +63,22 @@ sandbox `/work`.
 ## Browser service
 
 ```bash
+npm ci --prefix browser-service   # once: Express, Playwright
+npm run build:browser             # the integration tests start dist/main.mjs
 cd browser-service
-node --test 'test/**/*.test.js'
+node --test 'test/**/*.test.ts'
 ```
 
-The `*.integration.test.js` files start the real service on a Unix socket in
-a temporary folder, with a token, as the tool host does in a sandbox, and
+The tests are TypeScript run directly by Node 24 (type stripping, no build
+step): they stay on `node:test`, the runner they were written for, rather
+than Vitest. The unit tests import `src/*.ts`; the sources therefore import
+each other with the `.ts` extension (`allowImportingTsExtensions` in
+`browser-service/tsconfig.json`). `npm run typecheck` and `npm run lint`
+cover them.
+
+The `*.integration.test.ts` files start the built service
+(`browser-service/dist/main.mjs`, rebuild it after a change) on a Unix
+socket in a temporary folder, with a token, as the tool host does in a sandbox, and
 drive the Chromium headless shell (`npx playwright install
 chromium-headless-shell`, or `PLAYWRIGHT_BROWSERS_PATH`). Three cases that reach public test sites run only
 with `BROWSER_SERVICE_LIVE=1`. The end-to-end run of the browser in a real

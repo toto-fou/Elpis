@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// test/secret_util.test.js — connexion avec un secret du coffre : origine, formes encodées du mot de passe, purge des sorties de /login, charge d'une requête et garde réseau ; quota sans session protégée.
+// test/secret_util.test.ts — connexion avec un secret du coffre : origine, formes encodées du mot de passe, purge des sorties de /login, charge d'une requête et garde réseau ; quota sans session protégée.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

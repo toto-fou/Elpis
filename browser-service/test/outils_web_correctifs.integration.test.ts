@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/outils_web_correctifs.integration.test.js — vrai service et Chromium contre des pages locales (127.0.0.1, boucle locale jointe directement comme dans le bac) : clic qui navigue dans le délai du client, goto en échec, recorder sans secret, même cible même élément dans tous les outils, délai explicite d'une étape, sélecteurs uniques en shadow DOM, contenu de la page jamais masqué.
+// browser-service/test/outils_web_correctifs.integration.test.ts — vrai service et Chromium contre des pages locales (127.0.0.1, boucle locale jointe directement comme dans le bac) : clic qui navigue dans le délai du client, goto en échec, recorder sans secret, même cible même élément dans tous les outils, délai explicite d'une étape, sélecteurs uniques en shadow DOM, contenu de la page jamais masqué.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import os from 'node:os';
 
-import { demarrerService, portLibre, raisonDeSauter } from './aides/service.js';
+import { demarrerService, portDe, portLibre, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
-const SAUTER = await raisonDeSauter('chromium');
+const SAUTER = await raisonDeSauter();
 const OWNER = 'correctifs';
 // Script de tête servi après le délai du client (10 s) : DOMContentLoaded de /dcl n'arrive pas à temps.
 const SCRIPT_LENT_MS = 12000;
-const PAGES = {
+const PAGES: Record<string, string> = {
     '/': '<title>Accueil</title><a id="lent" href="/dcl">lent</a> <a id="vite" href="/cible">vite</a>',
     '/cible': '<title>Cible</title><p>cible</p>',
     '/form': '<title>Formulaire</title><input id="champ"><button id="envoyer" onclick="document.title=\'envoyé\'">Envoyer</button>',
@@ -28,14 +29,36 @@ const PAGES = {
         + ' b.textContent = \'Valider\'; b.onclick = () => { out.textContent = \'v\'; }; document.body.append(b); }, 3000)</script>',
 };
 
-let service = null;
-let pages = null;
+// Geste ou étape de chaîne : arrivée et navigation.
+interface Geste { success: boolean; url: string; navigated: boolean; nav_warning?: string }
+// Élément proposé par /observe.
+interface ElementPropose { text: string; selector: string; target_dsl: string }
+
+// Champs des réponses lus par ces essais.
+interface Corps extends Geste {
+    session_id: string;
+    results: Geste[];
+    code: string;
+    fix: string;
+    tabs: { active: boolean; url: string }[];
+    ok: boolean;
+    script: string;
+    secret_variables: string[];
+    result: unknown;
+    matches: { xpath: string; ref: string }[];
+    pass: boolean;
+    items: ElementPropose[];
+    total: number;
+}
+
+let service!: Service<Corps>;
+let pages!: http.Server;
 let base = '';
 let sid = '';
 
 // Pages d'essai ; /dcl attend son script de tête, servi après SCRIPT_LENT_MS.
-function gestionnaire(req, res) {
-    const chemin = req.url.split('?')[0];
+function gestionnaire(req: http.IncomingMessage, res: http.ServerResponse) {
+    const chemin = req.url!.split('?')[0]!;
     if (chemin === '/dcl') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end('<html><head><title>Lente</title><script src="/script-lent"></script></head><body>lente</body></html>');
@@ -50,15 +73,15 @@ function gestionnaire(req, res) {
     res.end(PAGES[chemin] || `<title>${chemin}</title>`);
 }
 
-const api = (route, corps = {}) => service.post(route, { owner: OWNER, session_id: sid, ...corps });
-const ouvrir = (chemin) => api('/action', { type: 'goto', url: `${base}${chemin}` });
+const api = (route: string, corps: Record<string, unknown> = {}) => service.post(route, { owner: OWNER, session_id: sid, ...corps });
+const ouvrir = (chemin: string) => api('/action', { type: 'goto', url: `${base}${chemin}` });
 
 before(async () => {
     if (SAUTER) return;
     pages = http.createServer(gestionnaire);
-    await new Promise(r => pages.listen(0, '127.0.0.1', r));
-    base = `http://127.0.0.1:${pages.address().port}`;
-    service = await demarrerService();
+    await new Promise<void>(r => pages.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${portDe(pages)}`;
+    service = await demarrerService<Corps>();
     const r = await service.post('/start', { owner: OWNER, url: `${base}/`, isolated: true });
     assert.equal(r.statut, 200, r.texte);
     sid = r.corps.session_id;
@@ -72,13 +95,13 @@ after(async () => {
 test('clic vers une page au DOMContentLoaded lent : succès avant le délai du client, URL d\'arrivée et nav_warning', { skip: SAUTER, timeout: 60000 }, async () => {
     // Délais du client : 10 s pour /action, 60 s pour /chain (10 s d'attente d'arrivée au plus par étape).
     for (const [route, corps, maxMs] of [['/action', { type: 'click', by_css: '#lent' }, 9800],
-                                         ['/chain', { actions: [{ type: 'click', by_css: '#lent' }] }, 11500]]) {
+                                         ['/chain', { actions: [{ type: 'click', by_css: '#lent' }] }, 11500]] as const) {
         await ouvrir('/');
         const t0 = Date.now();
         const r = await api(route, corps);
         const ms = Date.now() - t0;
         assert.equal(r.statut, 200, r.texte);
-        const res = route === '/chain' ? r.corps.results[0] : r.corps;
+        const res = route === '/chain' ? r.corps.results[0]! : r.corps;
         assert.notEqual(res.success, false, r.texte);
         assert.ok(ms < maxMs, `${route} : ${ms} ms`);
         assert.equal(res.url, `${base}/dcl`, r.texte);
@@ -94,7 +117,7 @@ test('clic vers une page au DOMContentLoaded lent : succès avant le délai du c
 // URL que montre vraiment l'onglet actif.
 async function urlActive() {
     const r = await service.get(`/list_tabs?owner=${OWNER}&session_id=${sid}`);
-    return r.corps.tabs.find(o => o.active).url;
+    return r.corps.tabs.find(o => o.active)!.url;
 }
 
 test('goto en échec : URL réelle de l\'onglet, retour à la page précédente annoncé, jamais « intact » à tort', { skip: SAUTER, timeout: 90000 }, async () => {
@@ -132,7 +155,7 @@ test('recorder : aucun secret par eval ni par l\'URL, dans aucun format ; une va
         if (format === 'playwright') {
             for (const [champ, variable] of [['#actuel', 'PASSWORD'], ['#nouveau', 'PASSWORD_2'], ['#confirme', 'PASSWORD_3']])
                 assert.match(d.corps.script, new RegExp(`locator\\('${champ}'\\)\\.fill\\(process\\.env\\.${variable} \\?\\? ''\\)`), d.corps.script);
-            assert.equal(d.corps.script.match(/process\.env\.PASSWORD \?\?/g).length, 2, d.corps.script);
+            assert.equal(d.corps.script.match(/process\.env\.PASSWORD \?\?/g)!.length, 2, d.corps.script);
             assert.match(d.corps.script, /token=\*\*\*&page=2#access_token=\*\*\*&state=ok/, d.corps.script);
         }
     }
@@ -162,7 +185,7 @@ test('même cible, même élément : nom entier préféré et nth compté de mê
     assert.equal(premier.corps.pass, true, premier.texte);
     const inactif = await api('/expect', { ...cible, assertion: 'disabled', timeout_ms: 500 });
     assert.equal(inactif.corps.pass, true, inactif.texte);
-    const parRef = await api('/action', { type: 'click', ref: tous.corps.matches[1].ref });
+    const parRef = await api('/action', { type: 'click', ref: tous.corps.matches[1]!.ref });
     assert.equal(parRef.statut, 200, parRef.texte);
     assert.equal(await clique(), 's2');
 });

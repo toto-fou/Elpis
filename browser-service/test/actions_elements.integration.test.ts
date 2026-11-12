@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/actions_elements.integration.test.js — vrai server.js + Chromium (PLAYWRIGHT_BROWSERS_PATH) sur des pages d'essai d'une adresse publique fixe, servies par les simulations de la session (/mock/add) : aucun réseau.
+// browser-service/test/actions_elements.integration.test.ts — vrai service construit (dist/main.mjs) + Chromium (PLAYWRIGHT_BROWSERS_PATH) sur des pages d'essai d'une adresse publique fixe, servies par les simulations de la session (/mock/add) : aucun réseau.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.ts';
+import type { Service } from './aides/service.ts';
 
 const SAUT = await raisonDeSauter();
 
@@ -40,26 +41,62 @@ const PAGES = {
     '/apostrophe': `<button>it's</button>`,
 };
 
-let svc = null;
+// Élément trouvé par /locator ou candidat d'une cible ambiguë.
+interface ElementTrouve { role: string; name: string; text: string; ref: string; checked: boolean; disabled: boolean }
+// Résultat d'une étape de /chain.
+interface Etape {
+    success: boolean;
+    screenshot_file: string;
+    screenshot_path: string;
+    code: string;
+    duration_ms: number;
+    alternatives: { target: string }[];
+}
+
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    count: number;
+    frames: { url: string }[];
+    frames_total: number;
+    text: string;
+    total: number;
+    matches: ElementTrouve[];
+    code: string;
+    options: { label: string }[];
+    results: Etape[];
+    path: string;
+    matched: number;
+    warning: string;
+    candidates: ElementTrouve[];
+    name_match: string;
+    suggestions: { target: string; name: string }[];
+    uploaded: { name: string; size: number }[];
+    strategy: string;
+    result: unknown;
+    selected: { value: string; label: string; index: number };
+}
+
+let svc!: Service<Corps>;
 let sid = '';
 
-async function api(route, corps = {}) {
+async function api(route: string, corps: Record<string, unknown> = {}) {
     const r = await svc.post(route, { owner: OWNER, session_id: sid, ...corps });
     return { status: r.statut, corps: r.corps };
 }
 
-async function lire(route) {
+async function lire(route: string) {
     const r = await svc.get(`${route}${route.includes('?') ? '&' : '?'}owner=${OWNER}&session_id=${sid}`);
     return { status: r.statut, corps: r.corps };
 }
 
 // Page d'essai ouverte par un vrai goto ; le DOM est neuf à chaque appel.
-async function ouvrir(chemin) {
+async function ouvrir(chemin: string) {
     const r = await api('/action', { type: 'goto', url: `${SITE}${chemin}` });
     assert.equal(r.status, 200, JSON.stringify(r.corps));
 }
 
-async function evaluer(script) {
+async function evaluer(script: string) {
     const r = await api('/evaluate', { script });
     assert.equal(r.status, 200, JSON.stringify(r.corps));
     return r.corps.result;
@@ -67,7 +104,7 @@ async function evaluer(script) {
 
 before(async () => {
     if (SAUT) return;
-    svc = await demarrerService({ env: { FORCE_COLOR: '1' } });
+    svc = await demarrerService<Corps>({ env: { FORCE_COLOR: '1' } });
     const r = await api('/start', { url: 'about:blank', isolated: true });
     assert.equal(r.status, 200, JSON.stringify(r.corps));
     sid = r.corps.session_id;
@@ -109,7 +146,7 @@ test('locator : rôle ARIA effectif, état coché, jamais la valeur « on » com
     const r = await api('/locator', { by_role: 'checkbox', max: 5, visible_only: false });
     assert.equal(r.status, 200, JSON.stringify(r.corps));
     assert.equal(r.corps.total, 3);
-    const [a, b, c] = r.corps.matches;
+    const [a, b, c] = r.corps.matches as [ElementTrouve, ElementTrouve, ElementTrouve];
     assert.deepEqual([a.role, b.role, c.role], ['checkbox', 'checkbox', 'checkbox']);
     assert.deepEqual([a.checked, b.checked, c.checked], [false, true, false]);
     assert.equal(c.disabled, true);
@@ -120,7 +157,7 @@ test('locator : rôle ARIA effectif, état coché, jamais la valeur « on » com
 });
 
 // Aucune séquence ANSI dans une réponse.
-function propre(corps) {
+function propre(corps: unknown) {
     const texte = JSON.stringify(corps);
     assert.ok(!texte.includes('\\u001b') && !texte.includes('\x1b'), texte);
 }
@@ -143,7 +180,7 @@ test('échec de pw_chain avec capture, pdf : chemins réels du dossier du servic
     await ouvrir('/boutons');
     const c = await api('/chain', { actions: [{ type: 'press', key: 'NoSuchKey' }], screenshot_on_fail: true });
     assert.equal(c.status, 200, JSON.stringify(c.corps));
-    const echec = c.corps.results[0];
+    const echec = c.corps.results[0]!;
     assert.equal(echec.success, false);
     assert.match(echec.screenshot_file, /^fail_/);
     assert.equal(echec.screenshot_path, `${svc.dossier}/screenshots/${echec.screenshot_file}`);
@@ -168,7 +205,7 @@ test('clic ambigu : matched + avertissement, refus strict avec candidats, nth', 
     assert.equal(s.corps.code, 'ambiguous_target');
     assert.equal(s.corps.candidates.length, 4);
     assert.deepEqual(s.corps.candidates.map(c => [c.role, c.name]), Array(4).fill(['link', 'delete']));
-    const parRef = await api('/action', { type: 'click', ref: s.corps.candidates[2].ref });
+    const parRef = await api('/action', { type: 'click', ref: s.corps.candidates[2]!.ref });
     assert.equal(parRef.status, 200, JSON.stringify(parRef.corps));
     assert.equal(await evaluer('window.last'), 'Doe');
     const n = await api('/action', { ...cible, nth: 3, strict: true });
@@ -177,7 +214,7 @@ test('clic ambigu : matched + avertissement, refus strict avec candidats, nth', 
     const hors = await api('/action', { ...cible, nth: 9 });
     assert.equal(hors.corps.code, 'element_not_found', JSON.stringify(hors.corps));
     await ouvrir('/boutons');
-    const perime = await api('/action', { type: 'click', ref: s.corps.candidates[0].ref, selector: `ref:${s.corps.candidates[0].ref}` });
+    const perime = await api('/action', { type: 'click', ref: s.corps.candidates[0]!.ref, selector: `ref:${s.corps.candidates[0]!.ref}` });
     assert.equal(perime.status, 404, JSON.stringify(perime.corps));
     assert.equal(perime.corps.code, 'ref_expired');
 });
@@ -204,16 +241,16 @@ test('élément introuvable : échec rapide element_not_found avec des cibles pr
     assert.ok(Date.now() - t0 < 6000, `${Date.now() - t0} ms`);
     assert.equal(r.status, 404, JSON.stringify(r.corps));
     assert.equal(r.corps.code, 'element_not_found');
-    assert.equal(r.corps.suggestions[0].target, 'role=button|name=Valider');
+    assert.equal(r.corps.suggestions[0]!.target, 'role=button|name=Valider');
     const f = await api('/action', { type: 'click', by_role: 'button', by_name: 'Fantome', selector: 'Fantome' });
     assert.equal(f.corps.code, 'element_not_found');
     assert.deepEqual(f.corps.suggestions.map(x => x.name), ['Restart', 'Start', 'Valider', 'Bloqué']);
     const c = await api('/chain', { actions: [{ type: 'click', by_role: 'button', by_name: 'Validr', selector: 'Validr' }],
                                    screenshot_on_fail: false });
     assert.equal(c.status, 200, JSON.stringify(c.corps));
-    assert.equal(c.corps.results[0].code, 'element_not_found');
-    assert.ok(c.corps.results[0].duration_ms < 6000, JSON.stringify(c.corps.results[0]));
-    assert.equal(c.corps.results[0].alternatives[0].target, 'role=button|name=Valider');
+    assert.equal(c.corps.results[0]!.code, 'element_not_found');
+    assert.ok(c.corps.results[0]!.duration_ms < 6000, JSON.stringify(c.corps.results[0]));
+    assert.equal(c.corps.results[0]!.alternatives[0]!.target, 'role=button|name=Valider');
 });
 
 test('pick : la valeur retenue est rendue (select natif et liste personnalisée)', T, async () => {
@@ -232,7 +269,7 @@ test('pick : la valeur retenue est rendue (select natif et liste personnalisée)
 
 test('upload : contenus base64 posés dans le champ, refus clairs sans fichier ou avec un chemin du serveur', T, async () => {
     await ouvrir('/upload');
-    const b64 = (t) => Buffer.from(t).toString('base64');
+    const b64 = (t: string) => Buffer.from(t).toString('base64');
     const r = await api('/action', { type: 'upload', by_css: '#file-upload', selector: '#file-upload', files: [
         { name: 'note.txt', mime_type: 'text/plain', content_base64: b64('bonjour') },
         { name: 'sous/dossier/b.csv', content_base64: b64('a;b') },

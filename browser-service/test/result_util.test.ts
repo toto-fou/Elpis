@@ -8,6 +8,7 @@ import { hostOf, compactConsole, summarizeNetwork, describeLocator, selectOption
          sansAnsi, codeErreur, nettoyerSortie, normaliserErreur,
          noeudsAria, ressemblance, classerSuggestions, echapperDsl, echapperCss, litteralXPath,
          longueurJsonPy, couperTexte, bornerValeur } from '../src/result_util.ts';
+import type { EntreeReseau } from '../src/result_util.ts';
 
 test('compactConsole regroupe les répétitions en (×N) et garde les distincts', () => {
     const lines = ['[error] A', '[error] B', '[error] A', '[error] A', '[warning] C'];
@@ -18,7 +19,7 @@ test('compactConsole regroupe les répétitions en (×N) et garde les distincts'
 });
 
 test('summarizeNetwork : by_host sur tout, priorité document/same-origin sous le plafond', () => {
-    const logs = [];
+    const logs: EntreeReseau[] = [];
     for (let i = 0; i < 30; i++) logs.push({ ts: i, dir: 'REQ', type: 'xhr', url: 'https://optimizely.com/x', host: 'optimizely.com', same_origin: false });
     logs.push({ ts: 100, dir: 'REQ', type: 'document', method: 'POST', url: 'https://app/authenticate', host: 'app', same_origin: true });
     logs.push({ ts: 101, dir: 'RES', type: 'document', status: 303, url: 'https://app/authenticate', host: 'app', same_origin: true });
@@ -94,7 +95,7 @@ test("normaliserErreur : code ajouté aux erreurs qui n'en ont pas, sauf envelop
     assert.deepEqual(normaliserErreur({ error: 'Session introuvable.' }, 404), { error: 'Session introuvable.' });
     assert.deepEqual(normaliserErreur({ error: 'Session expirée (page crash).' }, 410), { error: 'Session expirée (page crash).' });
     assert.deepEqual(normaliserErreur({ status: 'success' }, 200), { status: 'success' });
-    assert.equal(normaliserErreur({ error: "Cannot read properties of undefined (reading 'buffer')" }, 500).code, 'internal_error');
+    assert.equal((normaliserErreur({ error: "Cannot read properties of undefined (reading 'buffer')" }, 500) as { code?: string }).code, 'internal_error');
 });
 
 test('noeudsAria : rôles et noms actionnables d\'un instantané ARIA, guillemets YAML compris', () => {
@@ -166,14 +167,14 @@ test('plafond des sorties : longueur comptée comme le client, chaîne coupée, 
     assert.equal(couperTexte('a😀b', 9), 'a');
     assert.deepEqual(bornerValeur([1, 2], 100), { value: [1, 2], truncated: false });
     const chaine = bornerValeur('x'.repeat(60000), 20000);
-    assert.equal(chaine.value.length, 19998);
+    assert.equal(chaine.value!.length, 19998);
     assert.equal(chaine.omitted, '40002 of 60000 characters');
     const liste = bornerValeur(Array.from({ length: 3000 }, (_, i) => ({ id: i, nom: `ligne ${i}` })), 20000);
-    assert.ok(longueurJsonPy(liste.value) <= 20000 && longueurJsonPy(liste.value.concat(liste.value[0])) > 20000 - 40);
-    assert.match(liste.omitted, /^\d+ of 3000 items$/);
-    assert.equal(Number(liste.omitted.split(' ')[0]) + liste.value.length, 3000);
+    assert.ok(longueurJsonPy(liste.value) <= 20000 && longueurJsonPy(liste.value!.concat(liste.value![0]!)) > 20000 - 40);
+    assert.match(liste.omitted!, /^\d+ of 3000 items$/);
+    assert.equal(Number(liste.omitted!.split(' ')[0]) + liste.value!.length, 3000);
     const objet = bornerValeur(Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`k${i}`, i])), 1000);
-    assert.match(objet.omitted, /^\d+ of 2000 keys$/);
+    assert.match(objet.omitted!, /^\d+ of 2000 keys$/);
     const seul = bornerValeur([{ texte: 'y'.repeat(5000) }], 1000);
     assert.equal(seul.omitted, '0 of 1 items, and part of the first one');
     assert.ok(longueurJsonPy(seul.value) <= 1000);

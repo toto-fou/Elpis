@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/limites_outils.integration.test.js — vrai service et Chromium contre des pages locales : limites relevées par l'essai d'usage des outils pw_* (faux succès du repli, texte, inspection, tailles, eval, mocks, recorder, sessions, petits manques).
+// browser-service/test/limites_outils.integration.test.ts — vrai service et Chromium contre des pages locales : limites relevées par l'essai d'usage des outils pw_* (faux succès du repli, texte, inspection, tailles, eval, mocks, recorder, sessions, petits manques).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 
-import { demarrerService, raisonDeSauter } from './aides/service.js';
+import { demarrerService, portDe, raisonDeSauter } from './aides/service.ts';
+import type { Reponse, Service } from './aides/service.ts';
 
-const SAUTER = await raisonDeSauter('chromium');
+const SAUTER = await raisonDeSauter();
 const OWNER = 'limites';
-const PAGES = {
+const PAGES: Record<string, string> = {
     '/ferme': `<title>Fermé</title><div id="hote"></div><p id="out">rien</p><script>
         const racine = document.getElementById('hote').attachShadow({ mode: 'closed' });
         racine.innerHTML = '<button>Bouton fermé</button>';
@@ -57,14 +58,75 @@ const PAGES = {
         <script>document.getElementById('toile').addEventListener('click', (e) => { document.getElementById('pos').textContent = e.offsetX + ',' + e.offsetY; });</script>`,
 };
 
-let service = null;
-let pages = null;
+// Élément interactif rendu par /smart_inspect.
+interface Interactif { text: string; name: string; selector: string }
+// Tableau rendu par /smart_inspect.
+interface Tableau { index: number; tag: string; role: string | null; rows: number; cols: number; headers: string[]; header_source: string; selector: string }
+// Options retenues d'un <select multiple>.
+interface Choix { labels: string[]; values: string[] }
+// Session listée ou évincée.
+interface Session { session_id: string; isolated: boolean; secret: boolean }
+
+// Champs des réponses lus par ces essais.
+interface Corps {
+    session_id: string;
+    code: string;
+    error: string;
+    covering_element: { css: string };
+    resolved_element?: { css: string };
+    text: string;
+    shadow_text_included: boolean;
+    interactives: Interactif[];
+    tables: Tableau[];
+    omitted: { offscreen: number; over_max: number };
+    resolved_selector: string;
+    matched: number;
+    warning: string;
+    rows: Record<string, unknown>[];
+    total_rows: number;
+    next_offset: number;
+    hint: string;
+    total_length: number;
+    truncated: boolean;
+    offset: number;
+    result: unknown;
+    is_regex: boolean;
+    field: string;
+    note: string;
+    count: number;
+    precedence: string;
+    matches: { ref: string }[];
+    type: string;
+    script: string;
+    notes: string[];
+    evicted_sessions?: Session[];
+    protected_sessions: { why: string }[];
+    fix: string;
+    sessions: Session[];
+    max: number;
+    max_per_owner: number;
+    max_per_group: number;
+    effective_max: number;
+    selected: Choix;
+    results: { selected: Choix }[];
+    downloads: { file: string; path: string; size: number }[];
+    baseline_created: boolean;
+    passed: boolean;
+    masked: number;
+    mask_not_found: string[];
+}
+
+// Réponse plafonnée de /evaluate : chaîne ou liste coupée, et ce qui manque.
+interface EvaluationPlafonnee { result: string | unknown[]; omitted: string; hint: string }
+
+let service!: Service<Corps>;
+let pages!: http.Server;
 let base = '';
 let sid = '';
 
-const api = (route, corps = {}) => service.post(route, { owner: OWNER, session_id: sid, ...corps });
-const ouvrir = (chemin) => api('/action', { type: 'goto', url: `${base}${chemin}` });
-const texteDe = async (css) => (await api('/evaluate', { script: `return document.querySelector(${JSON.stringify(css)}).textContent` })).corps.result;
+const api = <T = Corps>(route: string, corps: Record<string, unknown> = {}) => service.post<T>(route, { owner: OWNER, session_id: sid, ...corps });
+const ouvrir = (chemin: string) => api('/action', { type: 'goto', url: `${base}${chemin}` });
+const texteDe = async (css: string) => (await api('/evaluate', { script: `return document.querySelector(${JSON.stringify(css)}).textContent` })).corps.result;
 
 before(async () => {
     if (SAUTER) return;
@@ -74,11 +136,11 @@ before(async () => {
             return res.end('abc');
         }
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(PAGES[req.url.split('?')[0]] || `<title>${req.url}</title>`);
+        return res.end(PAGES[req.url!.split('?')[0]!] || `<title>${req.url}</title>`);
     });
-    await new Promise(r => pages.listen(0, '127.0.0.1', r));
-    base = `http://127.0.0.1:${pages.address().port}`;
-    service = await demarrerService();
+    await new Promise<void>(r => pages.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${portDe(pages)}`;
+    service = await demarrerService<Corps>();
     const r = await service.post('/start', { owner: OWNER, url: `${base}/`, isolated: true });
     assert.equal(r.statut, 200, r.texte);
     sid = r.corps.session_id;
@@ -123,7 +185,7 @@ test('pw_act : pas de faux succès par repli (shadow fermé, élément pas encor
 
 test('pw_page text : avec une cible, son texte seul ; le texte shadow ajouté ne vient que des hôtes qu\'elle contient', { skip: SAUTER, timeout: 60000 }, async () => {
     await ouvrir('/texte');
-    const texte = async (selector) => (await api('/extract_text', selector ? { selector } : {})).corps;
+    const texte = async (selector: string) => (await api('/extract_text', selector ? { selector } : {})).corps;
     const out = await texte('#out');
     assert.equal(out.text, 'Résultat');
     assert.equal(out.shadow_text_included, undefined);
@@ -140,7 +202,7 @@ test('pw_page inspect : nom long coupé d\'une ellipse et actionnable, sélecteu
     const inspecter = async () => (await service.get(`/smart_inspect?owner=${OWNER}&session_id=${sid}&level=lite&viewport_only=true&max_items=30&skip_screenshot=true`)).corps;
     await ouvrir('/inspect');
     const vue = await inspecter();
-    const long = vue.interactives.find(i => i.text.startsWith('Libellé'));
+    const long = vue.interactives.find(i => i.text.startsWith('Libellé'))!;
     assert.equal(long.name.length, 80);
     assert.ok(long.name.endsWith('…'), long.name);
     let r = await api('/action', { type: 'click', by_role: 'button', by_name: long.name });
@@ -157,7 +219,7 @@ test('pw_page inspect : nom long coupé d\'une ellipse et actionnable, sélecteu
     }
     assert.deepEqual(vue.tables.map(t => ({ ...t, selector: undefined })), [
         { index: 0, tag: 'table', role: null, rows: 2, cols: 2, headers: ['Nom', 'Ville'], header_source: 'first_row', selector: undefined }]);
-    assert.equal(vue.tables[0].selector, '#t');
+    assert.equal(vue.tables[0]!.selector, '#t');
 
     await ouvrir('/grand');
     const grand = await inspecter();
@@ -174,7 +236,7 @@ test('pw_page inspect : nom long coupé d\'une ellipse et actionnable, sélecteu
 
 test('tailles de sortie : extract par pages sans styles, eval plafonné (chaîne, liste) avec ce qui manque, texte long par morceaux', { skip: SAUTER, timeout: 90000 }, async () => {
     await ouvrir('/table');
-    const taille = (v) => JSON.stringify(v).length;
+    const taille = (v: unknown) => JSON.stringify(v).length;
     let t = (await api('/extract_table', { selector: '#t' })).corps;
     assert.equal(t.rows.length, 50);
     assert.equal(t.total_rows, 3000);
@@ -184,18 +246,18 @@ test('tailles de sortie : extract par pages sans styles, eval plafonné (chaîne
     t = (await api('/extract_table', { selector: '#t', offset: 2990, max_rows: 50, styles: true })).corps;
     assert.equal(t.rows.length, 10);
     assert.equal(t.next_offset, undefined);
-    assert.deepEqual(t.rows[0].Nom, { text: 'Ligne 2990', bg: null, color: '#ff0000' });
-    assert.equal(t.rows[0]._row_bg, '#eeeeee');
+    assert.deepEqual(t.rows[0]!.Nom, { text: 'Ligne 2990', bg: null, color: '#ff0000' });
+    assert.equal(t.rows[0]!._row_bg, '#eeeeee');
     t = (await api('/extract_table', { selector: '#t', max_rows: 500 })).corps;
     assert.ok(t.rows.length < 500 && t.next_offset === t.rows.length, `${t.rows.length} lignes, suite ${t.next_offset}`);
     assert.match(t.hint, /^Output capped at 20000 characters/);
     assert.ok(taille(t) < 24000);
 
-    let e = await api('/evaluate', { script: "return 'x'.repeat(60000)" });
+    let e = await api<EvaluationPlafonnee>('/evaluate', { script: "return 'x'.repeat(60000)" });
     assert.equal(e.corps.result.length, 19998);
     assert.equal(e.corps.omitted, '40002 of 60000 characters');
     assert.match(e.corps.hint, /capped at 20000/);
-    e = await api('/evaluate', { script: 'return Array.from({ length: 3000 }, (_, i) => ({ id: i, nom: "ligne " + i }))' });
+    e = await api<EvaluationPlafonnee>('/evaluate', { script: 'return Array.from({ length: 3000 }, (_, i) => ({ id: i, nom: "ligne " + i }))' });
     assert.ok(Array.isArray(e.corps.result) && e.corps.result.length > 100);
     assert.equal(e.corps.omitted, `${3000 - e.corps.result.length} of 3000 items`);
     assert.ok(taille(e.corps) < 24000);
@@ -211,8 +273,8 @@ test('tailles de sortie : extract par pages sans styles, eval plafonné (chaîne
 
 test('pw_page eval : instructions sans return exécutées comme un corps (vraie erreur rendue) ; promesse sans fin abandonnée à l\'échéance sans bloquer les suivantes', { skip: SAUTER, timeout: 60000 }, async () => {
     await ouvrir('/');
-    const evaluer = (script) => api('/evaluate', { script });
-    for (const [script, attendu] of [['throw new Error("boum")', /boum/], ['const x = 1; throw new Error("deux " + x)', /deux 1/]]) {
+    const evaluer = (script: string) => api('/evaluate', { script });
+    for (const [script, attendu] of [['throw new Error("boum")', /boum/], ['const x = 1; throw new Error("deux " + x)', /deux 1/]] as const) {
         const r = await evaluer(script);
         assert.equal(r.statut, 500, r.texte);
         assert.match(r.corps.error, attendu);
@@ -237,7 +299,7 @@ test('pw_page eval : instructions sans return exécutées comme un corps (vraie 
 
 test('pw_mock : regex brute ou délimitée avec is_regex, champs invalides refusés, le premier ajouté l\'emporte, dit dans le résultat', { skip: SAUTER, timeout: 60000 }, async () => {
     await ouvrir('/');
-    const lire = async (chemin) => (await api('/evaluate', { script: `return await (await fetch(${JSON.stringify(chemin)})).text()` })).corps.result;
+    const lire = async (chemin: string) => (await api('/evaluate', { script: `return await (await fetch(${JSON.stringify(chemin)})).text()` })).corps.result;
     let r = await api('/mock/add', { url_pattern: '/api/.*\\?id=\\d+$', is_regex: true, body: 'brute' });
     assert.equal(r.statut, 200, r.texte);
     assert.equal(r.corps.is_regex, true);
@@ -247,7 +309,7 @@ test('pw_mock : regex brute ou délimitée avec is_regex, champs invalides refus
     assert.equal(await lire('/items/5'), 'délimitée');
     for (const [corps, champ] of [[{ url_pattern: '([', is_regex: true }, 'url_pattern'], [{ url_pattern: '/a', status: 999 }, 'status'],
         [{ url_pattern: '/a', times: 0 }, 'times'], [{ url_pattern: '/a', delay_ms: -5 }, 'delay_ms'], [{ url_pattern: '/a', method: 'FOO' }, 'method'],
-        [{ url_pattern: '/a', body: { a: 1 } }, 'body'], [{ url_pattern: '' }, 'url_pattern']]) {
+        [{ url_pattern: '/a', body: { a: 1 } }, 'body'], [{ url_pattern: '' }, 'url_pattern']] as const) {
         r = await api('/mock/add', corps);
         assert.equal(r.statut, 400, r.texte);
         assert.equal(r.corps.code, 'invalid_mock');
@@ -270,7 +332,7 @@ test('pw_recorder : gestes dans des iframes rejoués dans leur cadre, choix d\'u
     await api('/recorder/start');
     await ouvrir('/cadres');
     await new Promise(r => setTimeout(r, 500));
-    const ref = async (corps) => (await api('/locator', { ...corps, include_frames: true, visible_only: false, max: 1 })).corps.matches[0].ref;
+    const ref = async (corps: Record<string, unknown>) => (await api('/locator', { ...corps, include_frames: true, visible_only: false, max: 1 })).corps.matches[0]!.ref;
     assert.equal((await api('/action', { type: 'fill', ref: await ref({ by_placeholder: 'Ville' }), text: 'Lyon' })).statut, 200);
     assert.equal((await api('/action', { type: 'click', ref: await ref({ by_role: 'button', by_name: 'Valider' }) })).statut, 200);
     const choix = await api('/handle_dropdown', { selector: '#ville', option_text: 'Lyon' });
@@ -278,7 +340,7 @@ test('pw_recorder : gestes dans des iframes rejoués dans leur cadre, choix d\'u
     const envoi = await api('/action', { type: 'upload', by_css: '#f', files: [{ name: 'a.txt', content_base64: 'YQ==' }, { name: 'b.txt', content_base64: 'Yg==' }] });
     assert.equal(envoi.statut, 200, envoi.texte);
     await ouvrir('/cadres');
-    const dump = async (format) => (await service.get(`/recorder/dump?owner=${OWNER}&session_id=${sid}&format=${format}`)).corps;
+    const dump = async (format: string) => (await service.get(`/recorder/dump?owner=${OWNER}&session_id=${sid}&format=${format}`)).corps;
 
     const pw = (await dump('playwright')).script;
     const cadre = `page.frameLocator('#ext').frameLocator('iframe[name="int"]')`;
@@ -303,10 +365,10 @@ test('pw_recorder : gestes dans des iframes rejoués dans leur cadre, choix d\'u
 
 test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un secret gardée, éviction dite, refus clair sans session à céder, plafonds listés', { skip: SAUTER, timeout: 120000 }, async () => {
     const o = 'quota';
-    const demarrer = (corps) => service.post('/start', { owner: o, url: `${base}/`, ...corps });
-    const occuper = (sid, ms) => service.post('/evaluate', { owner: o, session_id: sid, script: `await new Promise(r => setTimeout(r, ${ms})); return ${ms}` });
-    const pause = (ms) => new Promise(r => setTimeout(r, ms));
-    const evincees = (r) => (r.corps.evicted_sessions || []).map(e => e.session_id);
+    const demarrer = (corps: Record<string, unknown>) => service.post('/start', { owner: o, url: `${base}/`, ...corps });
+    const occuper = (sid: string, ms: number) => service.post('/evaluate', { owner: o, session_id: sid, script: `await new Promise(r => setTimeout(r, ${ms})); return ${ms}` });
+    const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const evincees = (r: Reponse<Corps>) => (r.corps.evicted_sessions || []).map(e => e.session_id);
     const principale = (await demarrer({})).corps.session_id;
     const s1 = (await demarrer({ isolated: true })).corps.session_id;
     const s2 = (await demarrer({ isolated: true })).corps.session_id;
@@ -315,7 +377,7 @@ test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un
     assert.equal(r.statut, 200, r.texte);
     assert.deepEqual(evincees(r), [s1], 'une isolée cède avant la session principale');
     assert.match(r.corps.warning, /closed \(.*\): to stay within at most 3 sessions per owner/);
-    assert.equal(r.corps.evicted_sessions[0].isolated, true);
+    assert.equal(r.corps.evicted_sessions![0]!.isolated, true);
     const s3 = r.corps.session_id;
 
     const occupee = occuper(s2, 5000);
@@ -344,7 +406,7 @@ test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un
     const liste = (await service.get(`/sessions?owner=${o}`)).corps;
     assert.deepEqual(liste.sessions.map(x => x.session_id).sort(), [principale, secret, s5].sort());
     assert.deepEqual([liste.max, liste.max_per_owner, liste.max_per_group, liste.effective_max], [undefined, 3, 4, 3]);
-    assert.equal(liste.sessions.find(x => x.session_id === secret).secret, true);
+    assert.equal(liste.sessions.find(x => x.session_id === secret)!.secret, true);
     for (const x of liste.sessions) await service.post('/stop', { owner: o, session_id: x.session_id });
 });
 
@@ -355,7 +417,7 @@ test('petits manques : <select multiple>, téléchargement rapporté, clic à un
     assert.deepEqual(r.corps.selected.labels, ['A', 'C']);
     assert.deepEqual((await api('/evaluate', { script: "return [...document.querySelector('#m').selectedOptions].map(o => o.value)" })).corps.result, ['A', 'c']);
     const chaine = await api('/chain', { actions: [{ type: 'select', by_css: '#m', value: ['B', 'c'] }] });
-    assert.deepEqual(chaine.corps.results[0].selected.values, ['B', 'c'], chaine.texte);
+    assert.deepEqual(chaine.corps.results[0]!.selected.values, ['B', 'c'], chaine.texte);
 
     r = await api('/action', { type: 'click', by_css: '#dl' });
     assert.equal(r.statut, 200, r.texte);

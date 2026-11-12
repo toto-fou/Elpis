@@ -203,6 +203,20 @@ export default defineConfig(
   },
   /** Service navigateur : la console est son journal (service.log du bac). */
   { files: ["browser-service/src/**/*.ts"], rules: { "no-console": "off" } },
+  /** Ses tests tournent sous node:test, dont test() et describe() rendent une promesse que le lanceur attend. */
+  {
+    files: ["browser-service/test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        {
+          allowForKnownSafeCalls: [
+            { from: "package", package: "node:test", name: ["test", "it", "describe", "suite"] },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ["apps/**/*.ts", "packages/**/*.ts"],
     ignores: [COMPTEUR, PROFILS, RATIO, ...TESTS],

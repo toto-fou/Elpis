@@ -2,17 +2,39 @@
 /** packages/securite/src/index.ts — point d'entrée de la sécurité partagée du core et du toolhost. */
 export {
   coerceToFernetKey,
+  cleFernetPresente,
   configurerChiffrement,
   decrypt,
+  decryptStrict,
   deriveFernetKey,
   encrypt,
   EncryptionUnavailable,
   encryptionKeyPath,
+  estJetonFernet,
   Fernet,
   InvalidToken,
   loadOrCreateKey,
 } from "./chiffrement";
 export type { SourceCle } from "./chiffrement";
+export {
+  chargerCleCoffre,
+  chiffrerSecret,
+  cleCoffre,
+  CleCoffreIndisponible,
+  configurerCoffre,
+  dechiffrerSecret,
+  etatCleCoffre,
+  FICHIER_CLE_COFFRE,
+  kidCoffre,
+  kidDe,
+  lireCleCoffre,
+  octetsCleCoffre,
+  reglagesCoffreDeLEnvironnement,
+  REPLI_CLE_COFFRE,
+  SecretIndechiffrable,
+  validerCleCoffre,
+} from "./coffre";
+export type { CleCoffre, ReglagesCoffre, SourceCleCoffre } from "./coffre";
 export {
   avecIdentite,
   creerIdentite,

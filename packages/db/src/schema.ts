@@ -95,8 +95,10 @@ export function createTableSql(t: Table, d: Dialecte): string {
   return `CREATE TABLE IF NOT EXISTS ${q(t.name)} (\n  ${lignes.join(",\n  ")}\n)`;
 }
 
+/** Une partie entre parenthèses est une expression (`(COALESCE(user_id, 0))`), rendue telle quelle. */
 export function createIndexSql(t: Table, ix: Index, _d: Dialecte): string {
   const cols = ix.cols.map((part) => {
+    if (part.startsWith("(")) return part;
     const [nom, ...reste] = part.split(/\s+/u);
     return [q(nom ?? ""), ...reste].join(" ");
   });
@@ -141,6 +143,11 @@ export async function hasTable(x: Executeur, table: string): Promise<boolean> {
   return (await tableNames(x)).includes(table);
 }
 
+/** Colonne qu'`ALTER TABLE … ADD COLUMN` sait ajouter : ni clé, ni unicité, ni NOT NULL sans défaut. */
+function ajoutable(c: Col): boolean {
+  return !(c.type === "id" || c.primary || c.unique || (c.null === false && c.default === undefined));
+}
+
 /** Ajoute à une table existante les colonnes du schéma qui lui manquent ; rend les ajoutées et celles qu'on ne peut pas ajouter. */
 export async function addMissingColumns(
   x: Executeur,
@@ -151,7 +158,7 @@ export async function addMissingColumns(
   if (!presentes.size) return r;
   for (const c of t.cols) {
     if (presentes.has(c.name)) continue;
-    if (c.type === "id" || c.primary || c.unique || (c.null === false && c.default === undefined)) {
+    if (!ajoutable(c)) {
       r.impossibles.push(`${t.name}.${c.name}`);
       continue;
     }
@@ -272,6 +279,46 @@ export async function ensureFts(base: Base): Promise<RapportFts> {
 export interface RapportSchema extends RapportFts {
   ajoutees: string[];
   impossibles: string[];
+}
+
+const OBJETS_FTS_SQLITE = FTS_SQLITE.map((sql) => /IF NOT EXISTS\s+(\w+)/u.exec(sql)?.[1] ?? "");
+
+/** `createAll` aurait du travail réel (table, colonne ajoutable, index ou plein texte absents) ; lu avant de le lancer, dans le doute oui. */
+export async function schemaIncomplet(x: Executeur): Promise<boolean> {
+  const sqlite = x.dialecte === "sqlite";
+  try {
+    const objets = new Set(
+      (
+        await x.all<{ n: string }>(
+          sqlite
+            ? "SELECT name AS n FROM sqlite_master"
+            : "SELECT indexname AS n FROM pg_indexes WHERE schemaname = current_schema()",
+        )
+      ).map((r) => r.n),
+    );
+    for (const n of await tableNames(x)) objets.add(n);
+    const colonnes = new Set(
+      (
+        await x.all<{ t: string; c: string }>(
+          sqlite
+            ? "SELECT m.name AS t, p.name AS c FROM sqlite_master m, pragma_table_info(m.name) p " +
+                "WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'"
+            : "SELECT table_name AS t, column_name AS c FROM information_schema.columns " +
+                "WHERE table_schema = current_schema()",
+        )
+      ).map((r) => `${r.t}.${r.c}`),
+    );
+    for (const t of TABLES) {
+      if (t.only && !t.only.includes(x.dialecte)) continue;
+      if (!objets.has(t.name)) return true;
+      if (t.cols.some((c) => ajoutable(c) && !colonnes.has(`${t.name}.${c.name}`))) return true;
+      if ((t.indexes ?? []).some((ix) => !objets.has(ix.name))) return true;
+    }
+    if (sqlite) return OBJETS_FTS_SQLITE.some((n) => !objets.has(n));
+    return !objets.has("idx_sm_fts") || !colonnes.has("session_messages.content_tsv");
+  } catch {
+    return true;
+  }
 }
 
 /** Schéma complet (`create_all`) : tables, colonnes, index, verrou d'écriture des serveurs, plein texte. */

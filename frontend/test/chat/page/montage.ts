@@ -80,6 +80,7 @@ export function barre(extra: Record<string, unknown> = {}) {
     isSearchingChats: false,
     currentView: "chat",
     currentChatId: "c1",
+    chatEnOuverture: null,
     activeRunIds: [],
     notifUnread: 0,
     showNotifPanel: false,

@@ -12,6 +12,12 @@ import type {
   RefsHistorique,
 } from "../../../src/features/chat/historique/historique";
 import {
+  chatEnOuverture,
+  DELAI_PRECHARGE_MS,
+  oublierPrecharge,
+  precharger,
+} from "../../../src/features/chat/historique/ouverture";
+import {
   creerRechercheChat,
   DELAI_RECHERCHE_MS,
   DELAI_SURLIGNAGE_MS,
@@ -19,6 +25,8 @@ import {
 
 afterEach(() => {
   vi.useRealTimers();
+  chatEnOuverture.value = null;
+  oublierPrecharge();
 });
 
 const json = (corps: unknown, statut = 200): Response =>
@@ -494,6 +502,254 @@ describe("historique : garde-fous de chargement", () => {
     expect(refs.messages.value).toEqual([]);
     expect(refs.currentChatId.value).toBeNull();
     expect(purge).toHaveBeenCalledOnce();
+  });
+});
+
+describe("historique : ouverture d'une autre conversation", () => {
+  const attendre = () => {
+    let liberer: () => void = () => {};
+    const attente = new Promise<void>((r) => {
+      liberer = r;
+    });
+    return { attente, liberer };
+  };
+  const ancien = Object.freeze({ role: "user", content: "ancien fil" });
+
+  it("la ligne est marquée aussitôt, le chat affiché ne change qu'à la réponse, le marqueur tombe ensuite", async () => {
+    const { attente, liberer } = attendre();
+    const { api, refs } = monter(null, {
+      courant: "ancien",
+      fetch: async (url) => {
+        if (url.includes("generation-status")) return json({});
+        await attente;
+        return json(conv([{ role: "user", content: "nouveau fil" }], { id: "nouveau" }));
+      },
+    });
+    refs.messages.value = [ancien];
+    const ouverture = api.loadChat("nouveau");
+    expect(chatEnOuverture.value).toBe("nouveau");
+    expect(refs.currentChatId.value).toBe("ancien");
+    expect(refs.messages.value[0]?.content).toBe("ancien fil");
+    liberer();
+    await ouverture;
+    expect(chatEnOuverture.value).toBeNull();
+    expect(refs.currentChatId.value).toBe("nouveau");
+    expect(refs.messages.value[0]?.content).toBe("nouveau fil");
+  });
+
+  it("le rendu (blobs, fenêtre, graphiques) n'est remis à zéro qu'à l'échange, avant la fenêtre du nouveau fil", async () => {
+    const { attente, liberer } = attendre();
+    const ordre: string[] = [];
+    const { api, refs } = monter(null, {
+      courant: "ancien",
+      deps: {
+        detachFromStream: () => ordre.push("detach"),
+        _revokeAllWebShotBlobs: () => ordre.push("blobs"),
+        _vsReset: () => ordre.push("reset"),
+        _vsInitTail: () => ordre.push("fenetre"),
+        clearChartInstances: () => ordre.push("graphiques"),
+      },
+      fetch: async (url) => {
+        ordre.push(url.includes("generation-status") ? "statut" : "requete");
+        if (url.includes("generation-status")) return json({});
+        await attente;
+        return json(conv([{ role: "user", content: "x" }], { id: "nouveau" }));
+      },
+    });
+    refs.messages.value = [ancien];
+    const ouverture = api.loadChat("nouveau");
+    await Promise.resolve();
+    expect(ordre).toEqual(["detach", "requete"]);
+    liberer();
+    await ouverture;
+    expect(ordre.slice(0, 7)).toEqual([
+      "detach",
+      "requete",
+      "detach",
+      "blobs",
+      "reset",
+      "graphiques",
+      "fenetre",
+    ]);
+  });
+
+  it("réponse en échec ou chat disparu : le fil affiché reste en place, rien n'est remis à zéro, le marqueur tombe", async () => {
+    for (const statut of [404, 500]) {
+      const reset = vi.fn();
+      const blobs = vi.fn();
+      const { api, refs, toasts } = monter(null, {
+        courant: "ancien",
+        deps: { _vsReset: reset, _revokeAllWebShotBlobs: blobs },
+        fetch: () => Promise.resolve(json({}, statut)),
+      });
+      refs.messages.value = [ancien];
+      const ouverture = api.loadChat("autre");
+      expect(chatEnOuverture.value).toBe("autre");
+      await ouverture;
+      expect(chatEnOuverture.value).toBeNull();
+      expect(refs.currentChatId.value).toBe("ancien");
+      expect(refs.messages.value[0]?.content).toBe("ancien fil");
+      expect(reset).not.toHaveBeenCalled();
+      expect(blobs).not.toHaveBeenCalled();
+      expect(toasts).toHaveLength(1);
+    }
+  });
+
+  it("deux ouvertures de suite : le marqueur suit la dernière, la réponse lente ne l'efface pas ni ne gagne", async () => {
+    const { attente, liberer } = attendre();
+    const { api, refs } = monter(null, {
+      courant: "ancien",
+      fetch: async (url) => {
+        if (url.includes("generation-status")) return json({});
+        if (url.endsWith("/lent")) {
+          await attente;
+          return json(conv([{ role: "user", content: "LENT" }], { id: "lent" }));
+        }
+        return json(conv([{ role: "user", content: "RAPIDE" }], { id: "rapide" }));
+      },
+    });
+    const premier = api.loadChat("lent");
+    const second = api.loadChat("rapide");
+    expect(chatEnOuverture.value).toBe("rapide");
+    await second;
+    expect(chatEnOuverture.value).toBeNull();
+    liberer();
+    await premier;
+    expect(refs.currentChatId.value).toBe("rapide");
+    expect(refs.messages.value[0]?.content).toBe("RAPIDE");
+  });
+
+  it("retour sur le chat affiché pendant l'ouverture d'un autre : l'ouverture est abandonnée", async () => {
+    const { attente, liberer } = attendre();
+    const { api, refs } = monter(null, {
+      courant: "ancien",
+      fetch: async (url) => {
+        if (url.includes("generation-status")) return json({});
+        await attente;
+        return json(conv([{ role: "user", content: "tard" }], { id: "autre" }));
+      },
+    });
+    refs.messages.value = [ancien];
+    const ouverture = api.loadChat("autre");
+    await api.loadChat("ancien");
+    expect(chatEnOuverture.value).toBeNull();
+    liberer();
+    await ouverture;
+    expect(refs.currentChatId.value).toBe("ancien");
+    expect(refs.messages.value[0]?.content).toBe("ancien fil");
+  });
+
+  it("nouveau chat pendant l'ouverture : le marqueur tombe et la réponse tardive n'écrit rien", async () => {
+    const { attente, liberer } = attendre();
+    const { api, refs } = monter(null, {
+      courant: "ancien",
+      fetch: async () => {
+        await attente;
+        return json(conv([{ role: "user", content: "tard" }], { id: "autre" }));
+      },
+    });
+    const ouverture = api.loadChat("autre");
+    await api.startNewChat();
+    expect(chatEnOuverture.value).toBeNull();
+    liberer();
+    await ouverture;
+    expect(refs.currentChatId.value).toBeNull();
+    expect(refs.messages.value).toEqual([]);
+  });
+
+  it("relecture du chat affiché (force) : pas de marqueur, remise à zéro immédiate comme avant", async () => {
+    const ordre: string[] = [];
+    const { api, refs } = monter(conv([{ role: "user", content: "a" }]), {
+      courant: "chat-1",
+      deps: { _vsReset: () => ordre.push("reset") },
+      fetch: async (url) => {
+        ordre.push("requete");
+        return json(url.includes("generation-status") ? {} : conv([{ role: "user", content: "a" }]));
+      },
+    });
+    const relecture = api.loadChat("chat-1", { force: true });
+    expect(chatEnOuverture.value).toBeNull();
+    expect(ordre[0]).toBe("reset");
+    await relecture;
+    expect(refs.currentChatId.value).toBe("chat-1");
+  });
+
+  it("session changée pendant l'ouverture : rien n'est remis à zéro, le marqueur tombe", async () => {
+    const session = { generation: 1 };
+    const reset = vi.fn();
+    const { api, refs } = monter(null, {
+      session,
+      courant: "ancien",
+      deps: { _vsReset: reset },
+      fetch: () => {
+        session.generation = 2;
+        return Promise.resolve(json(conv([{ role: "user", content: "fuite" }])));
+      },
+    });
+    refs.messages.value = [ancien];
+    await api.loadChat("autre");
+    expect(chatEnOuverture.value).toBeNull();
+    expect(reset).not.toHaveBeenCalled();
+    expect(refs.messages.value[0]?.content).toBe("ancien fil");
+  });
+});
+
+describe("historique : lecture lancée à l'appui", () => {
+  it("le clic reprend la lecture de l'appui : une seule requête par ouverture", async () => {
+    const { api, journal, refs } = monter(conv([{ role: "user", content: "x" }], { id: "c2" }), {
+      courant: "c1",
+    });
+    const fetchAuth = async (url: string): Promise<Response> => {
+      journal.push("GET " + url);
+      return json(conv([{ role: "user", content: "x" }], { id: "c2" }));
+    };
+    precharger(fetchAuth, "c2", 0);
+    await api.loadChat("c2");
+    expect(journal.filter((j) => j === "GET /api/saved/chats/c2")).toHaveLength(1);
+    expect(refs.currentChatId.value).toBe("c2");
+  });
+
+  it("la lecture n'est reprise qu'une fois, et seulement pour la même conversation", async () => {
+    const { api, journal } = monter(conv([], { id: "c2" }), { courant: "c1" });
+    const fetchAuth = async (url: string): Promise<Response> => {
+      journal.push("préchargé " + url);
+      return json(conv([], { id: "c2" }));
+    };
+    precharger(fetchAuth, "c3", 0);
+    await api.loadChat("c2");
+    expect(journal).toContain("GET /api/saved/chats/c2");
+    await api.loadChat("c3", { force: true });
+    expect(journal.filter((j) => j.startsWith("GET /api/saved/chats/c3"))).toHaveLength(0);
+    await api.loadChat("c3", { force: true });
+    expect(journal.filter((j) => j.startsWith("GET /api/saved/chats/c3"))).toHaveLength(1);
+  });
+
+  it("appui relâché ailleurs ou clic trop tardif : la lecture est jetée au bout de deux secondes", async () => {
+    vi.useFakeTimers();
+    const { api, journal } = monter(conv([], { id: "c2" }), { courant: "c1" });
+    const corps = { cancel: vi.fn(() => Promise.resolve()) };
+    const fetchAuth = (): Promise<Response> => Promise.resolve({ body: corps } as unknown as Response);
+    precharger(fetchAuth, "c2", 0);
+    await vi.advanceTimersByTimeAsync(DELAI_PRECHARGE_MS + 1);
+    expect(corps.cancel).toHaveBeenCalledOnce();
+    const ouverture = api.loadChat("c2");
+    await vi.advanceTimersByTimeAsync(0);
+    await ouverture;
+    expect(journal).toContain("GET /api/saved/chats/c2");
+  });
+
+  it("session différente : la lecture d'une autre session n'est pas reprise", async () => {
+    const { api, journal } = monter(conv([], { id: "c2" }), { courant: "c1", session: { generation: 5 } });
+    precharger(async () => json(conv([{ role: "user", content: "autre compte" }], { id: "c2" })), "c2", 4);
+    await api.loadChat("c2");
+    expect(journal).toContain("GET /api/saved/chats/c2");
+  });
+
+  it("lecture en échec : l'échec est vu par le clic qui la reprend, pas par un rejet non traité", async () => {
+    const { api, toasts } = monter(null, { courant: "c1" });
+    precharger(() => Promise.reject(new Error("réseau")), "c2", 0);
+    await api.loadChat("c2");
+    expect(toasts[0]?.message).toContain("illisible");
   });
 });
 

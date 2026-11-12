@@ -13,6 +13,7 @@ import { GestionnaireSession } from "../../features/auth/session";
 import { setupChat } from "../../features/chat/coeur/chat";
 import { LOGO_ELPIS } from "../../features/communs/logo";
 import type { AgentsSlash } from "../../features/chat/composeur/slash";
+import { chatEnOuverture, precharger } from "../../features/chat/historique/ouverture";
 import type { CtxChat, MessageChat, RefsRacineChat } from "../../features/chat/coeur/types";
 import { purificateur } from "../../features/chat/rendu/instance";
 import { creerImportSandbox } from "../../features/editor/import-sandbox";
@@ -1132,6 +1133,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...m.studioAuto,
     ...m.editeur,
     ...m.chat,
+    chatEnOuverture,
+    prechargerChat: (id: string): void => precharger(fetchAuth, id, session.generation),
     groupedHistory,
     ...m.auth,
     user,

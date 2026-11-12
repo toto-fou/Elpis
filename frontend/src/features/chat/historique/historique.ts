@@ -8,6 +8,7 @@ import { copyImageFields } from "../../images/formats.ts";
 import { lireBilanTache } from "../outils/bilan-tache.ts";
 import { parseToolHistorySegments } from "../outils/segments.ts";
 import { sourcesRagValides } from "../../rag/sources.ts";
+import { chatEnOuverture, oublierPrecharge, reprendrePrecharge, urlChat } from "./ouverture";
 import type { FetchAuth, VueFabrique } from "./recherche";
 
 export interface ResumeChat {
@@ -373,6 +374,8 @@ export function creerHistoriqueChat(
   async function startNewChat(): Promise<void> {
     currentView.value = "chat";
     sequence++;
+    chatEnOuverture.value = null;
+    oublierPrecharge();
     deps.detachFromStream();
     viderRendu();
     remettreComposeur(false);
@@ -415,20 +418,31 @@ export function creerHistoriqueChat(
 
   async function loadChat(id: string, opts?: { force?: boolean; noAttach?: boolean }): Promise<void> {
     currentView.value = "chat";
-    if (currentChatId.value === id && !opts?.force) return;
+    if (currentChatId.value === id && !opts?.force) {
+      if (chatEnOuverture.value !== null) {
+        sequence++;
+        chatEnOuverture.value = null;
+      }
+      return;
+    }
     const seq = ++sequence;
     const generation = session ? session.generation : 0;
     const perime = (): boolean => seq !== sequence || (session !== null && session.generation !== generation);
     const memeChat = currentChatId.value === id;
+    chatEnOuverture.value = memeChat ? null : id;
     deps.detachFromStream();
-    viderRendu();
+    if (memeChat) viderRendu();
     remettreComposeur(memeChat);
     try {
-      const res = await fetchAuth("/api/saved/chats/" + id, {}, true);
+      const res = await (reprendrePrecharge(id, generation) ?? fetchAuth(urlChat(id), {}, true));
       if (perime()) return;
       if (res && res.ok) {
         const d = await lireJson(res);
         if (perime()) return;
+        if (!memeChat) {
+          deps.detachFromStream();
+          viderRendu();
+        }
         currentChatId.value = d.id as string;
         currentChatTitle.value = d.title as string;
         if (deps.setTodoList) {
@@ -477,6 +491,8 @@ export function creerHistoriqueChat(
         "Conversation illisible — son contenu est corrompu ou " + "la réponse du serveur est incomplète.",
         "error",
       );
+    } finally {
+      if (seq === sequence) chatEnOuverture.value = null;
     }
   }
 

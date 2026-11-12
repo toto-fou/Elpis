@@ -7,6 +7,7 @@ import type { ComponentPublicInstance } from "vue";
 import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
+import { oublierPrecharge } from "../../../features/chat/historique/ouverture";
 import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
 import NotificationsPied from "./NotificationsPied.vue";
@@ -19,6 +20,17 @@ function brancherFondu(el: Element | ComponentPublicInstance | null): void {
   detacherFondu = el instanceof HTMLElement ? fonduDefilement(el) : null;
 }
 onBeforeUnmount(() => brancherFondu(null));
+
+// Ligne marquée : la conversation en cours d'ouverture, sinon l'affichée.
+const courante = (id: string): boolean =>
+  b.currentView === "chat" && (b.chatEnOuverture ?? b.currentChatId) === id;
+
+// Bouton principal de la souris : la lecture part à l'appui, le clic ouvre avec sa réponse.
+function appui(e: PointerEvent, id: string): void {
+  if (e.pointerType !== "mouse" || e.button !== 0 || e.ctrlKey || !e.isPrimary) return;
+  if (b.chatSelectMode || id === b.currentChatId) return;
+  b.prechargerChat(id);
+}
 </script>
 
 <template>
@@ -390,8 +402,12 @@ onBeforeUnmount(() => brancherFondu(null));
             :key="'s' + chat.id"
             type="button"
             data-chat-row
-            :aria-current="b.currentView === 'chat' && b.currentChatId === chat.id ? 'page' : undefined"
+            :aria-current="courante(String(chat.id)) ? 'page' : undefined"
             class="w-full text-left px-3 h-[30px] text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
+            @pointerdown="appui($event, String(chat.id))"
+            @pointerleave="oublierPrecharge"
+            @pointercancel="oublierPrecharge"
+            @dragstart="oublierPrecharge"
             @click="b.loadChat(String(chat.id))"
           >
             <span class="truncate flex-1 text-[13.5px]">{{ chat.title }}</span>
@@ -436,7 +452,7 @@ onBeforeUnmount(() => brancherFondu(null));
               :data-chat-id="chat.id"
               class="relative h-[30px] rounded-lg flex items-center group transition-colors select-none"
               :class="
-                b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
+                courante(chat.id) && !b.chatSelectMode
                   ? 'bg-blue-600/20 text-white font-medium'
                   : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
               "
@@ -447,14 +463,14 @@ onBeforeUnmount(() => brancherFondu(null));
                 type="button"
                 data-chat-open
                 class="flex-1 min-w-0 h-full pl-3 pr-2 rounded-lg flex items-center gap-2 text-left cursor-pointer"
-                :aria-current="
-                  b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
-                    ? 'page'
-                    : undefined
-                "
+                :aria-current="courante(chat.id) && !b.chatSelectMode ? 'page' : undefined"
                 :aria-pressed="
                   b.chatSelectMode ? (b.chatSelected.includes(chat.id) ? 'true' : 'false') : undefined
                 "
+                @pointerdown="appui($event, chat.id)"
+                @pointerleave="oublierPrecharge"
+                @pointercancel="oublierPrecharge"
+                @dragstart="oublierPrecharge"
                 @click="b.chatSelectMode ? b.toggleChatSelect(chat.id) : b.loadChat(chat.id)"
                 @keydown.f2.prevent="b.renameChat(chat.id, chat.title)"
               >

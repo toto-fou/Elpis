@@ -18,7 +18,7 @@ import {
   CLE_CONVERSATION,
   CLE_IMAGE,
 } from "../../../src/features/chat/page/domaines";
-import { barre, demonter, etat, monter, noms } from "./montage";
+import { appelsDe, barre, demonter, etat, monter, noms } from "./montage";
 
 afterEach(demonter);
 
@@ -133,6 +133,52 @@ describe("rangée de conversation", () => {
     titres[1]?.click();
     titres[1]?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
     expect(noms()).toEqual(["loadChat", "openContextMenu"]);
+  });
+
+  it("conversation en cours d'ouverture : seule sa ligne est marquée, l'ancienne perd son marquage", () => {
+    const b = barre({ chatEnOuverture: "c2" });
+    const hote = monter(BarreLaterale, [[cle(CLE_BARRE), b]]);
+    const lignes = [...hote.querySelectorAll<HTMLElement>("[data-chat-row]")];
+    const titres = lignes.map((r) => r.querySelector("[data-chat-open]") as HTMLButtonElement);
+    expect(titres.map((t) => t.getAttribute("aria-current"))).toEqual([null, "page"]);
+    expect(lignes.map((l) => l.className.includes("bg-blue-600/20"))).toEqual([false, true]);
+    b.chatEnOuverture = null;
+    return nextTick().then(() => {
+      expect(titres.map((t) => t.getAttribute("aria-current"))).toEqual(["page", null]);
+    });
+  });
+
+  it("appui du bouton principal de la souris : la lecture part, le clic ouvre ensuite", () => {
+    const b = barre();
+    const hote = monter(BarreLaterale, [[cle(CLE_BARRE), b]]);
+    const titre = hote.querySelectorAll<HTMLElement>("[data-chat-open]")[1]!;
+    const appui = (init: PointerEventInit): void =>
+      void titre.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, isPrimary: true, pointerType: "mouse", ...init }),
+      );
+    appui({ button: 2 });
+    appui({ button: 0, ctrlKey: true });
+    appui({ button: 0, pointerType: "touch" });
+    expect(appelsDe("prechargerChat")).toEqual([]);
+    appui({ button: 0 });
+    expect(appelsDe("prechargerChat")).toEqual([["c2"]]);
+    titre.click();
+    expect(appelsDe("loadChat")).toEqual([["c2"]]);
+  });
+
+  it("appui sur le chat affiché, ou en mode sélection : aucune lecture", () => {
+    for (const [extra, ligne] of [
+      [{}, 0],
+      [{ chatSelectMode: true }, 1],
+    ] as const) {
+      const hote = monter(BarreLaterale, [[cle(CLE_BARRE), barre(extra)]]);
+      const titre = hote.querySelectorAll<HTMLElement>("[data-chat-open]")[ligne]!;
+      titre.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, isPrimary: true, pointerType: "mouse", button: 0 }),
+      );
+      expect(appelsDe("prechargerChat")).toEqual([]);
+      demonter();
+    }
   });
 
   it("mode sélection : le titre coche (aria-pressed), sans bouton d'actions", () => {

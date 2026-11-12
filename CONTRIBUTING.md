@@ -59,7 +59,7 @@ the commands above on Node 24.
 - Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`.
 - Formatting: `npm run format` (Prettier).
 - After adding Tailwind utility classes:
-  `node tools/generate_tailwind_css.mjs`.
+  `node tools/generate_tailwind_css.mts`.
 - One pull request = one topic; describe the before/after behavior and what
   you tried by hand.
 - No new dependency under a strong copyleft license (GPL/AGPL) in the

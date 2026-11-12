@@ -204,7 +204,7 @@ Composition rules:
 - Never a color class on `<body>`: the background and text come from
   the `body` rule in `style.css`.
 - After adding utility classes in a template:
-  `node tools/generate_tailwind_css.mjs` (parity is checked by the
+  `node tools/generate_tailwind_css.mts` (parity is checked by the
   maintainers' tests).
 - Check every screen in light and dark, and on at least one dark-based
   theme (Emerald).

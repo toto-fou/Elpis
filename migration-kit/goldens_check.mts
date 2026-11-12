@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: MIT
-/** migration-kit/goldens_check.mjs — contrôle des goldens du flux NDJSON (`tests/goldens/*.json`) contre le registre généré. */
+/** migration-kit/goldens_check.mts — contrôle des goldens du flux NDJSON (`tests/goldens/*.json`) contre le registre généré. */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,8 +8,36 @@ import { fileURLToPath } from "node:url";
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REGISTRE = join(RACINE, "packages", "contracts", "src", "stream-events.gen.ts");
 
+type Dict = Record<string, unknown>;
+interface Famille {
+  libelle: string;
+  cles: string[];
+  sinon: string | null;
+}
+interface Arguments {
+  json: boolean;
+  exigerEntrees: boolean;
+  dossier: string;
+  rejeux: string | null;
+}
+interface EvenementLu {
+  type: string;
+  cle: string;
+  index: number;
+}
+interface Registre {
+  STREAM_EVENT_TYPES: readonly string[];
+  isStreamEventType: (t: string) => boolean;
+}
+interface Rapport {
+  startTime?: number;
+  testResults?: { name?: string; assertionResults?: { status?: string; fullName: string }[] }[];
+}
+
+const estDict = (x: unknown): x is Dict => x !== null && typeof x === "object" && !Array.isArray(x);
+
 // [préfixe, libellé, clés d'événements dont une est exigée, sortie admise à leur place]
-const FAMILLES = [
+const FAMILLES: [string, string, string[], string | null][] = [
   ["boucle_", "scénario de boucle", ["evenements", "evenements_avant_depart"], null],
   ["flux_route_", "scénario de route", ["evenements", "evenements_avant_depart"], null],
   ["payload_", "payload envoyé au moteur", [], null],
@@ -26,20 +54,25 @@ const FICHIERS_DE_FORME = /[\\/]packages[\\/]contracts[\\/]test[\\/]/u;
 const CLE_ENTREES = "entrees";
 const CLE_SORTIE = "sortie";
 
-function lireArguments(argv) {
-  const args = { json: false, exigerEntrees: false, dossier: join(RACINE, "tests", "goldens"), rejeux: null };
+function lireArguments(argv: string[]): Arguments {
+  const args: Arguments = {
+    json: false,
+    exigerEntrees: false,
+    dossier: join(RACINE, "tests", "goldens"),
+    rejeux: null,
+  };
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
+    const a = argv[i] ?? "";
     if (a === "--json") args.json = true;
     else if (a === "--exiger-entrees") args.exigerEntrees = true;
-    else if (a === "--dossier" && i + 1 < argv.length) args.dossier = resolve(argv[++i]);
-    else if (a === "--rejeux" && i + 1 < argv.length) args.rejeux = resolve(argv[++i]);
+    else if (a === "--dossier" && i + 1 < argv.length) args.dossier = resolve(argv[++i] ?? "");
+    else if (a === "--rejeux" && i + 1 < argv.length) args.rejeux = resolve(argv[++i] ?? "");
     else throw new Error(`argument inconnu : ${a}`);
   }
   return args;
 }
 
-function famille(nom) {
+function famille(nom: string): Famille {
   for (const [prefixe, libelle, cles, sinon] of FAMILLES) {
     if (nom.startsWith(prefixe)) return { libelle, cles, sinon };
   }
@@ -47,27 +80,32 @@ function famille(nom) {
 }
 
 /** Chemin de chat classique (sans outils), non porté en TS (décision du user, E23) : golden non rejoué. */
-function cheminClassique(nom, contenu) {
-  const e = contenu !== null && typeof contenu === "object" ? contenu[CLE_ENTREES] : null;
-  if (e === null || typeof e !== "object") return false;
-  if (["boucle_", "payload_", "events_"].some((p) => nom.startsWith(p))) return e.chemin === "classique";
-  if (nom.startsWith("flux_route_")) return MOTEURS_CLASSIQUES.includes(e.moteur?.type);
+function cheminClassique(nom: string, contenu: unknown): boolean {
+  const e = estDict(contenu) ? contenu[CLE_ENTREES] : null;
+  if (!estDict(e)) return false;
+  if (["boucle_", "payload_", "events_"].some((p) => nom.startsWith(p))) return e["chemin"] === "classique";
+  if (nom.startsWith("flux_route_")) {
+    const moteur = e["moteur"];
+    return (
+      estDict(moteur) && typeof moteur["type"] === "string" && MOTEURS_CLASSIQUES.includes(moteur["type"])
+    );
+  }
   return false;
 }
 
 /** Rapport JSON de vitest → titres des tests passés et échoués (contrôles de forme exclus) et raisons de le croire périmé. */
-function titresDuRapport(chemin, dossier) {
-  const rapport = JSON.parse(readFileSync(chemin, "utf8"));
-  const passes = [];
-  const echecs = [];
-  const perime = [];
+function titresDuRapport(chemin: string, dossier: string) {
+  const rapport = JSON.parse(readFileSync(chemin, "utf8")) as Rapport;
+  const passes: string[] = [];
+  const echecs: string[] = [];
+  const perime: string[] = [];
   const debut = rapport.startTime;
-  if (!Number.isFinite(debut)) perime.push("rapport sans startTime");
+  if (debut === undefined || !Number.isFinite(debut)) perime.push("rapport sans startTime");
   else {
     for (const f of readdirSync(dossier).filter((n) => n.endsWith(".json")))
       if (statSync(join(dossier, f)).mtimeMs > debut) perime.push(`${f} modifié après le passage de vitest`);
     for (const f of rapport.testResults ?? []) {
-      if (!existsSync(f.name ?? "")) perime.push(`${f.name} absent`);
+      if (f.name === undefined || !existsSync(f.name)) perime.push(`${f.name} absent`);
       else if (statSync(f.name).mtimeMs > debut) perime.push(`${f.name} modifié après le passage de vitest`);
     }
   }
@@ -82,17 +120,18 @@ function titresDuRapport(chemin, dossier) {
 }
 
 /** Le titre cite-t-il ce golden (nom entier, pas un préfixe d'un autre golden) ? */
-function cite(titre, nom) {
+function cite(titre: string, nom: string): boolean {
   return new RegExp(`(?<![\\w])${nom}(?![\\w])`, "u").test(titre);
 }
 
-function refusValide(r) {
-  return r !== null && typeof r === "object" && Number.isInteger(r.statut) && typeof r.detail === "string";
+function refusValide(r: unknown): boolean {
+  return estDict(r) && Number.isInteger(r["statut"]) && typeof r["detail"] === "string";
 }
 
-function evenementsDe(nom, contenu, fam, erreurs) {
-  const out = [];
-  if (contenu !== null && typeof contenu === "object" && Array.isArray(contenu[CLE_SORTIE])) {
+function evenementsDe(nom: string, brut: unknown, fam: Famille, erreurs: string[]): EvenementLu[] {
+  const out: EvenementLu[] = [];
+  let contenu = brut;
+  if (estDict(contenu) && Array.isArray(contenu[CLE_SORTIE])) {
     contenu = contenu[CLE_SORTIE];
   }
   if (Array.isArray(contenu)) {
@@ -101,12 +140,12 @@ function evenementsDe(nom, contenu, fam, erreurs) {
     });
     return out;
   }
-  if (contenu === null || typeof contenu !== "object") {
+  if (!estDict(contenu)) {
     erreurs.push(`${nom} : ni objet ni liste`);
     return out;
   }
   const avecEvenements = fam.cles.some((c) => c in contenu);
-  if (fam.sinon !== null && avecEvenements === (fam.sinon in contenu)) {
+  if (fam.sinon !== null && avecEvenements === fam.sinon in contenu) {
     erreurs.push(`${nom} : « ${fam.cles.join(" » ou « ")} » ou bien « ${fam.sinon} », exactement un`);
   } else if (fam.sinon !== null && !avecEvenements && !refusValide(contenu[fam.sinon])) {
     erreurs.push(`${nom} › ${fam.sinon} : objet {statut entier, detail texte} attendu`);
@@ -121,45 +160,51 @@ function evenementsDe(nom, contenu, fam, erreurs) {
       continue;
     }
     liste.forEach((ev, i) => {
-      if (ev === null || typeof ev !== "object" || typeof ev.type !== "string") {
+      if (!estDict(ev) || typeof ev["type"] !== "string") {
         erreurs.push(`${nom} › ${cle}[${i}] : événement sans champ « type »`);
         return;
       }
-      out.push({ type: ev.type, cle, index: i });
+      out.push({ type: ev["type"], cle, index: i });
     });
   }
   return out;
 }
 
-export async function controler(dossier, rapport = null) {
-  const { STREAM_EVENT_TYPES, isStreamEventType } = await import(REGISTRE);
+export async function controler(dossier: string, rapport: string | null = null) {
+  const { STREAM_EVENT_TYPES, isStreamEventType } = (await import(REGISTRE)) as Registre;
   const fichiers = readdirSync(dossier)
     .filter((f) => f.endsWith(".json"))
     .sort();
-  const erreurs = [];
-  const horsRegistre = [];
-  const parFamille = {};
-  const sansEntrees = [];
-  const classiques = [];
-  const typesVus = new Set();
+  const erreurs: string[] = [];
+  const horsRegistre: string[] = [];
+  const parFamille: Record<string, number> = {};
+  const sansEntrees: string[] = [];
+  const classiques: string[] = [];
+  const typesVus = new Set<string>();
   const titres = rapport === null ? null : titresDuRapport(rapport, dossier);
-  const rejeux = { rapport, rejoues: 0, non_rejoues: [], e23_rejoues: [], echecs: [], perime: titres?.perime ?? [] };
+  const rejeux = {
+    rapport,
+    rejoues: 0,
+    non_rejoues: [] as string[],
+    e23_rejoues: [] as string[],
+    echecs: [] as string[],
+    perime: titres?.perime ?? [],
+  };
   let evenementsComptes = 0;
   let evenementsAutres = 0;
 
   for (const f of fichiers) {
     const nom = basename(f, ".json");
-    let contenu;
+    let contenu: unknown;
     try {
       contenu = JSON.parse(readFileSync(join(dossier, f), "utf8"));
     } catch (e) {
-      erreurs.push(`${nom} : JSON illisible (${e.message})`);
+      erreurs.push(`${nom} : JSON illisible (${e instanceof Error ? e.message : String(e)})`);
       continue;
     }
     const fam = famille(nom);
     parFamille[fam.libelle] = (parFamille[fam.libelle] ?? 0) + 1;
-    const avecEntrees =
-      contenu !== null && typeof contenu === "object" && !Array.isArray(contenu) && CLE_ENTREES in contenu;
+    const avecEntrees = estDict(contenu) && CLE_ENTREES in contenu;
     if (!avecEntrees) sansEntrees.push(nom);
     const rejoue = !cheminClassique(nom, contenu);
     if (!rejoue) classiques.push(nom);
@@ -195,7 +240,7 @@ export async function controler(dossier, rapport = null) {
   };
 }
 
-async function main() {
+async function main(): Promise<void> {
   const args = lireArguments(process.argv.slice(2));
   const r = await controler(args.dossier, args.rejeux);
   const echec =
@@ -217,7 +262,8 @@ async function main() {
     );
     if (r.rejeux !== null) {
       console.log(`${r.rejeux.rejoues}/${r.goldens} rejoués par un test TS passé (${r.rejeux.rapport})`);
-      if (r.rejeux.e23_rejoues.length) console.log(`  dont E23 rejoués quand même : ${r.rejeux.e23_rejoues.join(", ")}`);
+      if (r.rejeux.e23_rejoues.length)
+        console.log(`  dont E23 rejoués quand même : ${r.rejeux.e23_rejoues.join(", ")}`);
       for (const n of r.rejeux.non_rejoues) console.log(`  ✗ ${n} : aucun test de rejeu passé ne le cite`);
       for (const n of r.rejeux.echecs) console.log(`  ✗ ${n} : un test de rejeu échoue`);
       for (const p of r.rejeux.perime) console.log(`  ✗ rapport périmé : ${p}`);
@@ -239,7 +285,7 @@ async function main() {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((e) => {
-    console.error(`goldens_check : ${e.message}`);
+    console.error(`goldens_check : ${e instanceof Error ? e.message : String(e)}`);
     process.exitCode = 2;
   });
 }

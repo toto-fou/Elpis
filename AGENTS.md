@@ -109,7 +109,7 @@ into `browser-service/dist/main.mjs` by `npm run build:browser`.
 
 - `frontend/css/style.tailwind.css`: after adding utility classes
   in an SFC, a TS module or a template (`.vue`, `.ts`, `.html`,
-  `.js`), run `node tools/generate_tailwind_css.mjs` (Playwright required, resolved in
+  `.js`), run `node tools/generate_tailwind_css.mts` (Playwright required, resolved in
   `browser-service/node_modules` or `ELPIS_NODE_MODULES`). Never edit it by
   hand.
 - `frontend/src/features/admin/champs.gen.ts` is generated from the console

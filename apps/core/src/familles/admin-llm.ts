@@ -42,6 +42,7 @@ import {
   updateSharedConnector,
 } from "../llm/connecteurs";
 import type { ChampsMiseAJour } from "../llm/connecteurs";
+import { refusEcritureCle } from "../llm/cle-coffre";
 import { invalidateCache as oublierFenetres } from "../llm/fenetre-contexte";
 import { testConnector } from "../llm/fournisseurs/decouverte";
 import { invalidate as oublierCapacites } from "../llm/fournisseurs/llama-capacites";
@@ -51,6 +52,7 @@ import { oublierServeur } from "../llm/ordonnanceur/process";
 import { dernierRapportIntegre, sonderMoteur } from "../llm/sonde-moteur";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { exigerLectureConsole } from "./garde-console";
+import { acteurDe } from "./secrets";
 import { corpsJsonValeurs, entrees, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
 export interface DependancesAdminLlm {
@@ -73,6 +75,13 @@ function route(
 
 export function auditer(req: FastifyRequest, action: string, details: Dict, reussi = true): void {
   auditerRequete(req, action, details, reussi ? {} : { issue: "failure" });
+}
+
+/** Échec d'écriture d'un connecteur : refus du coffre avec son statut, sinon 503 ; jamais la valeur de la clé. */
+export function refusStockage(prefixe: string, e: unknown): HttpError {
+  const refus = refusEcritureCle(e);
+  if (refus !== null) return new HttpError(refus.statut, `${prefixe} : ${refus.message}`);
+  return new HttpError(503, `${prefixe} : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`);
 }
 
 /** `(data.get("api_key") or "").strip()` : un texte, AttributeError (500) pour une autre valeur vraie. */
@@ -135,25 +144,26 @@ async function creerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): P
   const apiKey = cleApi(data);
   let cid: number;
   try {
-    cid = await createConnector(dep.base, {
-      scope: "shared",
-      owner_user_id: null,
-      api_key: apiKey,
-      provider_type: champs["provider_type"] as string,
-      wire: champs["wire"] as string,
-      base_url: champs["base_url"] as string,
-      label: champs["label"] as string,
-      default_model: champs["default_model"] as string,
-      models_json: champs["models_json"] as string,
-      context_window: champs["context_window"],
-      max_models: champs["max_models"],
-      max_concurrency: champs["max_concurrency"],
-    });
-  } catch (e) {
-    throw new HttpError(
-      503,
-      `Stockage impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
+    cid = await createConnector(
+      dep.base,
+      {
+        scope: "shared",
+        owner_user_id: null,
+        api_key: apiKey,
+        provider_type: champs["provider_type"] as string,
+        wire: champs["wire"] as string,
+        base_url: champs["base_url"] as string,
+        label: champs["label"] as string,
+        default_model: champs["default_model"] as string,
+        models_json: champs["models_json"] as string,
+        context_window: champs["context_window"],
+        max_models: champs["max_models"],
+        max_concurrency: champs["max_concurrency"],
+      },
+      acteurDe(req),
     );
+  } catch (e) {
+    throw refusStockage("Stockage impossible", e);
   }
   auditer(req, "llm.connector.create", {
     connector_id: cid,
@@ -176,12 +186,9 @@ async function modifierConnecteur(dep: DependancesAdminLlm, req: FastifyRequest)
   Object.assign(champs, champsDeLimites(data));
   let ok: boolean;
   try {
-    ok = await updateSharedConnector(dep.base, cid, champs);
+    ok = await updateSharedConnector(dep.base, cid, champs, acteurDe(req));
   } catch (e) {
-    throw new HttpError(
-      503,
-      `Mise à jour impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
-    );
+    throw refusStockage("Mise à jour impossible", e);
   }
   if (!ok) throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
   auditer(req, "llm.connector.update", { connector_id: cid, scope: "shared" });
@@ -192,7 +199,8 @@ async function modifierConnecteur(dep: DependancesAdminLlm, req: FastifyRequest)
 
 async function supprimerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): Promise<Dict> {
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
-  if (!(await deleteSharedConnector(dep.base, cid))) throw new HttpError(404, "Connecteur introuvable");
+  if (!(await deleteSharedConnector(dep.base, cid, acteurDe(req))))
+    throw new HttpError(404, "Connecteur introuvable");
   oublierServeur(connectorKey(cid));
   const purgees = await purgeEngineKey(dep.base, connectorKey(cid));
   auditer(req, "llm.connector.delete", {

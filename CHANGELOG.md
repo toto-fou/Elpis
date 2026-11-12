@@ -75,6 +75,31 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
+  or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
+  (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's
+  key the instance secret `image-engine`, reserved to the engine's exact origin by its scope. The
+  forms keep their write-only key field; deleting a connector deletes its secret; rotating or
+  deleting the secret applies at the next turn. At the first start of `main` after the update
+  (admin, the tool host and the commands leave it to `main`), migration
+  `0028_vault_llm_images` moves the Fernet (or clear) keys of `llm_connectors` and
+  `config.json › image.api_key_enc` into the vault, then `image.api_key_enc` is removed from
+  `config.json` and `config.json.bak`; a key that cannot be decrypted is kept and reported, never
+  dropped, and does not hold back the others; without any Fernet key (none is created for this),
+  the Fernet keys wait for a later start. The secrets it creates are reported in the startup log
+  and written to the security journal once committed (`vault.secret.created`), and `main` then
+  compacts the database once (`VACUUM` on SQLite, `VACUUM FULL` of the table on PostgreSQL). A
+  connector whose key cannot be used now says so (`key_error`, "clé à ressaisir" in the console)
+  and is refused instead of being called without a key. These keys now depend on the vault key:
+  run `sudo ./elpis vault setup` first (otherwise the fallback `user_db/.vault.key` is created for
+  them) and back it up apart from the backups (`docs/operations.md`). An unreadable vault key makes
+  the migration fail and wait for the next start, without losing anything. **Rotate the provider
+  keys after the update**: older backups still hold them, encrypted with the old Fernet key.
+  Downgrading is not supported: a key written again by an older version is compared with the
+  vault at the next start, which keeps the vault value. Only the instance secret `image-engine`
+  takes an origins scope among tokens; `./elpis configure` refuses to store a key when run as
+  root. Each connector key counts toward the vault's 200 secrets per owner (the instance's are
+  shared); the policy fields of these secrets are not used.
 - **Git account tokens move to the secrets vault.** The token of each Git account
   (Settings › Git accounts) is now a `git` secret of its owner, scoped to the account's host,
   instead of a plain column: the form's token field is write-only (empty keeps the current

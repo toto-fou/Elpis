@@ -1,48 +1,55 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/enregistreur.ts — /recorder/*: gesture recorder and its script (playwright, cypress, robot, json) written to /work/recordings. */
+/** browser-service/src/routes/enregistreur.ts — /recorder/* : enregistreur de gestes et son script (playwright, cypress, robot, json) écrit dans /work/recordings. */
+import type { Application, Request, Response } from 'express';
 import fs from 'fs';
+
+import type { GesteEnregistre, ServiceContext } from '../contexte.ts';
 import { celluleRobot, commentaireEval, notesDuScript, porteeCadres } from '../recorder_util.ts';
+import type { CibleEnregistree } from '../recorder_util.ts';
 import { intercepteurs } from '../requete.ts';
 import { selectOptionArg } from '../result_util.ts';
 
+/** Requête de /recorder/dump (un type, pas une interface : il doit rester assignable à la Query générique). */
+type QueryDump = {
+    format?: string;
+    session_id?: string;
+};
 
-export function registerRecorderRoutes(app, ctx) {
+export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
 const { getSession } = intercepteurs(ctx);
-app.post('/recorder/start', getSession, async (req, res) => {
-    req.session._recorder = {
+app.post('/recorder/start', getSession, async (req: Request, res: Response) => {
+    req.session!._recorder = {
         recording: true,
         start_ts: Date.now(),
         events: [],
         variables: new Map(),
     };
-    res.json({ status: 'recording', start_ts: req.session._recorder.start_ts });
+    res.json({ status: 'recording', start_ts: req.session!._recorder.start_ts });
 });
 
-app.post('/recorder/stop', getSession, async (req, res) => {
-    if (!req.session._recorder) {
+app.post('/recorder/stop', getSession, async (req: Request, res: Response): Promise<Response | void> => {
+    if (!req.session!._recorder) {
         return res.json({ status: 'not_started', count: 0 });
     }
-    req.session._recorder.recording = false;
+    req.session!._recorder.recording = false;
     res.json({
         status: 'stopped',
-        count: req.session._recorder.events.length,
-        duration_ms: Date.now() - req.session._recorder.start_ts,
+        count: req.session!._recorder.events.length,
+        duration_ms: Date.now() - req.session!._recorder.start_ts,
     });
 });
 
-app.post('/recorder/clear', getSession, async (req, res) => {
-    if (req.session._recorder) {
-        req.session._recorder.events = [];
-        req.session._recorder.variables = new Map();
-        req.session._recorder.start_ts = Date.now();
+app.post('/recorder/clear', getSession, async (req: Request, res: Response) => {
+    if (req.session!._recorder) {
+        req.session!._recorder.events = [];
+        req.session!._recorder.variables = new Map();
+        req.session!._recorder.start_ts = Date.now();
     }
     res.json({ status: 'cleared' });
 });
 
-app.get('/recorder/status', getSession, async (req, res) => {
-    const r = req.session._recorder;
+app.get('/recorder/status', getSession, async (req: Request, res: Response) => {
+    const r = req.session!._recorder;
     res.json({
         recording: !!(r && r.recording),
         count: r ? r.events.length : 0,
@@ -50,16 +57,16 @@ app.get('/recorder/status', getSession, async (req, res) => {
     });
 });
 
-app.get('/recorder/dump', getSession, async (req, res) => {
+app.get('/recorder/dump', getSession, async (req: Request<unknown, QueryDump>, res: Response): Promise<Response | void> => {
     const format = req.query.format || 'playwright';
-    const r = req.session._recorder;
+    const r = req.session!._recorder;
     if (!r || r.events.length === 0) {
         return res.json({ format, count: 0, script: '', warning: 'No events recorded.' });
     }
     const events = r.events;
 
-    function escape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    function targetExpr(evt, fmt, l = evt.locator || {}) {
+    function escape(s: unknown): string { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+    function targetExpr(evt: GesteEnregistre, fmt: string, l: CibleEnregistree = evt.locator || {}): string {
         // l : sélecteur stable relevé (role, name, text, label, css…) ; les cadres de evt.frames préfixent la cible
         if (fmt === 'playwright') {
             const page = porteeCadres(evt.frames, 'playwright', escape);
@@ -97,9 +104,9 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     // Option cliquée d'un choix (pick) : son sélecteur relevé, sinon son texte exact.
-    const optionDe = (e, fmt) => targetExpr(e, fmt, e.option_locator || { text: e.option || '' });
-    const fichiersJs = (e) => `[${(e.files || []).map(f => `'${escape(f)}'`).join(', ')}]`;
-    let script = '';
+    const optionDe = (e: GesteEnregistre, fmt: string) => targetExpr(e, fmt, e.option_locator || { text: e.option || '' });
+    const fichiersJs = (e: GesteEnregistre) => `[${(e.files || []).map(f => `'${escape(f)}'`).join(', ')}]`;
+    let script: string;
     if (format === 'json') {
         script = JSON.stringify(events, null, 2);
     } else if (format === 'playwright') {
@@ -196,11 +203,11 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     const { secret_variables, notes } = notesDuScript(events);
     // Le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
     const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
-    let fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+    let fichier: string | null = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
     try {
         fs.mkdirSync('/work/recordings', { recursive: true });
         fs.writeFileSync(fichier, script);
-    } catch (e) { fichier = null; }
+    } catch { fichier = null; }
     res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });

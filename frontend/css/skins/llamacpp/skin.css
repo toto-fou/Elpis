@@ -395,6 +395,8 @@ body.elpis-skin-llamacpp .elpis-compose-card {
     border-color: var(--lc-input) !important;
     border-radius: var(--radius-xl) !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 /* Bouton envoyer = --primary plein (scopé à la carte pour ne pas toucher les
  * autres boutons bleus de l'app). Le bouton stop reste rouge (destructif). */

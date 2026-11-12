@@ -169,6 +169,8 @@ body.elpis-skin-emeraude .elpis-compose-card {
     border-color: var(--em-border-2) !important;
     border-radius: var(--radius-xl) !important;
     box-shadow: 0 2px 12px rgba(0,0,0,0.35) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 /* Bouton envoyer = vert rond. */
 body.elpis-skin-emeraude .elpis-compose-card .bg-blue-600 {

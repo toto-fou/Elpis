@@ -332,6 +332,8 @@ body.elpis-skin-kiki .elpis-compose-card {
     border-color: var(--cl-border-2) !important;
     border-radius: var(--radius-xl) !important;
     box-shadow: 0 1px 0 rgba(28, 23, 21, 0.06), 0 6px 18px rgba(28, 23, 21, 0.07) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 body.elpis-skin-kiki .elpis-compose-card:focus-within { border-color: var(--cl-clay) !important; }
 body.elpis-skin-kiki .elpis-compose-card .bg-blue-600 {

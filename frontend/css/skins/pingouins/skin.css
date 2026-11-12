@@ -183,6 +183,8 @@ body.elpis-skin-pingouins .elpis-compose-card {
     border-radius: var(--radius-xl) !important;
     box-shadow: 4px 4px 0 var(--tr-yellow), 8px 8px 0 var(--tr-pink) !important;
     transform: rotate(-0.6deg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 body.elpis-skin-pingouins .elpis-compose-card .bg-blue-600 {
     background-color: var(--tr-lime) !important;

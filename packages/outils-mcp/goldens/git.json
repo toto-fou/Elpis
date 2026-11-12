@@ -1955,7 +1955,7 @@
     {
       "name": "git_clone",
       "title": "Git Clone",
-      "description": "v15 \u2014 Clone a git repo (http/https) into the sandbox.\n\nThe clone lands DIRECTLY in the sandbox (or a relative subdir given by\n``into_path``), NOT in ``git_repos/`` anymore (legacy layout).\n\nCREDENTIALS (private repo): NEVER put a token in the URL (rejected). Either:\n  \u2022 pass ``username``/``token`` here (e.g. the user gave them in chat) \u2014 they're\n    used for the clone AND saved for this host, so push/pull/PR reuse them; OR\n  \u2022 register a Git Connector once (Settings \u2192 Git Connectors) for the host.\nTokens are applied via GIT_ASKPASS (never argv/URL/.git-config).",
+      "description": "v15 \u2014 Clone a git repo (http/https) into the sandbox.\n\nThe clone lands DIRECTLY in the sandbox (or a relative subdir given by\n``into_path``), NOT in ``git_repos/`` anymore (legacy layout).\n\nCREDENTIALS (private repo): the token of the Git account registered for the\nhost is used automatically (also by push / pull / git_submit). No tool takes\na token and a token in the URL is rejected: if the clone needs credentials,\nask the user to add a Git account for this host in Settings \u203a Git accounts.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1967,14 +1967,6 @@
             "type": "string"
           },
           "branch": {
-            "default": "",
-            "type": "string"
-          },
-          "username": {
-            "default": "",
-            "type": "string"
-          },
-          "token": {
             "default": "",
             "type": "string"
           }
@@ -2114,142 +2106,6 @@
         "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": true
-      },
-      "_meta": {
-        "category": {
-          "name": "git",
-          "label": "Git",
-          "icon": "ph-git-branch",
-          "color": "slate"
-        },
-        "policy": {
-          "serial": true,
-          "replay_safe": false
-        },
-        "fastmcp": {
-          "tags": [
-            "git"
-          ]
-        }
-      }
-    },
-    {
-      "name": "git_set_credential",
-      "title": "Git Set Credential",
-      "description": "Save git credentials for a host so clone/push/pull/PR use them\nautomatically \u2014 the user provides them ONCE (here in chat, or in the editor),\nkeyed by the HOST of ``target``. No manual connector setup, no host-matching.\n\nUse this when the user hands you a git username + token/PAT for a repo or host.\nAfter this, every git op on that host authenticates without asking again.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "target": {
-            "type": "string"
-          },
-          "token": {
-            "type": "string"
-          },
-          "username": {
-            "default": "",
-            "type": "string"
-          },
-          "provider_type": {
-            "default": "",
-            "type": "string"
-          }
-        },
-        "required": [
-          "target",
-          "token"
-        ],
-        "type": "object"
-      },
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "additionalProperties": true,
-                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
-                "properties": {
-                  "ok": {
-                    "const": false,
-                    "default": false,
-                    "type": "boolean"
-                  },
-                  "error": {
-                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
-                    "type": "string"
-                  },
-                  "message": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "default": null,
-                    "description": "Human-readable error message."
-                  },
-                  "fix": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "default": null,
-                    "description": "Suggested recovery action."
-                  },
-                  "next_action": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "default": null,
-                    "description": "Concrete next tool/arg to try."
-                  },
-                  "retryable": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "default": null,
-                    "description": "True iff a retry might succeed (transient error)."
-                  }
-                },
-                "required": [
-                  "error"
-                ],
-                "type": "object"
-              }
-            ]
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "x-fastmcp-wrap-result": true
-      },
-      "annotations": {
-        "readOnlyHint": false,
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false
       },
       "_meta": {
         "category": {
@@ -2621,45 +2477,6 @@
         },
         {
           "nom": "branch",
-          "annotation": "str",
-          "requis": false,
-          "defaut": ""
-        },
-        {
-          "nom": "username",
-          "annotation": "str",
-          "requis": false,
-          "defaut": ""
-        },
-        {
-          "nom": "token",
-          "annotation": "str",
-          "requis": false,
-          "defaut": ""
-        }
-      ]
-    },
-    "git_set_credential": {
-      "fonction": "git_set_credential",
-      "parametres": [
-        {
-          "nom": "target",
-          "annotation": "str",
-          "requis": true
-        },
-        {
-          "nom": "token",
-          "annotation": "str",
-          "requis": true
-        },
-        {
-          "nom": "username",
-          "annotation": "str",
-          "requis": false,
-          "defaut": ""
-        },
-        {
-          "nom": "provider_type",
           "annotation": "str",
           "requis": false,
           "defaut": ""

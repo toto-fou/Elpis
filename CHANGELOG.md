@@ -75,6 +75,23 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Git account tokens move to the secrets vault.** The token of each Git account
+  (Settings › Git accounts) is now a `git` secret of its owner, scoped to the account's host,
+  instead of a plain column: the form's token field is write-only (empty keeps the current
+  token), changing the host, the service type or the API address without a new token clears the
+  token, "has token" is true only when the token can be used with the current key, and deleting
+  the account deletes its secret. The editor's clone saves typed credentials into the vault; an
+  old `.git-credentials.json` is imported into it as unverified secrets (see Security). Reads
+  (clone, push, pull, PR, connection test) go through the vault and write `vault.secret.used`,
+  with the conversation, sub-agent and routine run of the tool call, and the secret's
+  sub-agent and routine policy applies to them; checking that a token exists (`git_clone`,
+  `git_submit` messages) is not counted as a use. Routine webhook secrets are encrypted in place
+  with the vault key (they must stay readable to check the HMAC of a delivery) and are not
+  listed in Secrets; `./elpis vault status` and `rekey` include them. The first start after the
+  update migrates existing tokens and webhook secrets (migration `0027_vault_git`, applied by
+  `main`); without a usable vault key (unreadable, or missing while secrets exist) it changes
+  nothing, logs an error and is retried at the next start, and a token the vault refuses (an
+  invalid host) stays where it was with a warning.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three
@@ -211,6 +228,11 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **`git_set_credential` and the `username`/`token` arguments of `git_clone`.** No tool takes a
+  Git credential any more: clone, push, pull and `git_submit` use the Git account registered for
+  the repository's host, and when one is missing the error tells the model to ask the user to add
+  it in Settings › Git accounts. The internal route only saves credentials typed in the editor's
+  clone dialog.
 - **Old concurrency limits.** `llm.max_runs_per_user` (a fourth conversation of an account got
   `429 too_many_runs`), `agents.max_parallel` and `agents.background_max` are gone, as is the
   Parallelism section of the subagents page. Values left in `config.json` are ignored; nothing to
@@ -408,6 +430,24 @@ follow [SemVer](https://semver.org/).
   require the attachment, and an `http-auth` secret without a user name is refused before any use
   (`secret_username_required`). The browser service is started with `--use-system-ca`, so the
   login POST replayed by Node trusts an internal CA installed in the system store.
+- **Internal Git routes: account of the signed identity.** `GET /api/internal/git/credential`
+  and `GET /api/internal/git/connector-hosts` took the account from a `user_id` query parameter.
+  They now read it from the signed identity (`X-Elpis-Identity`) like the other internal routes,
+  checked against the account's name in the database (401 without it, 403 when it does not
+  match), and the credential is sent `Cache-Control: no-store`. The service token can still sign
+  any envelope, so this does not protect against a compromised tool host: what it adds is that
+  each call site of the tool host binds the account id to its name and to the tool call
+  (conversation, sub-agent, routine run) that the vault policy and the audit log then see. The
+  tool host keys its 15-second cache by that signed caller, so a parent's entry never serves a
+  sub-agent.
+- **Git tokens planted in the sandbox are not trusted.** An old `/work/.git-credentials.json` can
+  be written by the agent; for a host registered by an administrator, its token used to become
+  an active Git account of the user. Such tokens are now imported as unverified `git` secrets
+  (`meta.source` `sandbox-file`) that are never used until the user verifies them in
+  Settings › Secrets or types the token in Settings › Git accounts.
+- **A Git token never follows its account elsewhere.** Changing the host, the service type or the
+  API address of a Git account without a new token clears its token (a not yet migrated plain
+  token included), so the connection test or a PR cannot send it to another server.
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

@@ -2,12 +2,12 @@
 /** apps/core/src/git/pr.ts — ouverture d'une PR pour l'hôte d'outils (bloc PR de `git_submit`, git_tools.py) : identifiant du compte résolu par hôte, dépôt et branches vérifiés avant l'API, api_base gardée en `critical_only`, appel par le client durci sous échéance, URL de repli ; le jeton de l'API ne quitte jamais main. */
 import { ErreurPython, getPy, prefixePy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import type { Executeur } from "@elpis/db";
+import type { Base } from "@elpis/db";
 import { GIT_REMOTE_SCHEMES } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 
 import { resolveGitCredential } from "./connecteurs";
-import type { IdentifiantGit } from "./connecteurs";
+import type { ContexteGit, IdentifiantGit } from "./connecteurs";
 import { detectProvider } from "./detection";
 import { compareUrlFor, getProvider } from "./fournisseurs";
 import type { Http } from "./fournisseurs";
@@ -63,14 +63,16 @@ function reponseApi(r: Dict): string {
 
 /** Issue de la PR (`outcome` : fallback, blocked_api_base, no_api, failed, opened, error), messages composés par l'hôte ; écart : connecteur générique → `no_api` direct (le Python butait sur `empty_url`). */
 export async function ouvrirPrPourHote(
-  x: Executeur,
+  base: Base,
   uid: number,
   d: DemandePrHote,
   o: {
+    /** Lecture du jeton dans le coffre : acteur et conversation de l'enveloppe signée. */
+    readonly contexte: ContexteGit;
     readonly resoudre?: Resolveur;
     readonly signaler?: (e: unknown) => void;
     readonly echeanceMs?: number;
-  } = {},
+  },
 ): Promise<Dict> {
   try {
     const info = detectProvider(d.remote_url);
@@ -79,7 +81,7 @@ export async function ouvrirPrPourHote(
     const cmp = { host, owner: info?.owner ?? "", repo: info?.repo ?? "", head: d.head, base: d.base };
     let cred: IdentifiantGit | null = null;
     try {
-      cred = await resolveGitCredential(x, uid, d.remote_url);
+      cred = await resolveGitCredential(base, uid, d.remote_url, o.contexte);
     } catch (e) {
       o.signaler?.(e);
     }

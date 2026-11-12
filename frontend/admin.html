@@ -8,6 +8,8 @@
     <title>Elpis — Administration</title>
     <link rel="icon" type="image/png" sizes="32x32" href="static/elpis-32.png">
     <link rel="apple-touch-icon" href="static/elpis-256.png">
+    <!-- Police des icônes préchargée à l'URL que style.css demande : le « ./ » la soustrait à la réécriture des `?v=` vendor du core. -->
+    <link rel="preload" href="./static/vendor/src/regular/Phosphor.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Entrées Vite (frontend/src/entries/, balises écrites par apps/core/src/interface/pages.ts) : le diagnostic de
          démarrage, puis la console. -->
     <!-- @entree diagnostic -->

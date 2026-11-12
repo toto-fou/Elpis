@@ -74,6 +74,7 @@ node tests/perf/ab.mjs --a /arbre/A --b /arbre/B --only a_stream_code --n 3 --la
 | i_boot | démarrage à froid : navigation → montage de Vue | FCP, DCL, montage, requêtes, octets, CPU par fichier, arrivée de la police |
 | h_leak_cycles | N cycles d'un geste qui doit revenir au même état | pente par cycle du tas, des nœuds, des écouteurs, des timers |
 | j_stream_scale | même flux dans des conversations de 40 et 400 messages | lignes rendues + ratios layout/script/tâches (hors matrice : lancé par `tests/frontend/stream-scale-verify.mjs`) |
+| k_stream_fluidite | une réponse Markdown de 3,7 Ko (repère tous les ~120 car.) sur le **vrai cœur** et un faux moteur | image par image, lu après la peinture : cadence, délai reçu → affiché, suivi du bas, fin de tour (hors matrice : lancé par `tests/frontend/stream-fluidity-verify.mjs`) |
 
 Matrice : `reducedMotion ∈ {reduce, no-preference}` × `CPU ×1/×4` (l'OS de
 l'utilisateur est en `reduce` ; les animations CSS ne s'expriment qu'en
@@ -137,6 +138,86 @@ contre 1,94, **23 fps contre 57** — les deux assertions échouent.
 ⚠ **Le TBT est hors verdict, et ne doit pas servir à comparer.** Sur ces
 courses il varie de 363 à 2307 ms pour une charge identique. Ce sont les
 totaux CDP et le nombre de lignes qui sont stables.
+
+## Fluidité du flux (`k_stream_fluidite`)
+
+Le faux serveur ne dit rien de ce que voit un lecteur : cadence du texte, retard sur le flux, tenue du bas du fil,
+fin de réponse. Ce scénario lance le **vrai cœur** (`demarrerCoreReel`, faux moteur : seul le cœur envoie une fin de
+tour complète) et mesure une réponse de 3,7 Ko de Markdown typique (paragraphes, titre, liste lâche avec sous-listes,
+bloc Python de 39 lignes, tableau, citation, bloc sans langage) dont un repère unique (`zq001`, …) revient tous les
+~120 caractères : il date l'arrivée du texte dans le flux et son affichage. Le front doit être construit
+(`npm run build -w @elpis/web`) ; `ELPIS_NODE_MODULES` désigne le `node_modules` qui contient Playwright.
+
+```bash
+node tests/frontend/stream-fluidity-verify.mjs --label base --cpu 4 --runs 2          # deux passes, résumé par passe
+node tests/frontend/stream-fluidity-verify.mjs --label lot --cpu 4 --runs 3 --ref /chemin/arbre-de-reference --verdict
+node tests/frontend/stream-fluidity-verify.mjs --label cout --ref /chemin/ref --sans-echantillonneur --runs 4 --tache-max 0.7
+```
+
+| Option | Effet |
+|---|---|
+| `--cpu N` · `--toks N` · `--rm reduce\|no-preference` | ralentissement du processeur (4), jetons par seconde (60), mouvement réduit (`reduce`) |
+| `--burst MS` | le flux est relâché toutes les MS par une enveloppe de `fetch` dans la page (proxy, fournisseur distant) |
+| `--pensee` | une phase de réflexion précède la réponse |
+| `--remonter` · `--frappe` | l'utilisateur remonte le fil au milieu du flux · tape dans le composeur pendant le flux |
+| `--suite` | mesure le deuxième message d'une conversation (le premier, « Bonjour », sert d'amorce) |
+| `--runs N` · `--label NOM` · `--skin NOM` · `--trace` | passes · dossier `results/NOM/` (un JSON par passe, une ligne de résumé par passe) · skin du compte · décompte des phases de rendu (ralentit la page) |
+| `--arbre CHEMIN` · `--ref CHEMIN` | arbre mesuré (défaut : celui du lanceur) · arbre de référence : les passes alternent référence, candidat, référence… et une table de médianes les compare |
+| `--sans-echantillonneur [--fenetre S]` | coût du fil principal sur S secondes du milieu du flux (CDP seul), sans lecture par image |
+| `--verdict` · `--tache-max R` | code de sortie non nul si une cible du plan n'est pas tenue · avec `--ref`, tâches du fil principal du candidat ≤ R × référence |
+
+Chaque ligne de résultat vient d'une lecture **après la peinture** de l'image (un message `MessageChannel` posté depuis
+`requestAnimationFrame` : lire dans le rappel verrait l'état d'avant les `ResizeObserver`).
+
+| Mesure | Cible (plan de fluidité, section 3) | Lecture |
+|---|---|---|
+| mises à jour par seconde ; caractères par mise à jour (p95) | ≥ 40 et ≤ 6 (≥ 30 et ≤ 12 à 150 jetons/s) | images où la longueur du texte affiché change pendant le flux |
+| reçu → affiché | médiane ≤ 35 ms, p95 ≤ 70 ms | date de lecture d'un repère dans le flux (enveloppe de `fetch`) et première image peinte qui le contient |
+| écart entre deux mises à jour tant que du texte attend | p95 ≤ 50 ms avec `--burst` | longueur rendue du texte reçu, interpolée entre les repères, moins le texte affiché (tolérance 8 car.) |
+| images à plus de 4 px du bas ; reculs | 0 ; 0 | distance au bas du conteneur du fil (parent de `.elpis-chat-col`) lue après chaque peinture |
+| images par seconde ; images de plus de 25 ms | ≥ 57 ; ≤ 2 % | échantillonneur du collecteur (`__perfStartFrames`) |
+| balisage brut | 0 | images en flux dont un bloc hors code contient `**`, un accent grave, ou finit par un marqueur de bloc seul (`#`, `-`, `1.`, `\|`) |
+| tâche longue après `final` | aucune de plus de 50 ms | `PerformanceObserver` `longtask`, de la réception de `final` à +2,5 s |
+| décalage des blocs à la fin | 0 px (1 px d'arrondi) | position de chaque `pre`, titre, tableau et citation à la réception de `final` et 2,5 s après |
+| structure identique avant et après | oui | suite des étiquettes de premier niveau (enveloppes `display: contents` traversées) : l'état d'avant doit être un préfixe de l'état final |
+| frappe → peinture pendant le flux, p95 | ≤ 48 ms | Event Timing, seuil de 16 ms : seuls les événements plus lents sont comptés |
+| tâches du fil principal | −30 % puis ≤ référence | `--ref` avec `--tache-max`, ou `--sans-echantillonneur` |
+
+Le JSON de chaque passe garde aussi les jalons d'envoi (bulle de l'utilisateur, bulle de l'assistant, premier
+indicateur, premier texte), `document.getAnimations()` au milieu du flux, et autour de `final` : tâches longues, pire
+image, nombre de nœuds, étiquettes de premier niveau et position des blocs avant et après.
+
+Référence (2026-11-12, code inchangé de `devs/main`, deux passes par colonne, machine partagée à ~3,5 de charge) :
+
+| | CPU ×4 | CPU ×1 |
+|---|---|---|
+| mises à jour par seconde | 7,6 · 7,6 | 8,2 · 8,1 |
+| caractères par mise à jour, médiane (p95) | 20 (32) · 20 (30) | 18 (29) · 18 (31) |
+| reçu → affiché, médiane / p95 (ms) | 64 / 147 · 62 / 149 | 49 / 125 · 59 / 123 |
+| images à plus de 4 px du bas | 0,6 % · 0,6 % | 0,2 % · 0,3 % |
+| tâche longue après `final` (ms) | 368 · 414 | 101 · 95 |
+| pire image à la fin (ms) | 420 · 473 | 114 · 109 |
+| balisage brut (images, sur ~1 400) | 16 · 23 | 28 · 37 |
+| corps à la fin | 87 → 160 nœuds, 20 → 14 blocs, `pre` +31 px chacun, dernier bloc +64 px | idem |
+
+La seule animation en cours au milieu du flux est `elpis-run-dot` (`box-shadow`, sur le fil principal).
+
+Pièges propres à ce scénario :
+
+- **Pas de GPU sur la VM** : la composition et le flou ne se mesurent pas (voir plus bas) ; le coût d'une animation se
+  lit sans échantillonneur (`--sans-echantillonneur`).
+- **L'échantillonneur coûte du fil principal** (≈ 1,9 s sur 11,9 s de fil occupé à CPU ×4) : les temps absolus ne se
+  comparent qu'entre passes du même banc.
+- **Alterner référence et candidat** (`--ref`) : un autre processus de la machine décale les temps de 30 % et plus, d'une
+  campagne à l'autre comme d'une passe à l'autre ; ne juger qu'une table de médianes de passes alternées, et relancer
+  dans l'ordre inverse si l'écart est faible.
+- Les cibles se lisent sur la réponse du banc à CPU ×4 et 60 jetons/s ; les cibles de la section 3 s'appliquent aussi à
+  CPU ×1 (plus faciles à tenir).
+- Les blocs sont repérés par leurs enveloppes `display: contents` **ou** directement : la forme du corps peut changer
+  sans casser le banc. Le corps en flux est reconnu à `aria-busy="true"`.
+- Le cœur et son faux moteur sont démarrés par `tests/frontend/lib/core-reel.mjs` de l'arbre mesuré, avec une clé de
+  coffre jetable (`ELPIS_VAULT_KEY_PATH` de l'environnement si elle est donnée) et `ELPIS_AUDIT_KEY_PATH=/nonexistent` par
+  défaut : jamais les clés de la machine.
 
 ## Pièges connus
 

@@ -1,52 +1,113 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/inspection.ts — /smart_inspect: page inspection (pw_page inspect), since_step and the vision screenshot. */
+/** browser-service/src/routes/inspection.ts — /smart_inspect : inspection de page (pw_page inspect), since_step et capture de vision. */
 import path from 'path';
+
+import type { Application, Request, Response } from 'express';
+
 import { LARGEUR_VISION, ecrireCapture, visionDemandee } from '../captures.ts';
+import type { ServiceContext } from '../contexte.ts';
 import { documentSansFragment } from '../evenements.ts';
 import { getAllFrames } from '../localisateur.ts';
 import { selecteurUnique, sourceDe } from '../page_util.ts';
+import type { Boite } from '../page_util.ts';
 import { SCREENSHOT_DIR } from '../reglages.ts';
 import { intercepteurs } from '../requete.ts';
 import { compactConsole } from '../result_util.ts';
 
+/** Requête de /smart_inspect. */
+interface QueryInspect {
+    session_id?: string;
+    skip_screenshot?: string;
+    level?: string;
+    viewport_only?: string;
+    max_items?: string;
+    since_step?: string;
+    include_frames?: string;
+    pierce_shadow?: string;
+}
 
-export function registerInspectRoutes(app, ctx) {
+/** Arguments de la collecte exécutée dans la page (et dans chaque cadre). */
+interface ArgsCollecte {
+    level: string;
+    viewportOnly: boolean;
+    maxItems: number;
+    pierceShadow: boolean;
+    srcUnique: string;
+}
+
+/** Élément lu dans la page : les champs de contrôle de formulaire sont indéfinis sur les autres éléments. */
+type Champ = Element & Partial<Pick<HTMLInputElement, 'type' | 'value' | 'disabled' | 'checked' | 'required'>>
+    & Partial<Pick<HTMLSelectElement, 'options' | 'multiple'>> & { onclick?: unknown };
+
+/** Élément listé par inspect ; `frame` et `frame_hint` sont ajoutés côté serveur pour les éléments d'une iframe. */
+interface ItemInspect {
+    idx: number;
+    type: string;
+    text: string;
+    selector: string;
+    role: string;
+    name: string;
+    in_viewport: boolean;
+    detected_by?: string;
+    in_shadow?: boolean;
+    shadow_host?: string;
+    draggable?: boolean;
+    expanded?: boolean;
+    haspopup?: string;
+    controls?: string;
+    active_option?: string;
+    options?: { value: string; label: string; selected: boolean }[];
+    options_truncated?: number;
+    multiple?: boolean;
+    center?: { x: number; y: number };
+    disabled?: boolean;
+    checked?: boolean;
+    value?: string;
+    placeholder?: string | null;
+    href?: string | null;
+    rect?: Boite;
+    color?: string | null;
+    bg?: string | null;
+    selector_quality?: string;
+    frame?: { name: string | null; url: string };
+    frame_hint?: string;
+}
+
+export function registerInspectRoutes(app: Application, ctx: ServiceContext): void {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 // ======================== SMART INSPECT (carte sémantique) ========================
-app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
+app.get('/smart_inspect', getSession, autoSnapshot, async (req: Request<unknown, QueryInspect>, res: Response) => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const sid = req.query.session_id;
         const skipScreenshot = req.query.skip_screenshot === 'true';
         // ── New context-saving knobs (Python side already sends these) ──
-        const level = ['lite', 'nav', 'full'].includes(req.query.level) ? req.query.level : 'lite';
+        const level = ['lite', 'nav', 'full'].includes(req.query.level!) ? req.query.level! : 'lite';
         const viewportOnly = req.query.viewport_only !== 'false';        // default true
-        const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items) || 30, 200));
-        const sinceStep = parseInt(req.query.since_step) || 0;
+        const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items!) || 30, 200));
+        const sinceStep = parseInt(req.query.since_step!) || 0;
         const includeFrames = req.query.include_frames === 'true';
         const pierceShadow = req.query.pierce_shadow !== 'false';       // default true
 
         if (!skipScreenshot) {
-            try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch (e) {}
+            try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch { /* inspection goes on without its screenshot */ }
         }
 
-        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, srcUnique }) => {
-            const unique = new Function(`return (${srcUnique})`)();
-            function toHex(rgb) {
+        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, srcUnique }: ArgsCollecte) => {
+            const unique: typeof selecteurUnique = new Function(`return (${srcUnique})`)();
+            function toHex(rgb: string) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
                 const [r, g, b, a] = m.map(Number);
                 if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+                return '#' + [r, g, b].map(x => Math.round(x!).toString(16).padStart(2, '0')).join('');
             }
 
             // Ids régénérés à chaque rendu — inutilisables comme ancre.
             // NB : `gwt-debug-*` est au contraire l'ID le plus STABLE d'une appli
             // GWT (posé à la main via ensureDebugId) — surtout ne pas l'exclure.
             const GENERATED_ID = /^(:r|ember\d|gwt-uid-|ext-gen|ext-comp-|x-auto-|yui_|mat-\w+-\d|cdk-|radix-|headlessui-|v-\d)/i;
-            function isGeneratedId(id) {
+            function isGeneratedId(id: string) {
                 if (GENERATED_ID.test(id)) return true;
                 // Suffixe purement numérique long derrière un préfixe court :
                 // « panel1234567 », signature classique d'un compteur global.
@@ -55,7 +116,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             }
 
             // ─── buildBestSelector v2 : priorité stricte, jamais has-text sur div ───
-            function buildBestSelector(el) {
+            function buildBestSelector(el: Element): string {
                 const tag = el.tagName.toLowerCase();
 
                 // 1. ID stable (pas auto-généré par un framework)
@@ -125,7 +186,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                             const tagMatches = document.querySelectorAll(tagCandidate);
                             if (tagMatches.length === 1) return tagCandidate;
                             if (tagMatches.length <= 5) return tagCandidate;
-                        } catch(e) {}
+                        } catch { /* invalid class selector: next rule */ }
                     }
                 }
                 // 8. nth-child positionnel (dernier recours, mais stable si DOM fixe)
@@ -134,14 +195,13 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     if (parent) {
                         const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName);
                         if (siblings.length > 1) {
-                            const idx = siblings.indexOf(el) + 1;
                             const parentSel = buildBestSelector(parent);
                             if (parentSel && !parentSel.startsWith(tag)) {
                                 return `${parentSel} > ${tag}:nth-child(${Array.from(parent.children).indexOf(el) + 1})`;
                             }
                         }
                     }
-                } catch(e) {}
+                } catch { /* no positional path: plain tag */ }
                 // 9. Fallback : tag seul (inutilisable seul, mais le LLM a les coords center)
                 return tag;
             }
@@ -151,14 +211,14 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // ScrollPanel GWT est un <div style="overflow:auto"> nu — où
             // buildBestSelector ne peut rendre que « div », qui n'est pas une
             // cible (mesuré en direct le 2026-09-05).
-            function cssPath(el) {
-                const parts = [];
-                let cur = el, depth = 0;
+            function cssPath(el: Element) {
+                const parts: string[] = [];
+                let cur: Element | null = el, depth = 0;
                 while (cur && cur.nodeType === 1 && cur.tagName !== 'HTML' && depth < 40) {
                     const tag = cur.tagName.toLowerCase();
                     if (cur.id && !/^\d/.test(cur.id) && !isGeneratedId(cur.id) && cur.id.length < 60) { parts.unshift(`#${cur.id}`); break; }
                     if (tag === 'body') { parts.unshift('body'); break; }
-                    const parent = cur.parentElement;
+                    const parent: HTMLElement | null = cur.parentElement;
                     if (!parent) { parts.unshift(tag); break; }
                     parts.unshift(`${tag}:nth-child(${Array.from(parent.children).indexOf(cur) + 1})`);
                     cur = parent; depth++;
@@ -166,10 +226,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 return parts.join(' > ');
             }
             // Sélecteur lisible gardé s'il désigne l'élément seul, sinon rendu unique (même règle que pw_observe).
-            function selUnique(el) {
-                try { return unique(el, buildBestSelector(el), buildBestSelector); } catch (e) { return buildBestSelector(el); }
+            function selUnique(el: Element) {
+                try { return unique(el, buildBestSelector(el), buildBestSelector); } catch { return buildBestSelector(el); }
             }
-            function anchoredSelector(el) {
+            function anchoredSelector(el: Element) {
                 // id stable sur l'élément lui-même, sinon chemin positionnel ANCRÉ
                 // (id d'ancêtre ou body) — jamais un chemin qui part d'un « tbody »
                 // flottant ni une classe obscurcie (GWT : `CMWVMEC-p-b`, change
@@ -182,7 +242,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // The model's most robust locator is role=<role>|name=<name>
             // (resolves to Playwright getByRole). Expose both explicitly so
             // it never has to guess from `type`/`text`.
-            function axRole(el) {
+            function axRole(el: Element) {
                 const explicit = el.getAttribute('role');
                 if (explicit) return explicit.trim().toLowerCase();
                 const tag = el.tagName.toLowerCase();
@@ -201,8 +261,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 return '';
             }
             // Nom de plus de 80 caractères coupé avec « … » (jamais vidé) : name=<début>… reste une cible (préfixe).
-            const borneNom = (t) => (t.length > 80 ? `${t.slice(0, 79)}…` : t);
-            function axName(el) {
+            const borneNom = (t: string) => (t.length > 80 ? `${t.slice(0, 79)}…` : t);
+            function axName(el: Champ) {
                 // Accessible-name priority: aria-label > aria-labelledby >
                 // associated <label> > control text > placeholder/title/alt.
                 try {
@@ -236,7 +296,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     }
                     return borneNom(((el.getAttribute('placeholder') || el.getAttribute('title')
                              || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').replace(/\s+/g, ' ').trim());
-                } catch (e) { return ''; }
+                } catch { return ''; }
             }
 
             // ─── Éléments interactifs ───
@@ -271,7 +331,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // Classes de widget des frameworks à base de <div> les plus répandus.
             const WIDGET_CLASS = /(^|\s)(gwt-|x-btn|x-grid|x-tool|x-tab|v-button|v-select|dijit|z-button|ui-button|ui-menu-item|mdc-button|mat-button|ant-btn|el-button|btn|button|clickable|link|menu-item|list-item|option|tab)/i;
 
-            function heuristicallyInteractive(el, cs) {
+            function heuristicallyInteractive(el: Champ, cs: CSSStyleDeclaration) {
                 if (cs.cursor === 'pointer') return 'cursor';
                 if (typeof el.onclick === 'function') return 'onclick-prop';
                 const cls = typeof el.className === 'string' ? el.className : '';
@@ -279,22 +339,22 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 return null;
             }
 
-            const seen = new WeakSet();
-            const interactives = [];
-            const heuristicPool = [];
+            const seen = new WeakSet<Element>();
+            const interactives: ItemInspect[] = [];
+            const heuristicPool: { el: Champ; why: string }[] = [];
             let idx = 0;
-            const _semantic = Array.from(document.querySelectorAll(interactiveQuery));
+            const _semantic = Array.from(document.querySelectorAll<Champ>(interactiveQuery));
             // ── Shadow DOM (ouvert) ────────────────────────────────────
             // querySelectorAll ne traverse JAMAIS un shadow root : un composant
             // web (ou GWT encapsulé) était invisible à inspect — mesuré
             // /shadowdom : 0 élément utile alors qu'eval voyait tout (audit
             // tools web 2026-09-05). Playwright, lui, perce les shadow roots
             // ouverts (css, text=, getByRole) : les cibles restent actionnables.
-            const _shadowHosts = [];
-            const _inShadow = new WeakMap();   // el → sélecteur de l'hôte
-            const _shadowContent = [];         // {hostSel, text, interCount} par hôte
+            const _shadowHosts: Element[] = [];
+            const _inShadow = new WeakMap<Element, string>();   // el → sélecteur de l'hôte
+            const _shadowContent: { hostSel: string; text: string; interCount: number }[] = [];   // {hostSel, text, interCount} par hôte
             if (pierceShadow) {
-                const shadowText = (sr) => {
+                const shadowText = (sr: ShadowRoot) => {
                     let t = '';
                     try {
                         const it = document.createTreeWalker(sr, NodeFilter.SHOW_TEXT, {
@@ -304,18 +364,18 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                                     ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
                             },
                         });
-                        let n; while ((n = it.nextNode())) t += n.textContent + ' ';
-                    } catch (e) {}
+                        let n: Node | null; while ((n = it.nextNode())) t += n.textContent + ' ';
+                    } catch { /* no text preview */ }
                     return t.replace(/\s+/g, ' ').trim();
                 };
-                const walkShadow = (root, depth) => {
+                const walkShadow = (root: Document | ShadowRoot, depth: number) => {
                     if (depth > 4) return;
                     for (const host of root.querySelectorAll('*')) {
                         const sr = host.shadowRoot;
                         if (!sr) continue;
                         _shadowHosts.push(host);
                         const hostSel = selUnique(host);
-                        const inter = sr.querySelectorAll(interactiveQuery);
+                        const inter = sr.querySelectorAll<Champ>(interactiveQuery);
                         for (const el of inter) {
                             if (!_inShadow.has(el)) { _inShadow.set(el, hostSel); _semantic.push(el); }
                         }
@@ -324,15 +384,15 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         walkShadow(sr, depth + 1);
                     }
                 };
-                try { walkShadow(document, 0); } catch (e) {}
+                try { walkShadow(document, 0); } catch { /* the shadow roots read so far are kept */ }
             }
             const _semanticSet = new WeakSet(_semantic);
             // ── Conteneurs défilables ──────────────────────────────────
             // Une appli GWT défile DANS des ScrollPanel, jamais la page : le
             // modèle doit les voir pour cibler `scroll target=css=…`.
             const SCROLL_TAGS = new Set(['DIV', 'SECTION', 'TD', 'LI', 'MAIN', 'ARTICLE', 'UL', 'OL', 'TABLE', 'TBODY', 'ASIDE', 'FORM', 'NAV']);
-            const _scrollables = [];
-            const noteScrollable = (el, cs) => {
+            const _scrollables: { el: Element; area: number; r: DOMRect }[] = [];
+            const noteScrollable = (el: Element, cs: CSSStyleDeclaration) => {
                 if (!SCROLL_TAGS.has(el.tagName) || _scrollables.length >= 20) return;
                 if (!/(auto|scroll)/.test(cs.overflowY) || el.scrollHeight <= el.clientHeight + 2) return;
                 // GWT garde un <div overflow:scroll> en visibility:hidden pour mesurer
@@ -343,15 +403,15 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 _scrollables.push({ el, area: r.width * r.height, r });
             };
             for (const el of document.querySelectorAll('main, article, ul, ol, table, tbody, aside, form, nav')) {
-                let cs; try { cs = window.getComputedStyle(el); } catch (e) { continue; }
+                let cs: CSSStyleDeclaration; try { cs = window.getComputedStyle(el); } catch { continue; }
                 noteScrollable(el, cs);
             }
             // Passe heuristique : on ne balaie que les conteneurs plausibles
             // (pas tout le DOM), et on écarte tout ce qui contient déjà un
             // candidat sémantique — sinon un <div> englobant un <button> serait
             // listé à sa place et le modèle cliquerait à côté.
-            for (const el of document.querySelectorAll('div, span, td, li, i, img, p, label, section, a')) {
-                let cs; try { cs = window.getComputedStyle(el); } catch (e) { continue; }
+            for (const el of document.querySelectorAll<Champ>('div, span, td, li, i, img, p, label, section, a')) {
+                let cs: CSSStyleDeclaration; try { cs = window.getComputedStyle(el); } catch { continue; }
                 noteScrollable(el, cs);
                 if (_semanticSet.has(el)) continue;
                 const why = heuristicallyInteractive(el, cs);
@@ -363,8 +423,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // Garder le nœud le plus EXTÉRIEUR de chaque chaîne heuristique :
             // sur `<div class="x-btn"><table><td class="x-btn-text">`, la cible
             // utile est le conteneur qui porte le handler, pas la cellule.
-            const _hSet = new WeakSet(heuristicPool.map(h => h.el));
-            const _why = new WeakMap(heuristicPool.map(h => [h.el, h.why]));
+            const _hSet = new WeakSet<Element>(heuristicPool.map(h => h.el));
+            const _why = new WeakMap<Element, string>(heuristicPool.map(h => [h.el, h.why]));
             const _heuristic = heuristicPool
                 .filter(h => {
                     let p = h.el.parentElement, hops = 0;
@@ -410,7 +470,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 else if (tag === 'textarea') elemType = 'textarea';
 
                 const sel = selUnique(el);
-                const item = {
+                const item: ItemInspect = {
                     idx: idx++, type: elemType, text, selector: sel,
                     role: axRole(el), name: axName(el),
                     in_viewport: rect.top >= -50 && rect.top < window.innerHeight + 50,
@@ -496,7 +556,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 
             // ─── Formulaires (nav+full only) ───
             const forms = (level === 'lite') ? [] : Array.from(document.querySelectorAll('form')).map((form, i) => {
-                const fields = Array.from(form.querySelectorAll('input, select, textarea')).map(f => ({
+                const fields = Array.from(form.querySelectorAll<Champ>('input, select, textarea')).map(f => ({
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
@@ -516,7 +576,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // ─── Tableaux (tous niveaux, 10 au plus) : en-têtes <th>, sinon la première ligne, sinon aucun ───
             const _tables = Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]'));
             const tables = _tables.slice(0, 10).map((t, i) => {
-                const net = (c) => (c.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 60);
+                const net = (c: Element) => (c.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 60);
                 const lignes = Array.from(t.querySelectorAll('tr, [role="row"]'));
                 const th = Array.from(t.querySelectorAll('th, [role="columnheader"]'));
                 const premiere = lignes[0] ? Array.from(lignes[0].querySelectorAll('td, th, [role="cell"], [role="gridcell"]')) : [];
@@ -528,7 +588,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             });
 
             // ─── Structure sémantique (nav+full) ───
-            const regions = {};
+            const regions: Record<string, { found: boolean; text_preview?: string; rect?: Boite }> = {};
             if (level !== 'lite') {
                 const regionMap = {
                     header: 'header, [role="banner"]',
@@ -584,8 +644,9 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                      ...(shadow.length ? { shadow } : {}) };
         };
 
+        type Collecte = ReturnType<typeof collectFn> & { frames_read?: number; frames_total?: number };
         const srcUnique = sourceDe(selecteurUnique);
-        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, srcUnique });
+        const data: Collecte = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, srcUnique });
 
         // ── Contenu des iframes ───────────────────────────────────────────
         // page.evaluate ne s'exécute QUE dans la frame principale : tout ce qui
@@ -601,13 +662,13 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             for (const f of kids) {
                 if (data.interactives.length >= maxItems) break;
                 const budget = maxItems - data.interactives.length;
-                let sub = null;
+                let sub: Collecte | null = null;
                 try {
                     sub = await Promise.race([
                         f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow, srcUnique }),
-                        new Promise(r => setTimeout(() => r(null), 3000)),
+                        new Promise<null>(r => setTimeout(() => r(null), 3000)),
                     ]);
-                } catch (e) { sub = null; }
+                } catch { sub = null; }
                 if (!sub || !Array.isArray(sub.interactives)) continue;
                 framesRead++;
                 for (const it of sub.interactives) {
@@ -625,7 +686,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
         // Compare the current set of (selector|type|text) tuples against the
         // previous snapshot stored on the session under `_inspectSnapshots`.
         // Returns only the items that are new or whose key changed since `step`.
-        const s = req.session;
+        const s = req.session!;
         s._inspectSnapshots = s._inspectSnapshots || {}; // step -> Set<key>
         const currentKeys = new Set(data.interactives.map(it => `${it.selector}|${it.type}|${it.text}`));
         // Snapshot the current state under the upcoming step number for future diffs.
@@ -635,7 +696,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
         s._inspectSnapshots[upcomingStep] = currentKeys;
         // Bound the snapshot history so it can't grow forever (keep last 20)
         const snapKeys = Object.keys(s._inspectSnapshots).map(Number).sort((a, b) => a - b);
-        while (snapKeys.length > 20) { delete s._inspectSnapshots[snapKeys.shift()]; }
+        while (snapKeys.length > 20) { delete s._inspectSnapshots[snapKeys.shift()!]; }
 
         let filteredInteractives = data.interactives;
         let diffMeta = null;
@@ -664,9 +725,9 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             screenshot: skipScreenshot ? null : `smart_${sid}.png`,
             ...(vision ? { vision_screenshot: vision } : {}),
             // Répétitions compactées en « (×N) » (audit tools web 2026-09-05).
-            console_errors: compactConsole((req.session.consoleLogs || [])
+            console_errors: compactConsole((req.session!.consoleLogs || [])
                 .filter(e => e.doc === documentSansFragment(page.url())).map(e => e.line), 5),
         });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 }

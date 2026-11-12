@@ -971,8 +971,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     // Capture : avant tout stopPropagation des lignes de l'arbre.
     document.addEventListener("drop", importBac.finDeGlisser, true);
     document.addEventListener("visibilitychange", n.appliquerBadgeTitre);
-    await m.auth?.loadPublicConfig();
-    await m.auth?.checkAuth();
+    await m.auth?.checkAuth(m.auth.loadPublicConfig());
     if (so.reprendreOAuth()) return;
     if (!user.value) return;
     m.chat?.connectSystemEvents();

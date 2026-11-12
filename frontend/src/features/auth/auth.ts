@@ -184,10 +184,13 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     }
   }
 
-  async function relireSession(): Promise<void> {
+  async function relireSession(configEnCours?: Promise<unknown>): Promise<void> {
     const adminOnly = !!fen().__ADMIN_ONLY_MODE__;
+    const generation = session.generation;
     const r = await http.requete("/api/me-lite", {}, { schema: schemaReponseMoi, sans401: true });
-    if (r.type !== "ok") return;
+    // La configuration publique est appliquée avant la session, quel que soit l'ordre des réponses.
+    await configEnCours;
+    if (r.type !== "ok" || !session.estCourante(generation)) return;
     const data = r.valeur;
     if (data.logged_in) {
       const compte: Compte = {
@@ -204,9 +207,10 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
         isAdminView.value = true;
         lancer(ctx.loadSettingsData);
       } else {
-        await ctx.loadChatsList?.();
+        const liste = ctx.loadChatsList?.();
         lancer(ctx.loadSettingsData);
         lancer(ctx.loadSandboxFiles);
+        await liste;
       }
     } else if ("must_change_password" in data) {
       session.motDePasseAChanger();
@@ -219,15 +223,16 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     }
   }
 
-  /** Relit `/api/me-lite` ; une réponse partie avant un changement de session est ignorée (génération). */
-  async function checkAuth(): Promise<void> {
+  /** Relit `/api/me-lite`, au besoin pendant que la configuration publique charge ; une réponse partie avant un changement de session est ignorée (génération). */
+  async function checkAuth(configEnCours?: Promise<unknown>): Promise<void> {
+    const config = configEnCours?.catch(() => undefined);
     const secours = sessionEnAttente.value
       ? setTimeout(() => {
           sessionEnAttente.value = false;
         }, DELAI_SESSION_MS)
       : null;
     try {
-      await relireSession();
+      await relireSession(config);
     } finally {
       if (secours !== null) clearTimeout(secours);
       sessionEnAttente.value = false;

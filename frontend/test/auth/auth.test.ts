@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/auth/auth.test.ts — `setupAuth` porté : me-lite, connexion (statuts), réponse tardive, déconnexion volontaire. */
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DELAI_SESSION_MS, setupAuth } from "../../src/features/auth/auth";
@@ -153,6 +153,77 @@ describe("session en attente (carte de connexion)", () => {
     const relecture = auth.checkAuth();
     expect(auth.sessionEnAttente.value).toBe(false);
     await relecture;
+  });
+});
+
+describe("démarrage : configuration publique et session ensemble", () => {
+  const CONFIG = { login_page: { title: "Mon assistant" } };
+
+  it("les deux requêtes partent ensemble ; la configuration est posée avant le compte, quel que soit l'ordre des réponses", async () => {
+    for (const configEnPremier of [true, false]) {
+      const m = fetchManuel();
+      const { auth, refs } = monter(m.fetch);
+      const titreAuMoment: unknown[] = [];
+      watch(refs.user, () => titreAuMoment.push((auth.loginConfig.value as { title?: string }).title), {
+        flush: "sync",
+      });
+      const p = auth.checkAuth(auth.loadPublicConfig());
+      expect(m.appels.map((a) => a.url).sort()).toEqual(["/api/me-lite", "/api/public-config"]);
+      const config = m.appels.find((a) => a.url === "/api/public-config")!;
+      const moi = m.appels.find((a) => a.url === "/api/me-lite")!;
+      if (configEnPremier) config.repondre(json(CONFIG));
+      moi.repondre(json(MOI_A));
+      if (!configEnPremier) {
+        await new Promise((r) => setTimeout(r, 0));
+        expect(refs.user.value).toBeNull();
+        expect(auth.sessionEnAttente.value).toBe(true);
+        config.repondre(json(CONFIG));
+      }
+      await p;
+      expect(refs.user.value?.id).toBe(1);
+      expect(titreAuMoment).toEqual(["Mon assistant"]);
+    }
+  });
+
+  it("configuration en échec : la session est appliquée quand même", async () => {
+    const m = fetchManuel();
+    const { auth, refs } = monter(m.fetch);
+    const p = auth.checkAuth(auth.loadPublicConfig());
+    m.appels.find((a) => a.url === "/api/public-config")!.echouer(new TypeError("Failed to fetch"));
+    m.appels.find((a) => a.url === "/api/me-lite")!.repondre(json(MOI_A));
+    await p;
+    expect(refs.user.value?.id).toBe(1);
+  });
+
+  it("les réglages et l'arbre de la sandbox partent sans attendre la liste des conversations", async () => {
+    let finListe: () => void = () => {};
+    const liste = new Promise<void>((r) => {
+      finListe = r;
+    });
+    const x = monter(reponses({ "/api/me-lite": () => json(MOI_A) }));
+    (x.ctx.loadChatsList as ReturnType<typeof vi.fn>).mockReturnValue(liste);
+    const p = x.auth.checkAuth();
+    await vi.waitFor(() => expect(x.ctx.loadSettingsData).toHaveBeenCalled());
+    expect(x.ctx.loadSandboxFiles).toHaveBeenCalled();
+    let fini = false;
+    void p.then(() => (fini = true));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fini).toBe(false);
+    finListe();
+    await p;
+    expect(fini).toBe(true);
+  });
+
+  it("session changée pendant l'attente de la configuration : le compte n'est pas posé", async () => {
+    const m = fetchManuel();
+    const { auth, refs, session } = monter(m.fetch);
+    const p = auth.checkAuth(auth.loadPublicConfig());
+    m.appels.find((a) => a.url === "/api/me-lite")!.repondre(json(MOI_A));
+    await Promise.resolve();
+    session.motDePasseAChanger();
+    m.appels.find((a) => a.url === "/api/public-config")!.repondre(json(CONFIG));
+    await p;
+    expect(refs.user.value).toBeNull();
   });
 });
 

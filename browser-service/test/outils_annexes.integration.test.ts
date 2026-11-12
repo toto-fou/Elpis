@@ -364,6 +364,24 @@ test("/recorder : mot de passe saisi par /chain masqué", { skip: SAUT, timeout:
 });
 
 test(
+  "/recorder : clic par sélecteur dans la page noté, sans chemin de cadres",
+  { skip: SAUT, timeout: 60000 },
+  async () => {
+    assert.equal((await api("/action", { type: "goto", url: `${SITE}/login` })).status, 200);
+    await api("/recorder/start");
+    const clic = await api("/action", { type: "click", selector: "#username" });
+    assert.equal(clic.status, 200, JSON.stringify(clic.corps));
+    const brut = await lire("/recorder/dump", { format: "json" });
+    const gestes = JSON.parse(brut.script) as { action: string; selector?: string; frames?: string[] }[];
+    assert.ok(
+      gestes.some((e) => e.action === "click" && e.selector === "#username" && !e.frames),
+      brut.script,
+    );
+    await api("/recorder/stop");
+  },
+);
+
+test(
   "/visual : boîtes des zones modifiées, les plus grandes d'abord, et boîte de l'ensemble",
   { skip: SAUT, timeout: 60000 },
   async () => {

@@ -241,19 +241,26 @@ describe("battement : budget", () => {
     const moteur = moteurMarkdown();
     const vrai = moteur.renderStreamingActive;
     const rendu = vi.spyOn(moteur, "renderStreamingActive").mockImplementation((t: string) => {
-      vi.advanceTimersByTime(12);
+      vi.advanceTimersByTime(20);
       return vrai(t);
     });
     await contenu(api, "a");
     await image();
     expect(remplacements()).toBe(1);
-    // 12 ms de coût moyen : une image sur trois.
+    // 20 ms de coût moyen : des images sautées, le texte arrivé entre deux s'accumule.
     const avant = remplacements();
-    for (let k = 0; k < 6; k++) {
+    let plusGros = 0;
+    let longueur = bulle(r)?.content?.length ?? 0;
+    for (let k = 0; k < 9; k++) {
       await contenu(api, "b".repeat(30));
       await image();
+      const nouvelle = bulle(r)?.content?.length ?? 0;
+      plusGros = Math.max(plusGros, nouvelle - longueur);
+      longueur = nouvelle;
     }
-    expect(remplacements() - avant).toBe(2);
+    expect(remplacements() - avant).toBeGreaterThanOrEqual(3);
+    expect(remplacements() - avant).toBeLessThanOrEqual(5);
+    expect(plusGros).toBeGreaterThanOrEqual(40);
     expect(bulle(r)?.content).toMatch(/^ab*$/);
     rendu.mockRestore();
     stop();

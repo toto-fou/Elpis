@@ -20,16 +20,16 @@ function executes(b: ReturnType<typeof creerBudget>, images: number, pas: number
 }
 
 describe("budget du battement", () => {
-  it("sous 5 ms, un battement à chaque image", () => {
-    expect(cadenceApres([1, 2, 3, 4, 5])).toBe(1);
+  it("sous 9 ms, un battement à chaque image", () => {
+    expect(cadenceApres([1, 2, 3, 4, 9])).toBe(1);
     expect(executes(creerBudget(), 60, IMAGE)).toBe(60);
   });
 
-  it("au-dessus de 5 ms, une image sur deux, puis sur trois, jusqu'à une sur six", () => {
-    expect(cadenceApres([6, 6, 6, 6, 6, 6])).toBe(2);
-    expect(cadenceApres([12, 12, 12, 12])).toBe(3);
-    expect(cadenceApres([18, 18, 18, 18])).toBe(4);
-    expect(cadenceApres([40, 40, 40, 40])).toBe(6);
+  it("au-dessus de 9 ms, une image sur deux, puis sur trois, jusqu'à une sur six", () => {
+    expect(cadenceApres([10, 10, 10, 10, 10, 10])).toBe(2);
+    expect(cadenceApres([20, 20, 20, 20])).toBe(3);
+    expect(cadenceApres([30, 30, 30, 30])).toBe(4);
+    expect(cadenceApres([80, 80, 80, 80])).toBe(6);
     expect(cadenceApres([400, 400])).toBe(6);
   });
 
@@ -43,12 +43,12 @@ describe("budget du battement", () => {
 
   it("la cadence ne redescend qu'avec une marge sous le seuil", () => {
     const b = creerBudget();
-    for (let k = 0; k < 8; k++) noterCout(b, 7);
+    for (let k = 0; k < 8; k++) noterCout(b, 12);
     expect(b.cadence).toBe(2);
-    b.moyenne = 4.5;
-    noterCout(b, 4.5);
+    b.moyenne = 8.5;
+    noterCout(b, 8.5);
     expect(b.cadence).toBe(2);
-    for (let k = 0; k < 20; k++) noterCout(b, 2);
+    for (let k = 0; k < 20; k++) noterCout(b, 3);
     expect(b.cadence).toBe(1);
   });
 

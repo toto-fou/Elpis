@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # ─────────────────────────────────────────────────────────────────────
-#  build_offline.sh — Build de elpis/sandbox:1.7.0
+#  build_offline.sh — Build de elpis/sandbox:1.8.0 (base 1.7.0 de ce dossier,
+#  puis la couche du navigateur de deploy/docker/sandbox-browser/)
 #
 #  Deux modes :
 #    • EN LIGNE (défaut, utilisé par ./install.sh) : télécharge les binaires
@@ -36,8 +37,10 @@
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-IMAGE="elpis/sandbox:1.7.0"
-ARCHIVE="elpis-sandbox-1.7.0.tar.gz"
+IMAGE="elpis/sandbox:1.8.0"
+# Base construite par le Dockerfile de ce dossier ; la couche du navigateur (../sandbox-browser) en dérive.
+BASE_IMAGE="elpis/sandbox:1.7.0"
+ARCHIVE="elpis-sandbox-1.8.0.tar.gz"
 # Version mikefarah de yq (Go binary, ~5 MB). Bumper si une CVE sort.
 YQ_VERSION="v4.44.3"
 # Binaires DX / DB vendorisés en 1.5.0 (Go/Rust statiques). Bumper au besoin.
@@ -75,7 +78,7 @@ DO_LOAD=0
 DO_ARCHIVE=0
 
 usage() {
-    sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -417,11 +420,13 @@ fi
 echo "═══ 4. Build de l'image $IMAGE ═══"
 echo "    (la machine de build a internet — apt-get tournera dans le Dockerfile)"
 if [[ "$DO_ARCHIVE" -eq 0 ]]; then
-    docker build --build-arg PIP_ONLINE=1 -t "$IMAGE" .
+    docker build --build-arg PIP_ONLINE=1 -t "$BASE_IMAGE" .
+    docker build --build-arg BASE="$BASE_IMAGE" -t "$IMAGE" ../sandbox-browser
     echo "✓ Image construite dans le daemon local : $IMAGE"
     exit 0
 fi
-docker build --build-arg PIP_ONLINE=0 -t "$IMAGE" .
+docker build --build-arg PIP_ONLINE=0 -t "$BASE_IMAGE" .
+docker build --build-arg BASE="$BASE_IMAGE" -t "$IMAGE" ../sandbox-browser
 
 # ─── 5. Export en .tar.gz ────────────────────────────────────────────
 echo "═══ 5. Export en .tar.gz ═══"

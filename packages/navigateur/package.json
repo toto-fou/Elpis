@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@elpis/bac": "0.1.2",
     "@elpis/commun": "0.1.2",
     "@elpis/config": "0.1.2",
     "@elpis/db": "0.1.2",

@@ -65,8 +65,7 @@ flowchart LR
     main --> toolhost["toolhost :8765<br/>outils MCP"]
     main --> rag["rag_app :8000<br/>extracteur du RAG"]
     main --> qdrant[("Qdrant")]
-    toolhost --> sandbox["sandbox Docker<br/>par utilisateur"]
-    toolhost --> browser["browser-service :3000"]
+    toolhost --> sandbox["sandbox Docker<br/>par utilisateur<br/>(+ browser-service)"]
     main --> db[("SQLite<br/>ou PostgreSQL")]
     admin --> db
 ```

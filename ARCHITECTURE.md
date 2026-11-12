@@ -11,9 +11,9 @@ flow) is in the git history.
 
 Elpis is a self-hosted **multi-process** application: the TypeScript core
 (Node, Fastify) serves the interface and orchestrates the LLM, a tool host
-runs the MCP tools, each user has their own Docker container, and satellite
-services (RAG, browser, screen control, voice) are optional
-and linked by HTTP.
+runs the MCP tools, each user has their own Docker container (where the
+browser also runs), and satellite services (RAG, screen control, voice) are
+optional and linked by HTTP.
 
 | Process | Port | Entry | Role |
 |---|---|---|---|
@@ -21,13 +21,13 @@ and linked by HTTP.
 | **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | admin console and `/api/admin/*`; one process |
 | **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | MCP tool host (streamable HTTP `/mcp[/<family>]`, SSE), sandbox and terminal API; its own database `user_db/toolhost.db`; serves its tool families itself, including Office (Python worker `office/`) |
 | **rag_app** | 8000 (loopback) | `rag_app/start.sh` | RAG extractor (FastAPI, stateless): text, pages, localization, OCR; the RAG itself (collections, permissions, indexing, search) is in the core, with Qdrant :6333 |
-| **browser-service** | 3000 | `browser-service/server.js` | driven browser (Node + Playwright) — optional |
+| **browser-service** | — (Unix socket in each sandbox) | `browser-service/server.js` | driven browser (Node + Playwright), started by the tool host inside each account's sandbox — optional |
 | **desktop-agent** | 8765 (on the controlled machine) | `desktop-agent/` | Windows (pywinauto) / Linux (AT-SPI) screen control — optional |
 | **llama-server** | 8080 | llama.cpp, outside the repository | local inference; or any OpenAI-compatible engine, or a remote provider |
 | **Caddy** | 443 / 8443 | `deploy/caddy/` | HTTPS front end — optional |
 
-`./elpis start` launches qdrant, rag, toolhost, main, admin
-and browser;
+`./elpis start` launches qdrant, rag, toolhost, main and admin (the browser
+starts in each sandbox when its account first uses it);
 `sudo ./elpis service install` turns them into systemd services (`elpis.target`).
 
 ## The path of a message
@@ -164,7 +164,7 @@ container (`/opt/elpis/agent`) and started on demand by the host
   `user_db/.local_mcp_token` + signed identity header.
 - `rag_app/`: RAG extractor, called by `apps/core/src/rag/`.
 - `browser-service/`, `desktop-agent/`: see the process table.
-- `deploy/`: Caddy, sandbox image (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
+- `deploy/`: Caddy, sandbox image (`docker/sandbox/` then `docker/sandbox-browser/`, `elpis/sandbox:1.8.0`),
   Qdrant, remote toolhost, voice (whisper.cpp :8090, Piper :8091),
   configuration wizard (`configure.py`, `wizard.py`, `tui.py`).
 - `install.sh`, `elpis` (operations CLI), `make_release.sh` (offline
@@ -236,7 +236,9 @@ server) — then presents the host with a signed delegation token
 client's token never leaves the relay. The account-bound families
 (memory, tasks, skills, charts) are served by main itself. The **OpenAPI facade** (`apps/core/src/outils/openapi.ts`)
 exposes the same tools over plain HTTP. The **browser** (`browser-service/`)
-goes through a local filtering relay (`proxy_guard.js`, `url_guard.js`).
+runs inside each account's sandbox: its local filtering relay (`proxy_guard.js`)
+reaches the sandbox loopback directly and sends everything else to the account's
+secret relay in the tool host (`packages/navigateur/src/relais.ts`).
 
 ## Invariants
 

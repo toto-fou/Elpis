@@ -3,21 +3,13 @@
 //  proxy_guard.js — relais HTTP local par lequel passe TOUT le trafic du
 //  navigateur (2026-09-30).
 // ============================================================================
-//  Pourquoi : le routage Playwright (context.route) ne voit que la PREMIÈRE
-//  requête d'une chaîne de redirections, et le navigateur résout lui-même les
-//  noms. Une page pouvait donc atteindre la boucle locale ou le réseau interne
-//  de l'hôte par une simple redirection, ou par un nom qui change d'adresse
-//  entre la vérification et la connexion.
-//
-//  Ici, le navigateur est lancé avec ce relais comme proxy (boucle locale
-//  comprise : ``--proxy-bypass-list=<-loopback>``). Pour chaque connexion —
-//  requête http, tunnel CONNECT (https, wss), mise à niveau WebSocket — le
-//  relais résout le nom LUI-MÊME, juge chaque adresse (``verifier``) et se
-//  connecte à l'adresse jugée : redirections, sous-ressources, WebSocket et
-//  changement d'adresse DNS passent tous par le même contrôle.
-//
-//  ``verifier(hote, port)`` → ``{ ok, adresse, motif }`` est injecté (tests
-//  sans réseau ; en service : résolution DNS + url_guard.motifIp).
+//  Le navigateur est lancé avec ce relais comme proxy (boucle locale comprise :
+//  ``--proxy-bypass-list=<-loopback>``) : chaque connexion — requête http,
+//  tunnel CONNECT (https, wss), mise à niveau WebSocket — est jugée par
+//  ``verifier(hote, port)`` → ``{ ok, adresse, amont, motif }`` (en service :
+//  url_guard.verifierBac) ; la boucle locale du bac est jointe à l'adresse
+//  jugée, tout le reste part au relais de l'hôte (``amont``), qui résout, juge
+//  la destination et injecte les secrets.
 // ============================================================================
 import http from 'http';
 import net from 'net';
@@ -70,23 +62,60 @@ function _hotePort(brut, portDefaut) {
 }
 
 function _pageRefus(motif) {
-    const texte = `Adresse refusée par la politique du navigateur : ${motif}. `
-        + 'Le navigateur ne peut joindre que des sites http/https hors de la machine qui héberge Elpis.';
-    return `<!doctype html><meta charset="utf-8"><title>Adresse refusée</title><p>${texte
+    const texte = `Address refused by the browser policy: ${motif}. `
+        + 'The browser reaches only http(s) sites allowed by the sandbox network profile and sites served inside the sandbox (localhost).';
+    return `<!doctype html><meta charset="utf-8"><title>Address refused</title><p>${texte
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`;
+}
+
+// En-tête d'authentification auprès du relais de l'hôte, ligne CRLF comprise ; vide sans jeton.
+function _authAmont(amont) {
+    return amont && amont.jeton ? `Proxy-Authorization: Bearer ${amont.jeton}\r\n` : '';
+}
+
+/**
+ * Tunnel CONNECT ouvert par le relais de l'hôte (socket unix ``amont.socket``) : le socket établi,
+ * ou un rejet portant la réponse brute du relais (``e.reponse``) s'il refuse.
+ */
+export function tunnelAmont(amont, cible) {
+    return new Promise((resolve, reject) => {
+        const s = net.connect(amont.socket);
+        let tampon = Buffer.alloc(0);
+        const echec = (e) => { s.destroy(); reject(e); };
+        const lire = (d) => {
+            tampon = Buffer.concat([tampon, d]);
+            const fin = tampon.indexOf('\r\n\r\n');
+            if (fin < 0) { if (tampon.length > 16384) echec(new Error('réponse du relais trop longue')); return; }
+            s.off('data', lire);
+            s.off('error', echec);
+            const reste = tampon.subarray(fin + 4);
+            if (/^HTTP\/1\.[01] 200/.test(tampon.subarray(0, fin).toString('latin1'))) {
+                if (reste.length) s.unshift(reste);
+                return resolve(s);
+            }
+            s.destroy();
+            reject(Object.assign(new Error('tunnel refusé par le relais'), { reponse: tampon }));
+        };
+        s.on('data', lire);
+        s.once('error', echec);
+        s.write(`CONNECT ${cible} HTTP/1.1\r\nHost: ${cible}\r\n${_authAmont(amont)}\r\n`);
+    });
 }
 
 /**
  * Démarre le relais sur 127.0.0.1 (port libre si ``port`` = 0).
+ * ``amont`` : ``{ socket, jeton }`` du relais de l'hôte, où partent les connexions que
+ * ``verifier`` marque ``amont: true``.
  * → Promise<{ port, close() }>.
  */
-export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) {
+export function demarrerRelais({ verifier, port = 0, journal = () => {}, amont = null } = {}) {
     if (typeof verifier !== 'function') throw new Error('verifier requis');
     const serveur = http.createServer();
 
     async function juger(hote, port) {
         try {
             const v = await verifier(hote, port);
+            if (v && v.ok && v.amont && amont) return v;
             return v && v.ok && v.adresse ? v : { ok: false, motif: (v && v.motif) || 'destination refusée' };
         } catch (e) {
             return { ok: false, motif: 'vérification impossible' };
@@ -103,7 +132,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
             return res.end('Requête de proxy invalide.');
         }
         const hp = _hotePort(cible.host, 80);
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (!v.ok) {
             journal(`refus http ${cible.host} : ${v.motif}`);
             res.writeHead(403, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
@@ -114,19 +143,22 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
             if (!_SAUT_PAR_SAUT.has(k.toLowerCase())) entetes[k] = val;
         }
         entetes.host = cible.host;
-        const amont = http.request({
-            host: v.adresse, port: hp.port, method: req.method,
-            path: cible.pathname + cible.search, headers: entetes, setHost: false,
+        if (v.amont && amont.jeton) entetes['proxy-authorization'] = `Bearer ${amont.jeton}`;
+        const destination = v.amont
+            ? { socketPath: amont.socket, path: cible.href }
+            : { host: v.adresse, port: hp.port, path: cible.pathname + cible.search };
+        const sortant = http.request({
+            ...destination, method: req.method, headers: entetes, setHost: false,
             agent: _agentPour(req.socket),
         }, (r) => {
             res.writeHead(r.statusCode || 502, r.statusMessage, entetesReponse(r.rawHeaders));
             r.pipe(res);
         });
-        amont.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+        sortant.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
         // Le navigateur abandonne (onglet fermé, flux long coupé) : la
         // connexion amont ne doit pas lui survivre.
-        res.on('close', () => { if (!amont.destroyed) amont.destroy(); });
-        req.pipe(amont);
+        res.on('close', () => { if (!sortant.destroyed) sortant.destroy(); });
+        req.pipe(sortant);
     });
 
     // Tunnels (https, wss) : CONNECT hote:port.
@@ -136,21 +168,40 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         // jugement ferait sinon tomber tout le service.
         client.on('error', () => client.destroy());
         const hp = _hotePort(req.url, 443);
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (client.destroyed) return;
         if (!v.ok) {
             journal(`refus tunnel ${req.url} : ${v.motif}`);
             client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n');
             return;
         }
-        const amont = net.connect(hp.port, v.adresse, () => {
+        if (v.amont) {
+            let s;
+            try { s = await tunnelAmont(amont, `${hp.hote.includes(':') ? `[${hp.hote}]` : hp.hote}:${hp.port}`); }
+            catch (e) {
+                if (!client.destroyed) client.end(e.reponse || 'HTTP/1.1 502 Bad Gateway\r\ncontent-length: 0\r\n\r\n');
+                return;
+            }
+            if (client.destroyed) return s.destroy();
             client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-            if (tete && tete.length) amont.write(tete);
-            amont.pipe(client);
-            client.pipe(amont);
+            if (tete && tete.length) s.write(tete);
+            s.pipe(client);
+            client.pipe(s);
+            const coupe = () => { s.destroy(); client.destroy(); };
+            s.on('error', coupe);
+            client.on('error', coupe);
+            client.on('close', coupe);
+            s.on('close', coupe);
+            return;
+        }
+        const direct = net.connect(hp.port, v.adresse, () => {
+            client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+            if (tete && tete.length) direct.write(tete);
+            direct.pipe(client);
+            client.pipe(direct);
         });
-        const fin = () => { amont.destroy(); client.destroy(); };
-        amont.on('error', () => { try { client.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); } catch (_) {} fin(); });
+        const fin = () => { direct.destroy(); client.destroy(); };
+        direct.on('error', () => { try { client.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); } catch (_) {} fin(); });
         client.on('error', fin);
     });
 
@@ -160,69 +211,38 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         let cible;
         try { cible = new URL(req.url); } catch (_) { cible = null; }
         const hp = cible ? _hotePort(cible.host, 80) : null;
-        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'malformed address' };
         if (client.destroyed) return;
         if (!v.ok) { client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n'); return; }
-        const amont = net.connect(hp.port, v.adresse, () => {
-            const lignes = [`${req.method} ${cible.pathname + cible.search} HTTP/1.1`];
+        const relaye = Boolean(v.amont);
+        const ouvrir = (fn) => relaye ? net.connect(amont.socket, fn) : net.connect(hp.port, v.adresse, fn);
+        const amontWs = ouvrir(() => {
+            const lignes = [`${req.method} ${relaye ? cible.href : cible.pathname + cible.search} HTTP/1.1`];
             for (let i = 0; i < req.rawHeaders.length; i += 2) {
                 const k = req.rawHeaders[i];
                 if (/^proxy-/i.test(k)) continue;
                 lignes.push(`${k}: ${req.rawHeaders[i + 1]}`);
             }
-            amont.write(lignes.join('\r\n') + '\r\n\r\n');
-            if (tete && tete.length) amont.write(tete);
-            amont.pipe(client);
-            client.pipe(amont);
+            if (relaye && amont.jeton) lignes.push(`Proxy-Authorization: Bearer ${amont.jeton}`);
+            amontWs.write(lignes.join('\r\n') + '\r\n\r\n');
+            if (tete && tete.length) amontWs.write(tete);
+            amontWs.pipe(client);
+            client.pipe(amontWs);
         });
-        const fin = () => { amont.destroy(); client.destroy(); };
-        amont.on('error', fin);
+        const fin = () => { amontWs.destroy(); client.destroy(); };
+        amontWs.on('error', fin);
         client.on('error', fin);
     });
 
     serveur.on('clientError', (_e, s) => { try { s.end('HTTP/1.1 400 Bad Request\r\n\r\n'); } catch (_) {} });
+    // Connexions ouvertes (tunnels compris), coupées à la fermeture du relais.
+    const ouvertes = new Set();
+    serveur.on('connection', (c) => { ouvertes.add(c); c.once('close', () => ouvertes.delete(c)); });
 
     return new Promise((resolve, reject) => {
         serveur.once('error', reject);
         serveur.listen(port, '127.0.0.1', () => {
-            resolve({ port: serveur.address().port, close: () => new Promise(r => serveur.close(() => r())) });
+            resolve({ port: serveur.address().port, close: () => new Promise(r => { serveur.close(() => r()); for (const c of ouvertes) c.destroy(); }) });
         });
     });
-}
-
-/**
- * Vérificateur de service : résout ``hote`` (sauf adresse littérale), juge
- * CHAQUE adresse avec ``motifIp`` et renvoie la première si toutes passent.
- * ``resoudre`` : ``async (nom) => [adresses]`` ; ``motifIp`` : ``(ip, nom) =>
- * motif|null``.
- */
-export function verifierDepuisPolitique({ resoudre, motifIp, cacheMs = 10000, cacheNegatifMs = 5000,
-                                         max = 2000, maintenant = () => Date.now() }) {
-    // Verdicts par nom, courts (négatifs compris) : une page ouvre des dizaines
-    // de connexions vers les mêmes hôtes, et un résolveur injoignable (site
-    // hors ligne) occuperait sinon le pool de threads à chaque connexion. La
-    // connexion se fait toujours à l'adresse JUGÉE, cache ou non.
-    const cache = new Map();
-    async function _juger(hote) {
-        const litteral = net.isIP(hote) ? [hote] : null;
-        let adresses;
-        try { adresses = litteral || await resoudre(hote); } catch (_) {
-            return { ok: false, motif: `nom introuvable (${hote})` };
-        }
-        if (!adresses || !adresses.length) return { ok: false, motif: `nom introuvable (${hote})` };
-        for (const a of adresses) {
-            const m = motifIp(a, hote);
-            if (m) return { ok: false, motif: m };
-        }
-        return { ok: true, adresse: adresses[0] };
-    }
-    return async (hote, _port) => {
-        const t = maintenant();
-        const e = cache.get(hote);
-        if (e && t < e.expire) return e.v;
-        const v = await _juger(hote);
-        if (cache.size >= max) cache.delete(cache.keys().next().value);
-        cache.set(hote, { v, expire: t + (v.ok ? cacheMs : cacheNegatifMs) });
-        return v;
-    };
 }

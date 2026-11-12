@@ -323,8 +323,8 @@ after. If Elpis is already running, restart it afterwards (`./elpis restart` or
 ```
 
 `start` runs in sequence: Qdrant (6333) → RAG (8000) → MCP tool
-host (8765) → main (8001) → admin (8002) → browser service (3000);
-the account's tools are served by main itself. Main and admin
+host (8765) → main (8001) → admin (8002); the account's tools are served by
+main itself, and the browser is started by the tool host inside each account's sandbox. Main and admin
 listen according to [`security.listen`](#listening-securitylisten) (`127.0.0.1` behind
 Caddy in every case); the RAG extractor and Qdrant listen locally only.
 
@@ -405,7 +405,7 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
 ```
 
 - One unit per service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
-  `elpis-main`, `elpis-admin`, `elpis-browser`), grouped under
+  `elpis-main`, `elpis-admin`), grouped under
   `elpis.target`, started at boot, restarted on failure, logs in
   journald under the tag `elpis-<service>` (`./elpis logs main -f`).
   Rerun `sudo ./elpis service install` after an update that changes the units
@@ -1275,11 +1275,9 @@ must then be removed before recreating an account with the same name.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Browser service (app side) |
-| `FIREFOX_SERVICE_PORT` | `3000` | Browser service listening port |
-| `PW_STATE_MAX_AGE_D` | `30` | Days to keep a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read at browser service startup (`.env`). States from before 0.0.1, with no account, are never purged: see [operations.md](operations.md#upgrading) |
-| `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours to keep browser downloads, HAR files, videos and traces; `0` = never deleted |
-| `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Playwright options |
+| `PW_STATE_MAX_AGE_D` | `30` | Days the browser service of a sandbox keeps a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read in the service's environment, which the tool host does not fill from `.env`: the default applies |
+| `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours the browser service of a sandbox keeps HAR files, videos and traces (downloads in `/work/downloads` are never deleted); `0` = never deleted. Same environment as above |
+| `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `10` (s) / `false` | Playwright options |
 | `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Visual annotation endpoint |
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, annotation prompt |
 | `APP_DESKTOP_*` | see `config.py` | Control agents: timeouts, observation scope, capture format, caps |
@@ -1298,39 +1296,21 @@ must then be removed before recreating an account with the same name.
 | `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Bounded retry of a run |
 | `PTY_MAX_PER_USER` | derived | Terminals per user |
 
-### Controlled browser: allowed destinations
+### Controlled browser
 
-The browser service (`browser-service/`, `pw_*` tools) reaches only
-`http` and `https` addresses (plus `about:blank`). All its traffic — navigation,
-redirects, subresources, WebSocket — goes through a local relay that
-resolves each name itself and connects only to the address it has judged.
-Refused: loopback, link-local (including metadata
-addresses), addresses belonging to the Elpis host, and container
-networks. The local network is allowed by default (intranet). Optional
-allowlist, re-read live: `browser.url_allowlist` in
-`config.json` (or `BROWSER_URL_ALLOWLIST`, separated by commas or
-spaces) — exact hosts, `*.domain`, IP addresses or CIDR blocks; when set, it
-restricts the LOCAL NETWORK to the hosts and networks it names (public
-destinations stay reachable, and the refusals above stay
-absolute). Sessions, saved states,
-downloads and visual references are filed per account; at most 3
-sessions per owner (`BROWSER_MAX_SESSIONS_PER_OWNER`), at most 4 for an account and
-its subagents together (`BROWSER_MAX_SESSIONS_PER_GROUP`, never below the per-owner
-quota), 10 in all for accounts (`BROWSER_MAX_SESSIONS`) and, separately, 6 in all for
-subagents (`BROWSER_MAX_CHILD_SESSIONS`): a subagent never takes an account's place;
-a new session never closes
-another account's session, nor the account's or a sibling's session when a subagent
-is the one asking. Each `task` subagent that drives the browser has its own private session, which
-counts toward its account's group quota, with one place left for the chat's session:
-the chat and three `web` agents fit in the four places by default, and a batch that contains a `web`
-agent launches only three at a time. At the quota, startup is refused with the error `browser_quota` (with
-its `fix`, readable by the model), and the launch of a `web` agent is refused even before it
-tries (`task_unavailable`). Raise `BROWSER_MAX_SESSIONS_PER_GROUP` (simultaneous `web` agents
-+ 1 for the chat's session), and `BROWSER_MAX_CHILD_SESSIONS`
-if several accounts launch `web` agents in parallel.
-Restart the service together with the core. A service or tool host older than the
-core does not know the group quota (each child counts separately) or the
-safe closing of a child's sessions: upgrade them together.
+The browser (`browser-service/`, `pw_*` tools) runs only inside each account's sandbox: the tool
+host starts its service in the container at the account's first `pw_*` call (Docker and the sandbox
+image `elpis/sandbox:1.8.0` are required). It reaches the sandbox loopback directly
+(`http://localhost:<port>`: sites served in `/work`); all its other traffic — navigation, redirects,
+subresources, WebSocket — goes through the account's secret relay in the tool host, which resolves
+each name itself and connects only to the address it has judged. The account's network profile
+decides first (the default `isolated` profile allows nothing outside the sandbox, with a clear
+error); then the browser policy refuses loopback, link-local (including metadata addresses),
+addresses belonging to the Elpis host, and container networks. The local network is allowed by
+default (intranet). Optional allowlist, re-read live: `browser.url_allowlist` in `config.json` —
+exact hosts, `*.domain`, IP addresses or CIDR blocks; when set, it restricts the LOCAL NETWORK to
+the hosts and networks it names (public destinations stay reachable, and the refusals above stay
+absolute).
 
 Sessions, saved states, downloads and visual references stay in the account's sandbox
 (`/work/.elpis-browser`, `/work/downloads`). The service of a sandbox keeps at most 3 sessions per

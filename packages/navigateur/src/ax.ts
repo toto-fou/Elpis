@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques et purges (port de shared_infra/memory/ax/). */
+/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques (identifiants fournis par l'appelant, depuis le coffre) et purges, anciens identifiants `ax_credentials` compris (port de shared_infra/memory/ax/). */
 import {
   BLANC_PY,
   comparePointsDeCode,
@@ -23,7 +23,7 @@ import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
 import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
-import { urlServiceNavigateur } from "./client";
+import { requeteService, serviceNavigateur } from "./mode";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -144,6 +144,17 @@ const cleAvecOrigine = (cle: unknown): boolean => String(cle).includes("://");
 /** Site AX d'une clé d'`ax_credentials`, pour l'affichage et les purges seulement. */
 const siteDeCle = (cle: unknown): string =>
   cleAvecOrigine(cle) ? normalizeUrl(String(cle))[0] : String(cle);
+
+/** Identifiant d'un site montré par la console : nom de connexion, origine exacte, usages ; jamais de valeur. */
+export interface IdentifiantSite {
+  readonly username: string | null;
+  readonly origin: string;
+  readonly use_count: number;
+  readonly last_ok: number | null;
+}
+
+/** Identifiant connu d'un site AX (secret du coffre du compte qui consulte), `undefined` sinon. */
+export type IdentifiantsDesSites = (site: string) => IdentifiantSite | undefined;
 
 /** Identifiants rattachés à un site AX retirés (d'un compte, ou de tous) ; nombre de lignes retirées. */
 async function retirerIdentifiantsDuSite(
@@ -412,27 +423,12 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   });
 }
 
-/** `_render_credentials_hint` : nom de connexion du propriétaire sur ce site, jamais le mot de passe ; rien sans propriétaire. */
-async function indiceIdentifiants(x: Executeur, site: string, proprietaire: string): Promise<string | null> {
-  if (!site || !proprietaire) return null;
-  try {
-    const r = await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-      site,
-      proprietaire,
-    ]);
-    if (r === undefined) return null;
-    return `CREDENTIALS KNOWN: user=${String(r["username"])} (used ${String(r["use_count"])}x, auto-injected by pw_session)`;
-  } catch {
-    return null;
-  }
-}
-
-/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars`. */
+/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars` ; plus d'indice d'identifiants (le coffre les annonce par le bloc `<secrets>`). */
 export async function renderFullDomForPrompt(
   x: Executeur,
   site: string,
   maxChars = 6000,
-  proprietaire = "",
+  _proprietaire = "",
 ): Promise<string> {
   if (!site) return "";
   const dom = await loadDomTree(x, site);
@@ -440,10 +436,11 @@ export async function renderFullDomForPrompt(
   let elements = 0;
   for (const page of dom.values())
     for (const n of page.byId.values()) if (n.node_type === "element") elements++;
-  const lignes = [`KNOWN UI: ${site}`, `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`];
-  const indice = await indiceIdentifiants(x, site, proprietaire);
-  if (indice) lignes.push(indice);
-  lignes.push("");
+  const lignes = [
+    `KNOWN UI: ${cheminInerte(site)}`,
+    `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`,
+    "",
+  ];
   for (const chemin of cheminsTries(dom.keys())) {
     const racines = dom.get(chemin)?.roots ?? [];
     if (racines.length === 0) continue;
@@ -473,7 +470,7 @@ export function detectSitesFromText(text: string | null | undefined): string[] {
   return out;
 }
 
-/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur (2 s) ; `null` au moindre échec. */
+/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur du bac du compte (2 s) ; `null` au moindre échec. */
 export async function detectSessionUrl(
   messages: readonly unknown[] | null | undefined,
   owner = "",
@@ -493,23 +490,20 @@ export async function detectSessionUrl(
   }
   if (!sessionId || !owner) return null;
   try {
-    const base = urlServiceNavigateur();
     const qs = new URLSearchParams({
       session_id: sessionId,
       owner: pwOwner(owner),
       skip_screenshot: "true",
       level: "lite",
     });
-    const delai = AbortSignal.timeout(2000);
-    const r = await fetch(`${base}/smart_inspect?${qs.toString()}`, {
-      method: "GET",
-      signal: signal ? AbortSignal.any([signal, delai]) : delai,
+    const r = await requeteService(serviceNavigateur(owner), `/smart_inspect?${qs.toString()}`, {
+      delaiMs: 2000,
+      ...(signal ? { signal } : {}),
     });
-    if (!r.ok) return null;
-    const data = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(await r.arrayBuffer()));
-    if (!estDict(data)) return null;
-    const url = veritePy(data["url"]) ? data["url"] : data["current_url"];
-    return typeof url === "string" && url ? url : null;
+    if (r.statut !== 200) return null;
+    const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
+    const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
+    return typeof u === "string" && u ? u : null;
   } catch {
     if (signal?.aborted) throw signal.reason;
     return null;
@@ -556,10 +550,11 @@ export async function renderFocusedDomForPrompt(
       .filter((n) => n.node_type === "element")
       .sort((a, b) => (b.last_ok || 0) - (a.last_ok || 0))[0];
   if (courant === undefined) return renderFullDomForPrompt(x, site, maxChars);
-  const lignes = [`KNOWN UI: ${site}`, `FOCUSED ON: [${currentPath}] ${courant.role} "${courant.name}"`];
-  const indice = await indiceIdentifiants(x, site, options.owner ?? "");
-  if (indice) lignes.push(indice);
-  lignes.push("");
+  const lignes = [
+    `KNOWN UI: ${cheminInerte(site)}`,
+    `FOCUSED ON: [${cheminInerte(currentPath)}] ${libelleElement(courant)}`,
+    "",
+  ];
   const ancetres: NoeudDom[] = [];
   for (let n = courant; ancetres.length < 2;) {
     const parent = n.parent_id === null ? undefined : byId.get(n.parent_id);
@@ -632,10 +627,10 @@ function reel(v: unknown): FlottantPy | null {
   return v === null || v === undefined ? null : new FlottantPy(Number(v));
 }
 
-/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants du seul propriétaire, aucun sans propriétaire. */
+/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants donnés par l'appelant (coffre du compte qui consulte), aucun sans lui. */
 export async function listSitesWithStats(
   x: Executeur,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown>[]> {
   try {
     const lignes = await x.all(
@@ -652,12 +647,7 @@ export async function listSitesWithStats(
     for (const r of lignes) {
       const site = r["site"] as string;
       const trans = await x.get("SELECT COUNT(*) AS n FROM ax_transitions WHERE site = ?", [site]);
-      const cred = proprietaire
-        ? await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-            site,
-            proprietaire,
-          ])
-        : undefined;
+      const cred = identifiants?.(site);
       out.push({
         site,
         elements: r["elements"] || 0,
@@ -665,8 +655,9 @@ export async function listSitesWithStats(
         paths: r["paths"] || 0,
         transitions: trans ? trans["n"] : 0,
         has_credentials: cred !== undefined,
-        cred_username: cred ? cred["username"] : null,
-        cred_use_count: cred ? cred["use_count"] : 0,
+        cred_username: cred ? cred.username : null,
+        cred_origin: cred ? cred.origin : null,
+        cred_use_count: cred ? cred.use_count : 0,
         last_activity: reel(r["last_activity"]),
       });
     }
@@ -677,11 +668,11 @@ export async function listSitesWithStats(
   }
 }
 
-/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants du seul propriétaire. */
+/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants donnés par l'appelant (coffre du compte qui consulte). */
 export async function getSiteStats(
   x: Executeur,
   site: string,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown> | null> {
   if (!site) return null;
   try {
@@ -705,12 +696,7 @@ export async function getSiteStats(
       "SELECT COUNT(*) AS n FROM ax_selectors s JOIN ax_nodes n ON s.node_id = n.id WHERE n.site = ?",
       [site],
     );
-    const cred = proprietaire
-      ? await x.get("SELECT username, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?", [
-          site,
-          proprietaire,
-        ])
-      : undefined;
+    const cred = identifiants?.(site);
     return {
       site,
       elements_ok: agg["elements_ok"] || 0,
@@ -722,9 +708,10 @@ export async function getSiteStats(
       first_activity: reel(agg["first_activity"]),
       last_activity: reel(agg["last_activity"]),
       has_credentials: cred !== undefined,
-      cred_username: cred ? cred["username"] : null,
-      cred_use_count: cred ? cred["use_count"] : 0,
-      cred_last_ok: cred ? reel(cred["last_ok"]) : null,
+      cred_username: cred ? cred.username : null,
+      cred_origin: cred ? cred.origin : null,
+      cred_use_count: cred ? cred.use_count : 0,
+      cred_last_ok: cred ? reel(cred.last_ok) : null,
     };
   } catch (e) {
     log().warn(`[ax] get_site_stats failed: ${texte(e)}`);

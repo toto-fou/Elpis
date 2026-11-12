@@ -99,22 +99,17 @@ export function tlsWarning(details, nowS = Date.now() / 1000) {
 }
 
 
-// Indice d'authentification HTTP. Quand un goto aboutit mais que la réponse
-// est 401/407, la page est protégée par une auth Basic/Digest (ou un proxy).
-// Or les credentials se définissent à la CRÉATION du contexte (httpCredentials
-// au pw_session start) — impossible à injecter sur un goto. Sans guidage, le
-// modèle ne comprend pas où mettre les identifiants. On renvoie donc un hint
-// actionnable à coller dans le résultat. null si pas de challenge d'auth.
+// Indice d'authentification HTTP (401/407) joint au résultat, en anglais pour le modèle : aucun outil n'accepte d'identifiant ;
+// un secret http-auth attaché à la conversation s'applique à l'ouverture d'une session sur son origine. null sans défi.
 export function authHint(httpStatus) {
     if (httpStatus === 401) {
-        return "Page protégée par authentification HTTP (401). Les identifiants "
-            + "Basic/Digest se passent à l'OUVERTURE de session, pas au goto : "
-            + "relancez pw_session(action='start', url=…, username=…, password=…) "
-            + "(isolated=true pour un contexte neuf).";
+        return "This page requires HTTP authentication (401). Credentials are never passed to a tool: "
+            + "if a http-auth secret attached to this conversation covers this origin, open the page with "
+            + "pw_session(action='start', url=...) (secret='<name>' if several apply); otherwise ask the user "
+            + "to attach one with /secret attach <name>. Never ask for a password in the chat.";
     }
     if (httpStatus === 407) {
-        return "Authentification PROXY requise (407) : configurez les identifiants "
-            + "du proxy à l'ouverture de session.";
+        return "The proxy requires authentication (407): the browser service cannot authenticate to it; tell the user.";
     }
     return null;
 }

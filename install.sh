@@ -31,8 +31,9 @@
 #    2 ter. hôte d'outils : bundle apps/toolhost/dist (même source ; depuis
 #       les sources, npm ci compile node-pty : build-essential et python3)
 #    3. base de données : préparée (serveur local) et TESTÉE avant la suite
-#    4. service navigateur : npm ci + Chromium (Playwright), sur le Node.js
-#       du core
+#    4. service navigateur : npm ci + headless shell de Chromium et ffmpeg
+#       (Playwright), montés dans la sandbox de chaque compte (seul endroit
+#       où le navigateur tourne)
 #    5. Qdrant (base vectorielle du RAG) : binaire officiel, sha256 vérifié
 #    6. image sandbox Docker : docker build (ou --pull / --offline)
 #    7. facultatif : configuration de Caddy (HTTPS ; son paquet vient de
@@ -55,7 +56,7 @@
 #                                     de ces documents dans la visionneuse du RAG)
 #    --with-caddy  | --no-caddy       frontal HTTPS Caddy
 #    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx ; plus utilisés)
-#    --with-browser | --no-browser    service navigateur (Chromium)
+#    --with-browser | --no-browser    service navigateur (Chromium, dans la sandbox)
 #    --db sqlite|postgres-local|external
 #                                     base de données : fichier SQLite (défaut),
 #                                     PostgreSQL préparé SUR CETTE MACHINE
@@ -358,7 +359,7 @@ fi
 # Option d'install.sh qui retire le composant d'un groupe de deploy/prerequis-apt.txt.
 option_sans() {
     case "$1" in
-        sandbox) echo "--sandbox none" ;; apercus-office) echo "--no-office" ;; navigateur) echo "--no-browser" ;;
+        sandbox) echo "--sandbox none" ;; apercus-office) echo "--no-office" ;;
         https) echo "--no-caddy" ;; postgresql-local) echo "--db sqlite" ;;
         construction-hote) echo "--offline <paquet de cette version>" ;;
     esac
@@ -594,7 +595,7 @@ if [ "$TUI" -eq 0 ]; then
         echo "  Composants facultatifs — Entrée garde la réponse proposée."
     fi
     # Réinstallation : le navigateur reste comme il est, installé ou non.
-    [ -n "$WITH_BROWSER" ] || WITH_BROWSER="$(ask_yn "Service navigateur (Chromium piloté : navigation web par l'assistant) ?" \
+    [ -n "$WITH_BROWSER" ] || WITH_BROWSER="$(ask_yn "Service navigateur (Chromium piloté dans la sandbox : navigation web par l'assistant) ?" \
         "$([ -f "$ROOT/config.json" ] && [ ! -d "$ROOT/browser-service/node_modules" ] && echo 0 || echo 1)")"
     if [ -z "$SANDBOX_MODE" ]; then
         SANDBOX_MODE="$(ask_choice "Image sandbox Docker (terminal, exécution de code) :" "$(sandbox_defaut)" \
@@ -651,7 +652,6 @@ fi
 GROUPES_APT=(socle)
 [ "$SANDBOX_MODE" != none ] && GROUPES_APT+=(sandbox)
 [ "$WITH_OFFICE" -eq 1 ] && GROUPES_APT+=(apercus-office)
-[ "$WITH_BROWSER" -eq 1 ] && GROUPES_APT+=(navigateur)
 [ "$WITH_CADDY" -eq 1 ] && GROUPES_APT+=(https)
 [ "$DB_MODE" = postgres-local ] && GROUPES_APT+=(postgresql-local)
 [ -z "$OFFLINE_DIR" ] && GROUPES_APT+=(construction-hote)
@@ -1004,7 +1004,7 @@ setup_database() {
 # =============================================================================
 #  5 à 7. Navigateur, Qdrant, sandbox, options
 # =============================================================================
-# Navigateur sur le Node.js du core : hors ligne depuis le paquet (bibliothèques en prérequis apt), en ligne avec le npm de l'archive officielle, le temps de l'installation.
+# Navigateur monté dans les sandboxes (ses bibliothèques sont dans l'image) : hors ligne depuis le paquet, en ligne avec le npm de l'archive officielle, le temps de l'installation.
 install_browser() {
     local bs="$ROOT/browser-service" chemin="$ROOT/node/bin:$PATH"
     [ -x "$ROOT/node/bin/node" ] || { note_warn "Node.js du core absent (node/) : service navigateur non installé."; return 0; }
@@ -1012,7 +1012,7 @@ install_browser() {
         [ -d "$OFFLINE_DIR/browser" ] || { note_warn "$OFFLINE_DIR/browser absent : navigateur non installé."; return 0; }
         rm -rf "$bs/offline" && cp -a "$OFFLINE_DIR/browser" "$bs/offline"
         [ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$bs/offline"
-        ( cd "$bs" && as_app env PATH="$chemin" ./install_offline.sh --no-apt ) || note_warn "Installation hors-ligne du navigateur incomplète."
+        ( cd "$bs" && as_app env PATH="$chemin" ./install_offline.sh ) || note_warn "Installation hors-ligne du navigateur incomplète."
         return 0
     fi
     local npm_tmp rc=0

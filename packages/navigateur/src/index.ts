@@ -15,8 +15,30 @@ export {
   trackPwSessionOwnership,
   unregisterPwSessionOwner,
 } from "./session";
-export { browserUrlBlockReason, hostAddresses, refusMessage } from "./url";
-export type { HoteNavigateur, OptionsGardeNavigateur } from "./url";
+export { hostAddresses, jugeRelaisBac, reglagesJugeBac } from "./url";
+export type { HoteNavigateur, OptionsGardeNavigateur, ProfilRelais } from "./url";
+export { cheminsNavigateurBac, jetonDuBac, requeteService, serviceNavigateur, servicesDesBacs } from "./mode";
+export type { ServiceNavigateur } from "./mode";
+export {
+  autoriteARenouveler,
+  chargerAutorite,
+  dossierAutorite,
+  Feuilles,
+  reglagesAutorite,
+} from "./autorite";
+export type { Autorite } from "./autorite";
+export {
+  defisAuth,
+  formesValeur,
+  origineDe as origineDuRelais,
+  Purgeur,
+  reglagesRelaisNavigateur,
+  RelaisNavigateur,
+  remplacerOctets,
+  reponseDigest,
+  valeurPourCorps,
+} from "./relais";
+export type { IdentifiantsRelais, JugeRelais, LiaisonRelais, VerdictRelais } from "./relais";
 export {
   AX_INJECT_MIN_SIGNAL,
   cheminInerte,
@@ -34,6 +56,7 @@ export {
   markSiteStale,
   nomInerte,
   normalizeUrl,
+  origineExacte,
   renderFocusedDomForPrompt,
   renderFullDomForPrompt,
   renderSelector,
@@ -44,17 +67,15 @@ export {
   verrouAx,
   wipeAll,
 } from "./ax";
-export type { NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
+export type { IdentifiantSite, IdentifiantsDesSites, NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
 export {
   extractSelectorsFromKwargs,
   findPath,
-  getCredentials,
   inferRegion,
   isActionSuccess,
   nodeKey,
   recordAction,
   recordInspection,
-  saveCredentials,
   searchNodes,
 } from "./ax-actions";
 export type { Action } from "./ax-actions";
@@ -83,11 +104,9 @@ export {
   pwVerb,
   rappelOnglet,
   refusSessionDAutrui,
-  refusUrl,
   sansAnsi,
   SCREENSHOT_URL_PREFIX,
   screenshotResult,
-  urlServiceNavigateur,
   waitPayload,
 } from "./client";
 export type { Echec, Locateur, OptionsClientNavigateur, OptionsRequete } from "./client";

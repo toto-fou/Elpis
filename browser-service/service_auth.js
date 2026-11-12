@@ -16,3 +16,12 @@ export function refusAppel(req, attendu) {
     return { statut: 401, error: 'Unauthorized: missing or invalid browser service token', code: 'unauthorized' };
 }
 
+/** Middleware Express du jeton `attendu`, à poser avant toute route, statiques comprises. */
+export function gardeJeton(attendu) {
+    return (req, res, next) => {
+        const refus = refusAppel(req, attendu);
+        if (!refus) return next();
+        const { statut, ...corps } = refus;
+        return res.status(statut).json(corps);
+    };
+}

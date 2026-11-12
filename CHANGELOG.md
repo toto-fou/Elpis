@@ -8,6 +8,27 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
+  started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;
+  service, Node runtime and Chromium headless shell mounted read-only; Unix socket and
+  per-sandbox token; idle stop after `browser.sandbox_idle_minutes`). Sites served inside the
+  sandbox are reachable at `http://localhost:<port>`, downloads land in `/work/downloads`,
+  recorder scripts in `/work/recordings`, HAR/trace/video files in `/work/.elpis-browser`. All
+  other traffic goes through a per-account **secret relay** on the host, which applies the
+  sandbox network profile and the browser policy, terminates TLS only for the origins of a secret
+  in use (instance CA, `user_db/browser-relay-ca`), replaces the one-time placeholder typed by
+  `pw_login` with the value only in requests to the secret's origins during the login, answers
+  Basic and Digest challenges itself and scrubs the value from responses: vault values never
+  enter the sandbox. The relay treats the sandbox as hostile: only the service code is mounted,
+  no host-side write follows a link planted in `/run/elpis`, coverage is decided on the checked
+  destination (IP or trailing-dot names included), one submission per login window, HTTP
+  authentication only for the session that asked (binding key, expiry), every common encoding
+  scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with
+  Happy Eyeballs connections, and a 365-day relay CA renewed automatically. When the sandbox
+  cannot serve, the tools answer `browser_sandbox_unavailable` with the cause and its fix (Docker
+  missing or stopped, image missing, browser not installed). `./elpis doctor` and
+  `./elpis logs browser <account>` cover it.
+
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
   to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
@@ -29,6 +50,26 @@ follow [SemVer](https://semver.org/).
   after the chat's chips are loaded, so the chips and the server agree. The console lists the
   instance secrets (*Models & services › Secrets*) with rotation (not for `mcp`); connector keys
   (shared LLM and MCP, image engine) are deleted from their own page.
+- **Secrets in the chat: `/secret` attachment and `pw_login`.** A conversation can now use
+  `web-login` and `http-auth` secrets of the vault that the user attaches to it
+  (`chats.meta_json.secrets`, inherited by its sub-agents when the secret's policy allows them;
+  routines only when it allows routines). The composer sends the set with each turn
+  (`secrets: [ids]`, applied before any tool runs, a new chat included) or through
+  `GET`/`PUT /api/chats/:chat_id/secrets`. The model receives a `<secrets>` block with the
+  question when the set changes (names, kinds, origins and user names, never a value; never in
+  the system prompt). `pw_session(action="start")` opens a session for the attached secret that
+  covers the URL's origin, with the secret's TLS policy (`secret=` picks one; an `http-auth` secret
+  is applied at once, and that session refuses HAR and trace); it is an ordinary session where
+  every tool works. The new `pw_login` (`session_id`, optional `secret`, `username_target`,
+  `password_target`, `submit_target`, `wait_for`) logs in without the model ever receiving the
+  value: the fields are checked first, then the browser service of the sandbox runs the protected
+  login step with a one-time placeholder that the relay replaces with the value, resolved by the
+  core for the frame's origin. `pw_login` only runs in a session opened for
+  a secret (`secret_session_required`) and refuses a secret with verified TLS in a session opened
+  without; sub-agents cannot drive such a session when the secret's policy excludes them; starting
+  again for the same secret reuses it. The model may type credentials it already knows, like any
+  test data. Attaching and detaching are written to the security journal
+  (`vault.secret.attached`, `vault.secret.detached`).
 - **Secrets vault (core).** One store, the `vault_secrets` table, for the secrets an account
   (or the instance, for shared connectors) gives to Elpis: website logins, HTTP authentication,
   Git, LLM and MCP keys, tokens. Each value is encrypted with AES-256-GCM and tagged with the
@@ -49,6 +90,21 @@ follow [SemVer](https://semver.org/).
   the vault routes refuse to delete it (`409 secret_managed`) and to rotate an MCP server's
   secret. **Back the key up separately from the backups** (`docs/operations.md`). **After updating, run
   `sudo ./elpis service install`** so that the other units lose access to the key.
+- **Browser: vault login.** Only the login step is protected; the session around it is an
+  ordinary one (eval, mocks, recorder, exports and captures work before and after). `POST /start`
+  with `tls` keeps that TLS policy for the session's lifetime (certificates verified unless
+  `tls: "insecure"`; plain `http://` origins work), gives it a new context and never reuses it for
+  another start; an `http-auth` secret only reaches the relay (`relay_binding`), and HAR and trace
+  are refused for such a session. New `POST /login_precheck` and `POST /login` type a username
+  and the relay's one-time placeholder into fields that are targeted or detected
+  (`autocomplete`, the single visible password field), checked against the secret's origin.
+  `/login` is one exclusive request: mocks suspended, service workers of the origin removed and
+  blocked, the login page reloaded from the network so that no earlier script sees the typed
+  placeholder, a network guard while it is typed and sent, an outcome check, and the documents
+  that received it replaced by new tabs afterwards; the network log keeps no body during the
+  login and drops the request that carried it. Stable error codes: `secret_login_busy`,
+  `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
+  `secret_not_substituted`.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and
@@ -96,6 +152,21 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Browser refusal messages in English.** An address refused by the browser policy (scheme,
+  malformed address, destination) is reported to the model in English, like the relay's reasons.
+- **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision
+  and the AX session URL use the browser service of the account's sandbox only; it needs Docker,
+  the sandbox image 1.8.0 and the browser files (`./install.sh --with-browser`). A sub-agent
+  session counts within its account's quota (3 per owner, 4 for the account and its sub-agents);
+  at start, main closes the orphaned sub-agent sessions through each sandbox's service. Sandbox
+  containers get the browser mounts and are recreated once on their next use. **After updating,
+  run `sudo ./elpis service install` once**: it removes the old `elpis-browser` unit, which would
+  otherwise keep restarting. What the central service left (`user_db/browser/`, folders in
+  `browser-service/`, `user_db/.browser_service_token`, the packages of the former `navigateur`
+  apt group) is left as it is and no longer used.
+- **Sandbox image 1.8.0.** `elpis/sandbox:1.8.0` is 1.7.0 plus the NSS tools of the browser
+  relay; `build_offline.sh` builds both layers and exports `elpis-sandbox-1.8.0.tar.gz`.
+  Containers are recreated on it at their next use (`/work` is kept).
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's
@@ -121,6 +192,13 @@ follow [SemVer](https://semver.org/).
   takes an origins scope among tokens; `./elpis configure` refuses to store a key when run as
   root. Each connector key counts toward the vault's 200 secrets per owner (the instance's are
   shared); the policy fields of these secrets are not used.
+- **Browser service: the Chromium headless shell and nothing else.** A new installation
+  downloads only the Chromium headless shell and ffmpeg (`playwright install --only-shell
+  chromium`): about 290 MB on disk instead of 710 MB with the full Chromium. They run only in
+  the sandboxes, whose image carries their libraries and fonts: the host needs no browser apt
+  package. The offline package carries the same builds (`browser/`: about 120 MB instead of
+  305 MB) and the sandbox image 1.8.0; `install_offline.sh` only unpacks them.
+  **Existing installations keep their packages and browsers**: nothing is removed.
 - **Git account tokens move to the secrets vault.** The token of each Git account
   (Settings › Git accounts) is now a `git` secret of its owner, scoped to the account's host,
   instead of a plain column: the form's token field is write-only (empty keeps the current
@@ -290,6 +368,34 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **The central browser service.** No browser service runs on the host any more: port 3000,
+  the `browser` service of `./elpis` and its `elpis-browser` unit, `browser.mode` and
+  `browser.sandbox_users` (ignored if left in `config.json`, with one line in the tool host's
+  log), `PLAYWRIGHT_API_URL`, `FIREFOX_SERVICE_PORT`/`HOST`, the browser token file
+  (`user_db/.browser_service_token`, `BROWSER_SERVICE_TOKEN_FILE`), `BROWSER_DATA_DIR`,
+  `BROWSER_URL_ALLOWLIST` (the relay reads `browser.url_allowlist`), `BROWSER_MAX_SESSIONS`,
+  `BROWSER_MAX_CHILD_SESSIONS` and `browser_saturated`, `playwright_api_url` of `toolhost.json`,
+  and the `navigateur` apt group with the `.deb` packages and host test run of the offline
+  browser bundle (`fetch_offline_deps.sh --no-apt`). The service no longer listens on TCP, reads
+  `config.json` or checks addresses itself (the relay judges them), and the guards that only the
+  central service needed are gone with it (POST replay at login, HTTP credentials on `/start`,
+  paused tabs and WebSocket guard during a login, states saved before 0.0.1). `./elpis doctor`
+  checks only the sandbox side.
+- **`username` and `password` of `pw_session`, and the browser's own login memory.** HTTP
+  authentication comes only from an attached `http-auth` secret. On a login form with no attached
+  secret, the model may still type credentials it already knows (given in the chat, or shown on
+  the page for a demo account); they stay in plain text in the chat history, so real accounts
+  belong in the vault.
+  `pw_session` no longer saves or injects site logins (`ax_credentials`); the logins it had saved
+  are imported into the vault as `unverified` secrets named after their host (by the core at
+  each start while rows remain, and by the tool host in the background at startup), then deleted
+  without leaving the passwords in the database file (`secure_delete` and a truncated WAL on
+  SQLite, `VACUUM FULL` of the table on PostgreSQL); encrypted rows wait while the Fernet key is
+  missing, as no key is created to read them. Keys without an origin (older site keys) cannot be
+  imported: they are listed in the logs and the security journal (`vault.ax.imported`). Check
+  the imported secrets in Settings › Secrets before attaching them. A 401 page now tells the
+  model to ask for a secret with `/secret attach <name>`. The AX pages of the console show the
+  logins of the vault.
 - **Firefox, WebKit and the windowed browser.** The browser service runs only the Chromium
   headless shell: `BROWSER_ENGINE`, `BROWSER_FORCE_HEADLESS` and `FIREFOX_FORCE_HEADLESS` are no
   longer read, a `headless` field sent to `/start` is ignored, and `/health` still reports
@@ -331,8 +437,7 @@ follow [SemVer](https://semver.org/).
   startup are removed. An installation still on 0.1.0 goes through
   0.1.2 first.
 - **`./elpis browser`.** Browser states saved before 0.0.1 no longer
-  attach to an account: they are never reloaded, the service reports them
-  at startup, and they are deleted by hand.
+  attach to an account: they are never reloaded, and they are deleted by hand.
 - **`python -m shared_infra.db`**, replaced by `./elpis db`, and
   `docs/ecarts-python.md` (differences from the Python 0.0.1 version).
 
@@ -546,6 +651,12 @@ follow [SemVer](https://semver.org/).
   whether read from the field or from its `value` attribute; `value-equals`, `attr-equals` and
   `attribute_changes` still compare it. Only `type=password` fields are covered: a field shown
   as text by a "show password" toggle is not.
+- **Browser: no HAR or trace with HTTP credentials.** Both store them in clear (the
+  `Authorization` header, the context options), so the browser service refuses to combine
+  `record_har` or `trace` with a username and password (`recording_with_credentials`), for the
+  session's lifetime; a session opened for an `http-auth` secret is such a session. Video
+  recording is unaffected.
+
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

@@ -25,6 +25,7 @@ const _CONTEXTE_EN_NAVIGATION = /Execution context was destroyed|Cannot find con
  *               et en « N strikes » côté reaper.
  *   Un contexte détruit par une navigation n'est pas un crash : la page est resondée dans le même délai.
  */
+
 export async function pingPage(page, ms = 5000) {
     const fin = Date.now() + ms;
     let timer;
@@ -121,7 +122,7 @@ export function sessionsANettoyer(sessions, owner) {
     return sids;
 }
 
-/** Sessions de sous-agents de tous les comptes (propriétaire dérivé ``s_…`` hors de son groupe) ouvertes depuis ``ageMinMs`` au moins ; jamais celle d'un compte. */
+/** Sessions de sous-agents (propriétaire dérivé ``s_…`` hors de son groupe) ouvertes depuis ``ageMinMs`` au moins ; jamais celle du compte. */
 export function sessionsEnfantsAnciennes(sessions, { ageMinMs, now = Date.now() }) {
     const sids = [];
     for (const [sid, s] of sessions) {
@@ -152,46 +153,10 @@ export function stateFileName(owner, stateId) {
     return `state_${o}__${id}.json`;
 }
 
-// États enregistrés avant la 0.0.1 : ``state_<id>.json``, sans propriétaire.
-// Le service ne peut pas deviner à quel compte ils appartiennent : il ne les
-// charge jamais (n'importe quel compte qui connaît l'identifiant obtiendrait
-// la session connectée d'un autre) et ne les purge pas : un administrateur
-// les supprime à la main.
-const _LEGACY_STATE_RE = /^state_[A-Za-z0-9-]{8,64}\.json$/;
-
-/** Nom ancien (sans propriétaire) de l'état ``stateId``, ou ``null``. */
-export function legacyStateFileName(stateId) {
-    const id = String(stateId ?? '');
-    return _STATE_ID_RE.test(id) ? `state_${id}.json` : null;
-}
-
-/** ``name`` est-il un état sans propriétaire ? (jamais un nom par compte) */
-export function isLegacyStateName(name) {
-    return _LEGACY_STATE_RE.test(String(name ?? ''));
-}
-
-/**
- * État à charger au démarrage d'une session de ``owner``. ``exists(nom)``
- * dit si ``cookies/<nom>`` existe ; ``maxAgeDays`` (0 : pas de purge) est
- * rappelé dans le ``fix`` d'un état introuvable. → ``{ file }``, ou
- * ``{ code, error, fix }`` à rendre en 404 : ``legacy_state`` (l'état existe
- * sous l'ancien nom, jamais rechargé) ou ``state_not_found``. L'état d'un autre
- * compte répond comme un état inconnu.
- */
+/** État à charger au démarrage d'une session de ``owner`` (``exists(nom)`` : ``cookies/<nom>`` existe) : ``{ file }``, sinon ``state_not_found`` à rendre en 404, durée de conservation (``maxAgeDays``, 0 : pas de purge) rappelée ; l'état d'un autre compte répond comme un état inconnu. */
 export function resolveStateFile(owner, stateId, exists, { maxAgeDays = 0 } = {}) {
     const nom = stateFileName(owner, stateId);
     if (nom && exists(nom)) return { file: nom };
-    const ancien = nom && legacyStateFileName(stateId);
-    if (ancien && exists(ancien)) {
-        return {
-            code: 'legacy_state',
-            error: "État sauvegardé avant la version 0.0.1 d'Elpis : il n'appartient à aucun "
-                 + 'compte et ne se recharge jamais.',
-            fix: 'Démarrez sans load_state_id (isolated=true si une session est déjà ouverte), '
-               + 'reconnectez-vous au site puis save_state pour un nouvel état. Un administrateur '
-               + `peut supprimer cookies/${ancien}.`,
-        };
-    }
     const purge = maxAgeDays > 0
         ? ` Un état est supprimé ${maxAgeDays} jours après son enregistrement, même s'il sert : `
           + "save_state en crée un nouveau, sous l'identifiant de la session." : '';
@@ -210,29 +175,20 @@ export function safeDownloadName(name) {
     return base.slice(0, 200);
 }
 
-/**
- * Fichiers d'artefacts à purger : plus vieux que ``maxAgeMs``, sauf ceux que
- * ``keep(nom)`` garde. ``entries`` : ``[{ name, mtimeMs }]`` → noms à supprimer.
- */
-export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs, keep } = {}) {
+/** Fichiers d'artefacts à purger (``entries`` : ``[{ name, mtimeMs }]``) : ceux plus vieux que ``maxAgeMs``. */
+export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs } = {}) {
     if (!maxAgeMs || maxAgeMs <= 0) return [];
     return (entries || [])
-        .filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs && !(keep && keep(e.name)))
+        .filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs)
         .map(e => e.name);
 }
 
 
-// Quotas de sessions, lus de l'environnement : `BROWSER_MAX_SESSIONS` (comptes) et `BROWSER_MAX_CHILD_SESSIONS` (sous-agents) pour tout le service,
-// `BROWSER_MAX_SESSIONS_PER_OWNER` (un propriétaire) et `BROWSER_MAX_SESSIONS_PER_GROUP` (le compte et ses sous-agents, jamais sous le quota d'un propriétaire).
+// Quotas de sessions du compte, lus de l'environnement : `BROWSER_MAX_SESSIONS_PER_OWNER` (un propriétaire) et `BROWSER_MAX_SESSIONS_PER_GROUP` (le compte et ses sous-agents, jamais sous le quota d'un propriétaire).
 export function quotasSessions(env = process.env) {
     const lire = (nom, defaut) => Math.max(1, parseInt(env[nom] || String(defaut), 10) || defaut);
     const maxPerOwner = lire('BROWSER_MAX_SESSIONS_PER_OWNER', 3);
-    return {
-        maxTotal: lire('BROWSER_MAX_SESSIONS', 10),
-        maxChildren: lire('BROWSER_MAX_CHILD_SESSIONS', 6),
-        maxPerOwner,
-        maxPerGroup: Math.max(maxPerOwner, lire('BROWSER_MAX_SESSIONS_PER_GROUP', 4)),
-    };
+    return { maxPerOwner, maxPerGroup: Math.max(maxPerOwner, lire('BROWSER_MAX_SESSIONS_PER_GROUP', 4)) };
 }
 
 // Sessions d'un groupe : celles du compte (propriétaire = groupe) et celles de ses sous-agents à session isolée.
@@ -262,14 +218,11 @@ export function placesEnfants(occupation, maxPerGroup) {
 // → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
 export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, maxChildren = maxTotal, now = Date.now() } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
-    const enfant = owner !== group;
     const own = [];
-    let total = 0;
-    for (const [sid, s] of sessions) {
-        if ((!!s && (s.group || s.owner) !== s.owner) === enfant) total += 1;
-        if (s && s.owner === owner) own.push([sid, age(s)]);
-    }
-    own.sort((a, b) => a[1] - b[1]);
+    const protegees = [];
+    for (const [sid, s] of sessions)
+        if (s && s.owner === owner) (cessible(s, sid) ? own : protegees).push([sid, age(s), s.isolated ? 0 : 1]);
+    own.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
     const occupation = occupationGroupe(sessions, group);
     const groupePlein = owner === group
         ? occupation.compte + occupation.enfants >= maxPerGroup
@@ -279,6 +232,5 @@ export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group 
         return { evict: own[0][0], refuse: false };
     }
     if (groupePlein) return { evict: null, refuse: true, cause: 'groupe' };
-    if (total >= plafond) return { evict: null, refuse: true, cause: 'global' };
     return { evict: null, refuse: false };
 }

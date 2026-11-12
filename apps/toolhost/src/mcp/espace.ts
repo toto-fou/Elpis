@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/espace.ts — le `/work` d'un compte par l'agent de son bac (llm_core/tools/_espace.py) : les familles fs, shell, git et desktop n'ouvrent jamais le dossier du bac sur l'hôte. */
 import { bacDeLOutil } from "@elpis/bac";
-import type { PortProfilRappel } from "@elpis/bac";
+import type { PortProfilRappel, UserSandbox } from "@elpis/bac";
 import type { Dict } from "@elpis/commun";
 import {
   AgentError,
@@ -28,10 +28,14 @@ export function brancherRappelProfil(r: PortProfilRappel | null): void {
   rappelProfil = r;
 }
 
+/** Bac du compte pour un outil (id de l'enveloppe, sinon de la base ; profil effectif). */
+export async function bacDuCompteOutil(username: string): Promise<UserSandbox> {
+  return bacDeLOutil(await userIdFor(username), username, rappelProfil);
+}
+
 async function espaceDuBac(username: string): Promise<Espace> {
-  const uid = await userIdFor(username);
-  const bac = await bacDeLOutil(uid, username, rappelProfil);
-  return new Espace(bac.sandboxPath, uid, bac.agent as AgentClient);
+  const bac = await bacDuCompteOutil(username);
+  return new Espace(bac.sandboxPath, bac.userId, bac.agent as AgentClient);
 }
 
 let fabrique: FabriqueEspace = espaceDuBac;

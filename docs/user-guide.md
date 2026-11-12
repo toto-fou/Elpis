@@ -35,6 +35,7 @@
   - [Dictating and listening to replies](#dictating-and-listening-to-replies)
   - [`@file` mentions](#file-mentions)
   - [Slash commands (`/`)](#slash-commands-)
+  - [Logging in to websites](#logging-in-to-websites)
   - [Attachments and images](#attachments-and-images)
   - [Generating images](#generating-images)
   - [Streaming, stop, resume, regenerate](#streaming-stop-resume-regenerate)
@@ -765,9 +766,67 @@ Type `/` at the start of the input:
 | `/image [16:9] [x2] description` | Generate an image directly, without opening Images mode |
 | `/routine [goal]` | Open the routine creation assistant (scoping, then an interview in the chat) |
 | `/rag …` | The chat's document collections: see [In the chat](#in-the-chat) |
+| `/secret …` | Logins the assistant may use in this conversation: see [Logging in to websites](#logging-in-to-websites) |
 
 If your input matches no command, the menu switches
 automatically to skill search.
+
+### Logging in to websites
+
+The assistant can log in to a website for you without ever seeing the password. You keep the
+login in your **vault** ([Settings › Secrets](#secrets)): a name such as `intranet-admin`, its type
+(`web-login` for a login form, `http-auth` for a browser password prompt), the exact addresses
+where it may be used (for example `https://intranet.example.lan:8443`, plus the address of the
+sign-in page when it lives elsewhere), the user name and the password. The password can be
+written, never read back.
+
+A secret is used only in a conversation you attach it to:
+
+| Command | Effect |
+|---|---|
+| `/secret` | Lists the secrets attached to this conversation, then the ones you can attach |
+| `/secret attach <name>…` | Attaches one or more secrets; a chip `secret:<name>` stays above the input |
+| `/secret detach <name>` or `--all` | Detaches them; the × of a chip detaches that secret |
+
+The menu completes the sub-commands and the names: `attach` offers your verified `web-login` and
+`http-auth` secrets that are not attached yet, `detach` offers `--all` then the attached ones.
+Only these two types attach, and an imported secret must first be checked (**Verify** in
+Settings › Secrets); a refusal is shown in one line. In an existing conversation the attachment
+is saved at once; in a new conversation the chips wait in the composer and are saved with your
+first message, before the assistant starts working. Opening a conversation shows its chips
+again. The subagents of the conversation inherit the attachment unless the secret's policy says
+otherwise; routines use a secret only when its policy allows routines.
+
+**What the assistant sees.** With your next message it receives a short list, never a value:
+
+```
+<secrets selection="…">
+Secrets the user attached to this conversation and its sub-agents, from this message on. Values are never shown to you: never ask the user for a password.
+- intranet-admin  web-login  https://intranet.example.lan:8443  user=admin
+…
+</secrets>
+```
+
+When it opens a page on one of these addresses, the browser opens a session for that secret, with
+the certificate check of the secret (verified unless you allowed otherwise); an `http-auth` secret is
+applied at once, and that session cannot be recorded (HAR or trace). Otherwise the session is an
+ordinary one: the assistant keeps all its testing tools there (scripts, mocks, recorder, exports).
+For a login form it calls `pw_login`, the only protected step: the browser, in your sandbox,
+reloads the login page, sets the assistant's mocks aside, checks the form, types the user name and
+a one-time placeholder, submits, then reopens the page in a new tab. Elpis replaces the placeholder
+with the password only on its way to the secret's own site, outside your sandbox. The assistant
+only learns whether the login worked; the password never enters your sandbox and stays out of the
+assistant's view, of recordings and of the network log. A form placed inside another site's frame
+is refused. If the site itself shows the password back on a
+page after the login, that page is the site's content: the assistant can read it like any other. A
+session serves one secret: the assistant goes back to it for that secret instead of opening new
+ones. If a page asks for a login that is not attached, the assistant asks you to attach one with
+`/secret attach <name>`, or to give the credentials in the chat if they are only test data (they then
+stay in plain text in the chat history). Each use is written to the security journal.
+
+Logins that the browser used to remember by itself (before the vault) are moved into it at the
+update, as **unverified** secrets named after their site: check them in Settings › Secrets before
+attaching them.
 
 ### Attachments and images
 

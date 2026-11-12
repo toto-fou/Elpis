@@ -15,12 +15,11 @@ import {
   mergeValue,
   parseTargetDsl,
   recordAction,
-  refusUrl,
   waitPayload,
 } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
-import { ouChamps, ouvrirAppel, rappelOngletActif, urlApres } from "./appel";
+import { ouChamps, ouvrirAppel, rappelOngletActif, refusUrlAppel, urlApres } from "./appel";
 import type { ServicesBrowser } from "./appel";
 import { fichiersUpload } from "./fichiers";
 
@@ -176,7 +175,7 @@ export function pwAct(s: ServicesBrowser) {
     if (Object.hasOwn(NAV, geste)) {
       const url = a["url"] as string;
       if (geste === "goto") {
-        const bloque = await refusUrl(url);
+        const bloque = await refusUrlAppel(o.appel, url);
         if (bloque !== null) return bloque;
       }
       const r = await client.req("POST", "/action", {

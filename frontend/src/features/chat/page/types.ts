@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/page/types.ts — domaines de la page de chat (en-tête, fil, composeur, modèles, images) lus et modifiés par ses composants. */
+import type { Secret } from "@elpis/contracts";
+
 import type { SurfaceChat } from "../coeur/chat";
 import type { PieceJointe } from "../composeur/composeur";
 import type { CacheConversation } from "../coeur/formats";
@@ -168,6 +170,9 @@ export interface DomaineComposeur {
   /** Pastilles des collections RAG actives du chat ; la croix les retire. */
   readonly ragActives: readonly CollectionActiveChat[];
   retirerCollectionRag(id: string): unknown;
+  /** Puces `secret:<name>` des secrets attachés à la conversation ; la croix les détache. */
+  readonly secretsAttaches: readonly Secret[];
+  detacherSecret(id: number): unknown;
   readonly sharedPromptsList: readonly PromptPartage[];
   refreshInboxCount(): unknown;
   triggerFileUpload(): void;

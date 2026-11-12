@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/EpinglesComposeur.vue — collections RAG actives, skills épinglés par /skill et image à modifier, au-dessus de la saisie. -->
+<!-- frontend/src/components/chat/page/EpinglesComposeur.vue — collections RAG actives, secrets attachés, skills épinglés par /skill et image à modifier, au-dessus de la saisie. -->
 <script setup lang="ts">
 import { CLE_COMPOSEUR, CLE_IMAGE, domaine } from "../../../features/chat/page/domaines";
+import { resumeSecret } from "../../../features/secrets/format";
 
 const comp = domaine(CLE_COMPOSEUR);
 const img = domaine(CLE_IMAGE);
@@ -37,6 +38,34 @@ function titreCollection(c: { description: string; auteur: string | null }): str
         :aria-label="`Ne plus interroger ${c.name}`"
         title="Retirer"
         @click="comp.retirerCollectionRag(c.id)"
+      >
+        <i class="ph ph-x" aria-hidden="true"></i>
+      </button>
+    </span>
+  </div>
+  <div
+    v-if="comp.secretsAttaches.length > 0"
+    class="flex flex-wrap gap-1.5 px-3 pt-3 pb-1"
+    role="list"
+    aria-label="Secrets attachés à cette conversation"
+    data-secrets-attaches
+  >
+    <span
+      v-for="s in comp.secretsAttaches"
+      :key="s.id"
+      class="elpis-secret-chip"
+      role="listitem"
+      :title="resumeSecret(s)"
+      :data-secret="s.name"
+    >
+      <i class="ph ph-key elpis-secret-chip__icone" aria-hidden="true"></i>
+      <span class="elpis-secret-chip__nom font-mono">secret:{{ s.name }}</span>
+      <button
+        type="button"
+        class="elpis-secret-chip__retirer"
+        :aria-label="`Détacher le secret ${s.name}`"
+        title="Détacher"
+        @click="comp.detacherSecret(s.id)"
       >
         <i class="ph ph-x" aria-hidden="true"></i>
       </button>

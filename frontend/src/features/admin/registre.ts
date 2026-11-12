@@ -143,6 +143,7 @@ const ENTREES: readonly EntreeAdmin[] = [
         paths: ["mcp."],
       },
       { id: "prompts", label: "Prompts", wide: true, loaders: [["loadSystemPrompts"]] },
+      { id: "secrets", label: "Secrets", wide: true, loaders: [["loadInstanceSecrets"]] },
     ],
   },
   {

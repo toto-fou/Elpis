@@ -32,6 +32,7 @@ export const ARBRE_DEPLIE: readonly GroupeArbre[] = Object.freeze([
       "voice",
       "images",
       "mcp",
+      "secrets",
       "sandbox-agents",
     ],
   },

@@ -22,6 +22,7 @@ import PageRag from "./PageRag.vue";
 import PageSecurite from "./PageSecurite.vue";
 import PageComptes from "./PageComptes.vue";
 import PagePrompts from "./PagePrompts.vue";
+import PageSecrets from "./PageSecrets.vue";
 import PageSandbox from "./PageSandbox.vue";
 import PageSousAgents from "./PageSousAgents.vue";
 import PageEntretien from "./PageEntretien.vue";
@@ -127,6 +128,7 @@ const heure = formateurDate({ timeStyle: "short" });
         <PageSecurite />
         <PageComptes />
         <PagePrompts />
+        <PageSecrets />
         <PageSandbox />
         <PageSousAgents />
         <PageEntretien />

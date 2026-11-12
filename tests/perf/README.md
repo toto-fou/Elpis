@@ -155,3 +155,12 @@ totaux CDP et le nombre de lignes qui sont stables.
    /tmp/fe-harness occupe 8899).
 6. `wrapLibs` doit être appelé après le chargement (les vendors sont des
    `<script>` classiques ; `marked.use()` mute l'instance sans remplacer `parse`).
+7. **Le faux serveur termine ses tours.** Son événement `final` porte les champs
+   obligatoires du contrat du flux (`chat_id`, `run_ids`, `persisted`) : le message
+   quitte l'état de flux et passe par le rendu final. Une campagne faite avec un
+   `final` incomplet (toutes les baselines versionnées de `baselines/` en datent) ne
+   comptait ni la coloration, ni le rendu final, ni l'enrichissement du message dans
+   les scénarios `a_stream_code`, `b_stream_longchat`, `f_stream_tools` et
+   `g_compress_burst` : elle ne se compare plus à une campagne récente sur la fenêtre
+   complète (TBT, tâches, `hljs`). Refaire la référence avec le même arbre avant
+   de juger un correctif.

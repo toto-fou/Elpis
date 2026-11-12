@@ -76,10 +76,20 @@ function buildReply() {
     return buildCodeReply(200);
 }
 
+// Événement `final` conforme au contrat du flux (packages/contracts/src/evenements.ts) : chat_id, run_ids, metrics et persisted sont obligatoires, sans quoi le front le rejette et le message reste en cours de flux.
+function evFinal(chatId, assistant, metrics) {
+    return { type: 'final', assistant, chat_id: chatId, run_ids: [], metrics, persisted: true };
+}
+
+// Identifiant de chat de la requête de flux ('' pour un chat neuf : le faux serveur n'en crée pas).
+async function chatIdDeLaRequete(req) {
+    try { return String(JSON.parse(await readBody(req) || '{}').chat_id || ''); } catch (_) { return ''; }
+}
+
 // Stream NDJSON cadencé. Événements conformes à handleStreamEvent (features/chat/coeur/vue-flux.ts) :
 // thinking_token / content_token {text}, queue_status {est_ms…},
-// queue_cleared, kv_cache {used,total,pct}, final {assistant, metrics}.
-function streamChat(req, res) {
+// queue_cleared, kv_cache {used,total,pct}, final {assistant, chat_id, run_ids, metrics, persisted}.
+function streamChat(req, res, chatId) {
     res.statusCode = 200;
     res.setHeader('content-type', 'application/x-ndjson');
     res.setHeader('cache-control', 'no-cache');
@@ -109,7 +119,7 @@ function streamChat(req, res) {
         const fin = buildToolsFinal(rounds);
         phases.push({ kind: 'tokens', type: 'content_token', toks: fin.content });
         phases.push({ kind: 'event', ev: { type: 'kv_cache', used: 5200, total: 8192 } });
-        phases.push({ kind: 'event', ev: { type: 'final', assistant: fin.full, metrics: { model: 'm1', duration_s: 2, input_tokens: 9000, output_tokens: 800, last_prompt_tokens: 5200 } } });
+        phases.push({ kind: 'event', ev: evFinal(chatId, fin.full, { model: 'm1', duration_s: 2, input_tokens: 9000, output_tokens: 800, last_prompt_tokens: 5200 }) });
     } else if (cfg.reply === 'compress') {
         // Burst de compression en plein stream : content → compression_start
         // → 3 s (tick 250 ms + patchs toolSteps côté front) → compression_done
@@ -127,12 +137,12 @@ function streamChat(req, res) {
         } } });
         phases.push({ kind: 'tokens', type: 'content_token', toks: part2.content });
         phases.push({ kind: 'event', ev: { type: 'kv_cache', used: 2600, total: 8192 } });
-        phases.push({ kind: 'event', ev: { type: 'final', assistant: part1.full + part2.full, metrics: { model: 'm1', duration_s: 4 } } });
+        phases.push({ kind: 'event', ev: evFinal(chatId, part1.full + part2.full, { model: 'm1', duration_s: 4 }) });
     } else {
         if (reply.thinking.length) phases.push({ kind: 'tokens', type: 'thinking_token', toks: reply.thinking });
         phases.push({ kind: 'tokens', type: 'content_token', toks: reply.content });
         phases.push({ kind: 'event', ev: { type: 'kv_cache', used: 3500, total: 8192 } });
-        phases.push({ kind: 'event', ev: { type: 'final', assistant: reply.full, metrics: { model: 'm1', duration_s: 1 } } });
+        phases.push({ kind: 'event', ev: evFinal(chatId, reply.full, { model: 'm1', duration_s: 1 }) });
     }
 
     let p = 0;
@@ -184,7 +194,7 @@ http.createServer(async (req, res) => {
             return json(res, cfg);
         }
         // ── Mocks API (même origine, zéro interception Playwright) ───
-        if (url === '/api/chat-saved-stream3') return streamChat(req, res);
+        if (url === '/api/chat-saved-stream3') return streamChat(req, res, await chatIdDeLaRequete(req));
         if (url === '/api/system-events') return sseSystemEvents(req, res);
         if (url === '/api/public-config') return json(res, { app_info: { name: 'Elpis' }, features: {} });
         if (url === '/api/me-lite') return json(res, { logged_in: true, id: 1, username: 'admin', is_admin: true, role: 'admin', avatar: null });

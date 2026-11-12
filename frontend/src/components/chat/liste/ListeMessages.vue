@@ -40,7 +40,6 @@ const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string]
       pref.deroule,
       pref.reflexions,
       pref.metriques,
-      pref.captures,
       liste.settings.assistant_name,
       liste.settings.skin,
       liste.settings.enable_editor,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/captures-reel-verify.mjs — captures du navigateur (fil chronologique) contre le core TS réel, conversation relue de la base : plus de carrousel, appareil photo sur les étapes, « 2 captures » au pied, visionneuse en mode captures (étape, Télécharger seul, ←, Échap), « Masquer les captures web », déroulé Classique intact */
+/** tests/frontend/reel/captures-reel-verify.mjs — captures du navigateur (fil chronologique) contre le core TS réel, conversation relue de la base : plus de carrousel, appareil photo sur les étapes, « 2 captures » au pied, visionneuse en mode captures (étape, Télécharger seul, ←, Échap), captures de l'historique montrées réglage éteint, déroulé Classique intact */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CHROMIUM=…] node tests/frontend/reel/captures-reel-verify.mjs
 import { demarrerCoreReel, lancerNavigateur, contexteConnecte, attendreMontage, verifications, apparait, disparait, Client } from '../lib/core-reel.mjs';
 
@@ -15,7 +15,7 @@ const nav = await lancerNavigateur();
 try {
     const api = new Client(core.urlMain);
     await api.req('POST', '/api/login-lite', core.comptes.user);
-    await api.req('PUT', '/api/settings', { chat_workflow: 'timeline', hide_web_screenshots: false });
+    await api.req('PUT', '/api/settings', { chat_workflow: 'timeline' });
     const { id } = await api.req('POST', '/api/saved/chats/new', {});
     await api.req('PUT', `/api/saved/chats/${id}/save-messages`, {
         title: 'Captures',
@@ -83,13 +83,13 @@ try {
     await page.keyboard.press('Escape');
     await disparait(vis).catch(() => {});
 
-    // ── « Masquer les captures web » ──
-    await api.req('PUT', '/api/settings', { hide_web_screenshots: true });
+    // ── « Captures d'étape du navigateur » éteint : les captures déjà prises restent visibles ──
+    await api.req('PUT', '/api/settings', { web_step_screenshots: false });
     await ouvrir();
-    v.ok('réglage : ni appareil photo, ni « captures », ni image', (await cams.count()) === 0 && (await pied.count()) === 0 && (await images.count()) === 0);
+    v.ok('réglage éteint : captures de l\'historique toujours là', (await cams.count()) >= 1 && (await pied.count()) === 1);
 
     // ── Déroulé Classique : carrousel inchangé ──
-    await api.req('PUT', '/api/settings', { hide_web_screenshots: false, chat_workflow: 'classic' });
+    await api.req('PUT', '/api/settings', { chat_workflow: 'classic' });
     await ouvrir();
     v.ok('classique : carrousel des captures, sans boutons du fil chronologique', (await images.count()) >= 1 && (await cams.count()) === 0 && (await pied.count()) === 0);
     await api.req('PUT', '/api/settings', { chat_workflow: 'timeline' });

@@ -21,17 +21,15 @@ export interface PreferencesChat {
   readonly reflexions: AffichageReflexions;
   readonly metriques: AffichageMetriques;
   readonly densite: Densite;
-  readonly captures: boolean;
 }
 
-/** Réglages lus : les clés d'affichage et les deux anciennes qu'elles remplacent. */
+/** Réglages lus : les clés d'affichage et l'ancienne que `thinking_display` remplace. */
 export interface ReglagesAffichageChat {
   chat_workflow?: unknown;
   context_display?: unknown;
   thinking_display?: unknown;
   footer_metrics?: unknown;
   thread_density?: unknown;
-  hide_web_screenshots?: unknown;
   hide_thinking?: unknown;
 }
 
@@ -42,7 +40,6 @@ export const PREFERENCES_PAR_DEFAUT: PreferencesChat = Object.freeze({
   reflexions: "collapsed",
   metriques: "full",
   densite: "comfortable",
-  captures: true,
 });
 
 function choisir<T extends string>(valeurs: readonly T[], v: unknown, defaut: T): T {
@@ -59,7 +56,6 @@ export function lirePreferencesChat(s: unknown): PreferencesChat {
     reflexions: choisir(REFLEXIONS, r.thinking_display, r.hide_thinking === true ? "hidden" : d.reflexions),
     metriques: choisir(METRIQUES, r.footer_metrics, d.metriques),
     densite: choisir(DENSITES, r.thread_density, d.densite),
-    captures: r.hide_web_screenshots !== true,
   };
 }
 
@@ -75,7 +71,6 @@ export function fournirPreferencesChat(lire: () => unknown): PreferencesChat {
     reflexions: computed(() => prefs.value.reflexions),
     metriques: computed(() => prefs.value.metriques),
     densite: computed(() => prefs.value.densite),
-    captures: computed(() => prefs.value.captures),
   }) as PreferencesChat;
   watch(
     () => prefs.value.densite,

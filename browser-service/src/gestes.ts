@@ -1,11 +1,102 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/gestes.ts — page helpers of the gestures: native select, upload files, navigation back after a failed gesture, wait after an action, tree items, drag and drop. */
+/** browser-service/src/gestes.ts — aides de page des gestes : select natif, fichiers d'upload, retour en arrière après un geste raté, attente après une action, éléments d'arbre, glisser-déposer. */
 import path from 'path';
+import type { Locator, Page } from 'playwright';
+
+import type { ServiceContext } from './contexte.ts';
 import { humanMouseMove } from './interaction.ts';
 import { locatorFromParams, smartResolveLocator } from './localisateur.ts';
 import { erreurCodee } from './requete.ts';
+import type { ParamsCible } from './result_util.ts';
+
+/** Fichier d'un upload prêt pour setInputFiles. */
+export interface FichierUpload {
+    name: string;
+    mimeType: string;
+    buffer: Buffer;
+}
+
+/** Fichier tel que l'envoie l'hôte d'outils, avant validation. */
+interface FichierEnvoye {
+    name?: unknown;
+    content_base64?: unknown;
+    mime_type?: unknown;
+}
+
+/** Option voulue d'un <select> : un texte, ou une liste pour un <select multiple>. */
+export type OptionVoulue = string | string[];
+
+/** Option voulue par valeur, par libellé, ou devinée (value/text). */
+interface OptionsVoulues {
+    option_value?: OptionVoulue;
+    option_label?: OptionVoulue;
+    value?: OptionVoulue;
+    text?: OptionVoulue;
+}
+
+/** Choix d'option de selectOptionSmart. */
+export interface ChoixOption extends OptionsVoulues {
+    timeout?: number;
+}
+
+/** Option d'un <select> lue dans la page. */
+interface OptionLue {
+    i: number;
+    value: string;
+    label: string;
+    disabled: boolean;
+}
+
+/** Option retenue ; `values` et `labels` pour un <select multiple>. */
+export interface OptionChoisie {
+    value: string;
+    label: string;
+    index: number;
+    values?: string[];
+    labels?: string[];
+}
+
+/** Élément lu comme un <select> natif (les autres n'ont pas `options`). */
+type SelectPeutEtre = HTMLElement & Partial<Pick<HTMLSelectElement, 'options' | 'multiple'>>;
+
+/** Attente après une action : millisecondes, 'network', 'selector:<css>' ou 'text:<texte>'. */
+export type AttenteApresAction = number | string;
+
+/** Geste tenté sur un nœud d'arbre, et s'il a donné l'état voulu. */
+export interface EssaiDepliage {
+    via: string;
+    ok: boolean;
+    error?: string;
+}
+
+/** Nœud d'arbre avant et après expandTreeItem ; `method` : le geste qui a marché, null si aucun. */
+export interface Depliage {
+    expanded_before: boolean | null;
+    expanded: boolean | null;
+    method: string | null;
+    attempts: EssaiDepliage[];
+    warning?: string;
+}
+
+/** Champs du corps d'une action lus par performDrag. */
+export interface CorpsGlisser {
+    to?: ParamsCible | null;
+    target_selector?: string;
+    dx?: number | null;
+    dy?: number | null;
+    direction?: string;
+    amount?: number;
+    human?: boolean;
+}
+
+/** Glisser-déposer fait : moyen, destination résolue, ou décalage appliqué. */
+export interface Glisser {
+    method: string;
+    destination?: string | null;
+    dragto_error?: string;
+    dx?: number;
+    dy?: number;
+}
 
 // ── <select> natif : choisir SANS essai-erreur ────────────────────────
 //
@@ -22,12 +113,12 @@ import { erreurCodee } from './requete.ts';
 // insensible à la casse → sous-chaîne. Renvoie l'option retenue, ou lève une
 // erreur qui LISTE les libellés disponibles.
 // Fichiers d'un upload : contenus envoyés par l'hôte d'outils (lus dans le bac du compte), jamais un chemin du serveur.
-export function fichiersUpload(files) {
+export function fichiersUpload(files: unknown): FichierUpload[] {
     if (!Array.isArray(files) || files.length === 0)
         throw erreurCodee('files_required', 'upload needs files: a list of {name, content_base64, mime_type?}.', {
             fix: "pw_act(session_id, action='upload', target='css=input[type=file]', files=['report.pdf']) — paths inside your sandbox /work.",
         });
-    return files.map((f, i) => {
+    return files.map((f: FichierEnvoye | null, i: number) => {
         if (!f || typeof f !== 'object' || typeof f.name !== 'string' || !f.name.trim() || typeof f.content_base64 !== 'string')
             throw erreurCodee('invalid_files', `files[${i}] must be {name, content_base64, mime_type?}; server paths are not accepted.`);
         const mimeType = typeof f.mime_type === 'string' && f.mime_type ? f.mime_type : 'application/octet-stream';
@@ -35,8 +126,8 @@ export function fichiersUpload(files) {
     });
 }
 
-export async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
-    const lu = await locator.evaluate((el) => {
+export async function selectOptionSmart(locator: Locator, { option_value, option_label, value, text, timeout = 10000 }: ChoixOption): Promise<OptionChoisie> {
+    const lu = await locator.evaluate((el: SelectPeutEtre) => {
         if (!el.options) return null;
         return { multiple: el.multiple, opts: Array.from(el.options).map((o, i) => ({
             i, value: o.value, label: (o.text || '').trim(), disabled: !!o.disabled,
@@ -44,7 +135,7 @@ export async function selectOptionSmart(locator, { option_value, option_label, v
     }).catch(() => null);
     if (lu === null) {
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '?');
-        const e = new Error(
+        const e: Error & { notASelect?: boolean; code?: string } = new Error(
             `select: <${tag}> is not a native <select>. For a custom dropdown ` +
             `(div/ul/role=listbox) use action="pick", which opens it and clicks the option.`);
         e.notASelect = true;
@@ -52,10 +143,10 @@ export async function selectOptionSmart(locator, { option_value, option_label, v
         throw e;
     }
     const opts = lu.opts;
-    const pick = (pred) => opts.find(o => !o.disabled && pred(o));
+    const pick = (pred: (o: OptionLue) => boolean) => opts.find(o => !o.disabled && pred(o));
     // Option voulue : par valeur (option_value), par libellé (option_label), sinon valeur ou libellé devinés (value/text).
-    const trouver = ({ option_value, option_label, value, text }) => {
-        let hit = null;
+    const trouver = ({ option_value, option_label, value, text }: OptionsVoulues) => {
+        let hit: OptionLue | null | undefined = null;
         if (option_value) hit = pick(o => o.value === option_value);
         else if (option_label) {
             const w = String(option_label).trim();
@@ -75,29 +166,29 @@ export async function selectOptionSmart(locator, { option_value, option_label, v
         }
         return hit;
     };
-    const absente = (wanted) => erreurCodee('option_not_found',
+    const absente = (wanted: OptionVoulue) => erreurCodee('option_not_found',
         `No <option> matching "${wanted}". Available: ` +
         opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
         (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
         { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
           fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
     // <select multiple> : une liste (ou des textes séparés par des virgules, sauf s'ils forment une option) sélectionne chaque option nommée.
-    const champ = ['option_value', 'option_label', 'value', 'text'].find(k => ({ option_value, option_label, value, text })[k]);
+    const champ = (['option_value', 'option_label', 'value', 'text'] as const).find(k => ({ option_value, option_label, value, text })[k]);
     const brut = champ ? ({ option_value, option_label, value, text })[champ] : null;
     const liste = Array.isArray(brut) ? brut.map(String).filter(Boolean)
-        : lu.multiple && typeof brut === 'string' && brut.includes(',') && !trouver({ [champ]: brut }) ? brut.split(',').map(x => x.trim()).filter(Boolean) : null;
+        : lu.multiple && typeof brut === 'string' && brut.includes(',') && !trouver({ [champ!]: brut }) ? brut.split(',').map(x => x.trim()).filter(Boolean) : null;
     if (liste && (lu.multiple || liste.length > 1)) {
         if (!lu.multiple) throw erreurCodee('multiple_not_allowed', `This <select> takes one option; ${liste.length} were given.`,
             { fix: 'Pass a single option_label= (or option_value=).' });
-        const touches = liste.map(w => [w, trouver({ [champ]: w })]);
+        const touches = liste.map((w): [string, OptionLue | null | undefined] => [w, trouver({ [champ!]: w })]);
         const manquante = touches.find(([, h]) => !h);
         if (manquante) throw absente(manquante[0]);
-        const retenues = [...new Map(touches.map(([, h]) => [h.i, h])).values()];
+        const retenues = [...new Map(touches.map(([, h]): [number, OptionLue] => [h!.i, h!])).values()];
         await locator.selectOption(retenues.map(h => ({ index: h.i })), { timeout });
-        return { value: retenues.map(h => h.value).join(','), label: retenues.map(h => h.label).join(', '), index: retenues[0].i,
+        return { value: retenues.map(h => h.value).join(','), label: retenues.map(h => h.label).join(', '), index: retenues[0]!.i,
                  values: retenues.map(h => h.value), labels: retenues.map(h => h.label) };
     }
-    const seule = liste ? { [champ]: liste[0] } : { option_value, option_label, value, text };
+    const seule: OptionsVoulues = liste ? { [champ!]: liste[0] } : { option_value, option_label, value, text };
     const hit = trouver(seule);
     if (!hit) throw absente(seule.option_value || seule.option_label || seule.value || seule.text || '(none)');
     await locator.selectOption({ index: hit.i }, { timeout });
@@ -105,26 +196,26 @@ export async function selectOptionSmart(locator, { option_value, option_label, v
 }
 
 // URL de l'onglet après un goto en échec, une fois engagée la page d'erreur du navigateur (1 s au plus).
-export async function urlApresEchec(page, avant) {
+export async function urlApresEchec(page: Page, avant: string): Promise<string> {
     const fin = Date.now() + 1000;
     for (;;) {
-        let url;
-        try { url = page.url(); } catch (_) { return avant; }
+        let url: string;
+        try { url = page.url(); } catch { return avant; }
         if (url !== avant || Date.now() >= fin) return url;
         await new Promise(r => setTimeout(r, 25));
     }
 }
 
 // Retour à la page d'avant un goto en échec, une fois chargée la page d'erreur du navigateur : URL finale de l'onglet.
-export async function revenirApresEchec(page, urlErreur, echeance) {
+export async function revenirApresEchec(page: Page, urlErreur: string, echeance: number): Promise<string> {
     await page.waitForLoadState('load', { timeout: 1000 }).catch(() => {});
     const delai = Math.max(1000, Math.min(15000, echeance - Date.now()));
     await page.goBack({ waitUntil: 'domcontentloaded', timeout: delai })
-        .catch((e) => console.warn(`[goto] retour après l'échec : ${String(e.message).split('\n')[0]}`));
+        .catch((e: Error) => console.warn(`[goto] retour après l'échec : ${String(e.message).split('\n')[0]}`));
     return urlApresEchec(page, urlErreur);
 }
 
-export async function postActionWait(page, wait_after) {
+export async function postActionWait(page: Page, wait_after: AttenteApresAction | null | undefined): Promise<void> {
     if (!wait_after) return;
     if (typeof wait_after === 'number') await page.waitForTimeout(wait_after);
     else if (wait_after === 'network') await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(6000)]);
@@ -143,7 +234,7 @@ export async function postActionWait(page, wait_after) {
 // essaie ce qu'un humain ferait, dans l'ordre, et on VÉRIFIE l'état après
 // chaque geste : l'icône de bascule, le clavier (ArrowRight/ArrowLeft —
 // CellTree comme tout arbre ARIA), le double-clic, le clic.
-async function readExpanded(locator) {
+async function readExpanded(locator: Locator): Promise<boolean | null> {
     return locator.evaluate(el => {
         const a = el.getAttribute('aria-expanded');
         if (a !== null) return a === 'true';
@@ -153,11 +244,11 @@ async function readExpanded(locator) {
         return null;
     }).catch(() => null);
 }
-export async function expandTreeItem(page, locator, wantOpen, timeout) {
+export async function expandTreeItem(page: Page, locator: Locator, wantOpen: boolean, timeout: number): Promise<Depliage> {
     const before = await readExpanded(locator);
     if (before === wantOpen) return { expanded_before: before, expanded: before, method: 'noop', attempts: [] };
     const t = Math.min(timeout || 5000, 5000);
-    const gestures = [
+    const gestures: [string, () => Promise<unknown>][] = [
         ['toggle', async () => {
             const tg = locator.locator('img, svg, [class*="Image"], [class*="image"], [class*="toggle"], [class*="Toggle"], [class*="caret"], [class*="expand"], [class*="arrow"], [class*="twist"]').first();
             if ((await tg.count().catch(() => 0)) === 0) throw new Error('no toggle child');
@@ -170,9 +261,9 @@ export async function expandTreeItem(page, locator, wantOpen, timeout) {
         ['dblclick', async () => locator.dblclick({ timeout: t })],
         ['click', async () => locator.click({ timeout: t })],
     ];
-    const attempts = [];
+    const attempts: EssaiDepliage[] = [];
     for (const [via, fn] of gestures) {
-        try { await fn(); } catch (e) { attempts.push({ via, ok: false, error: String(e.message || e).slice(0, 80) }); continue; }
+        try { await fn(); } catch (e) { attempts.push({ via, ok: false, error: String((e as Error).message || e).slice(0, 80) }); continue; }
         await page.waitForTimeout(250);
         const now = await readExpanded(locator);
         attempts.push({ via, ok: now === wantOpen });
@@ -186,19 +277,19 @@ export async function expandTreeItem(page, locator, wantOpen, timeout) {
 // dragTo (pointeur) d'abord ; s'il lève, événements HTML5 synthétiques avec
 // un DataTransfer partagé (pages qui écoutent dragstart/drop sans suivre la
 // souris). Sans destination : décalage en pixels.
-async function html5DragDrop(srcLoc, dstLoc) {
+async function html5DragDrop(srcLoc: Locator, dstLoc: Locator): Promise<boolean> {
     const dstHandle = await dstLoc.elementHandle({ timeout: 2000 }).catch(() => null);
     if (!dstHandle) return false;
     return srcLoc.evaluate((src, dst) => {
         const dt = new DataTransfer();
-        const fire = (el, type) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+        const fire = (el: Element, type: string) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
         fire(src, 'dragstart'); fire(dst, 'dragenter'); fire(dst, 'dragover'); fire(dst, 'drop'); fire(src, 'dragend');
         return true;
     }, dstHandle).catch(() => false);
 }
-export async function performDrag(ctx, page, srcLoc, body, timeout) {
+export async function performDrag(ctx: ServiceContext, page: Page, srcLoc: Locator, body: CorpsGlisser | null | undefined, timeout: number): Promise<Glisser> {
     const { to, target_selector, dx, dy, direction, amount, human = false } = body || {};
-    let dstLoc = null, dstVia = null;
+    let dstLoc: Locator | null = null, dstVia: string | null = null;
     if (to && typeof to === 'object' && Object.values(to).some(v => v !== undefined && v !== null && v !== '')) {
         dstLoc = await locatorFromParams(ctx, page, to, null); dstVia = 'official';
     }
@@ -216,9 +307,9 @@ export async function performDrag(ctx, page, srcLoc, body, timeout) {
             await page.mouse.up();
             return { method: 'human-drag', destination: dstVia };
         }
-        let dragErr = null;
+        let dragErr: string | null = null;
         try { await srcLoc.dragTo(dstLoc, { timeout }); }
-        catch (e) { dragErr = String(e.message || e).slice(0, 120); }
+        catch (e) { dragErr = String((e as Error).message || e).slice(0, 120); }
         if (!dragErr) return { method: 'dragTo', destination: dstVia };
         if (await html5DragDrop(srcLoc, dstLoc)) return { method: 'html5-events', destination: dstVia, dragto_error: dragErr };
         throw new Error(`drag failed: ${dragErr}`);
@@ -227,7 +318,7 @@ export async function performDrag(ctx, page, srcLoc, body, timeout) {
     const noXY = (ddx === undefined || ddx === null) && (ddy === undefined || ddy === null);
     if (noXY && (direction || amount !== undefined)) {
         const amt = amount === undefined ? 100 : Number(amount);
-        const map = { down: [0, amt], up: [0, -amt], right: [amt, 0], left: [-amt, 0] };
+        const map: Record<string, [number, number]> = { down: [0, amt], up: [0, -amt], right: [amt, 0], left: [-amt, 0] };
         [ddx, ddy] = map[direction || 'right'] || [amt, 0];
     }
     if ((ddx === undefined || ddx === null) && (ddy === undefined || ddy === null))

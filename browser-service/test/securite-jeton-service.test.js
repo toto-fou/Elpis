@@ -20,8 +20,8 @@ test('Bearer exact exigé ; jamais d’appel admis sans jeton attendu', () => {
     assert.equal(refusAppel(req({ authorization: 'Bearer ' }), '')?.statut, 401);
 });
 
-test('sans socket ou sans jeton : arrêt au démarrage, message clair', async (t) => {
-    if (!fs.existsSync(path.join(path.dirname(SERVEUR), 'node_modules', 'express'))) return t.skip('dépendances du service absentes (npm ci)');
+test('sans socket ou sans jeton : arrêt au démarrage, message clair', async () => {
+    assert.ok(fs.existsSync(SERVEUR), `${SERVEUR} absent : construire le service d'abord (npm run build:browser)`);
     const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-pw-sans-'));
     try {
         for (const [env, attendu] of [[{ BROWSER_SERVICE_TOKEN: 'x' }, /FIREFOX_SERVICE_SOCKET \(its Unix socket\) is required/],

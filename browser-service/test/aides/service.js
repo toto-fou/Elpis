@@ -10,7 +10,8 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SERVICE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const SERVEUR = path.join(SERVICE, 'server.js');
+// Service construit (npm run build:browser) : celui que le bac lance.
+export const SERVEUR = path.join(SERVICE, 'dist', 'main.mjs');
 export const NEUTRE_PS = pathToFileURL(path.join(SERVICE, 'test', 'aides', 'neutre_ps.mjs')).href;
 
 export async function portLibre() {
@@ -23,9 +24,8 @@ export async function portLibre() {
 
 // Raison de sauter un essai : dépendances du service ou headless shell de Chromium absents ; false s'il peut tourner, toute autre erreur de lancement remonte.
 export async function raisonDeSauter() {
-    if (!['express', 'playwright'].every(m => fs.existsSync(path.join(SERVICE, 'node_modules', m)))) {
-        return 'dépendances du service absentes (npm ci)';
-    }
+    if (!fs.existsSync(path.join(SERVICE, 'node_modules', 'playwright'))) return 'dépendances du service absentes (npm ci)';
+    if (!fs.existsSync(SERVEUR)) throw new Error(`${SERVEUR} absent : construire le service d'abord (npm run build:browser)`);
     const { chromium } = await import(pathToFileURL(path.join(SERVICE, 'node_modules', 'playwright', 'index.mjs')).href);
     try { await (await chromium.launch({ headless: true })).close(); return false; }
     catch (e) {

@@ -213,16 +213,11 @@ export interface RunLu {
   titreAttendu?: boolean;
 }
 
-export type Minuterie = ReturnType<typeof setTimeout>;
-
 /** État interne du flux (hors réactivité) : tampons, minuteries, garde de génération. */
 export interface EtatFlux {
   streamBuf: string;
   thinkBuf: string;
   preContentBuf: string;
-  streamFlushTimer: Minuterie | null;
-  thinkFlushTimer: ReturnType<typeof setInterval> | null;
-  preContentFlushTimer: ReturnType<typeof setInterval> | null;
   toolsExecutedThisTurn: boolean;
   streamToolPhase: boolean;
   ctxLive: CompteurDirect | null;
@@ -230,10 +225,6 @@ export interface EtatFlux {
   lastCtxUsed: number;
   genStartMs: number;
   genTicker: ReturnType<typeof setInterval> | null;
-  scrollPending: boolean;
-  lastContentFlushTs: number;
-  liveRenderTs: { _md: number; _pp: number };
-  liveRenderDirty: { _md: boolean; _pp: boolean };
   streamingForChatId: string | null;
   currentRun: RunLu | null;
   replaying: boolean;
@@ -245,7 +236,6 @@ export interface EtatFlux {
   envoiQuestionnaire: boolean;
   todoTouchedThisTurn: boolean;
   shellPend: Map<string, { chunk: string; seq: number }>;
-  shellFlushTimer: Minuterie | null;
 }
 
 export function creerEtatFlux(): EtatFlux {
@@ -253,9 +243,6 @@ export function creerEtatFlux(): EtatFlux {
     streamBuf: "",
     thinkBuf: "",
     preContentBuf: "",
-    streamFlushTimer: null,
-    thinkFlushTimer: null,
-    preContentFlushTimer: null,
     toolsExecutedThisTurn: false,
     streamToolPhase: false,
     ctxLive: null,
@@ -263,10 +250,6 @@ export function creerEtatFlux(): EtatFlux {
     lastCtxUsed: 0,
     genStartMs: 0,
     genTicker: null,
-    scrollPending: false,
-    lastContentFlushTs: 0,
-    liveRenderTs: { _md: 0, _pp: 0 },
-    liveRenderDirty: { _md: false, _pp: false },
     streamingForChatId: null,
     currentRun: null,
     replaying: false,
@@ -277,7 +260,6 @@ export function creerEtatFlux(): EtatFlux {
     envoiQuestionnaire: false,
     todoTouchedThisTurn: false,
     shellPend: new Map(),
-    shellFlushTimer: null,
   };
 }
 

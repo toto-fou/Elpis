@@ -4,6 +4,7 @@ import type { ResumeReveil } from "@elpis/contracts";
 
 import type { MoteurMarkdown } from "../rendu/markdown.ts";
 import type { EtatChat, EtatFlux, QuestionAsk } from "./etat.ts";
+import type { PartiesFlux } from "./rendu-flux.ts";
 import type { CtxChat, DonneesFlux, MessageChat, Objet, RefsRacineChat } from "./types.ts";
 
 /** Crochets de la voix (module de la session FONCTIONS), appelés par le flux. */
@@ -38,7 +39,6 @@ export interface LiensChat {
   patch(idx: number, patch: Objet): void;
   setMsgUi(entry: EntreeAffichee | null | undefined, patch: Objet): void;
   scrollToBottom(force?: boolean): void;
-  scheduleStreamScroll(): void;
   vsEnsureTail(): void;
   stopThinkFlush(): void;
   stopPreContentFlush(): void;
@@ -46,6 +46,10 @@ export interface LiensChat {
   flushThinkBuf(): void;
   stopStreamFlush(): void;
   armStreamFlush(): void;
+  recevoirCorps(texte: string): void;
+  recevoirReflexion(texte: string): void;
+  recevoirNarration(texte: string): void;
+  abandonnerFlux(parties: PartiesFlux): void;
   applyPreRender(cur: MessageChat, texte: string): Objet;
   flushShellPend(): void;
   armerShell(): void;

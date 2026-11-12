@@ -356,18 +356,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
 
   /** Remise à zéro des tampons et minuteries d'un nouveau tour affiché. */
   function preparerTour(continuation: boolean): void {
-    l.stopStreamFlush();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.streamBuf = "";
-    f.thinkBuf = "";
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, reflexion: true, narration: true });
     seedLiveCtx();
     if (!continuation) l.closeToolStreamsFor(r.currentChatId.value || f.streamingForChatId || null);
     e.isThinking.value = true;
@@ -482,12 +471,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         break;
       }
     }
-    f.streamBuf = "";
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, narration: true });
     f.streamToolPhase = false;
   }
 
@@ -495,14 +479,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
   function epilogue(run: RunLu, mien: number): void {
     if (mien !== f.activeGen) return;
     if (f.ctxLive) clearLiveCtx();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
+    l.abandonnerFlux({ reflexion: true, narration: true });
     f.pendingAskUser = null;
     // Run détaché suivi sur la conversation affichée : l'état « en cours » reste (bouton Arrêter offert).
     const suivi =

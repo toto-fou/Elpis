@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux (porté d'`app-chat.js`) : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), versement lissé, tampons de réflexion et de narration, sortie shell coalescée, défilement. */
+/** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, un patch, une écriture de défilement). */
 import { journal } from "../../../platform/journal";
 import { nextTick } from "vue";
 
+import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
-import type { MessageChat, Objet } from "./types.ts";
+import type { EtapeChat, MessageChat, Objet } from "./types.ts";
 
 type Prefixe = "_md" | "_pp";
 
-const RENDU_ACTIF_MS = 110;
+/** Parties du flux qu'un abandon vide (tampon, état de versement, armement). */
+export interface PartiesFlux {
+  corps?: boolean;
+  reflexion?: boolean;
+  narration?: boolean;
+  shell?: boolean;
+}
+
 const FENETRE_LISSAGE_MS = 350;
 const LISSAGE_MIN = 24;
-const SHELL_FLUSH_MS = 120;
+const IMAGE_MS = 1000 / 60;
+const SHELL_FLUSH_MS = 100;
 const SHELL_MAX = 98304;
+const TITRE_REFLEXION_MS = 250;
+const ONGLET_CACHE_MS = 250;
+const BAS_PX = 4;
 
 /** Champs d'affichage du rendu incrémental du corps, purgés à chaque fin ou remise à zéro du flux. */
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
@@ -32,13 +44,6 @@ export const PRE_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _ppFence: false,
   _ppBlockStart: 0,
 });
-
-/** Cadence de versement : espacée quand le texte grandit (coût du patch proportionnel à sa longueur). */
-export function streamFlushDelay(len: number): number {
-  if (len < 16384) return 40;
-  if (len < 65536) return 80;
-  return 120;
-}
 
 /** Tranche à révéler : proportionnelle au retard, jamais au milieu d'une paire de substitution UTF-16. */
 export function smoothTake(buf: string, dtMs: number): number {
@@ -84,19 +89,12 @@ export function creerRenduFlux(c: CoeurChat) {
     if (i >= 0 && cur) arr[i] = Object.assign({}, cur, p);
   }
 
-  // Une écriture de défilement par image, après le rendu de Vue.
-  function scheduleStreamScroll(): void {
-    if (f.scrollPending) return;
-    f.scrollPending = true;
-    void nextTick(() =>
-      requestAnimationFrame(() => {
-        f.scrollPending = false;
-        const el = e.chatContainer.value;
-        if (r.isUserScrolling.value || !el) return;
-        ctx._lockAutoScroll?.();
-        el.scrollTop = el.scrollHeight;
-      }),
-    );
+  // Saut instantané au bas du fil, quel que soit le comportement de défilement du conteneur.
+  function sauterEnBas(el: HTMLElement): void {
+    const avant = el.style.scrollBehavior;
+    el.style.scrollBehavior = "auto";
+    el.scrollTop = el.scrollHeight;
+    el.style.scrollBehavior = avant || "";
   }
 
   function scrollToBottom(force?: boolean): void {
@@ -107,13 +105,8 @@ export function creerRenduFlux(c: CoeurChat) {
       const el = e.chatContainer.value;
       if (!el) return;
       ctx._lockAutoScroll?.();
-      if (force) {
-        // Saut instantané : `scroll-smooth` se ferait interrompre par les rendus différés.
-        const avant = el.style.scrollBehavior;
-        el.style.scrollBehavior = "auto";
-        el.scrollTop = el.scrollHeight;
-        el.style.scrollBehavior = avant || "";
-      } else el.scrollTop = el.scrollHeight;
+      if (force) sauterEnBas(el);
+      else el.scrollTop = el.scrollHeight;
     });
   }
 
@@ -125,17 +118,14 @@ export function creerRenduFlux(c: CoeurChat) {
         if (r.currentChatId.value !== chatAuDepart) return;
         const el = e.chatContainer.value;
         if (!el || r.isUserScrolling.value) return;
-        if (el.scrollHeight - el.scrollTop - el.clientHeight > 4) {
+        if (el.scrollHeight - el.scrollTop - el.clientHeight > BAS_PX) {
           ctx._lockAutoScroll?.();
-          const avant = el.style.scrollBehavior;
-          el.style.scrollBehavior = "auto";
-          el.scrollTop = el.scrollHeight;
-          el.style.scrollBehavior = avant || "";
+          sauterEnBas(el);
         }
       }, delai);
   }
 
-  // Blocs terminés figés une fois, bloc actif re-rendu au plus toutes les 110 ms.
+  // Blocs terminés figés une fois, bloc actif re-rendu à chaque battement où son texte a changé.
   function applyIncrementalRender(cur: MessageChat, text: string, P: Prefixe, caret = true): Objet {
     let blocs = (cur[P + "Blocks"] as { i: number; html: string }[] | null | undefined) || null;
     const scan = md.scanStreamBlocks(
@@ -144,33 +134,18 @@ export function creerRenduFlux(c: CoeurChat) {
       !!cur[P + "Fence"],
       num(cur[P + "BlockStart"]),
     );
-    const fige = scan.blocks.length > 0;
-    if (fige) {
+    if (scan.blocks.length > 0) {
       blocs = (blocs || []).slice();
       for (const bmd of scan.blocks) blocs.push({ i: blocs.length, html: md.renderStreamBlock(bmd) });
     }
-    const p: Objet = {
+    const html = md.renderStreamingActive(text.slice(scan.blockStart));
+    return {
       [P + "Blocks"]: blocs,
       [P + "ScanPos"]: scan.scanPos,
       [P + "Fence"]: scan.fence,
       [P + "BlockStart"]: scan.blockStart,
+      [P + "ActiveHtml"]: caret ? md.injecterCaret(html) : html,
     };
-    const now = Date.now();
-    if (fige || now - f.liveRenderTs[P] >= RENDU_ACTIF_MS) {
-      const html = md.renderStreamingActive(text.slice(scan.blockStart));
-      p[P + "ActiveHtml"] = caret ? md.injecterCaret(html) : html;
-      f.liveRenderTs[P] = now;
-      f.liveRenderDirty[P] = false;
-    } else f.liveRenderDirty[P] = true;
-    return p;
-  }
-
-  // Rattrapage du bloc actif resté en retard quand le tampon s'est vidé dans la fenêtre de 110 ms.
-  function catchUpRender(cur: MessageChat, text: string, P: Prefixe, caret = true): Objet {
-    f.liveRenderDirty[P] = false;
-    f.liveRenderTs[P] = Date.now();
-    const html = md.renderStreamingActive(text.slice(num(cur[P + "BlockStart"])));
-    return { [P + "ActiveHtml"]: caret ? md.injecterCaret(html) : html };
   }
 
   function applyStreamRender(cur: MessageChat, content: string): Objet {
@@ -181,22 +156,108 @@ export function creerRenduFlux(c: CoeurChat) {
     return Object.assign({ _pendingPreContent: text }, applyIncrementalRender(cur, text, "_pp", false));
   }
 
-  function flushThinkBuf(): void {
-    if (!f.thinkBuf) return;
-    const msgs = getStreamMsgs();
-    const idx = streamIdx(msgs);
-    const cur = msgs[idx];
-    if (idx < 0 || !cur) {
-      f.thinkBuf = "";
-      return;
+  // ── Battement : une boucle d'images pour les trois tampons et la sortie shell ──
+  let image: number | null = null;
+  let minuterie: ReturnType<typeof setTimeout> | null = null;
+  let actif = false;
+  let enCours = false;
+  let corpsArme = false;
+  let derniereImage = 0;
+  let dernierShell = -Infinity;
+  let dernierTitre = -Infinity;
+  const budget = creerBudget();
+
+  const maintenant = (): number => performance.now();
+  const ongletCache = (): boolean => document.visibilityState === "hidden";
+
+  function besoin(): boolean {
+    return !!f.thinkBuf || !!f.preContentBuf || (corpsArme && !!f.streamBuf) || f.shellPend.size > 0;
+  }
+
+  function annulerPlanification(): void {
+    if (image !== null) cancelAnimationFrame(image);
+    if (minuterie !== null) clearTimeout(minuterie);
+    image = null;
+    minuterie = null;
+  }
+
+  // Onglet caché : pas d'images ; une minuterie verse tout d'un coup (la voix continue de lire).
+  function planifier(): void {
+    if (image !== null || minuterie !== null) return;
+    if (ongletCache())
+      minuterie = setTimeout(() => {
+        minuterie = null;
+        void battement(true);
+      }, ONGLET_CACHE_MS);
+    else
+      image = requestAnimationFrame(() => {
+        image = null;
+        void battement(false);
+      });
+  }
+
+  function surVisibilite(): void {
+    if (image === null && minuterie === null) return;
+    annulerPlanification();
+    planifier();
+  }
+
+  function armer(): void {
+    if (!actif) {
+      actif = true;
+      derniereImage = 0;
+      document.addEventListener("visibilitychange", surVisibilite);
     }
+    planifier();
+  }
+
+  function eteindre(): void {
+    annulerPlanification();
+    if (actif) document.removeEventListener("visibilitychange", surVisibilite);
+    actif = false;
+    derniereImage = 0;
+  }
+
+  function eteindreSiInutile(): void {
+    if (actif && !enCours && !besoin()) eteindre();
+  }
+
+  // Les messages chargés sont gelés : le patch remplace l'objet ; la sortie shell coalesce par étape.
+  function construireShell(msgs: readonly MessageChat[]): Map<number, EtapeChat[]> {
+    const out = new Map<number, EtapeChat[]>();
+    for (const [k, pend] of f.shellPend) {
+      const sep = k.lastIndexOf(":");
+      const idx = Number(k.slice(0, sep));
+      const si = Number(k.slice(sep + 1));
+      const base = out.get(idx) ?? msgs[idx]?.toolSteps;
+      const st = base?.[si];
+      if (!base || !st) continue;
+      const steps = [...base];
+      steps[si] = {
+        ...st,
+        shellOut: shellFoldPend(st, pend),
+        shellSeq: Math.max(st.shellSeq || 0, pend.seq || 0),
+      };
+      out.set(idx, steps);
+    }
+    f.shellPend.clear();
+    return out;
+  }
+
+  // Réflexion : `force` (arrêt, fin de phase) verse tout le tampon ; le titre d'état est recalculé au plus toutes les 250 ms.
+  function verserReflexion(cur: MessageChat, force: boolean, t: number, dt: number): Objet | null {
+    if (!f.thinkBuf) return null;
+    const take = force ? f.thinkBuf.length : smoothTake(f.thinkBuf, dt);
+    if (take <= 0) return null;
     // Réflexion d'un appel précédent déjà posée sur son étape : celle-ci ne s'y ajoute pas.
     const neuve = !!cur._reflexionPosee;
-    const fusion = (neuve ? "" : cur.thinking || "") + f.thinkBuf;
-    f.thinkBuf = "";
-    msgs[idx] = Object.assign(
-      {},
-      cur,
+    const fusion = (neuve ? "" : cur.thinking || "") + f.thinkBuf.slice(0, take);
+    f.thinkBuf = f.thinkBuf.slice(take);
+    if (force || t - dernierTitre >= TITRE_REFLEXION_MS) {
+      e.statusText.value = l.thinkingTitle(fusion);
+      dernierTitre = t;
+    }
+    return Object.assign(
       { thinking: fusion },
       cur._thinkingStartedAt && !neuve
         ? {}
@@ -207,19 +268,131 @@ export function creerRenduFlux(c: CoeurChat) {
             _reflexionPosee: false,
           },
     );
-    e.statusText.value = l.thinkingTitle(fusion);
-    scheduleStreamScroll();
+  }
+
+  // Narration d'outils : même versement que le corps ; `force` (fin de phase, Stop) draine tout.
+  function verserNarration(cur: MessageChat, force: boolean, dt: number): Objet | null {
+    if (!f.preContentBuf) return null;
+    const take = force ? f.preContentBuf.length : smoothTake(f.preContentBuf, dt);
+    if (take <= 0) return null;
+    const complet = (cur._pendingPreContent || "") + f.preContentBuf.slice(0, take);
+    f.preContentBuf = f.preContentBuf.slice(take);
+    try {
+      l.voix().onAssistantToolStream(complet);
+    } catch (err) {
+      journal.erreur("[voix]", err);
+    }
+    return Object.assign(applyPreRender(cur, complet), { _statusLine: cur._statusLine || "" });
+  }
+
+  function verserCorps(cur: MessageChat, force: boolean, dt: number): Objet | null {
+    if (!f.streamBuf) return null;
+    const take = force ? f.streamBuf.length : smoothTake(f.streamBuf, dt);
+    if (take <= 0) return null;
+    const content = (cur.content || "") + f.streamBuf.slice(0, take);
+    f.streamBuf = f.streamBuf.slice(take);
+    try {
+      l.voix().onAssistantStream(content);
+    } catch (err) {
+      journal.erreur("[voix]", err);
+    }
+    return applyStreamRender(cur, content);
+  }
+
+  // Le <pre> de la réflexion en cours : le dernier du fil.
+  function preReflexion(): HTMLElement | null {
+    const pres = e.chatContainer.value?.querySelectorAll<HTMLElement>(
+      "[data-think] pre, [data-reflexion] pre",
+    );
+    return pres && pres.length ? (pres[pres.length - 1] ?? null) : null;
+  }
+
+  // Un battement : réflexion, narration, corps, sortie shell, UN remplacement du message, puis l'écriture de défilement.
+  async function executer(force: boolean): Promise<void> {
+    const t0 = maintenant();
+    const dt = derniereImage ? Math.min(150, t0 - derniereImage) : IMAGE_MS;
+    derniereImage = t0;
+    const msgs = getStreamMsgs();
+    const idx = streamIdx(msgs);
+    const cur = msgs[idx];
+    if (idx < 0 || !cur) {
+      f.thinkBuf = "";
+      f.preContentBuf = "";
+      f.streamBuf = "";
+      f.shellPend.clear();
+      return;
+    }
+    const p: Objet = {};
+    const reflexion = verserReflexion(cur, force, t0, dt);
+    const narration = verserNarration(cur, force, dt);
+    const corps = corpsArme ? verserCorps(cur, force, dt) : null;
+    if (reflexion) Object.assign(p, reflexion);
+    if (narration) Object.assign(p, narration);
+    if (corps) Object.assign(p, corps);
+    let shell: Map<number, EtapeChat[]> | null = null;
+    if (f.shellPend.size && (force || t0 - dernierShell >= SHELL_FLUSH_MS)) {
+      shell = construireShell(msgs);
+      dernierShell = t0;
+    }
+    const steps = shell?.get(idx);
+    if (steps) p["toolSteps"] = steps;
+    if (!reflexion && !narration && !corps && !shell?.size) return;
+    const pre = reflexion ? preReflexion() : null;
+    const colle = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight <= BAS_PX;
+    if (shell)
+      for (const [i, st] of shell) {
+        const autre = msgs[i];
+        if (i !== idx && autre) msgs[i] = Object.assign({}, autre, { toolSteps: st });
+      }
+    msgs[idx] = Object.assign({}, cur, p);
+    const suit = !r.isUserScrolling.value && !!e.chatContainer.value;
+    if ((narration || corps) && suit) l.vsEnsureTail();
+    await nextTick();
+    if (reflexion) {
+      const apres = preReflexion();
+      if (apres && (colle || apres !== pre)) apres.scrollTop = apres.scrollHeight;
+    }
+    const el = e.chatContainer.value;
+    if (el && !r.isUserScrolling.value) {
+      ctx._lockAutoScroll?.();
+      sauterEnBas(el);
+    }
+    noterCout(budget, maintenant() - t0);
+  }
+
+  async function battement(onglet: boolean): Promise<void> {
+    if (enCours) return;
+    enCours = true;
+    let echec = false;
+    try {
+      if (!besoin()) return;
+      if (!onglet && sauterImage(budget, maintenant())) return;
+      await executer(onglet);
+    } catch (err) {
+      echec = true;
+      journal.erreur("[flux] battement", err);
+    } finally {
+      enCours = false;
+      if (!echec && besoin()) planifier();
+      else eteindre();
+    }
+  }
+
+  function flushThinkBuf(): void {
+    if (!f.thinkBuf) return;
+    const msgs = getStreamMsgs();
+    const idx = streamIdx(msgs);
+    const cur = msgs[idx];
+    const p = idx >= 0 && cur ? verserReflexion(cur, true, maintenant(), IMAGE_MS) : null;
+    if (idx < 0 || !cur) f.thinkBuf = "";
+    else if (p) msgs[idx] = Object.assign({}, cur, p);
   }
 
   function stopThinkFlush(): void {
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
     flushThinkBuf();
+    eteindreSiInutile();
   }
 
-  // Narration d'outils : même versement lissé que le corps ; `force` (fin de phase, Stop) draine tout.
   function flushPreContentBuf(force?: boolean): void {
     const msgs = getStreamMsgs();
     const idx = streamIdx(msgs);
@@ -228,91 +401,55 @@ export function creerRenduFlux(c: CoeurChat) {
       f.preContentBuf = "";
       return;
     }
-    if (!f.preContentBuf) {
-      if (f.liveRenderDirty._pp && cur._pendingPreContent)
-        msgs[idx] = Object.assign({}, cur, catchUpRender(cur, cur._pendingPreContent, "_pp", false));
-      else f.liveRenderDirty._pp = false;
-      return;
-    }
-    const take = force ? f.preContentBuf.length : smoothTake(f.preContentBuf, 40);
-    const morceau = f.preContentBuf.slice(0, take);
-    f.preContentBuf = f.preContentBuf.slice(take);
-    const complet = (cur._pendingPreContent || "") + morceau;
-    msgs[idx] = Object.assign({}, cur, applyPreRender(cur, complet), { _statusLine: cur._statusLine || "" });
-    try {
-      l.voix().onAssistantToolStream(complet);
-    } catch (err) {
-      journal.erreur("[voix]", err);
-    }
-    if (!r.isUserScrolling.value && e.chatContainer.value) {
-      l.vsEnsureTail();
-      scheduleStreamScroll();
-    }
+    const p = verserNarration(cur, !!force, 40);
+    if (!p) return;
+    msgs[idx] = Object.assign({}, cur, p);
+    if (!r.isUserScrolling.value && e.chatContainer.value) l.vsEnsureTail();
   }
 
   function stopPreContentFlush(): void {
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
     flushPreContentBuf(true);
-    f.liveRenderTs._pp = 0;
-    f.liveRenderDirty._pp = false;
+    eteindreSiInutile();
   }
 
-  function streamFlushTick(): void {
-    f.streamFlushTimer = null;
-    let len = 0;
-    if (!f.streamBuf.length && f.liveRenderDirty._md) {
-      const m = getStreamMsgs();
-      const i = streamIdx(m);
-      const cur = m[i];
-      if (i >= 0 && cur && cur.isStreaming) {
-        const content = cur.content || "";
-        len = content.length;
-        m[i] = Object.assign({}, cur, catchUpRender(cur, content, "_md"));
-      } else f.liveRenderDirty._md = false;
-    }
-    if (f.streamBuf.length) {
-      const now = Date.now();
-      const dt = f.lastContentFlushTs ? Math.min(150, now - f.lastContentFlushTs) : 40;
-      f.lastContentFlushTs = now;
-      const take = smoothTake(f.streamBuf, dt);
-      const morceau = f.streamBuf.slice(0, take);
-      f.streamBuf = f.streamBuf.slice(take);
-      const m = getStreamMsgs();
-      const i = streamIdx(m);
-      const cur = m[i];
-      if (i >= 0 && cur) {
-        const content = (cur.content || "") + morceau;
-        len = content.length;
-        try {
-          l.voix().onAssistantStream(content);
-        } catch (err) {
-          journal.erreur("[voix]", err);
-        }
-        m[i] = Object.assign({}, cur, applyStreamRender(cur, content));
-        if (!r.isUserScrolling.value && e.chatContainer.value) {
-          l.vsEnsureTail();
-          scheduleStreamScroll();
-        }
-      }
-    }
-    f.streamFlushTimer = setTimeout(streamFlushTick, streamFlushDelay(len));
-  }
-
+  // Le corps est versé par le battement tant qu'il est armé ; l'arrêt ne vide pas le tampon (l'appelant le lit).
   function armStreamFlush(): void {
-    if (!f.streamFlushTimer) f.streamFlushTimer = setTimeout(streamFlushTick, 40);
+    corpsArme = true;
+    armer();
   }
 
   function stopStreamFlush(): void {
-    if (f.streamFlushTimer) {
-      clearTimeout(f.streamFlushTimer);
-      f.streamFlushTimer = null;
+    corpsArme = false;
+    eteindreSiInutile();
+  }
+
+  function recevoirCorps(texte: string): void {
+    f.streamBuf += texte;
+    armStreamFlush();
+  }
+
+  function recevoirReflexion(texte: string): void {
+    if (!texte) return;
+    f.thinkBuf += texte;
+    armer();
+  }
+
+  function recevoirNarration(texte: string): void {
+    if (!texte) return;
+    f.preContentBuf += texte;
+    armer();
+  }
+
+  // Abandon (nouveau tour, remplacement, détachement) : les parties demandées perdent leur tampon et leur armement.
+  function abandonnerFlux(parties: PartiesFlux): void {
+    if (parties.corps) {
+      corpsArme = false;
+      f.streamBuf = "";
     }
-    f.liveRenderTs._md = 0;
-    f.lastContentFlushTs = 0;
-    f.liveRenderDirty._md = false;
+    if (parties.reflexion) f.thinkBuf = "";
+    if (parties.narration) f.preContentBuf = "";
+    if (parties.shell) f.shellPend.clear();
+    eteindreSiInutile();
   }
 
   function shellFoldPend(st: { shellOut?: string | null }, pend: { chunk: string }): string {
@@ -322,28 +459,14 @@ export function creerRenduFlux(c: CoeurChat) {
 
   // Sortie shell coalescée : un patch par étape et par cadence, jamais un par morceau.
   function flushShellPend(): void {
-    f.shellFlushTimer = null;
-    const m = getStreamMsgs();
-    for (const [k, pend] of f.shellPend) {
-      const sep = k.lastIndexOf(":");
-      const idx = Number(k.slice(0, sep));
-      const si = Number(k.slice(sep + 1));
-      const cur = m[idx];
-      const st = cur?.toolSteps?.[si];
-      if (!cur || !cur.toolSteps || !st) continue;
-      const steps = [...cur.toolSteps];
-      steps[si] = {
-        ...st,
-        shellOut: shellFoldPend(st, pend),
-        shellSeq: Math.max(st.shellSeq || 0, pend.seq || 0),
-      };
-      patch(idx, { toolSteps: steps });
-    }
-    f.shellPend.clear();
+    const msgs = getStreamMsgs();
+    for (const [idx, steps] of construireShell(msgs)) patch(idx, { toolSteps: steps });
+    dernierShell = maintenant();
+    eteindreSiInutile();
   }
 
   function armerShell(): void {
-    if (!f.shellFlushTimer) f.shellFlushTimer = setTimeout(flushShellPend, SHELL_FLUSH_MS);
+    armer();
   }
 
   return {
@@ -351,7 +474,6 @@ export function creerRenduFlux(c: CoeurChat) {
     streamIdx,
     patch,
     setMsgUi,
-    scheduleStreamScroll,
     scrollToBottom,
     settleScrollBottom,
     applyStreamRender,
@@ -362,6 +484,10 @@ export function creerRenduFlux(c: CoeurChat) {
     stopPreContentFlush,
     armStreamFlush,
     stopStreamFlush,
+    recevoirCorps,
+    recevoirReflexion,
+    recevoirNarration,
+    abandonnerFlux,
     shellFoldPend,
     flushShellPend,
     armerShell,

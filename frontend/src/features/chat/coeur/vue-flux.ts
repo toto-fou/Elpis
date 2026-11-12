@@ -62,7 +62,7 @@ export function creerVueFlux(c: CoeurChat) {
 
   function surReflexion(t: Tour): void {
     l.stopPreContentFlush();
-    f.thinkBuf += t.data.text || "";
+    l.recevoirReflexion(t.data.text || "");
     // Débit, et part « en génération » de la jauge : la réflexion occupe le cache du moteur jusqu'à la mesure suivante.
     if (f.ctxLive) {
       f.ctxLive.gen += t.data.n || 1;
@@ -70,19 +70,12 @@ export function creerVueFlux(c: CoeurChat) {
       f.ctxLive.appel += t.data.n || 1;
     }
     f.inThinkPhase = true;
-    if (!f.thinkFlushTimer) f.thinkFlushTimer = setInterval(() => l.flushThinkBuf(), 100);
     if (t.idx >= 0) effacerAttente(t.idx);
   }
 
   // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle.
   function surRemplacement(t: Tour): void {
-    l.stopStreamFlush();
-    f.streamBuf = "";
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, narration: true });
     if (t.idx >= 0 && l.getStreamMsgs()[t.idx])
       l.patch(
         t.idx,
@@ -111,15 +104,13 @@ export function creerVueFlux(c: CoeurChat) {
       f.ctxLive.appel += t.data.n || 1;
     }
     if (f.streamToolPhase) {
-      f.preContentBuf += t.data.text || "";
-      if (!f.preContentFlushTimer) f.preContentFlushTimer = setInterval(() => l.flushPreContentBuf(), 40);
+      l.recevoirNarration(t.data.text || "");
       e.isThinking.value = true;
     } else {
       l.stopPreContentFlush();
       e.isThinking.value = false;
       e.statusText.value = "";
-      f.streamBuf += t.data.text || "";
-      l.armStreamFlush();
+      l.recevoirCorps(t.data.text || "");
     }
   }
 
@@ -584,11 +575,7 @@ export function creerVueFlux(c: CoeurChat) {
     } catch (err) {
       journal.avertir("[tool_call_delta] reset error — silent fallback", err);
     }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
+    l.abandonnerFlux({ narration: true });
     l.forgetDeltaNames(t.data.iter);
     const cur = t.msgs[t.idx];
     if (t.idx >= 0 && cur) {

@@ -2,6 +2,7 @@
 <!-- frontend/src/components/code/PageCode.vue — page « Code » : sessions opencode (liste et transcript riche), composer avec menus /model, /session et slash, permissions, questions, appairage et jeton. -->
 <script setup lang="ts">
 import { domaineCode } from "../../features/code/domaine";
+import LibelleVivant from "../communs/LibelleVivant.vue";
 import CarteDiff from "./CarteDiff.vue";
 
 const cd = domaineCode();
@@ -475,7 +476,7 @@ function poserSaisie(el: unknown): void {
                       class="flex items-center gap-2 text-[12px] text-slate-500"
                     >
                       <span class="elpis-typing"><span></span><span></span><span></span></span>
-                      <span class="mem-wave">{{ item.phase }}</span>
+                      <LibelleVivant :texte="item.phase" />
                       <span
                         v-if="cd.codeElapsed(item.since)"
                         class="font-mono text-[11px] text-slate-400 tabular-nums"
@@ -495,9 +496,11 @@ function poserSaisie(el: unknown): void {
                         class="list-none flex items-center gap-1.5 cursor-pointer select-none w-fit py-0.5 text-slate-400 hover:text-slate-600 transition-colors"
                       >
                         <i class="ph ph-brain text-slate-400" style="font-size: 11px"></i>
-                        <span class="text-[12.5px] font-semibold" :class="item.done ? '' : 'mem-wave'"
-                          >Thinking...</span
-                        >
+                        <LibelleVivant
+                          class="text-[12.5px] font-semibold"
+                          :vivant="!item.done"
+                          texte="Thinking..."
+                        />
                         <span
                           v-if="item.meta"
                           class="text-[11px] font-mono text-slate-400 font-normal tabular-nums"
@@ -806,7 +809,7 @@ function poserSaisie(el: unknown): void {
                 aria-live="polite"
               >
                 <span class="elpis-typing"><span></span><span></span><span></span></span>
-                <span class="mem-wave">Génération</span>
+                <LibelleVivant texte="Génération" />
               </div>
             </div>
           </div>

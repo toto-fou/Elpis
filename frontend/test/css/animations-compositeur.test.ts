@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/css/animations-compositeur.test.ts — les animations infinies pendant un tour (pastille du volet) n'animent que transform et opacity : le compositeur les joue sans style ni peinture. */
+/** frontend/test/css/animations-compositeur.test.ts — les animations infinies pendant un tour (pastille du volet, éclat des libellés vivants) n'animent que transform et opacity ; la copie du libellé reste immobile sous la fenêtre qui glisse. */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -27,10 +27,41 @@ function proprietes(animation: string): string[] {
   return [...bloc(`@keyframes ${animation} {`).matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1] ?? "");
 }
 
+// Largeur d'une règle en part de son parent (50 % → 0,5).
+function largeur(selecteur: string): number {
+  const m = /\bwidth:\s*([\d.]+)%/.exec(bloc(`${selecteur} {`));
+  expect(m, `${selecteur} : width en %`).not.toBeNull();
+  return Number(m?.[1]) / 100;
+}
+
+// Décalage horizontal d'une image clé, en part de la largeur de l'élément animé.
+function decalage(animation: string, image: "from" | "to"): number {
+  const m = new RegExp(`${image}\\s*\\{\\s*transform:\\s*translateX\\((-?[\\d.]+)%\\)`).exec(
+    bloc(`@keyframes ${animation} {`),
+  );
+  expect(m, `${animation} ${image}`).not.toBeNull();
+  return Number(m?.[1]) / 100;
+}
+
 describe("animations jouées par le compositeur", () => {
-  it.each(["elpis-run-dot"])("%s : transform et opacity seulement", (animation) => {
-    const props = proprietes(animation);
-    expect(props.length).toBeGreaterThan(0);
-    for (const p of props) expect(["transform", "opacity"], `${animation} anime ${p}`).toContain(p);
+  it.each(["elpis-run-dot", "mem-wave-fenetre", "mem-wave-copie"])(
+    "%s : transform et opacity seulement",
+    (animation) => {
+      const props = proprietes(animation);
+      expect(props.length).toBeGreaterThan(0);
+      for (const p of props) expect(["transform", "opacity"], `${animation} anime ${p}`).toContain(p);
+    },
+  );
+
+  it("éclat des libellés : la copie du texte se déplace à l'opposé de la fenêtre, à chaque image clé", () => {
+    const fenetre = largeur(".mem-wave-fenetre");
+    const copie = largeur(".mem-wave-copie") * fenetre;
+    expect(copie).toBeCloseTo(1, 10);
+    for (const image of ["from", "to"] as const) {
+      expect(decalage("mem-wave-copie", image) * copie, image).toBeCloseTo(
+        -decalage("mem-wave-fenetre", image) * fenetre,
+        10,
+      );
+    }
   });
 });

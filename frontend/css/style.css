@@ -438,27 +438,53 @@ body {
     30%           { transform: translateY(-4px); opacity: 1;   }
 }
 
-/* ── Indicateur « écriture en mémoire » (transitoire, chat) ──────────────
-   Ligne de texte affichée pendant qu'un tour écrit en mémoire long-terme
-   (outil `memory`) : le `title` fourni, sur UNE ligne. Shimmer monochrome
-   « wave » qui balaie le texte (état de progression, sur la rampe de texte,
-   pas un dégradé décoratif), puis fondu de disparition (.mem-fade) quand le
-   tour est fini. Reduced-motion : shimmer ralenti (cf. bloc dédié). */
+/* ── Libellé vivant (composant LibelleVivant, .mem-wave) ──────────────────
+   Libellé d'un tour qui réfléchit, travaille ou écrit en mémoire : texte
+   normal en --text-400, balayé par un éclat --text-800 (état de progression,
+   sur la rampe de texte, pas un dégradé décoratif). L'éclat est une fenêtre
+   à bords adoucis qui glisse de gauche à droite et laisse voir une copie du
+   texte en couleur d'éclat qui glisse en sens inverse de la même distance :
+   la copie reste immobile sur le libellé, seule la fenêtre la révèle. Seuls
+   transform s'animent (compositeur). Fenêtre = 50 % du libellé, copie = 100 %.
+   Reduced-motion : balayage ralenti (cf. bloc dédié). */
 .mem-wave {
-    background-image: linear-gradient(100deg,
-        var(--text-400) 0%, var(--text-400) 38%,
-        var(--text-800) 50%,
-        var(--text-400) 62%, var(--text-400) 100%);
-    background-size: 220% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-    animation: mem-wave-sweep 1.7s linear infinite;
+    position: relative;
+    contain: paint;
+    color: var(--text-400);
+    -webkit-text-fill-color: var(--text-400);
 }
-@keyframes mem-wave-sweep {
-    0%   { background-position: 130% 0; }
-    100% { background-position: -130% 0; }
+.mem-wave-fenetre {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 50%;
+    overflow: hidden;
+    text-overflow: inherit;
+    pointer-events: none;
+    user-select: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+    animation: mem-wave-fenetre 1.7s linear infinite;
+}
+.mem-wave-copie {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 200%;
+    overflow: hidden;
+    text-overflow: inherit;
+    color: var(--text-800);
+    -webkit-text-fill-color: var(--text-800);
+    animation: mem-wave-copie 1.7s linear infinite;
+}
+.mem-wave-copie::before { content: attr(data-texte); }
+@keyframes mem-wave-fenetre {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(200%); }
+}
+@keyframes mem-wave-copie {
+    from { transform: translateX(50%); }
+    to   { transform: translateX(-100%); }
 }
 
 .markdown-body { line-height: 1.6; color: var(--prose-body); font-size: 0.95rem; }
@@ -1243,8 +1269,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
        essentiels (une commande tourne) → conservés, ralentis. */
     .shell-live-dot.is-running { animation: shellDotPulse 3s ease-in-out infinite !important; }
     .shell-live-body .sh-cursor { animation: shellDotPulse 3s ease-in-out infinite !important; }
-    /* Shimmer « écriture en mémoire » : indicateur d'activité → conservé, ralenti. */
-    .mem-wave { animation-duration: 3.4s !important; }
+    /* Éclat des libellés vivants : indicateur d'activité → conservé, ralenti. */
+    .mem-wave-fenetre, .mem-wave-copie { animation-duration: 3.4s !important; }
     .editor-fullscreen { animation: none !important; }
     /* Les classes de <Transition> Vue NOMMÉES (.modal-*,
        .toast-*, .fade-*, …) ne matchent PAS les sélecteurs [class*=…]

@@ -1,9 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit. -->
 <script setup lang="ts">
-import { onUpdated, useId, useTemplateRef } from "vue";
+import { computed, onUpdated, useId, useTemplateRef } from "vue";
 
 import { fmtDuree } from "../../../features/chat/outils/format";
+
+import LibelleVivant from "../../communs/LibelleVivant.vue";
 
 const props = defineProps<{
   texte: string;
@@ -16,6 +18,9 @@ const props = defineProps<{
 const emit = defineEmits<{ basculer: []; repondre: [] }>();
 const id = useId();
 const pre = useTemplateRef<HTMLPreElement>("pre");
+const libelle = computed(() =>
+  props.vivante ? "Réflexion…" : props.ms !== null ? `Réflexion · ${fmtDuree(props.ms)}` : "Réflexion",
+);
 
 // Ouverte pendant qu'elle s'écrit, elle suit son dernier mot.
 onUpdated(() => {
@@ -37,10 +42,7 @@ onUpdated(() => {
         @click="verrouillee || emit('basculer')"
       >
         <i class="ph ph-brain shrink-0 text-[14px]" aria-hidden="true"></i>
-        <span :class="vivante ? 'mem-wave' : ''"
-          >{{ vivante ? "Réflexion…" : "Réflexion"
-          }}<template v-if="ms !== null && !vivante"> · {{ fmtDuree(ms) }}</template></span
-        >
+        <LibelleVivant :vivant="vivante" :texte="libelle" />
         <i v-if="verrouillee" class="ph ph-lock-simple text-[11px] text-slate-400" aria-hidden="true"></i>
         <i
           v-else

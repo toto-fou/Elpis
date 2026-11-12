@@ -893,17 +893,25 @@ aside.elpis-slide-panel .elpis-notif-pop .text-slate-400 { color: var(--text-400
 aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500); }
 /* Chat en cours de génération (volet) : point d'accent dont le halo respire.
    Indicateur d'activité, pas une décoration : il garde son pouls même en
-   mouvement réduit (une pastille figée se lit comme un gel), sans déplacement. */
+   mouvement réduit (une pastille figée se lit comme un gel), sans déplacement.
+   Le halo est un pseudo-élément : seuls transform et opacity s'animent (compositeur). */
 .elpis-run-dot {
+    position: relative;
     width: 6px;
     height: 6px;
     border-radius: 9999px;
     background: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.elpis-run-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
     animation: elpis-run-dot 1.8s ease-in-out infinite;
 }
 @keyframes elpis-run-dot {
-    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 6%, transparent); }
+    50% { transform: scale(1.17); opacity: 0.25; }
 }
 /* Sous-menu « Plus » (RAG, Studio, Remote code) : enfant DOM du rail posé en
    fixed à sa droite ; même fond et mêmes remaps que le rail, qu'il prolonge. */

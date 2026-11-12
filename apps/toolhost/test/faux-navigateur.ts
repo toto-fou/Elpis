@@ -26,6 +26,8 @@ export type Reponse = [number, Dict | string];
 
 export class FauxNavigateur {
   readonly vues: RequeteNavigateur[] = [];
+  /** En-têtes de captures reçus, par requête : chemin, `x-elpis-captures`, `x-elpis-vision`. */
+  readonly captures: [string, string | null, string | null][] = [];
   /** Réponses imposées aux prochaines requêtes d'une route (`POST /wait_for_dynamic`), dans l'ordre. */
   readonly imposees = new Map<string, Reponse[]>();
   private courante = "";
@@ -45,6 +47,12 @@ export class FauxNavigateur {
       const morceaux: Buffer[] = [];
       req.on("data", (m: Buffer) => morceaux.push(m));
       req.on("end", () => {
+        const entete = (nom: string): string | null => (req.headers[nom] as string | undefined) ?? null;
+        (faux as FauxNavigateur).captures.push([
+          (req.url ?? "/").split("?")[0] ?? "/",
+          entete("x-elpis-captures"),
+          entete("x-elpis-vision"),
+        ]);
         void (faux as FauxNavigateur)
           .servir(req.method ?? "GET", req.url ?? "/", Buffer.concat(morceaux).toString())
           .then(([statut, corps]) => {
@@ -87,6 +95,7 @@ export class FauxNavigateur {
   /** Page courante et requêtes relevées remises à zéro (un passage par service comparé). */
   reinitialiser(): void {
     this.vues.length = 0;
+    this.captures.length = 0;
     this.imposees.clear();
     this.courante = "";
     this.attentes = 0;

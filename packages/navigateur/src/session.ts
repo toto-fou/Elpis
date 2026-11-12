@@ -249,8 +249,29 @@ export function extractPwScreenshotUrl(
     typeof pas === "boolean" || typeof pas === "bigint" || (typeof pas === "number" && Number.isInteger(pas));
   if (!entier || Number(pas) <= 0) return null;
   return {
-    url: `/api/playwright/screenshot/step_${sid}_${strPy(pas)}.png?t=${Math.trunc(maintenant * 1000)}`,
+    url: `/api/playwright/screenshot/step_${sid}_${strPy(pas)}.jpg?t=${Math.trunc(maintenant * 1000)}`,
     step: pas,
     session_id: sid,
   };
+}
+
+/** Capture de la vision (`vision_screenshot`) rendue par `pw_page inspect` pour sa propre session → nom du fichier, sinon `null`. */
+export function extractPwVisionCapture(outil: unknown, args: unknown, resultat: unknown): string | null {
+  if (outil !== "pw_page" || pwVerbOf("pw_page", args) !== "inspect" || !estDict(args)) return null;
+  const sid = ouPy(lire(args, "session_id") ?? null, lire(args, "sid") ?? null);
+  if (typeof sid !== "string" || !SID_CAPTURE.test(sid)) return null;
+  if (typeof resultat !== "string" || !resultat.includes('"vision_screenshot"')) return null;
+  let data: unknown;
+  try {
+    data = pyJsonLoads(resultat);
+  } catch {
+    return null;
+  }
+  const nom = estDict(data) ? lire(data, "vision_screenshot") : null;
+  const prefixe = `vision_${sid}_`;
+  return typeof nom === "string" &&
+    nom.startsWith(prefixe) &&
+    /^[0-9]+\.jpg$/u.test(nom.slice(prefixe.length))
+    ? nom
+    : null;
 }

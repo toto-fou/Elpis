@@ -15,12 +15,19 @@ import { configTest, dossierTemporaire, entetes, journalMuet } from "./aides";
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 describe("noms de capture", () => {
-  it("motifs du Python : étape, capture, vue ; 400 pour le reste", () => {
+  it("motifs : étape JPEG (PNG de l'historique), vision JPEG, capture, vue ; 400 pour le reste", () => {
     expect(sessionDeLaCapture("shot_sessAAAA1111_12.png")).toBe("sessAAAA1111");
     expect(sessionDeLaCapture("step_sess-BBB-2222_0.png")).toBe("sess-BBB-2222");
+    expect(sessionDeLaCapture("step_sess-BBB-2222_7.jpg")).toBe("sess-BBB-2222");
+    expect(sessionDeLaCapture("vision_sessAAAA1111_3.jpg")).toBe("sessAAAA1111");
     expect(sessionDeLaCapture("view_sessCCCC3333.png")).toBe("sessCCCC3333");
     for (const [nom, detail] of [
-      ["shot_sessAAAA1111_1.jpg", "Invalid filename"],
+      ["shot_sessAAAA1111_1.gif", "Invalid filename"],
+      ["shot_sessAAAA1111_1.jpg", "Invalid screenshot filename pattern"],
+      ["vision_sessAAAA1111_1.png", "Invalid screenshot filename pattern"],
+      ["vision_sessAAAA1111.jpg", "Invalid screenshot filename pattern"],
+      ["step_sessAAAA1111_1.JPG", "Invalid screenshot filename pattern"],
+      ["view_sessCCCC3333.jpg", "Invalid screenshot filename pattern"],
       ["..shot_sessAAAA1111_1.png", "Invalid filename"],
       ["a/shot_sessAAAA1111_1.png", "Invalid filename"],
       ["shot_court_1.png", "Invalid screenshot filename pattern"],
@@ -114,6 +121,31 @@ describe("GET /api/playwright/screenshot/{filename}", () => {
       "GET /screenshots/shot_sessAAAA1111_1.png",
     ]);
     expect(comptes).toEqual(["hugo", "hugo"]);
+    await a.close();
+  });
+
+  it("étape et vision en JPEG servies en image/jpeg ; vision d'une session d'un autre compte : 403", async () => {
+    const a = await app();
+    recu.length = 0;
+    const etape = await a.inject({
+      url: "/api/playwright/screenshot/step_sessAAAA1111_4.jpg",
+      headers: entetes(),
+    });
+    const vision = await a.inject({
+      url: "/api/playwright/screenshot/vision_sessAAAA1111_5.jpg",
+      headers: entetes(),
+    });
+    const autre = await a.inject({
+      url: "/api/playwright/screenshot/vision_sessBBBB2222_5.jpg",
+      headers: entetes(),
+    });
+    expect([etape.statusCode, etape.headers["content-type"]]).toEqual([200, "image/jpeg"]);
+    expect([vision.statusCode, vision.headers["content-type"]]).toEqual([200, "image/jpeg"]);
+    expect(autre.statusCode).toBe(403);
+    expect(recu).toEqual([
+      "GET /screenshots/step_sessAAAA1111_4.jpg",
+      "GET /screenshots/vision_sessAAAA1111_5.jpg",
+    ]);
     await a.close();
   });
 

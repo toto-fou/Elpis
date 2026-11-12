@@ -171,7 +171,7 @@ describe("brancherBoucle", () => {
       '{"ok": true, "screenshot_step": 3}',
     );
     expect(ss).toMatchObject({ step: 3, session_id: "sess-0001" });
-    expect(ss?.url).toMatch(/^\/api\/playwright\/screenshot\/step_sess-0001_3\.png\?t=\d+$/);
+    expect(ss?.url).toMatch(/^\/api\/playwright\/screenshot\/step_sess-0001_3\.jpg\?t=\d+$/);
     expect(visionDuProcess.extractPwScreenshotUrl("read_file", {}, "{}")).toBeNull();
   });
 

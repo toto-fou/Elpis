@@ -78,6 +78,42 @@ describe("famille browser servie par l'hôte", () => {
     expect(faux.vues.map((v) => `${v.methode} ${v.chemin}`)).toEqual(["POST /action", "GET /smart_inspect"]);
   });
 
+  it("captures demandées par le core (_meta) : en-tête sur la requête de l'outil, jamais sur sa page jointe ; vision à pw_page inspect seulement", async () => {
+    const b = await client();
+    const meta = { username: "bob", web_captures: "1", vision: "1" };
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, meta);
+    faux.captures.length = 0;
+    await b.appeler(
+      "pw_act",
+      { session_id: SESSION, action: "click", target: "role=link|name=Produits" },
+      meta,
+    );
+    await b.appeler("pw_page", { session_id: SESSION, action: "inspect", level: "lite" }, meta);
+    await b.appeler("pw_find", { session_id: SESSION }, meta);
+    expect(faux.captures).toEqual([
+      ["/action", "1", null],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", "1", "1"],
+      ["/smart_inspect", "1", null],
+    ]);
+    faux.captures.length = 0;
+    await b.appeler(
+      "pw_act",
+      { session_id: SESSION, action: "click", target: "role=link|name=Produits" },
+      { username: "bob" },
+    );
+    await b.appeler(
+      "pw_page",
+      { session_id: SESSION, action: "inspect" },
+      { username: "bob", web_captures: "0" },
+    );
+    expect(faux.captures).toEqual([
+      ["/action", null, null],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", null, null],
+    ]);
+  });
+
   it("propriétaire du compte (nom assaini) imposé à chaque requête ; la session ouverte est enregistrée à son nom", async () => {
     const b = await client();
     const r = await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "rené" });

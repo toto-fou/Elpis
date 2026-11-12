@@ -256,7 +256,7 @@
       },
       "resultat": "{\"screenshot_step\": 3}",
       "valeur": {
-        "url": "/api/playwright/screenshot/step_sessAAAA1111_3.png?t=1700000000123",
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_3.jpg?t=1700000000123",
         "step": 3,
         "session_id": "sessAAAA1111"
       }
@@ -268,7 +268,7 @@
       },
       "resultat": "{\"screenshot_step\": 1}",
       "valeur": {
-        "url": "/api/playwright/screenshot/step_sess_AAAA-11_1.png?t=1700000000123",
+        "url": "/api/playwright/screenshot/step_sess_AAAA-11_1.jpg?t=1700000000123",
         "step": 1,
         "session_id": "sess_AAAA-11"
       }
@@ -320,7 +320,7 @@
       },
       "resultat": "{\"screenshot_step\": true}",
       "valeur": {
-        "url": "/api/playwright/screenshot/step_sessAAAA1111_True.png?t=1700000000123",
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_True.jpg?t=1700000000123",
         "step": true,
         "session_id": "sessAAAA1111"
       }
@@ -387,7 +387,7 @@
       },
       "resultat": "{\"screenshot_step\": 2}",
       "valeur": {
-        "url": "/api/playwright/screenshot/step_sessBBBB2222_2.png?t=1700000000123",
+        "url": "/api/playwright/screenshot/step_sessBBBB2222_2.jpg?t=1700000000123",
         "step": 2,
         "session_id": "sessBBBB2222"
       }
@@ -413,7 +413,7 @@
       },
       "resultat": "{\"screenshot_step\": 12345678901234567890}",
       "valeur": {
-        "url": "/api/playwright/screenshot/step_sessAAAA1111_12345678901234567890.png?t=1700000000123",
+        "url": "/api/playwright/screenshot/step_sessAAAA1111_12345678901234567890.jpg?t=1700000000123",
         "step": 12345678901234567890,
         "session_id": "sessAAAA1111"
       }

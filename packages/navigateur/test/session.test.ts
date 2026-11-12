@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import {
   extractPwScreenshotUrl,
+  extractPwVisionCapture,
   getPwSessionOwner,
   proprietaire,
   PW_VERB_ALIASES,
@@ -88,6 +89,34 @@ describe("vecteurs Python de _pw_session", () => {
         JSON.stringify(c),
       ).toEqual(c.valeur);
     }
+  });
+
+  it("capture de la vision : seulement celle de pw_page inspect, de sa propre session, nom strict", () => {
+    const args = { session_id: "sessAAAA1111", action: "inspect" };
+    const res = (nom: unknown): string => JSON.stringify({ ok: true, step: 4, vision_screenshot: nom });
+    expect(extractPwVisionCapture("pw_page", args, res("vision_sessAAAA1111_4.jpg"))).toBe(
+      "vision_sessAAAA1111_4.jpg",
+    );
+    expect(
+      extractPwVisionCapture(
+        "pw_page",
+        { sid: "sessAAAA1111", op: "inspect" },
+        res("vision_sessAAAA1111_4.jpg"),
+      ),
+    ).toBe("vision_sessAAAA1111_4.jpg");
+    for (const [outil, a, r] of [
+      ["pw_page", args, res("vision_sessBBBB2222_4.jpg")],
+      ["pw_page", args, res("vision_sessAAAA1111_4.png")],
+      ["pw_page", args, res("vision_sessAAAA1111_4.jpg/../x")],
+      ["pw_page", args, res("../vision_sessAAAA1111_4.jpg")],
+      ["pw_page", args, res(4)],
+      ["pw_page", args, JSON.stringify({ ok: true, step: 4 })],
+      ["pw_page", { ...args, action: "screenshot" }, res("vision_sessAAAA1111_4.jpg")],
+      ["pw_act", args, res("vision_sessAAAA1111_4.jpg")],
+      ["pw_page", { session_id: "../x", action: "inspect" }, res("vision_../x_4.jpg")],
+      ["pw_page", args, "pas du json vision_screenshot"],
+    ] as const)
+      expect(extractPwVisionCapture(outil, a, r), JSON.stringify([outil, a, r])).toBeNull();
   });
 
   it("chemins des fichiers compagnons : aucune traversée", () => {

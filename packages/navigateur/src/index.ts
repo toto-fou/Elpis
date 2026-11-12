@@ -2,6 +2,7 @@
 /** packages/navigateur/src/index.ts — navigateur partagé du core et de l'hôte d'outils : propriété des sessions Playwright, garde des destinations, mémoire AX des sites, client du service navigateur. */
 export {
   extractPwScreenshotUrl,
+  extractPwVisionCapture,
   getPwSessionOwner,
   proprietaire,
   PW_VERB_ALIASES,

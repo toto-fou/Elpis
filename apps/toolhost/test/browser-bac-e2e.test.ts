@@ -263,8 +263,8 @@ afterAll(async () => {
   rmSync(dossier, { recursive: true, force: true });
 }, 120_000);
 
-async function outil(nom: string, args: Dict): Promise<Dict> {
-  const r = await b.appeler(nom, args, { username: COMPTE, user_id: String(uid), chat_id: chat });
+async function outil(nom: string, args: Dict, meta: Dict = {}): Promise<Dict> {
+  const r = await b.appeler(nom, args, { username: COMPTE, user_id: String(uid), chat_id: chat, ...meta });
   resultats.push(JSON.stringify(r));
   return (
     ((r["structuredContent"] as Dict | undefined)?.["result"] as Dict | undefined) ??
@@ -347,6 +347,84 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
     );
     await outil("pw_session", { action: "stop", session_id: tr["session_id"] });
   }, 120_000);
+
+  it("captures à la demande : aucune par défaut, une étape JPEG par appel si demandée, vision 1024 px à inspect", async () => {
+    const pavés = Array.from(
+      { length: 120 },
+      (_, i) =>
+        `<p style="padding:8px;background:linear-gradient(90deg,hsl(${i * 7},70%,60%),hsl(${i * 13},60%,40%))">Paragraphe ${i} ${"texte ".repeat(30)}</p>`,
+    ).join("");
+    docker(
+      "exec",
+      "-u",
+      "10001:10001",
+      CONTENEUR,
+      "sh",
+      "-c",
+      `cat > /work/site/lourd.html <<'FIN'\n<title>Lourd</title><button id="b">Bouton</button>${pavés}\nFIN`,
+    );
+    const s = await outil("pw_session", {
+      action: "start",
+      url: "http://localhost:8080/lourd.html",
+      isolated: true,
+    });
+    const sid = String(s["session_id"]);
+    const dossierCaptures = "/work/.elpis-browser/screenshots";
+    const captures = (): string[] =>
+      docker("exec", CONTENEUR, "sh", "-c", `ls ${dossierCaptures} 2>/dev/null | grep '${sid}' ; true`)
+        .split("\n")
+        .filter(Boolean)
+        .sort();
+    const cpu = (): number =>
+      Number(/usage_usec (\d+)/u.exec(docker("exec", CONTENEUR, "cat", "/sys/fs/cgroup/cpu.stat"))?.[1] ?? 0);
+    const serie = async (meta: Dict): Promise<{ ms: number; cpuMs: number; pas: unknown[] }> => {
+      const c0 = cpu();
+      const t0 = performance.now();
+      const pas: unknown[] = [];
+      for (let i = 0; i < 10; i++)
+        pas.push(
+          (await outil("pw_act", { session_id: sid, action: "click", target: "css=#b" }, meta))[
+            "screenshot_step"
+          ],
+        );
+      const ms = (performance.now() - t0) / 10;
+      await new Promise((ok) => setTimeout(ok, 1500));
+      return { ms, cpuMs: (cpu() - c0) / 1000 / 10, pas };
+    };
+    const sans = await serie({});
+    expect(sans.pas.every((p) => p === undefined)).toBe(true);
+    expect(captures()).toEqual([]);
+    const avec = await serie({ web_captures: "1" });
+    expect(avec.pas.every((p) => Number.isInteger(p))).toBe(true);
+    expect(captures()).toEqual(avec.pas.map((p) => `step_${sid}_${String(p)}.jpg`).sort());
+    console.log(
+      `[captures] pw_act ×10 (page lourde, 1920×1080) — sans capture : ${sans.ms.toFixed(0)} ms/appel, ` +
+        `${sans.cpuMs.toFixed(0)} ms CPU du bac/appel ; avec capture : ${avec.ms.toFixed(0)} ms/appel, ` +
+        `${avec.cpuMs.toFixed(0)} ms CPU du bac/appel`,
+    );
+    const t0 = performance.now();
+    const inspect = await outil("pw_page", { session_id: sid, action: "inspect" }, { vision: "1" });
+    const msInspect = performance.now() - t0;
+    expect(String(inspect["vision_screenshot"])).toMatch(new RegExp(`^vision_${sid}_[0-9]+\\.jpg$`, "u"));
+    const jpeg = execFileSync("docker", [
+      "exec",
+      CONTENEUR,
+      "cat",
+      `${dossierCaptures}/${String(inspect["vision_screenshot"])}`,
+    ]);
+    expect(jpeg.readUInt16BE(0)).toBe(0xffd8);
+    let sof = 2;
+    while (sof < jpeg.length - 9 && !(jpeg[sof + 1]! >= 0xc0 && jpeg[sof + 1]! <= 0xc2))
+      sof += 2 + jpeg.readUInt16BE(sof + 2);
+    expect(jpeg.readUInt16BE(sof + 7)).toBe(1024);
+    const t1 = performance.now();
+    await outil("pw_page", { session_id: sid, action: "inspect" });
+    console.log(
+      `[captures] pw_page inspect avec vision : ${msInspect.toFixed(0)} ms (sans : ${(performance.now() - t1).toFixed(0)} ms), ` +
+        `${Math.round(jpeg.length / 1024)} Ko`,
+    );
+    await outil("pw_session", { action: "stop", session_id: sid });
+  }, 180_000);
 
   it("URL extérieure : refus clair du profil réseau sans réseau", async () => {
     const r = await outil("pw_session", { action: "start", url: "https://example.org/" });

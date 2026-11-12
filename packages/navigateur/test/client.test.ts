@@ -258,6 +258,7 @@ describe("transport contre un faux service navigateur", () => {
   const socket = join(dossier, "browser.sock");
   const ferme = join(dossier, "absent.sock");
   let recu: Recu[] = [];
+  let captures: [string, string | null, string | null][] = [];
 
   beforeAll(async () => {
     serveur = createServer((req, rep) => {
@@ -266,6 +267,8 @@ describe("transport contre un faux service navigateur", () => {
       req.on("end", () => {
         const u = new URL(req.url ?? "/", "http://x");
         const corps = Buffer.concat(morceaux).toString("utf-8");
+        const entete = (nom: string): string | null => (req.headers[nom] as string | undefined) ?? null;
+        captures.push([u.pathname, entete("x-elpis-captures"), entete("x-elpis-vision")]);
         recu.push({
           methode: req.method ?? "",
           chemin: u.pathname,
@@ -348,6 +351,29 @@ describe("transport contre un faux service navigateur", () => {
     const absent = new ClientNavigateur({ owner: "alice", service: service(true) });
     expect(await absent.finishAct({ ok: true }, "s1", true)).toEqual({ ok: true });
     expect(await absent.axGetCurrentUrl("s1")).toBe("");
+  });
+
+  it("captures : en-tête sur chaque requête de l'outil sauf les annexes (page jointe, URL courante) ; vision sur la seule requête qui la réclame", async () => {
+    const c = new ClientNavigateur({ owner: "alice", service: service(), captures: true, vision: true });
+    captures = [];
+    await c.req("POST", "/ok", { json: { session_id: "s1" } });
+    await c.req("GET", "/smart_inspect", { params: { session_id: "s1" }, vision: true });
+    await c.finishAct({ ok: true }, "s1", true);
+    await c.axGetCurrentUrl("s1");
+    expect(captures).toEqual([
+      ["/ok", "1", null],
+      ["/smart_inspect", "1", "1"],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", null, null],
+    ]);
+    const sans = new ClientNavigateur({ owner: "alice", service: service() });
+    captures = [];
+    await sans.req("GET", "/smart_inspect", { params: { session_id: "s1" }, vision: true });
+    await sans.req("POST", "/ok", { json: { session_id: "s1" } });
+    expect(captures).toEqual([
+      ["/smart_inspect", null, null],
+      ["/ok", null, null],
+    ]);
   });
 
   it("relecture : paramètre illisible et délai nul rendent une enveloppe ; erreurs DNS et TLS rangées « service absent »", async () => {

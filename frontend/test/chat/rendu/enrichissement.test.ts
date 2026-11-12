@@ -12,6 +12,7 @@ vi.mock("../../../src/platform/vendor", () => ({
 }));
 import type { MessageMarkdown } from "../../../src/components/chat/ContenuMarkdown.vue";
 import { exporterConversation } from "../../../src/features/chat/export";
+import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 import {
   ATTRIBUT_COMPOSANT,
   ATTRIBUT_SANS_GRAPHIQUES,
@@ -41,12 +42,12 @@ function corps(html: string): HTMLElement {
 }
 
 describe("enrichirBlocs", () => {
-  it("bloc de code : en-tête de langue, Copier, Aperçu HTML ; idempotent", () => {
-    const el = corps(
-      '<pre><code class="language-html">&lt;b&gt;x&lt;/b&gt;</code></pre><pre><code>y</code></pre>',
-    );
+  it("bloc de code : habillage du moteur conservé par la passe (en-tête, Copier, Aperçu HTML) ; idempotent", () => {
+    const el = corps(moteurMarkdown().renderMarkdown("```html\n<b>x</b>\n```\n\n```\ny\n```"));
+    const avant = el.innerHTML;
     enrichirBlocs(el);
     enrichirBlocs(el);
+    expect(el.innerHTML.replace(/ data-hl-pending="1"/g, "")).toBe(avant);
     const wrappers = el.querySelectorAll(".code-wrapper");
     expect(wrappers.length).toBe(2);
     expect(wrappers[0]?.querySelector(".code-header span")?.textContent).toBe("HTML");
@@ -122,20 +123,27 @@ describe("enrichirBlocs", () => {
   });
 
   it("passe historique : les corps possédés par un composant sont sautés", () => {
+    const svg =
+      '<pre><code class="language-svg">&lt;svg xmlns="http://www.w3.org/2000/svg"&gt;&lt;rect/&gt;&lt;/svg&gt;</code></pre>';
     const hote = document.createElement("div");
     hote.innerHTML =
       '<div class="markdown-body" ' +
       ATTRIBUT_COMPOSANT +
-      '><pre><code>a</code></pre></div><div class="markdown-body"><pre><code>b</code></pre></div>';
+      ">" +
+      svg +
+      '</div><div class="markdown-body">' +
+      svg +
+      "</div>";
     document.body.appendChild(hote);
     enrichirBlocs(hote, true);
-    expect(hote.querySelectorAll(".code-wrapper").length).toBe(1);
-    expect(hote.querySelector("[" + ATTRIBUT_COMPOSANT + "] .code-wrapper")).toBeNull();
+    expect(hote.querySelectorAll(".svg-render").length).toBe(1);
+    expect(hote.querySelector("[" + ATTRIBUT_COMPOSANT + "] .svg-render")).toBeNull();
+    expect(hote.querySelector("[" + ATTRIBUT_COMPOSANT + "] pre")).not.toBeNull();
   });
 });
 
 describe("ContenuMarkdown enrichit son propre corps", () => {
-  it("après mise à jour (fin du flux) seulement, et garde l'enrichissement à HTML égal", async () => {
+  it("n'enrichit qu'après la fin du flux, et garde le DOM enrichi à HTML égal", async () => {
     const etat = shallowRef<MessageMarkdown>({ content: "```py\nx\n```", isStreaming: true, _mdBlocks: [] });
     const hote = document.createElement("div");
     document.body.appendChild(hote);

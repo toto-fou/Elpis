@@ -3,6 +3,7 @@
 import DOMPurify from "dompurify";
 import * as marked from "marked";
 
+import { installerDelegationCode } from "./habillage-code.ts";
 import { configurerAnalyseur, creerMoteurMarkdown } from "./markdown.ts";
 import type { Analyseur, Coloreur, MoteurMarkdown } from "./markdown.ts";
 import { creerPurificateur } from "./purification.ts";
@@ -33,6 +34,7 @@ export function moteurMarkdown(): MoteurMarkdown {
   const coloreur = (): Coloreur | undefined => globals().hljs;
   const m = creerMoteurMarkdown({ analyseur });
   configurerAnalyseur(analyseur, purificateur(), coloreur, () => m.colorationCoupee());
+  installerDelegationCode();
   moteur = m;
   return m;
 }

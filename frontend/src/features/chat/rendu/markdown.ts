@@ -2,6 +2,7 @@
 /** frontend/src/features/chat/rendu/markdown.ts — moteur Markdown du chat : rendu final en cache LRU, rendu incrémental par blocs pendant le flux. */
 import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
 import { reparerFinDeBloc } from "./fin-de-bloc.ts";
+import { estBlocOrdinaire, habillerBlocsCode, habillerBloc } from "./habillage-code.ts";
 
 export interface Coloreur {
   getLanguage(nom: string): unknown;
@@ -76,7 +77,7 @@ export function injecterCaret(html: string): string {
   if (!html) return html;
   const s = html.replace(/\s+$/, "");
   const m =
-    /<\/code><\/pre>$/i.exec(s) ??
+    /<\/code><\/pre>(?:<\/div>)?$/i.exec(s) ??
     /<\/(?:p|li|h[1-6]|td|th|blockquote|pre)>(?:\s*<\/(?:ul|ol|li|table|thead|tbody|tr|td|th|blockquote|div)>)*$/i.exec(
       s,
     );
@@ -107,7 +108,7 @@ export function configurerAnalyseur(
         html = texte;
       }
     } else html = escapeHtml(texte);
-    return `<pre><code class="hljs ${lang ? "language-" + lang : ""}">${html}</code></pre>\n`;
+    return `<pre><code class="hljs${lang ? " language-" + escapeHtml(lang) : ""}">${html}</code></pre>\n`;
   };
   renderer.codespan = (jeton: string | JetonCode): string => {
     const brut = typeof jeton === "string" ? jeton : (jeton.text ?? "");
@@ -143,7 +144,7 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     const a = dep.analyseur;
     if (!a) return null;
     const html = a.parse(md);
-    return typeof html === "string" ? html : null;
+    return typeof html === "string" ? habillerBlocsCode(html) : null;
   }
 
   function lire(cle: string): string | undefined {
@@ -201,6 +202,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
         for (let p = noeud.parentNode; p; p = p.parentNode) {
           const tag = (p as Element).tagName;
           if (tag === "SCRIPT" || tag === "STYLE" || tag === "MARK") return NodeFilter.FILTER_REJECT;
+          const cl = (p as Element).classList;
+          if (cl?.contains("code-header") || cl?.contains("copy-sticky")) return NodeFilter.FILTER_REJECT;
         }
         re.lastIndex = 0;
         return re.test(noeud.nodeValue ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
@@ -249,7 +252,10 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
       const lang = ouvrant.replace(/^(`{3,}|~{3,})\s*/, "").split(/\s+/)[0] ?? "";
       const corps = (nl === -1 ? "" : md.slice(nl + 1)).replace(/\n?(`{3,}|~{3,})\s*$/, "");
       const cls = "hljs" + (lang ? " language-" + echapperFlux(lang) : "");
-      return '<pre><code class="' + cls + '">' + echapperCorpsFence(corps) + "</code></pre>";
+      const html = echapperCorpsFence(corps);
+      return estBlocOrdinaire(lang.toLowerCase(), () => corps)
+        ? habillerBloc(lang, cls, html)
+        : '<pre><code class="' + cls + '">' + html + "</code></pre>";
     }
     if (md.length > PROSE_MAX) {
       const fm = /^[ \t]{0,3}(`{3,}|~{3,})/m.exec(md);

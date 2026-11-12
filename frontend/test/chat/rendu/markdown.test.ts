@@ -65,8 +65,8 @@ describe("purification", () => {
     const html = m.renderStreamingActive(
       '```html\n</code></pre><img src=x onerror="alert(1)">\n<script>x</script>',
     );
-    expect(html.startsWith('<pre><code class="hljs language-html">')).toBe(true);
-    expect(html).toContain("&lt;/code&gt;&lt;/pre&gt;&lt;img");
+    expect(html.startsWith('<div class="code-wrapper')).toBe(true);
+    expect(html).toContain('<code class="hljs language-html">&lt;/code&gt;&lt;/pre&gt;&lt;img');
     sansDanger(html);
   });
 

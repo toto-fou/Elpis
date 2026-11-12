@@ -2,17 +2,31 @@
 /** frontend/test/chat/rendu/contenu-markdown.test.ts — composant ContenuMarkdown : blocs figés conservés pendant le flux, rendu final, recherche, purification. */
 import { createApp, h, nextTick, shallowRef } from "vue";
 import type { App, VNode } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ContenuMarkdown from "../../../src/components/chat/ContenuMarkdown.vue";
 import NarrationVivante from "../../../src/components/chat/NarrationVivante.vue";
 import type { BlocRendu, MessageMarkdown } from "../../../src/components/chat/ContenuMarkdown.vue";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 
+vi.mock("../../../src/platform/vendor", () => ({
+  ensureVendor: () => Promise.reject(new Error("Chargement impossible")),
+}));
+
 let app: App | null = null;
+const copies: string[] = [];
+
+beforeEach(() => {
+  copies.length = 0;
+  vi.stubGlobal("navigator", {
+    clipboard: { writeText: (t: string) => Promise.resolve(void copies.push(t)) },
+  });
+  vi.stubGlobal("isSecureContext", true);
+});
 const clics: MouseEvent[] = [];
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   app?.unmount();
   app = null;
   clics.length = 0;
@@ -86,6 +100,33 @@ describe("ContenuMarkdown", () => {
     const caret = racine.querySelector("span.elpis-stream-caret");
     expect(caret?.parentElement?.tagName).toBe("P");
     expect(caret?.parentElement?.textContent).toBe("Deuxième fini.");
+  });
+
+  it("flux : bloc de code habillé dès le premier caractère, Copier lit le texte courant, bloc figé identique au rendu final", async () => {
+    let msg = flux({}, "Avant\n\n```py\nx = 1");
+    const { hote, etat } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    expect(racine.querySelector(".code-wrapper > .code-header span")?.textContent).toBe("PY");
+    racine.querySelector<HTMLElement>(".copy-btn")?.click();
+    await vi.waitFor(() => expect(copies).toEqual(["x = 1"]));
+    msg = flux(msg, "Avant\n\n```py\nx = 1\ny = 2");
+    etat.value = msg;
+    await nextTick();
+    racine.querySelector<HTMLElement>(".copy-btn")?.click();
+    await vi.waitFor(() => expect(copies).toEqual(["x = 1", "x = 1\ny = 2"]));
+    expect(clics.length).toBe(2);
+    msg = flux(msg, "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite");
+    etat.value = msg;
+    await nextTick();
+    const fige = racine.children[1] as HTMLElement;
+    const final = moteurMarkdown().renderMarkdown("```py\nx = 1\ny = 2\n```");
+    expect(fige.innerHTML.trim()).toBe(final.trim());
+    etat.value = { content: "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite", isStreaming: false };
+    await nextTick();
+    const termine = hote.firstElementChild as HTMLElement;
+    expect(termine.querySelector(".code-wrapper")?.outerHTML).toBe(
+      fige.querySelector(".code-wrapper")?.outerHTML,
+    );
   });
 
   it("rendu final : HTML complet, clic transmis, mutation de post-traitement conservée", async () => {

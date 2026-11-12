@@ -3464,6 +3464,58 @@ Responses carry metadata only (`schemaSecret`: scope, user name, state, version,
 `key_current` when the ciphertext uses the current key), never the value or its ciphertext.
 Errors are `{detail, code}`, `detail` in English.
 
+**Resolution.** Body `{usage: "web-login" | "http-auth", name?, origin, chat_id?, run?}`. The
+account, the conversation and the sub-agent come from the signed identity only: the tool host signs
+the `chat_id` of the tool call (`root#task-<id>` for a sub-agent) and its `subagent`; a `chat_id` in
+the body is optional and must equal the signed one (`secret_request_invalid`). The conversation must
+be a chat of that account, or a running routine run of it (`routine:<id>:run:<n>`, table
+`editor_routine_runs`), with an optional `#task-<id>` suffix; otherwise, or without a signed
+conversation, every secret is refused (`secret_not_attached`). The sub-agent marker is the
+envelope's `subagent` or the `#task-` suffix; the routine marker comes from the run key. By name, the
+secret must exist (`secret_unknown`), be attached to the conversation (`secret_not_attached`; a
+sub-agent only when `policy.subagents`, a routine run only when `policy.routines`), be of the kind
+asked (`secret_type_mismatch`), be verified (`secret_unverified`) and cover the origin
+(`secret_scope_mismatch`). Without a name, the single attached and verified secret of that kind
+whose scope covers the origin is used (`secret_ambiguous` when there are several). The answer is
+`{name, username, secret, tls, version}` with `Cache-Control: no-store`; `use_count` and
+`last_used_at` are updated and `vault.secret.used` is written, a refusal writes
+`vault.secret.refused` ([audit-events.md](audit-events.md#secrets-vault)). A ciphertext of another
+key gives `secret_undecryptable`, a missing key `secret_key_unavailable`, an `http-auth` secret
+without a user name `secret_username_required` (no use counted). `lireSecretPourUsage` derives
+`exigeAttachement` from the kind, whatever the caller passes: `web-login` and `http-auth` always
+require attachment, `git`, `token` and `mcp` never (the core's connector readers have no
+conversation). When attachment is required, a name that is unknown,
+of another kind or of another account gets the same answer as a secret that is not attached
+(`secret_not_attached`), and so does an origin that only non-attached secrets cover: the tool host
+learns nothing about secrets it may not use.
+`POST /api/internal/secrets/match` (`{origin, name?}` → `{secrets: [{name, kind, username, origins,
+tls, subagents}]}`) applies the same checks without a value, a use count or a journal line.
+`POST /api/internal/secrets/tripwire` (`{name}` → `{ok: true, detached}`) detaches the secret from
+the signed conversation and writes `vault.secret.refused` with `reason: "tripwire"`.
+
+**Attachment to a conversation.** The user attaches `web-login` and `http-auth` secrets to a
+conversation (`/secret attach <name>`); the ids are stored on the root conversation,
+`chats.meta_json.secrets` (10 at most), and every sub-agent of it (`root#task-…`) inherits them when
+the secret's policy allows sub-agents. A routine run has no conversation: there a secret applies only
+when its policy allows routines. Two ways to change the set, both from the composer:
+
+- the body of a chat turn (`POST /api/chat-saved-stream3`) carries `secrets: [ids]`, which replaces
+  the set at turn **preparation**, before any tool runs (a new chat is created blank first); ids that
+  are not the account's attachable secrets are dropped;
+- `PUT /api/chats/:chat_id/secrets` `{ids}` (order kept, duplicates ignored) replaces it at once
+  and refuses an id that is unknown or of another account (404 `secret_unknown`), of another kind
+  (`secret_type_mismatch`) or unverified (`secret_unverified`); `GET` returns `{secrets: [Secret]}`
+  (metadata, attachment order), as `PUT` does; an unknown chat gives 404.
+
+Each change writes `vault.secret.attached` or `vault.secret.detached`. The model learns the set from a
+`<secrets selection="…">` block joined to the question of the turn (never to the system prompt),
+like the RAG announcement (`apps/core/src/secrets/annonce.ts`): one line per secret
+(`- <name>  <kind>  <origins>  user=<username>`, `(not for sub-agents)` when the policy says so),
+"Values are never shown to you", and how to use them (`pw_session` on a matching origin, then
+`pw_login(secret=…)`). It is sent only when what the model sees changes (fingerprint of the lines),
+redone when compaction summarised it, stored in `llm_user_suffixes` and replayed as is; emptying the
+set sends a `selection="none"` block once. The system head and the history stay byte-identical.
+
 Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
 `secret_meta_invalid`, `secret_limit`, `secret_unknown`, `secret_type_mismatch`,

@@ -89,6 +89,7 @@ import { creerFamilleOpenapi } from "./familles/openapi";
 import { creerPontMcp } from "./familles/pont-mcp";
 import { creerFamillePrompts } from "./familles/prompts";
 import { creerFamilleRoutines } from "./familles/routines";
+import { creerFamilleSecrets } from "./familles/secrets";
 import { creerFamilleWebhooks } from "./familles/webhooks";
 import { creerFamilleLlm } from "./familles/llm";
 import { creerFamilleMcp } from "./familles/mcp";
@@ -525,6 +526,7 @@ export async function composer(
         ? [creerFamilleInterneJobs({ auth, service: jobs }), creerFamilleJobs({ service: jobs })]
         : []),
       creerFamilleGit({ base }),
+      creerFamilleSecrets({ base, auth }),
       creerFamilleAdminComptes({
         base,
         auth,

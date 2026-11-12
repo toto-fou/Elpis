@@ -398,6 +398,16 @@ follow [SemVer](https://semver.org/).
   The account view and its file `user_db/configs/{user_id}.json` now hold only the sections that
   `/api/public-config` already serves (`welcome`, `app_info`, `login_page`); any other key is
   neither returned nor written by `PUT /api/config`.
+- **Secrets resolve only for a signed conversation.** `POST /api/internal/secrets/resolve`
+  ignores a conversation that the tool host did not sign: the conversation must be a chat of the
+  account, or one of its running routine runs, and the secret must be attached to it; sub-agents
+  (`#task-…`) and routine runs are recognised from the signed conversation and need the secret's
+  `subagents` or `routines` policy. Only the Elpis application can use secrets, never an external
+  MCP client. A secret that is unknown, of another kind or not attached gets the same refusal
+  (`secret_not_attached`), so names cannot be probed; `web-login` and `http-auth` secrets always
+  require the attachment, and an `http-auth` secret without a user name is refused before any use
+  (`secret_username_required`). The browser service is started with `--use-system-ca`, so the
+  login POST replayed by Node trusts an internal CA installed in the system store.
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

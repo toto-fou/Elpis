@@ -371,7 +371,7 @@ export async function* runTurn(
   let erreurTour: Dict | null = null;
   let nouvelEtatCompression: Dict = {};
   let nouvellesClesElaguees: string[] = [];
-  const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.jobSuffix);
+  const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.secretsSuffix, plan.jobSuffix);
   const nouveauSuffixe: Dict = suffixeTour ? { text: suffixeTour } : {};
   const issueJobs = { message: false, reponse: false, suffixe: false };
   const drapeaux = { detache: false, lecteurParti: false, outils: false, finalEnvoye: false };

@@ -11,7 +11,9 @@
 #
 #  Fait (idempotent) :
 #    1. extrait node_modules.tar.gz            → ./node_modules
-#    2. extrait ms-playwright.tar.gz            → $HOME/.cache/ms-playwright
+#    2. installe le bundle offline/dist         → ./dist (vérifié : construit
+#                                                 depuis les sources du dépôt)
+#    3. extrait ms-playwright.tar.gz            → $HOME/.cache/ms-playwright
 #                                                 (ou --browsers-path DIR)
 #
 #  Usage :
@@ -43,6 +45,7 @@ OFFLINE="offline"
 [ -d "$OFFLINE" ] || die "Dossier $OFFLINE/ absent — lance d'abord ./fetch_offline_deps.sh (machine en ligne)."
 [ -f "$OFFLINE/node_modules.tar.gz" ]  || die "$OFFLINE/node_modules.tar.gz manquant."
 [ -f "$OFFLINE/ms-playwright.tar.gz" ] || die "$OFFLINE/ms-playwright.tar.gz manquant."
+[ -f "$OFFLINE/dist/main.mjs" ] || die "$OFFLINE/dist/main.mjs manquant (paquet antérieur au service en TypeScript : refaites-le avec ./fetch_offline_deps.sh)."
 command -v tar  >/dev/null 2>&1 || die "tar absent."
 [ -f "$OFFLINE/MANIFEST.txt" ] && { info "MANIFEST :"; sed 's/^/    /' "$OFFLINE/MANIFEST.txt" | head -9; }
 
@@ -53,7 +56,14 @@ tar xzf "$OFFLINE/node_modules.tar.gz"
 [ -d node_modules/playwright-core ] || die "Extraction node_modules incomplète."
 ok "node_modules installé."
 
-# ── 2. navigateurs Playwright ───────────────────────────────────────────────
+# ── 2. bundle du service (remplacé d'un coup, refusé s'il vient d'autres sources) ─
+info "Installation du bundle du service…"
+rm -rf dist.neuf && cp -a "$OFFLINE/dist" dist.neuf
+node dist.neuf/empreinte.mjs || { rm -rf dist.neuf; die "Bundle du service construit pour d'autres sources que ce dépôt : prenez le paquet de cette version."; }
+rm -rf dist.ancien && { [ ! -e dist ] || mv dist dist.ancien; } && mv dist.neuf dist && rm -rf dist.ancien
+ok "dist/ installé."
+
+# ── 3. navigateurs Playwright ───────────────────────────────────────────────
 info "Extraction des navigateurs → $BROWSERS_PATH…"
 mkdir -p "$BROWSERS_PATH"
 tar xzf "$OFFLINE/ms-playwright.tar.gz" -C "$BROWSERS_PATH"

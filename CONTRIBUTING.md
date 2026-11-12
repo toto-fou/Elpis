@@ -45,9 +45,10 @@ tests. Before opening one, run:
 
 ```bash
 npm ci
+npm ci --prefix browser-service   # the browser service's own dependencies
 npm run typecheck   # tsc and vue-tsc
 npm run lint        # ESLint
-npm run build       # core, tool host and frontend
+npm run build       # core, tool host, browser service and frontend
 ```
 
 Then run the tests of the areas you touched: how to run each suite

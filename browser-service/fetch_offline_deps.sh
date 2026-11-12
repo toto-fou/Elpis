@@ -11,6 +11,8 @@
 #  où le navigateur tourne : aucun paquet apt à vendorer.
 #
 #  Produit (dans ./offline/) :
+#    • dist/                 → bundle du service (npm run build:browser à la racine
+#                              du dépôt, dont les modules sont installés au besoin)
 #    • node_modules.tar.gz   → deps npm (express/playwright/uuid) — pur JS, même-arch
 #    • ms-playwright.tar.gz   → le headless shell de Chromium et ffmpeg, aux
 #                               révisions EXACTES du playwright-core vendorisé
@@ -61,6 +63,12 @@ else
   npm install || die "npm install a échoué."
 fi
 ok "node_modules prêt."
+
+# ── 1 bis. bundle du service (outils de construction de la racine du dépôt) ──
+info "Bundle du service (npm run build:browser)…"
+[ -d ../node_modules/esbuild ] || ( cd .. && npm ci --no-audit --no-fund ) || die "npm ci à la racine du dépôt a échoué."
+( cd .. && npm run build:browser -- --sortie "$PWD/$OFFLINE/dist" ) || die "Construction du service échouée."
+ok "dist/ prêt."
 
 # ── 2. localiser le CLI Playwright LOCAL + lire les révisions EXACTES ────────
 PW_CLI=""
@@ -121,7 +129,10 @@ sha(){ command -v sha256sum >/dev/null 2>&1 && sha256sum "$1" | cut -d' ' -f1 ||
   echo "builds           : ${WANT_DIRS[*]}"
   echo "arch             : $(uname -m)"
   echo ""
+  echo "bundle           : empreinte des sources $(sed -n 's/.*"empreinte": "\([0-9a-f]*\)".*/\1/p' "$OFFLINE/dist/construction.json")"
+  echo ""
   echo "sha256:"
+  echo "  dist/main.mjs         $(sha "$OFFLINE/dist/main.mjs")"
   echo "  node_modules.tar.gz   $(sha "$OFFLINE/node_modules.tar.gz")"
   echo "  ms-playwright.tar.gz  $(sha "$OFFLINE/ms-playwright.tar.gz")"
 } > "$OFFLINE/MANIFEST.txt"

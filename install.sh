@@ -31,7 +31,8 @@
 #    2 ter. hôte d'outils : bundle apps/toolhost/dist (même source ; depuis
 #       les sources, npm ci compile node-pty : build-essential et python3)
 #    3. base de données : préparée (serveur local) et TESTÉE avant la suite
-#    4. service navigateur : npm ci + headless shell de Chromium et ffmpeg
+#    4. service navigateur : npm ci, bundle browser-service/dist (paquet hors
+#       ligne, sinon construit ici) + headless shell de Chromium et ffmpeg
 #       (Playwright), montés dans la sandbox de chaque compte (seul endroit
 #       où le navigateur tourne)
 #    5. Qdrant (base vectorielle du RAG) : binaire officiel, sha256 vérifié
@@ -742,7 +743,7 @@ plan_dry_run() {
         external) etape "base de données : serveur existant, connexion testée avant la suite" ;;
     esac
     if [ "$WITH_BROWSER" -eq 1 ]; then
-        etape "navigateur : browser-service, npm ci et headless shell de Chromium (Playwright$([ -n "$OFFLINE_DIR" ] && echo ", depuis $OFFLINE_DIR/browser"))"
+        etape "navigateur : browser-service, npm ci, bundle du service et headless shell de Chromium (Playwright$([ -n "$OFFLINE_DIR" ] && echo ", depuis $OFFLINE_DIR/browser"))"
         [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=("CDN de Playwright")
     fi
     if [ -x "$ROOT/rag_app/qdrant/qdrant" ] && "$ROOT/rag_app/qdrant/qdrant" --version 2>/dev/null | grep -q "$QDRANT_VERSION"; then
@@ -1025,6 +1026,8 @@ install_browser() {
         return 0
     fi
     rm -rf "$npm_tmp"
+    as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" navigateur \
+        || { note_warn "Bundle du service navigateur non construit : navigateur indisponible."; return 0; }
     info "Headless shell de Chromium et ffmpeg (Playwright)…"
     ( cd "$bs" && as_app env PATH="$chemin" ./node_modules/.bin/playwright install --only-shell chromium ) || rc=$?
     if [ "$rc" -eq 0 ]; then ok "Service navigateur prêt."; else note_warn "Installation de Chromium incomplète (réseau ?)."; fi

@@ -829,11 +829,13 @@ browser"); there is no browser service on the host. It needs:
    `deploy/docker/sandbox-browser/`); offline, `deploy/docker/sandbox/load_image.sh
    elpis-sandbox-1.8.0.tar.gz`. Existing containers are recreated on it at their next use
    (`/work` is kept), and once more when the browser is installed after them (its mounts).
-2. The browser installed (`./install.sh --with-browser`): `browser-service/` and its
-   `node_modules`, the Node runtime and the Playwright cache (Chromium headless shell), mounted
-   read-only in the sandboxes and readable by the sandbox UID 10001 (the code of
-   `browser-service/`: `*.js`, `package.json`; nothing else of the folder is mounted;
-   `chmod o+rx browser-service/node_modules` if npm created it 0700).
+2. The browser installed (`./install.sh --with-browser`): the service bundle
+   (`browser-service/dist/main.mjs`, built by the installer from `browser-service/src`, shipped
+   prebuilt in the offline package; `./elpis upgrade` rebuilds it), its `node_modules`
+   (Playwright), the Node runtime and the Playwright cache (Chromium headless shell), mounted
+   read-only in the sandboxes and readable by the sandbox UID 10001 (nothing else of
+   `browser-service/` is mounted; `chmod o+rx browser-service/node_modules browser-service/dist`
+   if they were created 0700). `./elpis doctor` checks that the bundle matches the sources.
 3. Preferably two CPUs per sandbox (`"executors": {"limits": {"cpu_quota_pct": 200}}`):
    Chromium shares the sandbox's CPU quota, and at the default 100 % a step screenshot (off by
    default, turned on per account in Settings › Chat) of a heavy page can miss its 3 s delay

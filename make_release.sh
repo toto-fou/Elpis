@@ -24,8 +24,9 @@
 #      sandbox/    image sandbox Docker (.tar.gz), SOURCES.txt et OFFRE-SOURCES.txt
 #                  (GPL : paquets, versions, archives sources, offre écrite) ;
 #                  sources/ avec --with-sources
-#      browser/    dépendances npm, headless shell de Chromium et ffmpeg,
-#                  montés dans la sandbox (l'image porte leurs bibliothèques)
+#      browser/    bundle du service (dist/), dépendances npm, headless shell
+#                  de Chromium et ffmpeg, montés dans la sandbox (l'image porte
+#                  leurs bibliothèques)
 #      LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, LICENSES/, THIRD_PARTY_LICENSES/   notices d'Elpis et des composants
 #      wheels/LICENCES-PYTHON.txt   licences des roues (lues dans leurs *.dist-info)
 #      sbom/       SBOM CycloneDX JSON : npm (npm sbom), Python (roues), image sandbox (syft)
@@ -397,6 +398,8 @@ if [ "$WITH_BROWSER" -eq 1 ]; then
     info "Service navigateur (npm + headless shell de Chromium)…"
     ( cd "$ROOT/browser-service" && PATH="$NODE_ARBRE/bin:$PATH" ./fetch_offline_deps.sh )
     cp -a "$ROOT/browser-service/offline" "$OUT/browser"
+    ELPIS_RACINE="$ROOT" "$NODE_ARBRE/bin/node" "$OUT/browser/dist/empreinte.mjs" || die "Bundle du service navigateur : empreinte des sources."
+    sources_commitees "$OUT/browser/dist" "service navigateur"
 fi
 
 # ── 4 bis. Notices, licences Python et SBOM (avant le retrait de npm du runtime) ──
@@ -424,6 +427,7 @@ ok "Runtime Node.js $NODE_VERSION sans npm, npx ni corepack (empreinte ${emprein
     echo "core    : $(sed -n 's/.*"empreinte": "\([0-9a-f]*\)".*/\1/p' "$OUT/core/construction.json") (empreinte des sources)"
     echo "hôte    : $(sed -n 's/.*"empreinte": "\([0-9a-f]*\)".*/\1/p' "$OUT/toolhost/construction.json") (empreinte des sources, $cible)"
     echo "web     : $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') (frontend/dist, Vite)"
+    [ -f "$OUT/browser/dist/construction.json" ] && echo "navig.  : $(sed -n 's/.*"empreinte": "\([0-9a-f]*\)".*/\1/p' "$OUT/browser/dist/construction.json") (empreinte des sources, browser/dist)"
     echo "agpl    : $([ "$WITH_AGPL" -eq 1 ] && echo oui || echo non)"
     echo "sbom    : sbom/ (CycloneDX JSON), licences Python : wheels/LICENCES-PYTHON.txt"
     echo "sources : $([ "$WITH_SOURCES" -eq 1 ] && echo 'sandbox/sources/ (GPL)' || echo 'sandbox/SOURCES.txt et OFFRE-SOURCES.txt (offre écrite)')"

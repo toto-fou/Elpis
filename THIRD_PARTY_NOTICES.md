@@ -369,7 +369,9 @@ built by `make_release.sh` redistributes the Python packages of
 files in its `*.dist-info`, and `wheels/LICENCES-PYTHON.txt` (generated) sums
 up their names, versions and license texts. The exact list
 and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requirements-rag.txt`,
-`desktop-agent/requirements-*.txt` and `browser-service/package.json`.
+`desktop-agent/requirements-*.txt` and `browser-service/package.json`. The browser service's
+bundle (`browser-service/dist/main.mjs`) includes Express and its dependencies, and uuid; their
+license texts are written next to it in `browser-service/dist/LICENCES-TIERS.txt`.
 
 ### Python — application
 

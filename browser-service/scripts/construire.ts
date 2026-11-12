@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** browser-service/scripts/construire.ts — bundle of the browser service (dist/main.mjs), run by the mounted Node inside each sandbox: Playwright stays outside (browser-service/node_modules, mounted next to it), licence texts of the bundled packages in dist/LICENCES-TIERS.txt. */
+/** browser-service/scripts/construire.ts — bundle du service navigateur (dist/main.mjs), lancé par le Node monté dans chaque bac : Playwright reste à part (browser-service/node_modules, monté à côté), licences des paquets mis en bundle dans dist/LICENCES-TIERS.txt ; dist/empreinte.mjs compare le bundle aux sources, sur l'hôte. */
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -18,9 +18,12 @@ import {
 import type { PaquetLivre } from "../../apps/core/scripts/construire.ts";
 
 const SERVICE = path.join(RACINE, "browser-service");
-/** Entry point of the service. */
-const ENTREE = path.join(SERVICE, "src", "main.ts");
-/** Resolved at run time from browser-service/node_modules (mounted read-only in the sandbox with the bundle). */
+/** Entrées : le service, et le contrôle de ses sources côté hôte. */
+const ENTREES = {
+  main: path.join(SERVICE, "src", "main.ts"),
+  empreinte: path.join(SERVICE, "src", "empreinte.ts"),
+};
+/** Résolus à l'exécution dans browser-service/node_modules (monté en lecture seule dans le bac avec le bundle). */
 const EXTERNES = ["playwright", "playwright-core"];
 const FICHIERS_CONSTRUCTION = [
   "tsconfig.base.json",
@@ -39,7 +42,7 @@ export interface ConstructionService {
   paquets: PaquetLivre[];
 }
 
-/** npm packages whose code is written in the bundle (bytes > 0), with their licence texts. */
+/** Paquets npm dont du code est écrit dans le bundle (octets > 0), avec leurs textes de licence. */
 export function paquetsDuBundle(meta: Metafile): PaquetLivre[] {
   const dossiers = new Set<string>();
   for (const sortie of Object.values(meta.outputs))
@@ -55,7 +58,7 @@ export function paquetsDuBundle(meta: Metafile): PaquetLivre[] {
   return [...paquets.values()].sort((a, b) => (a.nom < b.nom ? -1 : a.nom > b.nom ? 1 : 0));
 }
 
-/** Repository files the bundle is made of (metafile inputs outside node_modules), plus the build files. */
+/** Fichiers du dépôt dont le bundle est fait (entrées du métafichier hors node_modules), plus ceux de la construction. */
 export function sourcesDuService(meta: Metafile): string[] {
   const fichiers = new Set(FICHIERS_CONSTRUCTION);
   for (const entree of Object.keys(meta.inputs))
@@ -75,14 +78,14 @@ function texteLicences(paquets: readonly PaquetLivre[]): string {
   );
 }
 
-/** Builds next to `sortie`, then replaces it at once: a failed build leaves the previous bundle intact. */
+/** Construit à côté de `sortie` puis le remplace d'un coup : un échec laisse l'ancien bundle intact. */
 export async function construireService(sortie: string): Promise<ConstructionService> {
   const provisoire = `${sortie}.construction-${process.pid}`;
   rmSync(provisoire, { recursive: true, force: true });
   try {
     const resultat = await build({
       absWorkingDir: RACINE,
-      entryPoints: { main: ENTREE },
+      entryPoints: ENTREES,
       outdir: provisoire,
       outExtension: { ".js": ".mjs" },
       bundle: true,

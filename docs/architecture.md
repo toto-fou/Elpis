@@ -284,7 +284,7 @@ elpis/
 ├── office/          # Office engine (Python, elpis_office/): tool host worker
 ├── sandbox-agent/   # agent run inside each sandbox container (Python, standard library)
 ├── frontend/        # interface (@elpis/web, Vite): src/ (TS, SFC), css/, assets/, index.html and admin.html shells
-├── browser-service/ # Node + Playwright, mounted into each sandbox
+├── browser-service/ # browser service (TS, Express + Playwright): src/, routes in src/routes/; bundle dist/main.mjs mounted into each sandbox
 ├── desktop-agent/   # screen control agent (Windows/Linux)
 ├── rag_app/         # RAG extractor (Python): text, pages, localization, OCR
 ├── system_prompts/  # base, FRAGMENT_*, AGENT_TASK_*…
@@ -2983,19 +2983,20 @@ ignored (one info line from the tool host at start).
 
 - **Container.** The image `elpis/sandbox:1.8.0` is 1.7.0 plus `certutil`
   (`deploy/docker/sandbox-browser/`). Nothing of Elpis is copied into it: the host mounts
-  read-only the **code** of `browser-service/` only, file by file (each `*.js` module and
-  `package.json`, at `/opt/elpis/browser-service/`; no subfolder, token or other file of that
-  folder), its resolved `node_modules` at `/opt/elpis/browser-service/node_modules`, the
+  read-only the **bundle** of the service only (`browser-service/dist/main.mjs`, built from the
+  TypeScript sources of `browser-service/src` by `npm run build:browser`, at
+  `/opt/elpis/browser-service/dist/main.mjs`; no source, token or other file of that folder),
+  its resolved `node_modules` (Playwright) at `/opt/elpis/browser-service/node_modules`, the
   installation's Node runtime at `/opt/elpis/node` and the Playwright cache at
   `/opt/elpis/ms-playwright` (`packages/bac/src/navigateur.ts`). The `elpis.browser` label (hash of
   the mounts and of their sources' inodes) recreates a container whose mounts changed or whose
-  code files were replaced by an update (a container created before the browser was installed is
+  bundle was rebuilt by an update (a container created before the browser was installed is
   recreated once). The mounted files must be readable by the sandbox UID (10001): `./elpis
   doctor` checks it.
 - **Start and stop.** The first `pw_*` call of the account (`serviceDuCompte`,
   `apps/toolhost/src/mcp/browser/bac.ts`) makes sure the container runs, opens the account's
   secret relay, copies the relay CA certificate to `/run/elpis/browser-ca.crt`, then starts
-  `server.js` detached as `exec_user` (`docker exec -d`, environment passed through a 0600 file
+  the bundle detached as `exec_user` (`docker exec -d`, environment passed through a 0600 file
   of the host, never on a command line). The start script imports the CA into the NSS database of
   the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service only listens on
   `/run/elpis/browser.sock` (`FIREFOX_SERVICE_SOCKET`), requires the sandbox token

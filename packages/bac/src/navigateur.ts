@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/src/navigateur.ts — navigateur dans le bac de chaque compte : montages en lecture seule (code du service fichier par fichier, ses modules, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
+/** packages/bac/src/navigateur.ts — navigateur dans le bac de chaque compte : montages en lecture seule (bundle du service, ses modules, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -27,13 +27,14 @@ export const NOMS_HOTE = {
 /** Destinations des montages (lecture seule). */
 export const MONTAGES_NAVIGATEUR = {
   service: "/opt/elpis/browser-service",
+  bundle: "/opt/elpis/browser-service/dist/main.mjs",
   modules: "/opt/elpis/browser-service/node_modules",
   node: "/opt/elpis/node",
   playwright: "/opt/elpis/ms-playwright",
 } as const;
 
-/** Code du service monté dans le bac : modules `*.js` et `package.json` du dossier, jamais ses sous-dossiers ni ses autres fichiers (données d'anciennes installations, paquets hors ligne). */
-const CODE_SERVICE = /^(?:[\w.-]+\.(?:js|mjs|cjs)|package\.json)$/u;
+/** Seul code du service monté dans le bac : son bundle (`npm run build:browser`), jamais le reste du dossier (sources, données d'anciennes installations, paquets hors ligne). */
+const BUNDLE_SERVICE = "dist/main.mjs";
 
 /** Surcharges de test des sources des montages (`null` : celles de l'installation). */
 export const reglagesNavigateurBac: {
@@ -70,28 +71,25 @@ export function sourcesNavigateur(): {
   return { service, modules, node, playwright };
 }
 
-/** Fichiers de code du service (fichiers ordinaires, liens exclus), triés. */
-export function fichiersCodeService(service: string): string[] {
+/** Bundle du service (fichier ordinaire, lien exclu), `null` s'il n'est pas construit. */
+export function bundleService(service: string): string | null {
+  const f = pyJoin(service, BUNDLE_SERVICE);
   try {
-    return readdirSync(service, { withFileTypes: true })
-      .filter((d) => d.isFile() && CODE_SERVICE.test(d.name))
-      .map((d) => d.name)
-      .sort();
+    return lstatSync(f).isFile() ? f : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-/** `-v source:destination:ro` du navigateur, le code du service fichier par fichier ; `null` si une source manque (service, modules, Node ou Playwright). */
+/** `-v source:destination:ro` du navigateur, le bundle du service seul ; `null` si une source manque (bundle, modules, Node ou Playwright). */
 export function montagesNavigateur(): string[] | null {
   const s = sourcesNavigateur();
   if (s.service === null || s.modules === null || s.node === null || s.playwright === null) return null;
   if (!existsSync(pyJoin(s.node, "bin/node"))) return null;
-  const service = s.service;
-  const code = fichiersCodeService(service);
-  if (!code.includes("server.js")) return null;
+  const bundle = bundleService(s.service);
+  if (bundle === null) return null;
   const v = [
-    ...code.map((f) => `${pyJoin(service, f)}:${MONTAGES_NAVIGATEUR.service}/${f}:ro`),
+    `${bundle}:${MONTAGES_NAVIGATEUR.bundle}:ro`,
     `${s.modules}:${MONTAGES_NAVIGATEUR.modules}:ro`,
     `${s.node}:${MONTAGES_NAVIGATEUR.node}:ro`,
     `${s.playwright}:${MONTAGES_NAVIGATEUR.playwright}:ro`,
@@ -126,5 +124,5 @@ export const SCRIPT_NAVIGATEUR = [
   'certutil -D -d "sql:$N" -n elpis-relay-ca >/dev/null 2>&1',
   `certutil -A -d "sql:$N" -n elpis-relay-ca -t C,, -i ${BROWSER_CA_CERT} || exit 1`,
   'L="$D/service.log"; [ "$(stat -c %s "$L" 2>/dev/null || echo 0)" -lt 5242880 ] || mv -f "$L" "$L.1"',
-  `cd "$D" && exec ${MONTAGES_NAVIGATEUR.node}/bin/node ${MONTAGES_NAVIGATEUR.service}/server.js >>"$L" 2>&1`,
+  `cd "$D" && exec ${MONTAGES_NAVIGATEUR.node}/bin/node ${MONTAGES_NAVIGATEUR.bundle} >>"$L" 2>&1`,
 ].join("\n");

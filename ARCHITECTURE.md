@@ -21,7 +21,7 @@ optional and linked by HTTP.
 | **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | admin console and `/api/admin/*`; one process |
 | **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | MCP tool host (streamable HTTP `/mcp[/<family>]`, SSE), sandbox and terminal API; its own database `user_db/toolhost.db`; serves its tool families itself, including Office (Python worker `office/`) |
 | **rag_app** | 8000 (loopback) | `rag_app/start.sh` | RAG extractor (FastAPI, stateless): text, pages, localization, OCR; the RAG itself (collections, permissions, indexing, search) is in the core, with Qdrant :6333 |
-| **browser-service** | — (Unix socket in each sandbox) | `browser-service/server.js` | driven browser (Node + Playwright), started by the tool host inside each account's sandbox — optional |
+| **browser-service** | — (Unix socket in each sandbox) | `browser-service/src/main.ts` (bundle `dist/main.mjs`) | driven browser (Node + Playwright), started by the tool host inside each account's sandbox — optional |
 | **desktop-agent** | 8765 (on the controlled machine) | `desktop-agent/` | Windows (pywinauto) / Linux (AT-SPI) screen control — optional |
 | **llama-server** | 8080 | llama.cpp, outside the repository | local inference; or any OpenAI-compatible engine, or a remote provider |
 | **Caddy** | 443 / 8443 | `deploy/caddy/` | HTTPS front end — optional |

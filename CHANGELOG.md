@@ -161,6 +161,17 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
+  the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
+  shared state in an explicit service context instead of module globals), bundled by esbuild into
+  `browser-service/dist/main.mjs` (`npm run build:browser`, part of `npm run build`; Express is
+  bundled, Playwright stays in `browser-service/node_modules`). HTTP API, model-facing texts and
+  behaviour are unchanged. Each sandbox mounts that bundle instead of the `*.js` files (sandboxes
+  are recreated once at their next use, `/work` kept); `./install.sh` builds it, the offline
+  package ships it (`browser/dist`), `./elpis upgrade` rebuilds it and `./elpis doctor` checks it
+  matches the sources (`browser-service/dist/empreinte.mjs`, which never loads the service). `npm
+  run typecheck` and `npm run lint` cover it; CI installs its dependencies first (`npm ci --prefix
+  browser-service`). Its tests are TypeScript too, still run by `node --test` (type stripping).
 - **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
   downscales a screenshot after every browser action. `pw_page inspect` asks the service
   (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken

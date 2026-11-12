@@ -20,12 +20,22 @@ import { dossierTemporaire, FauxCli } from "./aides";
 const [tmp, nettoyer] = dossierTemporaire("bac-nav-");
 
 beforeAll(() => {
-  for (const d of ["service/node_modules", "service/cookies", "service/test", "node/bin", "pw"])
+  for (const d of [
+    "service/node_modules",
+    "service/cookies",
+    "service/test",
+    "service/src",
+    "service/dist",
+    "node/bin",
+    "pw",
+  ])
     mkdirSync(path.join(tmp, d), { recursive: true });
   writeFileSync(path.join(tmp, "node/bin/node"), "");
   for (const f of [
+    "dist/main.mjs",
+    "dist/main.mjs.map",
+    "src/main.ts",
     "server.js",
-    "url_guard.js",
     "package.json",
     "package-lock.json",
     ".token",
@@ -51,7 +61,7 @@ describe("conteneur du bac", () => {
     });
     const bac = sb.buildRunArgs(sb.networkProfile);
     for (const dst of [
-      `${MONTAGES_NAVIGATEUR.service}/server.js`,
+      MONTAGES_NAVIGATEUR.bundle,
       MONTAGES_NAVIGATEUR.modules,
       MONTAGES_NAVIGATEUR.node,
       MONTAGES_NAVIGATEUR.playwright,
@@ -62,20 +72,18 @@ describe("conteneur du bac", () => {
     expect(bac.slice(-3)).toEqual(["elpis/sandbox:1.8.0", "sleep", "infinity"]);
   });
 
-  it("seul le code du service est monté : ni ses données, ni ses jetons, ni ses autres dossiers ; un fichier remplacé change l'empreinte", () => {
+  it("seul le bundle du service est monté : ni ses sources, ni ses données, ni ses jetons, ni ses autres dossiers ; un bundle remplacé change l'empreinte", () => {
     const m = (montagesNavigateur() ?? []).filter((x) => x !== "-v");
     const service = m
       .filter((x) => x.includes(`:${MONTAGES_NAVIGATEUR.service}/`))
       .map((x) => x.split(":")[1]);
     expect(service.sort()).toEqual(
-      ["node_modules", "package.json", "server.js", "url_guard.js"].map(
-        (f) => `${MONTAGES_NAVIGATEUR.service}/${f}`,
-      ),
+      ["dist/main.mjs", "node_modules"].map((f) => `${MONTAGES_NAVIGATEUR.service}/${f}`),
     );
     expect(m.some((x) => x.split(":")[1] === MONTAGES_NAVIGATEUR.service)).toBe(false);
-    expect(m.join(" ")).not.toMatch(/cookies|\.token|package-lock|\/test/u);
+    expect(m.join(" ")).not.toMatch(/cookies|\.token|package|\/test|\/src|server\.js|\.map/u);
     const avant = empreinteNavigateur();
-    const f = path.join(tmp, "service", "url_guard.js");
+    const f = path.join(tmp, "service", "dist", "main.mjs");
     writeFileSync(`${f}.neuf`, "y");
     renameSync(`${f}.neuf`, f);
     expect(empreinteNavigateur()).not.toBe(avant);
@@ -154,7 +162,7 @@ describe("conteneur du bac", () => {
     expect(existsSync(fichier)).toBe(false);
     await sb.stopNavigateur();
     expect((cli.appels.at(-1) as string[]).join(" ")).toContain(
-      `pkill -TERM -f ${MONTAGES_NAVIGATEUR.service}/server.js`,
+      `pkill -TERM -f ${MONTAGES_NAVIGATEUR.bundle}`,
     );
   });
 });

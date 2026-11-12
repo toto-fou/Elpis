@@ -17,11 +17,16 @@ export function pwMock(s: ServicesBrowser) {
     const sid = a["session_id"];
     const action = a["action"] as string;
     if (action === "add") {
-      if (!a["url_pattern"]) return errPw("url_pattern required", "pass the URL (glob) pattern to mock");
+      if (!a["url_pattern"])
+        return errPw(
+          "url_pattern required",
+          "pass a substring of the URL to mock (or a regular expression with is_regex=true)",
+        );
       return client.req("POST", "/mock/add", {
         json: {
           session_id: sid,
           url_pattern: a["url_pattern"],
+          is_regex: a["is_regex"] === true,
           status: a["status"],
           body: a["body"],
           content_type: a["content_type"],
@@ -97,11 +102,13 @@ export function pwVisual(s: ServicesBrowser) {
     const corps: Dict = {
       session_id: a["session_id"],
       name: a["name"] || "default",
-      threshold: versFlottantPy(a["threshold"] as number),
+      ...(typeof a["threshold"] === "number" ? { threshold: versFlottantPy(a["threshold"]) } : {}),
       update: veritePy(a["update"]),
     };
     const sel = stripPy((a["selector"] as string) || "") || dslToSelector(a["target"] as string);
     if (sel) corps["selector"] = sel;
+    if (Array.isArray(a["mask"]) && a["mask"].length)
+      corps["mask"] = (a["mask"] as unknown[]).map((m) => String(m).replace(/^css=/u, ""));
     return client.req("POST", "/visual", { json: corps, timeout: Math.max(client.delaiS, 30) });
   };
 }

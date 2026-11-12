@@ -16,11 +16,11 @@ import { analyserUrl, verifierBac, messageRefus } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
 import { demarrerRelais } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
-         codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
-         noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
-import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
+         codeErreur, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
+         noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
+import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './recorder_util.js';
 import { gardeJeton } from './service_auth.js';
 import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
          verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
@@ -478,73 +478,61 @@ async function _lancerNavigateur() {
 // ==========================================
 // SHADOW DOM — SCAN RÉCURSIF PROFOND
 // ==========================================
-/**
- * Trouve un élément dans le shadow DOM (toute profondeur) via JS evaluate.
- * Retourne { found, x, y, w, h, text, tag } ou null.
- */
+// Élément trouvé dans les racines shadow ouvertes par un sélecteur CSS (toute profondeur) : point de clic vérifié (`pointDeClic`), null sinon.
 async function shadowDOMQuery(page, selector) {
     try {
-        return await page.evaluate((sel) => {
-            function deepQuery(root, selector) {
+        return await page.evaluate(({ sel, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            function deepQuery(root) {
                 try {
-                    const el = root.querySelector(selector);
-                    if (el) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            return {
-                                found: true,
-                                x: Math.round(rect.left + rect.width / 2),
-                                y: Math.round(rect.top + rect.height / 2),
-                                w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || el.value || '').trim().substring(0, 100),
-                                tag: el.tagName.toLowerCase(),
-                            };
-                        }
-                    }
+                    const el = root.querySelector(sel);
+                    const p = el ? auPoint(el) : null;
+                    if (p) return { found: true, ...p };
                 } catch (e) {}
-                // Scan shadow roots
-                const allEls = root.querySelectorAll('*');
-                for (const child of allEls) {
-                    if (child.shadowRoot) {
-                        const result = deepQuery(child.shadowRoot, selector);
-                        if (result) return result;
-                    }
+                for (const child of root.querySelectorAll('*')) {
+                    if (!child.shadowRoot) continue;
+                    const result = deepQuery(child.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepQuery(document, sel);
-        }, selector);
+            return deepQuery(document);
+        }, { sel: selector, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
-/**
- * Trouve un élément dans le shadow DOM par son texte visible.
- */
+// Élément dont le texte RENDU (sans <script> ni <style>) contient `text`, page et racines shadow ouvertes : point de clic vérifié, null sinon.
 async function shadowDOMQueryByText(page, text) {
     try {
-        return await page.evaluate((txt) => {
-            function deepTextQuery(root, text) {
-                const allEls = root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label');
-                for (const el of allEls) {
-                    const elText = (el.textContent || '').trim();
-                    if (elText.toLowerCase().includes(text.toLowerCase()) && elText.length < 200) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            const style = window.getComputedStyle(el);
-                            if (style.display !== 'none' && style.visibility !== 'hidden') {
-                                return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
-                            }
-                        }
+        return await page.evaluate(({ txt, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            const voulu = txt.toLowerCase();
+            const texteRendu = (el) => {
+                let t = '';
+                const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
+                while (w.nextNode()) t += w.currentNode.textContent;
+                return t.replace(/\s+/g, ' ').trim();
+            };
+            function deepTextQuery(root) {
+                for (const el of root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label')) {
+                    const elText = texteRendu(el);
+                    if (elText.length < 200 && elText.toLowerCase().includes(voulu)) {
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
-                    if (el.shadowRoot) {
-                        const result = deepTextQuery(el.shadowRoot, text);
-                        if (result) return result;
-                    }
+                }
+                for (const el of root.querySelectorAll('*')) {
+                    if (!el.shadowRoot) continue;
+                    const result = deepTextQuery(el.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepTextQuery(document, txt);
-        }, text);
+            return deepTextQuery(document);
+        }, { txt: text, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
@@ -679,8 +667,10 @@ function resolveOfficialLocator(page, params) {
     if (by_role) {
         const opts = {};
         // whole_name : nom entier (casse et espaces de bord ignorés) au lieu d'une sous-chaîne.
-        if (by_name) opts.name = exact ? by_name
-            : new RegExp(params.whole_name ? `^\\s*${escapeRegex(by_name)}\\s*$` : escapeRegex(by_name), 'i');
+        const coupe = typeof by_name === 'string' && by_name.length > 1 && by_name.endsWith('…');
+        const nom = coupe ? by_name.slice(0, -1) : by_name;
+        if (by_name) opts.name = exact && !coupe ? by_name
+            : new RegExp(params.whole_name && !coupe ? `^\\s*${escapeRegex(nom)}\\s*$` : coupe ? `^\\s*${escapeRegex(nom)}` : escapeRegex(nom), 'i');
         if (exact) opts.exact = true;
         loc = page.getByRole(by_role, opts);
     } else if (by_text) {
@@ -756,6 +746,10 @@ function resolveRef(ref, page, sid = null) {
 
 // Attente courte d'une cible absente avant « element_not_found » (la page peut finir de s'afficher).
 const NOT_FOUND_GRACE_MS = parseInt(process.env.PW_NOT_FOUND_GRACE_MS || '2000', 10);
+// Plafond commun des grosses sorties (eval, extract, text), en caractères JSON comptés comme le client : sous son budget de 24 000, rien n'y est recoupé.
+const PLAFOND_SORTIE = parseInt(process.env.PW_OUTPUT_MAX_CHARS || '20000', 10);
+const INDICE_PLAFOND = `Output capped at ${PLAFOND_SORTIE} characters.`;
+
 // Délai par défaut d'un geste, commun à /action et /chain, sous le délai du client (10 s) : l'erreur du service arrive d'abord.
 const ACTION_TIMEOUT_MS = parseInt(process.env.PW_ACTION_TIMEOUT_MS || '8000', 10);
 
@@ -777,7 +771,7 @@ async function resoudreCible(scope, params, graceMs = 0) {
     if (!base) return null;
     const n0 = await attendrePresence(base, graceMs);
     let r = { liste: base, n: n0, nameMatch: null, params: sansNth };
-    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name) {
+    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name && !String(sansNth.by_name).endsWith('…')) {
         const entier = { ...sansNth, whole_name: true };
         const locEntier = resolveOfficialLocator(scope, entier);
         const ne = await locEntier.count().catch(() => 0);
@@ -792,9 +786,44 @@ async function resoudreCible(scope, params, graceMs = 0) {
 async function trouveParRepli(page, selector) {
     try {
         const r = await smartResolveLocator(page, selector);
-        if (r.coords || r.strategy !== 'fallback') return true;
-        return (await r.locator.count().catch(() => 0)) > 0;
+        if (r.coords) return true;
+        if (!r.locator) return false;
+        return r.strategy !== 'fallback' || (await r.locator.count().catch(() => 0)) > 0;
     } catch (_) { return false; }
+}
+
+// Repli par chaîne : un élément réel (un sélecteur CSS/XPath peut apparaître pendant `graceMs`), sinon element_not_found avec les cibles proches ; `coords` admis pour un clic seulement.
+async function resoudreRepli(page, selector, { params = null, coords = false, graceMs = NOT_FOUND_GRACE_MS } = {}) {
+    const r = await smartResolveLocator(page, selector);
+    if (r.coords && coords) return r;
+    if (r.locator && (r.strategy !== 'fallback' || await attendrePresence(r.locator, graceMs) > 0)) return r;
+    throw await erreurIntrouvable(page, params, selector, r.coords ? ' (only reachable by its position: use action=click)' : '');
+}
+
+// Case cochée par script en dernier recours : une vraie case ou un bouton radio seulement, sinon l'erreur du geste.
+async function cocherParScript(locator, etat, erreur) {
+    const fait = await locator.evaluate((el, v) => {
+        if (el.tagName !== 'INPUT' || !['checkbox', 'radio'].includes(el.type)) return false;
+        el.checked = v;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }, etat, { timeout: 1000 }).catch(() => false);
+    if (!fait) throw erreur;
+}
+
+// Clic qui atteindrait un autre élément que la cible (calque, bandeau, dialogue posé dessus) : rien n'a été cliqué.
+function erreurInterception(cible, couvert) {
+    const quoi = cible && cible.css ? `<${cible.css}>` : 'the target';
+    const par = couvert && couvert.css ? `<${couvert.css}>${couvert.text ? ` ("${couvert.text}")` : ''}` : 'another element';
+    return erreurCodee('click_intercepted', `The click on ${quoi} would land on ${par}, which covers it: nothing was clicked.`, {
+        covering_element: couvert || null, target_element: cible || null,
+        fix: 'Close or remove what covers the element (its close button, pw_act action="press" value="Escape"), or wait until it is gone (pw_wait condition="hidden" on it), then retry.',
+    });
+}
+
+// État de clic d'un locator (`pointDeClic` dans sa frame) ; null s'il n'est plus attaché.
+async function etatClic(loc, position = null) {
+    return loc.evaluate(pointDeClic, position, { timeout: 1500 }).then((p) => (p ? { visible: true, ...p } : { visible: false }), () => null);
 }
 
 // Cibles proposées pour une cible introuvable : rôles et noms de l'instantané ARIA de la page, les plus proches d'abord.
@@ -877,9 +906,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
         // Critical for: <div class="btn"><span>Valider</span></div>
         try {
             for (const tag of ['button', 'a', '[role="button"]', '[onclick]', 'div', 'span', 'li', 'td', 'label']) {
-                const ht = page.locator(`${tag}:has-text("${echapperCss(selector)}")`).first();
-                if (await ht.count().catch(() => 0) > 0 && await ht.isVisible({ timeout: VIS_T }).catch(() => false))
-                    return { locator: ht, frame: page, strategy: `has-text(${tag})` };
+                const ht = await plusInterieurVisible(page.locator(`${tag}:has-text("${echapperCss(selector)}")`));
+                if (ht) return { locator: ht, frame: page, strategy: `has-text(${tag})` };
             }
         } catch (e) {}
 
@@ -892,15 +920,16 @@ async function smartResolveLocator(page, selector, opts = {}) {
             }
         } catch (e) {}
 
-        // 2d. XPath normalize-space contains — handles whitespace, nested text, case variations
+        // 2d. XPath sur le texte PROPRE d'un élément rendu (jamais html/body ni le source d'un <script>), casse ignorée en second.
         try {
+            const rendu = 'not(ancestor-or-self::script or ancestor-or-self::style or ancestor-or-self::noscript or ancestor-or-self::template)';
             const xpaths = [
-                `//*[contains(normalize-space(), ${litteralXPath(selector)})]`,
-                `//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]`,
+                `//body//*[${rendu}][text()[contains(normalize-space(.), ${litteralXPath(selector)})]]`,
+                `//body//*[${rendu}][text()[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]]`,
             ];
             for (const xp of xpaths) {
-                const xl = page.locator(`xpath=${xp}`).first();
-                if (await xl.count().catch(() => 0) > 0 && await xl.isVisible({ timeout: VIS_T }).catch(() => false)) {
+                const xl = await premierVisible(page.locator(`xpath=${xp}`));
+                if (xl) {
                     const climbed = await climbToInteractive(xl);
                     return { locator: climbed || xl, frame: page, strategy: climbed ? 'xpath-text+climb' : 'xpath-text' };
                 }
@@ -913,9 +942,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
             for (const frame of allFrames) {
                 if (frame === page.mainFrame() || frame.isDetached()) continue;
                 try {
-                    const fl = frame.getByText(selector, { exact: false }).first();
-                    if (await fl.count().catch(() => 0) > 0)
-                        return { locator: fl, frame, strategy: 'iframe-text' };
+                    const fl = await premierVisible(frame.getByText(selector, { exact: false }));
+                    if (fl) return { locator: fl, frame, strategy: 'iframe-text' };
                 } catch (e) {}
             }
         } catch (e) {}
@@ -964,11 +992,11 @@ async function smartResolveLocator(page, selector, opts = {}) {
     if (!isXPath) {
         const shadowResult = await shadowDOMQuery(page, selector);
         if (shadowResult?.found)
-            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y } };
+            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y }, hit: shadowResult.hit, cover: shadowResult.cover, element: shadowResult.element };
         if (textLike) {
             const shadowTextResult = await shadowDOMQueryByText(page, selector);
             if (shadowTextResult?.found)
-                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y } };
+                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y }, hit: shadowTextResult.hit, cover: shadowTextResult.cover, element: shadowTextResult.element };
         }
     }
 
@@ -976,8 +1004,12 @@ async function smartResolveLocator(page, selector, opts = {}) {
     // Last resort: find ANY element containing the text via JS, then climb to clickable ancestor
     if (textLike) {
         try {
-            const jsResult = await page.evaluate((text) => {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+            const jsResult = await page.evaluate(({ text, srcPoint }) => {
+                const auPoint = new Function(`return (${srcPoint})`)();
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
                 const needle = text.toLowerCase().trim();
                 while (walker.nextNode()) {
                     const node = walker.currentNode;
@@ -1002,21 +1034,43 @@ async function smartResolveLocator(page, selector, opts = {}) {
                             candidate = candidate.parentElement;
                         }
                         if (!el) continue;
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width === 0 || rect.height === 0) continue;
-                        return { found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
                 }
                 return { found: false };
-            }, selector);
+            }, { text: selector, srcPoint: sourceDe(pointDeClic) });
             if (jsResult?.found)
-                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y } };
+                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y }, hit: jsResult.hit, cover: jsResult.cover, element: jsResult.element };
         } catch (e) {}
     }
 
-    // ─── Strategy 7 : Fallback without visibility check ───
+    // ─── Strategy 7 : sélecteur CSS/XPath tel quel, jamais un texte pris pour un sélecteur ───
+    if (textLike && !isPlaywrightSyntax) return { locator: null, frame: page, strategy: 'not_found' };
     const fallback = isXPath ? page.locator(`xpath=${selector}`) : page.locator(selector);
     return { locator: fallback.first(), frame: page, strategy: 'fallback' };
+}
+
+// Premier élément visible d'une liste (les `max` premiers examinés), null sinon.
+async function premierVisible(loc, max = 10) {
+    const n = Math.min(await loc.count().catch(() => 0), max);
+    for (let i = 0; i < n; i++) if (await loc.nth(i).isVisible({ timeout: 150 }).catch(() => false)) return loc.nth(i);
+    return null;
+}
+
+// Élément visible le plus intérieur d'une liste (aucun autre élément de la liste en dessous) : le bouton, pas la page qui le contient.
+async function plusInterieurVisible(loc) {
+    const k = await loc.evaluateAll((els) => {
+        const liste = els.slice(0, 400);
+        for (let i = 0; i < liste.length; i++) {
+            const e = liste[i];
+            if (liste.some((o) => o !== e && e.contains(o))) continue;
+            const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+            if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') return i;
+        }
+        return -1;
+    }).catch(() => -1);
+    return k >= 0 ? loc.nth(k) : null;
 }
 
 // Remonte d'un nœud de texte vers l'ancêtre RÉELLEMENT interactif.
@@ -1380,112 +1434,77 @@ async function captureAncestors(locator) {
 }
 
 
+// Clic par l'échelle de repli : succès seulement sur un élément réel, visible, et que le clic atteint (point vérifié avant tout clic forcé ou par coordonnées) ; sinon element_not_found, click_intercepted ou l'erreur du premier essai.
 async function smartClick(page, selector, opts = {}) {
-    const { timeout = 8000, button = 'left', modifiers = [], human = false } = opts;
-    // Reduced cascade timeouts: element is already resolved, no need for long waits
+    const { timeout = 8000, button = 'left', modifiers = [], human = false, position = null, params = null } = opts;
     const FAST = 2000;
+    const resolved = await resoudreRepli(page, selector, { params, coords: true });
+    const fin = (strategy) => ({ success: true, strategy, resolved: resolved.strategy, locator: resolved.locator || null,
+                                 cadre: resolved.frame || null, ...(decrit ? { element: decrit } : {}) });
 
-    // Résoudre le locateur d'abord
-    let resolved;
-    try { resolved = await smartResolveLocator(page, selector, opts); }
-    catch (e) { resolved = { locator: page.locator(selector).first(), frame: page, strategy: 'direct' }; }
-
-    // Cas shadow DOM / JS text walk : clic par coordonnées directement
+    // Shadow DOM / parcours du texte : clic par coordonnées, point vérifié dans la page
     if (resolved.coords) {
-        try {
-            if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
-            else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
-            return { success: true, strategy: resolved.strategy };
-        } catch (e) {}
+        if (!resolved.hit) throw erreurInterception(resolved.element, resolved.cover);
+        if (resolved.element && resolved.element.disabled)
+            throw erreurCodee('element_disabled', `<${resolved.element.css}> is disabled: nothing was clicked.`);
+        if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
+        else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
+        return { success: true, strategy: resolved.strategy, resolved: resolved.strategy, element: resolved.element };
     }
 
     const loc = resolved.locator;
     const errors = [];
+    let premiere = null;
+    const vu = await loc.evaluate(decrireNoeud, {}, { timeout: 1000 }).catch(() => null);
+    const decrit = vu ? { css: vu.tag, ...(vu.role ? { role: vu.role } : {}), ...(vu.name ? { name: vu.name } : {}) } : null;
 
-    // Stratégie 1 : Clic Playwright normal
+    // Stratégie 1 : clic Playwright (attend que l'élément soit actionnable et non couvert)
     try {
         await scrollIntoViewIfNeeded(loc);
         if (human) {
-            const box = await loc.boundingBox({ timeout: FAST });
-            if (box) {
-                const ox = box.width * (0.3 + Math.random() * 0.4);
-                const oy = box.height * (0.3 + Math.random() * 0.4);
-                await humanClick(page, box.x + ox, box.y + oy);
-                return { success: true, strategy: '1-human', resolved: resolved.strategy };
+            const etat = await etatClic(loc, position);
+            if (etat && etat.visible && etat.hit) {
+                await humanClick(page, etat.x, etat.y);
+                return fin('1-human');
             }
         }
-        await loc.click({ timeout, button, modifiers });
-        return { success: true, strategy: '1-playwright', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S1: ${e.message.substring(0, 80)}`); }
+        await loc.click({ timeout, button, modifiers, ...(position ? { position } : {}) });
+        return fin('1-playwright');
+    } catch (e) { premiere = e; errors.push(`S1: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 2 : Suppression d'overlays + pointer-events fix + clic
+    // Stratégie 2 : bandeaux connus retirés, pointer-events rétablis, puis point vérifié
+    await safeRemoveOverlays(page);
+    await loc.evaluate(el => {
+        let node = el;
+        for (let i = 0; i < 10 && node; i++) {
+            if (window.getComputedStyle(node).pointerEvents === 'none') node.style.pointerEvents = 'auto';
+            node = node.parentElement;
+        }
+    }).catch(() => {});
+    await page.waitForTimeout(100);
+    const etat = await etatClic(loc, position);
+    if (!etat) throw await erreurIntrouvable(page, params, selector, ' (it left the page)');
+    if (!etat.visible) throw Object.assign(premiere, { code: codeErreur(premiere.message) === 'timeout' ? 'timeout' : 'element_not_visible' });
+    if (!etat.hit) throw erreurInterception(etat.element, etat.cover);
+    if (etat.disabled) throw Object.assign(premiere, { code: 'element_disabled' });
     try {
-        await safeRemoveOverlays(page);
-        // Fix pointer-events:none on element and ancestors
-        await loc.evaluate(el => {
-            let node = el;
-            for (let i = 0; i < 10 && node; i++) {
-                const style = window.getComputedStyle(node);
-                if (style.pointerEvents === 'none') {
-                    node.style.pointerEvents = 'auto';
-                }
-                node = node.parentElement;
-            }
-        }).catch(() => {});
-        await page.waitForTimeout(100);
-        await scrollIntoViewIfNeeded(loc);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '2-overlay+pointer-fix', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, button, modifiers, ...(position ? { position } : {}) });
+        return fin('2-overlay+pointer-fix');
     } catch (e) { errors.push(`S2: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 3 : Force click
+    // Stratégie 3 : clic forcé au point vérifié (l'élément y est le premier touché)
     try {
-        await loc.click({ timeout: FAST, force: true, button, modifiers });
-        return { success: true, strategy: '3-force', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, force: true, button, modifiers, ...(position ? { position } : {}) });
+        return fin('3-force');
     } catch (e) { errors.push(`S3: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 4 : Scroll au centre + pause + clic
-    try {
-        await loc.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }));
-        await page.waitForTimeout(200);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '4-scroll-center', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S4: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 5 : JS element.click()
+    // Stratégie 5 : clic JS sur l'élément visible lui-même
     try {
         await loc.evaluate(el => el.click());
-        return { success: true, strategy: '5-js-click', resolved: resolved.strategy };
+        return fin('5-js-click');
     } catch (e) { errors.push(`S5: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 6 : Dispatch MouseEvent complet (mousedown + mouseup + click + pointer)
-    try {
-        await loc.evaluate(el => {
-            const rect = el.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const init = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, which: 1, button: 0, view: window };
-            el.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mousedown', init));
-            el.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mouseup', init));
-            el.dispatchEvent(new MouseEvent('click', init));
-        });
-        return { success: true, strategy: '6-mouse-event-dispatch', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S6: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 7 : Clic par coordonnées via boundingBox
-    try {
-        const box = await loc.boundingBox({ timeout: FAST });
-        if (!box) throw new Error('No bounding box');
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
-        if (human) await humanClick(page, cx, cy);
-        else await page.mouse.click(cx, cy, { button });
-        return { success: true, strategy: '7-coords', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S7: ${e.message.substring(0, 80)}`); }
-
-    throw new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`);
+    throw Object.assign(new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`), { code: 'click_failed' });
 }
 
 // ==========================================
@@ -1667,6 +1686,25 @@ const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || '9000', 10)
 const BUDGET_CHAINE_MS = parseInt(process.env.PW_CHAIN_BUDGET_MS || '55000', 10);
 
 // Geste de /action qui peut naviguer : la réponse attend la page d'arrivée et en donne l'URL (`navigated`, `url_before`).
+// Téléchargements lancés pendant un geste (depuis l'arrivée de la requête) joints à sa réponse : fichier, chemin, taille (attente bornée de leur enregistrement).
+function suiviTelechargements(req, res, next) {
+    const s = req.session;
+    if (!s || !Array.isArray(s.downloads)) return next();
+    const depuis = req.recuA || Date.now();
+    const envoyer = res.json.bind(res);
+    res.json = (corps) => {
+        const lances = s.downloads.filter(d => d.debut >= depuis);
+        if (!lances.length || res.statusCode >= 400 || !corps || typeof corps !== 'object' || Array.isArray(corps)) return envoyer(corps);
+        const delai = new Promise(r => setTimeout(r, TELECHARGEMENT_ATTENTE_MS, null));
+        Promise.all(lances.map(d => Promise.race([d.fini, delai]).then(f => f || { file: d.nom, status: 'in_progress' })))
+            .then((fichiers) => { corps.downloads = fichiers; }, () => {})
+            .finally(() => { try { envoyer(corps); } catch (e) { console.error('[téléchargement] réponse non envoyée :', e.message); } });
+        return res;
+    };
+    next();
+}
+const TELECHARGEMENT_ATTENTE_MS = parseInt(process.env.PW_DOWNLOAD_WAIT_MS || '5000', 10);
+
 function suiviNavigationGeste(req, res, next) {
     const page = req.session && req.session.page;
     if (!page || !GESTES_NAVIGANTS.has(req.body && req.body.type)) return next();
@@ -1721,6 +1759,13 @@ function erreurCodee(code, message, details = null) {
     return e;
 }
 
+// Réponse d'erreur d'une route : statut selon le code (introuvable 404, clic intercepté 409, sinon 500), code et contexte de l'erreur.
+function repondreErreur(res, e, extra = {}) {
+    const code = detailsErreur(e).code || codeErreur(e.message);
+    const statut = code === 'element_not_found' ? 404 : code === 'click_intercepted' ? 409 : 500;
+    return res.status(statut).json({ error: e.message, ...detailsErreur(e), ...extra });
+}
+
 // Code propre et contexte d'une erreur levée par le service, pour le corps de la réponse.
 function detailsErreur(e) {
     const out = {};
@@ -1730,13 +1775,13 @@ function detailsErreur(e) {
 }
 
 async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
-    const opts = await locator.evaluate((el) => {
+    const lu = await locator.evaluate((el) => {
         if (!el.options) return null;
-        return Array.from(el.options).map((o, i) => ({
+        return { multiple: el.multiple, opts: Array.from(el.options).map((o, i) => ({
             i, value: o.value, label: (o.text || '').trim(), disabled: !!o.disabled,
-        }));
+        })) };
     }).catch(() => null);
-    if (opts === null) {
+    if (lu === null) {
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '?');
         const e = new Error(
             `select: <${tag}> is not a native <select>. For a custom dropdown ` +
@@ -1745,34 +1790,55 @@ async function selectOptionSmart(locator, { option_value, option_label, value, t
         e.code = 'not_a_select';
         throw e;
     }
+    const opts = lu.opts;
     const pick = (pred) => opts.find(o => !o.disabled && pred(o));
-    let hit = null;
-    if (option_value) hit = pick(o => o.value === option_value);
-    else if (option_label) {
-        const w = String(option_label).trim();
-        hit = pick(o => o.label === w)
-           || pick(o => o.label.toLowerCase() === w.toLowerCase())
-           || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
-    }
-    if (!hit) {
-        const w = String(value || text || '').trim();
-        if (w) {
-            hit = pick(o => o.value === w)
-               || pick(o => o.label === w)
+    // Option voulue : par valeur (option_value), par libellé (option_label), sinon valeur ou libellé devinés (value/text).
+    const trouver = ({ option_value, option_label, value, text }) => {
+        let hit = null;
+        if (option_value) hit = pick(o => o.value === option_value);
+        else if (option_label) {
+            const w = String(option_label).trim();
+            hit = pick(o => o.label === w)
                || pick(o => o.label.toLowerCase() === w.toLowerCase())
-               || pick(o => o.value.toLowerCase() === w.toLowerCase())
                || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
         }
+        if (!hit) {
+            const w = String(value || text || '').trim();
+            if (w) {
+                hit = pick(o => o.value === w)
+                   || pick(o => o.label === w)
+                   || pick(o => o.label.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.value.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
+            }
+        }
+        return hit;
+    };
+    const absente = (wanted) => erreurCodee('option_not_found',
+        `No <option> matching "${wanted}". Available: ` +
+        opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
+        (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
+        { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
+          fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
+    // <select multiple> : une liste (ou des textes séparés par des virgules, sauf s'ils forment une option) sélectionne chaque option nommée.
+    const champ = ['option_value', 'option_label', 'value', 'text'].find(k => ({ option_value, option_label, value, text })[k]);
+    const brut = champ ? ({ option_value, option_label, value, text })[champ] : null;
+    const liste = Array.isArray(brut) ? brut.map(String).filter(Boolean)
+        : lu.multiple && typeof brut === 'string' && brut.includes(',') && !trouver({ [champ]: brut }) ? brut.split(',').map(x => x.trim()).filter(Boolean) : null;
+    if (liste && (lu.multiple || liste.length > 1)) {
+        if (!lu.multiple) throw erreurCodee('multiple_not_allowed', `This <select> takes one option; ${liste.length} were given.`,
+            { fix: 'Pass a single option_label= (or option_value=).' });
+        const touches = liste.map(w => [w, trouver({ [champ]: w })]);
+        const manquante = touches.find(([, h]) => !h);
+        if (manquante) throw absente(manquante[0]);
+        const retenues = [...new Map(touches.map(([, h]) => [h.i, h])).values()];
+        await locator.selectOption(retenues.map(h => ({ index: h.i })), { timeout });
+        return { value: retenues.map(h => h.value).join(','), label: retenues.map(h => h.label).join(', '), index: retenues[0].i,
+                 values: retenues.map(h => h.value), labels: retenues.map(h => h.label) };
     }
-    if (!hit) {
-        const wanted = option_value || option_label || value || text || '(none)';
-        throw erreurCodee('option_not_found',
-            `No <option> matching "${wanted}". Available: ` +
-            opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
-            (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
-            { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
-              fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
-    }
+    const seule = liste ? { [champ]: liste[0] } : { option_value, option_label, value, text };
+    const hit = trouver(seule);
+    if (!hit) throw absente(seule.option_value || seule.option_label || seule.value || seule.text || '(none)');
     await locator.selectOption({ index: hit.i }, { timeout });
     return { value: hit.value, label: hit.label, index: hit.i };
 }
@@ -1879,15 +1945,20 @@ const ownerStartLocks = new Map();
 // Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
 const requetesEcartees = new WeakSet();
+const documentSansFragment = (u) => String(u || '').split('#')[0];
 function attachPageLoggers(page, consoleLogs, networkLog) {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
+    // Chaque entrée porte l'URL du document (sans fragment) qui l'a émise : l'inspection ne rend que celles du document courant.
+    const noter = (line) => {
+        consoleLogs.push({ line, doc: documentSansFragment(page.url()) });
+        if (consoleLogs.length > 100) consoleLogs.shift();
+    };
     page.on('console', msg => {
-        if (['error', 'warning'].includes(msg.type())) {
-            consoleLogs.push(`[${msg.type()}] ${msg.text()}`);
-            if (consoleLogs.length > 100) consoleLogs.shift();
-        }
+        if (['error', 'warning'].includes(msg.type())) noter(`[${msg.type()}] ${purgerTexte(msg.text(), networkLog.formes)}`);
     });
+    // Exception non rattrapée de la page (onload compris), que la console ne montre pas.
+    page.on('pageerror', err => noter(`[pageerror] ${purgerTexte(String(err?.message || err), networkLog.formes)}`));
     const pageHost = () => { try { return hostOf(page.url()); } catch (_) { return ''; } };
     const entry = (req, rtype) => {
         const url = req.url();
@@ -2156,6 +2227,10 @@ function refusDemarrage(b) {
     return null;
 }
 
+// Options fixées à la création d'un contexte : sans effet sur une session reprise.
+const OPTIONS_DE_CREATION = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
+const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
+
 // Plafond qui a fait céder une session, en clair pour le modèle.
 const LIMITES_SESSIONS = {
     owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
@@ -2168,6 +2243,11 @@ function descriptionEviction(sid, limite, now) {
     let url = ''; try { url = s.page?.url?.() || ''; } catch (_) { /* page fermée */ }
     return { session_id: sid, url: url.substring(0, 120), idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
              isolated: Boolean(s.isolated), reason: `closed to stay within ${(LIMITES_SESSIONS[limite] || LIMITES_SESSIONS.owner)()}` };
+}
+
+function avisEviction(evincees) {
+    return `To open this session, ${evincees.length} older idle session(s) of yours were closed (${evincees.map(e => e.session_id).join(', ')}): `
+        + `${evincees[0].reason.replace(/^closed /, '')}. Their session_id no longer works; a session that is busy or opened for a secret is never closed.`;
 }
 
 // Refus quand toutes les sessions du demandeur sont protégées (occupées ou liées à un secret) : lesquelles, et quoi faire.
@@ -2237,6 +2317,14 @@ app.post('/start', async (req, res) => {
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
+                const sansEffet = optionsDeCreation(req.body);
+                if (sansEffet.length) {
+                    return res.status(409).json({
+                        error: `A session is already open for this account (one per account): ${sansEffet.join(', ')} can only be set when a session is created, so they were NOT applied and nothing was opened.`,
+                        code: 'session_options_need_new_session', ignored_options: sansEffet, session_id: existingSid,
+                        fix: `Start again with isolated=true to get a new separate session with these options, or close this one first (pw_session action='stop'), or drop ${sansEffet.join(', ')} to open the url in a new tab of the existing session.`,
+                    });
+                }
                 // AUDIT 2026-06 — la mutation tabs/page se fait SOUS le mutex
                 // de la session réutilisée (une op en vol sur cette page ne
                 // doit pas voir s.page changer sous ses pieds).
@@ -2349,12 +2437,18 @@ app.post('/start', async (req, res) => {
         });
 
         // Téléchargements rangés par propriétaire, pour TOUS les onglets.
+        // Chaque téléchargement est noté sur la session (début, fichier enregistré) : le geste qui l'a lancé le rapporte.
         const dossierTelechargements = path.join(DOWNLOAD_DIR, owner);
-        context.on('page', (pg) => pg.on('download', async download => {
-            try {
+        context.on('page', (pg) => pg.on('download', (download) => {
+            const nom = safeDownloadName(download.suggestedFilename());
+            const chemin = path.join(dossierTelechargements, nom);
+            const fini = (async () => {
                 fs.mkdirSync(dossierTelechargements, { recursive: true });
-                await download.saveAs(path.join(dossierTelechargements, safeDownloadName(download.suggestedFilename())));
-            } catch (e) {}
+                await download.saveAs(chemin);
+                return { file: nom, path: chemin, size: fs.statSync(chemin).size };
+            })().catch((e) => ({ file: nom, error: sansAnsi(e.message).split('\n')[0] }));
+            const s = sessions.get(sessionId);
+            if (s) { s.downloads.push({ debut: Date.now(), nom, fini }); if (s.downloads.length > 20) s.downloads.shift(); }
         }));
         const page = await context.newPage();
 
@@ -2377,6 +2471,8 @@ app.post('/start', async (req, res) => {
                    + 'the account and its sub-agents share this quota. A sub-agent that hits it returns Status: blocked to its parent.',
             });
         }
+        // Session cédée pour rester sous le plafond : dite dans la réponse, jamais en silence.
+        const evincees = slot.evict ? [descriptionEviction(slot.evict, slot.limit, now)] : [];
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
         sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
@@ -2394,7 +2490,10 @@ app.post('/start', async (req, res) => {
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav });
+        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+                   ...(evincees.length ? { evicted_sessions: evincees, warning: avisEviction(evincees) } : {}),
+                   ...indiceAuthDemarrage(nav),
+                   ...(tls ? { tls } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });
@@ -2754,7 +2853,7 @@ app.post('/login', getSession, async (req, res) => {
 
 
 // ======================== ACTIONS ========================
-app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, res) => {
+app.post('/action', getSession, autoSnapshot, suiviTelechargements, suiviNavigationGeste, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -2782,6 +2881,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
         const opts = { timeout, button, modifiers };
+        // Point de clic dans la cible ({x, y} depuis son coin haut gauche : canvas, carte), pour click, dblclick, rclick et hover.
+        const point = position && typeof position === 'object' ? position : null;
+        if (point && !(Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0))
+            return res.status(400).json({ error: 'position must be {x, y}: pixels from the top-left corner of the target, 0 or more.', code: 'invalid_position' });
+        const auPoint = point ? { position: { x: point.x, y: point.y } } : {};
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
         let extra = {};             // champs additionnels du résultat (expanded, drag…)
@@ -2889,6 +2993,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             const avis = [];
             if (cible.n > 1 && nth === null)
                 avis.push(`${cible.n} elements match ${expr}; acted on the first. Pass strict=true to refuse ambiguous targets, or add |nth=K / use a ref from pw_find.`);
+            else if (cible.n > 1)
+                avis.push(`${cible.n} elements match ${expr}; acted on nth=${nth} (0-based). A position breaks when the list changes: prefer a ref from pw_find or a more precise target.`);
             if (cible.nameMatch === 'substring') {
                 const vu = await officialLocator.evaluate(decrireNoeud).catch(() => null);
                 avis.push(`No ${by_role} is named exactly "${by_name}"; matched by substring${vu && vu.name ? ` ("${vu.name}")` : ''}.`);
@@ -2997,20 +3103,21 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 ? Math.min(timeout, OFFICIAL_TRY_MS)
                 : timeout;
             const _t = officialTimeout;
+            const cadresAvant = req.session._recorder?.recording ? await cheminCadres(officialLocator) : [];
             try {
                 if (type === 'click') {
-                    await officialLocator.click({ timeout: _t, button, modifiers, force });
+                    await officialLocator.click({ timeout: _t, button, modifiers, force, ...auPoint });
                     // Un treeitem / disclosure dit s'il s'est ouvert : sans ça un
                     // clic « réussi » qui n'a fait que SÉLECTIONNER passait pour
                     // un dépliage (audit tools web 2026-09-05).
                     const _ae = await officialLocator.getAttribute('aria-expanded', { timeout: 500 }).catch(() => null);
                     if (_ae !== null && _ae !== undefined) extra.expanded = _ae === 'true';
                 } else if (type === 'double_click' || type === 'dblclick') {
-                    await officialLocator.dblclick({ timeout: _t, button, modifiers });
+                    await officialLocator.dblclick({ timeout: _t, button, modifiers, ...auPoint });
                 } else if (type === 'right_click' || type === 'rclick') {
-                    await officialLocator.click({ timeout: _t, button: 'right', modifiers });
+                    await officialLocator.click({ timeout: _t, button: 'right', modifiers, ...auPoint });
                 } else if (type === 'hover') {
-                    await officialLocator.hover({ timeout: _t, modifiers });
+                    await officialLocator.hover({ timeout: _t, modifiers, ...auPoint });
                 } else if (type === 'check') {
                     await officialLocator.check({ timeout: _t, force });
                 } else if (type === 'uncheck') {
@@ -3064,6 +3171,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // L'option RÉELLEMENT choisie — le rejeu n'écrit plus
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
+                    ...(uploadFiles ? { files: uploadFiles.map(f => f.name) } : {}),
+                    ...(cadresAvant.length ? { frames: cadresAvant } : {}),
                     url: page.url(), ref,
                 }, officialLocator);
                 return res.json({
@@ -3072,7 +3181,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // Ce que le service a RÉELLEMENT résolu, et par quel chemin :
                     // un succès par repli n'est plus indiscernable d'un succès
                     // direct (audit tools web 2026-09-05).
-                    resolved_selector: describeLocator(ref ? { ref } : { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath }, { first: true }),
+                    resolved_selector: describeLocator(ref ? { ref } : { ...cible.params, ...(nth !== null ? { nth } : {}) }, { first: true }),
                     attempts: [{ via: ref ? 'ref' : 'official', ok: true, ms: Date.now() - _t0 }],
                     url: page.url(),
                     ...(selectedOption ? { selected: selectedOption } : {}),
@@ -3116,10 +3225,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             : {};
         // Chaque réponse de repli complète la liste des tentatives : la dernière
         // est celle qui a atterri (via = stratégie smartResolve).
-        const _landed = (via) => ({
+        const _landed = (via, element = null) => ({
             ..._fb,
             attempts: [...(_fb.attempts || []), { via: `smart:${via || 'selector'}`, ok: true, ms: Date.now() - _t0 }],
             resolved_selector: describeLocator({ selector }, { first: true }),
+            ...(element ? { resolved_element: element } : {}),
         });
         // Budget du repli : l'essai officiel a déjà consommé jusqu'à
         // OFFICIAL_TRY_MS. Sans plafond ici, une cible RÉELLEMENT absente
@@ -3129,7 +3239,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // AMENER À L'ÉCRAN (cible + pas de direction)
         if (type === 'scroll_into_view') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', strategy: 'scroll_into_view', ..._landed('scroll_into_view') });
@@ -3137,25 +3247,21 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC SMART (via smartClick)
         if (type === 'click') {
-            const result = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, force });
+            const { locator: cliqueSur, cadre, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams, position: point });
+            const ancestors = cliqueSur ? await captureAncestors(cliqueSur).catch(() => []) : [];
             await postActionWait(page, wait_after);
-            // AX Memory : essai de capture des ancetres (best-effort)
-            let ancestors = [];
-            try {
-                const loc = page.locator(selector).first();
-                ancestors = await captureAncestors(loc).catch(() => []);
-            } catch (e) { ancestors = []; }
-            recordEvent(req.session, { action: 'click', selector, url: page.url() });
+            const cadres = req.session._recorder?.recording && cadre ? await cheminCadres(cadre) : [];
+            await recordEvent(req.session, { action: 'click', selector, url: page.url(), ...(cadres.length ? { frames: cadres } : {}) }, cliqueSur);
             return res.json({
                 status: 'success', ...result,
-                url: page.url(), ancestors, ..._landed(result && result.strategy),
+                url: page.url(), ancestors, ..._landed(result.strategy, element),
             });
         }
 
         // CLIC RELATIF
         if (type === 'click_relative') {
             const layoutSelector = `${selector}:${position}(${relative_to})`;
-            const result = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
+            const { locator: _l, cadre: _c, ...result } = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...result });
         }
@@ -3171,32 +3277,32 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DOUBLE-CLIC
         if (type === 'dblclick') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.dblclick({ timeout: _lt, force });
+            await locator.dblclick({ timeout: _lt, force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
 
         // CLIC DROIT
         if (type === 'right_click') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.click({ timeout: _lt, button: 'right', force });
+            await locator.click({ timeout: _lt, button: 'right', force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
 
         // HOVER
         if (type === 'hover') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             if (human) {
                 const box = await locator.boundingBox().catch(() => null);
                 if (box) { await humanMouseMove(page, 960, 540, box.x + box.width / 2, box.y + box.height / 2); }
                 else await locator.hover({ timeout: _lt, force });
             } else {
                 await scrollIntoViewIfNeeded(locator);
-                await locator.hover({ timeout: _lt, force });
+                await locator.hover({ timeout: _lt, force, ...auPoint });
             }
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
@@ -3204,7 +3310,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // FILL — gère input natif, contentEditable, React/Vue/Angular
         if (type === 'fill') {
-            let resolved = await smartResolveLocator(page, selector);
+            let resolved = await resoudreRepli(page, selector, { params: cibleParams });
             let loc = resolved.locator;
             let fillMethod = '';
 
@@ -3262,9 +3368,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 return res.json({ status: 'success', method: `${fillMethod}ctrl-a-type` });
             } catch (e) { errors.push(`ctrl+a: ${e.message.substring(0, 80)}`); }
 
-            // Tentative 3 : JS value + React/Vue native setter
+            // Tentative 3 : JS value + React/Vue native setter, sur un vrai champ seulement
             try {
                 await loc.evaluate((el, val) => {
+                    if (!['INPUT', 'TEXTAREA'].includes(el.tagName)) throw new Error(`<${el.tagName.toLowerCase()}> is not a text field`);
                     // React native setter (works with React 16+, 17, 18)
                     const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value') ||
                         Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -3292,7 +3399,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // TYPE (frappe humaine)
         if (type === 'type') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.click({ timeout: 3000 }).catch(() => {});
             if (human) {
                 for (const char of text) {
@@ -3310,7 +3417,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // CLAVIER
         if (type === 'press') {
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.press(key, { timeout: _lt });
             } else {
                 await page.keyboard.press(key);
@@ -3322,7 +3429,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // SELECT (natif)
         if (type === 'select') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             // Même résolution sans essai-erreur que la branche officielle : on
             // lit les <option> puis on choisit. L'ancien code enchaînait deux
             // selectOption avec le timeout PLEIN chacun (10 s + 10 s).
@@ -3335,23 +3442,23 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CHECK/UNCHECK
         if (type === 'check') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.check({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, true, e); }
             recordEvent(req.session, { action: 'check', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
         if (type === 'uncheck') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.uncheck({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, false, e); }
             recordEvent(req.session, { action: 'uncheck', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
 
         // DÉPLIER / REPLIER (arbre, accordéon)
         if (type === 'expand' || type === 'collapse') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await expandTreeItem(page, locator, type === 'expand', _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed(type) });
@@ -3359,7 +3466,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DRAG & DROP (même moteur que le chemin officiel : dragTo → HTML5 → décalage)
         if (type === 'drag') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await performDrag(page, locator, req.body, _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed('drag') });
@@ -3367,8 +3474,9 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // UPLOAD
         if (type === 'upload') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.setInputFiles(uploadFiles, { timeout: _lt });
+            await recordEvent(req.session, { action: 'upload', selector, files: uploadFiles.map(f => f.name), url: page.url() }, locator);
             return res.json({ status: 'success', uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })),
                               ..._landed('upload') });
         }
@@ -3377,7 +3485,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'scroll') {
             const { direction = 'down', amount = 500 } = req.body;
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.evaluate((el, { direction, amount }) => {
                     const map = { down: [0, amount], up: [0, -amount], right: [amount, 0], left: [-amount, 0] };
                     const [x, y] = map[direction] || [0, amount];
@@ -3412,7 +3520,12 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'remove_overlays') { await safeRemoveOverlays(page); return res.json({ status: 'success' }); }
 
         return res.status(400).json({ error: `Type d'action inconnu: "${type}"` });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
+    } catch (e) {
+        const code = detailsErreur(e).code || codeErreur(e.message);
+        const proches = ['timeout', 'element_not_visible', 'element_disabled', 'click_failed'].includes(code) && req.body.selector
+            ? await findAlternatives(req.session.page, req.body.selector, 3).catch(() => []) : [];
+        repondreErreur(res, e, proches.length ? { alternatives: proches } : {});
+    }
 });
 
 
@@ -3515,13 +3628,14 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const { page } = req.session;
         const { selector, option_text, option_value, search_text } = req.body;
 
-        const { locator } = await smartResolveLocator(page, selector);
+        const { locator } = await resoudreRepli(page, selector);
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
 
         // Cas 1 : select natif (même choix que select, l'option retenue est rendue)
         if (tag === 'select') {
             const selected = await selectOptionSmart(locator, {
                 option_value, option_label: option_value ? undefined : option_text, timeout: ACTION_TIMEOUT_MS });
+            await recordEvent(req.session, { action: 'select', selector, value: selected.value, option_label: selected.label, selected, url: page.url() }, locator);
             return res.json({ status: 'success', type: 'native-select', selected });
         }
 
@@ -3542,17 +3656,23 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
                 const sl = page.locator(s).first();
                 if (await sl.count().catch(() => 0) > 0) {
                     const label = (await sl.innerText({ timeout: 1000 }).catch(() => '')).trim();
+                    const optionDecrite = await sl.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
                     await sl.click();
+                    await recordEvent(req.session, { action: 'pick', kind: 'autocomplete', selector, url: page.url(),
+                        value: search_text || option_text || option_value || '', option: label,
+                        ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                     const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
                     return res.json({ status: 'success', type: 'input-autocomplete', selected: { label, value: valeur } });
                 }
             }
             await page.keyboard.press('Enter');
             const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
+            await recordEvent(req.session, { action: 'pick', kind: 'enter', selector, url: page.url(), value: search_text || option_text || option_value || '' }, locator);
             return res.json({ status: 'success', type: 'input-enter', selected: { value: valeur } });
         }
 
-        // Cas 3 : dropdown custom (div/button)
+        // Cas 3 : dropdown custom (div/button) ; le déclencheur est décrit avant que la liste ne s'ouvre
+        const declencheur = req.session._recorder?.recording ? await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
         await smartClick(page, selector);
         await page.waitForTimeout(350);
 
@@ -3573,7 +3693,10 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             const optLoc = page.locator(s).first();
             if (await optLoc.count().catch(() => 0) > 0 && await optLoc.isVisible({ timeout: 500 }).catch(() => false)) {
                 const label = (await optLoc.innerText({ timeout: 1000 }).catch(() => optionText)).trim();
+                const optionDecrite = req.session._recorder?.recording ? await optLoc.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
                 await optLoc.click();
+                await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: label,
+                    ...(declencheur ? { locator: declencheur } : {}), ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                 return res.json({ status: 'success', type: 'custom-dropdown', matched_by: s, selected: { label } });
             }
         }
@@ -3582,260 +3705,14 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const shadowOpt = await shadowDOMQueryByText(page, optionText);
         if (shadowOpt?.found) {
             await page.mouse.click(shadowOpt.x, shadowOpt.y);
+            await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: optionText,
+                ...(declencheur ? { locator: declencheur } : {}) }, locator);
             return res.json({ status: 'success', type: 'shadow-dom-dropdown', selected: { label: optionText } });
         }
 
         return res.status(404).json({ error: `Option "${optionText}" not found in the dropdown.`, code: 'option_not_found',
             fix: 'Open the dropdown and read its options with pw_page(action="inspect"), then pass the visible text as option_label=.' });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
-});
-
-
-// ======================== SELECT DATE ========================
-app.post('/select_date', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, date, format = 'YYYY-MM-DD' } = req.body;
-        // date doit être au format ISO : "2024-03-15"
-        const [year, month, day] = date.split('-');
-
-        const { locator } = await smartResolveLocator(page, selector);
-        const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
-
-        if (inputType === 'date') {
-            // Input natif date
-            await locator.fill(date);
-            await locator.evaluate(el => ['input', 'change', 'blur'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true }))));
-            return res.json({ status: 'success', type: 'native-date-input' });
-        }
-
-        if (inputType === 'datetime-local') {
-            const dtValue = `${date}T${req.body.time || '00:00'}`;
-            await locator.fill(dtValue);
-            return res.json({ status: 'success', type: 'datetime-local' });
-        }
-
-        // Essayer de mettre la date via JS
-        try {
-            await locator.evaluate((el, val) => {
-                const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                if (nativeInput?.set) nativeInput.set.call(el, val);
-                else el.value = val;
-                ['input', 'change', 'blur'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true })));
-            }, date);
-            return res.json({ status: 'success', type: 'js-value' });
-        } catch (e) {}
-
-        // Essai : format affiché (DD/MM/YYYY)
-        const formatted = format === 'DD/MM/YYYY' ? `${day}/${month}/${year}` :
-            format === 'MM/DD/YYYY' ? `${month}/${day}/${year}` : date;
-        await locator.fill(formatted);
-        return res.json({ status: 'success', type: 'fill-formatted' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== SELECT COLOR ========================
-app.post('/select_color', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, hex_color } = req.body;
-        // hex_color : ex "#ff5733"
-        const { locator } = await smartResolveLocator(page, selector);
-        const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
-
-        if (inputType === 'color') {
-            await locator.evaluate((el, color) => {
-                const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                if (nativeInput?.set) nativeInput.set.call(el, color);
-                else el.value = color;
-                ['input', 'change'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true })));
-            }, hex_color);
-            return res.json({ status: 'success', type: 'native-color-input', color: hex_color });
-        }
-
-        // Tenter fill direct
-        await locator.fill(hex_color);
-        return res.json({ status: 'success', type: 'fill', color: hex_color });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== GET COLORS ========================
-app.post('/get_colors', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector } = req.body;
-
-        if (selector) {
-            const { locator } = await smartResolveLocator(page, selector);
-            const colors = await locator.evaluate(el => {
-                const style = window.getComputedStyle(el);
-                function toHex(rgb) {
-                    if (!rgb || rgb === 'transparent') return null;
-                    const m = rgb.match(/[\d.]+/g);
-                    if (!m || m.length < 3) return null;
-                    const [r, g, b, a] = m.map(Number);
-                    if (a !== undefined && a < 0.05) return null;
-                    return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-                }
-                function luminance(hex) {
-                    if (!hex) return null;
-                    const r = parseInt(hex.slice(1, 3), 16) / 255;
-                    const g = parseInt(hex.slice(3, 5), 16) / 255;
-                    const b = parseInt(hex.slice(5, 7), 16) / 255;
-                    const toLinear = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-                    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-                }
-                const textHex = toHex(style.color);
-                const bgHex = toHex(style.backgroundColor);
-                const lText = luminance(textHex);
-                const lBg = luminance(bgHex);
-                let contrast = null;
-                if (lText !== null && lBg !== null) {
-                    const lighter = Math.max(lText, lBg);
-                    const darker = Math.min(lText, lBg);
-                    contrast = parseFloat(((lighter + 0.05) / (darker + 0.05)).toFixed(2));
-                }
-                return {
-                    text: textHex,
-                    background: bgHex,
-                    border: toHex(style.borderColor),
-                    outline: toHex(style.outlineColor),
-                    boxShadow: style.boxShadow !== 'none' ? style.boxShadow.substring(0, 100) : null,
-                    opacity: style.opacity,
-                    contrast_ratio: contrast,
-                    wcag_aa: contrast ? contrast >= 4.5 : null,
-                    wcag_aaa: contrast ? contrast >= 7 : null,
-                    is_disabled_looking: contrast !== null && contrast < 2.5,
-                };
-            });
-            return res.json({ selector, ...colors });
-        }
-
-        // Palette globale de la page
-        const palette = await page.evaluate(() => {
-            const colorCounts = {};
-            document.querySelectorAll('*').forEach(el => {
-                try {
-                    const style = window.getComputedStyle(el);
-                    [style.color, style.backgroundColor, style.borderColor].forEach(c => {
-                        if (!c || c.includes('rgba(0, 0, 0, 0)') || c === 'transparent') return;
-                        colorCounts[c] = (colorCounts[c] || 0) + 1;
-                    });
-                } catch (e) {}
-            });
-            function toHex(rgb) {
-                const m = rgb.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            return Object.entries(colorCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 30)
-                .map(([rgb, count]) => ({ hex: toHex(rgb), rgb, count }))
-                .filter(x => x.hex);
-        });
-        res.json({ palette });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== FIND ELEMENTS ========================
-app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { query, type: elemType, visible_only = true, max = 20, in_viewport = false } = req.body;
-
-        const results = await page.evaluate(({ query, elemType, visibleOnly, max, inViewport }) => {
-            function toHex(rgb) {
-                const m = rgb?.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            function buildSelector(el) {
-                if (el.id && !/^\d/.test(el.id)) return `#${el.id}`;
-                const testId = el.getAttribute('data-testid') || el.getAttribute('data-cy') || el.getAttribute('data-qa');
-                if (testId) return `[data-testid="${testId}"]`;
-                const name = el.getAttribute('name');
-                if (name) return `${el.tagName.toLowerCase()}[name="${name}"]`;
-                const ariaLabel = el.getAttribute('aria-label');
-                if (ariaLabel) return `[aria-label="${ariaLabel.substring(0, 60)}"]`;
-                const text = el.textContent?.trim().substring(0, 40);
-                if (text) return `${el.tagName.toLowerCase()}:has-text("${text}")`;
-                return el.tagName.toLowerCase();
-            }
-
-            let candidates = [];
-
-            if (elemType) {
-                const typeMap = {
-                    'button': 'button, [role="button"], input[type="button"], input[type="submit"]',
-                    'input': 'input:not([type="hidden"]), textarea',
-                    'link': 'a[href]',
-                    'select': 'select, [role="combobox"], [role="listbox"]',
-                    'checkbox': 'input[type="checkbox"], [role="checkbox"]',
-                    'radio': 'input[type="radio"], [role="radio"]',
-                    'image': 'img',
-                    'table': 'table, [role="grid"], [role="table"]',
-                    'interactive': 'a, button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])',
-                };
-                candidates = Array.from(document.querySelectorAll(typeMap[elemType] || elemType));
-            } else {
-                candidates = Array.from(document.querySelectorAll('*'));
-            }
-
-            const results = [];
-            for (const el of candidates) {
-                if (results.length >= max) break;
-                try {
-                    const rect = el.getBoundingClientRect();
-                    if (rect.width === 0 && rect.height === 0) continue;
-                    const style = window.getComputedStyle(el);
-                    if (visibleOnly && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
-                    if (inViewport && (rect.top < 0 || rect.top > window.innerHeight || rect.left < 0 || rect.left > window.innerWidth)) continue;
-
-                    const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
-
-                    // Filtre par query
-                    if (query) {
-                        const q = query.toLowerCase();
-                        const matches = text.toLowerCase().includes(q) ||
-                            (el.id && el.id.toLowerCase().includes(q)) ||
-                            (el.className?.toString().toLowerCase().includes(q)) ||
-                            (el.getAttribute('aria-label') || '').toLowerCase().includes(q) ||
-                            (el.getAttribute('placeholder') || '').toLowerCase().includes(q) ||
-                            (el.getAttribute('name') || '').toLowerCase().includes(q);
-                        if (!matches) continue;
-                    }
-
-                    results.push({
-                        tag: el.tagName.toLowerCase(),
-                        text: text.substring(0, 100),
-                        selector: buildSelector(el),
-                        rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
-                        center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
-                        role: el.getAttribute('role'),
-                        type: el.getAttribute('type'),
-                        disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
-                        checked: el.checked,
-                        value: (el.value || '').substring(0, 100),
-                        href: el.href || null,
-                        color: toHex(style.color),
-                        bg: toHex(style.backgroundColor),
-                        in_viewport: rect.top >= 0 && rect.top <= window.innerHeight,
-                    });
-                } catch (e) {}
-            }
-            return results;
-        }, { query, elemType, visibleOnly: visible_only, max, inViewport: in_viewport });
-
-        res.json({ elements: results, count: results.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -3857,7 +3734,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch (e) {}
         }
 
-        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow }) => {
+        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, srcUnique }) => {
+            const unique = new Function(`return (${srcUnique})`)();
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -3989,6 +3867,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return parts.join(' > ');
             }
+            // Sélecteur lisible gardé s'il désigne l'élément seul, sinon rendu unique (même règle que pw_observe).
+            function selUnique(el) {
+                try { return unique(el, buildBestSelector(el), buildBestSelector); } catch (e) { return buildBestSelector(el); }
+            }
             function anchoredSelector(el) {
                 // id stable sur l'élément lui-même, sinon chemin positionnel ANCRÉ
                 // (id d'ancêtre ou body) — jamais un chemin qui part d'un « tbody »
@@ -4020,26 +3902,28 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return '';
             }
+            // Nom de plus de 80 caractères coupé avec « … » (jamais vidé) : name=<début>… reste une cible (préfixe).
+            const borneNom = (t) => (t.length > 80 ? `${t.slice(0, 79)}…` : t);
             function axName(el) {
                 // Accessible-name priority: aria-label > aria-labelledby >
                 // associated <label> > control text > placeholder/title/alt.
                 try {
                     const al = el.getAttribute('aria-label');
-                    if (al && al.trim()) return al.trim().substring(0, 80);
+                    if (al && al.trim()) return borneNom(al.trim().replace(/\s+/g, ' '));
                     const lb = el.getAttribute('aria-labelledby');
                     if (lb) {
                         const txt = lb.split(/\s+/).map(id => {
                             const r = document.getElementById(id);
                             return r ? (r.textContent || '').trim() : '';
                         }).filter(Boolean).join(' ');
-                        if (txt) return txt.substring(0, 80);
+                        if (txt) return borneNom(txt.replace(/\s+/g, ' '));
                     }
                     if (el.id) {
                         const lf = document.querySelector('label[for="' + el.id.replace(/[\\"]/g, '\\$&') + '"]');
-                        if (lf && lf.textContent.trim()) return lf.textContent.trim().substring(0, 80);
+                        if (lf && lf.textContent.trim()) return borneNom(lf.textContent.replace(/\s+/g, ' ').trim());
                     }
                     const wrap = el.closest('label');
-                    if (wrap && wrap.textContent.trim()) return wrap.textContent.trim().substring(0, 80);
+                    if (wrap && wrap.textContent.trim()) return borneNom(wrap.textContent.replace(/\s+/g, ' ').trim());
                     // Le texte propre vaut nom accessible pour TOUT contrôle qui
                     // n'a pas de valeur saisie — pas seulement button/a/role=button.
                     // Un `<div role="combobox">Choisir une ville</div>` ressortait
@@ -4050,12 +3934,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     const NO_OWN_TEXT = new Set(['input', 'textarea', 'select']);
                     if (!NO_OWN_TEXT.has(tag)) {
                         const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-                        // Un conteneur qui agrège le texte de toute une section
-                        // n'a pas un « nom » : on borne.
-                        if (t && t.length <= 120) return t.substring(0, 80);
+                        if (t) return borneNom(t);
                     }
-                    return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || el.value || '') + '').trim().substring(0, 80);
+                    return borneNom(((el.getAttribute('placeholder') || el.getAttribute('title')
+                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').replace(/\s+/g, ' ').trim());
                 } catch (e) { return ''; }
             }
 
@@ -4134,7 +4016,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         const sr = host.shadowRoot;
                         if (!sr) continue;
                         _shadowHosts.push(host);
-                        const hostSel = buildBestSelector(host);
+                        const hostSel = selUnique(host);
                         const inter = sr.querySelectorAll(interactiveQuery);
                         for (const el of inter) {
                             if (!_inShadow.has(el)) { _inShadow.set(el, hostSel); _semantic.push(el); }
@@ -4201,13 +4083,17 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // éléments sans le dire, et le modèle concluait « n'existe pas »
             // (audit tools web 2026-09-05).
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _allCandidates) {
-                if (interactives.length >= maxItems) { omitted.over_max = _allCandidates.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const rect = el.getBoundingClientRect();
+                // Au-delà du plafond, chaque candidat restant est encore classé (petit, hors écran) : over_max ne compte que les retenus de trop.
+                if (interactives.length >= maxItems) {
+                    if (rect.width < 2 || rect.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (rect.width < 2 || rect.height < 2) { omitted.too_small++; continue; }
                 if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) { omitted.offscreen++; continue; }
                 const style = window.getComputedStyle(el);
@@ -4225,7 +4111,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 else if (tag === 'select') elemType = 'select';
                 else if (tag === 'textarea') elemType = 'textarea';
 
-                const sel = buildBestSelector(el);
+                const sel = selUnique(el);
                 const item = {
                     idx: idx++, type: elemType, text, selector: sel,
                     role: axRole(el), name: axName(el),
@@ -4321,19 +4207,26 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
                     })(),
-                    selector: buildBestSelector(f),
+                    selector: selUnique(f),
                 }));
                 return { index: i, id: form.id || null, action: form.action || null, method: form.method || 'get', fields, submit_btn: (() => {
                     const btn = form.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
-                    return btn ? { text: btn.textContent.trim(), selector: buildBestSelector(btn) } : null;
+                    return btn ? { text: btn.textContent.trim(), selector: selUnique(btn) } : null;
                 })() };
             });
 
-            // ─── Tableaux (full only) ───
-            const tables = (level !== 'full') ? [] : Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]')).map((t, i) => {
-                const headers = Array.from(t.querySelectorAll('th, [role="columnheader"]')).map(h => h.textContent.trim()).filter(Boolean);
-                const rows = t.querySelectorAll('tr, [role="row"]').length;
-                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows, cols: headers.length || 'unknown', headers: headers.slice(0, 15), selector: buildBestSelector(t) };
+            // ─── Tableaux (tous niveaux, 10 au plus) : en-têtes <th>, sinon la première ligne, sinon aucun ───
+            const _tables = Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]'));
+            const tables = _tables.slice(0, 10).map((t, i) => {
+                const net = (c) => (c.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 60);
+                const lignes = Array.from(t.querySelectorAll('tr, [role="row"]'));
+                const th = Array.from(t.querySelectorAll('th, [role="columnheader"]'));
+                const premiere = lignes[0] ? Array.from(lignes[0].querySelectorAll('td, th, [role="cell"], [role="gridcell"]')) : [];
+                const source = th.length ? 'th' : premiere.some(c => net(c)) ? 'first_row' : 'none';
+                const headers = source === 'th' ? th.map(net) : source === 'first_row' ? premiere.map(net) : [];
+                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows: lignes.length,
+                         cols: Math.max(headers.length, premiere.length), headers: headers.slice(0, 15), header_source: source,
+                         selector: selUnique(t) };
             });
 
             // ─── Structure sémantique (nav+full) ───
@@ -4362,7 +4255,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 
             // ─── Alertes (always — they're cheap and important for the LLM) ───
             const alerts = Array.from(document.querySelectorAll('[role="alert"], [role="status"], .alert, .notification, .toast, .snackbar, .error, .warning, .success')).slice(0, 5).map(el => ({
-                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: buildBestSelector(el),
+                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: selUnique(el),
             })).filter(a => a.text.length > 0);
 
             const scrollables = _scrollables.sort((a, b) => b.area - a.area).slice(0, 5).map(x => ({
@@ -4383,7 +4276,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // absence ne doit pas être confondue avec « pas encore implémenté »
             // (audit tools web 2026-09-05, retest 2). Vide = la page défile
             // elle-même (ou rien ne défile), non-vide = viser un conteneur.
-            return { interactives, forms, tables, regions, alerts, url: location.href, title: document.title,
+            return { interactives, forms, tables, ...(_tables.length > 10 ? { tables_total: _tables.length } : {}), regions, alerts, url: location.href, title: document.title,
                      viewport: { w: window.innerWidth, h: window.innerHeight },
                      scroll: { x: window.scrollX, y: window.scrollY, maxY },
                      candidates_total: _allCandidates.length, omitted,
@@ -4393,7 +4286,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                      ...(shadow.length ? { shadow } : {}) };
         };
 
-        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow });
+        const srcUnique = sourceDe(selecteurUnique);
+        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, srcUnique });
 
         // ── Contenu des iframes ───────────────────────────────────────────
         // page.evaluate ne s'exécute QUE dans la frame principale : tout ce qui
@@ -4412,7 +4306,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 let sub = null;
                 try {
                     sub = await Promise.race([
-                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow }),
+                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow, srcUnique }),
                         new Promise(r => setTimeout(() => r(null), 3000)),
                     ]);
                 } catch (e) { sub = null; }
@@ -4466,7 +4360,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             level, viewport_only: viewportOnly, max_items: maxItems,
             screenshot: skipScreenshot ? null : `smart_${sid}.png`,
             // Répétitions compactées en « (×N) » (audit tools web 2026-09-05).
-            console_errors: compactConsole(req.session.consoleLogs || [], 5),
+            console_errors: compactConsole((req.session.consoleLogs || [])
+                .filter(e => e.doc === documentSansFragment(page.url())).map(e => e.line), 5),
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4482,7 +4377,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
         const filepath = path.join(SCREENSHOT_DIR, filename);
 
         if (selector && !skip_image) {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector);
             await locator.screenshot({ path: filepath });
         } else if (annotate) {
             const elementsMap = await page.evaluate(() => {
@@ -4525,32 +4420,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
             await page.screenshot({ path: filepath, fullPage: full_page });
         }
         res.json({ status: 'success', screenshot: skip_image ? null : filename });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== ACCESSIBILITY TREE ========================
-app.get('/accessibility', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const snapshot = await page.accessibility.snapshot({ interestingOnly: true });
-        function flatten(node, depth = 0) {
-            if (!node) return '';
-            const indent = '  '.repeat(depth);
-            let line = `${indent}[${node.role}] "${node.name || ''}"`;
-            if (node.value !== undefined) line += ` value="${node.value}"`;
-            if (node.checked !== undefined) line += ` checked=${node.checked}`;
-            if (node.selected !== undefined) line += ` selected=${node.selected}`;
-            if (node.expanded !== undefined) line += ` expanded=${node.expanded}`;
-            if (node.disabled) line += ` DISABLED`;
-            if (node.focused) line += ` *FOCUSED*`;
-            if (node.required) line += ` REQUIRED`;
-            let result = line + '\n';
-            if (node.children) for (const child of node.children) result += flatten(child, depth + 1);
-            return result;
-        }
-        res.json({ tree: flatten(snapshot), raw: snapshot });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4617,22 +4487,42 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             let prev = 0; root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!visible(h)) return; const lvl = +h.tagName[1]; if (prev && lvl > prev + 1) add('heading-order', 'moderate', h, `saut de titre h${prev}→h${lvl}`); prev = lvl; });
             // 7. tabindex positif
             root.querySelectorAll('[tabindex]').forEach(el => { const t = parseInt(el.getAttribute('tabindex'), 10); if (t > 0) add('tabindex', 'moderate', el, `tabindex=${t} (>0) casse l'ordre de tabulation`); });
-            // 8. contraste couleur (WCAG AA) — best-effort, plafonné
-            const parseRGB = s => { const m = s.match(/\d+(\.\d+)?/g); return m ? m.slice(0, 3).map(Number) : null; };
+            // 8. contraste du texte (WCAG 2.x AA : 4,5:1, 3:1 pour le grand texte) ; fond résolu par les ancêtres, images et dégradés écartés
+            const MAX_CONTRAST = 500;
+            const parseRGBA = (s) => { const m = String(s).match(/[\d.]+/g); return m && m.length >= 3 ? { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 } : null; };
             const lum = rgb => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
-            const bgOf = el => { let e = el; while (e) { const b = getComputedStyle(e).backgroundColor; const rgb = parseRGB(b); if (rgb && b !== 'rgba(0, 0, 0, 0)' && b !== 'transparent') return rgb; e = e.parentElement; } return [255, 255, 255]; };
-            let checked = 0;
-            root.querySelectorAll('p,span,a,li,td,th,label,button,h1,h2,h3,h4,h5,h6').forEach(el => {
-                if (checked > 200 || !visible(el)) return;
-                if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return;
-                const st = getComputedStyle(el); const fg = parseRGB(st.color); if (!fg) return;
+            const over = (top, under) => top.c.map((v, i) => v * top.a + under[i] * (1 - top.a));
+            // Fond effectif : couches de fond des ancêtres composées sur blanc ; `null` si une image ou un dégradé intervient.
+            const bgOf = el => {
+                const couches = [];
+                for (let e = el; e; e = e.parentElement) {
+                    const st = getComputedStyle(e);
+                    if (st.backgroundImage && st.backgroundImage !== 'none') return null;
+                    const k = parseRGBA(st.backgroundColor);
+                    if (k && k.a > 0) { couches.push(k); if (k.a >= 1) break; }
+                }
+                return couches.reduceRight((under, k) => over(k, under), [255, 255, 255]);
+            };
+            const portes = new Set(); let skippedBg = 0, checked = 0, capped = false;
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                const el = n.parentElement;
+                if (!el || portes.has(el) || !n.textContent.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+                portes.add(el);
+                if (!visible(el) || el.closest('[disabled]')) continue;
+                if (checked >= MAX_CONTRAST) { capped = true; break; }
+                const st = getComputedStyle(el);
+                const fgRaw = parseRGBA(st.color); if (!fgRaw) continue;
+                const bg = bgOf(el);
+                if (!bg) { skippedBg++; continue; }
                 checked++;
-                const L1 = lum(fg) + 0.05, L2 = lum(bgOf(el)) + 0.05;
+                const fg = over(fgRaw, bg);
+                const L1 = lum(fg) + 0.05, L2 = lum(bg) + 0.05;
                 const ratio = Math.max(L1, L2) / Math.min(L1, L2);
                 const fs = parseFloat(st.fontSize), large = fs >= 24 || (fs >= 18.66 && +st.fontWeight >= 700);
                 const min = large ? 3 : 4.5;
-                if (ratio < min) add('color-contrast', 'serious', el, `contraste ${ratio.toFixed(2)}:1 < ${min}:1 (AA)`);
-            });
+                if (ratio < min) add('color-contrast', 'serious', el, `contrast ${ratio.toFixed(2)}:1 < ${min}:1 (WCAG AA, ${large ? 'large' : 'normal'} text)`);
+            }
             const by_impact = V.reduce((a, v) => { a[v.impact] = (a[v.impact] || 0) + 1; return a; }, {});
             const by_rule = V.reduce((a, v) => { a[v.rule] = (a[v.rule] || 0) + 1; return a; }, {});
             // Audit tools web 2026-09-05 — `total/by_impact` seuls ne disaient pas
@@ -4640,7 +4530,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             return { ok: true, scope: scopeSel, violations: V.slice(0, 100), total: V.length,
                      truncated: V.length > 100, by_impact, by_rule,
                      rules_run: ['image-alt', 'label', 'control-name', 'duplicate-id', 'html-lang', 'heading-order', 'tabindex', 'color-contrast'],
-                     contrast_sampled: checked, contrast_capped: checked > 200,
+                     contrast_sampled: checked, contrast_capped: capped,
+                     ...(skippedBg ? { contrast_skipped: skippedBg, contrast_note: `${skippedBg} text element(s) on an image or gradient background were not checked: verify them by eye.` } : {}),
                      passed: V.length === 0 };
         }, { scopeSel: scope, srcUnique: sourceDe(selecteurUnique) });
         res.json(report);
@@ -4655,12 +4546,36 @@ app.post('/a11y_audit', getSession, async (req, res) => {
 // à vision. passed = diff_ratio <= threshold.
 // Zones modifiées rendues par /visual (les plus fournies d'abord ; diff_bbox couvre toutes les zones).
 const VISUAL_MAX_REGIONS = 10;
+// Nombre de pixels changés toléré au plus quand aucun seuil n'est donné.
+const VISUAL_DEFAUT_MAX_PIXELS = 200;
+const VISUAL_ATTENTE_MS = parseInt(process.env.PW_VISUAL_WAIT_MS || '5000', 10);
+const COULEUR_MASQUE = '#FF00FF';
+
+// Rectangles des zones masquées en pixels de la capture (page entière, ou relatifs à l'élément `selector`), et les masques sans élément.
+async function zonesMasquees(page, selector, masques) {
+    const rects = [], absents = [];
+    const origine = selector ? await page.locator(selector).first().evaluate((e) => {
+        const r = e.getBoundingClientRect(); return { x: r.left, y: r.top };
+    }).catch(() => ({ x: 0, y: 0 })) : null;
+    for (const m of masques) {
+        const boites = await page.locator(m).evaluateAll((els, rel) => els.map((e) => {
+            const r = e.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+            const x0 = rel ? r.left - rel.x : r.left + window.scrollX, y0 = rel ? r.top - rel.y : r.top + window.scrollY;
+            return { x: Math.floor(x0 * k), y: Math.floor(y0 * k), w: Math.ceil(r.width * k) + 1, h: Math.ceil(r.height * k) + 1 };
+        }).filter((b) => b.w > 1 && b.h > 1), origine).catch(() => []);
+        if (boites.length) rects.push(...boites); else absents.push(m);
+    }
+    return { rects, absents };
+}
+
 app.post('/visual', getSession, async (req, res) => {
     try {
         const { page } = req.session;
         const name = (req.body.name || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
         const selector = req.body.selector || null;
-        const threshold = typeof req.body.threshold === 'number' ? req.body.threshold : 0.01;
+        // Sans seuil explicite : au plus 0,1 % des pixels ET au plus VISUAL_DEFAUT_MAX_PIXELS (0,86 % d'une petite page passait à 1 %).
+        const seuilExplicite = typeof req.body.threshold === 'number';
+        const threshold = seuilExplicite ? req.body.threshold : 0.001;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
         // Références par propriétaire : un compte ne compare ni n'écrase
@@ -4669,19 +4584,29 @@ app.post('/visual', getSession, async (req, res) => {
         fs.mkdirSync(dossierRef, { recursive: true });
         const baselinePath = path.join(dossierRef, `${name}.png`);
 
+        // Élément absent : erreur claire après une courte attente, pas les 30 s de la capture.
+        if (selector && !(await attendrePresence(page.locator(selector), VISUAL_ATTENTE_MS))) {
+            return res.status(404).json({ error: `No element matches selector ${JSON.stringify(selector)} (waited ${VISUAL_ATTENTE_MS / 1000} s).`,
+                code: 'element_not_found', fix: 'Check the selector with pw_find, or compare the whole page without selector=.' });
+        }
+        // Zones masquées (mask=) : peintes de la même couleur dans la capture et dans la référence avant la comparaison.
+        const masques = Array.isArray(req.body.mask) ? req.body.mask.filter(m => typeof m === 'string' && m.trim()).slice(0, 20) : [];
         const target = selector ? page.locator(selector).first() : page;
-        const curBuf = await target.screenshot(selector ? {} : { fullPage: true });
+        const curBuf = await target.screenshot({ ...(selector ? {} : { fullPage: true }), timeout: VISUAL_ATTENTE_MS,
+                                                 ...(masques.length ? { mask: masques.map(m => page.locator(m)), maskColor: COULEUR_MASQUE } : {}) });
+        const zonesMasque = masques.length ? await zonesMasquees(page, selector, masques) : { rects: [], absents: [] };
 
         if (!fs.existsSync(baselinePath) || update) {
             fs.writeFileSync(baselinePath, curBuf);
             return res.json({ ok: true, name, baseline_created: true, passed: true,
+                ...(masques.length ? { masked: zonesMasque.rects.length } : {}),
                 size_mismatch: false, pixel_diff_failed: false, fail_reason: null,
                 message: update ? 'baseline mise à jour' : 'baseline créée (premier passage)' });
         }
 
         const baseB64 = 'data:image/png;base64,' + fs.readFileSync(baselinePath).toString('base64');
         const curB64 = 'data:image/png;base64,' + curBuf.toString('base64');
-        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions }) => {
+        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions, rects, couleur }) => {
             const load = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
             const [a, b] = await Promise.all([load(baseB64), load(curB64)]);
             // Une capture fullPage n'est PAS stable au pixel près : mesuré, le
@@ -4701,8 +4626,9 @@ app.post('/visual', getSession, async (req, res) => {
             const size_drift = Math.max(dw / Math.max(1, w), dh / Math.max(1, h));
             const c = document.createElement('canvas'); c.width = w; c.height = h;
             const x = c.getContext('2d');
-            x.drawImage(a, 0, 0); const da = x.getImageData(0, 0, w, h).data;
-            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); const db = x.getImageData(0, 0, w, h).data;
+            const peindre = () => { x.fillStyle = couleur; for (const r of rects) x.fillRect(r.x, r.y, r.w, r.h); };
+            x.drawImage(a, 0, 0); peindre(); const da = x.getImageData(0, 0, w, h).data;
+            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); peindre(); const db = x.getImageData(0, 0, w, h).data;
             const out = x.createImageData(w, h), od = out.data; let nd = 0;
             const C = 16, cols = Math.ceil(w / C), rows = Math.ceil(h / C);
             const nc = new Uint32Array(cols * rows), cx0 = new Uint32Array(cols * rows), cy0 = new Uint32Array(cols * rows);
@@ -4719,7 +4645,7 @@ app.post('/visual', getSession, async (req, res) => {
             const zones = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
             return { w, h, diff_pixels: nd, total: w * h, diff_ratio: nd / (w * h),
                      dims, size_drift, diff_png: c.toDataURL('image/png'), zones };
-        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS });
+        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS, rects: zonesMasque.rects, couleur: COULEUR_MASQUE });
 
         const ts = Date.now();
         const curName = `visual_${name}_current_${ts}.png`;
@@ -4743,9 +4669,11 @@ app.post('/visual', getSession, async (req, res) => {
 
         // Audit tools web 2026-09-05 — deux causes d'échec DISTINCTES, dites
         // séparément : pixels au-delà du seuil, et/ou dimensions qui ont bougé.
-        const pixelFailed = result.diff_ratio > threshold;
+        const pixelFailed = result.diff_ratio > threshold || (!seuilExplicite && result.diff_pixels > VISUAL_DEFAUT_MAX_PIXELS);
         const failReason = [pixelFailed ? 'pixel_diff' : null, sizeChanged ? 'size_mismatch' : null].filter(Boolean).join('+') || null;
         res.json({ ok: true, name, passed: !pixelFailed && !sizeChanged, threshold,
+            ...(masques.length ? { masked: zonesMasque.rects.length, ...(zonesMasque.absents.length ? { mask_not_found: zonesMasque.absents } : {}) } : {}),
+            ...(seuilExplicite ? {} : { max_diff_pixels: VISUAL_DEFAUT_MAX_PIXELS }),
             pixel_diff_failed: pixelFailed, size_mismatch: sizeChanged, fail_reason: failReason,
             diff_ratio: result.diff_ratio, diff_pixels: result.diff_pixels,
             diff_bbox: result.zones.bbox, diff_regions: result.zones.regions,
@@ -4762,7 +4690,7 @@ app.post('/visual', getSession, async (req, res) => {
 app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const { locator } = await smartResolveLocator(page, req.body.selector);
+        const { locator } = await resoudreRepli(page, req.body.selector);
         const info = await locator.evaluate(el => {
             const rect = el.getBoundingClientRect();
             const style = window.getComputedStyle(el);
@@ -4799,7 +4727,7 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
             };
         });
         res.json(info);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4839,11 +4767,15 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EXTRACT TABLE ========================
+// Lignes d'un tableau par pages (`max_rows`, 50 par défaut, `offset`), texte des cellules seul sauf `styles` (couleurs), sous le plafond commun.
 app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const selector = req.body.selector || 'table';
-        const data = await page.evaluate((sel) => {
+        const maxRows = Math.max(1, Math.min(parseInt(req.body.max_rows, 10) || 50, 500));
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const styles = req.body.styles === true;
+        const data = await page.evaluate(({ sel, offset, maxRows, styles }) => {
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -4851,82 +4783,82 @@ app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
                 if (a !== undefined && a < 0.05) return null;
                 return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
             }
-            const table = document.querySelector(sel);
-            if (!table) return { error: `Aucun élément trouvé pour "${sel}"` };
+            const net = (c) => (c.innerText || '').replace(/\s+/g, ' ').trim();
+            let table;
+            try { table = document.querySelector(sel); } catch (e) { return { error: `Invalid selector "${sel}".` }; }
+            if (!table) return { error: `No element matches "${sel}".` };
             const tag = table.tagName.toLowerCase();
 
             if (tag === 'table') {
-                const headers = [];
-                table.querySelectorAll('thead th, thead td, tr:first-child th').forEach(c => {
-                    const style = window.getComputedStyle(c);
-                    headers.push({
-                        text: c.innerText.replace(/\s+/g, ' ').trim(),
-                        bg: toHex(style.backgroundColor),
-                        color: toHex(style.color),
+                const tete = Array.from(table.querySelectorAll('thead th, thead td, tr:first-child th'));
+                const headers = tete.map(net);
+                const lignes = Array.from(table.querySelectorAll('tbody tr, tr')).filter((row, i) =>
+                    !(i === 0 && headers.length > 0 && row.querySelector('th')) && row.querySelectorAll('td, th').length > 0);
+                const rows = lignes.slice(offset, offset + maxRows).map((row) => {
+                    const out = {};
+                    const actions = [];
+                    row.querySelectorAll('td, th').forEach((c, j) => {
+                        const key = headers[j] || `col_${j}`;
+                        if (styles) {
+                            const cs = window.getComputedStyle(c);
+                            out[key] = { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) };
+                        } else out[key] = net(c);
+                        for (const btn of c.querySelectorAll('button, a, [role="button"]'))
+                            actions.push({ column: key, text: btn.textContent.trim().substring(0, 50), tag: btn.tagName.toLowerCase(), ...(btn.href ? { href: btn.href } : {}) });
                     });
+                    if (styles) out._row_bg = toHex(window.getComputedStyle(row).backgroundColor);
+                    if (actions.length) out._actions = actions;
+                    return out;
                 });
-                const rows = [];
-                table.querySelectorAll('tbody tr, tr').forEach((row, i) => {
-                    if (i === 0 && headers.length > 0 && row.querySelector('th')) return;
-                    const cells = row.querySelectorAll('td, th');
-                    if (cells.length === 0) return;
-                    const rowData = {};
-                    const rowStyle = window.getComputedStyle(row);
-                    const rowMeta = { _row_bg: toHex(rowStyle.backgroundColor) };
-                    cells.forEach((c, j) => {
-                        const key = headers[j]?.text || `col_${j}`;
-                        const cellStyle = window.getComputedStyle(c);
-                        rowData[key] = {
-                            text: c.innerText.replace(/\s+/g, ' ').trim(),
-                            bg: toHex(cellStyle.backgroundColor),
-                            color: toHex(cellStyle.color),
-                            // Boutons/liens dans la cellule
-                            actions: Array.from(c.querySelectorAll('button, a, [role="button"]')).map(btn => ({
-                                text: btn.textContent.trim().substring(0, 50),
-                                tag: btn.tagName.toLowerCase(),
-                                href: btn.href || null,
-                            })),
-                        };
-                    });
-                    rows.push({ ...rowMeta, ...rowData });
-                });
-                return { headers: headers.map(h => h.text), headers_with_colors: headers, rows, count: rows.length, type: 'html-table' };
+                return { type: 'html-table', headers, rows, total_rows: lignes.length,
+                         ...(styles ? { headers_with_colors: tete.map(c => { const cs = window.getComputedStyle(c); return { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) }; }) } : {}) };
             }
 
             // Pseudo-table (divs avec role=grid, etc.)
-            const roleRows = table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]');
-            if (roleRows.length > 0) {
-                const rows = [];
-                roleRows.forEach(row => {
-                    const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]');
-                    if (cells.length > 0) rows.push(Array.from(cells).map(c => c.innerText.replace(/\s+/g, ' ').trim()));
-                });
-                return { rows, count: rows.length, type: 'pseudo-table' };
-            }
+            const roleRows = Array.from(table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]'))
+                .map(row => Array.from(row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]')).map(net))
+                .filter(cells => cells.length > 0);
+            if (roleRows.length > 0) return { type: 'pseudo-table', rows: roleRows.slice(offset, offset + maxRows), total_rows: roleRows.length };
 
-            return { text: table.innerText.substring(0, 5000), type: 'raw' };
-        }, selector);
-        res.json(data);
+            return { text: net(table).substring(0, 5000), type: 'raw' };
+        }, { sel: selector, offset, maxRows, styles });
+        if (data.error) return res.status(404).json({ error: data.error, code: 'element_not_found',
+            fix: 'List the tables with pw_page(action="inspect") (tables[].selector) and pass one as target=.' });
+        if (!Array.isArray(data.rows)) return res.json(data);
+        const { rows, ...entete } = data;
+        const b = bornerValeur(rows, PLAFOND_SORTIE - longueurJsonPy(entete) - 400);
+        const rendues = b.value.length;
+        const suite = offset + rendues < data.total_rows ? offset + rendues : null;
+        res.json({ ...entete, rows: b.value, offset, count: rendues,
+                   ...(suite !== null ? { truncated: true, next_offset: suite, omitted: `${data.total_rows - offset - rendues} of ${data.total_rows} rows after this page`,
+                                          hint: `${b.truncated ? `${INDICE_PLAFOND} ` : ''}Call again with offset=${suite} for the next rows (max= rows per call, up to 500).` } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 
 // ======================== EXTRACT TEXT ========================
+// Morceau d'un texte à partir de `offset`, sous le plafond commun : longueur totale, et la suite à demander s'il en reste.
+function morceauTexte(complet, offset) {
+    const morceau = couperTexte(complet.slice(offset), PLAFOND_SORTIE);
+    const fin = offset + morceau.length;
+    return { text: morceau, total_length: complet.length, ...(offset ? { offset } : {}),
+             ...(fin < complet.length ? { truncated: true, next_offset: fin, omitted: `${complet.length - fin} of ${complet.length} characters after this part`,
+                                          hint: `${INDICE_PLAFOND} Call again with offset=${fin} for the rest, or narrow with target=.` } : {}) };
+}
 app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', include_hidden = false, include_frames = false, pierce_shadow = true } = req.body;
-        const { locator } = await smartResolveLocator(page, selector);
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const { locator } = await resoudreRepli(page, selector);
         const text = include_hidden
             ? await locator.evaluate(el => el.textContent)
             : await locator.innerText();
         const clean = (t) => (t || '').replace(/\s+/g, ' ').trim();
-        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans
-        // innerText du document — seul le contenu « slotté » (DOM léger) y est.
-        // Audit tools web 2026-09-05 : /shadowdom rendait la coquille.
+        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans innerText : celui des hôtes DANS la cible (elle comprise) est ajouté.
         let shadowText = '';
         if (pierce_shadow !== false) {
-            shadowText = await page.evaluate(() => {
+            shadowText = await locator.evaluate((cible) => {
                 const parts = [];
                 const textOf = (root) => {
                     let out = '';
@@ -4936,18 +4868,20 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
                     let n; while ((n = it.nextNode())) out += n.textContent + ' ';
                     return out.replace(/\s+/g, ' ').trim();
                 };
+                const hote = (host, depth) => {
+                    const sr = host.shadowRoot; if (!sr) return;
+                    const t = textOf(sr);
+                    if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
+                    walk(sr, depth + 1);
+                };
                 const walk = (root, depth) => {
                     if (depth > 4) return;
-                    for (const host of root.querySelectorAll('*')) {
-                        const sr = host.shadowRoot; if (!sr) continue;
-                        const t = textOf(sr);
-                        if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
-                        walk(sr, depth + 1);
-                    }
+                    for (const host of root.querySelectorAll('*')) hote(host, depth);
                 };
-                walk(document, 0);
+                hote(cible, 0);
+                walk(cible, 0);
                 return parts.join('\n');
-            }).catch(() => '');
+            }, undefined, { timeout: 3000 }).catch(() => '');
         }
         // Le texte d'une <iframe> n'apparaît JAMAIS dans celui du document
         // parent : sur une appli encadrée, extract_text rendait la coquille et
@@ -4967,14 +4901,14 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
             }
             if (shadowText) parts.push(shadowText);
             return res.json({
-                text: parts.join('\n').substring(0, 80000),
+                ...morceauTexte(parts.join('\n'), offset),
                 frames_read: read, frames_total: kids.length,
                 ...(shadowText ? { shadow_text_included: true } : {}),
             });
         }
-        res.json({ text: (clean(text) + (shadowText ? '\n' + shadowText : '')).substring(0, 80000),
+        res.json({ ...morceauTexte(clean(text) + (shadowText ? '\n' + shadowText : ''), offset),
                    ...(shadowText ? { shadow_text_included: true } : {}) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -5104,6 +5038,38 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EVALUATE JS ========================
+// Résultat d'un script tenu sous `max` caractères : chaîne coupée, liste ou objet réduit à ses premiers éléments, avec ce qui manque et un conseil.
+function resultatBorne(valeur, max) {
+    const b = bornerValeur(valeur, max);
+    return { result: b.value, ...(b.truncated ? { truncated: true, omitted: b.omitted,
+        hint: `${INDICE_PLAFOND} Return only what you need: .slice(0, N), the fields you need, a count.` } : {}) };
+}
+
+// Délai d'un script de pw_page eval, sous celui du client (10 s) : à l'échéance la réponse part et la session est rendue, la promesse abandonnée ne retient rien.
+const EVAL_TIMEOUT_MS = parseInt(process.env.PW_EVAL_TIMEOUT_MS || '8000', 10);
+
+// Script exécuté comme une expression s'il en est une (`document.title`), sinon comme le corps d'une fonction asynchrone (instructions, `return`, `throw`) : l'erreur rendue est la sienne.
+async function evaluerAvecDelai(cadre, script, delaiMs) {
+    const enCours = cadre.evaluate(async (corps) => {
+        let fn;
+        try { fn = new Function(`return (async () => { return (${corps}\n); })();`); }
+        catch (e) {
+            if (!(e instanceof SyntaxError)) throw e;
+            fn = new Function(`return (async () => { ${corps}\n })();`);
+        }
+        return await fn();
+    }, script);
+    enCours.catch(() => {});
+    let minuterie;
+    const delai = new Promise((_, rejeter) => {
+        minuterie = setTimeout(() => rejeter(erreurCodee('eval_timeout',
+            `The script did not finish within ${Math.round(Math.max(0, delaiMs) / 1000)} s (a promise that never settles?); it was abandoned and may still run in the page.`,
+            { fix: 'Make the script settle on its own (add a timeout to what it awaits, e.g. Promise.race with a timer), or wait in the page with pw_wait.' })), Math.max(0, delaiMs));
+    });
+    try { return await Promise.race([enCours, delai]); }
+    finally { clearTimeout(minuterie); }
+}
+
 app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
@@ -5111,33 +5077,24 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
         if (!script || typeof script !== 'string') {
             return res.status(400).json({ error: 'script (string) required' });
         }
-        // Wrap script as an async function body. Supports both expression-style
-        // ("document.title") and statement-style ("return document.title").
-        // Auto-`return` the expression if no `return` keyword is present.
-        const hasReturn = /\breturn\b/.test(script);
-        const fnBody = hasReturn ? script : `return (${script});`;
+        const echeance = Date.now() + EVAL_TIMEOUT_MS;
         if (in_all_frames) {
             const results = [];
             for (const frame of page.frames()) {
                 if (frame.isDetached()) continue;
                 try {
-                    const r = await frame.evaluate(async (body) => {
-                        const fn = new Function(`return (async () => { ${body} })();`);
-                        return await fn();
-                    }, fnBody);
+                    const r = await evaluerAvecDelai(frame, script, echeance - Date.now());
                     results.push({ frame: frame.url(), result: r });
-                } catch (e) { results.push({ frame: frame.url(), error: e.message }); }
+                } catch (e) { results.push({ frame: frame.url(), error: e.message, ...detailsErreur(e) }); }
             }
             recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
-            return res.json({ results });
+            const part = Math.floor(PLAFOND_SORTIE / Math.max(1, results.length));
+            return res.json({ results: results.map((x) => ('result' in x ? { ...x, ...resultatBorne(x.result, part) } : x)) });
         }
-        const result = await page.evaluate(async (body) => {
-            const fn = new Function(`return (async () => { ${body} })();`);
-            return await fn();
-        }, fnBody);
+        const result = await evaluerAvecDelai(page, script, EVAL_TIMEOUT_MS);
         recordEvent(req.session, { action: 'eval', script, url: page.url() });
-        res.json({ result });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+        res.json(resultatBorne(result, PLAFOND_SORTIE));
+    } catch (e) { res.status(e.code === 'eval_timeout' ? 408 : 500).json({ error: e.message, ...detailsErreur(e) }); }
 });
 
 
@@ -5418,7 +5375,7 @@ async function findAlternatives(page, failedSelector, maxSuggestions = 5) {
 // ==========================================
 // ACTION CHAINING (Feature 2) — v2: prefers by_* params over selector strings
 // ==========================================
-app.post('/chain', getSession, autoSnapshot, async (req, res) => {
+app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, res) => {
     try {
         const { page } = req.session;
         const { actions = [], stop_on_error = true, screenshot_on_fail = true } = req.body;
@@ -5450,8 +5407,8 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 }
             }
             if (act.selector) {
-                const r = await smartResolveLocator(page, act.selector);
-                if (r && r.locator) return { locator: r.locator, source: r.strategy || 'selector' };
+                const r = await resoudreRepli(page, act.selector, { params });
+                return { locator: r.locator, source: r.strategy || 'selector' };
             }
             throw new Error('No target: provide by_*/ref or selector');
         }
@@ -5463,6 +5420,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const act = actions[i];
             const actType = act.type || act.action || '';
             const startMs = Date.now();
+            let locEtape = null;
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
             try {
@@ -5481,9 +5439,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
-                            result = await smartClick(page, act.selector, {
+                            const { locator: cliqueSur, cadre: _c, ...clic } = await smartClick(page, act.selector, {
                                 human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
+                            locEtape = cliqueSur;
+                            result = clic;
                         }
                         break;
                     }
@@ -5613,7 +5573,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
+                    }, locEtape || ((saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null));
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -5685,7 +5645,12 @@ app.get('/sessions', (req, res) => {
             ...(s.isolated ? { isolated: true } : {}), ...(s.tls ? { secret: true } : {}),
         });
     }
-    res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
+    // Plafonds : par propriétaire, par groupe (le compte et ses sous-agents), et ce que ce propriétaire peut encore ouvrir.
+    const groupe = owner ? occupationGroupe(sessions, owner) : { compte: 0, enfants: 0 };
+    const effectif = Math.max(0, Math.min(MAX_SESSIONS_PER_OWNER, MAX_SESSIONS_PER_GROUP - groupe.enfants));
+    res.json({ count: list.length, max_per_owner: MAX_SESSIONS_PER_OWNER, max_per_group: MAX_SESSIONS_PER_GROUP,
+               effective_max: effectif, ttl_min: SESSION_TTL_MS / 60000, sessions: list,
+               limits_note: `You can keep ${effectif} session(s) at once (${MAX_SESSIONS_PER_OWNER} per owner, ${MAX_SESSIONS_PER_GROUP} for the account and its sub-agents). At the limit, start closes your oldest idle session (an isolated one first) and says so; a busy session or one opened for a secret is never closed.` });
 });
 
 // ======================== FORCE CLEANUP ========================
@@ -6006,13 +5971,16 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             let i = 0;
             const _all = _semantic.concat(_heur);
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _all) {
-                if (items.length >= maxItems) { omitted.over_max = _all.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const r = el.getBoundingClientRect();
+                if (items.length >= maxItems) {
+                    if (r.width < 2 || r.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (r.bottom < -50 || r.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (r.width < 2 || r.height < 2) { omitted.too_small++; continue; }
                 const cs = window.getComputedStyle(el);
                 if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') { omitted.hidden++; continue; }
@@ -6120,20 +6088,14 @@ async function ensureMockHandler(session) {
         const url = request.url();
         const method = request.method();
         const mocks = session._mocks || [];
+        // Le premier mock ajouté l'emporte quand plusieurs correspondent (le plus précis d'abord, un attrape-tout ensuite).
         for (const m of mocks) {
             if (m._exhausted) continue;
             if (m.method && m.method.toUpperCase() !== method) continue;
-            let match = false;
-            try {
-                if (m.is_regex) match = new RegExp(m.url_pattern).test(url);
-                else match = url.includes(m.url_pattern);
-            } catch (e) { match = url.includes(m.url_pattern); }
-            if (!match) continue;
+            if (!(m._re ? m._re.test(url) : url.includes(m.url_pattern))) continue;
             if (m.delay_ms && m.delay_ms > 0) await new Promise(r => setTimeout(r, m.delay_ms));
-            if (m.times !== -1) {
-                m._used = (m._used || 0) + 1;
-                if (m._used >= m.times) m._exhausted = true;
-            }
+            m._used = (m._used || 0) + 1;
+            if (m.times !== -1 && m._used >= m.times) m._exhausted = true;
             try {
                 await route.fulfill({
                     status: m.status,
@@ -6141,7 +6103,7 @@ async function ensureMockHandler(session) {
                     body: m.body || '',
                     headers: m.headers || {},
                 });
-            } catch (e) { /* route may have been aborted by another handler */ }
+            } catch (e) { m._used -= 1; /* route may have been aborted by another handler */ }
             return;
         }
         // Aucun mock : on passe la main (la garde des destinations décide).
@@ -6150,23 +6112,49 @@ async function ensureMockHandler(session) {
     session._mockHandlerRegistered = true;
 }
 
+const METHODES_HTTP = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+const NOTE_PRIORITE = 'When several mocks match a request, the first added (still active) wins: add the most specific first, a catch-all last.';
+
+// Mock validé : motif (sous-chaîne ; expression régulière avec is_regex, brute ou /…/drapeaux), statut 100-599, délai, fois, méthode, corps et en-têtes textes ; sinon l'erreur invalid_mock du premier champ fautif.
+function mockValide(b) {
+    const refus = (champ, message) => ({ erreur: { error: message, code: 'invalid_mock', field: champ,
+        fix: 'Fix that field and call add again: url_pattern (substring, or regular expression with is_regex=true), status 100-599, delay_ms 0-60000, times -1 (unlimited) or 1 and more.' } });
+    const entier = (v, defaut) => (v === undefined || v === null ? defaut : (typeof v === 'number' || (typeof v === 'string' && /^-?\d+$/.test(v.trim()))) && Number.isInteger(Number(v)) ? Number(v) : NaN);
+    const { url_pattern: motif, is_regex = false, method = '', body = '', content_type = 'application/json', headers = {} } = b;
+    if (typeof motif !== 'string' || !motif) return refus('url_pattern', 'url_pattern is required (a non-empty string).');
+    if (typeof is_regex !== 'boolean') return refus('is_regex', 'is_regex must be true or false.');
+    let re = null;
+    if (is_regex) {
+        const delimite = /^\/(.+)\/([a-z]*)$/s.exec(motif);
+        try { re = delimite ? new RegExp(delimite[1], delimite[2].replace(/[gy]/g, '')) : new RegExp(motif); }
+        catch (e) { return refus('url_pattern', `url_pattern is not a valid regular expression: ${e.message}`); }
+    }
+    const status = entier(b.status, 200), delai = entier(b.delay_ms, 0), fois = entier(b.times, -1);
+    if (!(status >= 100 && status <= 599)) return refus('status', `status must be an HTTP status between 100 and 599 (got ${JSON.stringify(b.status)}).`);
+    if (!(delai >= 0 && delai <= 60000)) return refus('delay_ms', `delay_ms must be between 0 and 60000 (got ${JSON.stringify(b.delay_ms)}).`);
+    if (!(fois === -1 || fois >= 1)) return refus('times', `times must be -1 (unlimited) or at least 1 (got ${JSON.stringify(b.times)}).`);
+    if (typeof method !== 'string' || (method && !METHODES_HTTP.has(method.toUpperCase()))) return refus('method', `method must be empty (any) or one of ${[...METHODES_HTTP].join(', ')}.`);
+    if (body !== null && typeof body !== 'string') return refus('body', 'body must be a string (serialize JSON yourself).');
+    if (typeof content_type !== 'string') return refus('content_type', 'content_type must be a string.');
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.values(headers).some(v => typeof v !== 'string'))
+        return refus('headers', 'headers must be an object of strings.');
+    const airRegex = !is_regex && /\.[*+]|\\[dwsDWS.?/]|^\^|\$$/.test(motif);
+    return { mock: { url_pattern: motif, is_regex, _re: re, status, body: body || '', content_type, delay_ms: delai, times: fois,
+                     method: method.toUpperCase(), headers },
+             ...(airRegex ? { warning: 'url_pattern is matched as a plain substring of the URL; it looks like a regular expression: add is_regex=true to match it as one.' } : {}) };
+}
+
 app.post('/mock/add', getSession, async (req, res) => {
     try {
-        const {
-            url_pattern, status = 200, body = '', content_type = 'application/json',
-            delay_ms = 0, times = -1, method = '', is_regex = false, headers = {},
-        } = req.body;
-        if (!url_pattern) return res.status(400).json({ error: 'url_pattern required' });
+        const v = mockValide(req.body);
+        if (v.erreur) return res.status(400).json(v.erreur);
         await ensureMockHandler(req.session);
         req.session._mocks = req.session._mocks || [];
         const id = `mock_${Math.random().toString(36).substring(2, 10)}`;
-        req.session._mocks.push({
-            id, url_pattern, status: parseInt(status), body, content_type,
-            delay_ms: parseInt(delay_ms), times: parseInt(times),
-            method, is_regex: !!is_regex, headers,
-            _used: 0, _exhausted: false, created_at: Date.now(),
-        });
-        res.json({ status: 'added', id, mocks_count: req.session._mocks.length });
+        req.session._mocks.push({ id, ...v.mock, _used: 0, _exhausted: false, created_at: Date.now() });
+        const n = req.session._mocks.length;
+        res.json({ status: 'added', id, mocks_count: n, is_regex: v.mock.is_regex,
+                   ...(n > 1 ? { note: NOTE_PRIORITE } : {}), ...(v.warning ? { warning: v.warning } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6177,7 +6165,7 @@ app.get('/mock/list', getSession, async (req, res) => {
         exhausted: !!m._exhausted, method: m.method || 'ANY',
         is_regex: !!m.is_regex,
     }));
-    res.json({ count: list.length, mocks: list });
+    res.json({ count: list.length, mocks: list, precedence: NOTE_PRIORITE });
 });
 
 app.post('/mock/clear', getSession, async (req, res) => {
@@ -6217,9 +6205,41 @@ async function attributsDuChamp(locator) {
     }), null, { timeout: 1000 }).catch(() => ({}));
 }
 
+// Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame ou Locator).
+async function cheminCadres(cible) {
+    let cadre = null;
+    if (cible && typeof cible.parentFrame === 'function') cadre = cible;
+    else if (cible) {
+        const h = await cible.elementHandle({ timeout: 1000 }).catch(() => null);
+        if (!h) return [];
+        cadre = await h.ownerFrame().catch(() => null);
+        await h.dispose().catch(() => {});
+    }
+    const chemin = [];
+    try {
+        while (cadre && cadre.parentFrame()) {
+            const el = await cadre.frameElement();
+            chemin.unshift(await el.evaluate(selecteurCadre));
+            await el.dispose().catch(() => {});
+            cadre = cadre.parentFrame();
+        }
+    } catch (_) { return []; }
+    return chemin;
+}
+
 // Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
 async function recordEvent(session, evt, locator = null) {
     if (!session || !session._recorder || !session._recorder.recording) return;
+    if (locator && !evt.frames) {
+        const cadres = await cheminCadres(locator);
+        if (cadres.length) evt = { ...evt, frames: cadres };
+    }
+    // Geste par `ref` ou par un texte de repli : le sélecteur stable est lu sur l'élément visé, au moment du geste.
+    const parTexte = evt.selector && isLikelyText(evt.selector);
+    if (locator && ((evt.ref && !evt.selector) || parTexte) && !Object.values(evt.locator || {}).some(Boolean)) {
+        const l = await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
+        if (l) evt = { ...evt, locator: l };
+    }
     if (evt.action === 'fill' || evt.action === 'type')
         evt = masquerSecret(evt, locator ? await attributsDuChamp(locator) : {}, session._recorder.variables || (session._recorder.variables = new Map()));
     if (evt.action === 'eval') evt = { ...evt, script: masquerScript(evt.script).slice(0, 300) };
@@ -6279,40 +6299,46 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     const events = r.events;
 
     function escape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    function targetExpr(evt, fmt) {
-        // evt.locator is the resolved kw set (role, name, text, label, css, ...)
-        const l = evt.locator || {};
+    function targetExpr(evt, fmt, l = evt.locator || {}) {
+        // l : sélecteur stable relevé (role, name, text, label, css…) ; les cadres de evt.frames préfixent la cible
         if (fmt === 'playwright') {
-            if (l.role && l.name) return `page.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
-            if (l.role) return `page.getByRole('${escape(l.role)}')`;
-            if (l.label) return `page.getByLabel('${escape(l.label)}')`;
-            if (l.placeholder) return `page.getByPlaceholder('${escape(l.placeholder)}')`;
-            if (l.test_id) return `page.getByTestId('${escape(l.test_id)}')`;
-            if (l.text) return `page.getByText('${escape(l.text)}')`;
-            if (l.css) return `page.locator('${escape(l.css)}')`;
-            if (l.xpath) return `page.locator('xpath=${escape(l.xpath)}')`;
-            return `page.locator('${escape(evt.selector || '')}')`;
+            const page = porteeCadres(evt.frames, 'playwright', escape);
+            if (l.role && l.name) return `${page}.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
+            if (l.role) return `${page}.getByRole('${escape(l.role)}')`;
+            if (l.label) return `${page}.getByLabel('${escape(l.label)}')`;
+            if (l.placeholder) return `${page}.getByPlaceholder('${escape(l.placeholder)}')`;
+            if (l.test_id) return `${page}.getByTestId('${escape(l.test_id)}')`;
+            if (l.text) return `${page}.getByText('${escape(l.text)}')`;
+            if (l.css) return `${page}.locator('${escape(l.css)}')`;
+            if (l.xpath) return `${page}.locator('xpath=${escape(l.xpath)}')`;
+            return `${page}.locator('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'cypress') {
             if (l.test_id) return `cy.get('[data-testid="${escape(l.test_id)}"]')`;
             if (l.role && l.name) return `cy.findByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
             if (l.label) return `cy.findByLabelText('${escape(l.label)}')`;
+            if (l.placeholder) return `cy.findByPlaceholderText('${escape(l.placeholder)}')`;
             if (l.text) return `cy.contains('${escape(l.text)}')`;
             if (l.css) return `cy.get('${escape(l.css)}')`;
             return `cy.get('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'robot') {
-            // Robot Framework with Browser library
-            if (l.role && l.name) return `role=${l.role}[name="${l.name}"]`;
-            if (l.test_id) return `[data-testid="${l.test_id}"]`;
-            if (l.label) return `label=${l.label}`;
-            if (l.text) return `text=${l.text}`;
-            if (l.css) return l.css;
-            return evt.selector || '';
+            // Robot Framework with Browser library ; `>>>` entre dans chaque cadre
+            const cadres = porteeCadres(evt.frames, 'robot');
+            if (l.role && l.name) return `${cadres}role=${l.role}[name="${l.name}"]`;
+            if (l.test_id) return `${cadres}[data-testid="${l.test_id}"]`;
+            if (l.label) return `${cadres}label=${l.label}`;
+            if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/[\\"]/g, '\\$&')}"]`;
+            if (l.text) return `${cadres}text=${l.text}`;
+            if (l.css) return `${cadres}${l.css}`;
+            return `${cadres}${evt.selector || ''}`;
         }
         return evt.selector || '';
     }
 
+    // Option cliquée d'un choix (pick) : son sélecteur relevé, sinon son texte exact.
+    const optionDe = (e, fmt) => targetExpr(e, fmt, e.option_locator || { text: e.option || '' });
+    const fichiersJs = (e) => `[${(e.files || []).map(f => `'${escape(f)}'`).join(', ')}]`;
     let script = '';
     if (format === 'json') {
         script = JSON.stringify(events, null, 2);
@@ -6337,6 +6363,11 @@ app.get('/recorder/dump', getSession, async (req, res) => {
                 case 'check': lines.push(`  await ${t}.check();`); break;
                 case 'uncheck': lines.push(`  await ${t}.uncheck();`); break;
                 case 'hover': lines.push(`  await ${t}.hover();`); break;
+                case 'upload': lines.push(`  await ${t}.setInputFiles(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`  await ${t}.click();`, `  await ${optionDe(e, 'playwright')}.click();`);
+                    else lines.push(`  await ${t}.fill('${escape(e.value)}');`, e.kind === 'enter' ? `  await ${t}.press('Enter');` : `  await ${optionDe(e, 'playwright')}.click();`);
+                    break;
                 default: lines.push(`  // ${e.action}: ${escape(JSON.stringify(e)).replace(/[\u2028\u2029]/g, ' ')}`);
             }
         }
@@ -6346,17 +6377,27 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const lines = ["describe('recorded session', () => {", "  it('replays', () => {"];
         for (const e of events) {
             const t = targetExpr(e, 'cypress');
+            const geste = [];
             switch (e.action) {
-                case 'goto':  lines.push(`    cy.visit('${escape(e.url)}');`); break;
-                case 'click': lines.push(`    ${t}.click();`); break;
+                case 'goto':  geste.push(`cy.visit('${escape(e.url)}');`); break;
+                case 'click': geste.push(`${t}.click();`); break;
                 case 'fill':
-                case 'type':  lines.push(e.secret ? `    ${t}.type(Cypress.env('${e.secret}'), { log: false });` : `    ${t}.type('${escape(e.value)}');`); break;
-                case 'eval': lines.push(`    // eval not replayed: ${commentaireEval(e.script)}`); break;
-                case 'select': lines.push(`    ${t}.select(${selectOptionArg(e, 'cypress')});`); break;
-                case 'check': lines.push(`    ${t}.check();`); break;
-                case 'uncheck': lines.push(`    ${t}.uncheck();`); break;
-                default: lines.push(`    // ${e.action}`);
+                case 'type':  geste.push(e.secret ? `${t}.type(Cypress.env('${e.secret}'), { log: false });` : `${t}.type('${escape(e.value)}');`); break;
+                case 'eval': geste.push(`// eval not replayed: ${commentaireEval(e.script)}`); break;
+                case 'select': geste.push(`${t}.select(${selectOptionArg(e, 'cypress')});`); break;
+                case 'check': geste.push(`${t}.check();`); break;
+                case 'uncheck': geste.push(`${t}.uncheck();`); break;
+                case 'upload': geste.push(`${t}.selectFile(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') geste.push(`${t}.click();`, `${optionDe(e, 'cypress')}.click();`);
+                    else geste.push(`${t}.type('${escape(e.value)}${e.kind === 'enter' ? '{enter}' : ''}');`, ...(e.kind === 'enter' ? [] : [`${optionDe(e, 'cypress')}.click();`]));
+                    break;
+                default: geste.push(`// ${e.action}`);
             }
+            // Geste dans des <iframe> : joué dans le corps du document du cadre.
+            const cadre = e.action === 'goto' || e.action === 'eval' ? '' : porteeCadres(e.frames, 'cypress', escape);
+            if (cadre) lines.push(`    ${cadre}.within(() => { ${geste.join(' ')} });`);
+            else lines.push(...geste.map(g => `    ${g}`));
         }
         lines.push('  });', '});');
         script = lines.join('\n');
@@ -6365,16 +6406,25 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const { secret_variables: aFournir } = notesDuScript(events);
         if (aFournir.length) lines.push('*** Variables ***', ...aFournir.map(v => `\${${v}}    %{${v}}`), '');
         lines.push('*** Test Cases ***', 'Recorded Session');
+        let pageOuverte = false;
         for (const e of events) {
             const t = celluleRobot(targetExpr(e, 'robot'));
             switch (e.action) {
-                case 'goto':  lines.push(`    New Page    ${celluleRobot(e.url)}`); break;
+                // Le premier goto ouvre l'onglet ; les suivants naviguent dans le même.
+                case 'goto':  lines.push(`    ${pageOuverte ? 'Go To' : 'New Page'}    ${celluleRobot(e.url)}`); pageOuverte = true; break;
                 case 'click': lines.push(`    Click    ${t}`); break;
                 case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'eval':  lines.push(`    # eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'press': lines.push(`    Keyboard Key    press    ${celluleRobot(e.key || e.value)}`); break;
                 case 'select': lines.push(`    Select Options By    ${t}    ${selectOptionArg(e, 'robot')}`); break;
+                case 'check': lines.push(`    Check Checkbox    ${t}`); break;
+                case 'uncheck': lines.push(`    Uncheck Checkbox    ${t}`); break;
+                case 'upload': lines.push(`    Upload File By Selector    ${t}    ${(e.files || []).map(celluleRobot).join('    ')}`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`    Click    ${t}`, `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    else lines.push(`    Fill Text    ${t}    ${celluleRobot(e.value)}`, e.kind === 'enter' ? `    Keyboard Key    press    Enter` : `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    break;
                 default: lines.push(`    # ${e.action}`);
             }
         }

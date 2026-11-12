@@ -111,6 +111,13 @@ export function selectOptionArg(evt, fmt = 'playwright') {
     const label = e.option_label ?? sel.label;
     const hasValue = v => v !== undefined && v !== null && v !== '';
     const value = hasValue(e.option_value) ? e.option_value : (hasValue(sel.value) ? sel.value : e.value);
+    // <select multiple> : toutes les options retenues.
+    if (Array.isArray(sel.labels) && sel.labels.length > 1) {
+        if (fmt === 'playwright') return `[${sel.labels.map(l => `{ label: ${_q(l)} }`).join(', ')}]`;
+        if (fmt === 'cypress') return `[${sel.labels.map(_q).join(', ')}]`;
+        if (fmt === 'robot') return `label    ${sel.labels.map(celluleRobot).join('    ')}`;
+        return sel.labels.join(', ');
+    }
     if (fmt === 'playwright') {
         if (hasValue(label)) return `{ label: ${_q(label)} }`;
         if (hasValue(value)) return `{ value: ${_q(value)} }`;
@@ -168,17 +175,6 @@ export function codeErreur(message) {
     if (/^[a-z][a-z0-9_]*$/.test(m)) return m;
     for (const [motif, code] of CODES_MESSAGE) if (motif.test(m)) return code;
     return 'browser_error';
-}
-
-/** Racines du serveur à masquer, la plus longue d'abord : motif (racine en début de chemin, pas dans une URL, suivie de `/` ou d'une fin de nom) et remplacement. */
-export function racinesMasquees({ base = '', home = '' } = {}) {
-    const out = [];
-    for (const [r0, rempl] of [[base, ''], [home, '~']]) {
-        const r = String(r0 || '').replace(/\/+$/, '');
-        if (!r) continue;
-        out.push({ n: r.length, motif: new RegExp(`(?<![\\w.~%\\]-])${_escapeRegex(r)}(?:/|(?![\\w.-]))`, 'g'), rempl });
-    }
-    return out.sort((a, b) => b.n - a.n);
 }
 
 // Clés dont la valeur vient du service (message, chemin de l'hôte), jamais de la page ; `result` (evaluate) n'est jamais parcouru.
@@ -300,4 +296,61 @@ export function classerSuggestions(noeuds, { name = '', role = '' } = {}, max = 
     }
     const memeRole = role ? liste.filter(n => n.role === role) : [];
     return (memeRole.length ? memeRole : liste).slice(0, max).map(cible);
+}
+
+/** Longueur d'une valeur écrite comme le client la mesure (`json.dumps` de Python : non-ASCII en \uXXXX, séparateurs « , » et « : ») ; Infinity si elle ne s'écrit pas. */
+export function longueurJsonPy(valeur) {
+    let j;
+    try { j = JSON.stringify(valeur) ?? 'null'; } catch (_) { return Infinity; }
+    let n = j.length, chaine = false;
+    for (let i = 0; i < j.length; i++) {
+        const c = j.charCodeAt(i);
+        if (chaine) {
+            if (c === 92) i++;
+            else if (c === 34) chaine = false;
+            else if (c > 127) n += 5;
+        } else if (c === 34) chaine = true;
+        else if (c === 44 || c === 58) n += 1;
+    }
+    return n;
+}
+
+/** Plus long début de `texte` dont l'écriture JSON tient en `max` caractères (non-ASCII compté comme le client). */
+export function couperTexte(texte, max) {
+    let n = 2, i = 0;
+    for (; i < texte.length; i++) {
+        const c = texte.charCodeAt(i);
+        const t = c > 127 ? 6 : (c === 34 || c === 92 || c === 8 || c === 9 || c === 10 || c === 12 || c === 13) ? 2 : c < 32 ? 6 : 1;
+        if (n + t > max) break;
+        n += t;
+    }
+    if (i > 0 && i < texte.length && /[\ud800-\udbff]/.test(texte[i - 1])) i--;
+    return texte.slice(0, i);
+}
+
+/** Valeur tenue en `max` caractères JSON : chaîne coupée, liste ou objet réduit à ses premiers éléments (le premier coupé s'il dépasse seul) ; `omitted` dit ce qui manque. */
+export function bornerValeur(valeur, max) {
+    if (longueurJsonPy(valeur) <= max) return { value: valeur, truncated: false };
+    if (typeof valeur === 'string') {
+        const garde = couperTexte(valeur, max);
+        return { value: garde, truncated: true, omitted: `${valeur.length - garde.length} of ${valeur.length} characters` };
+    }
+    const liste = Array.isArray(valeur);
+    if (!liste && (valeur === null || typeof valeur !== 'object')) return { value: null, truncated: true, omitted: 'the whole value' };
+    const cles = liste ? null : Object.keys(valeur);
+    const total = liste ? valeur.length : cles.length;
+    const debut = (k) => (liste ? valeur.slice(0, k) : Object.fromEntries(cles.slice(0, k).map((c) => [c, valeur[c]])));
+    let bas = 0, haut = total;
+    while (bas < haut) {
+        const m = (bas + haut + 1) >> 1;
+        if (longueurJsonPy(debut(m)) <= max) bas = m; else haut = m - 1;
+    }
+    const unite = liste ? 'items' : 'keys';
+    if (bas === 0 && total > 0) {
+        const premier = liste ? valeur[0] : valeur[cles[0]];
+        const coupe = bornerValeur(premier, Math.max(0, max - (liste ? 2 : longueurJsonPy(cles[0]) + 4)));
+        return { value: liste ? [coupe.value] : { [cles[0]]: coupe.value }, truncated: true,
+                 omitted: `${total - 1} of ${total} ${unite}, and part of the first one` };
+    }
+    return { value: debut(bas), truncated: true, omitted: `${total - bas} of ${total} ${unite}` };
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** browser-service/src/express.d.ts — types of the part of Express 5 the service uses (Express ships none, and the repository adds no @types package). */
+/** browser-service/src/express.d.ts — types de la partie d'Express 5 que le service utilise (Express n'en livre pas, et le dépôt n'ajoute aucun paquet @types). */
 declare module "express" {
   import type { IncomingMessage, Server, ServerResponse } from "node:http";
 
-  /** Query string of a call: the tool host sends each parameter once. */
+  /** Chaîne de requête d'un appel : l'hôte d'outils envoie chaque paramètre une fois. */
   export type Query = Record<string, string | undefined>;
 
   export interface Request<B = unknown, Q = Query> extends IncomingMessage {

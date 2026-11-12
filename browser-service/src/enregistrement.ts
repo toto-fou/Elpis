@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/enregistrement.ts — gestures noted by the recorder (pw_recorder): stable target read on the element, frames path, secrets replaced by variables. */
+/** browser-service/src/enregistrement.ts — gestes notés par l'enregistreur (pw_recorder) : cible stable lue sur l'élément, chemin des cadres, secrets remplacés par des variables. */
+import type { Frame, Locator, Page } from 'playwright';
+
+import type { GesteEnregistre, Session } from './contexte.ts';
 import { isLikelyText } from './localisateur.ts';
 import { decrireElement, masquerScript, masquerSecret, masquerUrl, selecteurCadre } from './recorder_util.ts';
+import type { AttributsChamp } from './recorder_util.ts';
 
 // ════════════════════════════════════════════════════════════════════
 // RECORDER — capture session actions, replay as Playwright/Cypress/etc.
@@ -14,9 +16,9 @@ import { decrireElement, masquerScript, masquerSecret, masquerUrl, selecteurCadr
 // (The hook lives in the existing endpoints — see `recordEvent` below.)
 
 // Attributs qui disent si un champ est secret (type, nom, id, libellés) ; `{}` s'il n'est plus lisible.
-async function attributsDuChamp(locator) {
+async function attributsDuChamp(locator: Locator | null): Promise<AttributsChamp> {
     if (!locator) return {};
-    return locator.evaluate((el) => ({
+    return locator.evaluate((el: HTMLInputElement) => ({
         type: el.getAttribute('type') || '', name: el.getAttribute('name') || '', id: el.id || '',
         autocomplete: el.getAttribute('autocomplete') || '', label: el.getAttribute('aria-label') || '',
         placeholder: el.getAttribute('placeholder') || '',
@@ -25,16 +27,16 @@ async function attributsDuChamp(locator) {
 }
 
 // Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame ou Locator).
-export async function cheminCadres(cible) {
-    let cadre = null;
-    if (cible && typeof cible.parentFrame === 'function') cadre = cible;
+export async function cheminCadres(cible: Frame | Locator | Page | null | undefined): Promise<string[]> {
+    let cadre: Frame | null = null;
+    if (cible && typeof (cible as Frame).parentFrame === 'function') cadre = cible as Frame;
     else if (cible) {
-        const h = await cible.elementHandle({ timeout: 1000 }).catch(() => null);
+        const h = await (cible as Locator).elementHandle({ timeout: 1000 }).catch(() => null);
         if (!h) return [];
         cadre = await h.ownerFrame().catch(() => null);
         await h.dispose().catch(() => {});
     }
-    const chemin = [];
+    const chemin: string[] = [];
     try {
         while (cadre && cadre.parentFrame()) {
             const el = await cadre.frameElement();
@@ -42,12 +44,12 @@ export async function cheminCadres(cible) {
             await el.dispose().catch(() => {});
             cadre = cadre.parentFrame();
         }
-    } catch (_) { return []; }
+    } catch { return []; }
     return chemin;
 }
 
 // Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
-export async function recordEvent(session, evt, locator = null) {
+export async function recordEvent(session: Session | undefined, evt: GesteEnregistre, locator: Locator | null = null): Promise<void> {
     if (!session || !session._recorder || !session._recorder.recording) return;
     if (locator && !evt.frames) {
         const cadres = await cheminCadres(locator);

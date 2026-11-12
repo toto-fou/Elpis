@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/destinations.ts — address checks before a requested navigation (form only, the relay judges destinations) and the guard of a fresh context. */
+/** browser-service/src/destinations.ts — contrôles d'adresse avant une navigation demandée (forme seulement, le relais juge les destinations) et garde d'un contexte neuf. */
+import type { Response } from 'express';
+import type { BrowserContext, Page } from 'playwright';
+
 import { analyserUrl, messageRefus } from './url_guard.ts';
 
 // ════════════════════════════════════════════════════════════════════
@@ -15,13 +16,13 @@ import { analyserUrl, messageRefus } from './url_guard.ts';
 //  onglet, /start), seule la forme de l'adresse est contrôlée ici.
 
 /** Motif de refus d'une URL (``null`` = permise) : forme seule. */
-export async function refusUrl(url) {
+export async function refusUrl(url: unknown): Promise<string | null> {
     const a = analyserUrl(url);
     return a.ok ? null : a.motif;
 }
 
 /** Réponse 403 uniforme pour une navigation directe refusée. */
-export function repondreRefus(res, url, motif) {
+export function repondreRefus(res: Response, url: unknown, motif: string): Response {
     return res.status(403).json({ error: messageRefus(url, motif), code: 'url_blocked' });
 }
 
@@ -29,18 +30,18 @@ export function repondreRefus(res, url, motif) {
 // chemin que page.goto (script de la page) : on la ramène à une page vide.
 const _SCHEMAS_INTERDITS = /^(file|view-source|chrome|chrome-extension|devtools|filesystem|resource|moz-extension):/i;
 
-function gardePage(page) {
+function gardePage(page: Page): void {
     page.on('framenavigated', (frame) => {
         try {
             if (frame !== page.mainFrame()) return;
             if (_SCHEMAS_INTERDITS.test(frame.url())) page.goto('about:blank').catch(() => {});
-        } catch (_) { /* page fermée */ }
+        } catch { /* page fermée */ }
     });
 }
 
 /** Garde d'un contexte neuf : schémas interdits ramenés à une page vide
  *  (le réseau, lui, passe par le relais). */
-export async function installerGarde(context) {
+export async function installerGarde(context: BrowserContext): Promise<void> {
     context.on('page', gardePage);
 }
 

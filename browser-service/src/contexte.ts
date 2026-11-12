@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** browser-service/src/contexte.ts — state of the service passed to every route family (sessions, locator refs, start locks, shared Chromium, relay proxy) and the shapes of a session. */
-import type { Browser, BrowserContext, Page } from 'playwright';
+/** browser-service/src/contexte.ts — état du service passé à chaque famille de routes (sessions, refs de localisateur, verrous de démarrage, Chromium partagé, proxy du relais) et formes d'une session. */
+import type { Browser, BrowserContext, Locator, Page } from 'playwright';
 
-import type { EvenementEnregistre } from './recorder_util.ts';
-import type { EntreeReseau } from './result_util.ts';
+import type { CibleEnregistree, EvenementEnregistre } from './recorder_util.ts';
+import type { EntreeReseau, EvenementSelect, ParamsCible } from './result_util.ts';
 import type { Verrou } from './session_lock.ts';
 import type { OngletFerme } from './tab_util.ts';
 
@@ -64,6 +64,20 @@ export interface Simulation {
     _re?: RegExp | null;
     _used?: number;
     _exhausted?: boolean;
+    /** `url_pattern` est une expression régulière (`_re`), pas une sous-chaîne. */
+    is_regex: boolean;
+    created_at: number;
+}
+
+/** Geste noté par l'enregistreur (recordEvent) : cible, valeur ou option choisie, touche, choix d'une sélection, chemin des cadres, script évalué. */
+export interface GesteEnregistre extends EvenementEnregistre, EvenementSelect {
+    key?: string;
+    kind?: string;
+    option?: string;
+    option_locator?: CibleEnregistree;
+    frames?: string[];
+    script?: string;
+    in_all_frames?: boolean;
 }
 
 /** Recorder of a session (pw_recorder). */
@@ -71,7 +85,7 @@ export interface Enregistreur {
     recording: boolean;
     start_ts: number;
     stop_ts?: number;
-    events: (EvenementEnregistre & { ts: number })[];
+    events: (GesteEnregistre & { ts: number })[];
     variables: Map<string, string>;
 }
 
@@ -111,8 +125,8 @@ export interface Session {
 /** Locator handed out by pw_find, replayed by pw_act through its `ref` (5 min). */
 export interface RefLocator {
     sid: string;
-    locator: unknown;
-    params: Record<string, unknown>;
+    locator: Locator;
+    params: ParamsCible;
     frame: { name?: string; url?: string } | null;
     expires_at: number;
 }
@@ -151,5 +165,16 @@ declare module 'express' {
         sessionId?: string;
         /** Arrival time of the call. */
         recuA?: number;
+    }
+}
+
+declare module 'playwright-core' {
+    interface Page {
+        /** Journaux console et réseau attachés (attachPageLoggers). */
+        __pwLoggersAttached?: boolean;
+        /** Popups et fermetures suivies (suivreOnglets). */
+        __elpisOngletsSuivis?: boolean;
+        /** Fermé par le service lui-même, non annoncé comme fermé par la page. */
+        __elpisFermeParService?: boolean;
     }
 }

@@ -251,6 +251,8 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   const connectorsLoaded = ref(false);
   const modelsLoading = ref(false);
   const modelsError = ref("");
+  // Faux jusqu'à la première réponse sur la liste (réussie ou non) : « Aucun modèle » n'est dit qu'une fois la liste connue.
+  const listeModelesConnue = ref(false);
   let connecteursAmorces = false;
   let generationSondage = 0;
   onScopeDispose(() => {
@@ -428,8 +430,9 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   );
   const selectedModelLabel = computed(() => {
     const m = selectedModel.value;
-    if (!m) return noEngineAllowed.value ? "Aucun serveur" : "Aucun modèle";
-    return m;
+    if (m) return m;
+    if (noEngineAllowed.value) return "Aucun serveur";
+    return listeModelesConnue.value ? "Aucun modèle" : "";
   });
 
   // Métadonnées du serveur choisi, lues par le panneau de sampling et la jauge de contexte.
@@ -635,6 +638,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
       modelsError.value = "Erreur de chargement des modèles";
     } finally {
       modelsLoading.value = false;
+      listeModelesConnue.value = true;
     }
   }
 

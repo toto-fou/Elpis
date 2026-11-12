@@ -687,7 +687,10 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
   `gpt-oss`. An unsuitable parser swallows the calls or delivers them as text; the
   probe flags it when the model name allows. An empty response after
   thinking when tools were offered can come from the tool parser
-  or the thinking parser.
+  or the thinking parser. A call delivered as text runs only when the reply
+  holds nothing else: with a sentence around it or inside a code block, it is
+  shown as text (only SGLang without a tool parser accepts a sentence before
+  `<tool_call>` or `<function=…>` tags at the end of the reply).
 - **API key**: vLLM's `--api-key` protects only `/v1/*` (`/tokenize`,
   `/metrics`, `/version` stay open); SGLang's protects everything except
   `/health`, `/ready` and `/metrics`. Keep these servers on a closed network.
@@ -751,8 +754,9 @@ upgrade; check the types to keep in the console.
 
 Each user also has settings in the database (`users.settings_json`);
 
-`user_db/configs/{user_id}.json` keeps a personal copy of the application
-config.
+`user_db/configs/{user_id}.json` keeps only the sections that are already
+public (`welcome`, `app_info`, `login_page`): `GET /api/config` returns only
+them and `PUT /api/config` writes only them. No setting is read from this file.
 
 > **GLOBAL feature flags** (`config.json › features`): read by
 > `feature_enabled(name)` (default `true` if missing), **re-read from disk on every

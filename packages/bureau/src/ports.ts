@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/bureau/src/ports.ts — dépendances du bureau fournies par l'application : primitives de l'agent (desktop_tools), mémoire des ancres, images, erreur d'outil, agent HTTP. */
-import type { Dict } from "@elpis/commun";
+import type { Dict, MotifPy } from "@elpis/commun";
 
 /** Ancre épinglée pour une requête (`lookup_action_anchor`). */
 export type AncreEpinglee = { auto_id?: unknown; role?: unknown; center?: unknown };
@@ -55,6 +55,20 @@ let primitives: PrimitivesBureau | null = null;
 
 export function installerPrimitivesBureau(port: PrimitivesBureau | null): void {
   primitives = port;
+}
+
+/** `pattern.search` hors de la boucle du process, tué à l'échéance. */
+export type RechercheRegex = (motif: MotifPy, texte: string) => Promise<boolean>;
+
+let rechercheRegex: RechercheRegex | null = null;
+
+export function installerRechercheRegex(port: RechercheRegex | null): void {
+  rechercheRegex = port;
+}
+
+/** Port installé par l'application ; `null` : recherche sur place. */
+export function rechercheRegexBureau(): RechercheRegex | null {
+  return rechercheRegex;
 }
 
 export function primitivesBureau(): PrimitivesBureau {

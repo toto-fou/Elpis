@@ -10,6 +10,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import {
   apercuDecoupageRag,
+  avecPlaceApercuRag,
   decoupageProprePublic,
   ecrireDecoupageDocumentRag,
   lireDecoupageCollectionRag,
@@ -73,24 +74,28 @@ export function routesDecoupageRag(dep: RoutesRagResolues): DefinitionRoute[] {
       }
       return { document: documentPublic((await lireDocument(base, doc.id)) ?? doc), job };
     }),
-    routeRag("POST", `${CHEMIN}/apercu-decoupage`, async (req) => {
+    routeRag("POST", `${CHEMIN}/apercu-decoupage`, async (req, rep) => {
       const c = await collectionDeLaRequete(dep, req, { ecriture: true });
       const doc = await documentDe(dep, req, c);
       const corps = corpsValide(req, schemaCorpsApercuDecoupageRag);
       verifierRegexRag(...paramsDuDecoupage(corps.decoupage));
-      const extrait = lireExtraitRag(c.ligne.owner_user_id, c.id, doc.id, doc.sha256);
-      if (extrait === null)
-        throw new ErreurRouteRag(
-          409,
-          "extrait_indisponible",
-          "Le texte de ce document n'est pas encore extrait : attendez la fin de son indexation.",
+      const signal = signalDe(rep);
+      return avecPlaceApercuRag(c.uid, signal, async () => {
+        const extrait = lireExtraitRag(c.ligne.owner_user_id, c.id, doc.id, doc.sha256);
+        if (extrait === null)
+          throw new ErreurRouteRag(
+            409,
+            "extrait_indisponible",
+            "Le texte de ce document n'est pas encore extrait : attendez la fin de son indexation.",
+          );
+        return apercuDecoupageRag(
+          extrait.blocks,
+          lireDecoupageCollectionRag(c.ligne.chunk_json),
+          doc.ext,
+          corps.decoupage,
+          signal,
         );
-      return apercuDecoupageRag(
-        extrait.blocks,
-        lireDecoupageCollectionRag(c.ligne.chunk_json),
-        doc.ext,
-        corps.decoupage,
-      );
+      });
     }),
     routeRag("GET", `${CHEMIN}/passages/liste`, async (req, rep) => {
       const c = await collectionDeLaRequete(dep, req);

@@ -122,7 +122,8 @@ the core:
   files) is pinned too: another runtime is refused at installation and
   reported by `./elpis doctor`;
 - `core/`: the bundle built with this same Node for this architecture
-  (`main.mjs`, `exploitation.mjs`, the image thread `pixels.mjs` and its
+  (`main.mjs`, `exploitation.mjs`, the RAG chunking thread
+  `decoupage-fil.mjs`, the image thread `pixels.mjs` and its
   libwebp WebAssembly codecs in `webp/`), then started once on a temporary
   database (native module loaded, `/api/health`, clean shutdown) before
   entering the package.

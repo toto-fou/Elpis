@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 /** packages/mcp/src/origines.ts — contrôle de l'en-tête `Origin` des requêtes MCP (anti DNS rebinding), règle commune au relais et au service d'outils. */
-import { strPy, stripPy } from "@elpis/commun";
+import { rstripPy, strPy, stripPy } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 
 import { isdigitPy } from "./outils";
 
+const ORIGINE_LONGUEUR_MAX = 2048;
+
 function normaliser(origin: unknown): string {
-  return stripPy(strPy(origin ?? "") || "")
-    .replace(/\/+$/, "")
-    .toLowerCase();
+  return rstripPy(stripPy(strPy(origin ?? "") || ""), "/").toLowerCase();
 }
 
 /** Texte « a, b » ou liste → éléments non vides (`str(x).strip()`). */
@@ -51,6 +51,7 @@ function correspond(origin: string, motifs: Set<string>): boolean {
 /** `true` si la requête peut passer au vu de son `Origin` : absent = client natif accepté ; `null` jamais autorisé. */
 export function originAllowed(origin: string | null | undefined): boolean {
   if (origin === null || origin === undefined || stripPy(origin) === "") return true;
+  if (origin.length > ORIGINE_LONGUEUR_MAX) return false;
   const o = normaliser(origin);
   if (o === "null" || !o.includes("://")) return false;
   return correspond(o, allowedOrigins());

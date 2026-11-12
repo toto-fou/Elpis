@@ -8,7 +8,7 @@ import {
   assemblerTexte,
   ClientEmbeddings,
   construirePoint,
-  decouperAvecRedecoupes,
+  decouperHorsBoucle,
   ErreurRag,
   texteAvecContexte,
   texteBm25,
@@ -81,6 +81,8 @@ export interface ContexteIndexeur {
   readonly embeddings: (modele: string) => ClientEmbeddings;
   /** Dimension des vecteurs du modèle (sondée, gardée en mémoire par le travailleur). */
   readonly dimension: (modele: string, signal: AbortSignal) => Promise<number>;
+  /** Limite du découpage d'un document ; au-delà, le document passe en échec. */
+  readonly delaiDecoupageMs: number;
   /** Ligne du document après un changement d'état (événement `rag_job`). */
   readonly surEtat: (travail: LigneTravailRag, doc: LigneDocumentRag) => void;
 }
@@ -396,8 +398,19 @@ async function indexerEtape(
   const choix = decoupageDuDocumentRag(coll, doc);
   let passages: Passage[];
   try {
-    passages = decouperAvecRedecoupes(extrait.blocks, choix.params, choix.redecoupes).passages;
+    const r = await decouperHorsBoucle(extrait.blocks, choix.params, choix.redecoupes, {
+      regexLenteFatale: true,
+      delaiMs: ctx.delaiDecoupageMs,
+      signal,
+    });
+    passages = r.passages;
   } catch (e) {
+    if (signal.aborted) return { genre: "abandon" };
+    if (e instanceof ErreurRag && e.code === "delai") return { genre: "echec", code: "chunking_timeout" };
+    if (e instanceof ErreurRag && e.code === "fil_decoupage") {
+      log.warn({ err: e }, `document ${doc.id} : thread de découpage en échec`);
+      return { genre: "douteux", code: "internal", message: e.message };
+    }
     return classerErreurRag(e, "qdrant");
   }
   if (!passages.length) return { genre: "echec", code: "no_text" };

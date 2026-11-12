@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/fichiers/calcul-execution.ts — remplacements et texte des .docx calculés dans un thread propre à chaque requête (calcul-fil.ts), tué à l'échéance sans toucher aux autres ; sur place si le thread ne peut pas démarrer. */
+/** apps/toolhost/src/fichiers/calcul-execution.ts — remplacements, texte des .docx et motifs des outils calculés dans un thread propre à chaque requête (calcul-fil.ts), tué à l'échéance sans toucher aux autres ; sur place si le thread ne peut pas démarrer, sauf les motifs (refusés). */
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
-import { HttpError } from "@elpis/commun";
+import { ErreurPython, gabaritPy, HttpError } from "@elpis/commun";
+import type { MotifPy } from "@elpis/commun";
 
 import { traiter } from "./calcul-fil";
-import type { RequeteFil, ReponseFil, ResultatFil } from "./calcul-fil";
+import type { ActionRegex, RequeteFil, ReponseFil, ResultatFil, ResultatRegex } from "./calcul-fil";
 import type { SpecRemplacement } from "./remplacement";
 
 /** Marge laissée au thread au-delà de l'échéance d'un lot avant de le tuer. */
@@ -16,6 +17,21 @@ const GRACE_MS = 2_000;
 export const DELAI_UN_MS = 30_000;
 /** Délai du texte d'un .docx (10 Mo au plus ; le Python n'en a pas). */
 export const DELAI_DOCX_MS = 60_000;
+/** Délai d'une recherche de motif (un fichier, ou un paquet de lignes d'un gros fichier). */
+export const DELAI_REGEX_MS = 10_000;
+/** Temps de thread d'un appel d'outil, en délais de recherche (gros fichier en flux, lot de fichiers). */
+const BUDGET_REGEX_DELAIS = 12;
+export const REGEX_LENTE =
+  "regex_timeout: the pattern took too long on this content and was stopped. Simplify it: remove nested or overlapping repetition such as (a|a)* or (.*x)+, anchor it, or search for a literal substring.";
+export const REGEX_SANS_FIL =
+  "regex_unavailable: the regex worker could not be started; use a literal search or tell the administrator.";
+
+let delaiRegex = DELAI_REGEX_MS;
+
+/** Délai d'une recherche de motif, remplaçable dans les tests. */
+export function installerDelaiRegex(ms: number | null): void {
+  delaiRegex = ms ?? DELAI_REGEX_MS;
+}
 
 /** Échéance dépassée ou thread arrêté : la requête n'a pas abouti. */
 export class DelaiCalcul extends Error {
@@ -40,6 +56,7 @@ export class SessionCalcul {
   private w: Worker | null = null;
   private suivant = 0;
   private readonly attentes = new Map<number, { ok: (r: ReponseFil) => void; ko: (e: Error) => void }>();
+  private budgetRegex = delaiRegex * BUDGET_REGEX_DELAIS;
 
   private demarrer(): Worker | null {
     const url = urlDuFil();
@@ -71,7 +88,10 @@ export class SessionCalcul {
     const requete = { ...r, id: (this.suivant += 1) } as RequeteFil;
     this.w ??= this.demarrer();
     const w = this.w;
-    if (w === null) return Promise.resolve(traiter(requete));
+    if (w === null) {
+      if (requete.op === "regex") throw new ErreurPython("ValueError", REGEX_SANS_FIL);
+      return Promise.resolve(traiter(requete));
+    }
     vivantes.add(this);
     return new Promise<ReponseFil>((ok, ko) => {
       const minuterie = setTimeout(() => void this.fermer(), Math.max(0, delaiMs));
@@ -124,6 +144,45 @@ export class SessionCalcul {
     return resultat(await this.executer({ op: "docx", donnees }, delaiMs), "docx");
   }
 
+  /** Recherche d'un motif compilé ; échéance dépassée : thread tué, `ValueError` lue par le modèle, et plus aucune recherche pour cet appel. */
+  private async regex<T extends ResultatRegex>(motif: MotifPy, action: ActionRegex): Promise<T> {
+    if (this.budgetRegex <= 0) throw new ErreurPython("ValueError", REGEX_LENTE);
+    const debut = Date.now();
+    try {
+      const delai = Math.min(delaiRegex, this.budgetRegex);
+      return resultat<T>(await this.executer({ op: "regex", motif, action }, delai), "regex");
+    } catch (e) {
+      if (!(e instanceof DelaiCalcul)) throw e;
+      this.budgetRegex = 0;
+      throw new ErreurPython("ValueError", REGEX_LENTE);
+    } finally {
+      this.budgetRegex -= Date.now() - debut;
+    }
+  }
+
+  /** Indices croissants des `lignes` où `pattern.search` trouve. */
+  lignes(motif: MotifPy, lignes: readonly string[]): Promise<Uint32Array> {
+    if (!lignes.length) return Promise.resolve(new Uint32Array(0));
+    const longueurs = Uint32Array.from(lignes, (l) => l.length);
+    return this.regex<Uint32Array>(motif, { quoi: "lignes", texte: lignes.join(""), longueurs });
+  }
+
+  /** `pattern.search(texte)` trouve-t-il ? */
+  present(motif: MotifPy, texte: string): Promise<boolean> {
+    return this.regex<boolean>(motif, { quoi: "present", texte });
+  }
+
+  /** `pattern.finditer(texte)` : début et fin de chaque correspondance à la suite, en unités UTF-16. */
+  occurrences(motif: MotifPy, texte: string): Promise<Uint32Array> {
+    return this.regex<Uint32Array>(motif, { quoi: "occurrences", texte });
+  }
+
+  /** `pattern.subn` : gabarit analysé ici avant toute recherche (mêmes refus, comme Python), remplacement dans le thread. */
+  async subn(motif: MotifPy, repl: string, texte: string, count = 0): Promise<[string, number]> {
+    if (repl.includes("\\")) gabaritPy(repl, motif);
+    return this.regex<[string, number]>(motif, { quoi: "subn", repl, texte, count });
+  }
+
   /** Thread tué (requêtes en cours : `DelaiCalcul`). */
   async fermer(): Promise<void> {
     vivantes.delete(this);
@@ -133,7 +192,7 @@ export class SessionCalcul {
   }
 }
 
-function resultat<T>(m: ReponseFil, cle: "lot" | "un" | "docx"): T {
+function resultat<T>(m: ReponseFil, cle: "lot" | "un" | "docx" | "regex"): T {
   if ("erreur" in m) {
     const e = m.erreur;
     if (e.statut !== undefined) throw new HttpError(e.statut, e.detail);

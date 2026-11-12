@@ -2,7 +2,6 @@
 /** apps/toolhost/src/mcp/fs/lecture.ts — `read_file` (fs_tools.py) : un fichier ou un lot, texte (modes, auto-troncature, JSON/YAML) ou binaire, gros texte lu en flux par plages de l'agent. */
 import { estErreurAgent } from "@elpis/bac";
 import {
-  chercher,
   compilerPy,
   ErreurJsonPy,
   ErreurRe,
@@ -23,6 +22,7 @@ import { asList, getUsername, ok } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 import { toContainer } from "@elpis/securite";
 
+import { SessionCalcul } from "../../fichiers/calcul-execution";
 import { Espace } from "../espace";
 import { errAgentLien, HASH_MAX, mime, relDe, sha256, statEntree, strErreur } from "./acces";
 import { decoderPy } from "./codecs";
@@ -43,6 +43,8 @@ const BIN_BASE64_MAX = 4096;
 const LIGNE_MAX = 2000;
 const MAX_CHARS_DEFAUT = 20_000;
 const MARQUEUR_COUPE = /…\[\+\d+ chars\]/gu;
+/** Caractères de lignes d'un gros fichier passés d'un coup au thread de recherche. */
+const PAQUET_GREP = 1 << 20;
 
 /** Ligne affichée coupée à `limite` caractères, le reste compté dans le marqueur `…[+N chars]`. */
 function coupeLigne(l: string, limite: number): string {
@@ -222,6 +224,7 @@ async function lireGrosTexte(
   infoAppelant: Dict,
   a: ArgsLecture,
   enc: string,
+  fil: SessionCalcul,
 ): Promise<Dict> {
   const info: Dict = { ...infoAppelant, streamed: true };
   let total = 0;
@@ -274,6 +277,21 @@ async function lireGrosTexte(
 
   async function* lignes(): AsyncGenerator<Rang> {
     for await (const [i, t] of lignesAvecDecalage()) yield [i, t];
+  }
+
+  async function* paquetsDeLignes(): AsyncGenerator<[number, string, number][]> {
+    let paquet: [number, string, number][] = [];
+    let taille = 0;
+    for await (const rang of lignesAvecDecalage()) {
+      paquet.push(rang);
+      taille += rang[1].length;
+      if (taille >= PAQUET_GREP) {
+        yield paquet;
+        paquet = [];
+        taille = 0;
+      }
+    }
+    if (paquet.length) yield paquet;
   }
 
   const rendre = (rangs: readonly Rang[]): string => {
@@ -330,33 +348,42 @@ async function lireGrosTexte(
     let trouvees = 0;
     let apres = 0;
     let coupe = false;
-    for await (const [i, t, debut] of lignesAvecDecalage()) {
-      if (chercher(motif, t) !== null) {
-        trouvees++;
-        for (const [bi, bdebut, bt] of avant.liste())
-          if (bi > prec) ajouter(bi, "-", bt ?? (maxChars - utilise > 0 ? await relire(bdebut) : null));
-        avant.vider();
-        garde = 0;
-        ajouter(i, ":", t);
-        apres = ctxN;
-      } else if (apres > 0) {
-        ajouter(i, "-", t);
-        apres--;
-      } else if (ctxN) {
-        const n = longueurPy(t);
-        const gardee = garde + n <= maxChars - utilise;
-        if (gardee) garde += n;
-        avant.ajouter([i, debut, gardee ? t : null]);
-        if (avant.taille > ctxN) {
-          const vieille = (avant.tete() as [number, number, string | null])[2];
-          if (vieille !== null) garde -= longueurPy(vieille);
-          avant.retirerTete();
+    for await (const paquet of paquetsDeLignes()) {
+      const touches = await fil.lignes(
+        motif,
+        paquet.map(([, t]) => t),
+      );
+      let suivante = 0;
+      for (const [k, [i, t, debut]] of paquet.entries()) {
+        if (touches[suivante] === k) {
+          suivante++;
+          trouvees++;
+          for (const [bi, bdebut, bt] of avant.liste())
+            if (bi > prec) ajouter(bi, "-", bt ?? (maxChars - utilise > 0 ? await relire(bdebut) : null));
+          avant.vider();
+          garde = 0;
+          ajouter(i, ":", t);
+          apres = ctxN;
+        } else if (apres > 0) {
+          ajouter(i, "-", t);
+          apres--;
+        } else if (ctxN) {
+          const n = longueurPy(t);
+          const gardee = garde + n <= maxChars - utilise;
+          if (gardee) garde += n;
+          avant.ajouter([i, debut, gardee ? t : null]);
+          if (avant.taille > ctxN) {
+            const vieille = (avant.tete() as [number, number, string | null])[2];
+            if (vieille !== null) garde -= longueurPy(vieille);
+            avant.retirerTete();
+          }
+        }
+        if (utilise > maxChars || trouvees >= MAX_GREP) {
+          coupe = true;
+          break;
         }
       }
-      if (utilise > maxChars || trouvees >= MAX_GREP) {
-        coupe = true;
-        break;
-      }
+      if (coupe) break;
     }
     if (!trouvees) return ok({ ...info, format: "grep", matches: 0, content: "", hint: "no matches" });
     return ok({ ...info, format: "grep", matches: trouvees, content: sortie.join("\n"), truncated: coupe });
@@ -515,7 +542,13 @@ function plagesRendues(
 }
 
 /** `_read_one_file` : un chemin ; un `ValueError` du chemin remonte à l'appelant. */
-async function lireUn(chemin: string, a: ArgsLecture, plages: unknown[], esp: Espace): Promise<Dict> {
+async function lireUn(
+  chemin: string,
+  a: ArgsLecture,
+  plages: unknown[],
+  esp: Espace,
+  fil: SessionCalcul,
+): Promise<Dict> {
   const rel = relDe(esp.racine, chemin);
   const p = toContainer(rel);
   let info: Dict;
@@ -589,7 +622,7 @@ async function lireUn(chemin: string, a: ArgsLecture, plages: unknown[], esp: Es
           info,
         );
       try {
-        return await lireGrosTexte(esp, rel, info, a, enc);
+        return await lireGrosTexte(esp, rel, info, a, enc, fil);
       } catch (x) {
         if (x instanceof ErreurRe)
           return errFs(`bad_regex: ${x.message}`, "Escape special chars with \\ .", info);
@@ -711,10 +744,7 @@ async function lireUn(chemin: string, a: ArgsLecture, plages: unknown[], esp: Es
         return errFs(`bad_regex: ${x.message}`, "Escape special chars with \\ .", info);
       throw x;
     }
-    const touches: number[] = [];
-    lignes.forEach((ln, k) => {
-      if (chercher(motif, ln) !== null) touches.push(k + 1);
-    });
+    const touches = Array.from(await fil.lignes(motif, lignes), (k) => k + 1);
     if (!touches.length) return ok({ ...info, format: "grep", matches: 0, content: "", hint: "no matches" });
     const estTouche = new Set(touches);
     let affichees: number[] = touches;
@@ -826,6 +856,7 @@ async function lireUn(chemin: string, a: ArgsLecture, plages: unknown[], esp: Es
 /** `read_file` : un chemin ou un lot (`paths`), échecs indépendants dans un lot. */
 export async function readFile(a: ArgsLecture, ctx: ContexteAppel): Promise<Dict> {
   const username = getUsername(ctx);
+  const fil = new SessionCalcul();
   try {
     const esp = await Espace.pour(username);
     const plages = asList(a.line_ranges);
@@ -844,7 +875,7 @@ export async function readFile(a: ArgsLecture, ctx: ContexteAppel): Promise<Dict
           poserCle(fichiers, strPy(c), errFs("bad_path", "Each entry must be a non-empty string."));
           continue;
         }
-        const r = await lireUn(c, a, plages, esp).catch((e: unknown) => {
+        const r = await lireUn(c, a, plages, esp, fil).catch((e: unknown) => {
           if (!estValueError(e)) throw e;
           return errFs(e.message, "", { path: c });
         });
@@ -860,9 +891,11 @@ export async function readFile(a: ArgsLecture, ctx: ContexteAppel): Promise<Dict
       });
     }
     if (!a.path) return errFs("path_required", "Pass path=<file> or paths=[<file1>, <file2>, ...].");
-    return await lireUn(a.path, a, plages, esp);
+    return await lireUn(a.path, a, plages, esp, fil);
   } catch (e) {
     if (estValueError(e)) return errFs(e.message);
     return errFs(`unexpected: ${strErreur(e)}`);
+  } finally {
+    await fil.fermer();
   }
 }

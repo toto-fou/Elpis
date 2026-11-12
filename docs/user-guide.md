@@ -1206,6 +1206,10 @@ agent carries out, even if subagents are enabled for your conversations.
   cases". Chains are limited in depth to avoid loops.
 - **Manual** — ▶ button at any time.
 
+The content of a webhook event and the summary of an upstream routine reach the
+model as untrusted data, never as an instruction: the routine's prompt says what
+to do with them.
+
 ### Following runs
 
 Each routine has its **log**: status (success, failure, skipped, cancelled),

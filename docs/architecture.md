@@ -622,7 +622,13 @@ the orchestrator: it imports them.
 | `@elpis/contracts` (`stream-events.gen.ts`) | NDJSON stream registry | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
 
 Calls written as text are parsed in `boucle/analyse-appels.ts`
-(`extractToolCalls`, `stripToolCallMarkup`).
+(`extractToolCalls`, `stripToolCallMarkup`). A reply is a call only when it
+contains nothing else (`<tool_call>` or `<function=…>` tags, or bare JSON
+outside a code block); JSON or tags inside prose stay text and are shown as
+written. Two exceptions for the markup that ends the text: the reply of an
+engine that reports no tool-call parser (SGLang), and the reasoning of an empty
+reply. A reply cut by the length limit inside a call tag left open is sent back
+for a compact retry, and nothing runs.
 
 ```mermaid
 flowchart TB
@@ -1323,9 +1329,10 @@ sequenceDiagram
   cascade of failures. Counters and outcomes:
   [The agent loop](#the-agent-loop).
 - If the engine does not produce native `tool_calls`, the text channel reads the
-  calls written in the response with `extractToolCalls()` (native JSON,
-  backticks, multi-object, GLM XML; `classifyTextReply`); the batch then goes
-  through the same core (`runToolBatch`) as native calls.
+  calls written in the response with `extractToolCalls()` (bare JSON,
+  multi-object, GLM XML; `classifyTextReply`), only when the response holds
+  nothing but the calls; the batch then goes through the same core
+  (`runToolBatch`) as native calls.
 - Each call is timed and logged in `tool_call_metrics` (basis of the
   Observability pages).
 
@@ -1741,6 +1748,11 @@ curl -X POST http://localhost:8001/api/login-lite \
 
 Response: `{"ok": true, "is_admin": false, "must_change_pwd": false}`
 
+Attempts are throttled per (username, IP address) and, more broadly, per IP
+address, in the memory of each process: repeated failures are answered more
+slowly, then with `429` and `Retry-After`. A successful login resets the
+(username, IP address) pair. No account is ever locked for every address.
+
 | Endpoint | Description |
 |---|---|
 | `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes) |
@@ -2005,7 +2017,7 @@ main and admin reload on the next read instead of waiting for the TTL.
 | Endpoint | Description |
 |---|---|
 | `GET /api/settings` · `PUT /api/settings` | Per-user settings (allowed keys: `apps/core/src/comptes/reglages.ts`); `assistant_name` is read-only: the application name, `app_info.name` |
-| `GET /api/config` · `PUT /api/config` | Personal copy of the application config |
+| `GET /api/config` · `PUT /api/config` | Personal copy of the public config sections (`welcome`, `app_info`, `login_page`) |
 | `POST /api/settings/avatar` · `DELETE` | User avatar (max 5 MB) |
 | `POST /api/settings/assistant-avatar` | Refused (403): the assistant's avatar is the application logo |
 | `GET /avatars/{filename}` | Avatar serving (cross-site guard) |
@@ -2753,7 +2765,8 @@ the question), memory (`MarkdownMemoryProvider`), the skills index and bodies
 (`blocSkills`, also for children and routines), the `<todo_status>` reminder, the summary
 and compaction ledger (`formatSummaryAsSystemMessage`) and their input
 (`serializeForCompression`), a subagent's brief (`task`), a routine's prompt and context
-(including an upstream routine's output and the triggering event), the chat title
+(including an upstream routine's output and the triggering event, delivered in a
+`<routine_event>` block announced as untrusted, where every `<` of the third party becomes `&lt;`), the chat title
 input. Job events, tool results (including `pw_memory`,
 `session_search`, `skill_get`) and subagent reports already go through
 `prepareToolResultForModel`; desktop memory anchors (`desktop_*`, query to
@@ -3313,7 +3326,7 @@ stays in Python, in the `rag_app` extractor.
 | Collections, publication | `rag/collections.ts`, `familles/rag.ts` | A collection belongs to one account; visibility private, groups or everyone; a reader modifies nothing |
 | Store | `rag/magasin.ts` | `<rag.store_dir>/<uid>/<collection>/sources/<doc>.<ext>` (original), `extraits/<doc>.json` (structured text, reindexing without re-extracting), `pages/<doc>/<n>.webp` (render cache); paths built from validated identifiers, no link followed; `.purges/` keeps the purges to redo |
 | Upload | `rag/depot.ts` | Streamed write (`.part`, sha256, caps), quotas and duplicates under lock |
-| Indexing | `rag/travailleur.ts`, `rag/indexeur.ts` | Single leader in main; database queue (`rag_jobs`), 2 documents at a time across the instance and 1 per account (`rag.indexation`), resume after restart; extraction, chunking (512 tokens, overlap 64), batched embeddings, BM25, Qdrant write then removal of the old passages |
+| Indexing | `rag/travailleur.ts`, `rag/indexeur.ts` | Single leader in main; database queue (`rag_jobs`), 2 documents at a time across the instance and 1 per account (`rag.indexation`), resume after restart; extraction, chunking (512 tokens, overlap 64; a regex runs in a thread: too slow (2 s per run) or over 60 s for the document, the document fails with `chunking_timeout`), batched embeddings, BM25, Qdrant write then removal of the old passages |
 | Qdrant | `rag/qdrant.ts` | One `elpis_<uuid>` collection per collection (`dense` and `bm25` vectors); an embedding model change builds a new generation while the old one serves |
 | Search | `@elpis/rag`, `rag/essai.ts` | Hybrid (dense + BM25, RRF fusion), by meaning or exact words; several collections merged by RRF; optional reranking |
 | Chat | `rag/chat.ts`, `rag/outils-chat.ts` | See [RAG mode](#rag-mode) |

@@ -2,7 +2,6 @@
 /** apps/core/src/tour/preparation.ts — préparation d'un tour : payload client → plan (cible, serveurs MCP résolus côté serveur, interrupteurs du compte, historique, titre), ressources et base de l'enregistrement optimiste (chatbot_app/turn/preparation.py). */
 import { getUserSettings, getUsernameById, ligneUtilisateur } from "@elpis/auth";
 import {
-  BLANC_PY,
   estDict,
   FlottantPy,
   getOu,
@@ -67,6 +66,7 @@ import {
   recentUserText,
 } from "./historique";
 import { preparerAnnonceEnfants } from "./enfants-interrompus";
+import { retirerFichiersJoints } from "./fichiers-joints";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -198,11 +198,6 @@ const EN_MONTHS = [
   "November",
   "December",
 ];
-const B = BLANC_PY;
-const FICHIER_JOINT = new RegExp(
-  `---${B}*FILE:${B}*[^\\n]+?${B}*---[\\s\\S]*?---${B}*END FILE${B}*---${B}*`,
-  "gu",
-);
 const egal0 = (v: unknown): boolean =>
   v === null || v === undefined || v === "" || v === "0" || v === false || (nombre(v) ?? 1) === 0;
 const nombre = (v: unknown): number | null =>
@@ -561,7 +556,7 @@ export async function prepareTurn(
   else {
     const premiere = msgs.find((x) => x["role"] === "user");
     if (premiere) {
-      titleContent = stripPy(msgText(premiere["content"]).replace(FICHIER_JOINT, ""));
+      titleContent = stripPy(retirerFichiersJoints(msgText(premiere["content"])));
       const nouveau = prefixePy(titleContent || "Nouveau chat", 28);
       if (nouveau !== title) titleWasGenerated = true;
       title = nouveau;

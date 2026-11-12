@@ -82,9 +82,10 @@ export interface Passage {
   jetons: number;
 }
 
-/** Options d'exécution : `regexStricte` lève `regex_invalide` (motif invalide ou trop lent) au lieu de retomber sur la taille ; `echeance` (ms epoch) borne les redécoupes. */
+/** Options d'exécution : `regexStricte` lève `regex_invalide` (motif invalide ou trop lent) au lieu de retomber sur la taille ; `regexLenteFatale` lève `delai` sur un motif trop lent (un motif invalide retombe sur la taille) ; `echeance` (ms epoch) borne les redécoupes. */
 export interface OptionsDecoupage {
   regexStricte?: boolean | undefined;
+  regexLenteFatale?: boolean | undefined;
   echeance?: number | undefined;
 }
 
@@ -522,7 +523,7 @@ function morceauxPar(texte: string, blocs: readonly BlocP[], p: Normalises, o: O
     case "separateur":
       return p.valeur === undefined ? taille() : parSeparateur(texte, desechapper(p.valeur));
     case "regex": {
-      const debuts = p.valeur === undefined ? null : debutsRegex(p.valeur, texte);
+      const debuts = p.valeur === undefined ? null : debutsRegex(p.valeur, texte, o.regexLenteFatale);
       if (debuts === null && p.valeur !== undefined && o.regexStricte)
         throw new ErreurRag("regex_invalide", "expression régulière invalide ou trop lente");
       return debuts === null || debuts.length === 0 ? taille() : parDebuts(texte.length, debuts);

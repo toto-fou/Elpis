@@ -220,6 +220,7 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **`execute_shell` with a lone UTF-16 surrogate.** The echoed command is sanitized (U+FFFD) so the result stays encodable; the database init now calls `annoncerTravail` just before real schema or migration work; `docs/operations.md` names the apt group `socle` like `deploy/prerequis-apt.txt`.
 - **Metrics: tokens attributed to their account.** Chat turns, "Images" turns and `/compact`
   recorded their usage without an account or a source, so "Tokens per user" and "Peaks per
   user" filed nearly everything under "unattributed" while the Runs page knew the account.
@@ -301,6 +302,82 @@ follow [SemVer](https://semver.org/).
   neutralized against spreadsheet formulas, the console answers 503 instead of an empty list
   when the database fails, and secrets are masked in the shell commands that are logged.
 
+### Security
+
+- **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
+  a regular expression ran it on the core's event loop, with a 2-second limit per run but none
+  per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a
+  regex now runs in its own worker thread, killed after 60 seconds for the document; a pattern
+  that hits its per-run limit fails the document (`chunking_timeout`) instead of silently falling
+  back to size chunking. Previews use the same thread, one at a time per account (`429` while
+  another one runs). Other chunking methods stay in place and give the same passages. The core
+  bundle gains `decoupage-fil.mjs`, checked by the installer and the release script.
+- **MCP: output schemas cannot hang the core.** The `outputSchema` of a remote MCP tool was
+  compiled and run by ajv on the core's event loop with no bound, so a hostile server could hold
+  the core at 100 % CPU with a pattern such as `^(a+)+$`, a chain of `$ref` or a deeply nested
+  schema. Compilation is now limited to 1 second and each validation to 250 ms, and a schema
+  over 16 KiB or too deep to serialise is never compiled; in all those cases, and for a schema
+  that does not compile, the tool is served without output validation (logged) instead of
+  failing.
+- **Tool regular expressions run off the tool host's event loop.** A pattern given by the model
+  to `read_file` (`grep`), `edit_file` (`regex`, `anchor_re`, `multi`), `git_write` (`replace`
+  with `regex`) or `desktop_wait(match=true)` ran on the tool host's main thread, so a pattern with
+  nested repetition such as `(a|a)*$` could hold every user's tools at 100 % CPU. These searches
+  now run in the per-request worker thread, killed after 10 seconds (120 seconds of searching per
+  tool call at most); the model gets `regex_timeout` with advice to simplify the pattern, and the
+  file is left untouched. When the worker cannot start, a pattern is refused (`regex_unavailable`)
+  rather than run on the main thread. Desktop patterns longer than 2,000 characters fall back to
+  a plain substring match.
+- **Images: PNG decompression bombs bounded.** A small PNG could expand without limit when its
+  compressed metadata (`zTXt`, `iTXt`, `iCCP`) or its interlaced image data were inflated. The
+  metadata is now inflated within 1 MiB per text chunk, 16 MiB per ICC profile and 64 MiB in all
+  (a chunk over its ceiling is ignored and the image still opens); interlaced data is bounded by
+  the size its dimensions allow, and a PNG with a second `IHDR` or over the pixel ceiling is
+  refused before decoding.
+- **Voice: text bounded before cleaning.** The text sent to speech synthesis went through its
+  cleaning regular expressions at full length, and three of them backtracked on long runs of
+  blank lines or spaces. Only the first 8,000 characters (twice the `tts.max_chars` ceiling) are
+  now cleaned, and those patterns no longer backtrack.
+- **Chat title: attached file blocks removed in linear time.** The regular expression that
+  removed `--- FILE: … --- END FILE ---` blocks from the first message before deriving the chat
+  title could take quadratic time on a crafted message and hold the core; a linear scan gives
+  the same result.
+- **MCP relay: linear checks on unauthenticated input.** The `Origin` header and the `family`
+  path segment were trimmed with regular expressions that backtrack on long runs of slashes,
+  before any authentication; they are now trimmed by linear scans, and an `Origin` longer than
+  2,048 characters is refused at once.
+- **Routines: webhook and chained context as untrusted data.** The body of a webhook delivery
+  and the summary of an upstream routine were appended to the routine's prompt under a plain
+  heading, as if the user had written them. They now reach the model in a `<routine_event>` block
+  announced as untrusted data, never instructions, where every `<` of the sender becomes `&lt;`,
+  so the block cannot be closed or a harness tag forged from outside.
+- **Tool calls written as text: only a reply that is nothing but the call runs.** When the engine
+  gives no native `tool_calls`, any JSON object with a `name` found in the reply, or a
+  `<tool_call>` tag quoted in a sentence, used to run as a tool call, so a model quoting a web
+  page, a file or a tool result could be led to run a tool. A text reply now runs as a call only
+  when it holds nothing else (`<tool_call>` / `<function=…>` markup, or bare JSON outside a code
+  block); JSON or tags inside prose are shown as written. The markup that ends a text still counts
+  in two cases: an SGLang engine that reports no tool-call parser, and the reasoning of an empty
+  reply. A reply cut by the length limit inside an open call tag gets the compact retry, with a
+  note that it may only have been a quotation, and nothing runs.
+- **Login: failed attempts throttled.** `POST /api/login-lite` counts attempts per (username,
+  client address), 8 refilled one every 5 minutes, and per client address, 50 refilled one every
+  15 seconds, before any password hashing. Repeated failures are answered more slowly (up to
+  2 s), then with `429` and `Retry-After`; a successful login resets the (username, address) pair,
+  an attempt that fails on a server error is not counted, and no account is locked for other
+  addresses. Reaching the limit writes one `auth.login.denied` line with `reason: rate_limited`.
+  The counters live in the memory of each process.
+- **Login: no timing difference for unknown usernames.** A refused login now costs one current
+  password hash (600,000 PBKDF2 iterations) whether the username exists or not, and an account
+  still on the old 150,000-iteration hash is topped up to the same cost, so the response time no
+  longer tells which usernames exist. A password that is not valid Unicode is refused without
+  being compared.
+- **Account config: public sections only.** `GET /api/config` gave each account a copy of the
+  whole instance `config.json` with a fixed list of secrets blanked, so any other sensitive value
+  (desktop agent addresses and tokens, internal URLs, a future secret key) reached every session.
+  The account view and its file `user_db/configs/{user_id}.json` now hold only the sections that
+  `/api/public-config` already serves (`welcome`, `app_info`, `login_page`); any other key is
+  neither returned nor written by `PUT /api/config`.
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

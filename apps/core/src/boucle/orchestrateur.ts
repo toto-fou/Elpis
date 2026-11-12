@@ -555,13 +555,20 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
         iterThinking,
       });
     } else {
-      const reply = classifyTextReply(ctx, live, iterClean, iteration);
+      const reply = await classifyTextReply(ctx, live, iterClean, iteration);
       const rawText = reply.rawText;
       iterClean = reply.iterClean;
       const legacy = reply.calls;
-      if (finish === "length" && legacy) {
+      if (finish === "length" && (legacy || reply.appelOuvert)) {
         await live.flush();
-        if (await trunc.cut(TEXTE.name, ctx, rec, workingMessages, { usage, iterClean, iteration }))
+        if (
+          await trunc.cut(TEXTE.name, ctx, rec, workingMessages, {
+            usage,
+            iterClean,
+            iteration,
+            citationPossible: reply.appelOuvert,
+          })
+        )
           forcedStop = true;
         hardIter += 1;
         continue;

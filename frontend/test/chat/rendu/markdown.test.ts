@@ -178,26 +178,30 @@ describe("rendu incrémental", () => {
     expect(m.tailleCache).toBe(300);
   });
 
-  it("coloration coupée pendant le bloc actif, faite au rendu final", () => {
+  it("le rendu n'appelle jamais highlight.js : code échappé, flux comme rendu final", () => {
     let appels = 0;
     hljsGlobal.hljs = {
-      getLanguage: (nom: string) => nom === "js",
-      highlight: (code: string) => {
+      getLanguage: () => true,
+      highlight: () => {
         appels++;
-        return { value: '<span class="hljs-k">' + code + "</span>" };
+        return { value: "<span>x</span>" };
       },
-      highlightAuto: (code: string) => {
+      highlightAuto: () => {
         appels++;
-        return { value: code };
+        return { value: "<span>x</span>" };
       },
     };
-    const actif = m.renderStreamingActive("Voici :\n```js\nconst a = 1;\n```");
+    const source = "Voici :\n```js\nconst a = 1 < 2;\n```\n\n```\nsans langue\n```\n";
+    const final = m.renderMarkdown(source);
+    const actif = m.renderStreamingActive("```js\nconst a = 1 < 2;");
+    const live = m.renderMarkdownLive(source + "suite");
     expect(appels).toBe(0);
-    expect(actif).toContain('<code class="hljs language-js">');
-    expect(m.colorationCoupee()).toBe(false);
-    const final = m.renderMarkdown("```js\nconst a = 1;\n```");
-    expect(appels).toBe(1);
-    expect(final).toContain('<span class="hljs-k">');
+    for (const html of [final, actif, live]) {
+      expect(html).not.toContain("<span>x</span>");
+      expect(html).not.toContain("hljs-");
+    }
+    expect(final).toContain('<code class="hljs language-js">const a = 1 &lt; 2;</code>');
+    expect(final).toContain('<code class="hljs">sans langue</code>');
   });
 
   it("chemin en code en ligne rendu cliquable", () => {

@@ -5,21 +5,13 @@ import * as marked from "marked";
 
 import { installerDelegationCode } from "./habillage-code.ts";
 import { configurerAnalyseur, creerMoteurMarkdown } from "./markdown.ts";
-import type { Analyseur, Coloreur, MoteurMarkdown } from "./markdown.ts";
+import type { Analyseur, MoteurMarkdown } from "./markdown.ts";
 import { creerPurificateur } from "./purification.ts";
 import { sanitizeSvg } from "./svg.ts";
 import type { PurifySvg } from "./svg.ts";
 
-interface GlobalsRendu {
-  hljs?: Coloreur;
-}
-
 let moteur: MoteurMarkdown | null = null;
 let purifier: ((html: unknown) => string) | null = null;
-
-function globals(): GlobalsRendu {
-  return window as unknown as GlobalsRendu;
-}
 
 /** Purificateur HTML de la page (crochet de position installé une fois). */
 export function purificateur(): (html: unknown) => string {
@@ -31,9 +23,8 @@ export function purificateur(): (html: unknown) => string {
 export function moteurMarkdown(): MoteurMarkdown {
   if (moteur) return moteur;
   const analyseur = marked as unknown as Analyseur;
-  const coloreur = (): Coloreur | undefined => globals().hljs;
   const m = creerMoteurMarkdown({ analyseur });
-  configurerAnalyseur(analyseur, purificateur(), coloreur, () => m.colorationCoupee());
+  configurerAnalyseur(analyseur, purificateur());
   installerDelegationCode();
   moteur = m;
   return m;

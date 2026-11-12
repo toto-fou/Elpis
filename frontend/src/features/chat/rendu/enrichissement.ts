@@ -5,6 +5,7 @@ import DOMPurify from "dompurify";
 import { ensureVendor } from "../../../platform/vendor.ts";
 import { mouvementReduit } from "../../../utils/dom.ts";
 import { carteSkin } from "./carte-skin.ts";
+import { planifierColoration } from "./coloration.ts";
 import { ElpisCharts } from "./graphiques.ts";
 import type { OptionBrute } from "./graphiques.ts";
 import { agirSurHabillage, creerBoutonCopier } from "./habillage-code.ts";
@@ -19,7 +20,6 @@ interface Mermaid {
 
 interface GlobalsEnrichissement {
   mermaid?: Mermaid;
-  hljs?: { highlightElement(el: Element): void };
   echarts?: unknown;
 }
 
@@ -486,32 +486,8 @@ function blocSvg(pre: HTMLElement, rawText: string): void {
   remplacer(pre, wrapper);
 }
 
-function colorationDifferee(code: HTMLElement | null): void {
-  const w = g();
-  if (!code || w.hljs || code.dataset.hlPending) return;
-  code.dataset.hlPending = "1";
-  ensureVendor("highlight").then(
-    () => {
-      delete code.dataset.hlPending;
-      const hl = g().hljs;
-      if (!code.isConnected || !hl) return;
-      try {
-        hl.highlightElement(code);
-      } catch {
-        /* langue inconnue : le code reste échappé et lisible */
-      }
-    },
-    () => {
-      delete code.dataset.hlPending;
-    },
-  );
-}
-
 function enrichirPre(pre: HTMLElement): void {
-  if (pre.hasAttribute("data-cb-done")) {
-    if (pre.classList.contains("custom-style-applied")) colorationDifferee(pre.querySelector("code"));
-    return;
-  }
+  if (pre.hasAttribute("data-cb-done")) return;
   const parent = pre.parentNode as Element | null;
   if (!parent || parent.classList?.contains("code-wrapper")) return;
   pre.setAttribute("data-cb-done", "1");
@@ -550,6 +526,7 @@ export function enrichirBlocs(scope: Element | Document, exclureComposants = fal
   const portee = exclureComposants ? retenus : corps;
   if (exclureComposants) for (const b of retenus) referencesEnLigne(b, [b]);
   else referencesEnLigne(scope, portee);
+  planifierColoration(scope);
 }
 
 const enAttente = new Set<() => void>();

@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, onUpdated, useTemplateRef, watch } from "vue";
 
+import { planifierColoration } from "../../features/chat/rendu/coloration";
 import {
   ATTRIBUT_COMPOSANT,
   annulerEnrichissement,
@@ -56,6 +57,8 @@ const racineFlux = useTemplateRef<HTMLElement>("racineFlux");
 const proprietaire = { [ATTRIBUT_COMPOSANT]: "" };
 
 let enrichi: { el: HTMLElement; html: string } | null = null;
+let figesVus = 0;
+let dernierHtml = "";
 
 /** Enrichit le corps rendu ; un nouveau rendu à HTML et racine égaux le laisse tel quel (Vue n'a pas réécrit le DOM). */
 function enrichir(): void {
@@ -64,6 +67,21 @@ function enrichir(): void {
   if (enrichi && enrichi.el === el && enrichi.html === html.value) return;
   enrichi = { el, html: html.value };
   enrichirBlocs(el);
+}
+
+/** Confie à la coloration les blocs qui viennent d'être figés, et le dernier déjà vu dont le HTML a été réécrit ; le corps entier n'est jamais parcouru. */
+function colorerFiges(): void {
+  const el = props.msg.isStreaming ? racineFlux.value : null;
+  const b = el ? blocs.value : [];
+  const n = b.length;
+  const dernier = b[n - 1]?.html ?? "";
+  if (n === figesVus && dernier === dernierHtml) return;
+  for (let i = Math.max(0, Math.min(n, figesVus) - 1); i < n; i++) {
+    const bloc = el?.children[i];
+    if (bloc) planifierColoration(bloc);
+  }
+  figesVus = n;
+  dernierHtml = dernier;
 }
 
 /** Pastilles des renvois [n] (pendant le flux comme à la fin) et marque celle dont la bulle ou la visionneuse est ouverte. */
@@ -104,10 +122,12 @@ function surClic(e: MouseEvent): void {
 
 onMounted(() => {
   planifierEnrichissement(enrichir);
+  colorerFiges();
   poser();
 });
 onUpdated(() => {
   enrichir();
+  colorerFiges();
   poser();
 });
 watch(() => [props.msg.rag_sources, props.renvois], poser, { flush: "post" });

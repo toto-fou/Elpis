@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/chat/rendu/contenu-markdown.test.ts — composant ContenuMarkdown : blocs figés conservés pendant le flux, rendu final, recherche, purification. */
+import { createRequire } from "node:module";
+
 import { createApp, h, nextTick, shallowRef } from "vue";
 import type { App, VNode } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -127,6 +129,49 @@ describe("ContenuMarkdown", () => {
     expect(termine.querySelector(".code-wrapper")?.outerHTML).toBe(
       fige.querySelector(".code-wrapper")?.outerHTML,
     );
+  });
+
+  it("flux : la fence active n'est pas colorée, elle l'est dès qu'elle est figée, puis le corps entier à la fin", async () => {
+    await new Promise((r) => setTimeout(r, 60));
+    const hl = createRequire(import.meta.url)("@highlightjs/cdn-assets/highlight.min.js");
+    (window as unknown as { hljs?: unknown }).hljs = hl;
+    const tranches: ((e: { timeRemaining(): number }) => void)[] = [];
+    vi.stubGlobal("requestIdleCallback", (cb: (e: { timeRemaining(): number }) => void) => tranches.push(cb));
+    const vider = (): void => {
+      while (tranches.length) tranches.shift()?.({ timeRemaining: () => 50 });
+    };
+    try {
+      let msg = flux({}, "Avant\n\n```py\nx = 1");
+      const { hote, etat } = monter(msg);
+      const racine = hote.firstElementChild as HTMLElement;
+      vider();
+      expect(racine.querySelector("[class^='hljs-']")).toBeNull();
+      msg = flux(msg, "Avant\n\n```py\nx = 1\ny = 2");
+      etat.value = msg;
+      await nextTick();
+      expect(tranches.length).toBe(0);
+      msg = flux(msg, "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite");
+      etat.value = msg;
+      await nextTick();
+      expect(tranches.length).toBe(1);
+      vider();
+      const fige = racine.children[1] as HTMLElement;
+      expect(fige.querySelectorAll(".hljs-number").length).toBe(2);
+      expect(fige.querySelector("code")?.textContent).toBe("x = 1\ny = 2");
+      msg = flux(msg, "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite encore");
+      etat.value = msg;
+      await nextTick();
+      expect(tranches.length).toBe(0);
+      expect(racine.children[1]).toBe(fige);
+      expect(fige.querySelectorAll(".hljs-number").length).toBe(2);
+      etat.value = { content: "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite encore", isStreaming: false };
+      await nextTick();
+      vider();
+      vider();
+      expect((hote.firstElementChild as HTMLElement).querySelectorAll(".hljs-number").length).toBe(2);
+    } finally {
+      delete (window as unknown as { hljs?: unknown }).hljs;
+    }
   });
 
   it("rendu final : HTML complet, clic transmis, mutation de post-traitement conservée", async () => {

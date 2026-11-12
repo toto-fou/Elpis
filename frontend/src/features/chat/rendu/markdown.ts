@@ -4,12 +4,6 @@ import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
 import { reparerFinDeBloc } from "./fin-de-bloc.ts";
 import { estBlocOrdinaire, habillerBlocsCode, habillerBloc } from "./habillage-code.ts";
 
-export interface Coloreur {
-  getLanguage(nom: string): unknown;
-  highlight(code: string, options: { language: string }): { value: string };
-  highlightAuto(code: string): { value: string };
-}
-
 interface JetonCode {
   text?: string;
   lang?: string;
@@ -84,31 +78,14 @@ export function injecterCaret(html: string): string {
   return m ? s.slice(0, m.index) + CARET + s.slice(m.index) : s + CARET;
 }
 
-/** Configure le rendu `marked` partagé : code échappé ou coloré, chemins cliquables, purification de toute sortie. */
-export function configurerAnalyseur(
-  analyseur: Analyseur,
-  purifier: (html: unknown) => string,
-  coloreur: () => Coloreur | undefined,
-  colorationCoupee: () => boolean,
-): void {
+/** Configure le rendu `marked` partagé : code toujours échappé (la coloration vient après), chemins cliquables, purification de toute sortie. */
+export function configurerAnalyseur(analyseur: Analyseur, purifier: (html: unknown) => string): void {
   const renderer = new analyseur.Renderer();
   renderer.code = (jeton: string | JetonCode, langage?: string): string => {
     const texte = typeof jeton === "string" ? jeton : (jeton.text ?? "");
     const brut = (typeof jeton === "string" ? langage : jeton.lang) ?? "";
     const lang = /\S*/.exec(brut)?.[0] ?? "";
-    const hljs = coloreur();
-    let html: string;
-    if (hljs && !colorationCoupee()) {
-      try {
-        html =
-          lang && hljs.getLanguage(lang)
-            ? hljs.highlight(texte, { language: lang }).value
-            : hljs.highlightAuto(texte).value;
-      } catch {
-        html = texte;
-      }
-    } else html = escapeHtml(texte);
-    return `<pre><code class="hljs${lang ? " language-" + escapeHtml(lang) : ""}">${html}</code></pre>\n`;
+    return `<pre><code class="hljs${lang ? " language-" + escapeHtml(lang) : ""}">${escapeHtml(texte)}</code></pre>\n`;
   };
   renderer.codespan = (jeton: string | JetonCode): string => {
     const brut = typeof jeton === "string" ? jeton : (jeton.text ?? "");
@@ -129,14 +106,12 @@ export interface MoteurMarkdown {
   scanStreamBlocks: typeof scanStreamBlocks;
   injecterCaret: typeof injecterCaret;
   clearMarkdownCache(): void;
-  colorationCoupee(): boolean;
   readonly tailleCache: number;
 }
 
 /** Moteur unique de la page : son cache est partagé par le legacy et les composants. */
 export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
   const cache = new Map<string, string>();
-  let sansColoration = false;
   let memoSrc = "";
   let memoHtml = "";
 
@@ -264,12 +239,9 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
       return '<div style="white-space:pre-wrap">' + echapperFlux(md) + "</div>";
     }
     try {
-      sansColoration = true;
       return analyser(reparerFinDeBloc(md)) ?? echapperFlux(md);
     } catch {
       return echapperFlux(md);
-    } finally {
-      sansColoration = false;
     }
   }
 
@@ -296,7 +268,6 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     scanStreamBlocks,
     injecterCaret,
     clearMarkdownCache: () => cache.clear(),
-    colorationCoupee: () => sansColoration,
     get tailleCache() {
       return cache.size;
     },

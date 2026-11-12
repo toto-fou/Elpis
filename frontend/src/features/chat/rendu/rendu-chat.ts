@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 import { parsePath } from "../../../utils/utils-purs.ts";
 import { exporterConversation } from "../export.ts";
 import type { FormatExport, MessageExporte } from "../export.ts";
+import { planifierBalayage } from "./coloration.ts";
 import {
   balayerGraphiques,
   clicMarkdown,
@@ -55,6 +56,13 @@ export function creerRenduChat(
     });
   }
 
+  // Les vues qui posent ce HTML elles-mêmes (modales, routines, skills, éditeur) n'ont pas de composant pour planifier la coloration.
+  function renderMarkdown(texte: string | null | undefined): string {
+    const html = moteur.renderMarkdown(texte);
+    planifierBalayage();
+    return html;
+  }
+
   let imageTaille = 0;
   // Plancher d'une ligne (deux sur la page de nouveau chat, par la min-height de ZoneSaisie) : la barre grandit jusqu'à 150 px ; une mesure par image, pas une mise en page forcée par touche.
   function autoResize(): void {
@@ -97,7 +105,7 @@ export function creerRenduChat(
   }
 
   return {
-    renderMarkdown: moteur.renderMarkdown,
+    renderMarkdown,
     renderMarkdownHighlight: moteur.renderMarkdownHighlight,
     scanStreamBlocks: moteur.scanStreamBlocks,
     renderStreamingActive: moteur.renderStreamingActive,

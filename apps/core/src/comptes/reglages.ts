@@ -119,7 +119,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "routine_tool_enabled",
   "image_prefs",
   "jobs_wake",
-  "hide_web_screenshots",
+  "web_step_screenshots",
   "chat_workflow",
   "context_display",
   "thinking_display",
@@ -156,7 +156,7 @@ const BOOLEENS = [
   "welcome_mascot_on",
   "welcome_mascot_anime",
   "jobs_wake",
-  "hide_web_screenshots",
+  "web_step_screenshots",
 ] as const;
 const MUTABLES_MCP = new Set([
   "visible",

@@ -457,4 +457,59 @@ describe("vision", () => {
     await m.vision.trackLastScreenshotForVision("absent", path.join(DOSSIER_MOTEUR, "nulle-part.png"));
     expect(m.vision.getLastScreenshotB64("absent")).toBeNull();
   });
+
+  it("capture de la vision déjà réduite par Chromium (JPEG de 1024 px au plus) : gardée telle quelle, sans réduction", async () => {
+    // En-tête JPEG minimal : SOI, SOF0 (8 bits, hauteur, largeur, 3 composantes), SOS, EOI.
+    const jpeg = (largeur: number, hauteur: number): Buffer =>
+      Buffer.from([
+        0xff,
+        0xd8,
+        0xff,
+        0xc0,
+        0x00,
+        0x11,
+        0x08,
+        hauteur >> 8,
+        hauteur & 0xff,
+        largeur >> 8,
+        largeur & 0xff,
+        0x03,
+        0x01,
+        0x22,
+        0x00,
+        0x02,
+        0x11,
+        0x01,
+        0x03,
+        0x11,
+        0x01,
+        0xff,
+        0xda,
+        0x00,
+        0x02,
+        0xff,
+        0xd9,
+      ]);
+    const appels: number[] = [];
+    m.ports.installerImages({
+      reduireCapture: (octets) => {
+        appels.push(octets.length);
+        return Promise.resolve(Buffer.from("reduite"));
+      },
+    });
+    const etroite = path.join(DOSSIER_MOTEUR, "vision_s_1.jpg");
+    writeFileSync(etroite, jpeg(1024, 576));
+    await m.vision.trackLastScreenshotForVision("v1", etroite);
+    expect(m.vision.getLastScreenshotB64("v1")).toBe(
+      `data:image/jpeg;base64,${jpeg(1024, 576).toString("base64")}`,
+    );
+    expect(appels).toEqual([]);
+    const large = path.join(DOSSIER_MOTEUR, "large.jpg");
+    writeFileSync(large, jpeg(1920, 1080));
+    await m.vision.trackLastScreenshotForVision("v2", large);
+    expect(m.vision.getLastScreenshotB64("v2")).toBe(
+      `data:image/jpeg;base64,${Buffer.from("reduite").toString("base64")}`,
+    );
+    expect(appels).toHaveLength(1);
+  });
 });

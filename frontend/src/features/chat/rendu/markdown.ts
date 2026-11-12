@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/rendu/markdown.ts — moteur Markdown du chat : rendu final en cache LRU, rendu incrémental par blocs pendant le flux. */
 import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
+import { reparerFinDeBloc } from "./fin-de-bloc.ts";
 
 export interface Coloreur {
   getLanguage(nom: string): unknown;
@@ -258,7 +259,7 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     }
     try {
       sansColoration = true;
-      return analyser(md) ?? echapperFlux(md);
+      return analyser(reparerFinDeBloc(md)) ?? echapperFlux(md);
     } catch {
       return echapperFlux(md);
     } finally {

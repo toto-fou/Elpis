@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/coeur/battement.test.ts — battement du flux : un remplacement du message par image, arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix. */
+/** frontend/test/chat/coeur/battement.test.ts — battement du flux : un remplacement du message par image, arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion. */
 import * as Vue from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -358,6 +358,98 @@ describe("battement : titre de la réflexion", () => {
     }
     expect(titres.length).toBeGreaterThanOrEqual(3);
     expect(titres.length).toBeLessThanOrEqual(6);
+    stop();
+  });
+});
+
+/** Conteneur de fil simulé : hauteur fixe, écritures de `scrollTop` comptées et datées par rapport au patch du message. */
+function fil(r: RefsRacineChat, scope: Vue.EffectScope) {
+  const journal: string[] = [];
+  let haut = 0;
+  const el = document.createElement("div");
+  Object.defineProperty(el, "scrollHeight", { value: 5000, configurable: true });
+  Object.defineProperty(el, "clientHeight", { value: 600, configurable: true });
+  Object.defineProperty(el, "scrollTop", {
+    configurable: true,
+    get: () => haut,
+    set: (v: number) => {
+      haut = v;
+      journal.push("défilement");
+    },
+  });
+  scope.run(() =>
+    Vue.watch(
+      () => r.messages.value[1],
+      () => journal.push("message"),
+      { flush: "post" },
+    ),
+  );
+  return { el, journal };
+}
+
+/** Panneau de réflexion simulé dans le fil. */
+function panneau(parent: HTMLElement, haut: number) {
+  const bloc = document.createElement("div");
+  bloc.setAttribute("data-reflexion", "");
+  const pre = document.createElement("pre");
+  let st = haut;
+  Object.defineProperty(pre, "scrollHeight", { value: 500, configurable: true });
+  Object.defineProperty(pre, "clientHeight", { value: 100, configurable: true });
+  Object.defineProperty(pre, "scrollTop", {
+    configurable: true,
+    get: () => st,
+    set: (v: number) => (st = v),
+  });
+  bloc.appendChild(pre);
+  parent.appendChild(bloc);
+  return pre;
+}
+
+describe("battement : une écriture de défilement par image", () => {
+  it("après le patch du message, une fois par image qui a versé du texte", async () => {
+    const { api, r, stop } = monter();
+    const noyau = noyaux[noyaux.length - 1] as Vue.EffectScope;
+    const { el, journal } = fil(r, noyau);
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
+    for (let k = 0; k < 4; k++) {
+      await contenu(api, "x".repeat(20));
+      await image();
+    }
+    expect(journal.filter((j) => j === "défilement").length).toBe(
+      journal.filter((j) => j === "message").length,
+    );
+    expect(journal.length).toBeGreaterThanOrEqual(2);
+    for (let k = 0; k < journal.length; k += 2)
+      expect(journal.slice(k, k + 2)).toEqual(["message", "défilement"]);
+    expect(el.scrollTop).toBe(5000);
+    stop();
+  });
+
+  it("le lecteur remonté n'est pas ramené en bas", async () => {
+    const { api, r, stop } = monter();
+    const { el, journal } = fil(r, noyaux[noyaux.length - 1] as Vue.EffectScope);
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
+    r.isUserScrolling.value = true;
+    await contenu(api, "x".repeat(40));
+    await image(3);
+    expect(journal).toContain("message");
+    expect(journal).not.toContain("défilement");
+    stop();
+  });
+
+  it("panneau de réflexion : recollé en bas s'il y était, laissé s'il a été remonté", async () => {
+    const { api, r, stop } = monter();
+    const { el } = fil(r, noyaux[noyaux.length - 1] as Vue.EffectScope);
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
+    const collee = panneau(el, 400);
+    await api.handleStreamEvent({ type: "thinking_token", text: "Je réfléchis. ", n: 1 });
+    await image();
+    expect(collee.scrollTop).toBe(500);
+    el.removeChild(collee.parentElement as Node);
+    const remontee = panneau(el, 120);
+    await api.handleStreamEvent({ type: "thinking_token", text: "Encore une idée. ", n: 1 });
+    await image(3);
+    expect(remontee.scrollTop).toBe(120);
     stop();
   });
 });

@@ -21,7 +21,7 @@ const { browser, page, errors } = await launch({ reducedMotion: 'reduce' });
 const CHIP_BOX = '[data-todo-flyout]';               // ancre chip + flyout
 const CHIP     = '[data-todo-flyout] > button';       // le chip lui-même
 const ITEMS    = '[data-todo-flyout] ul li';          // items du flyout
-const SCROLLER = 'div.scroll-smooth';                 // fil du chat (unique)
+const SCROLLER = 'div.elpis-fil';                 // fil du chat (unique)
 const composeTop = () => page.locator('.elpis-compose-col').evaluate(el => el.getBoundingClientRect().top);
 
 try {

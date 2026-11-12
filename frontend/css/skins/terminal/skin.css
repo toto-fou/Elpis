@@ -420,7 +420,7 @@ body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2 button.bg-
 }
 
 /* ── Le fil : un journal sur toute la largeur du volet, aligné à gauche, 100 signes au plus ── */
-body.elpis-skin-terminal main > .overflow-y-auto.scroll-smooth { padding-top: 3.75rem; scrollbar-gutter: stable; }
+body.elpis-skin-terminal main > .overflow-y-auto.elpis-fil { padding-top: 3.75rem; scrollbar-gutter: stable; }
 /* La largeur de colonne réglée par compte est remplacée : ce skin lit en journal, pas en colonne centrée. */
 body.elpis-skin-terminal .elpis-chat-col {
     max-width: 54rem !important;

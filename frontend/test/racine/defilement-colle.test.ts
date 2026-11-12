@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/racine/defilement-colle.test.ts — fil collé en bas : un contenu qui grandit sans défilement (enrichissement, image) le garde collé ; remonté par l'utilisateur, il ne bouge pas. */
+/** frontend/test/racine/defilement-colle.test.ts — fil collé en bas : un contenu qui grandit sans défilement (enrichissement, image) le garde collé ; remonté par l'utilisateur, il ne bouge pas ; pendant un battement du flux, l'observateur de taille laisse faire. */
 import { nextTick, ref } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { creerDefilementChat } from "../../src/app/racine/defilement";
+import { marquerBattement } from "../../src/utils/battement";
 
 /** Conteneur défilant minimal : scrollTop borné comme dans un navigateur. */
 function conteneur(hauteur: number) {
@@ -12,7 +13,6 @@ function conteneur(hauteur: number) {
   const el = {
     scrollHeight: hauteur,
     clientHeight: 600,
-    style: { scrollBehavior: "" },
     firstElementChild: null,
     get scrollTop() {
       return haut;
@@ -53,19 +53,30 @@ async function monter(hauteur: number) {
 }
 
 afterEach(() => {
+  marquerBattement(false);
   vi.unstubAllGlobals();
   rappel = null;
 });
 
 describe("fil collé en bas", () => {
-  it("un contenu qui grandit sous un fil collé le garde collé, en saut instantané", async () => {
+  it("un contenu qui grandit sous un fil collé le garde collé", async () => {
     const { el } = await monter(2000);
     el.defiler(1400);
-    el.style.scrollBehavior = "smooth";
     el.scrollHeight = 2033;
     rappel?.();
     expect(el.scrollTop).toBe(1433);
-    expect(el.style.scrollBehavior).toBe("smooth");
+  });
+
+  it("pendant un battement du flux, l'observateur ne touche pas au défilement ; ensuite il reprend son rôle", async () => {
+    const { el } = await monter(2000);
+    el.defiler(1400);
+    el.scrollHeight = 2033;
+    marquerBattement(true);
+    rappel?.();
+    expect(el.scrollTop).toBe(1400);
+    marquerBattement(false);
+    rappel?.();
+    expect(el.scrollTop).toBe(1433);
   });
 
   it("remonté par l'utilisateur, le fil ne bouge pas quand le contenu grandit", async () => {

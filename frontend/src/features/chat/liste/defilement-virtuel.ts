@@ -147,7 +147,7 @@ export function creerDefilementVirtuel(
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = null;
-      mesurer();
+      if (messages.value.length > SEUIL_VIRTUEL) mesurer();
       recalculer();
     });
   }
@@ -316,9 +316,7 @@ export function creerDefilementVirtuel(
     verrouiller();
     annulerRaf();
     const ancrage = cont.style.overflowAnchor;
-    const comportement = cont.style.scrollBehavior;
     cont.style.overflowAnchor = "none";
-    cont.style.scrollBehavior = "auto";
     if (total > SEUIL_VIRTUEL) {
       const dedans = idx >= debut.value + 2 && idx < fin.value - 2;
       if (!dedans)
@@ -338,7 +336,6 @@ export function creerDefilementVirtuel(
             corriger(idx, opts, seq, true);
           }
           cont.style.overflowAnchor = ancrage || "";
-          cont.style.scrollBehavior = comportement || "";
         }, 250);
       });
     });

@@ -409,7 +409,7 @@ body.elpis-skin-veilleuse main > header .text-sm.font-medium.truncate {
 }
 
 /* ── Le fil : la largeur réglée par le compte, la question grande et légère, sans bulle ── */
-body.elpis-skin-veilleuse main > .overflow-y-auto.scroll-smooth { scrollbar-gutter: stable both-edges; }
+body.elpis-skin-veilleuse main > .overflow-y-auto.elpis-fil { scrollbar-gutter: stable both-edges; }
 body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 3.5rem; }
 body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > .elpis-msg-user + .elpis-msg-assistant { margin-top: 1.75rem; }
 body.elpis-skin-veilleuse .elpis-msg-user > .shrink-0 { display: none; }

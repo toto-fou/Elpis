@@ -20,7 +20,7 @@ publierElement(useTemplateRef<HTMLDivElement>("conteneur"), (el) => emit("conten
 </script>
 
 <template>
-  <div ref="conteneur" class="flex-1 overflow-y-auto px-4 md:px-6 pb-4 md:pb-6 pt-16 scroll-smooth">
+  <div ref="conteneur" class="elpis-fil flex-1 overflow-y-auto px-4 md:px-6 pb-4 md:pb-6 pt-16">
     <div
       class="elpis-chat-col mx-auto space-y-8 transition-transform duration-300"
       :style="{

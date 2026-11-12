@@ -50,7 +50,7 @@ function installScrollerHelper(page) {
                     && el.scrollHeight > el.clientHeight + 5) return el;
                 el = el.parentElement;
             }
-            return document.querySelector('div.overflow-y-auto.scroll-smooth') || document.scrollingElement;
+            return document.querySelector('div.overflow-y-auto.elpis-fil') || document.scrollingElement;
         };
     });
 }

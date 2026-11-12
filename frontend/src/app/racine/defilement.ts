@@ -3,6 +3,8 @@
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { battementEnCours } from "../../utils/battement";
+
 const LOIN_DU_BAS_PX = 240;
 // 1,5 s couvre le pire défilement programmé observé (révélation Monaco sur un gros fichier).
 const VERROU_MS = 1500;
@@ -60,14 +62,10 @@ export function creerDefilementChat(src: SourceDefilement) {
     el.addEventListener("touchstart", surToucher, { passive: true });
     el.addEventListener("touchmove", surGlisser, { passive: true });
     el.addEventListener("keydown", surTouche);
-    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image.
+    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image (pendant un battement du flux, c'est lui qui écrit).
     const obs = new ResizeObserver(() => {
-      if (colle && !src.isUserScrolling.value && distance(el) > 4) {
-        const avant = el.style.scrollBehavior;
-        el.style.scrollBehavior = "auto";
-        el.scrollTop = el.scrollHeight;
-        el.style.scrollBehavior = avant;
-      }
+      if (battementEnCours()) return;
+      if (colle && !src.isUserScrolling.value && distance(el) > 4) el.scrollTop = el.scrollHeight;
       chatAwayFromBottom.value = distance(el) > LOIN_DU_BAS_PX;
     });
     obs.observe(el);

@@ -24,7 +24,7 @@ const ok = (name, cond) => { checks.push([cond ? 'PASS' : 'FAIL', name]); consol
 
 const { browser, page, errors } = await launch({ reducedMotion: 'reduce' });
 
-const SC = 'div.scroll-smooth.overflow-y-auto';   // conteneur de scroll du chat
+const SC = 'div.elpis-fil.overflow-y-auto';   // conteneur de scroll du chat
 const distFromBottom = () => page.evaluate((sel) => {
     const el = document.querySelector(sel);
     return el ? el.scrollHeight - el.scrollTop - el.clientHeight : -1;

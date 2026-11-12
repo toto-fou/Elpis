@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit. -->
 <script setup lang="ts">
-import { computed, onUpdated, useId, useTemplateRef } from "vue";
+import { computed, useId } from "vue";
 
 import { fmtDuree } from "../../../features/chat/outils/format";
 
@@ -17,15 +17,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ basculer: []; repondre: [] }>();
 const id = useId();
-const pre = useTemplateRef<HTMLPreElement>("pre");
 const libelle = computed(() =>
   props.vivante ? "Réflexion…" : props.ms !== null ? `Réflexion · ${fmtDuree(props.ms)}` : "Réflexion",
 );
-
-// Ouverte pendant qu'elle s'écrit, elle suit son dernier mot.
-onUpdated(() => {
-  if (props.vivante && pre.value) pre.value.scrollTop = pre.value.scrollHeight;
-});
 </script>
 
 <template>
@@ -64,7 +58,6 @@ onUpdated(() => {
     <pre
       v-if="ouvert && !verrouillee"
       :id="id"
-      ref="pre"
       class="mt-0.5 ml-1.5 pl-3 border-l-2 border-slate-200 text-[12px] text-slate-600 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto custom-scrollbar m-0 bg-transparent"
       >{{ texte }}</pre>
   </div>

@@ -3,6 +3,7 @@
 import { journal } from "../../../platform/journal";
 import { getCurrentScope, nextTick, onScopeDispose } from "vue";
 
+import { marquerBattement } from "../../../utils/battement";
 import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
 import type { EtapeChat, MessageChat, Objet } from "./types.ts";
@@ -78,14 +79,6 @@ export function creerRenduFlux(c: CoeurChat) {
     if (i >= 0 && cur) arr[i] = Object.assign({}, cur, p);
   }
 
-  // Saut instantané au bas du fil, quel que soit le comportement de défilement du conteneur.
-  function sauterEnBas(el: HTMLElement): void {
-    const avant = el.style.scrollBehavior;
-    el.style.scrollBehavior = "auto";
-    el.scrollTop = el.scrollHeight;
-    el.style.scrollBehavior = avant || "";
-  }
-
   function scrollToBottom(force?: boolean): void {
     if (!e.chatContainer.value || (!force && r.isUserScrolling.value)) return;
     if (force) r.isUserScrolling.value = false;
@@ -94,8 +87,7 @@ export function creerRenduFlux(c: CoeurChat) {
       const el = e.chatContainer.value;
       if (!el) return;
       ctx._lockAutoScroll?.();
-      if (force) sauterEnBas(el);
-      else el.scrollTop = el.scrollHeight;
+      el.scrollTop = el.scrollHeight;
     });
   }
 
@@ -109,7 +101,7 @@ export function creerRenduFlux(c: CoeurChat) {
         if (!el || r.isUserScrolling.value) return;
         if (el.scrollHeight - el.scrollTop - el.clientHeight > BAS_PX) {
           ctx._lockAutoScroll?.();
-          sauterEnBas(el);
+          el.scrollTop = el.scrollHeight;
         }
       }, delai);
   }
@@ -332,6 +324,7 @@ export function creerRenduFlux(c: CoeurChat) {
     if (!reflexion && !narration && !corps && !shell?.size) return;
     const pre = reflexion ? preReflexion() : null;
     const colle = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight <= BAS_PX;
+    marquerBattement(true);
     if (shell)
       for (const [i, st] of shell) {
         const autre = msgs[i];
@@ -348,7 +341,7 @@ export function creerRenduFlux(c: CoeurChat) {
     const el = e.chatContainer.value;
     if (el && !r.isUserScrolling.value) {
       ctx._lockAutoScroll?.();
-      sauterEnBas(el);
+      el.scrollTop = el.scrollHeight;
     }
     noterCout(budget, maintenant() - t0);
   }
@@ -365,6 +358,7 @@ export function creerRenduFlux(c: CoeurChat) {
       echec = true;
       journal.erreur("[flux] battement", err);
     } finally {
+      marquerBattement(false);
       enCours = false;
       if (!echec && besoin()) planifier();
       else eteindre();

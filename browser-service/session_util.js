@@ -60,9 +60,9 @@ export async function pingPage(page, ms = 5000) {
  * par session. Fonction PURE (pas d'I/O) — l'appelant fournit les entrées
  * et exécute les unlink.
  *
- * Seuls les genres qui s'ACCUMULENT sont éligibles (step_/shot_/fail_) ;
- * live_/smart_/view_ sont un fichier unique par session, écrasé en place
- * (et live_ est l'image courante affichée — ne jamais y toucher).
+ * Seuls les genres qui s'ACCUMULENT sont éligibles (step_/vision_/shot_/fail_) ;
+ * smart_/view_ (et live_ des versions antérieures) sont un fichier unique par
+ * session, écrasé en place.
  *
  * @param {Array<{name: string, sid: string, mtimeMs: number, size: number}>} entries
  * @param {{maxPerSession?: number, maxBytesPerSession?: number}} caps
@@ -73,7 +73,7 @@ export function planScreenshotQuota(entries, caps = {}) {
     const maxBytes = caps.maxBytesPerSession ?? 200 * 1024 * 1024;
 
     const evictable = entries.filter(e =>
-        /^(?:step|shot|fail)_/.test(e.name));
+        /^(?:step|vision|shot|fail)_/.test(e.name));
 
     const bySid = new Map();
     for (const e of evictable) {

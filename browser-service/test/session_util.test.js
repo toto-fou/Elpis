@@ -98,6 +98,13 @@ test('quota: live_/smart_/view_ jamais éligibles', () => {
     assert.deepEqual(planScreenshotQuota(entries, { maxPerSession: 1, maxBytesPerSession: 10 }), []);
 });
 
+test('quota: vision_ et step_ JPEG éligibles (une par inspect, une par pas)', () => {
+    const entries = [...mkEntries('aaaabbbb-1111', 'vision', 3), ...mkEntries('aaaabbbb-1111', 'step', 3, { t0: 2_000_000 })]
+        .map(e => ({ ...e, name: e.name.replace(/\.png$/, '.jpg') }));
+    const del = planScreenshotQuota(entries, { maxPerSession: 4, maxBytesPerSession: 1e9 });
+    assert.deepEqual(del, ['vision_aaaabbbb-1111_0.jpg', 'vision_aaaabbbb-1111_1.jpg']);
+});
+
 test('quota: fail_ éligibles (timestampés, ils s\'accumulent)', () => {
     const entries = mkEntries('aaaabbbb', 'fail', 4);
     const del = planScreenshotQuota(entries, { maxPerSession: 2, maxBytesPerSession: 1e9 });

@@ -30,6 +30,7 @@ import {
   createShared,
   DEFAULT_HEADER_NAME,
   deleteShared,
+  etatSansSecret,
   getShared,
   headerNameOk,
   HTTP_TYPES,
@@ -42,19 +43,22 @@ import {
   rawShared,
   resolveConfig,
   sanitizePairs,
+  secretsPartage,
+  secretsPerso,
   SERVER_TYPES,
   sharedId,
   signalBorne,
   StdioNotAllowed,
   updateShared,
 } from "@elpis/mcp";
-import type { ChampsPartage, ClientMcp, ConfigMcp } from "@elpis/mcp";
-import { EncryptionUnavailable } from "@elpis/securite";
+import type { ActeurMcp, ChampsPartage, ClientMcp, ConfigMcp, EtatSecrets } from "@elpis/mcp";
 import type { FastifyRequest } from "fastify";
 
+import { ipDeRequete } from "../journal-securite/auditer";
 import { getCategories, toolInfo } from "../outils/categories";
 import { friendlyMcpError, masquerAdresse, resoudreClientMcp } from "../outils/mcp/clients";
 import type { Famille } from "../routes";
+import { refusMcpEnHttp } from "../secrets/mcp";
 import { utilisateur } from "./comptes";
 import { corpsJson, entrees, py } from "@elpis/http";
 
@@ -68,8 +72,6 @@ export const reglagesMcp = { delaiEssaiMs: 20_000 };
 export const STDIO_REFUSE =
   "Serveur MCP de type stdio (commande lancée sur le serveur) : non pris en charge par le core " +
   "(plus aucun sous-processus) — publiez-le en HTTP streamable ou SSE.";
-const SANS_CHIFFREMENT =
-  "Clé de chiffrement indisponible : impossible d'enregistrer un identifiant. Configurez APP_ENCRYPTION_KEY.";
 const FICHIERS_DEMARRAGE = ["start", "start.txt", "start.sh", "start.bat"];
 const POINTS_ENTREE = ["main.py", "server.py", "__main__.py", "index.js", "server.js", "app.py", "app.js"];
 const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
@@ -339,15 +341,28 @@ async function listerPartages(dep: DependancesMcp, req: FastifyRequest): Promise
   return { ok: true, servers: await listShared(dep.base, { admin }), can_publish: admin };
 }
 
+/** Qui écrit, pour le journal de sécurité des secrets d'instance. */
+function acteurDe(req: FastifyRequest): ActeurMcp {
+  return {
+    userId: req.utilisateur?.id ?? null,
+    username: req.utilisateur?.username ?? null,
+    ip: ipDeRequete(req),
+  };
+}
+
+/** Refus du coffre ou ancienne clé Fernet absente, en erreur HTTP ; le reste remonte. */
+function refusEcriture(e: unknown): unknown {
+  return refusMcpEnHttp(e) ?? e;
+}
+
 async function publier(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
   const p = champsPartage(corpsObjet(req));
   if (!p.name) throw new HttpError(400, "Nom requis");
   let id: number;
   try {
-    id = await createShared(dep.base, p);
+    id = await createShared(dep.base, p, acteurDe(req));
   } catch (e) {
-    if (e instanceof EncryptionUnavailable) throw new HttpError(503, SANS_CHIFFREMENT);
-    throw e;
+    throw refusEcriture(e);
   }
   await invaliderMcp({ type: "partage", avant: null });
   return { ok: true, server: await getShared(dep.base, id, { admin: true }) };
@@ -367,10 +382,9 @@ async function modifierPartage(dep: DependancesMcp, req: FastifyRequest): Promis
   const avant = await resolveConfig(dep.base, rid);
   let ok: boolean;
   try {
-    ok = await updateShared(dep.base, rid, p);
+    ok = await updateShared(dep.base, rid, p, acteurDe(req));
   } catch (e) {
-    if (e instanceof EncryptionUnavailable) throw new HttpError(503, SANS_CHIFFREMENT);
-    throw e;
+    throw refusEcriture(e);
   }
   if (!ok) throw new HttpError(404, "Serveur introuvable");
   await invaliderMcp({ type: "partage", avant });
@@ -380,7 +394,13 @@ async function modifierPartage(dep: DependancesMcp, req: FastifyRequest): Promis
 async function retirerPartage(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
   const rid = idPartage(req);
   const avant = await resolveConfig(dep.base, rid);
-  if (!(await deleteShared(dep.base, rid))) throw new HttpError(404, "Serveur introuvable");
+  let ok: boolean;
+  try {
+    ok = await deleteShared(dep.base, rid, acteurDe(req));
+  } catch (e) {
+    throw refusEcriture(e);
+  }
+  if (!ok) throw new HttpError(404, "Serveur introuvable");
   await invaliderMcp({ type: "partage", avant });
   return { ok: true };
 }
@@ -431,12 +451,21 @@ function verifierPaires(data: Dict): void {
 }
 
 /** Mêmes droits qu'à l'enregistrement : partagé = admin ; perso = son propriétaire (stdio réservé à l'admin, refusé à l'usage). */
+/** Cible d'un serveur (type normalisé, adresse ou commande) : le bouton « Tester » ne joint jamais les secrets enregistrés d'un serveur à une autre cible. */
+function cibleServeur(s: Dict): string {
+  const brut = lowerPy(stripPy(strPy(veritePy(getPy(s, "type")) ? getPy(s, "type") : "sse")));
+  const type = (SERVER_TYPES as readonly string[]).includes(brut) ? brut : "sse";
+  const lieu = getPy(s, type === "stdio" ? "command" : "url");
+  return `${type}\u0000${prefixePy(strPy(veritePy(lieu) ? lieu : ""), 2000)}`;
+}
+
 async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
   const uid = utilisateur(req);
   const data = corpsObjet(req);
   const rid = sharedId(getPy(data, "id"));
   const partage = rid !== null || veritePy(getPy(data, "shared"));
   let ancien: Dict | null;
+  let etat: EtatSecrets = etatSansSecret();
   let brouillon: Dict;
   let admin: boolean;
   let url: unknown = null;
@@ -447,6 +476,8 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
     const p = champsPartage(data);
     url = p.url;
     ancien = rid !== null ? await rawShared(dep.base, rid) : null;
+    if (ancien !== null && cibleServeur(ancien) !== cibleServeur({ type: p.type, url: p.url })) ancien = null;
+    if (ancien !== null) etat = await secretsPartage(dep.base, ancien);
     brouillon = { ...p, id: "t" };
   } else {
     const reglages = await getUserSettings(dep.base, uid);
@@ -460,6 +491,8 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
       }
     }
     brouillon = { ...data, id: "t" };
+    if (ancien !== null && cibleServeur(ancien) !== cibleServeur(brouillon)) ancien = null;
+    if (ancien !== null) etat = await secretsPerso(dep.base, uid, ancien);
     admin = await estAdmin(dep, uid);
     const type = lowerPy(stripPy(strPy(veritePy(getPy(brouillon, "type")) ? getPy(brouillon, "type") : "")));
     if (type === "stdio" && !admin)
@@ -470,21 +503,27 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
     verifierPaires(data);
   }
   const anciens = ancien !== null && Object.keys(ancien).length > 0 ? [{ ...ancien, id: "t" }] : [];
-  let fusion: Dict[];
+  let fusion: Awaited<ReturnType<typeof mergePersonalMcp>>;
   try {
-    fusion = await mergePersonalMcp(anciens, [brouillon], { allowStdio: admin });
+    fusion = await mergePersonalMcp(anciens, [brouillon], {
+      allowStdio: admin,
+      secrets: new Map([["t", etat]]),
+    });
   } catch (e) {
     if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
-    if (e instanceof EncryptionUnavailable)
-      throw new HttpError(
-        503,
-        "Clé de chiffrement indisponible : impossible d'éprouver un identifiant. Configurez APP_ENCRYPTION_KEY.",
-      );
     throw e;
   }
   const premier = fusion[0];
   if (premier === undefined) throw new HttpError(400, "Configuration vide");
-  const resultat = await sonderMcp(await personalToConfig(premier, { allowStdio: admin }));
+  if (premier.valeur === null)
+    return {
+      ok: false,
+      error:
+        "Secret enregistré inutilisable (illisible, retiré du coffre ou clé indisponible) : ressaisissez-le.",
+    };
+  const resultat = await sonderMcp(
+    await personalToConfig(premier.entree, { allowStdio: admin, secrets: premier.valeur }),
+  );
   if (partage && typeof resultat["error"] === "string")
     resultat["error"] = masquerAdresse(resultat["error"], url);
   return resultat;

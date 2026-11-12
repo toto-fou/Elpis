@@ -26,6 +26,7 @@ import {
   resolvePersonal,
   sharedId,
 } from "@elpis/mcp";
+import type { CacheSecretsMcp } from "@elpis/mcp";
 
 import { tokenHex } from "../boucle/ports";
 import { getChat, getChatPlanMode, setTitleIfDefault, upsertChat } from "../chats/stockage";
@@ -91,6 +92,8 @@ export interface TurnPlan {
   readonly thinkingMode: boolean;
   readonly samplingOverride: Dict | null;
   readonly activeMcpServers: Dict[];
+  /** Secrets MCP déchiffrés pendant ce tour (serveurs actifs, sous-agents), oubliés avec lui. */
+  readonly secretsMcp: CacheSecretsMcp;
   /** RAG du tour : collections actives lisibles au début du tour (aucune = aucun outil `rag_*`), réglage et sources déjà numérotées. */
   readonly rag: PlanRag | null;
   readonly mcpOn: boolean;
@@ -173,10 +176,17 @@ async function stdioAllowedFor(base: Base, uid: number): Promise<boolean> {
   }
 }
 
-/** Serveurs MCP qu'un agent personnalisé peut référencer par id (même règle que les routines). */
-export async function agentMcpConfigs(base: Base, settings: Dict, uid: number | null): Promise<Dict[]> {
+/** Serveurs MCP qu'un agent personnalisé peut référencer par id (même règle que les routines), secrets lus au coffre si leur politique les permet aux sous-agents (`cache` : celui du tour). */
+export async function agentMcpConfigs(
+  base: Base,
+  settings: Dict,
+  uid: number | null,
+  cache?: CacheSecretsMcp,
+): Promise<Dict[]> {
   return resolveForAgents(base, settings, {
     allowStdio: uid !== null ? await stdioAllowedFor(base, uid) : false,
+    proprietaire: uid,
+    contexte: { sousAgent: true, ...(cache ? { cache } : {}) },
   });
 }
 
@@ -207,8 +217,14 @@ const egal0 = (v: unknown): boolean =>
 const nombre = (v: unknown): number | null =>
   typeof v === "number" ? v : v instanceof FlottantPy ? v.valeur : null;
 
-/** Serveurs MCP actifs résolus CÔTÉ SERVEUR (jamais repris du client), catégories demandées gardées. */
-async function resoudreServeurs(base: Base, uid: number, settings: Dict, actifs: unknown[]): Promise<Dict[]> {
+/** Serveurs MCP actifs résolus CÔTÉ SERVEUR (jamais repris du client), secrets lus au coffre à chaque tour (une fois par tour : `cache`), catégories demandées gardées. */
+async function resoudreServeurs(
+  base: Base,
+  uid: number,
+  settings: Dict,
+  actifs: unknown[],
+  cache: CacheSecretsMcp,
+): Promise<Dict[]> {
   const stdioOk = await stdioAllowedFor(base, uid);
   const visibles = new Set(
     (Array.isArray(settings["shared_mcp_visible"]) ? (settings["shared_mcp_visible"] as unknown[]) : []).map(
@@ -236,8 +252,12 @@ async function resoudreServeurs(base: Base, uid: number, settings: Dict, actifs:
     let cfg: Dict | null;
     if (rid !== null) {
       if (!visibles.has(strPy(srv["id"]))) continue;
-      cfg = await resolveConfig(base, rid);
-    } else cfg = await resolvePersonal(settings, srv["id"], { allowStdio: stdioOk });
+      cfg = await resolveConfig(base, rid, { cache });
+    } else
+      cfg = await resolvePersonal(base, uid, settings, srv["id"], {
+        allowStdio: stdioOk,
+        contexte: { cache },
+      });
     if (cfg) resolus.push(avecCats(cfg));
   }
   return resolus;
@@ -395,8 +415,9 @@ export async function prepareTurn(
   const lus = await getUserSettings(base, uid);
   const settings: Dict = estDict(lus) ? lus : {};
   const username = (await getUsernameById(base, uid)) || `user_${uid}`;
+  const secretsMcp: CacheSecretsMcp = new Map();
   if (veritePy(actifs))
-    actifs = await resoudreServeurs(base, uid, settings, Array.isArray(actifs) ? actifs : []);
+    actifs = await resoudreServeurs(base, uid, settings, Array.isArray(actifs) ? actifs : [], secretsMcp);
   let activeMcpServers = (Array.isArray(actifs) ? actifs : []) as Dict[];
   const memoryOn = Boolean(config.MEMORY_ENABLED) && veritePy(getOu(settings, "memory_enabled", false));
   let agentsOn = Boolean(config.AGENTS_ENABLED) && veritePy(getOu(settings, "agents_enabled", false));
@@ -668,6 +689,7 @@ export async function prepareTurn(
     thinkingMode,
     samplingOverride,
     activeMcpServers,
+    secretsMcp,
     rag,
     mcpOn,
     agentsOn,

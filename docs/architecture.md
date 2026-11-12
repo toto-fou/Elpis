@@ -2196,9 +2196,11 @@ for inactive sessions.
 
 - **Shared library** (`mcp_shared_servers`): public IDs `shared:<n>`,
   coexisting with personal IDs (`server_<timestamp>`) in the same panel. The
-  prefix tells the chat route "resolve this one from the database". The auth secret
-  **never** goes back to the browser; only `resolve_config` (host-side)
-  rebuilds the full config at turn time.
+  prefix tells the chat route "resolve this one from the database". The secrets
+  (auth, headers, variables) of a server, personal or shared, are one secret of the
+  [secrets vault](#secrets-vault) (`secret_id`) and **never** go back to the browser;
+  `resolveConfig` and `resolvePersonal` (host-side) read and decrypt them at each turn to
+  rebuild the full config.
 - `settings.shared_mcp_visible` is a simple **display choice** (empty =
   nothing appears without an explicit action).
 - ⚠ `settings.active_mcp_ids` is **legacy and ignored**: the toggles live
@@ -3314,10 +3316,11 @@ See [the diagram](#routine-execution). Additional notes:
   but which keeps the lock.
 - A routine's **MCP snapshot** is stripped of every secret
   (`MCP_SECRET_KEYS`: `auth`, `authorization`, `headers`, `token`, `api_key`,
-  `password`, `secret`…) **before persistence**. At run time,
-  `_rehydrate_mcp_secrets` rebuilds the full configuration from the user's
-  settings and, for a `shared:<n>` id, from
-  `mcp_servers.resolve_config`.
+  `password`, `secret`, `secret_id`…) **before persistence**. At run time,
+  `rehydrateMcpSecrets` rebuilds the full configuration from the user's
+  settings and, for a `shared:<n>` id, from `resolveConfig`, reading each secret from the
+  vault when its policy allows routines (a server whose secret is refused or unreadable is
+  left out).
 - **Skills** are snapshotted only by **id**: a skill update
   immediately benefits existing routines.
 
@@ -3546,6 +3549,35 @@ like the RAG announcement (`apps/core/src/secrets/annonce.ts`): one line per sec
 `pw_login(secret=…)`). It is sent only when what the model sees changes (fingerprint of the lines),
 redone when compaction summarised it, stored in `llm_user_suffixes` and replayed as is; emptying the
 set sends a `selection="none"` block once. The system head and the history stay byte-identical.
+
+**MCP servers.** A personal MCP server (`users.settings_json › mcp_servers[]`) or a shared one
+(`mcp_shared_servers`) with a secret has one `mcp` secret: owner its account (the instance for a
+shared server), scope `{"server": "<server id>"}` (`shared:<n>` for a shared server; the binding is
+in the scope, never in `meta`), name `mcp-<server id>` as a slug (suffixed `-2`, `-3`… when taken),
+policy with `routines` and `subagents` allowed (they used these secrets before the vault). The
+server keeps its other settings and the id of its secret (`secret_id`). The value is a JSON object
+holding the non-empty parts: `auth` (token, password or header value of the auth mode), `headers`
+and `env` (lists of `{name, value}`; an object is also read); a value that is not a JSON object is
+taken as `auth`. The core (`apps/core/src/secrets/mcp.ts`, the `CoffreMcp` port of `@elpis/mcp`)
+reads it whenever it resolves the server for a turn, a routine or a sub-agent: owner, kind, scope,
+state and policy are checked, the value is decrypted at most once per turn (a cache keyed by id,
+version and key id, dropped with the turn), so a rotation applies to the next turn. These reads are
+not resolutions for the tool host: they change neither `use_count` nor the journal; the writes do
+(`vault.secret.created`, `updated`, `deleted`), once the enclosing transaction commits (a
+rolled-back change writes nothing: `apresValidation` of `@elpis/db`). A server whose secret cannot
+be read or was removed from the vault is left out, with a warning in the core log (once an hour per
+server and reason), never connected with part of its secrets. The server forms keep write-only
+fields: an empty field keeps the value, the auth mode "None" or an emptied list removes it, a
+secret that cannot be decrypted or was removed is only replaced by new input (or deleted with its
+server), and old values not yet in the vault are listed and kept until new values replace them.
+`PUT /api/settings` reads the list, writes the vault and the settings in one write transaction
+(the URL guard is asked beforehand, outside it). Migration `0029_vault_mcp`
+(`apps/core/src/secrets/migration-mcp.ts`, Fernet read through the port of its context) moved the
+earlier values; the ones it could not read stay in place, flagged `undecryptable` (another Fernet
+key) or `not_migrated` (no Fernet key: the port never creates one), and are tried again by main at
+each start while some are left (`reprendreMcpAuDemarrage`)
+([configuration.md](configuration.md#mcp-servers-secrets)). The MCP pool keys use an HMAC of the
+auth material under a key drawn at process start, and the pool logs server names, not keys.
 
 Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,

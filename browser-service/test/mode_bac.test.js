@@ -8,8 +8,8 @@ import http from 'http';
 import net from 'net';
 import os from 'os';
 import path from 'path';
-import { demarrerRelais } from '../proxy_guard.js';
-import { verifierBac } from '../url_guard.js';
+import { demarrerRelais } from '../src/proxy_guard.ts';
+import { verifierBac } from '../src/url_guard.ts';
 
 // Faux relais de l'hôte sur socket unix : note les requêtes reçues, refuse « refuse.test ».
 function fauxRelais(chemin, recues) {

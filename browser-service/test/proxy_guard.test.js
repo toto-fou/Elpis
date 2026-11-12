@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import net from 'net';
-import { demarrerRelais, entetesReponse } from '../proxy_guard.js';
+import { demarrerRelais, entetesReponse } from '../src/proxy_guard.ts';
 
 function serveurCible() {
     return new Promise((resolve) => {

@@ -3,7 +3,7 @@
 // (AUDIT 2026-06). Sans Playwright : pages factices.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pingPage, planScreenshotQuota } from '../session_util.js';
+import { pingPage, planScreenshotQuota } from '../src/session_util.ts';
 
 // ── pingPage ─────────────────────────────────────────────────────────
 
@@ -112,8 +112,8 @@ test('quota: fail_ éligibles (timestampés, ils s\'accumulent)', () => {
 });
 
 // ── Place d'une nouvelle session : jamais au détriment d'un autre propriétaire ────
-import { occupationGroupe, placesEnfants, planSessionSlot, quotasSessions, sessionCessible } from '../session_util.js';
-import { makeLock } from '../session_lock.js';
+import { occupationGroupe, placesEnfants, planSessionSlot, quotasSessions, sessionCessible } from '../src/session_util.ts';
+import { makeLock } from '../src/session_lock.ts';
 
 const _sess = (entries) => new Map(entries.map(([sid, owner, t]) => [sid, { owner, lastActivity: t }]));
 
@@ -158,7 +158,7 @@ test('planSessionSlot : groupe plein → le compte cède sa plus ancienne, jamai
 });
 
 // ── Nettoyage : le compte et ses sous-agents, jamais un autre compte ────────
-import { sessionsANettoyer, sessionsEnfantsAnciennes } from '../session_util.js';
+import { sessionsANettoyer, sessionsEnfantsAnciennes } from '../src/session_util.ts';
 
 test('sessionsANettoyer : le compte ferme ses sessions et celles de ses enfants, jamais celles d’un autre compte', () => {
     const s = new Map([

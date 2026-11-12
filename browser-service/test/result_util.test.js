@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { hostOf, compactConsole, summarizeNetwork, describeLocator, selectOptionArg,
          sansAnsi, codeErreur, nettoyerSortie, normaliserErreur,
          noeudsAria, ressemblance, classerSuggestions, echapperDsl, echapperCss, litteralXPath,
-         longueurJsonPy, couperTexte, bornerValeur } from '../result_util.js';
+         longueurJsonPy, couperTexte, bornerValeur } from '../src/result_util.ts';
 
 test('compactConsole regroupe les répétitions en (×N) et garde les distincts', () => {
     const lines = ['[error] A', '[error] B', '[error] A', '[error] A', '[warning] C'];

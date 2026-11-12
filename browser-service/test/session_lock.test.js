@@ -3,7 +3,7 @@
 // Sans Playwright ni serveur : le verrou est un module pur.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeLock, acquireLock } from '../session_lock.js';
+import { makeLock, acquireLock } from '../src/session_lock.ts';
 
 const tick = () => new Promise(r => setImmediate(r));
 

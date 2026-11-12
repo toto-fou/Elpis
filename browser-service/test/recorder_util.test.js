@@ -2,7 +2,7 @@
 // browser-service/test/recorder_util.test.js — recorder : champs secrets remplacés par une variable d'environnement (une par champ), secrets retirés des évaluations et des URL, évaluations notées.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { variableSecrete, masquerSecret, masquerScript, masquerUrl, variablePourChamp, commentaireEval, notesDuScript, celluleRobot } from '../recorder_util.js';
+import { variableSecrete, masquerSecret, masquerScript, masquerUrl, variablePourChamp, commentaireEval, notesDuScript, celluleRobot } from '../src/recorder_util.ts';
 
 test('variableSecrete : type password, noms et libellés qui évoquent un secret ; champs ordinaires laissés', () => {
     assert.equal(variableSecrete({ type: 'password' }), 'PASSWORD');

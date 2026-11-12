@@ -2,7 +2,7 @@
 // test/tab_util.test.js — annonce des onglets ouverts ou fermés par la page, rappel de l'onglet actif (pages factices).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { etatOnglets, joindreOnglets } from '../tab_util.js';
+import { etatOnglets, joindreOnglets } from '../src/tab_util.ts';
 
 const onglet = (url) => ({ url: () => url });
 

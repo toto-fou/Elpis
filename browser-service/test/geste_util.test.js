@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { suivreNavigation, champsNavigation } from '../geste_util.js';
+import { suivreNavigation, champsNavigation } from '../src/geste_util.ts';
 
 // Page factice : événements Playwright émis à la main, URL et chargement pilotés.
 class FaussePage extends EventEmitter {

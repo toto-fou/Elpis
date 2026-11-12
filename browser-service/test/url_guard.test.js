@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyserUrl, estBoucleLocale, messageRefus, normaliserIp, verifierBac } from '../url_guard.js';
+import { analyserUrl, estBoucleLocale, messageRefus, normaliserIp, verifierBac } from '../src/url_guard.ts';
 
 test('schémas : http/https/ws(s) et about:blank seulement', () => {
     for (const u of ['file:///etc/passwd', 'ftp://exemple.org/', 'chrome://settings',

@@ -550,7 +550,7 @@ describe("relais des secrets (socket unix réel)", () => {
 
   it("formes du relais et du service identiques", async () => {
     const service = (await import(
-      new URL("../../../browser-service/secret_util.js", import.meta.url).href
+      new URL("../../../browser-service/src/secret_util.ts", import.meta.url).href
     )) as {
       formesSecret: (v: string) => string[];
     };

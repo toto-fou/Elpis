@@ -2,7 +2,7 @@
 // États sauvegardés (cookies, stockage local) : liés au propriétaire, introuvables pour un autre compte, durée de conservation rappelée.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveStateFile, stateFileName } from '../session_util.js';
+import { resolveStateFile, stateFileName } from '../src/session_util.ts';
 
 const ID = '0a1b2c3d-1111-2222-3333-444455556666';
 const existe = (...noms) => (nom) => noms.includes(nom);

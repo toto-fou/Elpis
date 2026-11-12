@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { refusAppel } from '../service_auth.js';
+import { refusAppel } from '../src/service_auth.ts';
 import { demarrerService, NEUTRE_PS, raisonDeSauter, SERVEUR } from './aides/service.js';
 
 const req = (headers = {}) => ({ socket: {}, headers });

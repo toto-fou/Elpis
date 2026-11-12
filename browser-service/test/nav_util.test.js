@@ -18,7 +18,7 @@ import {
   estPageErreur,
   finalUrl,
   tlsWarning,
-} from "../nav_util.js";
+} from "../src/nav_util.ts";
 
 test("goto réussi → 200 success, pas de warning", () => {
   const o = classifyNavOutcome("http://192.1.1.1:8080", "about:blank", "http://192.1.1.1:8080/", null);

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lirePs, orphelins } from '../proc_util.js';
+import { lirePs, orphelins } from '../src/proc_util.ts';
 
 const PS = `
   100     1  9000 /usr/bin/node server.js

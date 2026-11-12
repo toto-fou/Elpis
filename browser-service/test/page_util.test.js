@@ -2,7 +2,7 @@
 // browser-service/test/page_util.test.js — zones modifiées d'un diff visuel (fonction exécutée dans la page, rejouée ici sans navigateur).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { regionsModifiees, sourceDe } from '../page_util.js';
+import { regionsModifiees, sourceDe } from '../src/page_util.ts';
 
 // Grille de cellules : `marques` = [[col, ligne, pixels]], chaque cellule marquée couvrant ses 16 × 16 px.
 function grille(cols, rows, marques) {

@@ -6,8 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { safeOwner, ownerFromRequest, ownerMatches, stateFileName, safeDownloadName,
-         planArtifactPurge } from '../session_util.js';
-import { makeLock, acquireLock, lockIdle } from '../session_lock.js';
+         planArtifactPurge } from '../src/session_util.ts';
+import { makeLock, acquireLock, lockIdle } from '../src/session_lock.ts';
 
 test('propriétaire normalisé et transmis', () => {
     assert.equal(safeOwner('alice'), 'alice');

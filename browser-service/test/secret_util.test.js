@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { origineDe, formesSecret, purgerTexte, chargeRequete, requetePorteSecret } from '../secret_util.js';
-import { planSessionSlot } from '../session_util.js';
+import { origineDe, formesSecret, purgerTexte, chargeRequete, requetePorteSecret } from '../src/secret_util.ts';
+import { planSessionSlot } from '../src/session_util.ts';
 
 const SECRET = 'Mdp tres&secret/42é';
 

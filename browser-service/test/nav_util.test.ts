@@ -177,9 +177,7 @@ test("échec avec la page d'erreur du navigateur engagée : jamais un succès pa
     /^The tab went back to the page it showed before \(http:\/\/lan\/form\), reloaded/,
   );
   for (const r of [o, neuf, revenu]) assert.doesNotMatch(r.body.fix!, /intact/);
-  assert.ok(
-    estPageErreur(erreur) && !estPageErreur("about:blank") && !estPageErreur("http://lan/"),
-  );
+  assert.ok(estPageErreur(erreur) && !estPageErreur("about:blank") && !estPageErreur("http://lan/"));
 });
 
 test("succès partiel : nav_warning nettoyé", () => {

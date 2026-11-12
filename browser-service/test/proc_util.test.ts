@@ -2,9 +2,9 @@
 // Tueur de processus navigateur : seulement les processus de contenu dont le
 // navigateur principal est mort (un onglet actif de plus de 20 min survit).
 
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { lirePs, orphelins } from '../src/proc_util.ts';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { lirePs, orphelins } from "../src/proc_util.ts";
 
 const PS = `
   100     1  9000 /usr/bin/node server.js
@@ -20,22 +20,26 @@ const PS = `
   ligne illisible
 `;
 
-test('lecture de ps', () => {
-    const p = lirePs(PS);
-    assert.equal(p.length, 10);
-    assert.deepEqual(p[1], { pid: 200, ppid: 100, age: 8000,
-        args: '/home/x/.cache/ms-playwright/chromium-1200/chrome-linux/chrome --headless --no-sandbox' });
+test("lecture de ps", () => {
+  const p = lirePs(PS);
+  assert.equal(p.length, 10);
+  assert.deepEqual(p[1], {
+    pid: 200,
+    ppid: 100,
+    age: 8000,
+    args: "/home/x/.cache/ms-playwright/chromium-1200/chrome-linux/chrome --headless --no-sandbox",
+  });
 });
 
-test('seuls les orphelins anciens sont visés', () => {
-    const cibles = orphelins(lirePs(PS), { ageMinS: 1200 });
-    // 201 : renderer ancien MAIS son navigateur vit → épargné.
-    // 202 : récent. 300/301/402 : parent mort ou init → visés. 500 : récent.
-    assert.deepEqual(cibles.sort(), [300, 301, 402]);
+test("seuls les orphelins anciens sont visés", () => {
+  const cibles = orphelins(lirePs(PS), { ageMinS: 1200 });
+  // 201 : renderer ancien MAIS son navigateur vit → épargné.
+  // 202 : récent. 300/301/402 : parent mort ou init → visés. 500 : récent.
+  assert.deepEqual(cibles.sort(), [300, 301, 402]);
 });
 
-test('les PID épargnés ne sont jamais visés', () => {
-    assert.deepEqual(orphelins(lirePs(PS), { ageMinS: 1200, epargner: [300, 402] }), [301]);
+test("les PID épargnés ne sont jamais visés", () => {
+  assert.deepEqual(orphelins(lirePs(PS), { ageMinS: 1200, epargner: [300, 402] }), [301]);
 });
 
 // Arbres réels (Chromium mesuré le 2026-09-30, headless shell le 2026-11-10) :
@@ -61,17 +65,20 @@ const PS_REELS = `
   601   600  8000 /x/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell --type=renderer
 `;
 
-test('arbres réels : zygotes traversés, rien de vivant tué', () => {
-    const cibles = orphelins(lirePs(PS_REELS), { ageMinS: 1200, epargner: [100] });
-    // Vivants (principaux 200 et 400) : rien. Orphelins : zygotes 500 et 600
-    // et leurs renderers 501 et 601.
-    assert.deepEqual(cibles.sort((a, b) => a - b), [500, 501, 600, 601]);
+test("arbres réels : zygotes traversés, rien de vivant tué", () => {
+  const cibles = orphelins(lirePs(PS_REELS), { ageMinS: 1200, epargner: [100] });
+  // Vivants (principaux 200 et 400) : rien. Orphelins : zygotes 500 et 600
+  // et leurs renderers 501 et 601.
+  assert.deepEqual(
+    cibles.sort((a, b) => a - b),
+    [500, 501, 600, 601],
+  );
 });
 
-test('cycle de parents : pas de boucle infinie', () => {
-    const ps = lirePs(`
+test("cycle de parents : pas de boucle infinie", () => {
+  const ps = lirePs(`
   10    11  9000 /x/chrome --type=renderer
   11    10  9000 /x/chrome --type=zygote
 `);
-    assert.deepEqual(orphelins(ps, { ageMinS: 1 }).sort(), [10, 11]);
+  assert.deepEqual(orphelins(ps, { ageMinS: 1 }).sort(), [10, 11]);
 });

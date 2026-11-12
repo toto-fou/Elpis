@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, un patch, une écriture de défilement). */
 import { journal } from "../../../platform/journal";
-import { nextTick } from "vue";
+import { getCurrentScope, nextTick, onScopeDispose } from "vue";
 
 import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
 import type { EtapeChat, MessageChat, Objet } from "./types.ts";
+import { creerVersement, noterArrivee, reinitialiserVersement, tranche } from "./versement.ts";
 
 type Prefixe = "_md" | "_pp";
 
@@ -17,8 +18,6 @@ export interface PartiesFlux {
   shell?: boolean;
 }
 
-const FENETRE_LISSAGE_MS = 350;
-const LISSAGE_MIN = 24;
 const IMAGE_MS = 1000 / 60;
 const SHELL_FLUSH_MS = 100;
 const SHELL_MAX = 98304;
@@ -44,16 +43,6 @@ export const PRE_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _ppFence: false,
   _ppBlockStart: 0,
 });
-
-/** Tranche à révéler : proportionnelle au retard, jamais au milieu d'une paire de substitution UTF-16. */
-export function smoothTake(buf: string, dtMs: number): number {
-  if (!buf) return 0;
-  let take = Math.max(LISSAGE_MIN, Math.ceil((buf.length * dtMs) / FENETRE_LISSAGE_MS));
-  if (take >= buf.length) return buf.length;
-  const cc = buf.charCodeAt(take - 1);
-  if (cc >= 0xd800 && cc <= 0xdbff) take++;
-  return Math.min(take, buf.length);
-}
 
 const num = (v: unknown): number => (typeof v === "number" ? v : 0);
 
@@ -166,8 +155,12 @@ export function creerRenduFlux(c: CoeurChat) {
   let dernierShell = -Infinity;
   let dernierTitre = -Infinity;
   const budget = creerBudget();
+  const vCorps = creerVersement();
+  const vReflexion = creerVersement();
+  const vNarration = creerVersement();
 
   const maintenant = (): number => performance.now();
+  if (getCurrentScope()) onScopeDispose(() => eteindre());
   const ongletCache = (): boolean => document.visibilityState === "hidden";
 
   function besoin(): boolean {
@@ -247,7 +240,7 @@ export function creerRenduFlux(c: CoeurChat) {
   // Réflexion : `force` (arrêt, fin de phase) verse tout le tampon ; le titre d'état est recalculé au plus toutes les 250 ms.
   function verserReflexion(cur: MessageChat, force: boolean, t: number, dt: number): Objet | null {
     if (!f.thinkBuf) return null;
-    const take = force ? f.thinkBuf.length : smoothTake(f.thinkBuf, dt);
+    const take = force ? f.thinkBuf.length : tranche(vReflexion, f.thinkBuf, t, dt);
     if (take <= 0) return null;
     // Réflexion d'un appel précédent déjà posée sur son étape : celle-ci ne s'y ajoute pas.
     const neuve = !!cur._reflexionPosee;
@@ -271,9 +264,9 @@ export function creerRenduFlux(c: CoeurChat) {
   }
 
   // Narration d'outils : même versement que le corps ; `force` (fin de phase, Stop) draine tout.
-  function verserNarration(cur: MessageChat, force: boolean, dt: number): Objet | null {
+  function verserNarration(cur: MessageChat, force: boolean, t: number, dt: number): Objet | null {
     if (!f.preContentBuf) return null;
-    const take = force ? f.preContentBuf.length : smoothTake(f.preContentBuf, dt);
+    const take = force ? f.preContentBuf.length : tranche(vNarration, f.preContentBuf, t, dt);
     if (take <= 0) return null;
     const complet = (cur._pendingPreContent || "") + f.preContentBuf.slice(0, take);
     f.preContentBuf = f.preContentBuf.slice(take);
@@ -285,9 +278,9 @@ export function creerRenduFlux(c: CoeurChat) {
     return Object.assign(applyPreRender(cur, complet), { _statusLine: cur._statusLine || "" });
   }
 
-  function verserCorps(cur: MessageChat, force: boolean, dt: number): Objet | null {
+  function verserCorps(cur: MessageChat, force: boolean, t: number, dt: number): Objet | null {
     if (!f.streamBuf) return null;
-    const take = force ? f.streamBuf.length : smoothTake(f.streamBuf, dt);
+    const take = force ? f.streamBuf.length : tranche(vCorps, f.streamBuf, t, dt);
     if (take <= 0) return null;
     const content = (cur.content || "") + f.streamBuf.slice(0, take);
     f.streamBuf = f.streamBuf.slice(take);
@@ -310,7 +303,7 @@ export function creerRenduFlux(c: CoeurChat) {
   // Un battement : réflexion, narration, corps, sortie shell, UN remplacement du message, puis l'écriture de défilement.
   async function executer(force: boolean): Promise<void> {
     const t0 = maintenant();
-    const dt = derniereImage ? Math.min(150, t0 - derniereImage) : IMAGE_MS;
+    const dt = derniereImage ? t0 - derniereImage : IMAGE_MS;
     derniereImage = t0;
     const msgs = getStreamMsgs();
     const idx = streamIdx(msgs);
@@ -324,8 +317,8 @@ export function creerRenduFlux(c: CoeurChat) {
     }
     const p: Objet = {};
     const reflexion = verserReflexion(cur, force, t0, dt);
-    const narration = verserNarration(cur, force, dt);
-    const corps = corpsArme ? verserCorps(cur, force, dt) : null;
+    const narration = verserNarration(cur, force, t0, dt);
+    const corps = corpsArme ? verserCorps(cur, force, t0, dt) : null;
     if (reflexion) Object.assign(p, reflexion);
     if (narration) Object.assign(p, narration);
     if (corps) Object.assign(p, corps);
@@ -389,8 +382,10 @@ export function creerRenduFlux(c: CoeurChat) {
   }
 
   function stopThinkFlush(): void {
+    const vide = !f.thinkBuf;
     flushThinkBuf();
-    eteindreSiInutile();
+    reinitialiserVersement(vReflexion);
+    if (!vide) eteindreSiInutile();
   }
 
   function flushPreContentBuf(force?: boolean): void {
@@ -401,15 +396,17 @@ export function creerRenduFlux(c: CoeurChat) {
       f.preContentBuf = "";
       return;
     }
-    const p = verserNarration(cur, !!force, 40);
+    const p = verserNarration(cur, !!force, maintenant(), IMAGE_MS);
     if (!p) return;
     msgs[idx] = Object.assign({}, cur, p);
     if (!r.isUserScrolling.value && e.chatContainer.value) l.vsEnsureTail();
   }
 
   function stopPreContentFlush(): void {
+    const vide = !f.preContentBuf;
     flushPreContentBuf(true);
-    eteindreSiInutile();
+    reinitialiserVersement(vNarration);
+    if (!vide) eteindreSiInutile();
   }
 
   // Le corps est versé par le battement tant qu'il est armé ; l'arrêt ne vide pas le tampon (l'appelant le lit).
@@ -419,24 +416,29 @@ export function creerRenduFlux(c: CoeurChat) {
   }
 
   function stopStreamFlush(): void {
+    const arme = corpsArme;
     corpsArme = false;
-    eteindreSiInutile();
+    reinitialiserVersement(vCorps);
+    if (arme) eteindreSiInutile();
   }
 
   function recevoirCorps(texte: string): void {
     f.streamBuf += texte;
+    noterArrivee(vCorps, maintenant(), texte.length);
     armStreamFlush();
   }
 
   function recevoirReflexion(texte: string): void {
     if (!texte) return;
     f.thinkBuf += texte;
+    noterArrivee(vReflexion, maintenant(), texte.length);
     armer();
   }
 
   function recevoirNarration(texte: string): void {
     if (!texte) return;
     f.preContentBuf += texte;
+    noterArrivee(vNarration, maintenant(), texte.length);
     armer();
   }
 
@@ -445,9 +447,16 @@ export function creerRenduFlux(c: CoeurChat) {
     if (parties.corps) {
       corpsArme = false;
       f.streamBuf = "";
+      reinitialiserVersement(vCorps);
     }
-    if (parties.reflexion) f.thinkBuf = "";
-    if (parties.narration) f.preContentBuf = "";
+    if (parties.reflexion) {
+      f.thinkBuf = "";
+      reinitialiserVersement(vReflexion);
+    }
+    if (parties.narration) {
+      f.preContentBuf = "";
+      reinitialiserVersement(vNarration);
+    }
     if (parties.shell) f.shellPend.clear();
     eteindreSiInutile();
   }

@@ -95,6 +95,8 @@ async function image(n = 1): Promise<void> {
   }
 }
 
+const noyaux: Vue.EffectScope[] = [];
+
 function monter(texte = ""): { api: Api; r: RefsRacineChat; remplacements: () => number; stop: () => void } {
   const r = refs([
     { role: "user", content: "Q" },
@@ -110,6 +112,7 @@ function monter(texte = ""): { api: Api; r: RefsRacineChat; remplacements: () =>
       { flush: "sync" },
     ),
   );
+  noyaux.push(scope);
   return { api, r, remplacements: () => n, stop: () => scope.stop() };
 }
 
@@ -131,6 +134,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const scope of noyaux.splice(0)) scope.stop();
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -145,11 +149,18 @@ describe("battement : une image, un remplacement", () => {
     expect(remplacements()).toBe(0);
     await image();
     expect(remplacements()).toBe(1);
+    expect("Bonjour tout".startsWith(bulle(r)?.content ?? "x")).toBe(true);
+    // Une image de plus, un remplacement de plus, jamais deux ; le texte finit par tout apparaître.
+    for (let k = 0; k < 40; k++) {
+      const avant = remplacements();
+      await image();
+      expect(remplacements() - avant).toBeLessThanOrEqual(1);
+    }
     expect(bulle(r)?.content).toBe("Bonjour tout");
     stop();
   });
 
-  it("réflexion, corps et sortie shell arrivés ensemble : un seul remplacement par image", async () => {
+  it("réflexion et sortie shell arrivées ensemble : un seul remplacement par image", async () => {
     const { api, r, remplacements, stop } = monter();
     r.messages.value[1] = {
       ...r.messages.value[1]!,
@@ -166,8 +177,10 @@ describe("battement : une image, un remplacement", () => {
     });
     await image();
     expect(remplacements() - avant).toBe(1);
-    expect(bulle(r)?.thinking).toBe("Je réfléchis. ");
+    expect(bulle(r)?.thinking?.length).toBeGreaterThan(0);
     expect(bulle(r)?.toolSteps?.[0]?.shellOut).toBe("ligne 1\n");
+    await image(30);
+    expect(bulle(r)?.thinking).toBe("Je réfléchis. ");
     stop();
   });
 
@@ -237,11 +250,11 @@ describe("battement : budget", () => {
     // 12 ms de coût moyen : une image sur trois.
     const avant = remplacements();
     for (let k = 0; k < 6; k++) {
-      await contenu(api, "b");
+      await contenu(api, "b".repeat(30));
       await image();
     }
     expect(remplacements() - avant).toBe(2);
-    expect(bulle(r)?.content).toBe("abbbbbb".slice(0, (bulle(r)?.content ?? "").length));
+    expect(bulle(r)?.content).toMatch(/^ab*$/);
     rendu.mockRestore();
     stop();
   });
@@ -276,6 +289,8 @@ describe("battement : onglet caché", () => {
     await vi.advanceTimersByTimeAsync(300);
     expect(bulle(r)?.content).toBe("");
     await image();
+    expect(bulle(r)?.content?.length).toBeGreaterThan(0);
+    await image(40);
     expect(bulle(r)?.content).toBe("Texte en attente");
     stop();
   });

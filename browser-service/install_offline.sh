@@ -11,8 +11,6 @@
 #    1. extrait node_modules.tar.gz            → ./node_modules
 #    2. extrait ms-playwright.tar.gz            → $HOME/.cache/ms-playwright
 #                                                 (ou --browsers-path DIR)
-#    3. installe les libs système offline/apt/*.deb (dpkg -i, best-effort, sudo)
-#    4. smoke-test : le navigateur démarre VRAIMENT (headless, --no-sandbox)
 #
 #  Usage :
 #    ./install_offline.sh                        # install complète

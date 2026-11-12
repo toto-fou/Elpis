@@ -742,7 +742,7 @@ plan_dry_run() {
         external) etape "base de données : serveur existant, connexion testée avant la suite" ;;
     esac
     if [ "$WITH_BROWSER" -eq 1 ]; then
-        etape "navigateur : browser-service, npm ci et Chromium (Playwright$([ -n "$OFFLINE_DIR" ] && echo ", depuis $OFFLINE_DIR/browser"))"
+        etape "navigateur : browser-service, npm ci et headless shell de Chromium (Playwright$([ -n "$OFFLINE_DIR" ] && echo ", depuis $OFFLINE_DIR/browser"))"
         [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=("CDN de Playwright")
     fi
     if [ -x "$ROOT/rag_app/qdrant/qdrant" ] && "$ROOT/rag_app/qdrant/qdrant" --version 2>/dev/null | grep -q "$QDRANT_VERSION"; then
@@ -1025,8 +1025,8 @@ install_browser() {
         return 0
     fi
     rm -rf "$npm_tmp"
-    info "Chromium (Playwright)…"
-    ( cd "$bs" && as_app env PATH="$chemin" ./node_modules/.bin/playwright install chromium ) || rc=$?
+    info "Headless shell de Chromium et ffmpeg (Playwright)…"
+    ( cd "$bs" && as_app env PATH="$chemin" ./node_modules/.bin/playwright install --only-shell chromium ) || rc=$?
     if [ "$rc" -eq 0 ]; then ok "Service navigateur prêt."; else note_warn "Installation de Chromium incomplète (réseau ?)."; fi
 }
 

@@ -21,6 +21,7 @@ import { readConfigJson } from "@elpis/config";
 import { castFloat, greatest, nullsFirst } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
+import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
 import { urlServiceNavigateur } from "./client";
 import { pwOwner } from "./session";
@@ -125,6 +126,42 @@ export function normalizeUrl(url: string): [string, string] {
   } catch {
     return ["", "/"];
   }
+}
+
+/** Origine exacte (schéma, hôte, port) d'une URL http(s), vide sinon : clé des identifiants de sites, sans alias ni réduction d'IP. */
+export function origineExacte(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Une clé d'`ax_credentials` sans schéma est une ancienne clé de site : son origine est inconnue, elle n'est jamais remplie. */
+const cleAvecOrigine = (cle: unknown): boolean => String(cle).includes("://");
+
+/** Site AX d'une clé d'`ax_credentials`, pour l'affichage et les purges seulement. */
+const siteDeCle = (cle: unknown): string =>
+  cleAvecOrigine(cle) ? normalizeUrl(String(cle))[0] : String(cle);
+
+/** Identifiants rattachés à un site AX retirés (d'un compte, ou de tous) ; nombre de lignes retirées. */
+async function retirerIdentifiantsDuSite(
+  x: Executeur,
+  site: string,
+  proprietaire: string | null,
+): Promise<number> {
+  const lignes = await (proprietaire === null
+    ? x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials")
+    : x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials WHERE owner = ?", [
+        proprietaire,
+      ]));
+  let retirees = 0;
+  for (const r of lignes)
+    if (siteDeCle(r.site) === site)
+      retirees += (await x.run("DELETE FROM ax_credentials WHERE owner = ? AND site = ?", [r.owner, r.site]))
+        .changes;
+  return retirees;
 }
 
 // ── Lecture ──────────────────────────────────────────────────────────────
@@ -258,22 +295,99 @@ export async function getTreeJson(x: Executeur, site: string): Promise<{ site: s
   };
 }
 
-/** `_render_selector` : sélecteur compact pour le modèle, avec son taux de succès dès deux essais. */
+// ── Rendu pour le modèle : la mémoire est partagée entre comptes et nourrie par les pages ──
+
+const ROLES_ARIA: ReadonlySet<string> = new Set(
+  (
+    "alert alertdialog application article banner blockquote button caption cell checkbox code columnheader " +
+    "combobox complementary contentinfo definition deletion dialog directory document emphasis feed figure form " +
+    "generic grid gridcell group heading img insertion link list listbox listitem log main marquee math menu " +
+    "menubar menuitem menuitemcheckbox menuitemradio meter navigation none note option paragraph presentation " +
+    "progressbar radio radiogroup region row rowgroup rowheader scrollbar search searchbox separator slider " +
+    "spinbutton status strong subscript superscript switch tab table tablist tabpanel term textbox time timer " +
+    "toolbar tooltip tree treegrid treeitem"
+  ).split(" "),
+);
+const NOM_MAX = 80;
+const CHEMIN_MAX = 120;
+/** Plafond d'écriture de `recordAction` : aucun sélecteur enregistré n'est écarté au rendu. */
+const SELECTEUR_MAX = 300;
+const INVISIBLES = /\p{Cf}+/gu;
+const NON_IMPRIMABLES = /[\p{Cc}\u2028\u2029]+/gu;
+const CHEVRON_DE_BALISE = /<(?!\s*(?:=|[0-9](?![xX])))/gu;
+
+function borner(texte: string, max: number): string {
+  return longueurPy(texte) <= max ? texte : `${prefixePy(texte, max - 1)}…`;
+}
+
+/** Rôle ARIA connu, `generic` sinon : la colonne vient d'un attribut de page ou d'un argument d'outil. */
+export function roleInerte(role: unknown): string {
+  const r = lowerPy(stripPy(String(role ?? "")));
+  return ROLES_ARIA.has(r) ? r : "generic";
+}
+
+/** Valeur recopiable telle quelle par le modèle : `>`, `"` et comparaisons XPath gardés, rien qui ouvre une balise ni une ligne. */
+function valeurInerte(valeur: string): string {
+  return valeur.replace(INVISIBLES, "").replace(NON_IMPRIMABLES, " ").replace(CHEVRON_DE_BALISE, "&lt;");
+}
+
+/** Nom ou libellé inerte et borné, `&` et `"` gardés : une seule ligne, aucune balise ni marqueur. */
+export function nomInerte(nom: unknown): string {
+  const inerte = neutraliserMarqueursTour(neutraliserJetonsRole(valeurInerte(String(nom ?? ""))));
+  return borner(stripPy(inerte), NOM_MAX);
+}
+
+/** Chemin ou site inerte et borné. */
+export function cheminInerte(chemin: unknown): string {
+  return borner(valeurInerte(String(chemin ?? "")), CHEMIN_MAX);
+}
+
+/** Sélecteur rendu tel quel par `pw_memory` : valeur inerte, écarté (`null`) au-delà du plafond d'écriture. */
+export function selecteurInerte<T extends { value?: unknown }>(sel: T | null | undefined): T | null {
+  if (!sel) return null;
+  const v = valeurInerte(String(sel.value ?? ""));
+  return longueurPy(v) > SELECTEUR_MAX ? null : { ...sel, value: v };
+}
+
+/** Cible DSL rendue par `pw_memory` : inerte, écartée (`null`) au-delà du plafond. */
+export function cibleInerte(cible: unknown): string | null {
+  if (cible === null || cible === undefined) return null;
+  const v = valeurInerte(String(cible));
+  return longueurPy(v) > SELECTEUR_MAX + NOM_MAX ? null : v;
+}
+
+function libelleElement(n: NoeudDom): string {
+  return `${roleInerte(n.role)} "${nomInerte(n.name)}"`;
+}
+
+function libelleNoeud(n: NoeudDom): string {
+  return n.name ? libelleElement(n) : roleInerte(n.role);
+}
+
+/** `_render_selector` : sélecteur compact pour le modèle, avec son taux de succès dès deux essais ; texte coupé (le service cherche une sous-chaîne), `""` pour ce qu'une coupe casserait ou un rôle inconnu. */
 export function renderSelector(sel: Selecteur): string {
   const sc = sel.success_count;
   const total = sc + sel.failure_count;
   const tag = total >= 2 ? `(${sc}/${total}, ${Math.trunc((100 * sc) / Math.max(total, 1))}%)` : "";
-  const val = sel.value;
+  const val = valeurInerte(sel.value);
   let base: string;
   if (sel.strategy === "role_name") {
     const i = val.indexOf("|");
-    base = i < 0 ? `role=${val} name=""` : `role=${val.slice(0, i)} name="${val.slice(i + 1)}"`;
+    const role = lowerPy(i < 0 ? val : val.slice(0, i));
+    if (role && !ROLES_ARIA.has(role)) return "";
+    base = i < 0 ? `role=${role} name=""` : `role=${role} name="${prefixePy(val.slice(i + 1), NOM_MAX)}"`;
   } else if (sel.strategy === "text" || sel.strategy === "label" || sel.strategy === "placeholder") {
-    base = `${sel.strategy}="${val}"`;
+    base = `${sel.strategy}="${prefixePy(val, NOM_MAX)}"`;
   } else {
+    if (longueurPy(val) > SELECTEUR_MAX) return "";
     base = `${sel.strategy}=${val}`;
   }
   return stripPy(`${base} ${tag}`);
+}
+
+/** Meilleur sélecteur rendable d'un nœud, `""` sans aucun. */
+function premierSelecteur(n: NoeudDom): string {
+  return n.selectors.map((s) => renderSelector(s)).find((r) => r) ?? "";
 }
 
 /** `_render_dom_subtree` : branches `|-` / `` `- ``, sélecteurs sous les éléments, usage au-delà d'une vérification. */
@@ -283,12 +397,14 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   const vc = noeud.verified_count || 0;
   const usage = vc > 1 ? ` [used ${vc}x]` : "";
   if (noeud.node_type === "region") {
-    const libelle = noeud.name ? `${noeud.role} "${noeud.name}"` : noeud.role;
-    lignes.push(`${retrait}${branche}${libelle}${usage}`);
+    lignes.push(`${retrait}${branche}${libelleNoeud(noeud)}${usage}`);
   } else {
-    lignes.push(`${retrait}${branche}${noeud.role} "${noeud.name}"${usage}`);
+    lignes.push(`${retrait}${branche}${libelleElement(noeud)}${usage}`);
     const prefixeSel = retrait + (dernier ? "   " : "|  ");
-    for (const sel of noeud.selectors) lignes.push(`${prefixeSel}- ${renderSelector(sel)}`);
+    for (const sel of noeud.selectors) {
+      const rendu = renderSelector(sel);
+      if (rendu) lignes.push(`${prefixeSel}- ${rendu}`);
+    }
   }
   const suivants = [...prefixes, dernier ? "   " : "|  "];
   noeud.children.forEach((enfant, i) => {
@@ -331,7 +447,7 @@ export async function renderFullDomForPrompt(
   for (const chemin of cheminsTries(dom.keys())) {
     const racines = dom.get(chemin)?.roots ?? [];
     if (racines.length === 0) continue;
-    lignes.push(`[${chemin}]`);
+    lignes.push(`[${cheminInerte(chemin)}]`);
     racines.forEach((r, i) => {
       rendreSousArbre(r, lignes, i === racines.length - 1, ["  "]);
     });
@@ -419,10 +535,6 @@ export async function siteSignal(x: Executeur, site: string): Promise<number> {
   }
 }
 
-function libelleNoeud(n: NoeudDom): string {
-  return n.name ? `${n.role} "${n.name}"` : n.role;
-}
-
 /** `render_focused_dom_for_prompt` : ancêtres, frères et descendants (deux niveaux) du dernier élément utilisé de la page. */
 export async function renderFocusedDomForPrompt(
   x: Executeur,
@@ -434,7 +546,7 @@ export async function renderFocusedDomForPrompt(
   if (!site || !currentPath) return "";
   const page = (await loadDomTree(x, site, { path: currentPath })).get(currentPath);
   if (page === undefined || page.byId.size === 0)
-    return `KNOWN UI: ${site}\nFOCUSED ON: [${currentPath}] (no DOM recorded yet, use pw_page(op='inspect') to discover)`;
+    return `KNOWN UI: ${cheminInerte(site)}\nFOCUSED ON: [${cheminInerte(currentPath)}] (no DOM recorded yet, use pw_page(op='inspect') to discover)`;
   const byId = page.byId;
   let courant: NoeudDom | undefined;
   if (veritePy(options.currentNodeId) && byId.has(options.currentNodeId as number))
@@ -470,8 +582,8 @@ export async function renderFocusedDomForPrompt(
     if (freres.length) {
       lignes.push("Siblings (same parent):");
       for (const f of freres) {
-        const sel = f.selectors[0];
-        lignes.push(`  - ${f.role} "${f.name}"${sel ? `  [${renderSelector(sel)}]` : ""}`);
+        const sel = premierSelecteur(f);
+        lignes.push(`  - ${libelleElement(f)}${sel ? `  [${sel}]` : ""}`);
       }
       lignes.push("");
     }
@@ -489,9 +601,9 @@ export async function renderFocusedDomForPrompt(
     lignes.push("Below (1-2 hops):");
     for (const [d, profondeur] of descendants) {
       const retrait = "  ".repeat(profondeur);
-      lignes.push(`${retrait}- ${d.role} "${d.name}"`);
-      const sel = d.selectors[0];
-      if (sel) lignes.push(`${retrait}     ${renderSelector(sel)}`);
+      lignes.push(`${retrait}- ${libelleElement(d)}`);
+      const sel = premierSelecteur(d);
+      if (sel) lignes.push(`${retrait}     ${sel}`);
     }
     lignes.push("");
   }
@@ -647,9 +759,7 @@ export async function deleteSite(
       ]);
       const tr = (await x.run("DELETE FROM ax_transitions WHERE site = ?", [site])).changes;
       const nd = (await x.run("DELETE FROM ax_nodes WHERE site = ?", [site])).changes;
-      const cr = includeCredentials
-        ? (await x.run("DELETE FROM ax_credentials WHERE site = ?", [site])).changes
-        : 0;
+      const cr = includeCredentials ? await retirerIdentifiantsDuSite(x, site, null) : 0;
       return { nodes: nd, selectors: Number(sel?.["n"] ?? 0), transitions: tr, credentials: cr };
     });
     log().info(
@@ -706,7 +816,7 @@ export async function markSiteStale(
   }
 }
 
-/** `delete_credentials` : URL normalisée ou site tel quel ; `proprietaire` absent = tous les comptes (administration). */
+/** `delete_credentials` : URL normalisée ou site tel quel, avec toutes les origines de ce site ; `proprietaire` absent = tous les comptes (administration). */
 export async function deleteCredentials(
   x: Executeur,
   urlOuSite: string,
@@ -716,12 +826,7 @@ export async function deleteCredentials(
   const site = urlOuSite.startsWith("http") ? normalizeUrl(urlOuSite)[0] : urlOuSite;
   if (!site) return false;
   try {
-    const r = await verrouAx.avec(() =>
-      proprietaire === null
-        ? x.run("DELETE FROM ax_credentials WHERE site = ?", [site])
-        : x.run("DELETE FROM ax_credentials WHERE site = ? AND owner = ?", [site, proprietaire]),
-    );
-    return r.changes > 0;
+    return (await verrouAx.avec(() => retirerIdentifiantsDuSite(x, site, proprietaire))) > 0;
   } catch {
     return false;
   }

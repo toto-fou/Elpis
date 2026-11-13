@@ -33,6 +33,7 @@ export interface ResultatFlux {
 }
 
 const CACHE_MAX = 300;
+const CACHE_BLOCS_MAX = 600;
 const PROSE_MAX = 12000;
 const CARET = '<span class="elpis-stream-caret" aria-hidden="true"></span>';
 const FICHIER = /---\s*FILE:\s*(.+?)\s*---\r?\n[\s\S]*?---\s*END FILE\s*---/g;
@@ -89,6 +90,7 @@ export interface MoteurMarkdown {
   injecterCaret: typeof injecterCaret;
   clearMarkdownCache(): void;
   readonly tailleCache: number;
+  readonly tailleCacheBlocs: number;
 }
 
 interface Lru {
@@ -123,9 +125,10 @@ function creerLru(max: number): Lru {
   };
 }
 
-/** Moteur unique de la page : son cache est partagé par le legacy et les composants. */
+/** Moteur unique de la page : ses caches (messages entiers, blocs par source) sont partagés par le legacy et les composants. */
 export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
   const messages = creerLru(CACHE_MAX);
+  const blocsCache = creerLru(CACHE_BLOCS_MAX);
   let memoSrc = "";
   let memoHtml = "";
 
@@ -147,8 +150,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     ? creerFlux({
         nouveauLexeur: () => new (dep.analyseur as Analyseur).Lexer(),
         rendre: rendreJetons,
-        lireCache: () => undefined,
-        ecrireCache: () => undefined,
+        lireCache: (cle) => blocsCache.lire(cle),
+        ecrireCache: (cle, html) => void blocsCache.ecrire(cle, html),
       })
     : null;
 
@@ -317,10 +320,14 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     injecterCaret,
     clearMarkdownCache: () => {
       messages.vider();
+      blocsCache.vider();
       direct = null;
     },
     get tailleCache() {
       return messages.taille;
+    },
+    get tailleCacheBlocs() {
+      return blocsCache.taille;
     },
   };
 }

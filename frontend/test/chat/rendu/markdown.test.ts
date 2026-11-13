@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/chat/rendu/markdown.test.ts — moteur Markdown : purification au rendu partiel et final, découpe incrémentale, cache, coloration différée. */
+import * as marked from "marked";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
@@ -145,6 +146,62 @@ describe("purification", () => {
   });
 });
 
+describe("blocs figés : purification explicite", () => {
+  const bloc = (md: string): string =>
+    (m.terminerFlux(md, null)?.etat.blocs ?? []).map((b) => b.html).join("");
+
+  it("le parseur de marked appelé seul laisse passer le HTML dangereux : le crochet ne s'exécute pas", () => {
+    const html = marked.Parser.parse(
+      marked.Lexer.lex('<script>alert(1)</script>\n\n<img src=x onerror="alert(1)">'),
+    );
+    expect(html).toContain("<script>");
+    expect(html).toContain("onerror");
+  });
+
+  it.each(CHARGES)("bloc figé par le flux : %s", (charge) => {
+    const texte = "Avant\n\n" + charge + "\n\nAprès\n\nFin";
+    const r = m.avancerFlux(texte, null);
+    expect(r.etat.blocs.length).toBe(2);
+    for (const b of r.etat.blocs) sansDanger(b.html);
+    sansDanger(bloc(texte));
+    sansDanger(bloc("- liste\n\n  " + charge + "\n\nFin"));
+  });
+
+  it("contrôle d'habillage forgé : l'attribut des commandes n'atteint jamais le HTML d'un bloc figé", () => {
+    const forge =
+      '<button type="button" class="copy-btn" elpis-act="copier">x</button>\n\n<div class="code-wrapper"><div class="copy-sticky"><button elpis-act="apercu">y</button></div></div>';
+    const html = bloc(forge + "\n\n```py\nx = 1\n```\n");
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    expect(tpl.content.querySelectorAll("[elpis-act]").length).toBe(1);
+    expect(
+      tpl.content.querySelector("[elpis-act]")?.closest(".code-wrapper")?.querySelector("pre"),
+    ).not.toBeNull();
+  });
+
+  it("lien javascript: et image à gestionnaire retirés d'un bloc figé", () => {
+    const html = bloc('[clic](javascript:alert(1)) et <img src=x onerror="alert(1)>" alt="a">\n\nSuite\n');
+    sansDanger(html);
+    expect(html).not.toMatch(/javascript:/i);
+  });
+
+  it("un texte déjà vu repasse par le cache par source, sans nouveau rendu", () => {
+    const texte = "Un paragraphe **gras**.\n\nUne liste :\n\n- a\n- b\n\nFin\n";
+    m.terminerFlux(texte, null);
+    const taille = m.tailleCacheBlocs;
+    expect(taille).toBeGreaterThanOrEqual(2);
+    const encore = m.terminerFlux(texte, null);
+    expect(m.tailleCacheBlocs).toBe(taille);
+    expect(encore?.etat.blocs.map((b) => b.html).join("")).toBe(m.renderMarkdown(texte));
+  });
+
+  it("le cache par source ne sert pas un bloc à crochets quand des liens de référence existent", () => {
+    m.terminerFlux("Voir [x].\n\nFin\n", null);
+    const avec = m.terminerFlux("[x]: https://exemple.test/x\n\nVoir [x].\n\nFin\n", null);
+    expect(avec?.etat.blocs.map((b) => b.html).join("")).toContain('<a href="https://exemple.test/x">x</a>');
+  });
+});
+
 describe("rendu incrémental", () => {
   it("découpe monotone : le décalage ne recule jamais, un bloc figé ne change plus, jamais de coupe dans une fence", () => {
     const texte = "Titre\n\n```py\na = 1\n\nb = 2\n```\n\nFin du texte";
@@ -161,6 +218,16 @@ describe("rendu incrémental", () => {
     }
     expect(figes).toEqual(["Titre\n\n", "```py\na = 1\n\nb = 2\n```\n"]);
     expect(texte.slice(pos)).toBe("Fin du texte");
+  });
+
+  it("blocs figés mis en cache une fois, le delta ne repasse que le bloc actif", () => {
+    const prose = "Paragraphe **un**.\n\nParagraphe deux.\n\nTrois.\n\n";
+    m.renderMarkdownLive(prose + "en cours");
+    const taille = m.tailleCacheBlocs;
+    expect(taille).toBe(2);
+    for (let i = 0; i < 20; i++) m.renderMarkdownLive(prose + "en cours" + "x".repeat(i));
+    expect(m.tailleCacheBlocs).toBe(taille);
+    expect(m.renderMarkdown("Paragraphe **un**.")).toBe(m.renderMarkdown("Paragraphe **un**."));
   });
 
   it("le rendu live converge vers le rendu final pour de la prose", () => {

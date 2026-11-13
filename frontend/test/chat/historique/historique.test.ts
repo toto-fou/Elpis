@@ -804,6 +804,87 @@ describe("historique : suppression et actions groupées", () => {
     expect(journal).toContain("POST /api/saved/chats/c1/unarchive");
   });
 
+  it("archiver : la ligne part avant la réponse ; « Annuler » attend l'archivage avant de désarchiver", async () => {
+    let repondre: (r: Response) => void = () => {};
+    const { api, refs, journal, toasts } = monter(null, {
+      fetch: (url) =>
+        url.endsWith("/archive") ? new Promise<Response>((r) => (repondre = r)) : Promise.resolve(json({})),
+    });
+    const archivage = api.archiveChat("c2");
+    expect(refs.chats.value.map((c) => c.id)).toEqual(["c1"]);
+    expect(toasts[0]?.message).toBe("« B » archivée");
+    toasts[0]?.options?.onAction?.();
+    await Promise.resolve();
+    expect(journal.some((l) => l.endsWith("/unarchive"))).toBe(false);
+    repondre(json({}));
+    await archivage;
+    await vi.waitFor(() => expect(refs.chats.value.map((c) => c.id)).toEqual(["c1", "c2"]));
+    expect(journal.indexOf("POST /api/saved/chats/c2/archive")).toBeLessThan(
+      journal.indexOf("POST /api/saved/chats/c2/unarchive"),
+    );
+  });
+
+  it("archiver refusé par le serveur : la ligne revient à sa place, la conversation courante est rouverte, message d'erreur", async () => {
+    for (const echec of [() => Promise.resolve(json({}, 500)), () => Promise.reject(new Error("réseau"))]) {
+      const { api, refs, journal, toasts } = monter(conv([{ role: "user", content: "x" }], { id: "c1" }), {
+        courant: "c1",
+        fetch: (url) =>
+          url.endsWith("/archive")
+            ? echec()
+            : Promise.resolve(
+                json(
+                  url.includes("generation-status")
+                    ? {}
+                    : conv([{ role: "user", content: "x" }], { id: "c1" }),
+                ),
+              ),
+      });
+      await api.archiveChat("c1");
+      expect(refs.chats.value.map((c) => c.id)).toEqual(["c1", "c2"]);
+      expect(toasts.map((t) => t.message)).toEqual(["« A » archivée", "Archivage impossible"]);
+      await vi.waitFor(() => expect(refs.currentChatId.value).toBe("c1"));
+      expect(journal).toContain("GET /api/saved/chats/c1");
+      // « Annuler » après un refus : rien à défaire, aucune requête.
+      toasts[0]?.options?.onAction?.();
+      await Promise.resolve();
+      expect(journal.some((l) => l.endsWith("/unarchive"))).toBe(false);
+    }
+  });
+
+  it("renommer : titre posé avant la réponse, ancien titre et message d'erreur si le serveur refuse", async () => {
+    let repondre: (r: Response) => void = () => {};
+    const { api, refs, toasts } = monter(null, {
+      courant: "c1",
+      fetch: () => new Promise<Response>((r) => (repondre = r)),
+    });
+    refs.currentChatTitle.value = "A";
+    const ok = api._doRenameChat("c1", "  Nouveau  ");
+    expect(refs.chats.value[0]?.title).toBe("Nouveau");
+    expect(refs.currentChatTitle.value).toBe("Nouveau");
+    repondre(json({}));
+    expect(await ok).toBe(true);
+    expect(refs.chats.value[0]?.title).toBe("Nouveau");
+    const refus = api._doRenameChat("c1", "Refusé");
+    expect(refs.currentChatTitle.value).toBe("Refusé");
+    repondre(json({}, 500));
+    expect(await refus).toBe(false);
+    expect(refs.chats.value[0]?.title).toBe("Nouveau");
+    expect(refs.currentChatTitle.value).toBe("Nouveau");
+    expect(toasts.map((t) => t.message)).toEqual(["Renommage impossible"]);
+  });
+
+  it("renommer : un refus tardif n'écrase pas un titre posé entre-temps", async () => {
+    const reponses: ((r: Response) => void)[] = [];
+    const { api, refs } = monter(null, { fetch: () => new Promise<Response>((r) => reponses.push(r)) });
+    const premier = api._doRenameChat("c2", "Un");
+    const second = api._doRenameChat("c2", "Deux");
+    reponses[0]?.(json({}, 500));
+    await premier;
+    expect(refs.chats.value[1]?.title).toBe("Deux");
+    reponses[1]?.(json({}));
+    expect(await second).toBe(true);
+  });
+
   it("archiver une sélection : sans question, toast « Annuler » qui désarchive chaque conversation", async () => {
     const { api, refs, journal, toasts } = monter(null, {
       confirmer: false,

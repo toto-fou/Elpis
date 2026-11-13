@@ -510,53 +510,57 @@ export function creerHistoriqueChat(
     }
   }
 
-  // Réversible : l'archivage part sans question, « Annuler » le défait.
+  // Réversible et optimiste : la ligne part tout de suite, « Annuler » le défait, un refus du serveur la remet.
   async function archiveChat(id: string): Promise<void> {
     if (!id) return;
     const idStr = String(id);
-    try {
-      const res = await fetchAuth("/api/saved/chats/" + id + "/archive", { method: "POST" });
-      if (!res || !res.ok) {
-        showToast("Archivage impossible", "error");
-        return;
-      }
-      const idx = chats.value.findIndex((c) => String(c.id) === idStr);
-      const retire = idx >= 0 ? (chats.value[idx] as ResumeChat) : null;
-      chats.value = chats.value.filter((c) => String(c.id) !== idStr);
-      if (String(currentChatId.value) === idStr) void startNewChat();
-      const titre = retire?.title ? `« ${retire.title} » archivée` : "Conversation archivée";
-      showToast(titre, "success", {
-        duration: 6000,
-        actionLabel: "Annuler",
-        onAction: () =>
-          void desarchiver([idStr], () => {
-            if (retire && !chats.value.some((c) => String(c.id) === idStr))
-              chats.value.splice(Math.min(idx, chats.value.length), 0, retire);
-          }),
-      });
-    } catch {
-      showToast("Archivage impossible", "error");
-    }
+    const idx = chats.value.findIndex((c) => String(c.id) === idStr);
+    const retire = idx >= 0 ? (chats.value[idx] as ResumeChat) : null;
+    const remettre = (): void => {
+      if (retire && !chats.value.some((c) => String(c.id) === idStr))
+        chats.value.splice(Math.min(idx, chats.value.length), 0, retire);
+    };
+    const etaitCourant = String(currentChatId.value) === idStr;
+    const envoi = fetchAuth("/api/saved/chats/" + id + "/archive", { method: "POST" }).then(
+      (r) => !!r && r.ok,
+      () => false,
+    );
+    if (idx >= 0) chats.value.splice(idx, 1);
+    if (etaitCourant) void startNewChat();
+    showToast(retire?.title ? `« ${retire.title} » archivée` : "Conversation archivée", "success", {
+      duration: 6000,
+      actionLabel: "Annuler",
+      onAction: () => void envoi.then((ok) => (ok ? desarchiver([idStr], remettre) : undefined)),
+    });
+    if (await envoi) return;
+    remettre();
+    if (etaitCourant) void loadChat(idStr);
+    showToast("Archivage impossible", "error");
   }
 
+  // Optimiste : le titre change tout de suite et revient si le serveur refuse (sauf s'il a changé entre-temps).
   async function _doRenameChat(id: string, nouveau: string): Promise<boolean> {
     const title = (nouveau || "").trim();
     if (!title) return false;
+    const chat = chats.value.find((c) => String(c.id) === String(id));
+    const avant = chat?.title;
+    const courant = String(currentChatId.value) === String(id);
+    const avantCourant = currentChatTitle.value;
+    if (chat) chat.title = title;
+    if (courant) currentChatTitle.value = title;
     try {
       const res = await fetchAuth("/api/saved/chats/" + id, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       });
-      if (res && res.ok) {
-        const chat = chats.value.find((c) => String(c.id) === String(id));
-        if (chat) chat.title = title;
-        if (String(currentChatId.value) === String(id)) currentChatTitle.value = title;
-        return true;
-      }
+      if (res && res.ok) return true;
     } catch {
-      /* non fatal */
+      /* refus traité plus bas */
     }
+    if (chat && avant !== undefined && chat.title === title) chat.title = avant;
+    if (courant && currentChatTitle.value === title) currentChatTitle.value = avantCourant;
+    showToast("Renommage impossible", "error");
     return false;
   }
 

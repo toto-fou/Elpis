@@ -71,6 +71,7 @@ function monter() {
     rappels,
     {
       session,
+      creerCanal: null,
       creerSource: () => {
         const s = new FausseSource();
         sources.push(s);

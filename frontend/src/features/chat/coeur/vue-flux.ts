@@ -789,6 +789,13 @@ export function creerVueFlux(c: CoeurChat) {
       }
   }
 
+  // Outil Playwright sans capture (captures d'étape éteintes, échec) : la dernière vignette n'en attend plus.
+  function finirAttenteCapture(t: Tour): void {
+    const caps = t.msgs[t.idx]?.webScreenshots;
+    if (caps?.some((s) => s.pending))
+      l.patch(t.idx, { webScreenshots: caps.map((s) => (s.pending ? { ...s, pending: false } : s)) });
+  }
+
   // Capture d'écran d'un outil Playwright : téléchargée en blob, révoquée si le chat ou le message a changé.
   function capturerEcran(t: Tour, nom: string, steps: EtapeChat[]): void {
     const d = t.data;
@@ -954,7 +961,10 @@ export function creerVueFlux(c: CoeurChat) {
     const libelleRag = rag ? ragResultLabel(nom, d.result) : "";
     apparier(steps, d, (s) => terminerEtape(s, d, erreur, libelleRag));
     l.patch(t.idx, { toolSteps: steps, _statusLine: "" });
-    if (d["screenshot_url"] && nom.startsWith("pw_")) capturerEcran(t, nom, steps);
+    if (nom.startsWith("pw_")) {
+      if (d["screenshot_url"]) capturerEcran(t, nom, steps);
+      else finirAttenteCapture(t);
+    }
     if (rag) e.statusText.value = libelleRag;
     let chemin = rag ? null : chaine(d["path"]) || e.pendingWrite.value?.path || null;
     if (chemin) chemin = sousRacine(chemin, r.settings.value.sandbox_path_display);

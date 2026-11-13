@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/CapturesWeb.vue — carrousel des captures du navigateur d'un message (déroulé classique) : vignette, agrandie, navigation ; captures prises seulement si « Captures d'étape du navigateur » est allumé. -->
+<!-- frontend/src/components/chat/message/CapturesWeb.vue — carrousel des captures du navigateur d'un message (déroulé classique) : vignette, agrandie, navigation ; captures demandées par l'agent, et d'étape si « Captures d'étape du navigateur » est allumé. -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
 

@@ -42,18 +42,43 @@ function refuserStockage(): void {
   vi.stubGlobal("localStorage", { getItem: refus, setItem: refus });
 }
 
-/** Fin de chargement des liens posés : happy-dom ne charge ni feuille ni police préchargée. */
+/** Fin de chargement des liens posés (happy-dom ne charge ni feuille ni police) : une feuille chargée a son `sheet`. */
 function charges(): void {
-  for (const l of document.head.querySelectorAll("link[data-habillage]")) l.dispatchEvent(new Event("load"));
+  for (const l of document.head.querySelectorAll<HTMLLinkElement>("link[data-habillage]")) {
+    if (l.rel === "stylesheet" && !l.sheet)
+      Object.defineProperty(l, "sheet", { value: { disabled: false }, configurable: true });
+    l.dispatchEvent(new Event("load"));
+  }
 }
 
-/** Classes posées par le script du cœur sur un body vierge, et le HTML qu'il écrit dans la page. */
-function rejouerScript(sombreSysteme = false): { classes: string[]; ecrit: string[] } {
+/** Classes posées par le script du cœur sur un body vierge, et le HTML qu'il écrit, placé juste après le modèle (début) ou en fin de tête (fin). */
+function rejouerScript(
+  sombreSysteme = false,
+  ou: "debut" | "fin" = "debut",
+): { classes: string[]; ecrit: string[] } {
   document.body.className = "";
   const ecrit: string[] = [];
+  const ajoutes: Element[] = [];
+  let modele = document.getElementById("elpis-habillages");
+  if (!modele) {
+    modele = document.createElement("template");
+    modele.id = "elpis-habillages";
+    document.head.append(modele);
+    ajoutes.push(modele);
+  }
+  const ici = document.createElement("script");
+  if (ou === "debut") modele.after(ici);
+  else {
+    const avant = document.createElement("meta");
+    document.head.append(avant, ici);
+    ajoutes.push(avant);
+  }
+  ajoutes.push(ici);
+  vi.spyOn(document, "currentScript", "get").mockReturnValue(ici);
   vi.spyOn(document, "write").mockImplementation((...html: string[]) => void ecrit.push(html.join("")));
   vi.spyOn(window, "matchMedia").mockReturnValue({ matches: sombreSysteme } as MediaQueryList);
   new Function(SCRIPT_HABILLAGE)();
+  for (const e of ajoutes) e.remove();
   return { classes: [...document.body.classList].sort(), ecrit };
 }
 
@@ -102,8 +127,9 @@ describe("mémoire du navigateur", () => {
       dark_mode: false,
       dark_mode_auto: false,
     });
-    await poserHabillage({ ...TERMINAL, palette: "nuit", mode: "system", base: true, feuilles: ["/f.css"] });
-    expect(lireMemoire()).toEqual({ id: "terminal", p: "nuit", m: "system", b: true, f: ["/f.css"] });
+    const f = "/api/skins/perso/f/skin.css?v=1";
+    await poserHabillage({ ...TERMINAL, palette: "nuit", mode: "system", base: true, feuilles: [f] });
+    expect(lireMemoire()).toEqual({ id: "terminal", p: "nuit", m: "system", b: true, f: [f] });
     expect(reglagesHabillage()).toEqual({
       skin: "terminal",
       skin_palette: "nuit",
@@ -115,8 +141,12 @@ describe("mémoire du navigateur", () => {
   it("valeur illisible ou stockage refusé : aucune mémoire, rien ne casse", async () => {
     localStorage.setItem(CLE_HABILLAGE, "{pas du json");
     expect(lireMemoire()).toBeNull();
-    localStorage.setItem(CLE_HABILLAGE, JSON.stringify({ id: "elpis", m: "rose", f: [1, "/a.css"] }));
-    expect(lireMemoire()).toEqual({ id: "elpis", p: "", m: "light", b: false, f: ["/a.css"] });
+    const servie = "/api/skins/x/skin.css?v=3a";
+    localStorage.setItem(
+      CLE_HABILLAGE,
+      JSON.stringify({ id: "elpis", m: "rose", f: [1, "/a.css", "https://ailleurs/x.css", servie] }),
+    );
+    expect(lireMemoire()).toEqual({ id: "elpis", p: "", m: "light", b: false, f: [servie] });
     refuserStockage();
     expect(lireMemoire()).toBeNull();
     await expect(poserHabillage(TERMINAL)).resolves.toBeUndefined();
@@ -161,8 +191,9 @@ describe("script d'avant le premier rendu (apps/core/src/interface/pages.ts)", (
       sombre: false,
       feuilles: [url],
     });
-    expect(rejouerScript()).toEqual({
-      classes: ["elpis-skin-perso"],
+    expect(rejouerScript()).toEqual({ classes: ["elpis-skin-perso"], ecrit: [] });
+    expect(rejouerScript(false, "fin")).toEqual({
+      classes: [],
       ecrit: [`<link rel="stylesheet" id="elpis-plugin-skin" data-habillage href="${url}">`],
     });
     localStorage.setItem(
@@ -253,6 +284,22 @@ describe("feuilles de l'habillage actif seulement (modèle de la page)", () => {
     await retour;
     expect(document.getElementById("elpis-plugin-skin")).toBeNull();
     expect(poses()).not.toContain(url);
+  });
+
+  it("feuille servie : en fin de tête, après Tailwind", async () => {
+    await poserHabillage({ ...TERMINAL, id: "perso:x", feuilles: ["/api/skins/perso/x/skin.css?v=1"] });
+    expect(document.head.lastElementChild?.getAttribute("href")).toBe("/api/skins/perso/x/skin.css?v=1");
+  });
+
+  it("feuille en échec : un nouveau lien la retente à la bascule suivante", async () => {
+    const elpis = { ...TERMINAL, id: "elpis", sombre: false, mode: "light" } as const;
+    await poserHabillage(elpis);
+    const echec = document.head.querySelector(`link[href="static/css/skins/elpis/skin.css${V}"]`);
+    await poserHabillage({ ...elpis, palette: "argile" });
+    const liens = document.head.querySelectorAll(`link[href="static/css/skins/elpis/skin.css${V}"]`);
+    expect(liens).toHaveLength(1);
+    expect(liens[0]).not.toBe(echec);
+    expect(echec?.isConnected).toBe(false);
   });
 
   it("avecFeuilles : lit une fois les feuilles d'un skin chargées, sans changer d'habillage", async () => {

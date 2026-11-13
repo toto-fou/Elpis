@@ -31,6 +31,8 @@ export interface MemoireHabillage {
 const MOTIF_PALETTE = /^[a-z][a-z0-9_-]{1,31}$/;
 const GEREES = /^elpis-(?:skin-|palette-|app-dark$|dark-surface$)/;
 const MODES: readonly unknown[] = ["system", "light", "dark"];
+/** Feuille servie par le cœur, seule forme admise depuis le stockage (même motif que le script d'avant le rendu). */
+const MOTIF_SERVIE = /^\/api\/skins\/[\w/.-]+\.css(?:\?v=[\w.-]*)?$/;
 /** Modèle inerte des feuilles des skins intégrés (index.html, admin.html). */
 const ID_MODELE = "elpis-habillages";
 const ID_SERVIE = "elpis-plugin-skin";
@@ -57,7 +59,7 @@ export function lireMemoire(): MemoireHabillage | null {
       p: typeof o["p"] === "string" ? o["p"] : "",
       m: MODES.includes(o["m"]) ? (o["m"] as ModeTheme) : "light",
       b: o["b"] === true,
-      f: Array.isArray(f) ? f.filter((x): x is string => typeof x === "string") : [],
+      f: Array.isArray(f) ? f.filter((x): x is string => typeof x === "string" && MOTIF_SERVIE.test(x)) : [],
     };
   } catch {
     return null;
@@ -75,10 +77,13 @@ export function reglagesHabillage() {
   };
 }
 
-/** Lien de la tête pour `href` et `rel`, posé au besoin juste après le modèle ; chargé, il reste inerte tant qu'il n'est pas actif. */
+/** Lien de la tête pour `href` et `rel` (une feuille en échec est retentée), posé au besoin après le modèle ou, servi, en fin de tête ; chargé, il reste inerte tant qu'il n'est pas actif. */
 function lien(href: string, rel: string, modele?: Element): HTMLLinkElement {
-  for (const l of document.head.querySelectorAll<HTMLLinkElement>("link[data-habillage]"))
-    if (l.getAttribute("href") === href && l.rel === rel) return l;
+  for (const l of document.head.querySelectorAll<HTMLLinkElement>("link[data-habillage]")) {
+    if (l.getAttribute("href") !== href || l.rel !== rel) continue;
+    if (rel !== "stylesheet" || l.sheet || chargements.has(l)) return l;
+    l.remove();
+  }
   const l = modele ? (document.importNode(modele) as HTMLLinkElement) : document.createElement("link");
   if (!modele) {
     l.rel = rel;
@@ -97,7 +102,7 @@ function lien(href: string, rel: string, modele?: Element): HTMLLinkElement {
       l.addEventListener("error", finir, { once: true });
     }),
   );
-  const ancre = document.getElementById(ID_MODELE);
+  const ancre = modele ? document.getElementById(ID_MODELE) : null;
   if (ancre) ancre.after(l);
   else document.head.append(l);
   return l;

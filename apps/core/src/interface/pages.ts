@@ -23,24 +23,27 @@ const HABILLAGE = /<!--\s*@habillage\s*-->/g;
 /** Mode de la CSP des pages (`security.csp` de config.json) : appliquée, signalée seulement, ou absente. */
 export type ModeCsp = "enforce" | "report-only" | "off";
 
-/** Script d'avant le premier rendu (marqueur `@habillage`, après le modèle `elpis-habillages`) : feuilles, police et classes du body du dernier habillage gardé par frontend/src/features/reglages/habillage.ts, Elpis clair sinon. */
+/** Script d'avant le premier rendu (marqueur `@habillage`) du dernier habillage gardé par frontend/src/features/reglages/habillage.ts, Elpis clair sinon : juste après le modèle `elpis-habillages`, feuilles, police et classes du body ; ailleurs (fin de tête), feuille servie. */
 export const SCRIPT_HABILLAGE = `(() => {
   try {
     let m = null;
     try { m = JSON.parse(localStorage.getItem("elpis-habillage")); } catch {}
     if (!m || typeof m.id !== "string") m = { id: "elpis" };
     const skin = m.id.startsWith("perso:") ? "perso" : m.id;
+    const modele = document.currentScript.previousElementSibling;
+    if (!modele || modele.id !== "elpis-habillages") {
+      for (const f of Array.isArray(m.f) ? m.f : [])
+        if (/^\\/api\\/skins\\/[\\w\\/.-]+\\.css(\\?v=[\\w.-]*)?$/.test(f))
+          document.write('<link rel="stylesheet" id="elpis-plugin-skin" data-habillage href="' + f + '">');
+      return;
+    }
     const c = [];
     if (/^[a-z][a-z0-9_-]{0,31}$/.test(skin)) c.push("elpis-skin-" + skin);
     if (typeof m.p === "string" && /^[a-z][a-z0-9_-]{1,31}$/.test(m.p)) c.push("elpis-palette-" + m.p);
     const sombre = m.m === "dark" || (m.m === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
     if (sombre) c.push("elpis-app-dark");
     if (sombre || m.b === true) c.push("elpis-dark-surface");
-    const modele = document.getElementById("elpis-habillages");
-    if (modele) for (const l of modele.content.querySelectorAll("link")) if (l.dataset.habillage === skin) document.write(l.outerHTML);
-    for (const f of Array.isArray(m.f) ? m.f : [])
-      if (/^\\/api\\/skins\\/[\\w\\/.-]+\\.css(\\?v=[\\w.-]*)?$/.test(f))
-        document.write('<link rel="stylesheet" id="elpis-plugin-skin" data-habillage href="' + f + '">');
+    for (const l of modele.content.querySelectorAll("link")) if (l.dataset.habillage === skin) document.write(l.outerHTML);
     const poser = () => document.body.classList.add(...c);
     if (document.body) poser();
     else new MutationObserver((_, o) => { if (document.body) { o.disconnect(); poser(); } }).observe(document.documentElement, { childList: true });

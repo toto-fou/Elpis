@@ -140,11 +140,6 @@ export function setupChatSystemSSE(
     }, 60000);
   }
 
-  function stopModelPolling(): void {
-    if (arreterSondage) arreterSondage();
-    arreterSondage = null;
-  }
-
   /** Rejoint les onglets du compte (un seul tient le flux), sinon ouvre le sien ; déjà fait : rien. */
   function connectSystemEvents(): void {
     if (!user.value || meneur) return;
@@ -376,10 +371,5 @@ export function setupChatSystemSSE(
   possesseur();
   demarrerSondageModeles();
 
-  return {
-    connectSystemEvents,
-    disconnectSystemEvents,
-    stopModelPolling,
-    _modelPollTimer: null,
-  };
+  return { connectSystemEvents, disconnectSystemEvents };
 }

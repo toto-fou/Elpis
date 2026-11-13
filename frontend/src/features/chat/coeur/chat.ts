@@ -623,7 +623,6 @@ export function setupChat(
     ...moduleImages,
     ...jobs,
     ...detailsRun,
-    _modelPollTimer: sse._modelPollTimer,
     chats: e.chats,
     currentChatTitle: e.currentChatTitle,
     titleFlash: e.titleFlash,

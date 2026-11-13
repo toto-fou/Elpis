@@ -140,8 +140,9 @@ export function creerRechercheChat(
   watch(chatSearch, (val) => {
     if (minuteurRecherche) clearTimeout(minuteurRecherche);
     minuteurRecherche = null;
+    // Chaque frappe périme la requête en vol : sa réponse n'écrit plus rien.
+    const seq = ++sequence;
     if (!val || !String(val).trim()) {
-      sequence++;
       chatSearchResults.value = [];
       isSearchingChats.value = false;
       return;
@@ -152,7 +153,7 @@ export function creerRechercheChat(
     isSearchingChats.value = true;
     minuteurRecherche = setTimeout(() => {
       minuteurRecherche = null;
-      void chercher(String(val), ++sequence);
+      void chercher(String(val), seq);
     }, DELAI_RECHERCHE_MS);
   });
 

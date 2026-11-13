@@ -1313,6 +1313,31 @@ describe("recherche", () => {
     expect(r.chatSearchResults.value).toEqual([]);
   });
 
+  it("historique : la réponse d'une requête dépassée, arrivée pendant l'attente de la suivante, ne s'affiche pas", async () => {
+    vi.useFakeTimers();
+    const reponses = new Map<string, (r: Response) => void>();
+    const r = monterRecherche(
+      (url) =>
+        new Promise<Response>((resoudre) => {
+          reponses.set(decodeURIComponent(url.split("q=")[1] ?? ""), resoudre);
+        }),
+    );
+    const saisie = r.chatSearch as Ref<string | null>;
+    saisie.value = "co";
+    await vi.advanceTimersByTimeAsync(DELAI_RECHERCHE_MS + 1);
+    saisie.value = "con";
+    await vi.advanceTimersByTimeAsync(50);
+    reponses.get("co")?.(json({ items: [{ id: "x", title: "Copie" }] }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(r.chatSearchResults.value).toEqual([]);
+    expect(r.isSearchingChats.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(DELAI_RECHERCHE_MS);
+    reponses.get("con")?.(json({ items: [{ id: "y", title: "Contrat" }] }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(r.chatSearchResults.value.map((x) => x.title)).toEqual(["Contrat"]);
+    expect(r.isSearchingChats.value).toBe(false);
+  });
+
   it("fusion : titres du volet d'abord et dans leur ordre, puis ceux du serveur à la suite, sans doublon", () => {
     const volet = [
       { id: "1", title: "Court 10" },

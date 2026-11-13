@@ -1,0 +1,387 @@
+// SPDX-License-Identifier: MIT
+/** frontend/src/features/chat/rendu/flux-blocs.ts — découpe du texte d'un flux en blocs figés par le lexer de marked : mêmes blocs que le rendu complet, liens de référence partagés, reprise d'un texte final qui diffère du texte diffusé. */
+
+export type Liens = Record<string, { href: string; title?: string | undefined }>;
+
+export interface JetonMarked {
+  type: string;
+  raw: string;
+}
+
+/** Sous-ensemble du `Lexer` de marked utilisé : la table des liens est posée avant l'analyse et partagée entre les appels. */
+export interface LexeurMarked {
+  tokens: { links: Liens };
+  lex(src: string): JetonMarked[];
+}
+
+export interface BlocFlux {
+  i: number;
+  html: string;
+  /** Texte source du bloc, jusqu'au début du bloc suivant. */
+  src: string;
+  /** Décalage du premier caractère du bloc suivant. */
+  fin: number;
+  /** Décalage jusqu'où le texte décide du bloc : la fin de la première ligne du bloc suivant. */
+  lim: number;
+}
+
+/** État de découpe d'un texte : blocs figés, décalage du premier caractère non figé, liens de référence vus, taille du dernier texte analysé, textes (préparé, puis tel que reçu) sur lesquels il repose. */
+export interface EtatFlux {
+  blocs: readonly BlocFlux[];
+  pos: number;
+  liens: Liens;
+  lexe: number;
+  /** Fin des lignes complètes déjà analysées sans qu'un bloc se fige : sans ligne de plus, l'analyse ne change pas. */
+  horizon: number;
+  texte: string;
+  source: string;
+}
+
+export interface DependancesFlux {
+  nouveauLexeur(): LexeurMarked;
+  /** Rendu complet d'une suite de jetons : parseur, purification et habillage du code. */
+  rendre(jetons: readonly JetonMarked[]): string;
+  lireCache(cle: string): string | undefined;
+  ecrireCache(cle: string, html: string): void;
+}
+
+export interface Avancee {
+  etat: EtatFlux;
+  /** Texte du bloc actif : du dernier jeton non figé à la fin du texte, ligne inachevée comprise. */
+  actif: string;
+}
+
+const TOURS_MAX = 500;
+const ANALYSE_MAX = 36000;
+const CROISSANCE_ANALYSE = 1.2;
+const GROUPE_HTML_MAX = 8000;
+const OUVRANT_FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const BALISE_HTML = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w:-]*)(?:"[^"]*"|'[^']*'|[^'">])*?(\/?)>/g;
+const BALISES_VIDES = new Set(
+  "area base br col embed hr img input link meta param source track wbr".split(" "),
+);
+const FIN_OPTIONNELLE = new Set(
+  "p li dt dd tr td th thead tbody tfoot option optgroup colgroup caption rt rp".split(" "),
+);
+
+/** Texte tel que le rendu complet le lit : sauts de ligne normalisés, blancs de tête retirés (stable d'un appel à l'autre pendant le flux). */
+export function preparerTexte(texte: string): string {
+  const s = texte.indexOf("\r") === -1 ? texte : texte.replace(/\r\n?/g, "\n");
+  return s.replace(/^\s+/, "");
+}
+
+export function etatVide(): EtatFlux {
+  return {
+    blocs: [],
+    pos: 0,
+    liens: Object.create(null) as Liens,
+    lexe: 0,
+    horizon: 0,
+    texte: "",
+    source: "",
+  };
+}
+
+function nbLiens(liens: Liens): number {
+  let n = 0;
+  for (const _ in liens) n++;
+  return n;
+}
+
+function memesLiens(a: Liens, b: Liens): boolean {
+  const cles = Object.keys(a);
+  return (
+    cles.length === Object.keys(b).length &&
+    cles.every((c) => b[c]?.href === a[c]?.href && b[c]?.title === a[c]?.title)
+  );
+}
+
+function blanche(t: string, a: number, b: number): boolean {
+  for (let i = a; i < b; i++) {
+    const c = t.charCodeAt(i);
+    if (c !== 32 && c !== 9) return false;
+  }
+  return true;
+}
+
+/** Premier décalage après `p` qui n'est pas au début d'une ligne blanche complète. */
+function sauterBlanches(t: string, p: number): number {
+  while (p < t.length) {
+    const nl = t.indexOf("\n", p);
+    if (nl === -1 || !blanche(t, p, nl)) return p;
+    p = nl + 1;
+  }
+  return p;
+}
+
+function estFermeture(t: string, a: number, b: number, car: string, n: number): boolean {
+  let i = a;
+  while (i < b && i - a < 3 && t.charCodeAt(i) === 32) i++;
+  const debut = i;
+  while (i < b && t[i] === car) i++;
+  return i - debut >= n && blanche(t, i, b);
+}
+
+interface Fence {
+  fermee: boolean;
+  /** Décalage du saut de ligne qui termine la ligne de fermeture. */
+  fin: number;
+}
+
+/** Fence qui ouvre le texte restant (lignes blanches mises à part) : fermée par une ligne complète, ou encore ouverte ; `null` sinon. */
+export function lireFence(t: string, pos: number): Fence | null {
+  let i = pos;
+  while (i < t.length) {
+    const nl = t.indexOf("\n", i);
+    if (!blanche(t, i, nl === -1 ? t.length : nl)) break;
+    if (nl === -1) return null;
+    i = nl + 1;
+  }
+  if (i >= t.length) return null;
+  const nl1 = t.indexOf("\n", i);
+  const ouvrante = t.slice(i, nl1 === -1 ? t.length : nl1);
+  const m = OUVRANT_FENCE.exec(ouvrante);
+  if (!m) return null;
+  const marque = m[1] ?? "";
+  const car = marque.charAt(0);
+  if (car === "`" && ouvrante.indexOf("`", m[0].length) !== -1) return null;
+  let j = nl1 === -1 ? -1 : nl1 + 1;
+  while (j !== -1 && j < t.length) {
+    const nl = t.indexOf("\n", j);
+    if (nl === -1) break;
+    if (estFermeture(t, j, nl, car, marque.length)) return { fermee: true, fin: nl };
+    j = nl + 1;
+  }
+  return { fermee: false, fin: -1 };
+}
+
+/** Met à jour la pile des éléments HTML restés ouverts après un bloc HTML de premier niveau (balises vides, à fin facultative et commentaires exclus ; une fermeture sans ouverture est ignorée). */
+function empilerHtml(raw: string, pile: string[]): void {
+  BALISE_HTML.lastIndex = 0;
+  for (let m = BALISE_HTML.exec(raw); m; m = BALISE_HTML.exec(raw)) {
+    const nom = (m[2] ?? "").toLowerCase();
+    if (!nom || BALISES_VIDES.has(nom) || FIN_OPTIONNELLE.has(nom) || m[3] === "/") continue;
+    if (!m[1]) pile.push(nom);
+    else {
+      const k = pile.lastIndexOf(nom);
+      if (k !== -1) pile.length = k;
+    }
+  }
+}
+
+interface Groupe {
+  debut: number;
+  jetons: JetonMarked[];
+  longueur: number;
+}
+
+/** Jetons regroupés en blocs : un bloc HTML qui laisse un élément ouvert garde avec lui les jetons jusqu'à sa fermeture, comme le rendu complet. */
+function grouper(jetons: readonly JetonMarked[], departs: readonly number[]): Groupe[] {
+  const groupes: Groupe[] = [];
+  let ouvert: Groupe | null = null;
+  let pile: string[] = [];
+  for (let k = 0; k < jetons.length; k++) {
+    const j = jetons[k];
+    if (!j) continue;
+    if (j.type === "space") {
+      ouvert?.jetons.push(j);
+      continue;
+    }
+    if (!ouvert) {
+      ouvert = { debut: departs[k] ?? 0, jetons: [], longueur: 0 };
+      groupes.push(ouvert);
+      pile = [];
+    }
+    ouvert.jetons.push(j);
+    ouvert.longueur += j.raw.length;
+    if (j.type === "html") empilerHtml(j.raw, pile);
+    if (pile.length === 0 || ouvert.longueur > GROUPE_HTML_MAX) ouvert = null;
+  }
+  return groupes;
+}
+
+/** Décalage de début de chaque jeton dans `t` ; les définitions de liens, avalées par le lexer, laissent des trous que l'on saute ligne à ligne. */
+function departsDesJetons(
+  t: string,
+  pos: number,
+  fin: number,
+  jetons: readonly JetonMarked[],
+): number[] | null {
+  const departs: number[] = [];
+  let c = pos;
+  for (const j of jetons) {
+    let d = t.startsWith(j.raw, c) ? c : -1;
+    for (let k = c; d === -1;) {
+      const nl = t.indexOf("\n", k);
+      if (nl === -1 || nl >= fin) break;
+      k = nl + 1;
+      if (t.startsWith(j.raw, k)) d = k;
+    }
+    if (d === -1) d = t.indexOf(j.raw, c);
+    if (d === -1) return null;
+    departs.push(d);
+    c = d + j.raw.length;
+  }
+  return departs;
+}
+
+export function creerFlux(dep: DependancesFlux) {
+  function lexer(src: string, liens: Liens): JetonMarked[] {
+    const lx = dep.nouveauLexeur();
+    lx.tokens.links = liens;
+    return lx.lex(src);
+  }
+
+  // Le cache par source ne vaut que si le rendu ne dépend pas des liens de référence.
+  function htmlDe(src: string, jetons: readonly JetonMarked[], liens: Liens): string {
+    const cachable = !src.includes("[") || nbLiens(liens) === 0;
+    if (cachable) {
+      const deja = dep.lireCache(src);
+      if (deja !== undefined) return deja;
+    }
+    const html = dep.rendre(jetons);
+    if (cachable) dep.ecrireCache(src, html);
+    return html;
+  }
+
+  function bloc(
+    t: string,
+    i: number,
+    debut: number,
+    fin: number,
+    lim: number,
+    jetons: readonly JetonMarked[],
+    liens: Liens,
+  ): BlocFlux {
+    const src = t.slice(debut, fin);
+    return { i, html: htmlDe(src, jetons, liens), src, fin, lim };
+  }
+
+  /** Fige les groupes de `pos` à `fin` (tous, ou tous sauf le dernier) ; rend le nouveau décalage, ou `null` si les décalages des jetons sont illisibles. */
+  function figerRegion(
+    t: string,
+    pos: number,
+    fin: number,
+    liens: Liens,
+    nouveaux: BlocFlux[],
+    base: number,
+    garderDernier: boolean,
+  ): number | null {
+    const jetons = lexer(t.slice(pos, fin), liens);
+    const departs = departsDesJetons(t, pos, fin, jetons);
+    if (!departs) return null;
+    const groupes = grouper(jetons, departs);
+    if (groupes.length === 0) return fin;
+    const nb = garderDernier ? groupes.length - 1 : groupes.length;
+    for (let g = 0; g < nb; g++) {
+      const gr = groupes[g];
+      if (!gr) continue;
+      const suivant = groupes[g + 1]?.debut;
+      const suite = suivant ?? fin;
+      // Le bloc ne dépend que du texte jusqu'à la fin de la première ligne du bloc suivant.
+      const nl = suivant === undefined ? -1 : t.indexOf("\n", suivant);
+      const lim = nl === -1 || nl >= fin ? fin : nl + 1;
+      nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suite, lim, gr.jetons, liens));
+    }
+    return garderDernier ? (groupes[groupes.length - 1]?.debut ?? pos) : fin;
+  }
+
+  /** Re-rend, avec les liens connus à présent, les blocs dont la source contient un crochet. */
+  function rerendreLiens(blocs: readonly BlocFlux[], liens: Liens): BlocFlux[] {
+    return blocs.map((b) => {
+      if (!b.src.includes("[")) return b;
+      const html = dep.rendre(lexer(b.src, liens));
+      return html === b.html ? b : { ...b, html };
+    });
+  }
+
+  function avancer(t: string, etat: EtatFlux): Avancee {
+    const liens = etat.liens;
+    const avant = nbLiens(liens);
+    const nouveaux: BlocFlux[] = [];
+    let pos = etat.pos;
+    let lexe = etat.lexe;
+    let horizon = etat.horizon;
+    for (let tours = 0; pos < t.length && tours < TOURS_MAX; tours++) {
+      const fence = lireFence(t, pos);
+      if (fence) {
+        if (!fence.fermee) break;
+        const fin = sauterBlanches(t, fence.fin + 1);
+        const jetons = lexer(t.slice(pos, fence.fin), liens);
+        nouveaux.push(bloc(t, etat.blocs.length + nouveaux.length, pos, fin, fin, jetons, liens));
+        pos = fin;
+        continue;
+      }
+      const nl = t.lastIndexOf("\n");
+      if (nl < pos || (nl + 1 === horizon && pos === etat.pos)) break;
+      const taille = nl + 1 - pos;
+      if (taille > ANALYSE_MAX && taille < lexe * CROISSANCE_ANALYSE) break;
+      lexe = taille;
+      const suite = figerRegion(t, pos, nl + 1, liens, nouveaux, etat.blocs.length, true);
+      if (suite === null) break;
+      if (suite === pos) {
+        horizon = nl + 1;
+        break;
+      }
+      pos = suite;
+      horizon = 0;
+    }
+    let blocs: readonly BlocFlux[] = nouveaux.length ? [...etat.blocs, ...nouveaux] : etat.blocs;
+    if (nbLiens(liens) > avant && blocs.some((b) => b.src.includes("["))) blocs = rerendreLiens(blocs, liens);
+    return { etat: { blocs, pos, liens, lexe, horizon, texte: t, source: etat.source }, actif: t.slice(pos) };
+  }
+
+  /** Fin du texte : le bloc actif est figé avec les autres, le texte est entièrement consommé. */
+  function terminer(t: string, etat: EtatFlux): Avancee {
+    const courant = avancer(t, etat).etat;
+    const liens = courant.liens;
+    const avant = nbLiens(liens);
+    const nouveaux: BlocFlux[] = [];
+    const base = courant.blocs.length;
+    const reste = t.slice(courant.pos);
+    if (reste.trim() !== "" && figerRegion(t, courant.pos, t.length, liens, nouveaux, base, false) === null) {
+      nouveaux.length = 0;
+      nouveaux.push(bloc(t, base, courant.pos, t.length, t.length, lexer(reste, liens), liens));
+    }
+    let blocs: readonly BlocFlux[] = nouveaux.length ? [...courant.blocs, ...nouveaux] : courant.blocs;
+    if (nbLiens(liens) > avant && blocs.some((b) => b.src.includes("["))) blocs = rerendreLiens(blocs, liens);
+    return {
+      etat: { blocs, pos: t.length, liens, lexe: courant.lexe, horizon: 0, texte: t, source: etat.source },
+      actif: "",
+    };
+  }
+
+  /** Reprise sur un texte qui ne prolonge pas celui de l'état : les blocs de tête dont la source est inchangée sont gardés, le reste est redécoupé. */
+  function reprendre(t: string, etat: EtatFlux): EtatFlux {
+    const ancien = etat.texte;
+    if (t.startsWith(ancien)) return etat;
+    let commun = 0;
+    const max = Math.min(ancien.length, t.length);
+    while (commun < max && ancien.charCodeAt(commun) === t.charCodeAt(commun)) commun++;
+    let n = 0;
+    while (n < etat.blocs.length && (etat.blocs[n]?.lim ?? Infinity) <= commun) n++;
+    const gardes = etat.blocs.slice(0, n);
+    const liens = Object.create(null) as Liens;
+    for (const b of gardes) if (b.src.includes("[")) lexer(b.src, liens);
+    const blocs = memesLiens(liens, etat.liens) ? gardes : rerendreLiens(gardes, liens);
+    return {
+      blocs,
+      pos: n ? (gardes[n - 1]?.fin ?? 0) : 0,
+      liens,
+      lexe: 0,
+      horizon: 0,
+      texte: t,
+      source: etat.source,
+    };
+  }
+
+  return { avancer, terminer, reprendre };
+}
+
+/** Blocs affichés : les blocs figés puis, s'il existe, le bloc actif sous la clé du prochain bloc figé (son nœud devient celui du bloc figé). */
+export function listerBlocs<T extends { i: number; html: string }>(
+  blocs: readonly T[],
+  actif: string,
+): readonly { i: number; html: string }[] {
+  return actif ? [...blocs, { i: blocs.length, html: actif }] : blocs;
+}

@@ -11,6 +11,7 @@ import {
   enrichirBlocs,
   planifierEnrichissement,
 } from "../../features/chat/rendu/enrichissement";
+import { listerBlocs } from "../../features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../features/chat/rendu/instance";
 import { pastilleDe, poserPastilles } from "../../features/rag/renvois";
 import type { RenvoisMessage } from "../../features/rag/renvois";
@@ -26,6 +27,8 @@ export interface MessageMarkdown {
   isStreaming?: boolean;
   _mdBlocks?: readonly BlocRendu[] | null;
   _mdActiveHtml?: string | null;
+  /** Texte que les blocs rendent. */
+  _mdFlux?: { source: string } | null;
   rag_sources?: readonly unknown[] | null;
 }
 
@@ -39,13 +42,8 @@ const emit = defineEmits<{ "click-markdown": [evenement: MouseEvent] }>();
 const moteur = moteurMarkdown();
 
 const actif = computed(() => props.msg._mdActiveHtml ?? "");
-// Aucun bloc en cours d'écriture : le caret entre dans le dernier bloc figé, au bout de son texte (jamais seul sur une ligne).
-const blocs = computed(() => {
-  const b = props.msg._mdBlocks ?? [];
-  const dernier = b[b.length - 1];
-  if (actif.value || !props.msg.content || !dernier) return b;
-  return [...b.slice(0, -1), { ...dernier, html: moteur.injecterCaret(dernier.html) }];
-});
+// Blocs figés puis bloc actif, sous la clé du prochain bloc figé : son nœud devient celui du bloc figé.
+const liste = computed(() => listerBlocs(props.msg._mdBlocks ?? [], actif.value));
 const html = computed(() => {
   const texte = props.msg.displayContent || props.msg.content || "";
   return props.recherche
@@ -72,7 +70,7 @@ function enrichir(): void {
 /** Confie à la coloration les blocs qui viennent d'être figés, et le dernier déjà vu dont le HTML a été réécrit ; le corps entier n'est jamais parcouru. */
 function colorerFiges(): void {
   const el = props.msg.isStreaming ? racineFlux.value : null;
-  const b = el ? blocs.value : [];
+  const b = el ? (props.msg._mdBlocks ?? []) : [];
   const n = b.length;
   const dernier = b[n - 1]?.html ?? "";
   if (n === figesVus && dernier === dernierHtml) return;
@@ -152,11 +150,13 @@ onUnmounted(() => {
     @focusout="surSortie"
     @click="surClic"
   >
-    <template v-for="blk in blocs" :key="blk.i">
+    <template v-for="blk in liste" :key="blk.i">
       <div style="display: contents" v-html="blk.html"></div>
     </template>
-    <div v-if="actif" style="display: contents" v-html="actif"></div>
-    <span v-if="props.msg.content && !actif && !blocs.length" class="elpis-stream-caret"></span>
+    <span
+      v-if="props.msg.content && !actif && !props.msg._mdBlocks?.length"
+      class="elpis-stream-caret"
+    ></span>
   </div>
   <div
     v-else

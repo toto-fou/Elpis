@@ -4,6 +4,7 @@ import type { BilanTache, MetaOutils, ResumeReveil, SourceCiteeRag } from "@elpi
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../flux/aides.ts";
+import type { EtatFlux } from "../rendu/flux-blocs.ts";
 import type { AgentsSlash, RagSlash } from "../composeur/slash.ts";
 
 export type Objet = Record<string, unknown>;
@@ -167,7 +168,9 @@ export interface MessageChat {
   _statusLine?: string;
   _pendingPreContent?: string;
   _mdBlocks?: BlocRendu[] | null;
+  _mdFlux?: EtatFlux | null;
   _ppBlocks?: BlocRendu[] | null;
+  _ppFlux?: EtatFlux | null;
   _prefillPct?: number;
   _prefillCachePct?: number;
   _thinkingStartedAt?: number;

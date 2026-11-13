@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ContenuMarkdown from "../../../src/components/chat/ContenuMarkdown.vue";
 import NarrationVivante from "../../../src/components/chat/NarrationVivante.vue";
-import type { BlocRendu, MessageMarkdown } from "../../../src/components/chat/ContenuMarkdown.vue";
+import type { MessageMarkdown } from "../../../src/components/chat/ContenuMarkdown.vue";
+import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 
 vi.mock("../../../src/platform/vendor", () => ({
@@ -56,27 +57,18 @@ function monter(msg: MessageMarkdown, recherche = "") {
   return { hote, etat, q };
 }
 
-/** Reproduit le patch d'app-chat.js : blocs figés rendus une fois, bloc actif re-rendu. */
+/** Reproduit le patch du battement : blocs figés rendus une fois par la découpe, bloc actif re-rendu. */
 function flux(precedent: MessageMarkdown, texte: string): MessageMarkdown {
   const m = moteurMarkdown();
-  const p = precedent as MessageMarkdown & { _s?: { scanPos: number; fence: boolean; blockStart: number } };
-  const s = p._s ?? { scanPos: 0, fence: false, blockStart: 0 };
-  const r = m.scanStreamBlocks(texte, s.scanPos, s.fence, s.blockStart);
-  let blocs = p._mdBlocks ?? null;
-  if (r.blocks.length) {
-    const suite: BlocRendu[] = [...(blocs ?? [])];
-    for (const b of r.blocks) suite.push({ i: suite.length, html: m.renderStreamBlock(b) });
-    blocs = suite;
-  }
-  const actif = m.injecterCaret(m.renderStreamingActive(texte.slice(r.blockStart)));
+  const r = m.avancerFlux(texte, (precedent._mdFlux as EtatFlux | null | undefined) ?? null);
   return {
-    ...p,
+    ...precedent,
     content: texte,
     isStreaming: true,
-    _mdBlocks: blocs,
-    _mdActiveHtml: actif,
-    _s: r,
-  } as MessageMarkdown;
+    _mdBlocks: r.etat.blocs.length ? r.etat.blocs : null,
+    _mdActiveHtml: m.injecterCaret(r.actifHtml),
+    _mdFlux: r.etat,
+  };
 }
 
 describe("ContenuMarkdown", () => {
@@ -236,10 +228,8 @@ describe("NarrationVivante", () => {
     expect(racine.querySelector("img")).toBeNull();
     expect(racine.querySelector("span.whitespace-pre-wrap")?.textContent).toContain("<img");
     const m = moteurMarkdown();
-    etat.value = {
-      _ppBlocks: [{ i: 0, html: m.renderStreamBlock("Je lis **a.py**.") }],
-      _ppActiveHtml: m.renderStreamingActive("Puis"),
-    };
+    const r = m.avancerFlux("Je lis **a.py**.\n\nPuis", null);
+    etat.value = { _ppBlocks: [...r.etat.blocs], _ppActiveHtml: r.actifHtml };
     await nextTick();
     expect(racine.querySelector("strong")?.textContent).toBe("a.py");
     expect(racine.textContent).toContain("Puis");

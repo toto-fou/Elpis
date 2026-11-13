@@ -2,8 +2,9 @@
 /** frontend/test/chat/rendu/markdown.test.ts — moteur Markdown : purification au rendu partiel et final, découpe incrémentale, cache, coloration différée. */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
 import { moteurMarkdown, purificateur } from "../../../src/features/chat/rendu/instance";
-import { injecterCaret, scanStreamBlocks } from "../../../src/features/chat/rendu/markdown";
+import { injecterCaret } from "../../../src/features/chat/rendu/markdown";
 import type { MoteurMarkdown } from "../../../src/features/chat/rendu/markdown";
 import { creerPurificateur } from "../../../src/features/chat/rendu/purification";
 
@@ -53,8 +54,9 @@ describe("purification", () => {
 
   it.each(CHARGES)("bloc actif du flux purifié : %s", (charge) => {
     sansDanger(m.renderStreamingActive("Texte " + charge));
-    sansDanger(m.renderStreamBlock(charge));
-    sansDanger(m.renderMarkdownLive("a\n\n" + charge + "\n\nb " + charge));
+    sansDanger((m.terminerFlux(charge, null)?.etat.blocs ?? []).map((b) => b.html).join(""));
+    sansDanger(m.renderMarkdownLive("a\n\n" + charge + "\n\nb"));
+    sansDanger(m.renderMarkdownLive("a\n\nb " + charge));
   });
 
   it.each(CHARGES)("recherche surlignée sans réinjection : %s", (charge) => {
@@ -144,28 +146,21 @@ describe("purification", () => {
 });
 
 describe("rendu incrémental", () => {
-  it("découpe monotone : chaque ligne scannée une fois, jamais de coupe dans une fence", () => {
+  it("découpe monotone : le décalage ne recule jamais, un bloc figé ne change plus, jamais de coupe dans une fence", () => {
     const texte = "Titre\n\n```py\na = 1\n\nb = 2\n```\n\nFin du texte";
-    let etat = { scanPos: 0, fence: false, blockStart: 0 };
-    const blocs: string[] = [];
+    let etat: EtatFlux | null = null;
+    let pos = 0;
+    const figes: string[] = [];
     for (let n = 1; n <= texte.length; n++) {
-      const r = scanStreamBlocks(texte.slice(0, n), etat.scanPos, etat.fence, etat.blockStart);
-      expect(r.scanPos).toBeGreaterThanOrEqual(etat.scanPos);
-      blocs.push(...r.blocks);
-      etat = r;
+      etat = m.avancerFlux(texte.slice(0, n), etat).etat;
+      expect(etat.pos).toBeGreaterThanOrEqual(pos);
+      pos = etat.pos;
+      const srcs = etat.blocs.map((b) => b.src);
+      expect(srcs.slice(0, figes.length)).toEqual(figes);
+      figes.splice(0, figes.length, ...srcs);
     }
-    expect(blocs).toEqual(["Titre\n", "```py\na = 1\n\nb = 2\n```\n"]);
-    expect(texte.slice(etat.blockStart)).toBe("Fin du texte");
-  });
-
-  it("blocs figés mis en cache une fois, le delta ne repasse que le bloc actif", () => {
-    const prose = "Paragraphe **un**.\n\nParagraphe deux.\n\n";
-    m.renderMarkdownLive(prose + "en cours");
-    const taille = m.tailleCache;
-    expect(taille).toBe(2);
-    for (let i = 0; i < 20; i++) m.renderMarkdownLive(prose + "en cours" + "x".repeat(i));
-    expect(m.tailleCache).toBe(taille);
-    expect(m.renderMarkdown("Paragraphe **un**.")).toBe(m.renderMarkdown("Paragraphe **un**."));
+    expect(figes).toEqual(["Titre\n\n", "```py\na = 1\n\nb = 2\n```\n"]);
+    expect(texte.slice(pos)).toBe("Fin du texte");
   });
 
   it("le rendu live converge vers le rendu final pour de la prose", () => {

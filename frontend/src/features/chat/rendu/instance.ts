@@ -23,7 +23,7 @@ export function purificateur(): (html: unknown) => string {
 export function moteurMarkdown(): MoteurMarkdown {
   if (moteur) return moteur;
   const analyseur = marked as unknown as Analyseur;
-  const m = creerMoteurMarkdown({ analyseur });
+  const m = creerMoteurMarkdown({ analyseur, purifier: purificateur() });
   configurerAnalyseur(analyseur, purificateur());
   installerDelegationCode();
   moteur = m;

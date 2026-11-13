@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, un patch, une écriture de défilement). */
 import { journal } from "../../../platform/journal";
-import { getCurrentScope, nextTick, onScopeDispose } from "vue";
+import { getCurrentScope, markRaw, nextTick, onScopeDispose } from "vue";
 
 import { marquerBattement } from "../../../utils/battement";
+import type { BlocFlux, EtatFlux } from "../rendu/flux-blocs.ts";
+import type { ResultatFlux } from "../rendu/markdown.ts";
 import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
 import type { EtapeChat, MessageChat, Objet } from "./types.ts";
@@ -26,13 +28,11 @@ const TITRE_REFLEXION_MS = 250;
 const ONGLET_CACHE_MS = 250;
 const BAS_PX = 4;
 
-/** Champs d'affichage du rendu incrémental du corps, purgés à chaque fin ou remise à zéro du flux. */
+/** Champs d'affichage du rendu incrémental du corps (blocs, bloc actif, état de découpe), purgés à chaque remise à zéro du flux. */
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _mdBlocks: null,
   _mdActiveHtml: "",
-  _mdScanPos: 0,
-  _mdFence: false,
-  _mdBlockStart: 0,
+  _mdFlux: null,
   _modelLoad: null,
 });
 
@@ -40,12 +40,8 @@ export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
 export const PRE_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _ppBlocks: null,
   _ppActiveHtml: "",
-  _ppScanPos: 0,
-  _ppFence: false,
-  _ppBlockStart: 0,
+  _ppFlux: null,
 });
-
-const num = (v: unknown): number => (typeof v === "number" ? v : 0);
 
 export function creerRenduFlux(c: CoeurChat) {
   const { r, ctx, e, f, md, l } = c;
@@ -106,27 +102,20 @@ export function creerRenduFlux(c: CoeurChat) {
       }, delai);
   }
 
-  // Blocs terminés figés une fois, bloc actif re-rendu à chaque battement où son texte a changé.
-  function applyIncrementalRender(cur: MessageChat, text: string, P: Prefixe, caret = true): Objet {
-    let blocs = (cur[P + "Blocks"] as { i: number; html: string }[] | null | undefined) || null;
-    const scan = md.scanStreamBlocks(
-      text,
-      num(cur[P + "ScanPos"]),
-      !!cur[P + "Fence"],
-      num(cur[P + "BlockStart"]),
-    );
-    if (scan.blocks.length > 0) {
-      blocs = (blocs || []).slice();
-      for (const bmd of scan.blocks) blocs.push({ i: blocs.length, html: md.renderStreamBlock(bmd) });
-    }
-    const html = md.renderStreamingActive(text.slice(scan.blockStart));
+  // Champs d'affichage d'un résultat de découpe : listes et état hors de la réactivité (remplacés, jamais modifiés).
+  function champsRendu(r: ResultatFlux, P: Prefixe, caret: boolean): Objet {
+    const blocs = r.etat.blocs.length ? markRaw(r.etat.blocs as BlocFlux[]) : null;
     return {
       [P + "Blocks"]: blocs,
-      [P + "ScanPos"]: scan.scanPos,
-      [P + "Fence"]: scan.fence,
-      [P + "BlockStart"]: scan.blockStart,
-      [P + "ActiveHtml"]: caret ? md.injecterCaret(html) : html,
+      [P + "Flux"]: markRaw(r.etat),
+      [P + "ActiveHtml"]: caret ? md.injecterCaret(r.actifHtml) : r.actifHtml,
     };
+  }
+
+  // Blocs figés une fois par le lexer, bloc actif re-rendu à chaque battement où son texte a changé.
+  function applyIncrementalRender(cur: MessageChat, text: string, P: Prefixe, caret = true): Objet {
+    const etat = (cur[P + "Flux"] as EtatFlux | null | undefined) ?? null;
+    return champsRendu(md.avancerFlux(text, etat), P, caret);
   }
 
   function applyStreamRender(cur: MessageChat, content: string): Objet {

@@ -239,10 +239,10 @@ describe("battement : budget", () => {
   it("un battement coûteux fait sauter des images, les tampons se remplissent entre deux", async () => {
     const { api, r, remplacements, stop } = monter();
     const moteur = moteurMarkdown();
-    const vrai = moteur.renderStreamingActive;
-    const rendu = vi.spyOn(moteur, "renderStreamingActive").mockImplementation((t: string) => {
+    const vrai = moteur.avancerFlux;
+    const rendu = vi.spyOn(moteur, "avancerFlux").mockImplementation((...args: Parameters<typeof vrai>) => {
       vi.advanceTimersByTime(20);
-      return vrai(t);
+      return vrai(...args);
     });
     await contenu(api, "a");
     await image();

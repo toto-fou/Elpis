@@ -43,15 +43,19 @@ function monter(html: string): HTMLElement {
 
 const actions = {};
 
+/** Bloc figé par le flux : rendu du texte donné comme un bloc complet. */
+const fige = (md: string): string =>
+  (moteurMarkdown().terminerFlux(md, null)?.etat.blocs ?? []).map((b) => b.html).join("");
+
 describe("même habillage sur les trois chemins", () => {
   const SOURCE = "x = 1\ny = '<b>'";
 
   it("fence active, fence figée et rendu final donnent le même HTML", () => {
     const actif = m.renderStreamingActive("```py\n" + SOURCE);
-    const fige = m.renderStreamBlock("```py\n" + SOURCE + "\n```\n");
+    const fige1 = fige("```py\n" + SOURCE + "\n```\n");
     const final = m.renderMarkdown("```py\n" + SOURCE + "\n```");
     expect(actif.trim()).toBe(final.trim());
-    expect(fige.trim()).toBe(final.trim());
+    expect(fige1.trim()).toBe(final.trim());
     const hote = monter(final);
     expect(hote.querySelector(".code-wrapper > .copy-sticky > .code-actions > .copy-btn")).not.toBeNull();
     expect(hote.querySelector(".code-wrapper > .code-header > span")?.textContent).toBe("PY");
@@ -112,7 +116,7 @@ describe("langues spéciales : pas d'habillage, traitement inchangé", () => {
     const corps = langue === "svg" ? '<svg xmlns="http://www.w3.org/2000/svg"></svg>' : "contenu";
     for (const html of [
       m.renderStreamingActive("```" + langue + "\n" + corps),
-      m.renderStreamBlock("```" + langue + "\n" + corps + "\n```\n"),
+      fige("```" + langue + "\n" + corps + "\n```\n"),
       m.renderMarkdown("```" + langue + "\n" + corps + "\n```"),
     ]) {
       expect(html).not.toContain("code-wrapper");

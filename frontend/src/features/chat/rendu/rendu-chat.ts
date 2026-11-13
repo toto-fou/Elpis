@@ -107,9 +107,7 @@ export function creerRenduChat(
   return {
     renderMarkdown,
     renderMarkdownHighlight: moteur.renderMarkdownHighlight,
-    scanStreamBlocks: moteur.scanStreamBlocks,
     renderStreamingActive: moteur.renderStreamingActive,
-    renderStreamBlock: moteur.renderStreamBlock,
     renderMarkdownLive: moteur.renderMarkdownLive,
     handleMarkdownClick,
     clearMarkdownCache: moteur.clearMarkdownCache,

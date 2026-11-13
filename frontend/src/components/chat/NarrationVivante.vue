@@ -4,6 +4,7 @@
 import { computed } from "vue";
 
 import { ATTRIBUT_COMPOSANT } from "../../features/chat/rendu/enrichissement";
+import { listerBlocs } from "../../features/chat/rendu/flux-blocs";
 
 import type { BlocRendu } from "./ContenuMarkdown.vue";
 
@@ -17,8 +18,8 @@ export interface MessageNarration {
 const props = defineProps<{ msg: MessageNarration }>();
 const emit = defineEmits<{ "click-markdown": [evenement: MouseEvent] }>();
 
-const blocs = computed(() => props.msg._ppBlocks ?? []);
 const actif = computed(() => props.msg._ppActiveHtml ?? "");
+const liste = computed(() => listerBlocs(props.msg._ppBlocks ?? [], actif.value));
 const proprietaire = { [ATTRIBUT_COMPOSANT]: "" };
 const brut = computed(() => props.msg._pendingPreContent || props.msg._pendingToolThinking || "");
 </script>
@@ -33,10 +34,9 @@ const brut = computed(() => props.msg._pendingPreContent || props.msg._pendingTo
     @click="emit('click-markdown', $event)"
   >
     <template v-if="props.msg._ppBlocks || actif">
-      <template v-for="blk in blocs" :key="'pp' + blk.i">
+      <template v-for="blk in liste" :key="'pp' + blk.i">
         <div style="display: contents" v-html="blk.html"></div>
       </template>
-      <div v-if="actif" style="display: contents" v-html="actif"></div>
     </template>
     <span v-else class="whitespace-pre-wrap break-words">{{ brut }}</span>
   </div>

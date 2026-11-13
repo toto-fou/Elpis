@@ -2,6 +2,8 @@
 /** frontend/src/features/chat/rendu/markdown.ts — moteur Markdown du chat : rendu final en cache LRU, rendu incrémental par blocs pendant le flux. */
 import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
 import { reparerFinDeBloc } from "./fin-de-bloc.ts";
+import { creerFlux, etatVide, preparerTexte } from "./flux-blocs.ts";
+import type { EtatFlux, JetonMarked, Liens, LexeurMarked } from "./flux-blocs.ts";
 import { estBlocOrdinaire, habillerBlocsCode, habillerBloc } from "./habillage-code.ts";
 
 interface JetonCode {
@@ -9,22 +11,25 @@ interface JetonCode {
   lang?: string;
 }
 
-/** Sous-ensemble de `marked` utilisé : un `parse` synchrone et `use` pour le rendu et le crochet de purification. */
+/** Sous-ensemble de `marked` utilisé : `parse` synchrone, `use` pour le rendu et le crochet de purification, lexer et parseur pour le rendu par blocs. */
 export interface Analyseur {
   parse(md: string): string | Promise<string>;
   use(extension: Readonly<Record<string, unknown>>): unknown;
   Renderer: new () => Record<string, unknown>;
+  Lexer: new () => LexeurMarked;
+  Parser: { parse(jetons: readonly JetonMarked[]): string };
 }
 
 export interface DependancesMoteur {
   analyseur: Analyseur | undefined;
+  /** Purificateur explicite : le crochet de `marked` ne s'exécute pas quand on appelle le parseur seul. */
+  purifier: (html: unknown) => string;
 }
 
-export interface Decoupe {
-  blocks: string[];
-  scanPos: number;
-  fence: boolean;
-  blockStart: number;
+export interface ResultatFlux {
+  etat: EtatFlux;
+  /** HTML du bloc actif, sans caret. */
+  actifHtml: string;
 }
 
 const CACHE_MAX = 300;
@@ -36,34 +41,9 @@ function echapperFlux(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 }
 
+const OUVRE_FENCE = /^(?:[ \t]*\n)*[ ]{0,3}(?:`{3}|~{3})/;
 function ouvreFence(md: string): boolean {
-  const m3 = md.replace(/^\s+/, "").slice(0, 3);
-  return m3 === "```" || m3 === "~~~";
-}
-
-/** Découpe incrémentale en blocs de premier niveau, sans couper une fence ; coût proportionnel au nouveau texte. */
-export function scanStreamBlocks(
-  content: string,
-  scanPos: number,
-  fence: boolean,
-  blockStart: number,
-): Decoupe {
-  const blocks: string[] = [];
-  let i = scanPos;
-  while (i < content.length) {
-    const nl = content.indexOf("\n", i);
-    if (nl === -1) break;
-    const t = content.slice(i, nl).trim();
-    const m3 = t.slice(0, 3);
-    if (m3 === "```" || m3 === "~~~") fence = !fence;
-    else if (!fence && t === "") {
-      const bloc = content.slice(blockStart, nl);
-      if (bloc.trim()) blocks.push(bloc);
-      blockStart = nl + 1;
-    }
-    i = nl + 1;
-  }
-  return { blocks, scanPos: i, fence, blockStart };
+  return OUVRE_FENCE.test(md);
 }
 
 /** Insère le caret de flux avant la fermeture de niveau texte la plus profonde du dernier bloc. */
@@ -100,18 +80,52 @@ export function configurerAnalyseur(analyseur: Analyseur, purifier: (html: unkno
 export interface MoteurMarkdown {
   renderMarkdown(text: string | null | undefined): string;
   renderMarkdownHighlight(text: string | null | undefined, query: string | null | undefined): string;
-  renderStreamingActive(md: string): string;
-  renderStreamBlock(md: string): string;
+  renderStreamingActive(md: string, liens?: Liens): string;
   renderMarkdownLive(text: string | null | undefined): string;
-  scanStreamBlocks: typeof scanStreamBlocks;
+  /** Avance la découpe d'un texte en flux ; l'état est repris si `texte` ne prolonge pas le texte sur lequel il repose. */
+  avancerFlux(texte: string, etat: EtatFlux | null): ResultatFlux;
+  /** Fige aussi le bloc actif ; `null` si le texte ne peut pas garder ses blocs (pièces jointes, texte vide). */
+  terminerFlux(texte: string, etat: EtatFlux | null): ResultatFlux | null;
   injecterCaret: typeof injecterCaret;
   clearMarkdownCache(): void;
   readonly tailleCache: number;
 }
 
+interface Lru {
+  lire(cle: string): string | undefined;
+  ecrire(cle: string, v: string): string;
+  vider(): void;
+  readonly taille: number;
+}
+
+function creerLru(max: number): Lru {
+  const cache = new Map<string, string>();
+  return {
+    lire(cle) {
+      const v = cache.get(cle);
+      if (v === undefined) return undefined;
+      cache.delete(cle);
+      cache.set(cle, v);
+      return v;
+    },
+    ecrire(cle, v) {
+      if (cache.size >= max) {
+        const premier = cache.keys().next().value;
+        if (premier !== undefined) cache.delete(premier);
+      }
+      cache.set(cle, v);
+      return v;
+    },
+    vider: () => cache.clear(),
+    get taille() {
+      return cache.size;
+    },
+  };
+}
+
 /** Moteur unique de la page : son cache est partagé par le legacy et les composants. */
 export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
-  const cache = new Map<string, string>();
+  const messages = creerLru(CACHE_MAX);
   let memoSrc = "";
   let memoHtml = "";
 
@@ -122,26 +136,35 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     return typeof html === "string" ? habillerBlocsCode(html) : null;
   }
 
-  function lire(cle: string): string | undefined {
-    const v = cache.get(cle);
-    if (v === undefined) return undefined;
-    cache.delete(cle);
-    cache.set(cle, v);
-    return v;
+  // Parseur de marked appelé seul : le crochet de purification ne s'exécute pas, la purification est donc explicite.
+  function rendreJetons(jetons: readonly JetonMarked[]): string {
+    const a = dep.analyseur;
+    if (!a) return "";
+    return habillerBlocsCode(dep.purifier(a.Parser.parse(jetons)));
   }
 
-  function ecrire(cle: string, v: string): string {
-    if (cache.size >= CACHE_MAX) {
-      const premier = cache.keys().next().value;
-      if (premier !== undefined) cache.delete(premier);
-    }
-    cache.set(cle, v);
-    return v;
+  const flux = dep.analyseur
+    ? creerFlux({
+        nouveauLexeur: () => new (dep.analyseur as Analyseur).Lexer(),
+        rendre: rendreJetons,
+        lireCache: () => undefined,
+        ecrireCache: () => undefined,
+      })
+    : null;
+
+  // Prose du bloc actif : les liens de référence déjà vus servent, ceux du bloc actif ne sont pas retenus.
+  function rendreProse(texte: string, liens: Liens | undefined): string | null {
+    const a = dep.analyseur;
+    if (!a) return null;
+    const copie = Object.assign(Object.create(null) as Liens, liens);
+    const lx = new a.Lexer();
+    lx.tokens.links = copie;
+    return rendreJetons(lx.lex(texte));
   }
 
   function renderMarkdown(text: string | null | undefined): string {
     if (!text) return "";
-    const deja = lire(text);
+    const deja = messages.lire(text);
     if (deja !== undefined) return deja;
     try {
       const fichiers = Array.from(text.matchAll(FICHIER), (m) => m[1] ?? "");
@@ -157,17 +180,13 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
         }
         html = tete + "</div>" + html;
       }
-      return ecrire(text, html);
+      return messages.ecrire(text, html);
     } catch {
       return escapeHtml(text);
     }
   }
 
-  function renderMarkdownHighlight(
-    text: string | null | undefined,
-    query: string | null | undefined,
-  ): string {
-    const html = renderMarkdown(text);
+  function surlignerHtml(html: string, query: string | null | undefined): string {
     if (!query || query.length < 2) return html;
     const re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
     const tpl = document.createElement("template");
@@ -206,6 +225,13 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     return tpl.innerHTML;
   }
 
+  function renderMarkdownHighlight(
+    text: string | null | undefined,
+    query: string | null | undefined,
+  ): string {
+    return surlignerHtml(renderMarkdown(text), query);
+  }
+
   function echapperCorpsFence(corps: string): string {
     const coupe = corps.lastIndexOf("\n") + 1;
     const tete = corps.slice(0, coupe);
@@ -218,7 +244,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     return teteHtml + echapperFlux(corps.slice(coupe));
   }
 
-  function renderStreamingActive(md: string): string {
+  function renderStreamingActive(texte: string, liens?: Liens): string {
+    const md = texte.replace(/^(?:[ \t]*\n)+/, "");
     if (!md) return "";
     if (ouvreFence(md)) {
       const lead = md.replace(/^\s+/, "");
@@ -235,41 +262,65 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     if (md.length > PROSE_MAX) {
       const fm = /^[ \t]{0,3}(`{3,}|~{3,})/m.exec(md);
       if (fm && fm.index > 0)
-        return renderStreamingActive(md.slice(0, fm.index)) + renderStreamingActive(md.slice(fm.index));
+        return (
+          renderStreamingActive(md.slice(0, fm.index), liens) +
+          renderStreamingActive(md.slice(fm.index), liens)
+        );
       return '<div style="white-space:pre-wrap">' + echapperFlux(md) + "</div>";
     }
     try {
-      return analyser(reparerFinDeBloc(md)) ?? echapperFlux(md);
+      return rendreProse(reparerFinDeBloc(md), liens) ?? echapperFlux(md);
     } catch {
       return echapperFlux(md);
     }
   }
 
-  function renderStreamBlock(md: string): string {
-    return ouvreFence(md || "") ? renderStreamingActive(md) : renderMarkdown(md);
+  function reprise(t: string, etat: EtatFlux | null): EtatFlux {
+    return etat && flux ? flux.reprendre(t, etat) : (etat ?? etatVide());
   }
+
+  function avancerFlux(texte: string, etat: EtatFlux | null): ResultatFlux {
+    const t = preparerTexte(texte);
+    const courant = reprise(t, etat);
+    if (!flux) return { etat: courant, actifHtml: echapperFlux(t) };
+    const r = flux.avancer(t, courant);
+    return {
+      etat: { ...r.etat, source: texte },
+      actifHtml: r.actif.trim() ? renderStreamingActive(r.actif, r.etat.liens) : "",
+    };
+  }
+
+  function terminerFlux(texte: string, etat: EtatFlux | null): ResultatFlux | null {
+    const t = preparerTexte(texte);
+    if (!flux || !t.trim() || texte.search(FICHIER) !== -1) return null;
+    const r = flux.terminer(t, reprise(t, etat));
+    return { etat: { ...r.etat, source: texte }, actifHtml: "" };
+  }
+
+  // Rendu en direct hors du chat (page Code) : la découpe du dernier texte rendu est reprise, seul le nouveau texte est analysé.
+  let direct: EtatFlux | null = null;
 
   function renderMarkdownLive(text: string | null | undefined): string {
     if (!text) return "";
-    const r = scanStreamBlocks(text, 0, false, 0);
-    let html = "";
-    for (const b of r.blocks) html += renderStreamBlock(b);
-    const actif = text.slice(r.blockStart);
-    if (actif.trim()) html += renderStreamingActive(actif);
-    return html;
+    const r = avancerFlux(text, direct);
+    direct = r.etat;
+    return r.etat.blocs.map((b) => b.html).join("") + r.actifHtml;
   }
 
   return {
     renderMarkdown,
     renderMarkdownHighlight,
     renderStreamingActive,
-    renderStreamBlock,
     renderMarkdownLive,
-    scanStreamBlocks,
+    avancerFlux,
+    terminerFlux,
     injecterCaret,
-    clearMarkdownCache: () => cache.clear(),
+    clearMarkdownCache: () => {
+      messages.vider();
+      direct = null;
+    },
     get tailleCache() {
-      return cache.size;
+      return messages.taille;
     },
   };
 }

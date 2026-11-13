@@ -4,6 +4,7 @@ import * as marked from "marked";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { reparerFinDeBloc } from "../../../src/features/chat/rendu/fin-de-bloc";
+import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 import type { MoteurMarkdown } from "../../../src/features/chat/rendu/markdown";
 
@@ -575,14 +576,14 @@ describe.each([
   ["réponse riche", repondre(GABARIT_RICHE)],
 ])("fin de bloc : %s coupée à chaque caractère", (_nom, texte) => {
   it("le bloc actif n'affiche jamais de marqueur brut en fin de texte", () => {
+    let etat: EtatFlux | null = null;
     for (let k = 1; k <= texte.length; k++) {
-      const prefixe = texte.slice(0, k);
-      const decoupe = m.scanStreamBlocks(prefixe, 0, false, 0);
-      const actif = prefixe.slice(decoupe.blockStart);
-      if (!actif.trim()) continue;
-      const html = m.renderStreamingActive(actif);
+      const r = m.avancerFlux(texte.slice(0, k), etat);
+      etat = r.etat;
+      if (!r.actifHtml) continue;
+      const html = r.actifHtml;
       const hors = texteHorsCode(html);
-      const contexte = `${k}: ${JSON.stringify(actif.slice(-60))}`;
+      const contexte = `${k}: ${JSON.stringify(r.etat.texte.slice(r.etat.pos).slice(-60))}`;
       expect(hors, contexte).not.toContain("**");
       expect(hors, contexte).not.toContain("~~");
       expect(hors, contexte).not.toContain("`");
@@ -595,25 +596,23 @@ describe.each([
   });
 
   it("le texte complet est rendu comme sans réparation et n'est pas modifié", () => {
-    const blocs: string[] = [];
-    let etat = m.scanStreamBlocks(texte, 0, false, 0);
-    blocs.push(...etat.blocks, texte.slice(etat.blockStart));
-    for (const bloc of blocs) {
-      if (!bloc.trim() || /^\s*(?:```|~~~)/.test(bloc)) continue;
-      expect(reparerFinDeBloc(bloc), JSON.stringify(bloc.slice(0, 40))).toBe(bloc);
-      expect(m.renderStreamingActive(bloc)).toBe(marked.parse(bloc, { async: false }));
+    const etat = m.terminerFlux(texte, null)?.etat;
+    expect(etat?.blocs.length).toBeGreaterThan(0);
+    for (const bloc of etat?.blocs ?? []) {
+      if (!bloc.src.trim() || /^\s*(?:```|~~~)/.test(bloc.src)) continue;
+      expect(reparerFinDeBloc(bloc.src), JSON.stringify(bloc.src.slice(0, 40))).toBe(bloc.src);
+      expect(m.renderStreamingActive(bloc.src)).toBe(marked.parse(bloc.src, { async: false }));
     }
-    etat = m.scanStreamBlocks(texte, 0, false, 0);
-    expect(etat.fence).toBe(false);
   });
 
   it("chaque état intermédiaire est stable : réparer deux fois donne le même texte", () => {
+    let etat: EtatFlux | null = null;
     for (let k = 1; k <= texte.length; k += 3) {
-      const prefixe = texte.slice(0, k);
-      const decoupe = m.scanStreamBlocks(prefixe, 0, false, 0);
-      const actif = prefixe.slice(decoupe.blockStart);
-      const r = reparerFinDeBloc(actif);
-      expect(reparerFinDeBloc(r), `${k}`).toBe(r);
+      const r = m.avancerFlux(texte.slice(0, k), etat);
+      etat = r.etat;
+      const actif = r.etat.texte.slice(r.etat.pos);
+      const reparee = reparerFinDeBloc(actif);
+      expect(reparerFinDeBloc(reparee), `${k}`).toBe(reparee);
     }
   });
 });

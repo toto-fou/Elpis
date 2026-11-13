@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, un patch, une écriture de défilement). */
+/** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, une mise à jour, une écriture de défilement) ; le texte qui grandit passe par le porteur du message, qui n'est remplacé que pour un changement de structure. */
 import { journal } from "../../../platform/journal";
-import { getCurrentScope, markRaw, nextTick, onScopeDispose } from "vue";
+import { getCurrentScope, markRaw, nextTick, onScopeDispose, toRaw } from "vue";
 
 import { marquerBattement } from "../../../utils/battement";
 import type { BlocFlux, EtatFlux } from "../rendu/flux-blocs.ts";
 import type { ResultatFlux } from "../rendu/markdown.ts";
+import { creerPorteur, synchroniserPorteur } from "../rendu/porteur-flux.ts";
 import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
 import type { EtapeChat, MessageChat, Objet } from "./types.ts";
@@ -28,12 +29,13 @@ const TITRE_REFLEXION_MS = 250;
 const ONGLET_CACHE_MS = 250;
 const BAS_PX = 4;
 
-/** Champs d'affichage du rendu incrémental du corps (blocs, bloc actif, état de découpe), purgés à chaque remise à zéro du flux. */
+/** Champs d'affichage du rendu incrémental du corps (blocs, bloc actif, état de découpe), purgés à chaque remise à zéro du flux ; le porteur est lâché (le battement suivant en pose un neuf). */
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _mdBlocks: null,
   _mdActiveHtml: "",
   _mdFlux: null,
   _modelLoad: null,
+  _flux: null,
 });
 
 /** Idem pour la ligne vivante du conteneur « Travail de l'assistant ». */
@@ -41,7 +43,52 @@ export const PRE_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _ppBlocks: null,
   _ppActiveHtml: "",
   _ppFlux: null,
+  _flux: null,
 });
+
+const TEXTES = new Set(["content", "thinking", "_pendingPreContent"]);
+const LEGERS = new Set([
+  ...TEXTES,
+  "_mdBlocks",
+  "_mdActiveHtml",
+  "_mdFlux",
+  "_ppBlocks",
+  "_ppActiveHtml",
+  "_ppFlux",
+  "isStreaming",
+  "_statusLine",
+]);
+
+// 0 vide, 1 blancs seulement, 2 du texte : les gabarits testent la vacuité de ces champs (la narration, après `trim()`).
+function vacuite(v: unknown): number {
+  if (typeof v !== "string" || !v) return 0;
+  return v.trim() ? 2 : 1;
+}
+
+/** Vrai si le patch ne fait que prolonger l'affichage d'un message en flux qui a son porteur : aucun gabarit du message ne change de branche. */
+function leger(cur: MessageChat, p: Objet): boolean {
+  if (!cur._flux || !cur.isStreaming || Object.isFrozen(toRaw(cur))) return false;
+  for (const k in p) {
+    if (!LEGERS.has(k)) return false;
+    if (k === "isStreaming") {
+      if (!p[k]) return false;
+    } else if (k === "_statusLine") {
+      if ((p[k] || "") !== (cur._statusLine || "")) return false;
+    } else if (TEXTES.has(k) && vacuite(cur[k]) !== vacuite(p[k])) return false;
+  }
+  return true;
+}
+
+/** Le porteur suit le message remplacé : recopié tant que le message est en flux, lâché quand il en sort. */
+function suivrePorteur(m: MessageChat, creer: boolean): MessageChat {
+  if (!m.isStreaming) {
+    if (m._flux) m._flux = null;
+    return m;
+  }
+  if (!m._flux && creer) m._flux = creerPorteur();
+  if (m._flux) synchroniserPorteur(m._flux, m);
+  return m;
+}
 
 export function creerRenduFlux(c: CoeurChat) {
   const { r, ctx, e, f, md, l } = c;
@@ -62,7 +109,18 @@ export function creerRenduFlux(c: CoeurChat) {
   function patch(idx: number, p: Objet): void {
     const msgs = getStreamMsgs();
     const cur = msgs[idx];
-    if (idx >= 0 && cur) msgs[idx] = Object.assign({}, cur, p);
+    if (idx >= 0 && cur) msgs[idx] = suivrePorteur(Object.assign({}, cur, p), false);
+  }
+
+  // Texte qui grandit : écrit sur l'objet brut (lecteurs à jour, aucun gabarit prévenu) et passé au porteur ; sinon le message est remplacé.
+  function appliquer(msgs: MessageChat[], idx: number, cur: MessageChat, p: Objet): void {
+    if (leger(cur, p)) {
+      const brut = toRaw(cur);
+      Object.assign(brut, p);
+      if (brut._flux) synchroniserPorteur(brut._flux, brut);
+      return;
+    }
+    msgs[idx] = suivrePorteur(Object.assign({}, cur, p), true);
   }
 
   // Les messages chargés sont gelés : on remplace l'objet à son index (relocalisé par identité).
@@ -72,7 +130,7 @@ export function creerRenduFlux(c: CoeurChat) {
     let i = typeof entry.idx === "number" ? entry.idx : -1;
     if (!(i >= 0 && i < arr.length && arr[i] === entry.msg)) i = arr.indexOf(entry.msg);
     const cur = arr[i];
-    if (i >= 0 && cur) arr[i] = Object.assign({}, cur, p);
+    if (i >= 0 && cur) arr[i] = suivrePorteur(Object.assign({}, cur, p), false);
   }
 
   function scrollToBottom(force?: boolean): void {
@@ -126,10 +184,12 @@ export function creerRenduFlux(c: CoeurChat) {
     return Object.assign({ _pendingPreContent: text }, applyIncrementalRender(cur, text, "_pp", false));
   }
 
-  // Fin du corps (final, Stop) : le bloc actif est figé avec les autres, le message garde ses blocs.
+  // Fin du corps (final, Stop) : le bloc actif est figé avec les autres, le message garde ses blocs et lâche son porteur.
   function figerCorps(cur: MessageChat, contenu: string): Objet {
     const r = md.terminerFlux(contenu, (cur._mdFlux as EtatFlux | null | undefined) ?? null);
-    return r ? Object.assign(champsRendu(r, "_md", false), { _modelLoad: null }) : { ...STREAM_RENDER_CLEAR };
+    return r
+      ? Object.assign(champsRendu(r, "_md", false), { _modelLoad: null, _flux: null })
+      : { ...STREAM_RENDER_CLEAR };
   }
 
   // ── Battement : une boucle d'images pour les trois tampons et la sortie shell ──
@@ -287,7 +347,7 @@ export function creerRenduFlux(c: CoeurChat) {
     return pres && pres.length ? (pres[pres.length - 1] ?? null) : null;
   }
 
-  // Un battement : réflexion, narration, corps, sortie shell, UN remplacement du message, puis l'écriture de défilement.
+  // Un battement : réflexion, narration, corps, sortie shell, UNE mise à jour du message (porteur ou remplacement), puis l'écriture de défilement.
   async function executer(force: boolean): Promise<void> {
     const t0 = maintenant();
     const dt = derniereImage ? t0 - derniereImage : IMAGE_MS;
@@ -325,7 +385,7 @@ export function creerRenduFlux(c: CoeurChat) {
         const autre = msgs[i];
         if (i !== idx && autre) msgs[i] = Object.assign({}, autre, { toolSteps: st });
       }
-    msgs[idx] = Object.assign({}, cur, p);
+    appliquer(msgs, idx, cur, p);
     const suit = !r.isUserScrolling.value && !!e.chatContainer.value;
     if ((narration || corps) && suit) l.vsEnsureTail();
     await nextTick();
@@ -367,7 +427,7 @@ export function creerRenduFlux(c: CoeurChat) {
     const cur = msgs[idx];
     const p = idx >= 0 && cur ? verserReflexion(cur, true, maintenant(), IMAGE_MS) : null;
     if (idx < 0 || !cur) f.thinkBuf = "";
-    else if (p) msgs[idx] = Object.assign({}, cur, p);
+    else if (p) appliquer(msgs, idx, cur, p);
   }
 
   function stopThinkFlush(): void {
@@ -387,7 +447,7 @@ export function creerRenduFlux(c: CoeurChat) {
     }
     const p = verserNarration(cur, !!force, maintenant(), IMAGE_MS);
     if (!p) return;
-    msgs[idx] = Object.assign({}, cur, p);
+    appliquer(msgs, idx, cur, p);
     if (!r.isUserScrolling.value && e.chatContainer.value) l.vsEnsureTail();
   }
 

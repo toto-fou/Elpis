@@ -11,6 +11,7 @@ import type {
   PatchUiMessage,
 } from "../outils/types";
 import type { ProgressionImage } from "../../images/formats";
+import type { PorteurFlux } from "../rendu/porteur-flux";
 import type { ImageAffichee } from "../../images/partage";
 
 export interface MetriquesMessage {
@@ -112,6 +113,8 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   _thinkingReplie?: boolean;
   _thinkingStartedAt?: number;
   _thinkingEndedAt?: number;
+  /** Porteur du flux en cours : corps, narration et réflexion mis à jour sans remplacer le message. */
+  _flux?: PorteurFlux | null;
 }
 
 export interface EntreeMessage {

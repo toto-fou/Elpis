@@ -66,12 +66,14 @@ export function utiliserTour(entree: () => EntreeMessage) {
     const m = msg();
     const texte = m._pendingPreContent || "";
     if (!texte.trim() || !dernier.value) return null;
-    return m._ppBlocks || m._ppActiveHtml
+    // Le porteur de la narration sert de corps : le texte vivant suit le flux sans recalcul de ce bloc.
+    return m._ppBlocks || m._ppActiveHtml || m._flux
       ? {
           isStreaming: true,
           content: texte,
           _mdBlocks: m._ppBlocks ?? null,
           _mdActiveHtml: m._ppActiveHtml ?? "",
+          _flux: m._flux ? { corps: m._flux.narration } : null,
         }
       : { content: texte };
   });

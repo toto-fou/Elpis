@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/ContenuMarkdown.vue — corps Markdown d'un message : blocs figés et bloc actif pendant le flux et après (aucune reconstruction à la fin), rendu complet en cache pour les messages sans blocs, enrichi (code, graphiques, Mermaid, SVG) par ce composant seul. -->
+<!-- frontend/src/components/chat/ContenuMarkdown.vue — corps Markdown d'un message : blocs figés et bloc actif pendant le flux (lus sur le porteur du message, seul ce composant se met à jour à chaque image) et après (aucune reconstruction à la fin), rendu complet en cache pour les messages sans blocs, enrichi (code, graphiques, Mermaid, SVG) par ce composant seul. -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, onUpdated, useTemplateRef, watch } from "vue";
 
@@ -14,6 +14,7 @@ import {
 } from "../../features/chat/rendu/enrichissement";
 import { listerBlocs } from "../../features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../features/chat/rendu/instance";
+import type { AffichageBlocs, PorteurFlux } from "../../features/chat/rendu/porteur-flux";
 import { pastilleDe, poserPastilles } from "../../features/rag/renvois";
 import type { RenvoisMessage } from "../../features/rag/renvois";
 
@@ -30,6 +31,8 @@ export interface MessageMarkdown {
   _mdActiveHtml?: string | null;
   /** Texte que les blocs rendent : le message garde ses blocs tant que son contenu lui est égal. */
   _mdFlux?: { source: string } | null;
+  /** Porteur du flux en cours : blocs et bloc actif mis à jour sans remplacer le message. */
+  _flux?: Pick<PorteurFlux, "corps"> | null;
   rag_sources?: readonly unknown[] | null;
 }
 
@@ -47,15 +50,23 @@ const enBlocs = computed(
   () =>
     !!props.msg.isStreaming || (!!props.msg._mdBlocks?.length && props.msg._mdFlux?.source === texte.value),
 );
-const actif = computed(() => props.msg._mdActiveHtml ?? "");
+// Pendant le flux, le porteur ; sinon les champs du message.
+const vue = computed<AffichageBlocs>(
+  () =>
+    props.msg._flux?.corps.value ?? {
+      blocs: props.msg._mdBlocks ?? null,
+      actif: props.msg._mdActiveHtml ?? "",
+    },
+);
+const actif = computed(() => vue.value.actif);
 // Blocs affichés : figés puis actif ; la recherche surligne chaque bloc une fois le flux fini.
 const liste = computed(() => {
-  const l = listerBlocs(props.msg._mdBlocks ?? [], actif.value);
+  const l = listerBlocs(vue.value.blocs ?? [], actif.value);
   const q = props.recherche;
   return q && !props.msg.isStreaming ? l.map((b) => ({ i: b.i, html: moteur.surlignerHtml(b.html, q) })) : l;
 });
 const caretSeul = computed(
-  () => !!props.msg.isStreaming && !!props.msg.content && !actif.value && !props.msg._mdBlocks?.length,
+  () => !!props.msg.isStreaming && !!props.msg.content && !actif.value && !vue.value.blocs?.length,
 );
 const html = computed(() =>
   props.recherche

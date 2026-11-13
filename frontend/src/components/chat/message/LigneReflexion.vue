@@ -1,14 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit. -->
+<!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit (texte lu sur le porteur, `flux`). -->
 <script setup lang="ts">
 import { computed, useId } from "vue";
 
 import { fmtDuree } from "../../../features/chat/outils/format";
 
 import LibelleVivant from "../../communs/LibelleVivant.vue";
+import TexteFlux from "../TexteFlux.vue";
+
+/** Référence du porteur pour la réflexion qui s'écrit. */
+interface TexteVivant {
+  readonly value: string;
+}
 
 const props = defineProps<{
   texte: string;
+  flux?: TexteVivant | null;
   ms: number | null;
   vivante: boolean;
   ouvert: boolean;
@@ -55,10 +62,12 @@ const libelle = computed(() =>
         <i class="ph ph-fast-forward text-[11px]" aria-hidden="true"></i> Répondre maintenant
       </button>
     </div>
-    <pre
+    <TexteFlux
       v-if="ouvert && !verrouillee"
       :id="id"
       class="mt-0.5 ml-1.5 pl-3 border-l-2 border-slate-200 text-[12px] text-slate-600 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto custom-scrollbar m-0 bg-transparent"
-      >{{ texte }}</pre>
+      :texte="props.texte"
+      :flux="props.flux"
+    />
   </div>
 </template>

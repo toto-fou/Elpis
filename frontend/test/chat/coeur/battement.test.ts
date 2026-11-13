@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/coeur/battement.test.ts — battement du flux : un remplacement du message par image, arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion. */
+/** frontend/test/chat/coeur/battement.test.ts — battement du flux : une mise à jour du message par image (porteur ou remplacement), arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion. */
 import * as Vue from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import ContenuMarkdown from "../../../src/components/chat/ContenuMarkdown.vue";
+import TexteFlux from "../../../src/components/chat/TexteFlux.vue";
 import { GestionnaireSession } from "../../../src/features/auth/session";
 import { setupChat } from "../../../src/features/chat/coeur/chat";
 import type { ModulesChat } from "../../../src/features/chat/coeur/chat";
+import { projeterPourPersistance } from "../../../src/features/chat/coeur/persistance";
 import type { CtxChat, MessageChat, RefsRacineChat } from "../../../src/features/chat/coeur/types";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
+
+vi.mock("../../../src/platform/vendor", () => ({
+  ensureVendor: () => Promise.reject(new Error("Chargement impossible")),
+}));
 
 type Ev = Record<string, unknown>;
 type Api = Record<string, unknown> & {
@@ -247,19 +254,22 @@ describe("battement : budget", () => {
     await contenu(api, "a");
     await image();
     expect(remplacements()).toBe(1);
-    // 20 ms de coût moyen : des images sautées, le texte arrivé entre deux s'accumule.
+    // 20 ms de coût moyen : des images sautées, le texte arrivé entre deux s'accumule ; le texte qui grandit ne remplace pas le message.
     const avant = remplacements();
     let plusGros = 0;
+    let majs = 0;
     let longueur = bulle(r)?.content?.length ?? 0;
     for (let k = 0; k < 9; k++) {
       await contenu(api, "b".repeat(30));
       await image();
       const nouvelle = bulle(r)?.content?.length ?? 0;
       plusGros = Math.max(plusGros, nouvelle - longueur);
+      if (nouvelle > longueur) majs++;
       longueur = nouvelle;
     }
-    expect(remplacements() - avant).toBeGreaterThanOrEqual(3);
-    expect(remplacements() - avant).toBeLessThanOrEqual(5);
+    expect(majs).toBeGreaterThanOrEqual(3);
+    expect(majs).toBeLessThanOrEqual(5);
+    expect(remplacements() - avant).toBe(0);
     expect(plusGros).toBeGreaterThanOrEqual(40);
     expect(bulle(r)?.content).toMatch(/^ab*$/);
     rendu.mockRestore();
@@ -369,7 +379,7 @@ describe("battement : titre de la réflexion", () => {
   });
 });
 
-/** Conteneur de fil simulé : hauteur fixe, écritures de `scrollTop` comptées et datées par rapport au patch du message. */
+/** Conteneur de fil simulé : hauteur fixe, écritures de `scrollTop` comptées et datées par rapport à la mise à jour du message (remplacement ou porteur). */
 function fil(r: RefsRacineChat, scope: Vue.EffectScope) {
   const journal: string[] = [];
   let haut = 0;
@@ -386,7 +396,7 @@ function fil(r: RefsRacineChat, scope: Vue.EffectScope) {
   });
   scope.run(() =>
     Vue.watch(
-      () => r.messages.value[1],
+      () => [r.messages.value[1], r.messages.value[1]?._flux?.corps.value],
       () => journal.push("message"),
       { flush: "post" },
     ),
@@ -413,7 +423,7 @@ function panneau(parent: HTMLElement, haut: number) {
 }
 
 describe("battement : une écriture de défilement par image", () => {
-  it("après le patch du message, une fois par image qui a versé du texte", async () => {
+  it("après la mise à jour du message, une fois par image qui a versé du texte", async () => {
     const { api, r, stop } = monter();
     const noyau = noyaux[noyaux.length - 1] as Vue.EffectScope;
     const { el, journal } = fil(r, noyau);
@@ -546,6 +556,170 @@ describe("battement : le corps garde ses blocs à la fin", () => {
     await image(10);
     await api.handleStreamEvent({ ...FIN, assistant: "" });
     expect(bulle(r)?._mdBlocks).toBeNull();
+    stop();
+  });
+});
+
+describe("porteur du flux : le message n'est remplacé que pour sa structure", () => {
+  const FIN = { type: "final", chat_id: "c1", run_ids: [], metrics: null, persisted: true, assistant: "" };
+
+  it("le texte qui grandit garde l'objet message ; le porteur et l'objet brut portent l'affichage à jour", async () => {
+    const { api, r, remplacements, stop } = monter();
+    await contenu(api, "Un premier paragraphe.\n\nUn second qui s'écrit");
+    await image();
+    expect(remplacements()).toBe(1);
+    const m = bulle(r) as MessageChat;
+    expect(m._flux).toBeTruthy();
+    for (let k = 0; k < 12; k++) {
+      await contenu(api, " encore");
+      await image();
+      expect(bulle(r)).toBe(m);
+      expect(m._flux?.corps.value.actif).toBe(m._mdActiveHtml);
+      expect(m._flux?.corps.value.blocs ?? null).toBe(m._mdBlocks ?? null);
+    }
+    await image(60);
+    expect(remplacements()).toBe(1);
+    expect(m.content).toBe("Un premier paragraphe.\n\nUn second qui s'écrit" + " encore".repeat(12));
+    expect(Vue.toRaw(m).content).toBe(m.content);
+    expect(m._flux?.corps.value.actif).toContain("encore encore");
+    stop();
+  });
+
+  it("chaque changement de vacuité de content, thinking et _pendingPreContent remplace le message", async () => {
+    const { api, r, remplacements, stop } = monter();
+    await api.handleStreamEvent({ type: "thinking_token", text: "  ", n: 1 });
+    await image(3);
+    expect(remplacements()).toBe(1);
+    await api.handleStreamEvent({ type: "thinking_token", text: "Je pense", n: 1 });
+    await image(3);
+    expect(remplacements()).toBe(2);
+    await api.handleStreamEvent({ type: "thinking_token", text: " encore et encore", n: 1 });
+    await image(30);
+    expect(remplacements()).toBe(2);
+    expect(bulle(r)?._flux?.reflexion.value).toBe("  Je pense encore et encore");
+    await contenu(api, "Réponse");
+    await image(3);
+    const apresCorps = remplacements();
+    expect(apresCorps).toBeGreaterThan(2);
+    await contenu(api, " qui continue");
+    await image(30);
+    expect(remplacements()).toBe(apresCorps);
+    // Appel d'outil : le texte part dans la narration ; la narration suivante change de vacuité, puis grandit sans remplacement.
+    await api.handleStreamEvent({ type: "tool_call", name: "read_file", call_id: "t", args: { path: "a" } });
+    await api.handleStreamEvent({ type: "tool_result", name: "read_file", call_id: "t", result: "{}" });
+    const avantNarration = remplacements();
+    await contenu(api, "Je lis");
+    await image(3);
+    expect(remplacements()).toBeGreaterThan(avantNarration);
+    const narration = remplacements();
+    await contenu(api, " le fichier suivant.");
+    await image(30);
+    expect(remplacements()).toBe(narration);
+    expect(bulle(r)?._pendingPreContent).toBe("Je lis le fichier suivant.");
+    expect(bulle(r)?._flux?.narration.value.actif).toContain("le fichier suivant.");
+    stop();
+  });
+
+  it("continuation d'un message déjà rempli : un remplacement pour poser le porteur, puis aucun", async () => {
+    const { api, r, remplacements, stop } = monter("Texte existant. ");
+    await contenu(api, "Suite");
+    await image();
+    expect(remplacements()).toBe(1);
+    await contenu(api, " de la réponse.");
+    await image(30);
+    expect(remplacements()).toBe(1);
+    expect(bulle(r)?.content).toBe("Texte existant. Suite de la réponse.");
+    stop();
+  });
+
+  it("les lecteurs de content et thinking voient le texte à jour à tout instant", async () => {
+    const { api, r, stop } = monter();
+    await api.handleStreamEvent({ type: "thinking_token", text: "Raisonnement. ", n: 1 });
+    await image(20);
+    await contenu(api, "Début. ");
+    await image(10);
+    await contenu(api, "x".repeat(200));
+    await image(3);
+    const m = bulle(r) as MessageChat;
+    const vu = m.content ?? "";
+    expect(vu.length).toBeGreaterThan(7);
+    expect(projeterPourPersistance(m)).toMatchObject({ content: vu, thinking: "Raisonnement. " });
+    expect(JSON.stringify(projeterPourPersistance(m))).not.toContain("_flux");
+    // Stop : le texte affiché et le tampon, lus sur l'objet, font le contenu final.
+    api.stopGeneration();
+    expect(bulle(r)?.content).toBe("Début. " + "x".repeat(200));
+    expect(bulle(r)?._flux).toBeNull();
+    stop();
+  });
+
+  it("le porteur est lâché à la fin du tour, à l'erreur et suit un remplacement structurel", async () => {
+    const a = monter();
+    await contenu(a.api, "Texte.");
+    await image(20);
+    expect(bulle(a.r)?._flux).toBeTruthy();
+    await a.api.handleStreamEvent({ type: "thinking_content", text: "Réflexion du serveur" });
+    expect(bulle(a.r)?._flux?.reflexion.value).toBe("Réflexion du serveur");
+    await a.api.handleStreamEvent(FIN);
+    expect(bulle(a.r)?.isStreaming).toBe(false);
+    expect(bulle(a.r)?._flux).toBeNull();
+    a.stop();
+    const b = monter();
+    await contenu(b.api, "Texte.");
+    await image(20);
+    await b.api.handleStreamEvent({ type: "error", text: "boum" });
+    expect(bulle(b.r)?._flux).toBeNull();
+    b.stop();
+  });
+
+  it("la ligne du message ne se re-rend pas pendant le flux ; le corps et la réflexion suivent le porteur", async () => {
+    const { api, r, stop } = monter();
+    let rendus = 0;
+    const Ligne = Vue.defineComponent({
+      props: { msg: { type: Object, required: true } },
+      setup(props) {
+        return () => {
+          rendus++;
+          const m = props.msg as MessageChat;
+          return Vue.h("div", [
+            m.thinking ? Vue.h(TexteFlux, { texte: m.thinking, flux: m._flux?.reflexion }) : null,
+            Vue.h(ContenuMarkdown, { msg: m }),
+          ]);
+        };
+      },
+    });
+    const hote = document.createElement("div");
+    document.body.appendChild(hote);
+    const app = Vue.createApp({ render: () => Vue.h(Ligne, { msg: r.messages.value[1] as MessageChat }) });
+    app.mount(hote);
+    await api.handleStreamEvent({ type: "thinking_token", text: "Je pense", n: 1 });
+    await image(10);
+    const avantReflexion = rendus;
+    for (let k = 0; k < 10; k++) {
+      await api.handleStreamEvent({ type: "thinking_token", text: " idée" + k, n: 1 });
+      await image();
+    }
+    await image(30);
+    expect(rendus).toBe(avantReflexion);
+    expect(hote.querySelector("pre")?.textContent).toBe(
+      "Je pense idée0 idée1 idée2 idée3 idée4 idée5 idée6 idée7 idée8 idée9",
+    );
+    await contenu(api, "Premier paragraphe.\n\nDeuxième");
+    await image(10);
+    const base = rendus;
+    for (let k = 0; k < 20; k++) {
+      await contenu(api, " mot" + k);
+      await image();
+    }
+    await image(60);
+    expect(rendus).toBe(base);
+    expect(hote.querySelector(".markdown-body")?.textContent).toContain("Deuxième mot0 mot1");
+    expect(hote.querySelector(".markdown-body")?.textContent).toContain("mot19");
+    await api.handleStreamEvent(FIN);
+    await Vue.nextTick();
+    expect(rendus).toBeGreaterThan(base);
+    expect(hote.querySelector(".markdown-body")?.textContent).toContain("mot19");
+    app.unmount();
+    hote.remove();
     stop();
   });
 });

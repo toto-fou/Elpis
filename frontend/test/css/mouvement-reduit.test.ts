@@ -201,3 +201,27 @@ describe("mouvement réduit", () => {
     for (const r of REDUIT) expect(r.corps, `${r.f} ${r.selecteur}`).not.toMatch(/0\.01m?s/);
   });
 });
+
+describe("jetons de mouvement", () => {
+  const RACINE = REGLES.find((r) => r.f === "css/style.css" && r.selecteur === ":root")?.corps ?? "";
+  const jeton = (nom: string): string => new RegExp(`${nom}:\\s*([^;]+);`).exec(RACINE)?.[1]?.trim() ?? "";
+
+  it("les durées et les courbes sont définies une fois, dans :root", () => {
+    expect(["--duree-courte", "--duree", "--duree-longue"].map((n) => durees(jeton(n))[0])).toEqual([
+      150, 200, 260,
+    ]);
+    for (const n of ["--courbe-fondu", "--courbe-entree", "--courbe-volet"]) expect(jeton(n), n).not.toBe("");
+  });
+
+  it("les transitions nommées et les volets coulissants n'écrivent aucune durée en dur", () => {
+    const concernees = HORS_REDUIT.filter((r) =>
+      /-(enter|leave)-active|-move\b|\.elpis-slide-panel$/.test(r.selecteur),
+    );
+    expect(concernees.length).toBeGreaterThan(8);
+    for (const r of concernees) {
+      for (const v of declarations(r.corps, /^transition(-duration)?$/)) {
+        expect(durees(v), `${r.f} ${r.selecteur} : ${v}`).toEqual([]);
+      }
+    }
+  });
+});

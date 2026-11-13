@@ -765,10 +765,14 @@ body.elpis-skin-terminal aside.elpis-slide-panel .adm-nav-arbre__recherche input
 
 /* ── Mouvement : net et bref, comme un programme en mode texte ; opacité et position seulement ── */
 body.elpis-skin-terminal :is(.popover-enter-active, .popover-leave-active, .popover-up-enter-active, .popover-up-leave-active) {
-    transition: opacity 90ms linear, transform 90ms ease-out;
+    --duree-courte: 90ms;
+    --courbe-fondu: linear;
 }
-body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) { transition-duration: 110ms; }
-body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) > * { transition: opacity 110ms linear, transform 110ms ease-out; }
+body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) {
+    --duree: 110ms;
+    --courbe-fondu: linear;
+    --courbe-entree: ease-out;
+}
 @media (prefers-reduced-motion: no-preference) {
     body.elpis-skin-terminal :is(.popover-enter-from, .popover-leave-to) { transform: translateY(-2px); }
     body.elpis-skin-terminal :is(.popover-up-enter-from, .popover-up-leave-to) { transform: translateY(2px); }

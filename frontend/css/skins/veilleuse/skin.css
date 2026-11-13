@@ -802,13 +802,17 @@ body.elpis-skin-veilleuse .adm-tag:not(.adm-tag--soft) { color: var(--accent-tex
 
 /* ── Mouvement : les menus s'allument doucement, comme sous la lampe ; opacité et position seulement ── */
 body.elpis-skin-veilleuse :is(.popover-enter-active, .popover-up-enter-active) {
-    transition: opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    --duree-courte: 200ms;
+    --courbe-fondu: var(--courbe-entree);
 }
-body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) { transition: opacity 140ms ease-in, transform 140ms ease-in; }
+body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) {
+    --duree-courte: 140ms;
+    --courbe-fondu: ease-in;
+}
 @media (prefers-reduced-motion: no-preference) {
     body.elpis-skin-veilleuse .popover-enter-from { transform: translateY(-6px) scale(0.98); }
     body.elpis-skin-veilleuse .popover-up-enter-from { transform: translateY(6px) scale(0.98); }
 }
 body.elpis-skin-veilleuse :is(.modal-enter-active, .modal-leave-active) > * {
-    transition: opacity 220ms ease-out, transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree-longue) var(--courbe-entree);
 }

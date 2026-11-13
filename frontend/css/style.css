@@ -42,6 +42,14 @@
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
 
+    /* Mouvement — durées et courbes des transitions nommées et des volets coulissants. */
+    --duree-courte:  150ms;                  /* menus, détail d'outil */
+    --duree:         200ms;                  /* fenêtres, toasts, fondus, barre de chargement */
+    --duree-longue:  260ms;                  /* volets coulissants */
+    --courbe-fondu:  ease-out;               /* opacité et petits décalages */
+    --courbe-entree: cubic-bezier(0.2, 0.8, 0.2, 1);   /* fenêtres, toasts, barre d'enregistrement */
+    --courbe-volet:  cubic-bezier(0.4, 0, 0.2, 1);     /* volets coulissants */
+
     /* Fond de page */
     --app-bg: #f1f5f9;                       /* body (slate-100) */
 
@@ -1092,17 +1100,17 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    - `width` est animé explicitement.
    - `flex-basis` est animé aussi au cas où le parent est un flexbox
      qui utilise flex-basis plutôt que width.
-   - Easing `cubic-bezier(0.4, 0, 0.2, 1)` = "material standard",
-     naturel pour l'œil, ni trop abrupt ni trop lent.
-   - Durée 260ms : assez long pour être perçu comme une animation,
-     assez court pour ne pas agacer à chaque toggle.
+   - Courbe --courbe-volet = "material standard", naturelle pour l'œil,
+     ni trop abrupte ni trop lente.
+   - Durée --duree-longue (260 ms) : assez long pour être perçu comme une
+     animation, assez court pour ne pas agacer à chaque toggle.
    NB (perf vague 3) : pas de `will-change: width` — `width` n'est PAS
    compositable, le hint promouvait un layer en pure perte (et le garder
    en permanence fragmente la mémoire GPU). */
 .elpis-slide-panel {
     transition-property: width, flex-basis, flex-grow, opacity, padding, margin;
-    transition-duration: 260ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: var(--duree-longue);
+    transition-timing-function: var(--courbe-volet);
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
@@ -1135,11 +1143,11 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    ──────────────────────────────────────────────────────────────────── */
 .modal-enter-active,
 .modal-leave-active {
-    transition: opacity 180ms ease-out;
+    transition: opacity var(--duree) var(--courbe-fondu);
 }
 .modal-enter-active > *,
 .modal-leave-active > * {
-    transition: opacity 180ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree) var(--courbe-entree);
 }
 .modal-enter-from,
 .modal-leave-to {
@@ -1164,7 +1172,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    root unique. Neutralisée sous prefers-reduced-motion (liste plus bas). */
 .popover-enter-active,
 .popover-leave-active {
-    transition: opacity 150ms ease-out, transform 150ms ease-out;
+    transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
     transform-origin: top;
 }
 /* Un menu qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
@@ -1193,7 +1201,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    Mêmes durée et courbe, sens inversé et origine en bas. */
 .popover-up-enter-active,
 .popover-up-leave-active {
-    transition: opacity 150ms ease-out, transform 150ms ease-out;
+    transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
     transform-origin: bottom;
 }
 .popover-up-enter-from,
@@ -1215,7 +1223,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    taille naturelle pendant l'animation. */
 .model-load-enter-active,
 .model-load-leave-active {
-    transition: opacity 200ms ease-out, max-width 220ms ease-out, gap 220ms ease-out;
+    transition: opacity var(--duree) var(--courbe-fondu), max-width var(--duree) var(--courbe-fondu), gap var(--duree) var(--courbe-fondu);
     overflow: hidden;
     max-width: 140px;
 }
@@ -1238,14 +1246,14 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    quand l'un d'eux part, au lieu de sauter. */
 .toast-enter-active,
 .toast-leave-active {
-    transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree) var(--courbe-entree);
 }
 .toast-enter-from,
 .toast-leave-to {
     opacity: 0;
 }
 .toast-move {
-    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform var(--duree) var(--courbe-entree);
 }
 @media (prefers-reduced-motion: no-preference) {
     .toast-enter-from {
@@ -1277,18 +1285,21 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
         transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow !important;
         transition-duration: 150ms !important;
     }
-    /* Transitions Vue nommées : fondu d'opacité seul, sans déplacement de pile. */
+    /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
+    .popover-enter-active, .popover-leave-active,
+    .popover-up-enter-active, .popover-up-leave-active,
+    .tool-detail-enter-active, .tool-detail-leave-active {
+        transition-property: opacity !important;
+        transition-duration: min(var(--duree-courte), 150ms) !important;
+    }
     .modal-enter-active, .modal-leave-active,
     .modal-enter-active > *, .modal-leave-active > *,
     .toast-enter-active, .toast-leave-active,
     .fade-enter-active, .fade-leave-active,
-    .popover-enter-active, .popover-leave-active,
-    .popover-up-enter-active, .popover-up-leave-active,
     .model-load-enter-active, .model-load-leave-active,
-    .tool-detail-enter-active, .tool-detail-leave-active,
     .adm-bar-enter-active, .adm-bar-leave-active {
         transition-property: opacity !important;
-        transition-duration: 150ms !important;
+        transition-duration: min(var(--duree), 150ms) !important;
     }
     .toast-move { transition: none !important; }
     /* Volets coulissants : la largeur change sans animation, le contenu s'estompe. */
@@ -2547,7 +2558,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 .adm-changes__vals s { color: var(--text-400); }
 .adm-changes__vals b { font-weight: 600; color: var(--text-900); }
 .adm-bar-enter-active,
-.adm-bar-leave-active { transition: transform .18s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
+.adm-bar-leave-active { transition: transform var(--duree) var(--courbe-entree), opacity var(--duree) var(--courbe-fondu); }
 .adm-bar-enter-from,
 .adm-bar-leave-to { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {

@@ -151,20 +151,25 @@ De facto scale, to follow so a new layer finds its place:
 
 ## Motion
 
-- Transitions of 150 to 260 ms; entrances in `ease-out`, sliding panels in
-  `cubic-bezier(0.4, 0, 0.2, 1)` (`.elpis-slide-panel`, 260 ms).
+- Durations and curves are tokens in `:root` of `style.css`, never literals in
+  a named transition: `--duree-courte` (150 ms: menus, tool detail),
+  `--duree` (200 ms: dialogs, toasts, fades), `--duree-longue` (260 ms: sliding
+  panels); `--courbe-fondu` (`ease-out`: opacity and small offsets),
+  `--courbe-entree` (dialogs, toasts, the save bar), `--courbe-volet`
+  (`.elpis-slide-panel`).
 - Animate `opacity` and `transform`; avoid layout properties
   (accepted exception: the width of sliding panels).
-- A skin sets the duration and curve of menus and dialogs (`popover`, `modal`),
-  never properties other than `opacity` and `transform`; a large decoration
+- A skin sets the duration and curve of menus and dialogs (`popover`, `modal`)
+  by overriding these variables on the transition classes (Terminal: shorter,
+  linear), never properties other than `opacity` and `transform`; a large decoration
   (light, gradient) has a fixed size and is placed with `transform`, so a resize
   does not repaint it.
 - `prefers-reduced-motion: reduce` removes movement, not fades (dedicated
   block in `style.css`). Kept: opacity and color transitions (150 ms at most)
   and the opacity pulse of activity indicators (the spinner turns slower).
   Dropped: anything that moves, scales, resizes or rotates. A named Vue
-  transition becomes an opacity fade in place (its offsets are declared under
-  `@media (prefers-reduced-motion: no-preference)`); sliding panels change
+  transition becomes an opacity fade in place, `min(its token, 150 ms)` long (its
+  offsets are declared under `@media (prefers-reduced-motion: no-preference)`); sliding panels change
   width instantly. Every new animation or named transition gets its entry in
   that block.
 - Drags (editor splitters): one position per frame (`parImage`); the layout

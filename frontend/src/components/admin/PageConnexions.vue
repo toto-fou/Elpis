@@ -9,6 +9,7 @@ import { ONGLETS_IMAGES, ONGLETS_VOIX, ongletsAvecModifications } from "../../fe
 import CapacitesMoteur from "./CapacitesMoteur.vue";
 import SousOngletsConsole from "./SousOngletsConsole.vue";
 import InterrupteurConsole from "./InterrupteurConsole.vue";
+import ChampNombreConsole from "./ChampNombreConsole.vue";
 
 const adm = domaineAdmin();
 
@@ -1286,20 +1287,16 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
 
               <div class="adm-row">
                 <label class="adm-row__label" for="cnx-voice-vitesse">Vitesse</label>
-                <div class="flex items-center gap-2">
-                  <input
-                    id="cnx-voice-vitesse"
-                    v-model.number="adm.configForm.voice.tts.speed"
-                    data-field="config:voice.tts.speed"
-                    type="number"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
-                    class="set-input adm-num"
-                  />
-                  <span class="adm-unit">×</span>
-                </div>
+                <ChampNombreConsole
+                  id="cnx-voice-vitesse"
+                  v-model="adm.configForm.voice.tts.speed"
+                  data-field="config:voice.tts.speed"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
+                  unite="×"
+                />
               </div>
 
               <div class="adm-row">
@@ -1705,19 +1702,15 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Plus grand côté qu'un compte peut demander."
                 >Côté max</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-maxside"
-                  v-model.number="adm.configForm.image.max_side"
-                  data-field="config:image.max_side"
-                  type="number"
-                  min="256"
-                  max="4096"
-                  step="64"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">px</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-maxside"
+                v-model="adm.configForm.image.max_side"
+                data-field="config:image.max_side"
+                min="256"
+                max="4096"
+                step="64"
+                unite="px"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -1737,18 +1730,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </div>
             <div class="adm-row">
               <label class="adm-row__label" for="cnx-image-n">Par demande</label>
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-n"
-                  v-model.number="adm.configForm.image.max_n"
-                  data-field="config:image.max_n"
-                  type="number"
-                  min="1"
-                  max="8"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">images</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-n"
+                v-model="adm.configForm.image.max_n"
+                data-field="config:image.max_n"
+                min="1"
+                max="8"
+                unite="images"
+              />
             </div>
             <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
               <label
@@ -1774,18 +1763,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Compté à partir du début du calcul (pas de l'attente en file)."
                 >Délai</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-timeout"
-                  v-model.number="adm.configForm.image.timeout_sec"
-                  data-field="config:image.timeout_sec"
-                  type="number"
-                  min="10"
-                  max="1800"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">s</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-timeout"
+                v-model="adm.configForm.image.timeout_sec"
+                data-field="config:image.timeout_sec"
+                min="10"
+                max="1800"
+                unite="s"
+              />
             </div>
             <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
               <label
@@ -1905,18 +1890,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Appels de l'outil generate_image permis par tour du modèle."
                 >Outil</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-tool"
-                  v-model.number="adm.configForm.image.tool_max_calls"
-                  data-field="config:image.tool_max_calls"
-                  type="number"
-                  min="1"
-                  max="20"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">appels/tour</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-tool"
+                v-model="adm.configForm.image.tool_max_calls"
+                data-field="config:image.tool_max_calls"
+                min="1"
+                max="20"
+                unite="appels/tour"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -1940,18 +1921,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Images gardées par compte ; les plus anciennes sont effacées."
                 >Conserver</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-keep"
-                  v-model.number="adm.configForm.image.keep_per_user"
-                  data-field="config:image.keep_per_user"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">par compte</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-keep"
+                v-model="adm.configForm.image.keep_per_user"
+                data-field="config:image.keep_per_user"
+                min="1"
+                max="1000"
+                unite="par compte"
+              />
             </div>
           </div>
         </div>
@@ -1992,18 +1969,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">0 = relire à chaque appel.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-mcp-ttl"
-                v-model.number="adm.configForm.mcp.tools_cache_ttl_sec"
-                data-field="config:mcp.tools_cache_ttl_sec"
-                type="number"
-                min="0"
-                max="86400"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-mcp-ttl"
+              v-model="adm.configForm.mcp.tools_cache_ttl_sec"
+              data-field="config:mcp.tools_cache_ttl_sec"
+              min="0"
+              max="86400"
+              unite="s"
+            />
           </div>
         </div>
       </section>
@@ -2069,18 +2042,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               <label class="adm-row__label" title="0 = sans limite." for="cnx-tok-days">Durée maximale</label>
               <span class="sr-only">0 = sans limite.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-tok-days"
-                v-model.number="adm.configForm.mcp.tokens.max_days"
-                data-field="config:mcp.tokens.max_days"
-                type="number"
-                min="0"
-                max="3650"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">jours</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-tok-days"
+              v-model="adm.configForm.mcp.tokens.max_days"
+              data-field="config:mcp.tokens.max_days"
+              min="0"
+              max="3650"
+              unite="jours"
+            />
           </div>
 
           <div class="adm-row">
@@ -2166,18 +2135,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">Entre 300 et 86 400 secondes.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-oa-ttl"
-                v-model.number="adm.configForm.mcp.oauth.access_ttl_s"
-                data-field="config:mcp.oauth.access_ttl_s"
-                type="number"
-                min="300"
-                max="86400"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">secondes</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-oa-ttl"
+              v-model="adm.configForm.mcp.oauth.access_ttl_s"
+              data-field="config:mcp.oauth.access_ttl_s"
+              min="300"
+              max="86400"
+              unite="secondes"
+            />
           </div>
 
           <div class="adm-row">
@@ -2190,18 +2155,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">Borné par la durée maximale des jetons d'outils.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-oa-days"
-                v-model.number="adm.configForm.mcp.oauth.refresh_days"
-                data-field="config:mcp.oauth.refresh_days"
-                type="number"
-                min="1"
-                max="3650"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">jours</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-oa-days"
+              v-model="adm.configForm.mcp.oauth.refresh_days"
+              data-field="config:mcp.oauth.refresh_days"
+              min="1"
+              max="3650"
+              unite="jours"
+            />
           </div>
 
           <div class="adm-row">

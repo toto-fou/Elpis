@@ -28,12 +28,16 @@ export function creerDefilementChat(src: SourceDefilement) {
   function brancher(el: HTMLElement): () => void {
     dernierHaut = el.scrollTop;
     let colle = distance(el) <= 4;
+    let barreTenue = false;
     const surDefilement = (): void => {
       // Position toujours suivie, même verrouillée : le bouton « descendre » et le collage en bas en dépendent.
       const dist = distance(el);
       colle = dist <= 4;
       chatAwayFromBottom.value = dist > LOIN_DU_BAS_PX;
       if (Date.now() < verrouJusqua) {
+        // Barre de défilement tenue et tirée vers le haut : un geste, même pendant le verrou d'un flux.
+        if (barreTenue && el.scrollTop < dernierHaut && dist > 4 && assezHaut())
+          src.isUserScrolling.value = true;
         dernierHaut = el.scrollTop;
         return;
       }
@@ -57,11 +61,21 @@ export function creerDefilementChat(src: SourceDefilement) {
     const surTouche = (e: KeyboardEvent): void => {
       if (e.key === "PageUp" || e.key === "Home" || e.key === "ArrowUp") src.isUserScrolling.value = true;
     };
+    // Un appui dont la cible est le conteneur lui-même est un appui sur sa barre de défilement (ou sa marge).
+    const surAppui = (e: PointerEvent): void => {
+      barreTenue = e.target === el;
+    };
+    const surRelache = (): void => {
+      barreTenue = false;
+    };
     el.addEventListener("scroll", surDefilement, { passive: true });
     el.addEventListener("wheel", surMolette, { passive: true });
     el.addEventListener("touchstart", surToucher, { passive: true });
     el.addEventListener("touchmove", surGlisser, { passive: true });
     el.addEventListener("keydown", surTouche);
+    el.addEventListener("pointerdown", surAppui);
+    window.addEventListener("pointerup", surRelache);
+    window.addEventListener("pointercancel", surRelache);
     // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image (pendant un battement du flux, c'est lui qui écrit).
     const obs = new ResizeObserver(() => {
       if (battementEnCours()) return;
@@ -77,6 +91,9 @@ export function creerDefilementChat(src: SourceDefilement) {
       el.removeEventListener("touchstart", surToucher);
       el.removeEventListener("touchmove", surGlisser);
       el.removeEventListener("keydown", surTouche);
+      el.removeEventListener("pointerdown", surAppui);
+      window.removeEventListener("pointerup", surRelache);
+      window.removeEventListener("pointercancel", surRelache);
       obs.disconnect();
     };
   }

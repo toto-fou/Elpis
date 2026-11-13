@@ -18,8 +18,7 @@ function surlignerLigne([id, choisi]: readonly unknown[]): void {
   for (const l of lignesSurvolees) l.classList.remove("bg-amber-50");
   lignesSurvolees = [];
   if (id === null || id === undefined || id === choisi || !arbre.value) return;
-  const cle = String(id).replace(/["\\]/g, "\\$&");
-  lignesSurvolees = Array.from(arbre.value.querySelectorAll(`[data-el-id="${cle}"]`));
+  lignesSurvolees = Array.from(arbre.value.querySelectorAll(`[data-el-id="${CSS.escape(String(id))}"]`));
   for (const l of lignesSurvolees) l.classList.add("bg-amber-50");
 }
 watch(

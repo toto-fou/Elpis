@@ -6,9 +6,9 @@ import type { Ref } from "vue";
 const CACHE_MS = 30000;
 
 export interface ListeServeur<T> {
-  /** Dernière liste lue, `null` tant qu'aucune lecture n'a abouti : les menus la montrent telle quelle. */
+  /** Dernière liste lue, `null` tant qu'aucune lecture n'a été tentée : les menus la montrent telle quelle. */
   readonly items: Ref<T[] | null>;
-  /** Relit la liste si elle a plus de 30 s ou a été périmée ; `lire` rend `null` pour un échec (liste gardée). */
+  /** Relit la liste si elle a plus de 30 s ou a été périmée ; `lire` rend `null` pour un échec (liste gardée, vide si inconnue). */
   charger(force?: boolean): Promise<T[]>;
 }
 
@@ -23,16 +23,15 @@ export function listeServeur<T>(evenement: string, lire: () => Promise<T[] | nul
   if (getCurrentScope()) onScopeDispose(() => globalThis.removeEventListener?.(evenement, perimer));
 
   async function relire(): Promise<T[]> {
+    let liste: T[] | null = null;
     try {
-      const liste = await lire();
-      if (liste) {
-        items.value = liste;
-        lueA = Date.now();
-      }
+      liste = await lire();
     } catch {
-      /* liste gardée telle quelle */
+      /* échec : liste gardée (vide si inconnue), relue au prochain appel */
     }
-    return items.value ?? [];
+    if (liste) lueA = Date.now();
+    items.value = liste ?? items.value ?? [];
+    return items.value;
   }
 
   function charger(force?: boolean): Promise<T[]> {

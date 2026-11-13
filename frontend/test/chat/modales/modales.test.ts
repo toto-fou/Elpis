@@ -256,12 +256,12 @@ describe("barre latérale", () => {
     expect(hote.querySelector(".elpis-voile-volet")).toBeNull();
   });
 
-  it("runs en cours : une liste réécrite à l'identique ne re-rend pas le volet ; un ensemble changé déplace la pastille", async () => {
+  it("runs en cours, changement de conversation : seules les lignes touchées se rendent, ni le volet ni la liste", async () => {
     const b = etat<Record<string, unknown>>(BARRE);
-    let lectures = 0;
+    const lectures = { groupedHistory: 0, chatSelectMode: 0 };
     const compteur = new Proxy(b, {
       get(c, cle, r) {
-        if (cle === "groupedHistory") lectures++;
+        if (cle === "groupedHistory" || cle === "chatSelectMode") lectures[cle]++;
         return Reflect.get(c, cle, r) as unknown;
       },
     });
@@ -271,14 +271,22 @@ describe("barre latérale", () => {
         .filter((l) => l.querySelector(".elpis-run-dot"))
         .map((l) => l.getAttribute("data-chat-id"));
     expect(pastilles()).toEqual(["c1"]);
-    const avant = lectures;
+    const avant = { ...lectures };
     b["activeRunIds"] = ["c1"];
     await nextTick();
-    expect(lectures).toBe(avant);
+    expect(lectures).toEqual(avant);
     b["activeRunIds"] = ["c2"];
     await nextTick();
-    expect(lectures).toBeGreaterThan(avant);
     expect(pastilles()).toEqual(["c2"]);
+    expect(lectures.chatSelectMode).toBeGreaterThan(avant.chatSelectMode);
+    const liste = lectures.groupedHistory;
+    b["currentChatId"] = "c1";
+    await nextTick();
+    expect(lectures.groupedHistory).toBe(liste);
+    const actives = [...hote.querySelectorAll("[data-chat-row]")].filter((l) =>
+      l.className.includes("bg-blue-600/20"),
+    );
+    expect(actives.map((l) => l.getAttribute("data-chat-id"))).toEqual(["c1"]);
   });
 
   it("recherche : titres du volet dès la première touche, serveur à la suite, roue discrète, « Recherche… » puis « Aucun résultat »", async () => {

@@ -43,6 +43,21 @@ export function precharger(fetchAuth: FetchAuth, id: string, generation: number)
   courant = { id, generation, reponse, minuteur: setTimeout(oublierPrecharge, DELAI_PRECHARGE_MS) };
 }
 
+/** Appui du bouton principal de la souris sur une ligne du volet : la lecture part, le clic l'ouvrira avec sa réponse. */
+export function appuiLigne(
+  e: PointerEvent,
+  id: string,
+  volet: {
+    readonly chatSelectMode: boolean;
+    readonly currentChatId: string | null;
+    prechargerChat(id: string): void;
+  },
+): void {
+  if (e.pointerType !== "mouse" || e.button !== 0 || e.ctrlKey || !e.isPrimary) return;
+  if (volet.chatSelectMode || id === volet.currentChatId) return;
+  volet.prechargerChat(id);
+}
+
 /** Reprend la lecture lancée pour cette conversation (une seule fois), ou rien. */
 export function reprendrePrecharge(id: string, generation: number): Promise<Response | null> | null {
   const p = courant;

@@ -8,8 +8,9 @@ import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { useVolet } from "../../../features/communs/volet";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
-import { oublierPrecharge } from "../../../features/chat/historique/ouverture";
+import { appuiLigne, oublierPrecharge } from "../../../features/chat/historique/ouverture";
 import { fusionnerResultats } from "../../../features/chat/historique/recherche";
+import LigneHistorique from "./LigneHistorique.vue";
 import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
 import NotificationsPied from "./NotificationsPied.vue";
@@ -40,22 +41,9 @@ const resultats = computed(() =>
     : [],
 );
 
-// Pastilles « en cours » : même ensemble, même référence (le sondage récrit la liste toutes les 5 s sans rien changer).
-const enCours = computed<ReadonlySet<string>>((avant) => {
-  const ids = new Set(b.activeRunIds);
-  return avant && avant.size === ids.size && [...ids].every((id) => avant.has(id)) ? avant : ids;
-});
-
-// Ligne marquée : la conversation en cours d'ouverture, sinon l'affichée.
+// Résultat marqué : la conversation en cours d'ouverture, sinon l'affichée.
 const courante = (id: string): boolean =>
   b.currentView === "chat" && (b.chatEnOuverture ?? b.currentChatId) === id;
-
-// Bouton principal de la souris : la lecture part à l'appui, le clic ouvre avec sa réponse.
-function appui(e: PointerEvent, id: string): void {
-  if (e.pointerType !== "mouse" || e.button !== 0 || e.ctrlKey || !e.isPrimary) return;
-  if (b.chatSelectMode || id === b.currentChatId) return;
-  b.prechargerChat(id);
-}
 </script>
 
 <template>
@@ -435,7 +423,7 @@ function appui(e: PointerEvent, id: string): void {
               data-chat-row
               :aria-current="courante(String(chat.id)) ? 'page' : undefined"
               class="w-full text-left px-3 h-[30px] text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
-              @pointerdown="appui($event, String(chat.id))"
+              @pointerdown="appuiLigne($event, String(chat.id), b)"
               @pointerleave="oublierPrecharge"
               @pointercancel="oublierPrecharge"
               @dragstart="oublierPrecharge"
@@ -445,7 +433,7 @@ function appui(e: PointerEvent, id: string): void {
             </button>
           </div>
 
-          <div v-else class="min-h-full flex flex-col space-y-px">
+          <div v-else class="min-h-full flex flex-col">
             <!-- Empty state centré : aucun chat (compte neuf ou tout
                            archivé). On pointe vers le bouton "Nouveau chat". -->
             <div
@@ -463,76 +451,18 @@ function appui(e: PointerEvent, id: string): void {
               </p>
             </div>
 
-            <!-- Liste groupée par date. groupedHistory (app.js) :
-                           [{ key, label, items: [chat,…] }, …] (buckets non-vides).
-                           Le label de groupe a clairement plus d'espace au-dessus
-                           que l'écart inter-item -> il sert d'épine dorsale ; il
-                           est aligné sur les titres (même retrait de 12 px). -->
-            <!-- Historique des chats, regroupé par date. -->
-            <template v-for="group in b.groupedHistory" :key="group.key">
-              <div
-                class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-4 pb-1.5 first:pt-1.5"
-              >
-                {{ group.label }}
-              </div>
-              <!-- Ligne d'historique : la barre est un composant à part, rendu seulement quand ce qu'elle lit change (plus de v-memo contre le rendu de la racine à chaque flush). -->
-              <div
-                v-for="chat in group.items"
-                :key="chat.id"
-                data-chat-row
-                :data-chat-id="chat.id"
-                class="relative h-[30px] rounded-lg flex items-center group transition-colors select-none"
-                :class="
-                  courante(chat.id) && !b.chatSelectMode
-                    ? 'bg-blue-600/20 text-white font-medium'
-                    : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
-                "
-                @contextmenu.prevent="b.openContextMenu($event, 'chat', chat)"
-              >
-                <!-- Titre : ouvre (ou coche en mode sélection) ; actions au clic droit ou à la touche Menu, F2 renomme. -->
-                <button
-                  type="button"
-                  data-chat-open
-                  class="flex-1 min-w-0 h-full pl-3 pr-2 rounded-lg flex items-center gap-2 text-left cursor-pointer"
-                  :aria-current="courante(chat.id) && !b.chatSelectMode ? 'page' : undefined"
-                  :aria-pressed="
-                    b.chatSelectMode ? (b.chatSelected.includes(chat.id) ? 'true' : 'false') : undefined
-                  "
-                  @pointerdown="appui($event, chat.id)"
-                  @pointerleave="oublierPrecharge"
-                  @pointercancel="oublierPrecharge"
-                  @dragstart="oublierPrecharge"
-                  @click="b.chatSelectMode ? b.toggleChatSelect(chat.id) : b.loadChat(chat.id)"
-                  @keydown.f2.prevent="b.renameChat(chat.id, chat.title)"
+            <!-- Historique groupé par date (titre de tranche puis lignes) : une ligne archivée ou supprimée s'efface,
+               les suivantes remontent (.elpis-ligne-*, style.css) ; chaque ligne se rend seule (LigneHistorique). -->
+            <TransitionGroup name="elpis-ligne" tag="div" class="relative flex flex-col space-y-px">
+              <template v-for="group in b.groupedHistory" :key="group.key">
+                <div
+                  class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-4 pb-1.5 first:pt-1.5"
                 >
-                  <span
-                    v-if="b.chatSelectMode"
-                    aria-hidden="true"
-                    class="shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors"
-                    :class="
-                      b.chatSelected.includes(chat.id)
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-white/25 group-hover:border-white/50'
-                    "
-                  >
-                    <i v-if="b.chatSelected.includes(chat.id)" class="ph ph-check text-white text-[10px]"></i>
-                  </span>
-                  <span
-                    class="truncate flex-1 text-[13.5px]"
-                    :class="chat._renamed ? 'elpis-title-flash' : ''"
-                    >{{ chat.title }}</span
-                  >
-                  <!-- Run en cours (tous onglets, tous appareils) : point d'accent qui respire (immobile en mouvement réduit). -->
-                  <span
-                    v-if="enCours.has(String(chat.id))"
-                    class="elpis-run-dot shrink-0"
-                    role="img"
-                    aria-label="Génération en cours"
-                    title="Génération en cours…"
-                  ></span>
-                </button>
-              </div>
-            </template>
+                  {{ group.label }}
+                </div>
+                <LigneHistorique v-for="chat in group.items" :key="chat.id" :chat="chat" />
+              </template>
+            </TransitionGroup>
           </div>
         </div>
 

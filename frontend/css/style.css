@@ -974,6 +974,18 @@ aside.elpis-slide-panel .elpis-rail-flyout {
 }
 /* Voile du volet en fenêtre étroite : au-dessus de la colonne du chat (z 40), sous le volet (z 50). */
 .elpis-voile-volet { z-index: 45; }
+/* Lignes de l'historique (TransitionGroup « elpis-ligne ») : une ligne qui part s'efface et sort du flux,
+   les suivantes glissent à leur place ; en mouvement réduit, fondu sur place puis retrait. Classes doublées :
+   elles l'emportent sur `transition-colors` et `relative` de la feuille Tailwind, chargée après. */
+.elpis-ligne-enter-active.elpis-ligne-enter-active,
+.elpis-ligne-leave-active.elpis-ligne-leave-active { transition: opacity var(--duree-courte) var(--courbe-fondu); }
+.elpis-ligne-enter-from,
+.elpis-ligne-leave-to { opacity: 0; }
+.elpis-ligne-leave-active { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .elpis-ligne-move.elpis-ligne-move { transition: transform var(--duree-courte) var(--courbe-fondu); }
+  .elpis-ligne-leave-active.elpis-ligne-leave-active { position: absolute; left: 0; right: 0; }
+}
 
 /* ── En-tête de chat FLOTTANT ────────────────────────────────────────────
  * Au lieu d'une barre pleine bordée (effet « sangle »), l'en-tête flotte : le
@@ -1292,7 +1304,11 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
         transition-property: opacity !important;
         transition-duration: min(var(--duree), 150ms) !important;
     }
-    .toast-move { transition: none !important; }
+    .elpis-ligne-enter-active.elpis-ligne-enter-active, .elpis-ligne-leave-active.elpis-ligne-leave-active {
+        transition-property: opacity !important;
+        transition-duration: min(var(--duree-courte), 150ms) !important;
+    }
+    .toast-move, .elpis-ligne-move.elpis-ligne-move { transition: none !important; }
     /* Transitions écrites à la main qui déplacent, tournent ou redimensionnent. */
     .elpis-zoom-btn,
     .set-switch-track::after,

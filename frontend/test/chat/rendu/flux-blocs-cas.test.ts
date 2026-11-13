@@ -132,6 +132,12 @@ describe("blocs figés stables", () => {
     expect(m.avancerFlux("Intro :\n- a\n- b", null).etat.blocs.length).toBe(1);
   });
 
+  it("une citation dont marked réécrit le texte brut n'arrête pas la découpe", () => {
+    const texte = "> - puce citée\n10) dix\n\nUn.\n\nDeux.\n\nTrois";
+    expect(m.avancerFlux(texte, null).etat.blocs.length).toBe(2);
+    expect(finir(texte, texte)).toBe(norm(m.renderMarkdown(texte)));
+  });
+
   it.each([
     ["fence ouverte en dernière ligne", "Voici le code :\n```\n"],
     ["puce vide en dernière ligne", "Liste :\n\n- "],

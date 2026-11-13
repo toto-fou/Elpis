@@ -233,6 +233,13 @@ function grouper(jetons: readonly JetonMarked[], departs: readonly number[]): Gr
   return groupes;
 }
 
+/** Vrai si le jeton commence en `k` : texte brut identique, ou première ligne identique (marked réécrit parfois le reste du texte brut d'une citation, sans en changer la longueur). */
+function commence(t: string, raw: string, k: number): boolean {
+  if (t.startsWith(raw, k)) return true;
+  const nl = raw.indexOf("\n");
+  return nl > 0 && t.startsWith(raw.slice(0, nl + 1), k);
+}
+
 /** Décalage de début de chaque jeton dans `t` ; les définitions de liens, avalées par le lexer, laissent des trous que l'on saute ligne à ligne. */
 function departsDesJetons(
   t: string,
@@ -243,15 +250,15 @@ function departsDesJetons(
   const departs: number[] = [];
   let c = pos;
   for (const j of jetons) {
-    let d = t.startsWith(j.raw, c) ? c : -1;
+    let d = commence(t, j.raw, c) ? c : -1;
     for (let k = c; d === -1;) {
       const nl = t.indexOf("\n", k);
       if (nl === -1 || nl >= fin) break;
       k = nl + 1;
-      if (t.startsWith(j.raw, k)) d = k;
+      if (commence(t, j.raw, k)) d = k;
     }
     if (d === -1) d = t.indexOf(j.raw, c);
-    if (d === -1) return null;
+    if (d === -1 || d >= fin) return null;
     departs.push(d);
     c = d + j.raw.length;
   }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/page/catalogue-plus.test.ts — « + » en catalogue : entrées et raccourcis « / », sous-menus Skills, Prompts et Gabarits, mode plan, compactage, puce Images ; l'alerte de contexte propose Compacter d'abord. */
+/** frontend/test/chat/page/catalogue-plus.test.ts — « + » en catalogue : entrées et raccourcis « / », sous-menus Skills, Prompts et Gabarits (préparés à l'ouverture, squelettes avant la première lecture), mode plan, compactage, puce Images ; l'alerte de contexte propose Compacter d'abord. */
 import { nextTick } from "vue";
 import type { InjectionKey } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
@@ -115,6 +115,25 @@ describe("catalogue du « + »", () => {
     await nextTick();
     (hote.querySelector('[data-sous-menu="gabarits"] [role="menuitem"]') as HTMLElement).click();
     expect(appelsDe("openTemplate")[0]?.[0]).toMatchObject({ name: "bug" });
+  });
+
+  it("ouvrir le « + » prépare le catalogue ; une liste jamais lue montre des lignes squelettes, jamais « Aucun … »", async () => {
+    const comp = composeur({ showComposerPlus: false, catalogueSkills: null, cataloguePrompts: [] });
+    const { hote } = monterCatalogue(comp);
+    (hote.querySelector("[data-catalogue-plus]") as HTMLElement).click();
+    await nextTick();
+    expect(noms()).toContain("prechargerCatalogue");
+    (hote.querySelector('[data-sous="skills"]') as HTMLElement).click();
+    await nextTick();
+    const sous = (id: string) => hote.querySelector(`[data-sous-menu="${id}"]`);
+    expect(texte(sous("skills"))).toBe("Chargement…");
+    expect(sous("skills")?.querySelectorAll("[aria-hidden='true'] .rounded").length).toBe(3);
+    (comp as unknown as { catalogueSkills: unknown }).catalogueSkills = [{ name: "revue-code" }];
+    await nextTick();
+    expect(texte(sous("skills"))).toBe("revue-code");
+    (hote.querySelector('[data-sous="prompts"]') as HTMLElement).click();
+    await nextTick();
+    expect(texte(sous("prompts"))).toBe("Aucun prompt");
   });
 
   it("Mode plan se coche ; Compacter lance la compaction ; hors génération seulement", async () => {

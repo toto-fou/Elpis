@@ -37,6 +37,13 @@ const skills = computed(() => {
 });
 const prompts = computed(() => (comp.cataloguePrompts ?? []).filter((pr) => !pr.shared));
 const gabarits = computed(() => comp.templatesAll ?? []);
+// Liste jamais lue : lignes squelettes au lieu d'un faux « Aucun … ».
+const connu = computed<Record<SousMenu, boolean>>(() => ({
+  skills: comp.catalogueSkills !== null,
+  prompts: comp.cataloguePrompts !== null,
+  gabarits: comp.templatesAll !== null,
+}));
+const SQUELETTE = ["w-40", "w-32", "w-24"] as const;
 const epingles = computed(() => new Set(comp.pinnedSkills.map((s) => s.name)));
 const compacterPossible = computed(() => !!comp.currentChatId && !comp.isStreaming);
 
@@ -51,6 +58,7 @@ function basculer(): void {
   comp.showComposerPlus = !comp.showComposerPlus;
   if (!comp.showComposerPlus) return;
   comp.refreshInboxCount();
+  comp.prechargerCatalogue();
   void nextTick(() => focusPremiere(menu.value));
 }
 
@@ -215,7 +223,13 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
             :data-sous-menu="it.id"
             @keydown="surToucheSous"
           >
-            <template v-if="it.id === 'skills'">
+            <template v-if="!connu[it.id]">
+              <span class="sr-only" role="status">Chargement…</span>
+              <div v-for="l in SQUELETTE" :key="l" class="px-3 py-2" aria-hidden="true">
+                <span class="block h-3 rounded bg-slate-100" :class="l"></span>
+              </div>
+            </template>
+            <template v-else-if="it.id === 'skills'">
               <button
                 v-for="s in skills"
                 :key="s.name"

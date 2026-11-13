@@ -305,4 +305,34 @@ describe("pages de réglages : config.json et sondes", () => {
       m.arreter();
     }
   });
+
+  it("après un enregistrement, un fichier redevenu identique à la première lecture est relu et affiché ; un secret saisi est remasqué", async () => {
+    let contenu = JSON.stringify({ app_info: { name: "Elpis" }, rag: { embed: { api_key: "********" } } });
+    const m = monter(ROOT, true, (url) =>
+      url.startsWith("/api/admin/config-file") ? json({ content: contenu }) : undefined,
+    );
+    const aller = async (page: string): Promise<void> => {
+      await m.A.goAdminPage(page);
+      await attendre();
+      await attendre();
+    };
+    try {
+      await aller("instance");
+      m.A.configForm.value!.app_info.name = "Nouveau";
+      expect(await m.A.saveAdminPage()).toBe(true);
+      contenu = JSON.stringify({ app_info: { name: "Elpis" }, rag: { embed: { api_key: "********" } } });
+      await aller("https");
+      expect(compter(m.urls, "/api/admin/config-file")).toBe(2);
+      expect(m.A.configForm.value!.app_info.name).toBe("Elpis");
+
+      await aller("rag");
+      m.A.configForm.value!.rag.embed.api_key = "cle-en-clair";
+      expect(await m.A.saveAdminPage()).toBe(true);
+      await aller("instance");
+      expect(compter(m.urls, "/api/admin/config-file")).toBe(3);
+      expect(m.A.configForm.value!.rag.embed.api_key).toBe("********");
+    } finally {
+      m.arreter();
+    }
+  });
 });

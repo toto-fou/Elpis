@@ -329,6 +329,11 @@ export function creerConfig(b: BaseAdmin) {
   let lecture: Promise<void> | null = null;
   let luA = 0;
   let dernierContenu: string | null = null;
+  /** Le disque a changé sous le formulaire : la prochaine entrée relit et remplace, même pour un fichier redevenu identique. */
+  const aRelire = (): void => {
+    luA = 0;
+    dernierContenu = null;
+  };
   const formulaireModifie = (): boolean =>
     !!configForm.value &&
     e.adminPristine.value.config !== null &&
@@ -427,7 +432,7 @@ export function creerConfig(b: BaseAdmin) {
     if (!res) return false;
     if (res.ok) {
       for (const c of changements) patchRaw(String(c["path"]), c["delete"] ? undefined : c["to"]);
-      luA = 0;
+      aRelire();
       void ctx.loadPublicConfig();
       void lien.loadRestartStatus();
       return true;
@@ -458,6 +463,7 @@ export function creerConfig(b: BaseAdmin) {
           patchRaw(c.path, v);
         }
         e.adminPristine.value.config = JSON.stringify(propre);
+        aRelire();
         // Les observateurs de la page (URL qui suit l'hôte) passent avant le diff.
         await ctx.nextTick();
         return saveConfigStore();

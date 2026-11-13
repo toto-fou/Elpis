@@ -149,7 +149,10 @@ describe("issues d'un tour", () => {
       "<think>je pense</think> Réponse ",
     ]);
     expect((t.toolCalls[0] as Dict)["id"]).toBe("call_000000000001");
-    expect(evenements).toEqual([{ type: "thinking_content", text: "je pense" }]);
+    expect(evenements).toEqual([
+      { type: "thinking_content", text: "je pense" },
+      { type: "content_token", text: "Réponse" },
+    ]);
     expect([rec.cumulIn, rec.cumulOut, rec.allThinking]).toEqual([120, 5, ["je pense"]]);
     installerTokenHex(null);
   });
@@ -242,7 +245,8 @@ describe("issues d'un tour", () => {
     );
     expect(t.iterClean).toBe("Début suite.");
     expect(t.live.parts).toEqual(["Début ", "suite."]);
-    expect(t.live.n).toBe(6);
+    expect(t.live.n).toBe(12);
+    expect(evenements).toContainEqual({ type: "content_token", text: "suite." });
     expect(evenements).toContainEqual({ type: "kv_cache", used: 125, total: 1000, pct: 12 });
   });
 

@@ -22,6 +22,36 @@ import type { Dict } from "../../src/python";
 import { lireGolden, normaliser, RACINE_GOLDENS, rejouer } from "./harnais-boucle";
 import type { EtatHarnais } from "./harnais-boucle";
 
+/** Texte de la réponse figé, pas son découpage : jetons de contenu consécutifs réunis, et un `kv_cache` suivi de texte placé après lui (le texte court n'attend plus la fin de l'itération). */
+function jetonsReunis(v: unknown): unknown {
+  const d = v as Dict | null;
+  const cle = Array.isArray(d?.["evenements"])
+    ? "evenements"
+    : Array.isArray(d?.["sortie"])
+      ? "sortie"
+      : null;
+  if (cle === null) return v;
+  const type = (e: unknown): unknown => (typeof e === "string" ? e : (e as Dict | undefined)?.["type"]);
+  const liste = [...(d![cle] as unknown[])];
+  for (let i = liste.length - 2; i >= 0; i--)
+    if (type(liste[i]) === "kv_cache" && type(liste[i + 1]) === "content_token") {
+      let j = i + 1;
+      while (type(liste[j + 1]) === "content_token") j++;
+      liste.splice(j, 0, ...liste.splice(i, 1));
+    }
+  const sortie: unknown[] = [];
+  for (const e of liste) {
+    const dernier = sortie.at(-1);
+    if (type(e) !== "content_token" || type(dernier) !== "content_token") sortie.push(e);
+    else if (typeof e !== "string")
+      sortie[sortie.length - 1] = {
+        ...(dernier as Dict),
+        text: String((dernier as Dict)["text"]) + String((e as Dict)["text"]),
+      };
+  }
+  return { ...d, [cle]: sortie };
+}
+
 const etat = vi.hoisted(() => ({
   client: null as unknown,
   ctx: 0,
@@ -139,7 +169,7 @@ describe("goldens du harnais boucle", () => {
       const n = normaliser(obtenu);
       const dossier = process.env["GOLDEN_DIFF"];
       if (dossier) writeFileSync(path.join(dossier, `golden-ts-${nom}.json`), JSON.stringify(n, null, 2));
-      expect(n).toStrictEqual(attendu);
+      expect(jetonsReunis(n)).toStrictEqual(jetonsReunis(attendu));
     },
     30_000,
   );

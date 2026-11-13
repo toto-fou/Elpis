@@ -80,6 +80,9 @@ const MAX_ERREURS_PERSISTANTES = 5;
 
 export function creerToasts() {
   const toasts = ref<Toast[]>([]);
+  // Échéance d'un toast qui court, temps restant d'un toast en pause (survol, focus).
+  const fins = new Map<number, number>();
+  const restes = new Map<number, number>();
 
   /** Deux toasts identiques sans action ne s'empilent pas ; une erreur reste affichée jusqu'à sa fermeture, sauf durée explicite. */
   function showToast(message: string, type?: string, opts: OptionsToast = {}): number {
@@ -129,23 +132,37 @@ export function creerToasts() {
       if (erreurs.length > MAX_ERREURS_PERSISTANTES) removeToast(erreurs[0]?.id ?? id);
       return id;
     }
-    toast._timer = setTimeout(() => {
-      const t = toasts.value.find((x) => x.id === id);
-      toasts.value = toasts.value.filter((x) => x.id !== id);
-      if (t?.onExpire) {
-        try {
-          t.onExpire();
-        } catch {
-          /* rappel d'expiration fautif : le toast part quand même */
-        }
-      }
-    }, duree);
+    armer(toast, duree);
     return id;
+  }
+
+  function armer(t: Toast, duree: number): void {
+    fins.set(t.id, Date.now() + duree);
+    t._timer = setTimeout(() => removeToast(t.id, true), duree);
+  }
+
+  /** Toast survolé ou qui a le focus : sa minuterie s'arrête (« Annuler » reste à portée). */
+  function pauseToast(id: number): void {
+    const t = toasts.value.find((x) => x.id === id);
+    if (!t?._timer) return;
+    clearTimeout(t._timer);
+    t._timer = undefined;
+    restes.set(id, (fins.get(id) ?? Date.now() + 4000) - Date.now());
+  }
+
+  /** Fin du survol et du focus : la minuterie repart pour le temps qui restait (1,5 s au moins). */
+  function reprendreToast(id: number): void {
+    const t = toasts.value.find((x) => x.id === id);
+    const reste = restes.get(id);
+    restes.delete(id);
+    if (t && reste !== undefined && !t._timer) armer(t, Math.max(reste, 1500));
   }
 
   function removeToast(id: number, avecExpiration?: boolean): void {
     const t = toasts.value.find((x) => x.id === id);
     if (t?._timer) clearTimeout(t._timer);
+    fins.delete(id);
+    restes.delete(id);
     toasts.value = toasts.value.filter((x) => x.id !== id);
     if (avecExpiration && t?.onExpire) {
       try {
@@ -156,7 +173,7 @@ export function creerToasts() {
     }
   }
 
-  return { toasts, showToast, removeToast };
+  return { toasts, showToast, removeToast, pauseToast, reprendreToast };
 }
 
 /** Région sr-only unique : annonce les événements sans interface dédiée (fin de génération, choix de modèle…). */

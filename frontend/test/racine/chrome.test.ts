@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/racine/chrome.test.ts — couche commune de la racine : toasts (fusion des doublons), fenêtre de confirmation, de saisie et de choix, menu contextuel au clavier. */
+/** frontend/test/racine/chrome.test.ts — couche commune de la racine : toasts (fusion des doublons, pause au survol et au focus), fenêtre de confirmation, de saisie et de choix, menu contextuel au clavier. */
 import { nextTick } from "vue";
+import type { InjectionKey } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { creerAnnonceur, creerFenetre, creerMenuContextuel, creerToasts } from "../../src/app/racine/chrome";
+import { CLE_CHROME } from "../../src/app/racine/domaine";
+import ChromeApp from "../../src/components/racine/ChromeApp.vue";
+import { appelsDe, demonter, etat, monter } from "../chat/page/montage";
 
 beforeEach(() => {
   vi.useFakeTimers();
 });
 afterEach(() => {
+  demonter();
   vi.useRealTimers();
   document.body.innerHTML = "";
 });
@@ -62,6 +67,52 @@ describe("toasts", () => {
     t.showToast("X", "success", { onExpire() {} });
     t.showToast("X", "success", { onExpire() {} });
     expect(t.toasts.value).toHaveLength(4);
+  });
+
+  it("en pause au survol ou au focus, un toast « Annuler » ne part pas ; il repart pour le temps qui restait", () => {
+    const t = creerToasts();
+    const expire = vi.fn();
+    const id = t.showToast("Supprimée", "success", {
+      actionLabel: "Annuler",
+      onAction() {},
+      onExpire: expire,
+    });
+    vi.advanceTimersByTime(1500);
+    t.pauseToast(id);
+    vi.advanceTimersByTime(60_000);
+    expect(t.toasts.value).toHaveLength(1);
+    t.reprendreToast(id);
+    vi.advanceTimersByTime(2400);
+    expect(t.toasts.value).toHaveLength(1);
+    vi.advanceTimersByTime(100);
+    expect(t.toasts.value).toHaveLength(0);
+    expect(expire).toHaveBeenCalledOnce();
+  });
+
+  it("le toast affiché se met en pause au focus de ses boutons et reprend quand le focus le quitte", () => {
+    const toast = { id: 7, message: "Supprimée", type: "success", actionLabel: "Annuler", onAction() {} };
+    monter(ChromeApp, [
+      [
+        CLE_CHROME as InjectionKey<object>,
+        etat({
+          systemAlert: "",
+          announcerText: "",
+          announcerAssertive: false,
+          toasts: [toast],
+          modalState: { isOpen: false },
+          contextMenu: { isOpen: false, x: 0, y: 0, type: "", item: null },
+        }),
+      ],
+    ]);
+    const [annuler, fermer] = [...document.querySelectorAll<HTMLButtonElement>(".elpis-toast button")];
+    annuler?.focus();
+    expect(appelsDe("pauseToast")).toEqual([[7]]);
+    fermer?.focus();
+    vi.advanceTimersByTime(20);
+    expect(appelsDe("reprendreToast")).toEqual([]);
+    fermer?.blur();
+    vi.advanceTimersByTime(20);
+    expect(appelsDe("reprendreToast")).toEqual([[7]]);
   });
 
   it("après expiration, un nouveau toast identique réapparaît ; le rappel d'expiration est joué", () => {

@@ -11,6 +11,8 @@ export interface DomaineChrome {
   announcerAssertive: boolean;
   toasts: Toast[];
   removeToast(id: number, avecExpiration?: boolean): void;
+  pauseToast(id: number): void;
+  reprendreToast(id: number): void;
   modalState: EtatFenetre;
   modalInputRef: HTMLInputElement | null;
   modalCancelRef: HTMLButtonElement | null;

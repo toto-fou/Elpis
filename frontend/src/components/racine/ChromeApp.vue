@@ -17,6 +17,14 @@ suivreDefilement();
 // Domaines du chat : absents de la console, qui n'a pas de conversations.
 const conv = inject(CLE_ENTETE, null);
 
+// Fin du survol ou du focus d'un toast, vue à l'image suivante : passer d'un de ses boutons à l'autre le garde en pause.
+function lacher(e: Event, id: number): void {
+  const el = e.currentTarget as HTMLElement;
+  globalThis.requestAnimationFrame(() => {
+    if (!el.matches(":hover") && !el.contains(globalThis.document.activeElement)) c.reprendreToast(id);
+  });
+}
+
 /** Menu « Conversation » du clic droit : Renommer, Archiver, Supprimer passent par la racine ; Rechercher, Exporter par le chat. */
 function agirConversation(action: ActionConversation): void {
   const item = c.contextMenu.item;
@@ -69,6 +77,10 @@ function agirConversation(action: ActionConversation): void {
         :role="['error', 'warning'].includes(t.type) ? 'alert' : 'status'"
         class="pointer-events-none flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl min-w-[300px] max-w-md"
         :class="t.type === 'error' ? 'elpis-toast--error' : 'elpis-toast'"
+        @pointerenter="c.pauseToast(t.id)"
+        @focusin="c.pauseToast(t.id)"
+        @pointerleave="lacher($event, t.id)"
+        @focusout="lacher($event, t.id)"
       >
         <i
           class="ph text-xl"

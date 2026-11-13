@@ -96,7 +96,6 @@ export interface CtxRoutines {
   showToast(message: string, type?: string): void;
   openConfirm(titre: string, texte: string, danger?: boolean): Promise<boolean>;
   engineModels?: (connecteur: Identifiant | null) => ModeleRoutine[] | null | undefined;
-  loadEngines?: () => unknown;
   openFile?: (chemin: string) => unknown;
 }
 
@@ -381,11 +380,6 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     currentView.value = "routines";
     reinitialiserEditeur();
     void reloadRoutineSkills();
-    try {
-      ctx.loadEngines?.();
-    } catch {
-      /* moteurs indisponibles : le sélecteur reste vide */
-    }
     // La liste gardée de la visite précédente reste affichée, sa première routine ouverte, pendant la relecture.
     const connue = routines.value[0];
     if (connue) viewRoutine(connue);

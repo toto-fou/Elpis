@@ -547,8 +547,6 @@ function creerCtx(l: LiensCtx) {
       const parConnecteur = (m.chat.pickerConnModels.value || {}) as Record<string, unknown[] | undefined>;
       return parConnecteur[String(connecteur)] || [];
     },
-    // Jamais branché : le chat n'expose pas de chargeur des connecteurs (no-op conservé).
-    loadEngines(): void {},
     _lockAutoScroll(): void {
       l.verrouDefilement.appliquer();
     },

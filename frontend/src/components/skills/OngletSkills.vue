@@ -12,6 +12,7 @@ import { domaineSkills } from "../../features/skills/domaine";
 import NoeudSkill from "./NoeudSkill.vue";
 
 const ks = domaineSkills();
+const VUES_CORPS = { rendered: "Rendu", source: "Source" } as const;
 const rg = domaineReglages();
 const section = computed(() => sectionCourante(rg, "skills"));
 const partie = computed<PartieSkills>(() => (section.value?.id === "perso" ? "perso" : "global"));
@@ -487,26 +488,18 @@ function poserDeclencheur(el: unknown): void {
                 aria-label="Affichage du fichier"
               >
                 <button
+                  v-for="(libelle, vue, i) in VUES_CORPS"
+                  :key="vue"
                   class="text-[11px] px-2 py-0.5 transition-colors"
-                  :class="
-                    ks.skillBodyView === 'rendered'
+                  :class="[
+                    i ? 'border-l border-slate-200' : '',
+                    ks.skillBodyView === vue
                       ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'rendered'"
+                      : 'bg-white text-slate-500 hover:bg-slate-50',
+                  ]"
+                  @click="ks.skillBodyView = vue"
                 >
-                  Rendu
-                </button>
-                <button
-                  class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
-                  :class="
-                    ks.skillBodyView === 'source'
-                      ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'source'"
-                >
-                  Source
+                  {{ libelle }}
                 </button>
               </div>
             </div>
@@ -532,26 +525,18 @@ function poserDeclencheur(el: unknown): void {
                 aria-label="Affichage du corps"
               >
                 <button
+                  v-for="(libelle, vue, i) in VUES_CORPS"
+                  :key="vue"
                   class="text-[11px] px-2 py-0.5 transition-colors"
-                  :class="
-                    ks.skillBodyView === 'rendered'
+                  :class="[
+                    i ? 'border-l border-slate-200' : '',
+                    ks.skillBodyView === vue
                       ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'rendered'"
+                      : 'bg-white text-slate-500 hover:bg-slate-50',
+                  ]"
+                  @click="ks.skillBodyView = vue"
                 >
-                  Rendu
-                </button>
-                <button
-                  class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
-                  :class="
-                    ks.skillBodyView === 'source'
-                      ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'source'"
-                >
-                  Source
+                  {{ libelle }}
                 </button>
               </div>
             </div>

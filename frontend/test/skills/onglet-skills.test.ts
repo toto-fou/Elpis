@@ -94,6 +94,22 @@ const bouton = (racine: Element, texte: string): HTMLButtonElement => {
 };
 
 describe("onglet Skills", () => {
+  it("corps d'un skill : bascule Rendu / Source", async () => {
+    const { s, racine } = await monter();
+    await s.viewSkill({ ...skill("mon-skill", "user"), body_preview: "# Titre" } as never);
+    await nextTick();
+    const groupe = racine.querySelector('[aria-label="Affichage du corps"]') as HTMLElement;
+    const [rendu, source] = [...groupe.querySelectorAll("button")];
+    expect([rendu?.textContent?.trim(), source?.textContent?.trim()]).toEqual(["Rendu", "Source"]);
+    expect(rendu?.className).toContain("font-medium");
+    expect(source?.className).toContain("border-l");
+    source?.click();
+    await nextTick();
+    expect(s.skillBodyView.value).toBe("source");
+    expect(source?.className).toContain("font-medium");
+    expect(rendu?.className).not.toContain("font-medium");
+  });
+
   it("Global par défaut : l'instance et ses brouillons, groupés, sans les skills du compte", async () => {
     const { racine } = await monter();
     const texte = racine.textContent ?? "";

@@ -972,6 +972,8 @@ aside.elpis-slide-panel .elpis-rail-flyout {
 @media (prefers-reduced-motion: reduce) {
   .chat-history-scroll { transition: none; }
 }
+/* Voile du volet en fenêtre étroite : au-dessus de la colonne du chat (z 40), sous le volet (z 50). */
+.elpis-voile-volet { z-index: 45; }
 
 /* ── En-tête de chat FLOTTANT ────────────────────────────────────────────
  * Au lieu d'une barre pleine bordée (effet « sangle »), l'en-tête flotte : le

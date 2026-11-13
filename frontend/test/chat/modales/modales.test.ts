@@ -244,6 +244,18 @@ describe("barre latérale", () => {
     );
   });
 
+  it("fenêtre étroite : un seul voile, sans flou, au-dessus de la colonne du chat ; un appui referme le volet", async () => {
+    const b = etat<Record<string, unknown>>(BARRE);
+    const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, b);
+    const voiles = hote.querySelectorAll<HTMLElement>(".elpis-voile-volet");
+    expect(voiles).toHaveLength(1);
+    expect(voiles[0]?.className).not.toContain("blur");
+    voiles[0]?.click();
+    await nextTick();
+    expect(b["showSidebar"]).toBe(false);
+    expect(hote.querySelector(".elpis-voile-volet")).toBeNull();
+  });
+
   it("runs en cours : une liste réécrite à l'identique ne re-rend pas le volet ; un ensemble changé déplace la pastille", async () => {
     const b = etat<Record<string, unknown>>(BARRE);
     let lectures = 0;

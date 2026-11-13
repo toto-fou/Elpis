@@ -259,12 +259,6 @@ watch(
     v-if="r.user && !r.mustChangePassword && !(r.isAdminView && montes.console)"
     class="flex h-full w-full relative"
   >
-    <div
-      v-if="r.showSidebar && !r.editorFullscreen"
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden"
-      @click="r.showSidebar = false"
-    ></div>
-
     <BarreLaterale />
 
     <!-- overflow-clip (pas hidden) : le focus d'un élément rogné (case sr-only) ferait défiler un conteneur

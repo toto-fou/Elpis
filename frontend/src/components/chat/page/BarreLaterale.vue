@@ -62,14 +62,11 @@ function appui(e: PointerEvent, id: string): void {
   <!-- Largeur posée d'un coup, jamais animée : le contenu glisse (transition
                « volet »), rogné par `overflow: hidden`. En plein écran éditeur,
                largeur 0 et `pointer-events-none` (aucun clic sur une sidebar à 0). -->
-  <!-- Backdrop mobile : sous lg, la sidebar s'ouvre en overlay `fixed`
-               (z-50). Ce voile (z-40, donc derrière) assombrit le chat et la
-               referme au tap. Masqué en lg+ (sidebar en flux `relative`) et en
-               plein écran éditeur (sidebar animée à 0). -->
+  <!-- Voile sous lg : au-dessus de la colonne du chat (z 40), sous le volet (z 50) ; un appui le referme. -->
   <div
     v-if="b.showSidebar && !b.editorFullscreen"
     aria-hidden="true"
-    class="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+    class="elpis-voile-volet lg:hidden fixed inset-0 bg-slate-900/50"
     @click="b.showSidebar = false"
   ></div>
   <!-- Fond/texte/bordure du rail : tokens --rail-* (style.css), plus de

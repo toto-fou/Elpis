@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/code/code.test.ts — module de la page Code : liste des sessions, menu slash, envoi d'un prompt avec écho optimiste, commandes de l'interface. */
 import { ref } from "vue";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { creerCode } from "../../src/features/code/code";
 
@@ -23,6 +23,24 @@ function monter(routeur: (url: string, init?: RequestInit) => unknown) {
   );
   return { c: surface, appels, toasts, vue };
 }
+
+/** Flux SSE factice : la dernière instance reçoit les événements du test. */
+class FauxFlux {
+  static dernier: FauxFlux | null = null;
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  readyState = 1;
+  constructor() {
+    FauxFlux.dernier = this;
+  }
+  close(): void {}
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+});
 
 const image = (): Promise<void> => new Promise((ok) => requestAnimationFrame(() => ok()));
 
@@ -165,6 +183,39 @@ describe("module de la page Code", () => {
     for (let i = 0; i < 8 && c.codeDebutRendu.value > 0; i++) await image();
     expect(c.codeDebutRendu.value).toBe(0);
     expect(c.codeMessagesRendus.value).toHaveLength(30);
+  });
+
+  it("une réflexion dépliée ne suit le texte que si on la lisait jusqu'au bas", async () => {
+    vi.stubGlobal("EventSource", FauxFlux);
+    const { c } = monter((u) => (u === "/api/code/sessions" ? [{ id: "s1", connected: true }] : []));
+    await c.codeSelectSession("s1");
+    await c.openCodePage();
+    const conteneur = document.createElement("div");
+    const reflexion = (haut: number): HTMLElement => {
+      const details = document.createElement("details");
+      details.setAttribute("data-code-think", "");
+      details.open = true;
+      const pre = document.createElement("pre");
+      Object.defineProperty(pre, "scrollHeight", { get: () => 500 });
+      Object.defineProperty(pre, "clientHeight", { get: () => 200 });
+      Object.defineProperty(pre, "scrollTop", { value: haut, writable: true });
+      details.appendChild(pre);
+      conteneur.appendChild(details);
+      return pre;
+    };
+    const enBas = reflexion(300);
+    const remontee = reflexion(50);
+    document.body.appendChild(conteneur);
+    c.transcriptEl.value = conteneur;
+    const part = { id: "r1", type: "reasoning", text: "je réfléchis", messageID: "m1", sessionID: "s1" };
+    FauxFlux.dernier?.onmessage?.({
+      data: JSON.stringify({ type: "message.part.updated", properties: { part } }),
+    });
+    await new Promise((ok) => setTimeout(ok, 80));
+    await image();
+    c.codeDisconnectStream();
+    expect(enBas.scrollTop).toBe(500);
+    expect(remontee.scrollTop).toBe(50);
   });
 
   it("normalise le code d'appairage avant l'envoi", async () => {

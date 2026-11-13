@@ -105,6 +105,8 @@ const SSE_MAX = 30000;
 // Ouverture d'un transcript : derniers messages à la première image, puis un paquet par image vers le haut (comme le fil du chat).
 const PREMIERE_IMAGE = 8;
 const PAS_OUVERTURE = 6;
+// Une réflexion dépliée suit le texte si on la lisait à ce nombre de pixels du bas (comme le fil du chat).
+const BAS_REFLEXION = 4;
 const JSON_ENTETES = { "Content-Type": "application/json" };
 
 const dict = (v: unknown): Dict => (v && typeof v === "object" && !Array.isArray(v) ? (v as Dict) : {});
@@ -1094,13 +1096,15 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
       m._rev = (m._rev || 0) + 1;
     }
   }
-  function synchroReflexion(): void {
+  /** Réflexions dépliées lues jusqu'au bas avant une rafale : seules celles-là sont recollées en bas après. */
+  function reflexionsEnBas(): Element[] {
+    const pres = transcriptEl.value?.querySelectorAll("details[data-code-think][open] pre") ?? [];
+    return [...pres].filter((p) => p.scrollHeight - p.scrollTop - p.clientHeight <= BAS_REFLEXION);
+  }
+  function synchroReflexion(pres: Element[]): void {
+    if (!pres.length) return;
     requestAnimationFrame(() => {
-      const el = transcriptEl.value;
-      if (!el) return;
-      el.querySelectorAll("details[data-code-think][open] pre").forEach((p) => {
-        p.scrollTop = p.scrollHeight;
-      });
+      for (const p of pres) p.scrollTop = p.scrollHeight;
     });
   }
   function appliquerPart(part: PartOpencode | undefined): boolean {
@@ -1132,16 +1136,11 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     for (const part of tamponParts) if (part && part.id) derniere.set(part.id, part);
     const buf = tamponParts.filter((part) => !(part && part.id) || derniere.get(part.id) === part);
     tamponParts = [];
+    const enBas = buf.some((part) => part?.type === "reasoning") ? reflexionsEnBas() : [];
     let applique = false;
-    let reflexion = false;
-    for (const part of buf) {
-      if (appliquerPart(part)) {
-        applique = true;
-        if (part?.type === "reasoning") reflexion = true;
-      }
-    }
+    for (const part of buf) if (appliquerPart(part)) applique = true;
     if (!applique) return;
-    if (reflexion) synchroReflexion();
+    synchroReflexion(enBas);
     defilerBas();
   }
   function empilerPart(part: PartOpencode | undefined): void {

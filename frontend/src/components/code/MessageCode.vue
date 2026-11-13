@@ -17,6 +17,13 @@ const reflexions = reactive<Record<string, boolean>>({});
 function basculer(id: string): void {
   ouverts[id] = !ouverts[id];
 }
+/** Ouvrir une réflexion en cours mène à sa fin, d'où elle suit le texte. */
+function surReflexion(id: string, enCours: boolean, ev: Event): void {
+  const details = ev.target as HTMLDetailsElement;
+  reflexions[id] = details.open;
+  const pre = details.open && enCours ? details.querySelector("pre") : null;
+  if (pre) pre.scrollTop = pre.scrollHeight;
+}
 </script>
 
 <!-- eslint-disable vue/no-v-html -- Markdown du transcript rendu par le moteur du chat (purifié par DOMPurify). -->
@@ -140,13 +147,13 @@ function basculer(id: string): void {
             >
           </div>
 
-          <!-- Thinking : replié par défaut, auto-ouvert au 1er chunk live, libellé animé (.mem-wave) pendant l'activité -->
+          <!-- Thinking : replié par défaut, libellé animé (.mem-wave) pendant l'activité ; déplié, il suit le texte si on le lit jusqu'au bas -->
           <details
             v-else-if="item.kind === 'think'"
             data-code-think
             :open="!!reflexions[item.id]"
             class="group/think w-full"
-            @toggle="reflexions[item.id] = ($event.target as HTMLDetailsElement).open"
+            @toggle="surReflexion(item.id, !item.done, $event)"
           >
             <summary
               class="list-none flex items-center gap-1.5 cursor-pointer select-none w-fit py-0.5 text-slate-400 hover:text-slate-600 transition-colors"

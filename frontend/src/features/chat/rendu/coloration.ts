@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/rendu/coloration.ts — coloration différée des blocs de code : un bloc par tranche de temps libre, blocs visibles d'abord, détection de langue bornée, cache langue + texte. */
+/** frontend/src/features/chat/rendu/coloration.ts — coloration différée des blocs de code : un bloc par tranche de temps libre, blocs visibles d'abord, détection de langue bornée, cache langue + texte, sélection gardée. */
 import { ensureVendor } from "../../../platform/vendor.ts";
 
 export interface Coloreur {
@@ -88,6 +88,51 @@ function htmlColore(hl: Coloreur, lang: string, texte: string): string | null {
   return html;
 }
 
+/** Bord de la sélection : son nœud et son décalage, et s'il est dans le bloc, sa position dans le texte du bloc. */
+interface Bord {
+  noeud: Node;
+  decalage: number;
+  dedans: number | null;
+}
+
+/** Bords de la sélection qui touche `code`, ou null. */
+function selectionDans(code: HTMLElement): [Bord, Bord] | null {
+  const sel = typeof window.getSelection === "function" ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount || !sel.anchorNode || !sel.focusNode) return null;
+  const bord = (noeud: Node, decalage: number): Bord => {
+    if (!code.contains(noeud)) return { noeud, decalage, dedans: null };
+    const r = document.createRange();
+    r.selectNodeContents(code);
+    r.setEnd(noeud, decalage);
+    return { noeud, decalage, dedans: r.toString().length };
+  };
+  const a = bord(sel.anchorNode, sel.anchorOffset);
+  const f = bord(sel.focusNode, sel.focusOffset);
+  return a.dedans === null && f.dedans === null ? null : [a, f];
+}
+
+/** Nœud texte et décalage du caractère `n` du texte de `racine`. */
+function point(racine: Node, n: number): [Node, number] {
+  const parcours = document.createTreeWalker(racine, NodeFilter.SHOW_TEXT);
+  for (let t = parcours.nextNode(); t; t = parcours.nextNode()) {
+    const l = (t as Text).length;
+    if (n <= l) return [t, n];
+    n -= l;
+  }
+  return [racine, racine.childNodes.length];
+}
+
+// Le texte du bloc ne change pas : la sélection qui le touchait est reposée aux mêmes caractères.
+function reposerSelection(code: HTMLElement, [a, f]: [Bord, Bord]): void {
+  const [an, ao] = a.dedans === null ? [a.noeud, a.decalage] : point(code, a.dedans);
+  const [fn, fo] = f.dedans === null ? [f.noeud, f.decalage] : point(code, f.dedans);
+  try {
+    window.getSelection()?.setBaseAndExtent(an, ao, fn, fo);
+  } catch {
+    /* bord extérieur disparu entre-temps */
+  }
+}
+
 function colorerBloc(code: HTMLElement, hl: Coloreur): void {
   if (!code.isConnected || code.hasAttribute(ATTRIBUT_FAIT) || code.querySelector("mark")) return;
   const texte = code.textContent ?? "";
@@ -95,8 +140,10 @@ function colorerBloc(code: HTMLElement, hl: Coloreur): void {
   code.setAttribute(ATTRIBUT_FAIT, "1");
   if (html === null) return;
   const caret = code.querySelector(".elpis-stream-caret");
+  const selection = selectionDans(code);
   code.innerHTML = html;
   if (caret) code.appendChild(caret);
+  if (selection) reposerSelection(code, selection);
 }
 
 /** Met en tête de file les blocs affichés à l'écran, puis les autres dans l'ordre du document ; écarte les blocs détachés. */

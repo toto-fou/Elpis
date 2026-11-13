@@ -121,12 +121,16 @@ describe("ContenuMarkdown", () => {
     await nextTick();
     const fige = racine.children[1] as HTMLElement;
     const final = moteurMarkdown().renderMarkdown("```py\nx = 1\ny = 2\n```");
-    expect(fige.innerHTML.trim()).toBe(final.trim());
+    // La fence fermée garde ses nœuds : le bouton Copier garde son état « Copié » jusqu'à son retour.
+    const sansCopier = (s?: string): string =>
+      (s ?? "").replace(/<button[^>]*copier[\s\S]*?<\/button>/, "").trim();
+    expect(fige.querySelector(".copy-btn")).not.toBeNull();
+    expect(sansCopier(fige.innerHTML)).toBe(sansCopier(final));
     etat.value = { content: "Avant\n\n```py\nx = 1\ny = 2\n```\n\nSuite", isStreaming: false };
     await nextTick();
     const termine = hote.firstElementChild as HTMLElement;
-    expect(termine.querySelector(".code-wrapper")?.outerHTML).toBe(
-      fige.querySelector(".code-wrapper")?.outerHTML,
+    expect(sansCopier(termine.querySelector(".code-wrapper")?.outerHTML)).toBe(
+      sansCopier(fige.querySelector(".code-wrapper")?.outerHTML),
     );
   });
 

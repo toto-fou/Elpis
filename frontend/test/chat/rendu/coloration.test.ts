@@ -406,3 +406,19 @@ describe("highlight.js chargé à la demande", () => {
     expect(code.hasAttribute("data-hl")).toBe(true);
   });
 });
+
+describe("sélection", () => {
+  it("une sélection faite dans le bloc est reposée sur les mêmes caractères après la coloration", async () => {
+    const code = bloc("python", "def f(x):\n    return x * 2\n");
+    const t = code.firstChild as Text;
+    const sel = window.getSelection() as Selection;
+    sel.setBaseAndExtent(t, 4, t, 17);
+    expect(sel.toString()).toBe("f(x):\n    ret");
+    coloration.planifierColoration(document.body);
+    await tranche();
+    expect(code.querySelector(".hljs-keyword")).not.toBeNull();
+    expect(sel.toString()).toBe("f(x):\n    ret");
+    expect(code.contains(sel.anchorNode)).toBe(true);
+    sel.removeAllRanges();
+  });
+});

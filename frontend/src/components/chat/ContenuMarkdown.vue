@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, onUpdated, useTemplateRef, watch } from "vue";
 
+import { vBlocHtml } from "../../features/chat/rendu/bloc-html";
 import { planifierColoration } from "../../features/chat/rendu/coloration";
 import {
   ATTRIBUT_COMPOSANT,
@@ -216,7 +217,7 @@ onUnmounted(() => {
 });
 </script>
 
-<!-- eslint-disable vue/no-v-html -- HTML produit par le moteur Markdown : purifié (crochet de marked) ou échappé. -->
+<!-- eslint-disable vue/no-v-html -- HTML produit par le moteur Markdown : purifié (crochet de marked) ou échappé ; `v-bloc-html` pose le même HTML, un bloc de code qui grandit ne reçoit que ses nouveaux caractères. -->
 <template>
   <div
     v-if="enBlocs"
@@ -231,7 +232,7 @@ onUnmounted(() => {
     @click="surClic"
   >
     <template v-for="blk in liste" :key="blk.i">
-      <div style="display: contents" v-html="blk.html"></div>
+      <div v-bloc-html="blk.html" style="display: contents"></div>
     </template>
     <span v-if="caretSeul" class="elpis-stream-caret"></span>
   </div>

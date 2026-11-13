@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { vBlocHtml } from "../../features/chat/rendu/bloc-html";
 import { ATTRIBUT_COMPOSANT } from "../../features/chat/rendu/enrichissement";
 import { listerBlocs } from "../../features/chat/rendu/flux-blocs";
 import type { AffichageBlocs, PorteurFlux } from "../../features/chat/rendu/porteur-flux";
@@ -33,7 +34,7 @@ const proprietaire = { [ATTRIBUT_COMPOSANT]: "" };
 const brut = computed(() => props.msg._pendingPreContent || props.msg._pendingToolThinking || "");
 </script>
 
-<!-- eslint-disable vue/no-v-html -- HTML produit par le moteur Markdown : purifié (crochet de marked) ou échappé. -->
+<!-- HTML produit par le moteur Markdown, purifié (crochet de marked) ou échappé, posé par `v-bloc-html`. -->
 <template>
   <div
     data-live-narration
@@ -44,7 +45,7 @@ const brut = computed(() => props.msg._pendingPreContent || props.msg._pendingTo
   >
     <template v-if="vue.blocs || actif">
       <template v-for="blk in liste" :key="'pp' + blk.i">
-        <div style="display: contents" v-html="blk.html"></div>
+        <div v-bloc-html="blk.html" style="display: contents"></div>
       </template>
     </template>
     <span v-else class="whitespace-pre-wrap break-words">{{ brut }}</span>

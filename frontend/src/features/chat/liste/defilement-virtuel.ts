@@ -20,7 +20,8 @@ const ECART = 32;
 const QUEUE = MARGE_VIRTUELLE * 2 + 5;
 // Ouverture d'une conversation (et retour en bas) : les derniers messages seuls dans l'image, la suite au repos.
 const PREMIERE_IMAGE = 8;
-// Marge montée au repos, en hauteurs de vue (au plus MARGE_VIRTUELLE messages).
+// Marges en hauteurs de vue : en deçà de MARGE_DURE le montage se fait dans l'image, jusqu'à MARGE_REPOS au repos.
+const MARGE_DURE = 1;
 const MARGE_REPOS = 3;
 
 interface Echeance {
@@ -130,7 +131,7 @@ export function creerDefilementVirtuel(
   // Fil collé en bas : la queue est l'affaire de _vsEnsureTail, la position lue dans le DOM peut précéder le collage.
   const suitLeBas = (): boolean => !isUserScrolling.value && fin.value === messages.value.length;
 
-  /** Défilement de l'utilisateur : la fenêtre suit la vue ; fil collé en bas, elle s'étend au repos. */
+  /** Dans l'image : seule la marge minimale manquante est montée (saut, défilement rapide), le reste attend le repos. */
   function recalculer(): void {
     const total = messages.value.length;
     const cont = chatContainer.value;
@@ -139,7 +140,12 @@ export function creerDefilementVirtuel(
       poser(0, total, total);
       return;
     }
-    if (!suitLeBas()) poser(...fenetre(cont.scrollTop, cont.clientHeight, Infinity), total);
+    const vh = cont.clientHeight;
+    const [s, e] = fenetre(cont.scrollTop, vh, MARGE_DURE * vh);
+    if (!suitLeBas() && (debut.value > tete(s) || fin.value < e)) {
+      const garde = debut.value < e && fin.value > s;
+      poser(garde ? Math.min(s, debut.value) : s, garde ? Math.max(e, fin.value) : e, total);
+    }
     planifierRepos();
   }
 

@@ -365,15 +365,17 @@ it("en haut de la conversation, la fenêtre part du début", () => {
   assert.equal(v.api.vsTopPad.value, 0);
 });
 
-it("scroller au milieu déplace la fenêtre sur le viewport", () => {
+it("scroller au milieu déplace la fenêtre sur le viewport", async () => {
   const v = monter(100);
   v.scroller(50 * PAS); // ~message 50
   const idx = v.indices();
   assert.ok(
     idx.includes(50),
-    "le message visé doit être rendu — reçu " + idx[0] + ".." + idx[idx.length - 1],
+    "le message visé doit être rendu dans l'image — reçu " + idx[0] + ".." + idx[idx.length - 1],
   );
-  assert.equal(idx[0], 50 - TAMPON, "le tampon amont doit être de " + TAMPON);
+  assert.equal(idx[0], 50 - Math.ceil(900 / PAS), "dans l'image : une hauteur de vue au-dessus");
+  await vider();
+  assert.equal(v.indices()[0], 50 - TAMPON, "au repos : le tampon amont doit être de " + TAMPON);
 });
 
 it("la fenêtre englobe le viewport plus un tampon de chaque côté", async () => {
@@ -391,6 +393,49 @@ it("une vue plus haute rend plus de messages", async () => {
   const grande = monter(200, { hauteurVue: 2000 });
   await grande.defiler(100 * PAS);
   assert.ok(grande.indices().length > petite.indices().length);
+});
+
+it("remontée d'un fil de longs messages : au repos, la marge haute s'arrête à trois hauteurs de vue", async () => {
+  const v = monter(100, { hauteurLigne: 1500 });
+  v.api._vsInitTail(100);
+  await vider();
+  v.refs.isUserScrolling.value = true;
+  v.conteneur.scrollTop = v.api.vsTopPad.value + 8 * 1532 - 900;
+  for (let k = 0; k < 40; k++) {
+    await v.defiler(v.conteneur.scrollTop - 400);
+    const marge = v.conteneur.scrollTop - v.api.vsTopPad.value;
+    assert.ok(marge >= 900, "marge haute sous une vue au cran " + k + " : " + marge);
+    if (k > 25)
+      assert.ok(marge >= 3 * 900 && marge < 3 * 900 + 1532, "marge haute au cran " + k + " : " + marge);
+  }
+  assert.ok(
+    v.indices().length < 2 * TAMPON,
+    "moins de messages que la marge en nombre : " + v.indices().length,
+  );
+});
+
+it("un cran de molette dans la marge ne monte rien dans l'image ; le repos la complète", async () => {
+  const v = monter(100);
+  v.refs.isUserScrolling.value = true;
+  await v.defiler(50 * PAS);
+  const avant = v.indices();
+  v.scroller(50 * PAS - 120);
+  assert.deepStrictEqual(v.indices(), avant, "aucun montage dans l'image du cran");
+  for (let k = 1; k <= 10; k++) v.scroller(50 * PAS - 120 * k);
+  assert.equal(v.indices()[0], avant[0], "toujours rien tant que la marge d'une vue tient");
+  assert.ok(fileRepos.size > 0, "le complément est planifié au repos");
+  await vider();
+  assert.equal(v.indices()[0], Math.floor((50 * PAS - 1200) / PAS) - TAMPON);
+});
+
+it("un saut au-delà de la marge ne monte dans l'image que la vue et une hauteur de vue de chaque côté", () => {
+  const v = monter(200);
+  v.refs.isUserScrolling.value = true;
+  v.scroller(150 * PAS);
+  const idx = v.indices();
+  const vus = Math.ceil(900 / PAS);
+  assert.equal(idx[0], 150 - vus);
+  assert.ok(idx.length <= 3 * vus + 2, "montés dans l'image : " + idx.length);
 });
 
 it("les cales encadrent exactement les messages non rendus", () => {
@@ -492,7 +537,7 @@ it("le garde se RÉARME après exécution — les scrolls suivants comptent", ()
   v.scroller(60 * PAS);
   const second = v.indices()[0];
   assert.notEqual(second, premier, "la fenêtre n'a pas bougé au second scroll : le garde rAF est resté armé");
-  assert.equal(second, 60 - TAMPON);
+  assert.equal(second, 60 - Math.ceil(900 / PAS));
 });
 
 it("_vsReset annule un recalcul en vol", () => {

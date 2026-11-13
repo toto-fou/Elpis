@@ -73,7 +73,6 @@ function monter(compter?: (ids: readonly string[]) => Promise<number>) {
     _revokeAllWebShotBlobs: noop,
     _vsReset: noop,
     _vsInitTail: noop,
-    loadAvailableModels: noop,
     ...(compter ? { compterJobsActifs: compter } : {}),
   };
   const api = creerHistoriqueChat(

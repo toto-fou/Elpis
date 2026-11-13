@@ -86,7 +86,6 @@ function monter(payload: unknown, o: Options = {}) {
     _revokeAllWebShotBlobs: noop,
     _vsReset: noop,
     _vsInitTail: noop,
-    loadAvailableModels: noop,
     ...o.deps,
   };
   const api = creerHistoriqueChat(
@@ -505,7 +504,6 @@ describe("historique : garde-fous de chargement", () => {
         _revokeAllWebShotBlobs: () => {},
         _vsReset: () => {},
         _vsInitTail: () => {},
-        loadAvailableModels: () => {},
       },
     );
     await historique.startNewChat();

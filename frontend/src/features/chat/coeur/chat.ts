@@ -330,7 +330,6 @@ export function setupChat(
       clearChartInstances: renduChat.clearChartInstances,
       resetDiffCardState: carteFichiers.resetDiffCardState,
       resetMessageSearch: recherche.resetMessageSearch,
-      loadAvailableModels: () => modeles.loadAvailableModels(),
       cancelEditMessage: edition.cancelEditMessage,
       setTodoList: (t: readonly unknown[]) => {
         e.todoList.value = (Array.isArray(t) ? t : []) as TacheSession[];

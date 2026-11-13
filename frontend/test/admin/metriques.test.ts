@@ -56,6 +56,8 @@ function monter(donnees: () => Record<string, Donnees>) {
 }
 
 const w = window as unknown as { Chart?: unknown };
+const uneImage = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
+const mises = (): number[] => FauxChart.instances.map((c) => c.updates);
 
 beforeEach(() => {
   FauxChart.instances = [];
@@ -93,6 +95,36 @@ describe("Métriques", () => {
     await M.loadAdminStats();
     await vi.waitFor(() => expect(FauxChart.instances).toHaveLength(2), { interval: 5 });
     expect(performance.now() - t0).toBeLessThan(140);
+    M.liberer();
+  });
+
+  it("actualisation : données brutes, une mise à jour par image, rien de redessiné pour une série inchangée", async () => {
+    w.Chart = FauxChart;
+    let donnees = { a: serie(1), b: serie(2) };
+    const { M } = monter(() => donnees);
+    await M.loadAdminStats();
+    await vi.waitFor(() => expect(FauxChart.instances).toHaveLength(2), { interval: 5 });
+    expect(FauxChart.instances.some((c) => Vue.isProxy(c.data))).toBe(false);
+
+    await M.loadAdminStats();
+    await uneImage();
+    expect(mises()).toEqual([0, 0]);
+
+    donnees = { a: serie(3), b: serie(4) };
+    await M.loadAdminStats();
+    await Vue.nextTick();
+    expect(mises()).toEqual([0, 0]);
+    await uneImage();
+    expect(mises().reduce((x, y) => x + y)).toBe(1);
+    await uneImage();
+    expect(mises()).toEqual([1, 1]);
+    expect(FauxChart.instances[0]?.data).toEqual(serie(3));
+
+    donnees = { a: serie(3), b: serie(5) };
+    await M.loadAdminStats();
+    await uneImage();
+    await uneImage();
+    expect(mises()).toEqual([1, 2]);
     M.liberer();
   });
 });

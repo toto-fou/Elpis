@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/metriques.ts — console › Supervision › Métriques : tableau de bord dynamique (widgets, graphes Chart.js), cadences d'actualisation, visibilité des widgets, purge et export. */
 import type { Chart as ChartJs, ChartOptions } from "chart.js";
+import { shallowRef } from "vue";
 import type { Ref } from "vue";
 
 import { ensureVendor } from "../../platform/vendor";
@@ -124,11 +125,14 @@ export function creerMetriques(b: BaseAdmin) {
   const { vue, ctx, lien } = b;
   const { computed, ref } = vue;
   const { showToast, openConfirm, fetchAuth } = ctx;
-  const dashboardData: Ref<DonneesTableauBord> = ref({ layout: [], data: {} });
+  // Données brutes : Chart.js les reçoit sans proxy de Vue ; chaque réponse remplace l'objet entier.
+  const dashboardData: Ref<DonneesTableauBord> = shallowRef({ layout: [], data: {} });
   const instances: Record<string, ChartJs> = {};
-  // Graphiques à créer, un par image : un tableau de bord entier ne fait plus une seule longue tâche.
-  const aCreer = new Map<string, () => void>();
-  let imageCreation = 0;
+  /** Données (JSON) remises à chaque graphe : une série inchangée n'est pas redessinée. */
+  const signatures = new WeakMap<ChartJs, string>();
+  // Créations et mises à jour de graphes, une par image : une actualisation ne fait pas une seule longue tâche.
+  const travaux = new Map<string, () => void>();
+  let image = 0;
   let minuterieSondage: ReturnType<typeof setInterval> | null = null;
   let minuterieLive: ReturnType<typeof setInterval> | null = null;
   let sondageVoulu = false;
@@ -593,19 +597,19 @@ export function creerMetriques(b: BaseAdmin) {
     return options as ChartOptions;
   }
 
-  /** Crée le graphique suivant de la file, puis repasse à l'image suivante tant qu'il en reste. */
-  function creerSuivant(): void {
-    imageCreation = 0;
-    const [id, creer] = aCreer.entries().next().value ?? [];
-    if (!id || !creer) return;
-    aCreer.delete(id);
-    creer();
-    if (aCreer.size) imageCreation = requestAnimationFrame(creerSuivant);
+  /** Traite le graphique suivant de la file, puis repasse à l'image suivante tant qu'il en reste. */
+  function traiterSuivant(): void {
+    image = 0;
+    const [id, travail] = travaux.entries().next().value ?? [];
+    if (!id || !travail) return;
+    travaux.delete(id);
+    travail();
+    if (travaux.size) image = requestAnimationFrame(traiterSuivant);
   }
 
-  function planifierCreation(id: string, creer: () => void): void {
-    aCreer.set(id, creer);
-    imageCreation ||= requestAnimationFrame(creerSuivant);
+  function planifier(id: string, travail: () => void): void {
+    travaux.set(id, travail);
+    image ||= requestAnimationFrame(traiterSuivant);
   }
 
   /** Chart.js est demandé à la volée (une fois) ; sans lui, le rendu est reporté. */
@@ -632,18 +636,27 @@ export function creerMetriques(b: BaseAdmin) {
       const type = widget.type === "bar_stacked" ? "bar" : widget.type;
       const existante = instances[widget.id];
       if (existante && existante.canvas === canvas) {
-        existante.data = donnees as unknown as typeof existante.data;
-        existante.update("none");
+        if ((existante.data as unknown) === donnees) continue;
+        const signature = JSON.stringify(donnees);
+        if (signatures.get(existante) === signature) continue;
+        signatures.set(existante, signature);
+        planifier(widget.id, () => {
+          if (instances[widget.id] !== existante) return;
+          existante.data = donnees as unknown as typeof existante.data;
+          existante.update("none");
+        });
       } else {
         existante?.destroy();
         delete instances[widget.id];
-        planifierCreation(widget.id, () => {
+        planifier(widget.id, () => {
           if (!canvas.isConnected || instances[widget.id]) return;
-          instances[widget.id] = new Constructeur(canvas, {
+          const graphe: ChartJs = new Constructeur(canvas, {
             type: type as "bar",
             data: donnees as unknown as { datasets: [] },
             options: optionsGraphique(widget, donnees) as ChartOptions<"bar">,
           });
+          signatures.set(graphe, JSON.stringify(donnees));
+          instances[widget.id] = graphe;
         });
       }
     }
@@ -655,18 +668,11 @@ export function creerMetriques(b: BaseAdmin) {
     try {
       const res = await fetchAuth("/api/admin/stats-dynamic?ids=" + encodeURIComponent(visibles.join(",")));
       if (!res || !res.ok) return;
-      const json = objet(await corpsJson(res));
-      const donnees = objet(json["data"]);
-      for (const wid of visibles) {
-        const neuf = donnees[wid];
-        if (!estObjet(neuf) || neuf["error"]) continue;
-        dashboardData.value.data[wid] = neuf as DonneesWidget;
-        const inst = instances[wid];
-        if (inst) {
-          inst.data = neuf as unknown as typeof inst.data;
-          inst.update("none");
-        }
-      }
+      const donnees = objet(objet(await corpsJson(res))["data"]);
+      const neufs = visibles.filter((id) => estObjet(donnees[id]) && !objet(donnees[id])["error"]);
+      if (!neufs.length) return;
+      fusionnerDonnees({ data: Object.fromEntries(neufs.map((id) => [id, donnees[id]])) });
+      void ctx.nextTick().then(renderDynamicDashboard);
     } catch {
       /* au mieux */
     }
@@ -704,9 +710,9 @@ export function creerMetriques(b: BaseAdmin) {
   }
   /** Détruit toutes les instances Chart.js vivantes : leur écouteur de redimensionnement global survivrait au canvas retiré. */
   function destroyAllCharts(): void {
-    aCreer.clear();
-    if (imageCreation) cancelAnimationFrame(imageCreation);
-    imageCreation = 0;
+    travaux.clear();
+    if (image) cancelAnimationFrame(image);
+    image = 0;
     for (const id of Object.keys(instances)) {
       try {
         instances[id]?.destroy();

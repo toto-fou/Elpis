@@ -99,6 +99,16 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     loadHead: (p, f) => diff._loadHead(p, f),
     headText: (p) => diff.texteTete(p),
     robustLayout: () => page.robustLayout(),
+    editeurDroit() {
+      monacoRef.instance2 = editeurs?.droit() ?? null;
+      return monacoRef.instance2;
+    },
+    differences() {
+      const d = editeurs?.differences() ?? null;
+      monacoRef.diff = d?.diff ?? null;
+      monacoRef.originalModel = d?.original ?? null;
+      return d;
+    },
     smoothOpenLayout: () => page._smoothOpenLayout(),
     closeEditorCtxMenu: () => outils.closeEditorCtxMenu(),
     openEditorCtxMenu: (ev) => outils._openEditorCtxMenu(ev),
@@ -655,9 +665,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
         },
       );
       monacoRef.instance = editeurs.instance;
-      monacoRef.instance2 = editeurs.instance2;
-      monacoRef.diff = editeurs.diff;
-      monacoRef.originalModel = editeurs.originalModel;
       if (interfaceEditeur.value !== "classic") appliquerTheme();
       page._bindFullscreenEsc();
       setTimeout(() => {

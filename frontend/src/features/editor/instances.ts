@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/editor/instances.ts — éditeurs Monaco de l'éditeur (principal, diff, panneau droit) : options issues des réglages, abonnements et observateur possédés puis libérés ensemble, préférences et thème appliqués à chaud. */
+/** frontend/src/features/editor/instances.ts — éditeurs Monaco de l'éditeur (principal, puis diff et panneau droit à leur premier besoin) : options issues des réglages, abonnements et observateur possédés puis libérés ensemble, préférences et thème appliqués à chaud. */
 import { markRaw } from "vue";
 
 export interface Jetable {
@@ -134,9 +134,10 @@ export interface Editeurs<
   Mo extends ModeleJetable = ModeleJetable,
 > {
   instance: E;
-  instance2: E | null;
-  diff: D | null;
-  originalModel: Mo | null;
+  /** Éditeur du panneau droit, créé au premier appel ; `null` sans son conteneur ou après `liberer`. */
+  droit(): E | null;
+  /** Éditeur de différences et modèle d'origine, créés au premier appel ; `null` sans leur conteneur ou après `liberer`. */
+  differences(): { diff: D; original: Mo } | null;
   /** Abonnements, observateur et éditeurs vivants (0 après `liberer`). */
   readonly ressources: number;
   appliquerPreferences(s: ReglagesEditeur | null | undefined): void;
@@ -196,7 +197,7 @@ export function prechaufferEditeurs(
   }
 }
 
-/** Crée les trois éditeurs ; tout ce qu'ils posent (abonnements, observateur) est libéré par `liberer`. */
+/** Crée l'éditeur principal, les deux autres à leur premier besoin (sans option de thème : le thème global reste celui de la page) ; tout ce qu'ils posent est libéré par `liberer`. */
 export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMonaco, Mo extends ModeleJetable>(
   monaco: MonacoEditeurs<E, D, Mo>,
   el: ElementsEditeurs,
@@ -204,7 +205,8 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   r: RappelsEditeurs<Mo>,
 ): Editeurs<E, D, Mo> {
   monacoServi = true;
-  const prefs = preferencesEditeur(reglages);
+  let prefs = preferencesEditeur(reglages);
+  let prefsAppliquees = false;
   const theme = themeEditeur(reglages);
   const jetables: Jetable[] = [];
   const garder = (j: Jetable): void => {
@@ -253,37 +255,49 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
     }),
   );
 
-  let diff: D | null = null;
-  let originalModel: Mo | null = null;
-  if (el.diff) {
-    diff = markRaw(
-      monaco.editor.createDiffEditor(el.diff, {
-        theme,
-        automaticLayout: false,
-        originalEditable: false,
-        readOnly: false,
-        renderSideBySide: true,
-      }),
-    );
-    originalModel = markRaw(monaco.editor.createModel("", "plaintext"));
-    diff.getModifiedEditor().addCommand(ctrlS, r.enregistrer);
-  }
   garder(instance.onDidFocusEditorText(r.focusGauche));
 
+  let libere = false;
+  let diff: D | null = null;
+  let originalModel: Mo | null = null;
+  function differences(): { diff: D; original: Mo } | null {
+    if (!diff && el.diff && !libere) {
+      const d = markRaw(
+        monaco.editor.createDiffEditor(el.diff, {
+          automaticLayout: false,
+          originalEditable: false,
+          readOnly: false,
+          renderSideBySide: true,
+        }),
+      );
+      if (prefsAppliquees) d.updateOptions(prefs);
+      originalModel = markRaw(monaco.editor.createModel("", "plaintext"));
+      d.getModifiedEditor().addCommand(ctrlS, r.enregistrer);
+      diff = d;
+    }
+    return diff && originalModel && !libere ? { diff, original: originalModel } : null;
+  }
+
   let instance2: E | null = null;
-  if (el.droit) {
-    instance2 = markRaw(monaco.editor.create(el.droit, options(prefs, theme)));
-    garder(instance2.onDidFocusEditorText(r.focusDroit));
-    garder(instance2.onDidChangeCursorPosition(r.curseur));
-    garder(instance2.onDidChangeModelContent(r.contenuDroit));
-    garder(instance2.onDidBlurEditorText(r.flouDroit));
-    instance2.addCommand(ctrlS, r.enregistrerDroit);
-    garder(
-      instance2.onContextMenu((e) => {
-        e.event.preventDefault();
-        e.event.stopPropagation();
-      }),
-    );
+  function droit(): E | null {
+    if (!instance2 && el.droit && !libere) {
+      const o = options(prefs, "");
+      delete o.theme;
+      const d = markRaw(monaco.editor.create(el.droit, o));
+      garder(d.onDidFocusEditorText(r.focusDroit));
+      garder(d.onDidChangeCursorPosition(r.curseur));
+      garder(d.onDidChangeModelContent(r.contenuDroit));
+      garder(d.onDidBlurEditorText(r.flouDroit));
+      d.addCommand(ctrlS, r.enregistrerDroit);
+      garder(
+        d.onContextMenu((e) => {
+          e.event.preventDefault();
+          e.event.stopPropagation();
+        }),
+      );
+      instance2 = d;
+    }
+    return libere ? null : instance2;
   }
 
   let observateur: ResizeObserver | null = null;
@@ -293,22 +307,21 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
     observateur.observe(conteneur);
   }
 
-  let libere = false;
   return {
     instance,
-    instance2,
-    diff,
-    originalModel,
+    droit,
+    differences,
     get ressources() {
       if (libere) return 0;
       return jetables.length + (observateur ? 1 : 0) + 1 + (instance2 ? 1 : 0) + (diff ? 1 : 0);
     },
-    /** Préférences sur les trois éditeurs, le panneau droit compris (il gardait les anciennes). */
+    /** Préférences sur les éditeurs créés, le panneau droit compris ; ceux créés ensuite les reprennent. */
     appliquerPreferences(s) {
-      const p = preferencesEditeur(s);
+      prefs = preferencesEditeur(s);
+      prefsAppliquees = true;
       for (const ed of [instance, instance2, diff]) {
         try {
-          ed?.updateOptions(p);
+          ed?.updateOptions(prefs);
         } catch {
           /* éditeur libéré */
         }

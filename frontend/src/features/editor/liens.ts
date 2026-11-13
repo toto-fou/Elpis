@@ -5,7 +5,7 @@ import type { Terminal } from "@xterm/xterm";
 import type { setupEditorPreview } from "./apercu";
 import type { setupEditorStatusBar } from "./barre-etat";
 import type { setupEditorDisk } from "./disque";
-import type { Modele } from "./etat";
+import type { EditeurCode, EditeurDiff, Modele } from "./etat";
 import type { setupEditorSandboxFs } from "./fichiers";
 import type { setupEditorGit } from "./git";
 import type { PropositionIa } from "./ia";
@@ -76,6 +76,10 @@ export interface LiensEditeur {
   loadHead(chemin: string, force?: boolean): Promise<string | null>;
   headText(chemin: string): string | null;
   robustLayout(): void;
+  /** Éditeur du panneau droit, créé à son premier besoin. */
+  editeurDroit(): EditeurCode | null;
+  /** Éditeur de différences et modèle d'origine, créés à leur premier besoin. */
+  differences(): { diff: EditeurDiff; original: Modele } | null;
   smoothOpenLayout(): void;
   closeEditorCtxMenu(): void;
   openEditorCtxMenu(e: MouseEvent): void;

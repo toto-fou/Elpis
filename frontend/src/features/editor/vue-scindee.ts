@@ -32,10 +32,11 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
   } = e;
   const { models, vis } = s;
   const modelOk = (p: string | null | undefined): boolean => !!p && s.modeles.ok(p);
+  // Un modèle à montrer crée le panneau droit au besoin ; le retirer ne le crée pas.
   const mettreModeleDroit = (p: string | null): void => {
     try {
       const m = p ? models[p] : undefined;
-      monacoRef.instance2?.setModel(m ?? null);
+      (m ? l.editeurDroit() : monacoRef.instance2)?.setModel(m ?? null);
     } catch {
       /* éditeur libéré */
     }
@@ -85,7 +86,8 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
           : activeTabPath.value;
     }
     void nextTick(() => {
-      if (monacoRef.instance2 && modelOk(splitTabPath.value)) mettreModeleDroit(splitTabPath.value);
+      l.editeurDroit();
+      if (modelOk(splitTabPath.value)) mettreModeleDroit(splitTabPath.value);
       activePane.value = "right";
       l.robustLayout();
     });

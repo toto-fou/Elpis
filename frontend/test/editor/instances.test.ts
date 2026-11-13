@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/editor/instances.test.ts — éditeurs Monaco : options issues des réglages, 50 cycles création / libération sans abonnement, observateur ni éditeur restant, préférences appliquées au panneau droit. */
+/** frontend/test/editor/instances.test.ts — éditeurs Monaco : options issues des réglages, diff et panneau droit créés au premier besoin, 50 cycles création / libération sans abonnement, observateur ni éditeur restant, préférences appliquées au panneau droit. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { creerEditeurs, preferencesEditeur, themeEditeur } from "../../src/features/editor/instances";
@@ -181,24 +181,60 @@ describe("éditeurs Monaco", () => {
     const { monaco } = fauxMonaco(c);
     for (let i = 0; i < 50; i++) {
       const e = creerEditeurs(monaco, elements(), {}, rappels);
+      expect(c.editeurs).toBe(1);
+      expect(e.droit()).toBe(e.droit());
+      expect(e.differences()?.diff).toBe(e.differences()?.diff);
       expect(c.editeurs).toBe(3);
       expect(c.observateurs).toBe(1);
       expect(e.ressources).toBeGreaterThan(10);
       e.liberer();
       e.liberer();
       expect(e.ressources).toBe(0);
+      expect(e.droit()).toBeNull();
+      expect(e.differences()).toBeNull();
       expect(c).toMatchObject({ abonnements: 0, editeurs: 0, modeles: 0, observateurs: 0 });
     }
     expect(c.globaux).toBeLessThanOrEqual(2);
   });
 
-  it("préférences à chaud : appliquées aussi au panneau droit", () => {
+  it("diff et panneau droit créés à leur premier besoin, sans option de thème ; rien sans conteneur", () => {
+    const c = new Compteurs();
+    const { monaco, options } = fauxMonaco(c);
+    const diffs: object[] = [];
+    const diff = monaco.editor.createDiffEditor;
+    monaco.editor.createDiffEditor = (el, o) => (diffs.push(o), diff(el, o));
+    const e = creerEditeurs(monaco, elements(), { editor_dark_mode: false }, rappels);
+    expect(options).toHaveLength(1);
+    expect(options[0]).toMatchObject({ theme: "vs" });
+    expect(c).toMatchObject({ editeurs: 1, modeles: 0 });
+    const droit = e.droit();
+    expect(options).toHaveLength(2);
+    expect(options[1]).not.toHaveProperty("theme");
+    expect(e.differences()).not.toBeNull();
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]).not.toHaveProperty("theme");
+    expect(c).toMatchObject({ editeurs: 3, modeles: 1 });
+    expect(e.droit()).toBe(droit);
+    e.liberer();
+    const sans = creerEditeurs(monaco, { ...elements(), diff: null, droit: null }, {}, rappels);
+    expect([sans.droit(), sans.differences()]).toEqual([null, null]);
+    sans.liberer();
+    expect(c).toMatchObject({ editeurs: 0, modeles: 0 });
+  });
+
+  it("préférences à chaud : appliquées aussi au panneau droit, et reprises par un éditeur créé ensuite", () => {
     const c = new Compteurs();
     const { monaco, options } = fauxMonaco(c);
     const e = creerEditeurs(monaco, elements(), { editor_font_size: 14 }, rappels);
+    e.droit();
     e.appliquerPreferences({ editor_font_size: 20, editor_minimap: true });
     expect(options).toHaveLength(2);
     for (const o of options) expect(o).toMatchObject({ fontSize: 20, minimap: { enabled: true } });
     e.liberer();
+    const f = creerEditeurs(monaco, elements(), { editor_font_size: 14 }, rappels);
+    f.appliquerPreferences({ editor_font_size: 22 });
+    f.droit();
+    expect(options.at(-1)).toMatchObject({ fontSize: 22 });
+    f.liberer();
   });
 });

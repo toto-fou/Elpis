@@ -80,6 +80,33 @@ describe("module des routines", () => {
     s._liberer();
   });
 
+  it("rouvrir la page montre la liste gardée et sa première routine pendant la relecture", async () => {
+    let liste: unknown[] = [ROUTINE];
+    let attente: Promise<Response> | null = null;
+    let liberer = (): void => undefined;
+    const { s } = monter((u) => {
+      if (u === "/api/routines") return attente ?? json({ items: liste });
+      if (u === "/api/skills") return json(SKILLS);
+      return json({ items: [] });
+    });
+    await s.openRoutinesPage();
+    s.closeRoutinesPage();
+    liste = [{ ...ROUTINE, id: 4, name: "Autre" }];
+    attente = new Promise<Response>((r) => {
+      liberer = () => r(json({ items: liste }));
+    });
+    const ouverture = s.openRoutinesPage();
+    expect(s.routines.value).toHaveLength(1);
+    expect(s.routinesLoading.value).toBe(true);
+    expect(s.routineEditMode.value).toBe("view");
+    expect(s.selectedRoutineId.value).toBe(3);
+    liberer();
+    await ouverture;
+    // Routine supprimée ailleurs : la première de la liste relue prend sa place.
+    expect(s.selectedRoutineId.value).toBe(4);
+    s._liberer();
+  });
+
   it("enregistre une édition : charge utile complète et retour à la vue", async () => {
     let corps: Record<string, unknown> = {};
     const { s, toasts } = monter((u, i) => {

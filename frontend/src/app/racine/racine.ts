@@ -1023,6 +1023,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     oublierPrecharge();
     messages.value = [];
     if (m.chat) m.chat.chats.value = [];
+    if (m.routines) m.routines.routines.value = [];
     currentChatId.value = null;
     isAdminView.value = false;
     // Modifications non enregistrées mises de côté avant la purge, restaurables à la reconnexion.

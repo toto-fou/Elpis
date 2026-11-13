@@ -386,15 +386,17 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     } catch {
       /* moteurs indisponibles : le sélecteur reste vide */
     }
+    // La liste gardée de la visite précédente reste affichée, sa première routine ouverte, pendant la relecture.
+    const connue = routines.value[0];
+    if (connue) viewRoutine(connue);
     await loadRoutines();
     const premiere = routines.value[0];
-    if (!selectedRoutineId.value && premiere) viewRoutine(premiere);
+    if (premiere && !routines.value.some((r) => r.id === selectedRoutineId.value)) viewRoutine(premiere);
   }
   function closeRoutinesPage(): void {
     currentView.value = "chat";
     arreterSondages();
     reinitialiserEditeur();
-    routines.value = [];
     routinesError.value = "";
   }
 

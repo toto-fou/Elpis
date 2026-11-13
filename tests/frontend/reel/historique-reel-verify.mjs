@@ -53,7 +53,7 @@ try {
     await action(recettes.titre, 'Archiver');
     await pause(400);
     v.ok('Archiver : aucune confirmation, toast « Annuler »', !(await dialogue.isVisible().catch(() => false))
-        && await page.locator('button', { hasText: 'Annuler' }).count() >= 1);
+        && await page.locator('.elpis-toast button', { hasText: 'Annuler' }).count() >= 1);
     await page.waitForFunction((t) => ![...document.querySelectorAll('[data-chat-row]')].some((d) => d.innerText.includes(t)), recettes.titre, { timeout: 5000 }).catch(() => {});
     v.ok('Archiver : la conversation quitte la liste', await ligne(recettes.titre).count() === 0);
     const archives = (await api.req('GET', '/api/saved/chats?archived=1')).items || [];
@@ -63,7 +63,7 @@ try {
     await action('Carnet de lectures', 'Supprimer');
     await dialogue.waitFor({ timeout: 5000 });
     await dialogue.locator('button', { hasText: 'Supprimer' }).click();
-    const annuler = page.locator('button', { hasText: 'Annuler' }).last();
+    const annuler = page.locator('.elpis-toast button', { hasText: 'Annuler' }).last();
     await annuler.waitFor({ timeout: 5000 }).catch(() => {});
     v.ok('Supprimer : retrait immédiat et toast avec « Annuler »', await ligne('Carnet de lectures').count() === 0 && await annuler.count() === 1);
     await annuler.click();

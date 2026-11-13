@@ -247,19 +247,8 @@ export function creerMetriques(b: BaseAdmin) {
     else widgetPrefs.value[id] = suivant;
     widgetPrefs.value = { ...widgetPrefs.value };
     ecrireStockage(CLE_PREFS_WIDGETS, JSON.stringify(widgetPrefs.value));
-    if (etaitVisible) {
-      const inst = instances[id];
-      if (inst) {
-        try {
-          inst.destroy();
-        } catch {
-          /* déjà détruite */
-        }
-        delete instances[id];
-      }
-    } else {
-      void chargerWidgets([id]);
-    }
+    if (etaitVisible) detruire(id);
+    else void chargerWidgets([id]);
   }
   function resetWidgetPrefs(): void {
     const avant = new Set(dashboardData.value.layout.filter((w) => isWidgetVisible(w.id)).map((w) => w.id));
@@ -629,10 +618,8 @@ export function creerMetriques(b: BaseAdmin) {
     }
     for (const id of Object.keys(instances)) {
       const canvas = document.getElementById(`chart_${id}`);
-      if (!dashboardData.value.layout.find((l) => l.id === id) || !canvas || !isWidgetVisible(id)) {
-        instances[id]?.destroy();
-        delete instances[id];
-      }
+      if (!dashboardData.value.layout.find((l) => l.id === id) || !canvas || !isWidgetVisible(id))
+        detruire(id);
     }
     for (const widget of dashboardData.value.layout) {
       if (!isWidgetVisible(widget.id)) continue;
@@ -654,8 +641,7 @@ export function creerMetriques(b: BaseAdmin) {
           existante.update("none");
         });
       } else {
-        existante?.destroy();
-        delete instances[widget.id];
+        detruire(widget.id);
         planifier(widget.id, () => {
           if (!canvas.isConnected || instances[widget.id]) return;
           const graphe: ChartJs = new Constructeur(canvas, {
@@ -721,14 +707,15 @@ export function creerMetriques(b: BaseAdmin) {
     travaux.clear();
     if (image) cancelAnimationFrame(image);
     image = 0;
-    for (const id of Object.keys(instances)) {
-      try {
-        instances[id]?.destroy();
-      } catch {
-        /* déjà détruite */
-      }
-      delete instances[id];
+    for (const id of Object.keys(instances)) detruire(id);
+  }
+  function detruire(id: string): void {
+    try {
+      instances[id]?.destroy();
+    } catch {
+      /* déjà détruite */
     }
+    delete instances[id];
   }
 
   /** Onglet en arrière-plan : les sondages se suspendent, l'intention est conservée. */

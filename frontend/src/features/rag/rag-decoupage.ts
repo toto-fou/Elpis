@@ -45,7 +45,7 @@ const APERCU_VIDE: ApercuDecoupageRag = { passages: [], total: 0, tronque: false
 
 export function creerDecoupage(
   base: BaseRag,
-  documents: Pick<SurfaceDocuments, "documents" | "appliquerTravail">,
+  documents: Pick<SurfaceDocuments, "majDocument" | "appliquerTravail">,
   delaiApercuMs: number = DELAI_APERCU_MS,
 ) {
   const { api } = base;

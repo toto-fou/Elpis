@@ -4,9 +4,9 @@
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
+import { entreesMenu, naviguerMenu } from "../../../features/chat/page/menu-clavier";
 import {
   ecouterFermeture,
-  elementActif,
   focusPerdu,
   pagePlusActive,
   pagesPlus,
@@ -41,11 +41,6 @@ const ouvrirPage: Record<PagePlus["vue"], () => unknown> = {
   code: () => b.openCodePage(),
 };
 
-/** Entrées du sous-menu ouvert. */
-function entrees(): HTMLElement[] {
-  return menu.value ? [...menu.value.querySelectorAll<HTMLElement>('[role="menuitem"]')] : [];
-}
-
 /** Flèche droite ou bas sur le déclencheur : ouvre le sous-menu. */
 function surDeclencheur(e: KeyboardEvent): void {
   if ((e.key !== "ArrowRight" && e.key !== "ArrowDown") || ouvert.value) return;
@@ -55,17 +50,8 @@ function surDeclencheur(e: KeyboardEvent): void {
 
 /** Flèches, Début et Fin entre les pages ; flèche gauche et Tab referment. */
 function surClavier(e: KeyboardEvent): void {
-  const liste = entrees();
-  const i = liste.indexOf(elementActif() as HTMLElement);
-  const aller = (n: number): void => {
-    e.preventDefault();
-    liste[(n + liste.length) % liste.length]?.focus();
-  };
-  if (e.key === "ArrowDown") aller(i + 1);
-  else if (e.key === "ArrowUp") aller(i < 0 ? -1 : i - 1);
-  else if (e.key === "Home") aller(0);
-  else if (e.key === "End") aller(-1);
-  else if (e.key === "ArrowLeft" || e.key === "Tab") {
+  if (menu.value && naviguerMenu(e, menu.value)) return;
+  if (e.key === "ArrowLeft" || e.key === "Tab") {
     if (e.key === "ArrowLeft") e.preventDefault();
     b.menuPagesOuvert = false;
   }
@@ -108,7 +94,8 @@ watch(ouvert, async (o) => {
   placer();
   await nextTick();
   placer();
-  (menu.value?.querySelector<HTMLElement>('[aria-current="page"]') ?? entrees()[0])?.focus();
+  const m = menu.value;
+  (m?.querySelector<HTMLElement>('[aria-current="page"]') ?? (m && entreesMenu(m)[0]))?.focus();
 });
 // Volet replié, déployé ou masqué par le plein écran de l'éditeur : le sous-menu n'a plus d'ancre.
 watch([() => b.showSidebar, () => b.editorFullscreen], () => {

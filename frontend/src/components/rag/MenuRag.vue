@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, useTemplateRef, watch }
 
 import type { ItemMenuRag } from "../../features/rag/base";
 import { domaineRag } from "../../features/rag/domaine";
+import { entreesMenu, naviguerMenu } from "../../features/chat/page/menu-clavier";
 import { elementActif, focusPerdu, surPointeurPage } from "../../features/rag/dom";
 
 const props = defineProps<{
@@ -23,22 +24,9 @@ const racine = useTemplateRef<HTMLElement>("racine");
 const declencheur = useTemplateRef<HTMLButtonElement>("declencheur");
 const menu = useTemplateRef<HTMLElement>("menu");
 
-function entrees(): HTMLElement[] {
-  return menu.value ? [...menu.value.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)')] : [];
-}
-
 function surClavier(e: KeyboardEvent): void {
-  const liste = entrees();
-  const i = liste.indexOf(elementActif() as HTMLElement);
-  const aller = (n: number): void => {
-    e.preventDefault();
-    liste[(n + liste.length) % liste.length]?.focus();
-  };
-  if (e.key === "ArrowDown") aller(i + 1);
-  else if (e.key === "ArrowUp") aller(i < 0 ? -1 : i - 1);
-  else if (e.key === "Home") aller(0);
-  else if (e.key === "End") aller(-1);
-  else if (e.key === "Tab") rg.menuOuvert = null;
+  if (menu.value && naviguerMenu(e, menu.value)) return;
+  if (e.key === "Tab") rg.menuOuvert = null;
 }
 
 function surDeclencheur(e: KeyboardEvent): void {
@@ -65,7 +53,8 @@ onBeforeUnmount(() => retirer?.());
 // À l'ouverture le focus va au premier choix, ou au choix coché ; à la fermeture au clavier il revient au déclencheur.
 watch(ouvert, async (o) => {
   await nextTick();
-  if (o) (menu.value?.querySelector<HTMLElement>('[aria-checked="true"]') ?? entrees()[0])?.focus();
+  const m = menu.value;
+  if (o) (m?.querySelector<HTMLElement>('[aria-checked="true"]') ?? (m && entreesMenu(m)[0]))?.focus();
   else if (racine.value && (focusPerdu() || racine.value.contains(elementActif())))
     declencheur.value?.focus();
 });

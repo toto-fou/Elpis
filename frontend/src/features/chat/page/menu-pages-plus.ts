@@ -93,11 +93,6 @@ export function ecouterFermeture(surPointeur: (e: Event) => void, surRedimension
   };
 }
 
-/** Élément qui a le focus. */
-export function elementActif(): Element | null {
-  return document.activeElement;
-}
-
 /** Vrai si le focus est perdu (sur le corps de la page ou nulle part). */
 export function focusPerdu(): boolean {
   return document.activeElement === null || document.activeElement === document.body;

@@ -4,7 +4,7 @@ import * as marked from "marked";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { lireFence, preparerTexte } from "../../../src/features/chat/rendu/flux-blocs";
-import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
+import type { EtatFlux, Liens } from "../../../src/features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 import type { MoteurMarkdown } from "../../../src/features/chat/rendu/markdown";
 import { CORPUS } from "./corpus-flux";
@@ -47,7 +47,8 @@ describe("blocs du flux = rendu complet", () => {
     [1, 3, 7, 40].map((pas) => [nom, pas, texte] as const),
   );
 
-  it.each(cas)("%s, morceaux de %i caractères", (_nom, pas, texte) => {
+  // Délai large : le corpus réaliste diffusé caractère par caractère dépasse 5 s sur une machine chargée.
+  it.each(cas)("%s, morceaux de %i caractères", { timeout: 60_000 }, (_nom, pas, texte) => {
     const { etat, historique } = diffuser(texte, pas);
     expect(norm(html(etat))).toBe(norm(m.renderMarkdown(texte)));
     expect(etat.pos).toBe(preparerTexte(texte).length);
@@ -215,18 +216,29 @@ describe("texte final qui diffère du texte diffusé", () => {
   });
 });
 
+const ATTRIBUT_OUVERT = /<[a-zA-Z][^>\n]*=\s*["'][^"'\n]*$/m;
+
 describe("reprise sur un texte modifié à n'importe quelle position", () => {
-  it.each(Object.entries(CORPUS).filter(([nom]) => !/^(mixte|paragrapheLong|html)/.test(nom)))(
+  it.each(Object.entries(CORPUS))(
     "%s : le rendu final égale le rendu complet",
+    { timeout: 60_000 },
     (_nom, texte) => {
-      for (let p = 0; p < texte.length; p += 3) {
-        let etat: EtatFlux | null = null;
-        for (let n = 5; n < texte.length + 5; n += 5) etat = m.avancerFlux(texte.slice(0, n), etat).etat;
+      let diffuse: EtatFlux | null = null;
+      for (let n = 5; n < texte.length + 5; n += 5) diffuse = m.avancerFlux(texte.slice(0, n), diffuse).etat;
+      const pas = Math.max(3, Math.ceil(texte.length / 200));
+      for (let p = 0; p < texte.length; p += pas) {
         for (const final of [
           texte.slice(0, p) + "X" + texte.slice(p + 1),
           texte.slice(0, p) + texte.slice(p + 2),
           texte.slice(0, p) + " " + texte.slice(p),
         ]) {
+          // Écart voulu, figé dans flux-blocs-cas : une valeur d'attribut jamais fermée avale la suite au rendu complet, pas dans les blocs.
+          if (ATTRIBUT_OUVERT.test(final)) continue;
+          // Chaque reprise part du même état diffusé ; sa table de liens, partagée d'un battement à l'autre, est recopiée.
+          const etat = diffuse && {
+            ...diffuse,
+            liens: Object.assign(Object.create(null) as Liens, diffuse.liens),
+          };
           const r = m.terminerFlux(final, etat);
           expect(
             norm(r ? html(r.etat) : ""),

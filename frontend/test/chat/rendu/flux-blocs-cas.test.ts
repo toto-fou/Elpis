@@ -147,6 +147,14 @@ describe("blocs figés stables", () => {
   });
 });
 
+describe("écarts voulus avec le rendu complet", () => {
+  it("une valeur d'attribut jamais fermée n'avale pas la suite du message dans les blocs", () => {
+    const texte = '<div class=">\n\nParagraphe **dans** un div.\n\nHors du div.\n';
+    expect(norm(m.renderMarkdown(texte))).toBe("");
+    expect(finir(texte, texte)).toContain("Hors du div.");
+  });
+});
+
 describe("grandes régions", () => {
   it("après une rafale qui finit par une longue liste, la suite se fige dès 20 % de croissance de la région", () => {
     let a = "";

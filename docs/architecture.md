@@ -773,7 +773,7 @@ sequenceDiagram
     R->>B: wait for the engine, then generation (background task + queue)
     B-->>R: events
     R->>R: optimistic save, then kv_cache and final
-    R-->>C: NDJSON drained (tokens batched every 25 ms)
+    R-->>C: NDJSON drained (first text at once, then tokens batched every 25 ms)
     Note over R: stream closed, run detached or closed
 ```
 

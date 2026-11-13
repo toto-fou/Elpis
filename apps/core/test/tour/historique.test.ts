@@ -296,6 +296,31 @@ describe("admission, drain, légendes", () => {
     expect(obtenu).toStrictEqual(S["drains"]);
   });
 
+  it("drain : le premier texte de chaque canal part sans attendre la fenêtre, la suite l'attend", async () => {
+    const q = new FileEvenements();
+    const attentes: string[] = [];
+    const sortie: string[] = [];
+    const jeton = (type: string, text: string): Dict => ({ type, text });
+    const drain = drainCoalesced(q, {
+      windowMs: 25,
+      idlePingS: 0,
+      dormir: async () => {
+        attentes.push(sortie.at(-1) ?? "");
+        await q.put(jeton("content_token", "c"));
+      },
+    });
+    await q.put(jeton("thinking_token", "p1"));
+    await q.put(jeton("content_token", "a"));
+    await q.put(jeton("content_token", "b"));
+    for await (const e of drain) {
+      sortie.push(`${String(e["type"])}:${String(e["text"])}`);
+      if (sortie.length === 2) await q.put(jeton("content_token", "d"));
+      if (sortie.length === 3) await q.put(null);
+    }
+    expect(sortie).toStrictEqual(["thinking_token:p1", "content_token:ab", "content_token:dc"]);
+    expect(attentes).toStrictEqual(["content_token:ab"]);
+  });
+
   it("légende d'une image générée", () => {
     expect((E["legendes"] as [string, number][]).map(([p, n]) => caption(p, n))).toStrictEqual(S["legendes"]);
   });

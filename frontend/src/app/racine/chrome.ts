@@ -10,6 +10,8 @@ export interface OptionsToast {
   actionLabel?: string;
   onAction?: () => void;
   onExpire?: () => void;
+  /** Un toast de même clé encore affiché est mis à jour sur place, sa durée relancée. */
+  cle?: string;
 }
 
 export interface Toast {
@@ -19,6 +21,7 @@ export interface Toast {
   actionLabel?: string;
   onAction?: () => void;
   onExpire?: () => void;
+  cle?: string;
   _timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -83,6 +86,21 @@ export function creerToasts() {
     const genre = type || "success";
     const persistant = genre === "error" && typeof opts.duration !== "number";
     const duree = typeof opts.duration === "number" ? opts.duration : 4000;
+    const deCle = opts.cle ? toasts.value.find((x) => x.cle === opts.cle) : undefined;
+    if (deCle) {
+      const action = typeof opts.onAction === "function";
+      const actionLabel = action ? opts.actionLabel : undefined;
+      Object.assign(deCle, {
+        message,
+        type: genre,
+        actionLabel,
+        onAction: opts.onAction,
+        onExpire: opts.onExpire,
+      });
+      if (deCle._timer) clearTimeout(deCle._timer);
+      deCle._timer = persistant ? undefined : setTimeout(() => removeToast(deCle.id, true), duree);
+      return deCle.id;
+    }
     if (!opts.actionLabel && !opts.onExpire) {
       const meme = toasts.value.find(
         (x) => x.message === message && x.type === genre && !x.actionLabel && !x.onExpire,
@@ -104,6 +122,7 @@ export function creerToasts() {
       toast.onAction = opts.onAction;
     }
     if (typeof opts.onExpire === "function") toast.onExpire = opts.onExpire;
+    if (opts.cle) toast.cle = opts.cle;
     toasts.value.push(toast);
     if (persistant) {
       const erreurs = toasts.value.filter((x) => x.type === "error" && !x._timer);

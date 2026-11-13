@@ -76,6 +76,31 @@ describe("toasts", () => {
     t.removeToast(id, true);
     expect(expire).toHaveBeenCalledOnce();
   });
+
+  it("un toast à clé est mis à jour sur place, durée relancée, seul le dernier rappel joue", () => {
+    const t = creerToasts();
+    const premier = vi.fn();
+    const dernier = vi.fn();
+    const a = t.showToast("Enregistré", "success", { cle: "k", duration: 6000, onExpire: premier });
+    vi.advanceTimersByTime(5000);
+    const action = vi.fn();
+    const b = t.showToast("Enregistré", "success", {
+      cle: "k",
+      duration: 6000,
+      actionLabel: "Annuler",
+      onAction: action,
+      onExpire: dernier,
+    });
+    expect(b).toBe(a);
+    expect(t.toasts.value).toHaveLength(1);
+    expect(t.toasts.value[0]?.actionLabel).toBe("Annuler");
+    vi.advanceTimersByTime(5000);
+    expect(t.toasts.value).toHaveLength(1);
+    vi.advanceTimersByTime(1000);
+    expect(t.toasts.value).toHaveLength(0);
+    expect(premier).not.toHaveBeenCalled();
+    expect(dernier).toHaveBeenCalledOnce();
+  });
 });
 
 describe("annonceur", () => {

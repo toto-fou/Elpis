@@ -4,6 +4,7 @@ import { nextTick, ref } from "vue";
 import * as Vue from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { creerToasts } from "../../src/app/racine/chrome";
 import { GestionnaireSession } from "../../src/features/auth/session";
 import { setupReglages } from "../../src/features/reglages/reglages";
 import type { CtxReglages, RefsReglages, ReglagesApp } from "../../src/features/reglages/types";
@@ -17,14 +18,15 @@ interface ToastVu {
   actionLabel?: string;
 }
 
-function monter(refuser: { valeur: boolean }) {
+function monter(refuser: { valeur: boolean }, showToast?: CtxReglages["showToast"]) {
   const puts: Record<string, unknown>[] = [];
   const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => {
     if (url === "/api/settings" && init?.method === "PUT") {
       puts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
       return Promise.resolve(refuser.valeur ? json({ detail: "non" }, 500) : json({ ok: true }));
     }
-    if (url === "/api/settings") return Promise.resolve(json({ assistant_name: "Elpis" }));
+    if (url === "/api/settings")
+      return Promise.resolve(json({ assistant_name: "Elpis", system_prompt: "Avant" }));
     return Promise.resolve(json({}));
   };
   const toasts: ToastVu[] = [];
@@ -37,7 +39,7 @@ function monter(refuser: { valeur: boolean }) {
     inputRef: ref(null),
   };
   const ctx: CtxReglages = {
-    showToast: (message, type, o) => toasts.push({ message, type, ...o }),
+    showToast: showToast ?? ((message, type, o) => toasts.push({ message, type, ...o })),
     fetchAuth: (url, options) => fetchFaux(url, options),
     openConfirm: () => Promise.resolve(true),
     openPrompt: () => Promise.resolve(null),
@@ -64,6 +66,28 @@ describe("enregistrement automatique des Paramètres", () => {
     expect(puts).toEqual([{ assistant_name: "El" }]);
     expect(R.settingsDirty.value).toBe(false);
     expect(toasts.at(-1)?.actionLabel).toBe("Annuler");
+  });
+
+  it("une rafale de saisies garde un seul toast ; Annuler ramène la valeur d'avant la rafale", async () => {
+    const pile = creerToasts();
+    const { R, puts, settings } = monter({ valeur: false }, pile.showToast);
+    await R.openSettings();
+    for (const texte of ["Un", "Un deux", "Un deux trois"]) {
+      settings.value.system_prompt = texte;
+      await nextTick();
+      await vi.advanceTimersByTimeAsync(1300);
+    }
+    expect(puts).toHaveLength(3);
+    expect(pile.toasts.value).toHaveLength(1);
+    const toast = pile.toasts.value[0];
+    expect(toast?.message).toBe("Enregistré");
+    expect(toast?.actionLabel).toBe("Annuler");
+    toast?.onAction?.();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(settings.value.system_prompt).toBe("Avant");
+    expect(puts.at(-1)).toEqual({ system_prompt: "Avant" });
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(pile.toasts.value).toHaveLength(0);
   });
 
   it("Annuler rétablit la valeur précédente et la réécrit", async () => {

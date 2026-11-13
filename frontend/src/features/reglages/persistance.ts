@@ -82,20 +82,50 @@ export function creerPersistance(
     }
   }
 
+  /** Rétablit ces clés à leurs valeurs `avant` et les réécrit (valeurs actuelles reprises si l'écriture échoue). */
+  function annulerVers(keys: readonly string[], avant: Record<string, unknown>): void {
+    const actuelles = valeursInstantane(keys);
+    restaurer(keys, avant);
+    void persistKeys(keys, { rollback: () => restaurer(keys, actuelles), silencieux: true });
+  }
+
+  const modifie = (keys: readonly string[], avant: Record<string, unknown>): boolean =>
+    keys.some((k) => JSON.stringify(avant[k]) !== JSON.stringify(settings.value[k]));
+
   /** Toast de confirmation dont « Annuler » rétablit les valeurs précédentes et les réécrit. */
   function toastAnnulable(message: string, keys: readonly string[], avant: Record<string, unknown>): void {
-    const modifie = keys.some((k) => JSON.stringify(avant[k]) !== JSON.stringify(settings.value[k]));
-    if (!modifie) {
+    if (!modifie(keys, avant)) {
       ctx.showToast(message);
       return;
     }
     ctx.showToast(message, "success", {
       duration: 6000,
       actionLabel: "Annuler",
-      onAction: () => {
-        const actuelles = valeursInstantane(keys);
-        restaurer(keys, avant);
-        void persistKeys(keys, { rollback: () => restaurer(keys, actuelles), silencieux: true });
+      onAction: () => annulerVers(keys, avant),
+    });
+  }
+
+  // Valeurs d'avant la rafale d'enregistrements automatiques, tant que son toast est affiché.
+  let rafale: Record<string, unknown> | null = null;
+
+  /** Un seul toast pour la rafale, mis à jour à chaque écriture ; « Annuler » ramène chaque clé à sa valeur d'avant la rafale. */
+  function toastRafale(keys: readonly string[], avant: Record<string, unknown>): void {
+    const r = (rafale ??= {});
+    for (const k of keys) if (!(k in r)) r[k] = avant[k];
+    const cles = Object.keys(r);
+    const annulable = modifie(cles, r);
+    ctx.showToast("Enregistré", "success", {
+      cle: "reglages-rafale",
+      duration: 6000,
+      actionLabel: annulable ? "Annuler" : undefined,
+      onAction: annulable
+        ? () => {
+            rafale = null;
+            annulerVers(cles, r);
+          }
+        : undefined,
+      onExpire: () => {
+        rafale = null;
       },
     });
   }
@@ -115,7 +145,8 @@ export function creerPersistance(
     const keys = clesModifiees();
     if (!keys.length || !snapshot.value) return;
     const avant = valeursInstantane(keys);
-    await persistKeys(keys, { rollback: () => restaurer(keys, avant) });
+    if (await persistKeys(keys, { rollback: () => restaurer(keys, avant), silencieux: true }))
+      toastRafale(keys, avant);
   }
 
   /** Attend l'écriture en cours puis enregistre ce qui est encore en attente (fermeture de la fenêtre). */

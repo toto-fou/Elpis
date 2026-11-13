@@ -145,7 +145,13 @@ export interface CtxReglages {
   showToast(
     message: string,
     type?: string,
-    options?: { duration?: number; actionLabel?: string; onAction?: () => void },
+    options?: {
+      duration?: number;
+      actionLabel?: string;
+      onAction?: () => void;
+      onExpire?: () => void;
+      cle?: string;
+    },
   ): void;
   fetchAuth: FetchAuth;
   openConfirm(

@@ -187,7 +187,8 @@ describe("RecadrageImage", () => {
     await monter();
     fichier.value = null;
     await attendre();
-    expect(dialogue()).toBeNull();
+    // La fenêtre s'estompe (transition commune) puis disparaît.
+    await vi.waitFor(() => expect(dialogue()).toBeNull());
     touche(document.body, "Escape");
     expect(evenements).toEqual([]);
   });

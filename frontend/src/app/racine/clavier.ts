@@ -34,6 +34,10 @@ interface EvenementCascade extends KeyboardEvent {
 
 const vrai = (r: { value: unknown } | null | undefined): boolean => !!r?.value;
 
+// Une fenêtre qui s'estompe en sortant n'est plus la fenêtre ouverte : ni focus ni piège Tab.
+const FENETRE = "[data-a11y-modal]:not(.modal-leave-active)";
+const APERCU = "[data-apercu-skin]:not(.modal-leave-active)";
+
 export function creerClavier(s: EtatClavier) {
   const m = s.modules;
   const garde = gardeFocus();
@@ -77,7 +81,7 @@ export function creerClavier(s: EtatClavier) {
     }
     garde.remember();
     void nextTick(() => {
-      const overlay = document.querySelector("[data-a11y-modal]");
+      const overlay = document.querySelector(FENETRE);
       // Fenêtre qui a déjà pris le focus : on ne l'écrase pas.
       if (!overlay || overlay.contains(document.activeElement)) return;
       overlay.querySelector<HTMLElement>(SELECTEUR_FOCUSABLES)?.focus();
@@ -95,10 +99,7 @@ export function creerClavier(s: EtatClavier) {
       }
       gardeApercu.remember();
       void nextTick(() => {
-        document
-          .querySelector("[data-apercu-skin]")
-          ?.querySelector<HTMLElement>(SELECTEUR_FOCUSABLES)
-          ?.focus();
+        document.querySelector(APERCU)?.querySelector<HTMLElement>(SELECTEUR_FOCUSABLES)?.focus();
       });
     },
   );
@@ -394,8 +395,7 @@ export function creerClavier(s: EtatClavier) {
       !s.contextMenu.value.isOpen
     ) {
       const overlay =
-        document.querySelector<HTMLElement>("[data-apercu-skin]") ??
-        document.querySelector<HTMLElement>("[data-a11y-modal]");
+        document.querySelector<HTMLElement>(APERCU) ?? document.querySelector<HTMLElement>(FENETRE);
       if (overlay) piegerTab(e, overlay);
     }
     if (e.key === "Escape" && !e.ctrlKey && !e.metaKey) {

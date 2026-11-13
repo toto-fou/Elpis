@@ -220,4 +220,23 @@ describe("garde de focus des grandes fenêtres", () => {
     runDetails.value = { runId: "r1" };
     expect(grandeFenetreOuverte.value).toBe(true);
   });
+
+  it("une fenêtre qui s'estompe en sortant ne prend plus le piège Tab", () => {
+    document.body.innerHTML = `
+      <div data-apercu-skin class="modal-leave-active"><button id="a1"></button></div>
+      <div data-a11y-modal><button id="p1"></button><button id="p2"></button></div>`;
+    for (const b of document.querySelectorAll("button"))
+      Object.defineProperty(b, "offsetParent", { get: () => document.body });
+    const s = {
+      modules: { reglages: { showSettingsModal: ref(true) } } as unknown as EtatClavier["modules"],
+      modalState: ref({ isOpen: false }),
+      contextMenu: ref({ isOpen: false }),
+      showInfoModal: ref(false),
+      showOpenCodeModal: ref(false),
+    } as unknown as EtatClavier;
+    const { onGlobalKeydown } = creerClavier(s);
+    document.getElementById("p2")?.focus();
+    onGlobalKeydown(new KeyboardEvent("keydown", { key: "Tab", cancelable: true }));
+    expect(document.activeElement?.id).toBe("p1");
+  });
 });

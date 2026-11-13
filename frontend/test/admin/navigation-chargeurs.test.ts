@@ -2,7 +2,7 @@
 /** frontend/test/admin/navigation-chargeurs.test.ts — chargeurs et flux des journaux selon page et onglet, avec un compte connu après l'ancre (câblage de racine.ts). */
 import * as Vue from "vue";
 import { ref } from "vue";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { filtrerArbre } from "../../src/features/admin/arbre";
 import { setupAdmin } from "../../src/features/admin/console";
@@ -22,7 +22,7 @@ const liberations: (() => void)[] = [];
 const vueDeTest = { ...Vue, onUnmounted: (f: () => void) => void liberations.push(f) } as typeof Vue;
 
 /** Console montée dans une portée arrêtée à la fin, avec le vrai observateur de chargement de racine.ts. */
-function monter(compte: Compte | null, vueOuverte = true) {
+function monter(compte: Compte | null, vueOuverte = true, route?: (url: string) => Response | undefined) {
   const portee = Vue.effectScope();
   const urls: string[] = [];
   const flux: string[] = [];
@@ -30,6 +30,8 @@ function monter(compte: Compte | null, vueOuverte = true) {
   const toasts: string[] = [];
   const fetchFaux = (url: string): Promise<Response> => {
     urls.push(url);
+    const propre = route?.(url);
+    if (propre) return Promise.resolve(propre);
     if (url.startsWith("/api/admin/audit/events"))
       return Promise.resolve(
         json({
@@ -219,5 +221,88 @@ describe("registre et arbre : invariants", () => {
       x.pagesVisibles.some((p) => p.id === "logs"),
     );
     expect(h?.ongletTrouve["logs"]).toBeUndefined();
+  });
+});
+
+describe("pages de réglages : config.json et sondes", () => {
+  it("config.json relu seulement s'il date de plus de 30 s ou vient d'être enregistré ; chaque sonde sur sa seule page", async () => {
+    const contenu = JSON.stringify({
+      voice: { stt: { endpoint_url: "http://stt" }, tts: { endpoint_url: "http://tts" } },
+      image: { url: "http://img" },
+    });
+    const m = monter(ROOT, true, (url) =>
+      url.startsWith("/api/admin/config-file") ? json({ content: contenu }) : undefined,
+    );
+    const aller = async (page: string): Promise<void> => {
+      await m.A.goAdminPage(page);
+      await attendre();
+      await attendre();
+    };
+    try {
+      await aller("instance");
+      const formulaire = m.A.configForm.value;
+      for (const page of ["https", "sessions", "rights", "instance"]) await aller(page);
+      expect(compter(m.urls, "/api/admin/config-file")).toBe(1);
+      expect(m.A.configForm.value).toBe(formulaire);
+      expect(compter(m.urls, "/api/admin/security/https")).toBe(1);
+      expect(compter(m.urls, "/api/admin/security/sessions")).toBe(1);
+      expect(compter(m.urls, "/api/admin/voice/models") + compter(m.urls, "/api/admin/image/models")).toBe(0);
+
+      await aller("voice");
+      expect(compter(m.urls, "/api/admin/voice/models")).toBe(2);
+      await aller("images");
+      expect(compter(m.urls, "/api/admin/image/models")).toBe(1);
+
+      await aller("instance");
+      m.A.configForm.value!.app_info.name = "Autre nom";
+      expect(await m.A.saveAdminPage()).toBe(true);
+      await aller("https");
+      expect(compter(m.urls, "/api/admin/config-file")).toBe(2);
+
+      const maintenant = Date.now();
+      vi.spyOn(Date, "now").mockReturnValue(maintenant + 31_000);
+      await aller("sessions");
+      expect(compter(m.urls, "/api/admin/config-file")).toBe(3);
+    } finally {
+      vi.restoreAllMocks();
+      m.arreter();
+    }
+  });
+
+  it("une saisie faite pendant la relecture est gardée ; « Annuler » repart du fichier même inchangé", async () => {
+    let rendre: ((r: Response) => void) | null = null;
+    let lent = false;
+    const contenu = JSON.stringify({ app_info: { name: "Elpis" } });
+    const m = monter(ROOT, true, (url) => {
+      if (!url.startsWith("/api/admin/config-file")) return undefined;
+      if (!lent) return json({ content: contenu });
+      return new Promise<Response>((r) => {
+        rendre = r;
+      }) as unknown as Response;
+    });
+    try {
+      await m.A.goAdminPage("instance");
+      await attendre();
+      lent = true;
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
+      await m.A.goAdminPage("https");
+      await vi.waitFor(() => expect(rendre).not.toBeNull());
+      m.A.configForm.value!.app_info.name = "Saisie";
+      (rendre as unknown as (r: Response) => void)(
+        json({ content: JSON.stringify({ app_info: { name: "Ailleurs" } }) }),
+      );
+      await attendre();
+      await attendre();
+      expect(m.A.configForm.value!.app_info.name).toBe("Saisie");
+      lent = false;
+      await m.A.goAdminPage("instance");
+      await attendre();
+      await m.A.discardAdminPage();
+      expect(m.A.configForm.value!.app_info.name).toBe("Elpis");
+      expect(m.A.adminDirtyCount.value).toBe(0);
+    } finally {
+      vi.restoreAllMocks();
+      m.arreter();
+    }
   });
 });

@@ -128,12 +128,12 @@ const ENTREES: readonly EntreeAdmin[] = [
         paths: ["rag."],
       },
       { id: "vision", label: "Vision & machines", stores: ["config"], loaders: [CONFIG, ["loadAxSites"]] },
-      { id: "voice", label: "Voix", stores: ["config"], loaders: [CONFIG] },
+      { id: "voice", label: "Voix", stores: ["config"], loaders: [CONFIG, ["loadServiceModels", "voice"]] },
       {
         id: "images",
         label: "Images",
         stores: ["config"],
-        loaders: [CONFIG, ["loadImageAdmin"], ["loadGroups"]],
+        loaders: [CONFIG, ["loadImageAdmin"], ["loadGroups"], ["loadServiceModels", "images"]],
       },
       {
         id: "mcp",
@@ -164,7 +164,7 @@ const ENTREES: readonly EntreeAdmin[] = [
         id: "sessions",
         label: "Mots de passe & sessions",
         stores: ["config"],
-        loaders: [CONFIG],
+        loaders: [CONFIG, ["loadSecurityOverview"]],
         paths: ["security.session.", "security.password_policy."],
       },
     ],
@@ -209,7 +209,7 @@ const ENTREES: readonly EntreeAdmin[] = [
         loaders: [["loadAdminSkins"], CONFIG],
         paths: ["skins."],
       },
-      { id: "https", label: "Accès HTTPS", loaders: [CONFIG] },
+      { id: "https", label: "Accès HTTPS", loaders: [CONFIG, ["loadHttpsStatus"]] },
       {
         id: "data",
         label: "Données",

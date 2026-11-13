@@ -42,6 +42,8 @@ interface ModuleAccueil {
 const BASE_MASCOTTE = "/static/assets/mascotte/";
 const TOUTES_MASCOTTES = ["boite_or", "flamme", "flamme_bleue", "fantome", "elpis"];
 const ENTETES_JSON = { "Content-Type": "application/json" };
+// Au-delà, l'entrée sur une page de réglages relit config.json (modification faite ailleurs).
+const FRAICHEUR_CONFIG_MS = 30_000;
 
 /** Section objet de `parent[cle]`, créée au besoin. */
 function section(parent: Noeud, cle: string): Noeud {
@@ -324,50 +326,70 @@ export function creerConfig(b: BaseAdmin) {
     },
   );
 
-  async function loadAdminConfig(type: string): Promise<void> {
-    if (type !== "main") return;
-    // Anti-clobber : des modifications en cours (formulaire différent du dernier état chargé) sont préservées.
-    if (
-      configForm.value &&
-      e.adminPristine.value.config !== null &&
-      JSON.stringify(configForm.value) !== e.adminPristine.value.config
-    ) {
-      return;
-    }
+  let lecture: Promise<void> | null = null;
+  let luA = 0;
+  let dernierContenu: string | null = null;
+  const formulaireModifie = (): boolean =>
+    !!configForm.value &&
+    e.adminPristine.value.config !== null &&
+    JSON.stringify(configForm.value) !== e.adminPristine.value.config;
+
+  /** Relit config.json s'il n'est pas chargé, date de plus de 30 s ou vient d'être enregistré ; jamais par-dessus une saisie en cours. */
+  function loadAdminConfig(type: string): Promise<void> {
+    if (type !== "main") return Promise.resolve();
+    if (lecture) return lecture;
+    const frais = e.adminPristine.value.config !== null && Date.now() - luA < FRAICHEUR_CONFIG_MS;
+    if (frais || formulaireModifie()) return Promise.resolve();
+    lecture = lireConfig().finally(() => {
+      lecture = null;
+    });
+    return lecture;
+  }
+
+  /** Remplace le formulaire seulement si le fichier a changé (ou s'il faut repartir du disque) et que rien n'a été saisi entre-temps. */
+  async function lireConfig(): Promise<void> {
     try {
-      const res = await fetchAuth(`/api/admin/config-file?type=${type}`);
-      const d = await lireSchema(res, schemaReponseFichierConfig);
-      if (!d)
+      const d = await lireSchema(
+        await fetchAuth("/api/admin/config-file?type=main"),
+        schemaReponseFichierConfig,
+      );
+      if (!d) {
         chargementEchoue("loadAdminConfig", "Réponse du serveur inattendue ou en échec.", () =>
-          loadAdminConfig(type),
+          loadAdminConfig("main"),
         );
-      else chargementReussi("loadAdminConfig");
-      if (d) {
-        try {
-          // Copie de ce qui est sur disque, avant tout défaut rempli : c'est la valeur « from » du PATCH.
-          try {
-            e.configRaw = objet(JSON.parse(d.content));
-          } catch {
-            e.configRaw = {};
-          }
-          configForm.value = completerConfig(objet(JSON.parse(d.content)));
-          const vx = configForm.value;
-          setTimeout(() => {
-            void lien.loadVoiceModels("stt");
-            void lien.loadVoiceModels("tts");
-          }, 0);
-          if (vx.image.url) setTimeout(() => void lien.loadImageModels(), 0);
-        } catch {
-          configForm.value = {} as ConfigAdmin;
-        }
-        // Référence « propre » après remplissage des défauts : toute divergence ultérieure est une modification.
-        lien.markAdminStoreClean("config");
+        return;
       }
+      chargementReussi("loadAdminConfig");
+      luA = Date.now();
+      if (formulaireModifie()) {
+        luA = 0;
+        return;
+      }
+      if (d.content === dernierContenu && e.adminPristine.value.config !== null) return;
+      dernierContenu = d.content;
+      try {
+        // Copie de ce qui est sur disque, avant tout défaut rempli : c'est la valeur « from » du PATCH.
+        try {
+          e.configRaw = objet(JSON.parse(d.content));
+        } catch {
+          e.configRaw = {};
+        }
+        configForm.value = completerConfig(objet(JSON.parse(d.content)));
+      } catch {
+        configForm.value = {} as ConfigAdmin;
+      }
+      // Référence « propre » après remplissage des défauts : toute divergence ultérieure est une modification.
+      lien.markAdminStoreClean("config");
     } catch {
-      chargementEchoue("loadAdminConfig", "Erreur réseau.", () => loadAdminConfig(type));
+      chargementEchoue("loadAdminConfig", "Erreur réseau.", () => loadAdminConfig("main"));
     }
-    void lien.loadSecurityOverview();
-    void lien.loadHttpsStatus();
+  }
+
+  /** Sondes des services d'une page (voix, images), une fois config.json disponible. */
+  async function loadServiceModels(page: "voice" | "images"): Promise<void> {
+    await loadAdminConfig("main");
+    if (page === "images") return lien.loadImageModels();
+    await Promise.all([lien.loadVoiceModels("stt"), lien.loadVoiceModels("tts")]);
   }
 
   const patchRaw = (chemin: string, valeur: unknown): void => poserChemin(e.configRaw, chemin, valeur);
@@ -405,6 +427,7 @@ export function creerConfig(b: BaseAdmin) {
     if (!res) return false;
     if (res.ok) {
       for (const c of changements) patchRaw(String(c["path"]), c["delete"] ? undefined : c["to"]);
+      luA = 0;
       void ctx.loadPublicConfig();
       void lien.loadRestartStatus();
       return true;
@@ -657,6 +680,7 @@ export function creerConfig(b: BaseAdmin) {
     configForm,
     isSavingAdminConfig: e.isSavingAdminConfig,
     loadAdminConfig,
+    loadServiceModels,
     saveConfigStore,
     handleLoginLogoUpload,
     handleAppInfoLogoUpload,

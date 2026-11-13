@@ -251,6 +251,18 @@ describe("session et reconnexion", () => {
     expect(t.rappels.onReconnect).toHaveBeenCalledTimes(1);
   });
 
+  it("second appel, flux ouvert ou en cours d'ouverture : ni second flux, ni fausse reconnexion", () => {
+    const t = monter();
+    t.sse.connectSystemEvents();
+    t.sse.connectSystemEvents();
+    expect(t.sources).toHaveLength(1);
+    t.derniere().ouvrir();
+    t.sse.connectSystemEvents();
+    expect(t.sources).toHaveLength(1);
+    expect(t.derniere().ferme).toBe(false);
+    expect(t.rappels.onReconnect).not.toHaveBeenCalled();
+  });
+
   it("worker_recycling : rebranché après 750 ms, sans bannière", () => {
     const t = monter();
     t.sse.connectSystemEvents();

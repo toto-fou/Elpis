@@ -971,15 +971,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     // Capture : avant tout stopPropagation des lignes de l'arbre.
     document.addEventListener("drop", importBac.finDeGlisser, true);
     document.addEventListener("visibilitychange", n.appliquerBadgeTitre);
+    // La connexion qui en découle est appliquée par l'observateur du compte, une seule fois.
     await m.auth?.checkAuth(m.auth.loadPublicConfig());
-    if (so.reprendreOAuth()) return;
-    if (!user.value) return;
-    m.chat?.connectSystemEvents();
-    // Console seule : ni boîte de réception, ni notifications, ni reprise (routes absentes du port d'administration).
-    if (consoleSeule) return;
-    m.reglages?.startInboxPolling();
-    void n.loadNotifications();
-    so.restaurerSession();
   });
 
   onUnmounted(() => {
@@ -1006,11 +999,13 @@ export function creerRacine(options: OptionsRacine = {}) {
     }
   };
 
-  // Connexion : flux système, boîte de réception, notifications, reprise. Déconnexion (volontaire ou subie) : purge complète.
-  watch(user, (val, avant) => {
-    if (val && so.reprendreOAuth()) return;
-    if (val) {
+  // Arrivée d'un compte (pas une relecture du même) : flux système, boîte de réception, notifications, reprise. Départ : purge complète.
+  const compteId = (): number | null => user.value?.id ?? null;
+  watch(compteId, (id, avant) => {
+    if (id !== null && so.reprendreOAuth()) return;
+    if (id !== null) {
       m.chat?.connectSystemEvents();
+      // Console seule : ni boîte de réception, ni notifications, ni reprise (routes absentes du port d'administration).
       if (consoleSeule) return;
       m.reglages?.startInboxPolling();
       void n.loadNotifications();
@@ -1077,7 +1072,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     imgZoom.value = null;
     essayer(() => m.admin?.closeTransferModal());
     // Instantané du compte sortant (clé dérivée de l'ancien compte, pas du nouveau `null`).
-    so.purgerSession(avant);
+    so.purgerSession(avant === null ? null : { id: avant });
   });
 
   // Historique de la barre latérale, regroupé par date (le drapeau de renommage suit la projection).

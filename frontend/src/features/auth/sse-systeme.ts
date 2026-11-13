@@ -112,7 +112,9 @@ export function setupChatSystemSSE(
     arreterSondage = null;
   }
 
+  /** Ouvre le flux ; déjà ouvert ou en cours d'ouverture : rien (ni second flux, ni fausse reconnexion). */
   function connectSystemEvents(): void {
+    if (source && source.readyState !== 2) return;
     if (source) source.close();
     source = null;
     if (annulerReconnexion) annulerReconnexion();

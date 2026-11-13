@@ -1,12 +1,33 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/editor/arbre.test.ts — arbre de fichiers : état partagé (dépli mémorisé par compte, sélection, cibles, pastilles Git), chemins glissés et composant ElementArbre (clic, sélection, clavier, glisser-déposer). */
-import { createApp, h, nextTick } from "vue";
+import { createApp, h, nextTick, shallowRef } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ElementArbre from "../../src/components/editor/ElementArbre.vue";
-import { ancetres, arbre, cheminsGlisses, creerArbre, MIME_GLISSER } from "../../src/features/editor/arbre";
+import {
+  ancetres,
+  arbre,
+  cheminsGlisses,
+  creerArbre,
+  MIME_GLISSER,
+  partagerArbre,
+} from "../../src/features/editor/arbre";
 import { metaFichier } from "../../src/features/editor/meta-fichier";
+import type * as MetaFichier from "../../src/features/editor/meta-fichier";
+
+// Compteur des calculs de métadonnées : une ligne re-rendue pour un nouvel objet le refait.
+const appelsMeta = vi.hoisted(() => ({ n: 0 }));
+vi.mock("../../src/features/editor/meta-fichier", async (original) => {
+  const m = await original<typeof MetaFichier>();
+  return {
+    ...m,
+    metaFichier: (nom: string) => {
+      appelsMeta.n++;
+      return m.metaFichier(nom);
+    },
+  };
+});
 import type { NoeudArbre } from "../../src/features/editor/schemas-bac";
 
 function stockageMemoire(): Storage {
@@ -174,5 +195,81 @@ describe("ElementArbre", () => {
     ligne(hote, "src").dispatchEvent(ev);
     expect(evts).toEqual(["deplacer:lisez.md>src"]);
     expect(arbre().isOpen("src")).toBe(true);
+  });
+});
+
+/** Réponse de l'arbre telle que le serveur la renvoie : des objets neufs à chaque lecture. */
+function reponse(dossiers: number, fichiers: number, renomme = ""): NoeudArbre[] {
+  return Array.from({ length: dossiers }, (_, d) => ({
+    name: `m${d}`,
+    path: `m${d}`,
+    type: "folder" as const,
+    children: Array.from({ length: fichiers }, (_, f) => {
+      const path = `m${d}/f${f}.py`;
+      const p = path === renomme ? `m${d}/neuf.py` : path;
+      return { name: p.split("/").pop() ?? p, path: p, type: "file" as const, size: f };
+    }),
+  }));
+}
+
+describe("rechargement de l'arbre", () => {
+  it("réponse identique : même tableau, aucun nœud neuf", () => {
+    const a = reponse(3, 4);
+    expect(partagerArbre(a, reponse(3, 4))).toBe(a);
+    expect(partagerArbre([], [])).toHaveLength(0);
+  });
+
+  it("renommage : seuls le dossier touché et la racine changent, les autres nœuds sont repris", () => {
+    const a = reponse(3, 4);
+    const b = partagerArbre(a, reponse(3, 4, "m1/f2.py"));
+    expect(b).not.toBe(a);
+    expect(b[0]).toBe(a[0]);
+    expect(b[2]).toBe(a[2]);
+    expect(b[1]).not.toBe(a[1]);
+    expect(b[1]?.children?.[0]).toBe(a[1]?.children?.[0]);
+    expect(b[1]?.children?.[2]?.path).toBe("m1/neuf.py");
+    expect(b[1]?.children?.map((n) => n.path)).toEqual(["m1/f0.py", "m1/f1.py", "m1/neuf.py", "m1/f3.py"]);
+  });
+
+  it("taille changée, ordre changé, ajout et retrait : l'arbre reçu fait foi", () => {
+    const a = reponse(2, 3);
+    const neuf = reponse(2, 3);
+    neuf[0]!.children![1]!.size = 99;
+    neuf.reverse();
+    neuf.push(fichier("lisez.md"));
+    const b = partagerArbre(a, neuf);
+    expect(b.map((n) => n.path)).toEqual(["m1", "m0", "lisez.md"]);
+    expect(b[0]).toBe(a[1]);
+    expect(b[1]?.children?.[1]?.size).toBe(99);
+    expect(b[1]?.children?.[0]).toBe(a[0]?.children?.[0]);
+    expect(partagerArbre(b, reponse(1, 3)).map((n) => n.path)).toEqual(["m0"]);
+    const vide = partagerArbre(a, [{ name: "m0", path: "m0", type: "folder" }]);
+    expect(vide[0]?.children).toBeUndefined();
+  });
+
+  it("dans le composant : un rechargement identique ne re-rend aucune ligne, un renommage seulement la nouvelle", async () => {
+    const arbreRef = shallowRef<NoeudArbre[]>(reponse(4, 5));
+    for (let d = 0; d < 4; d++) arbre().setOpen(`m${d}`, true);
+    const hote = document.createElement("div");
+    document.body.appendChild(hote);
+    app = createApp({
+      render: () => arbreRef.value.map((item) => h(ElementArbre, { key: item.path, item })),
+    });
+    app.mount(hote);
+    expect(hote.querySelectorAll('[role="treeitem"]')).toHaveLength(24);
+    appelsMeta.n = 0;
+    arbreRef.value = partagerArbre(arbreRef.value, reponse(4, 5));
+    await nextTick();
+    expect(appelsMeta.n).toBe(0);
+    arbreRef.value = partagerArbre(arbreRef.value, reponse(4, 5, "m2/f3.py"));
+    await nextTick();
+    expect(appelsMeta.n).toBe(1);
+    expect(hote.querySelector('[data-path="m2/neuf.py"]')).not.toBeNull();
+    expect(arbre().isOpen("m2")).toBe(true);
+    // Témoin : des objets neufs sans partage re-rendent les vingt fichiers.
+    appelsMeta.n = 0;
+    arbreRef.value = reponse(4, 5);
+    await nextTick();
+    expect(appelsMeta.n).toBe(20);
   });
 });

@@ -4,6 +4,7 @@ import { reactive } from "vue";
 
 import { marquerDepotTraite } from "../../utils/depot";
 import { importeur } from "./importeur";
+import type { NoeudArbre } from "./schemas-bac";
 
 export interface EtatArbre {
   open: Set<string>;
@@ -286,6 +287,24 @@ export function depotSurDossier(
   );
   if (sources.length) marquerDepotTraite();
   return { importe: false, sources };
+}
+
+/** Arbre reçu où chaque nœud inchangé (nom, type, taille, enfants) reprend l'objet de l'ancien : Vue saute ses lignes ; même tableau si rien n'a changé. */
+export function partagerArbre(ancien: readonly NoeudArbre[], neuf: NoeudArbre[]): NoeudArbre[] {
+  const parChemin = new Map(ancien.map((n) => [n.path, n]));
+  let identique = ancien.length === neuf.length;
+  const sortie = neuf.map((n, i) => {
+    const a = parChemin.get(n.path);
+    let r = n;
+    if (a) {
+      const enfants = a.children && n.children ? partagerArbre(a.children, n.children) : n.children;
+      if (a.name === n.name && a.type === n.type && a.size === n.size && enfants === a.children) r = a;
+      else if (enfants !== n.children) r = { ...n, children: enfants };
+    }
+    if (r !== ancien[i]) identique = false;
+    return r;
+  });
+  return identique ? (ancien as NoeudArbre[]) : sortie;
 }
 
 let partage: ArbrePartage | null = null;

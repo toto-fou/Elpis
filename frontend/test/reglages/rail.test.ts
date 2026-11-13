@@ -29,7 +29,7 @@ function monter(onglet = "profile"): {
   const proxy = new Proxy(rg, {
     get(c, cle: string) {
       if (cle in c) return (c as Record<string, unknown>)[cle];
-      return () => appels.push(cle);
+      return (...args: unknown[]) => appels.push([cle, ...args].join(":"));
     },
     set(c, cle: string, v: unknown) {
       (c as Record<string, unknown>)[cle] = v;
@@ -105,8 +105,7 @@ describe("rail des Paramètres", () => {
     bouton.click();
     await nextTick();
     expect(rg.settingsTab).toBe("secrets");
-    expect(appels).toContain("loadSecrets");
-    expect(appels).toContain("loadConnexions");
+    expect(appels).toContain("chargerOnglet:secrets");
     expect(bouton.getAttribute("aria-current")).toBe("page");
     expect(
       [...racine.querySelectorAll("nav i.ph")].every((i) => i.getAttribute("aria-hidden") === "true"),

@@ -139,24 +139,22 @@ export function creerModale(
     }
   }
 
-  /** Une table littérale alignée sur les boutons de la barre latérale : chaque onglet relit ses données. */
-  function chargeursOnglet(): Record<string, () => unknown> {
-    return {
-      ai_models: () => dep.loadLlmConnectors(),
-      usage: () => dep.loadUsageData(),
-      memory: () => dep.loadUserMemory(),
-      prompts: () => Promise.all([dep.loadSavedPrompts(), dep.loadPromptTemplates()]),
-      archives: () => dep.loadArchives(),
-      sandbox: () => dep.loadSandboxState(),
-      connectors: () => dep.loadGitConnectors(),
-      secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
-      skills: () => ctx.openSkillsTab?.(),
-    };
-  }
+  const chargeursOnglet: Record<string, () => unknown> = {
+    ai_models: () => dep.loadLlmConnectors(),
+    usage: () => dep.loadUsageData(),
+    memory: () => dep.loadUserMemory(),
+    prompts: () => Promise.all([dep.loadSavedPrompts(), dep.loadPromptTemplates()]),
+    archives: () => dep.loadArchives(),
+    sandbox: () => dep.loadSandboxState(),
+    connectors: () => dep.loadGitConnectors(),
+    secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
+    skills: () => ctx.openSkillsTab?.(),
+  };
 
+  /** Relit les données d'un onglet (ouverture, choix dans le rail) ; un échec le laisse avec ses données précédentes. */
   async function chargerOnglet(id: string): Promise<void> {
     try {
-      await chargeursOnglet()[id]?.();
+      await chargeursOnglet[id]?.();
     } catch {
       /* onglet ouvert avec ses données précédentes */
     }
@@ -306,6 +304,7 @@ export function creerModale(
     loadSettingsData,
     openSettings,
     openSettingsTab,
+    chargerOnglet,
     closeSettings,
     changeMyPassword,
     uploadAvatar,

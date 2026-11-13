@@ -289,6 +289,33 @@ describe("barre latérale", () => {
     expect(actives.map((l) => l.getAttribute("data-chat-id"))).toEqual(["c1"]);
   });
 
+  it("une conversation qui change de tranche garde son élément (déplacée, ni démontée ni remontée)", async () => {
+    const b = etat<Record<string, unknown>>({
+      ...BARRE,
+      groupedHistory: [
+        { key: "today", label: "Aujourd'hui", items: [{ id: "c2", title: "Second" }] },
+        { key: "yesterday", label: "Hier", items: [{ id: "c1", title: "Premier" }] },
+      ],
+    });
+    const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, b);
+    const ligne = () => hote.querySelector('[data-chat-row][data-chat-id="c1"]');
+    const avant = ligne();
+    expect(avant).not.toBeNull();
+    b["groupedHistory"] = [
+      {
+        key: "today",
+        label: "Aujourd'hui",
+        items: [
+          { id: "c1", title: "Premier" },
+          { id: "c2", title: "Second" },
+        ],
+      },
+    ];
+    await nextTick();
+    expect(ligne()).toBe(avant);
+    expect(hote.querySelectorAll('[data-chat-row][data-chat-id="c1"]')).toHaveLength(1);
+  });
+
   it("recherche : titres du volet dès la première touche, serveur à la suite, roue discrète, « Recherche… » puis « Aucun résultat »", async () => {
     const b = etat<Record<string, unknown>>({
       ...BARRE,

@@ -142,6 +142,19 @@ describe("module de la page Code", () => {
     expect(c.codeMessages.value).toEqual([]);
   });
 
+  it("signale la lecture d'une session jusqu'à l'arrivée de son transcript", async () => {
+    let livrer: (v: unknown) => void = () => {};
+    const { c } = monter((u) =>
+      u === "/api/code/sessions/s1/messages" ? new Promise((ok) => (livrer = ok)) : [],
+    );
+    const ouverture = c.codeSelectSession("s1");
+    expect(c.codeChargementSession.value).toBe(true);
+    livrer(messages(2));
+    await ouverture;
+    expect(c.codeChargementSession.value).toBe(false);
+    expect(c.codeMessages.value).toHaveLength(2);
+  });
+
   it("ouvre un long transcript par la fin puis monte le reste image par image", async () => {
     const { c } = monter((u) => (u === "/api/code/sessions/s1/messages" ? messages(30) : []));
     await c.codeSelectSession("s1");

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/code/message-code.test.ts — transcript de la page Code : déplier le détail d'un outil ne re-rend que sa ligne. */
+/** frontend/test/code/message-code.test.ts — transcript de la page Code : déplier le détail d'un outil ne re-rend que sa ligne, squelettes pendant la lecture d'une session. */
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
@@ -50,7 +50,7 @@ function transcript(n: number): MessageOpencode[] {
   return sortie;
 }
 
-function monter(messages: MessageOpencode[]) {
+function monter(messages: MessageOpencode[], autres: Record<string, unknown> = {}) {
   const rendus: string[] = [];
   const valeurs = reactive<Record<string, unknown>>({
     currentView: "code",
@@ -82,6 +82,7 @@ function monter(messages: MessageOpencode[]) {
       rendus.push(s);
       return `<p>${s}</p>`;
     },
+    ...autres,
   });
   const domaine = new Proxy(valeurs, {
     get(c, cle: string) {
@@ -124,5 +125,20 @@ describe("PageCode : détail d'un outil", () => {
     await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
     expect(hote.textContent).not.toContain("sortie 1");
     expect(hote.textContent).toContain("sortie 5");
+  });
+});
+
+describe("PageCode : session en cours de lecture", () => {
+  it("affiche des squelettes, pas le texte d'attente", () => {
+    const { hote } = monter([], { codeChargementSession: true });
+    expect(hote.querySelectorAll(".adm-skeleton").length).toBeGreaterThan(0);
+    expect(hote.querySelector('[role="status"]')?.textContent).toContain("Chargement de la session");
+    expect(hote.textContent).not.toContain("En attente d'activité");
+  });
+
+  it("garde le texte d'attente pour une session vraiment sans activité", () => {
+    const { hote } = monter([], { codeChargementSession: false });
+    expect(hote.querySelector(".adm-skeleton")).toBeNull();
+    expect(hote.textContent).toContain("En attente d'activité");
   });
 });

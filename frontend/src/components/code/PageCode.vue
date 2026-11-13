@@ -361,7 +361,24 @@ watch(
         >
           <!-- Messages de la session — parts rendues par features/code/rendu.ts -->
           <div class="mx-auto space-y-4" :style="{ maxWidth: cd.settings.chat_width + '%' }">
-            <div v-if="!cd.codeMessages.length" class="text-center text-xs text-slate-400 py-8">
+            <!-- Session en cours de lecture : squelettes ; le texte d'attente reste pour une session vraiment vide -->
+            <div v-if="!cd.codeMessages.length && cd.codeChargementSession" role="status" class="space-y-4">
+              <span class="sr-only">Chargement de la session…</span>
+              <div
+                v-for="i in 3"
+                :key="i"
+                aria-hidden="true"
+                class="flex gap-3"
+                :class="i === 2 ? 'flex-row-reverse' : ''"
+              >
+                <div class="adm-skeleton w-9 h-9 rounded-full shrink-0"></div>
+                <div class="flex-1 min-w-0 flex flex-col gap-2 pt-1" :class="i === 2 ? 'items-end' : ''">
+                  <div class="adm-skeleton" :class="i === 2 ? 'w-1/3' : 'w-2/5'"></div>
+                  <div v-if="i !== 2" class="adm-skeleton w-3/5"></div>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="!cd.codeMessages.length" class="text-center text-xs text-slate-400 py-8">
               En attente d'activité…
             </div>
             <MessageCode

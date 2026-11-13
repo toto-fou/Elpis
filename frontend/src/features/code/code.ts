@@ -122,6 +122,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   const codeAvailable = ref(true);
   const codeConnected = ref(false);
   const codeLoading = ref(false);
+  const codeChargementSession = ref(false);
   const codeSessions = ref<SessionCode[]>([]);
   const codeActiveId = ref("");
   const codeMessages = ref<MessageOpencode[]>([]);
@@ -736,6 +737,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
 
   function backToList(): void {
     arreterOuverture();
+    codeChargementSession.value = false;
     codeActiveId.value = "";
     codeMessages.value = [];
     codeModelOpen.value = false;
@@ -763,7 +765,12 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeQuestions.value = [];
     rendu.resetCodeUi();
     collerAuBas = true;
-    await Promise.all([loadMessages(sid, true), loadPermissions(sid), loadQuestions(sid)]);
+    codeChargementSession.value = true;
+    try {
+      await Promise.all([loadMessages(sid, true), loadPermissions(sid), loadQuestions(sid)]);
+    } finally {
+      if (sid === codeActiveId.value) codeChargementSession.value = false;
+    }
   }
   async function dismissSession(sid: string): Promise<void> {
     if ((await api.supprimer(sid)) !== null) {
@@ -1348,6 +1355,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeAvailable,
     codeConnected,
     codeLoading,
+    codeChargementSession,
     codeSessions,
     codeActiveId,
     codeMessages,

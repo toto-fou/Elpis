@@ -94,7 +94,7 @@ function monter(messages: MessageOpencode[], autres: Record<string, unknown> = {
   app = createApp({ render: () => h(PageCode) });
   app.provide(CLE_CODE, domaine);
   app.mount(hote);
-  return { hote, rendus };
+  return { hote, rendus, valeurs };
 }
 
 describe("PageCode : détail d'un outil", () => {
@@ -125,6 +125,18 @@ describe("PageCode : détail d'un outil", () => {
     await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
     expect(hote.textContent).not.toContain("sortie 1");
     expect(hote.textContent).toContain("sortie 5");
+  });
+});
+
+describe("PageCode : mise à jour d'un message", () => {
+  it("une part ajoutée ou remplacée re-rend sa ligne seule", async () => {
+    const { hote, rendus, valeurs } = monter(transcript(6));
+    const lignes = valeurs["codeMessagesRendus"] as MessageOpencode[];
+    rendus.length = 0;
+    lignes[5]?.parts.splice(0, 1, { id: "x5p1", type: "text", text: "## Étape 5 revue" });
+    await nextTick();
+    expect(rendus).toEqual(["## Étape 5 revue"]);
+    expect(hote.textContent).toContain("Étape 5 revue");
   });
 });
 

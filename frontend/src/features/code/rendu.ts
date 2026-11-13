@@ -45,7 +45,6 @@ export interface MessageOpencode {
   parts: PartOpencode[];
   info: InfoMessage;
   pending?: boolean;
-  _rev?: number;
 }
 
 export type ElementRendu =

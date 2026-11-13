@@ -1091,7 +1091,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     else {
       m.role = String(info["role"] || m.role);
       m.info = info;
-      m._rev = (m._rev || 0) + 1;
     }
   }
   /** Réflexions dépliées lues jusqu'au bas avant une rafale : seules celles-là sont recollées en bas après. */
@@ -1121,8 +1120,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     const i = m.parts.findIndex((p) => p.id === part.id);
     if (i === -1) m.parts.push(brute(part));
     else m.parts.splice(i, 1, brute(part));
-    // Le compteur de révision invalide le v-memo de cette ligne ; les autres ne re-diffent plus à chaque delta.
-    m._rev = (m._rev || 0) + 1;
     return true;
   }
   let tamponParts: Array<PartOpencode | undefined> = [];

@@ -159,9 +159,14 @@ De facto scale, to follow so a new layer finds its place:
   never properties other than `opacity` and `transform`; a large decoration
   (light, gradient) has a fixed size and is placed with `transform`, so a resize
   does not repaint it.
-- `prefers-reduced-motion: reduce` turns off non-essential animations
-  (dedicated block in `style.css`); every new animation provides its
-  alternative (fade or instant change).
+- `prefers-reduced-motion: reduce` removes movement, not fades (dedicated
+  block in `style.css`). Kept: opacity and color transitions (150 ms at most)
+  and the opacity pulse of activity indicators (the spinner turns slower).
+  Dropped: anything that moves, scales, resizes or rotates. A named Vue
+  transition becomes an opacity fade in place (its offsets are declared under
+  `@media (prefers-reduced-motion: no-preference)`); sliding panels change
+  width instantly. Every new animation or named transition gets its entry in
+  that block.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.
 

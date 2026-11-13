@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 /* frontend/src/styles/chat.css — styles de la page de chat sortis d'index.html : détail d'outil, plein écran de l'éditeur, puces de fichier. */
-.tool-detail-enter-active, .tool-detail-leave-active { transition: opacity 0.15s ease, transform 0.15s ease, max-height 0.2s ease; max-height: 400px; overflow: hidden; }
-.tool-detail-enter-from, .tool-detail-leave-to { opacity: 0; transform: translateY(-4px); max-height: 0; }
+.tool-detail-enter-active, .tool-detail-leave-active { transition: opacity 0.15s ease, transform 0.15s ease, max-height 0.2s ease; }
+.tool-detail-enter-from, .tool-detail-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .tool-detail-enter-active, .tool-detail-leave-active { max-height: 400px; overflow: hidden; }
+    .tool-detail-enter-from, .tool-detail-leave-to { transform: translateY(-4px); max-height: 0; }
+}
 .editor-fullscreen { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; border: none !important; }
 
 /* Puce de fichier : forme de document à coin plié. */

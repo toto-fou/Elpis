@@ -767,11 +767,13 @@ body.elpis-skin-terminal aside.elpis-slide-panel .adm-nav-arbre__recherche input
 body.elpis-skin-terminal :is(.popover-enter-active, .popover-leave-active, .popover-up-enter-active, .popover-up-leave-active) {
     transition: opacity 90ms linear, transform 90ms ease-out;
 }
-body.elpis-skin-terminal :is(.popover-enter-from, .popover-leave-to) { transform: translateY(-2px); }
-body.elpis-skin-terminal :is(.popover-up-enter-from, .popover-up-leave-to) { transform: translateY(2px); }
 body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) { transition-duration: 110ms; }
 body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) > * { transition: opacity 110ms linear, transform 110ms ease-out; }
-body.elpis-skin-terminal :is(.modal-enter-from, .modal-leave-to) > * { transform: translateY(4px); }
+@media (prefers-reduced-motion: no-preference) {
+    body.elpis-skin-terminal :is(.popover-enter-from, .popover-leave-to) { transform: translateY(-2px); }
+    body.elpis-skin-terminal :is(.popover-up-enter-from, .popover-up-leave-to) { transform: translateY(2px); }
+    body.elpis-skin-terminal :is(.modal-enter-from, .modal-leave-to) > * { transform: translateY(4px); }
+}
 
 /* Étiquettes de la console (« Défaut »…) : l'accent prévu pour le texte, lisible en petite taille. */
 body.elpis-skin-terminal .adm-tag:not(.adm-tag--soft) { color: var(--accent-text); }

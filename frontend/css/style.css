@@ -1148,7 +1148,12 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .modal-enter-from > *,
 .modal-leave-to > * {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .modal-enter-from > *,
+    .modal-leave-to > * {
+        transform: translateY(12px) scale(0.98);
+    }
 }
 
 /* ─── Transition « popover » réutilisable (menus / dropdowns / panneaux) ───
@@ -1172,7 +1177,12 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .popover-enter-from,
 .popover-leave-to {
     opacity: 0;
-    transform: translateY(-4px);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .popover-enter-from,
+    .popover-leave-to {
+        transform: translateY(-4px);
+    }
 }
 
 /* ─── Variante « popover-up » : menus ANCRÉS PAR LE BAS ────────────────────
@@ -1189,7 +1199,12 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .popover-up-enter-from,
 .popover-up-leave-to {
     opacity: 0;
-    transform: translateY(4px);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .popover-up-enter-from,
+    .popover-up-leave-to {
+        transform: translateY(4px);
+    }
 }
 
 /* ─── Transition « model-load » : la barre de chargement rend sa place ─────
@@ -1207,8 +1222,13 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .model-load-enter-from,
 .model-load-leave-to {
     opacity: 0;
-    max-width: 0;
-    gap: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .model-load-enter-from,
+    .model-load-leave-to {
+        max-width: 0;
+        gap: 0;
+    }
 }
 
 /* ─── Transition « toast » ─────────────────────────────────────────────────
@@ -1220,75 +1240,101 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .toast-leave-active {
     transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.toast-enter-from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-}
+.toast-enter-from,
 .toast-leave-to {
     opacity: 0;
-    transform: translateX(16px);
 }
 .toast-move {
     transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+@media (prefers-reduced-motion: no-preference) {
+    .toast-enter-from {
+        transform: translateY(12px) scale(0.98);
+    }
+    .toast-leave-to {
+        transform: translateX(16px);
+    }
+}
 
-/* ─── Respect du setting "prefers-reduced-motion" ─────────────────────
-   Utilisateurs qui ont activé la réduction des animations dans leur
-   système (accessibilité, nausée vestibulaire, batterie) : on coupe
-   les animations non essentielles mais on garde les transitions de
-   couleur pour le feedback visuel.
+/* ─── Mouvement réduit (prefers-reduced-motion: reduce) ──────────────
+   Ce que la préférence vise (WCAG 2.3.3) est le mouvement : déplacement,
+   échelle, taille, rotation décorative. Un fondu d'opacité ou de couleur
+   n'en est pas un, et un indicateur figé se lit comme un gel de l'app. Règle :
+   - gardés : fondus d'opacité et de couleur, 150 ms au plus ; pouls d'opacité
+     des indicateurs d'activité, ralentis ;
+   - retirés : transform, largeur, hauteur, marges, position ; rotation décorative
+     (la roue de chargement tourne, ralentie : une roue figée se lit comme un gel).
+   Chaque transition Vue nommée est citée ici : elle ne matche aucun sélecteur
+   générique ([class*=…]). Ses décalages d'entrée sont posés hors de ce mode
+   (@media no-preference), l'élément apparaît donc à sa place finale.
    ──────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+    /* Utilitaires de transition : couleur et opacité seulement. */
+    .transition:not(.transition-none),
     .transition-all,
-    [class*="duration-"],
-    [class*="transition-"] {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
+    [class*="transition-"]:not(.transition-none),
+    [class*="duration-"] {
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow !important;
+        transition-duration: 150ms !important;
     }
-    /* Neutralise toutes les animations Tailwind (.animate-spin =
-       "spin 1s linear infinite", .animate-[fadeIn_…], .animate-[slideUp_…])
-       qui, sans ça, continuaient de tourner indéfiniment (spinners plein
-       écran, spinners de connexion) malgré la demande de l'OS. WCAG 2.3.3. */
+    /* Transitions Vue nommées : fondu d'opacité seul, sans déplacement de pile. */
+    .modal-enter-active, .modal-leave-active,
+    .modal-enter-active > *, .modal-leave-active > *,
+    .toast-enter-active, .toast-leave-active,
+    .fade-enter-active, .fade-leave-active,
+    .popover-enter-active, .popover-leave-active,
+    .popover-up-enter-active, .popover-up-leave-active,
+    .model-load-enter-active, .model-load-leave-active,
+    .tool-detail-enter-active, .tool-detail-leave-active,
+    .adm-bar-enter-active, .adm-bar-leave-active {
+        transition-property: opacity !important;
+        transition-duration: 150ms !important;
+    }
+    .toast-move { transition: none !important; }
+    /* Volets coulissants : la largeur change sans animation, le contenu s'estompe. */
+    .elpis-slide-panel.elpis-slide-panel {
+        transition-property: opacity !important;
+        transition-duration: 150ms !important;
+    }
+    /* Transitions écrites à la main qui déplacent, tournent ou redimensionnent. */
+    .elpis-zoom-btn,
+    .set-switch-track::after,
+    .adm-details > summary::before,
+    .np-card__chev,
+    .task-run-caret,
+    .elpis-effect-caret,
+    .elpis-img-tile__fill { transition: none !important; }
+    .adm-progression { transition-duration: 150ms !important; }
+    /* Animations Tailwind : retirées (spinners plein écran, apparitions), sauf ce qui suit.
+       .animate-[fadeIn_…] est un fondu : gardé, court. .animate-[slideUp_…] devient ce fondu. */
     [class*="animate-"],
     .elpis-changed-line-highlight,
     .elpis-changed-line-gutter {
         animation: none !important;
     }
-    /* …mais une roue de chargement FIGÉE est indiscernable d'un gel de
-       l'app : les indicateurs d'activité (.animate-spin) sont essentiels
-       (WCAG 2.3.3 ne vise que le mouvement décoratif). On garde la
-       rotation, simplement RALENTIE (2 s/tour au lieu de 1 s).
-       Keyframes à nous : ne dépend pas de l'ordre d'injection du CDN
-       Tailwind. Déclaré APRÈS [class*="animate-"] (même spécificité)
-       pour gagner la cascade. */
+    [class*="animate-[fadeIn_"],
+    [class*="animate-[slideUp_"] { animation: fadeIn 150ms ease-out !important; }
+    /* Indicateurs d'activité, ralentis. Roue de chargement : rotation à 2 s/tour au lieu de 1 s.
+       Keyframes à nous : l'ordre d'injection de la feuille Tailwind n'y change rien. */
     .animate-spin { animation: elpisSpinReduced 2s linear infinite !important; }
     @keyframes elpisSpinReduced { to { transform: rotate(360deg); } }
-    /* Indicateur « typing » : essentiel comme le spinner → conservé, ralenti. */
-    .elpis-typing > span { animation-duration: 2.4s !important; }
-    /* Point d'activité + curseur du terminal en direct : indicateurs
-       essentiels (une commande tourne) → conservés, ralentis. */
+    /* Pouls d'opacité (point, étape d'outil, jauge). Une classe motion-reduce:animate-none du markup garde le dernier mot. */
+    .animate-pulse:not(.motion-reduce\:animate-none) { animation: elpisPulseReduced 3s ease-in-out infinite !important; }
+    @keyframes elpisPulseReduced { 50% { opacity: 0.4; } }
+    /* Halo « ping » : l'échelle disparaît, le halo reste agrandi et respire en opacité autour de son point. */
+    .animate-ping:not(.motion-reduce\:animate-none) { transform: scale(1.8); animation: elpisPingReduced 2.4s ease-in-out infinite !important; }
+    @keyframes elpisPingReduced { 0%, 100% { opacity: 0; } 50% { opacity: 0.6; } }
+    /* Indicateur « typing » : trois points dont l'opacité ondule, sans la montée. */
+    .elpis-typing > span { animation: elpisTypingReduced 2.4s ease-in-out infinite !important; }
+    .elpis-typing > span:nth-child(2) { animation-delay: .32s !important; }
+    .elpis-typing > span:nth-child(3) { animation-delay: .64s !important; }
+    @keyframes elpisTypingReduced { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
+    /* Point d'activité + curseur du terminal en direct : une commande tourne. */
     .shell-live-dot.is-running { animation: shellDotPulse 3s ease-in-out infinite !important; }
     .shell-live-body .sh-cursor { animation: shellDotPulse 3s ease-in-out infinite !important; }
-    /* Éclat des libellés vivants : indicateur d'activité → conservé, ralenti. */
+    /* Éclat des libellés vivants. */
     .mem-wave-fenetre, .mem-wave-copie { animation-duration: 3.4s !important; }
     .editor-fullscreen { animation: none !important; }
-    /* Les classes de <Transition> Vue NOMMÉES (.modal-*,
-       .toast-*, .fade-*, …) ne matchent PAS les sélecteurs [class*=…]
-       ci-dessus (pas de préfixe "transition-"/"animate-") : modales et
-       toasts continuaient d'animer malgré la préférence OS. Liste tenue
-       en phase avec les <Transition name="…"> du markup (fade, modal,
-       model-load, toast, tool-detail). */
-    .modal-enter-active, .modal-leave-active,
-    .modal-enter-active > *, .modal-leave-active > *,
-    .toast-enter-active, .toast-leave-active, .toast-move,
-    .fade-enter-active, .fade-leave-active,
-    .popover-enter-active, .popover-leave-active,
-    .popover-up-enter-active, .popover-up-leave-active,
-    .model-load-enter-active, .model-load-leave-active,
-    .tool-detail-enter-active, .tool-detail-leave-active {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-    }
     /* Flash de saut (outline / recherche) — pas de pulsation animée. */
     .vs-jump-flash { animation: none !important; background-color: color-mix(in srgb, var(--accent-500) 10%, transparent) !important; }
 }
@@ -1526,9 +1572,9 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
     color: var(--danger-strong);
 }
 
-/* Réduit motion : pas d'animation d'entrée. */
+/* Mouvement réduit : l'entrée se fait en fondu seul. */
 @media (prefers-reduced-motion: reduce) {
-    .diff-rows { animation: none; }
+    .diff-rows { animation: fadeIn 150ms ease-out; }
 }
 
 /* ================================================================
@@ -2503,10 +2549,10 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 .adm-bar-enter-active,
 .adm-bar-leave-active { transition: transform .18s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
 .adm-bar-enter-from,
-.adm-bar-leave-to { transform: translateY(100%); opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-    .adm-bar-enter-active,
-    .adm-bar-leave-active { transition: none; }
+.adm-bar-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .adm-bar-enter-from,
+    .adm-bar-leave-to { transform: translateY(100%); }
 }
 /* Lien discret (renvoi vers une autre page de la console). */
 .adm-link {
@@ -3010,7 +3056,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 }
 @keyframes adm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) {
-    .adm-skeleton { animation: none; }
+    .adm-skeleton { animation-duration: 2.8s; }
 }
 
 /* ================================================================
@@ -3374,7 +3420,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 /* Réglage atteint par la recherche : contour 1,5 s (statique si mouvement réduit). */
 .adm-flash { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--radius-md); animation: adm-flash 1.5s ease-out; }
 @keyframes adm-flash { 0%, 60% { outline-color: var(--accent-ring); } 100% { outline-color: transparent; } }
-@media (prefers-reduced-motion: reduce) { .adm-flash { animation: none; } .adm-palette-backdrop { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .adm-flash { animation: none; } }
 
 /* Tiroir d'objet (connecteur…) : panneau à droite, son propre
    Enregistrer. Remplace la carte imbriquée dans la carte. */
@@ -3408,7 +3454,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 @keyframes adm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes adm-drawer-in { from { transform: translateX(1.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-    .adm-drawer-backdrop, .adm-drawer { animation: adm-fade .01s linear; }
+    .adm-drawer-backdrop, .adm-drawer { animation: adm-fade 150ms ease-out; }
 }
 
 
@@ -3469,9 +3515,10 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .adm-skeleton--kpi { display: block; width: 4.5rem; height: 1.25rem; margin: 0.25rem 0; }
 .adm-skeleton--bloc { position: absolute; inset: 1rem; height: auto; }
 @media (prefers-reduced-motion: reduce) {
-    .adm-progression.is-on::after, .adm-maj__auto[aria-pressed="true"] .adm-maj__point,
-    .adm-direct.is-on .adm-maj__point { animation: none; }
-    .adm-progression::after { width: 100%; opacity: .6; }
+    .adm-maj__auto[aria-pressed="true"] .adm-maj__point,
+    .adm-direct.is-on .adm-maj__point { animation-duration: 4s; }
+    .adm-progression.is-on::after { animation: adm-pulse 2.4s ease-in-out infinite; }
+    .adm-progression::after { width: 100%; }
 }
 .adm-dash__menu { width: 20rem; }
 .adm-menu__go { margin-left: auto; font-size: 0.75rem; }
@@ -4034,7 +4081,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 @keyframes term-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) {
     .term-tab-dot.is-connecting,
-    .term-tab-dot.is-reconnecting { animation: none; }
+    .term-tab-dot.is-reconnecting { animation-duration: 2.4s; }
 }
 
 /* Bouton « fermer » de l'onglet — n'apparaît qu'au survol ou sur l'actif. */
@@ -4815,7 +4862,7 @@ mark.elpis-search-hit {
    animations » (une tuile immobile se lit comme un gel). */
 @media (prefers-reduced-motion: reduce) {
     .elpis-img-tile__wash { animation-duration: 30s !important; animation-iteration-count: infinite !important; }
-    .elpis-img-reveal { animation: none !important; }
+    .elpis-img-reveal { animation: fadeIn 150ms ease-out !important; }
 }
 
 /* Console › Images : ligne d'état du test, groupe supprimé. */
@@ -4940,9 +4987,6 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: transparent; border-color: var(--accent-text); color: var(--accent-text); }
 @media (max-width: 640px), (pointer: coarse) { .elpis-ask-aide-clavier { display: none; } }
 .elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) {
-    .elpis-ask-opt, .elpis-ask-btn { transition: none; }
-}
 
 /* Gestionnaire des serveurs MCP (ModaleMcp et ses volets) : champs, point d'état (forme + texte), fil pendant un test. */
 .elpis-mcp-titre { font-family: var(--font-titre, inherit); }
@@ -4964,8 +5008,8 @@ select.elpis-mcp-champ { padding-right: 0.375rem; cursor: pointer; }
 @keyframes elpis-mcp-tourne { to { transform: rotate(360deg); } }
 @keyframes elpis-mcp-fil { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 @media (prefers-reduced-motion: reduce) {
-    .elpis-mcp-pt--busy, .elpis-mcp-fil { animation: none; }
-    .elpis-mcp-fil { background: var(--accent-500); }
+    .elpis-mcp-pt--busy { animation-duration: 2.4s; }
+    .elpis-mcp-fil { animation: none; background: var(--accent-500); }
 }
 
 /* ── Journal de sécurité (Journaux › Sécurité) ── */

@@ -273,3 +273,72 @@ describe("rechargement de l'arbre", () => {
     expect(appelsMeta.n).toBe(20);
   });
 });
+
+function prng(graine: number): () => number {
+  let s = graine >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 0x100000000;
+  };
+}
+
+function arbreAleatoire(rnd: () => number, prefixe = "", prof = 0): NoeudArbre[] {
+  const n = Math.floor(rnd() * (prof === 0 ? 8 : 5));
+  const out: NoeudArbre[] = [];
+  const noms = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    const nom = "n" + Math.floor(rnd() * 6);
+    if (noms.has(nom)) continue;
+    noms.add(nom);
+    const path = prefixe + nom;
+    if (rnd() < 0.4 && prof < 4) {
+      const noeud: NoeudArbre = { name: nom, path, type: "folder" };
+      if (rnd() < 0.8) noeud.children = arbreAleatoire(rnd, path + "/", prof + 1);
+      out.push(noeud);
+    } else {
+      const noeud: NoeudArbre = { name: nom, path, type: "file" };
+      if (rnd() < 0.8) noeud.size = Math.floor(rnd() * 3);
+      out.push(noeud);
+    }
+  }
+  return out;
+}
+
+const copie = (a: NoeudArbre[]): NoeudArbre[] => JSON.parse(JSON.stringify(a)) as NoeudArbre[];
+/** Mutation aléatoire : renommage, suppression, ajout, changement de taille ou de type, enfants retirés. */
+function muter(a: NoeudArbre[], rnd: () => number): NoeudArbre[] {
+  const out: NoeudArbre[] = [];
+  for (const n of a) {
+    const r = rnd();
+    if (r < 0.05) continue;
+    const m: NoeudArbre = { ...n };
+    if (r < 0.1) {
+      m.name = n.name + "x";
+      m.path = n.path + "x";
+    } else if (r < 0.15) m.size = (n.size ?? 0) + 1;
+    else if (r < 0.18) m.type = n.type === "file" ? "folder" : "file";
+    else if (r < 0.2) delete m.children;
+    if (m.children) m.children = muter(m.children, rnd);
+    out.push(m);
+  }
+  if (rnd() < 0.1) out.push({ name: "neuf", path: "neuf" + Math.floor(rnd() * 1e6), type: "file" });
+  if (rnd() < 0.1) out.reverse();
+  return out;
+}
+
+describe("rechargement de l'arbre : tirages aléatoires", () => {
+  it("le résultat a toujours le contenu de l'arbre reçu (2 000 tirages, graine 9)", () => {
+    const rnd = prng(9);
+    for (let t = 0; t < 2000; t++) {
+      const ancien = arbreAleatoire(rnd);
+      const neuf = rnd() < 0.3 ? copie(ancien) : muter(copie(ancien), rnd);
+      const r = partagerArbre(ancien, copie(neuf));
+      expect(JSON.parse(JSON.stringify(r))).toEqual(JSON.parse(JSON.stringify(neuf)));
+      if (JSON.stringify(neuf) === JSON.stringify(ancien)) expect(r).toBe(ancien);
+    }
+  });
+});

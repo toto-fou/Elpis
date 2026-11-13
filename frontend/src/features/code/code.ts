@@ -746,7 +746,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeSessionOpen.value = false;
     codePerms.value = [];
     codeQuestions.value = [];
-    rendu.resetCodeUi();
     void loadSessions();
   }
   function closeCodePage(): void {
@@ -765,7 +764,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeSessionOpen.value = false;
     codePerms.value = [];
     codeQuestions.value = [];
-    rendu.resetCodeUi();
     collerAuBas = true;
     codeChargementSession.value = true;
     try {

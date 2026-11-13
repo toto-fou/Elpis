@@ -607,7 +607,10 @@ export function creerHistoriqueChat(
     });
     if (await envoi) return;
     remettre();
-    if (etaitCourant) void loadChat(idStr);
+    // Rouverte seulement si l'on est encore sur le chat vierge ouvert par l'archivage.
+    const vierge =
+      currentChatId.value === null && !messages.value.length && !refs.attachedFiles?.value.length;
+    if (etaitCourant && vierge && !isStreaming.value) void loadChat(idStr);
     showToast("Archivage impossible", "error");
   }
 

@@ -1129,6 +1129,33 @@ describe("historique : suppression et actions groupées", () => {
     }
   });
 
+  it("archiver refusé tard : passé sur une autre conversation ou avec une pièce jointe dans le chat neuf, l'utilisateur y reste", async () => {
+    for (const ailleurs of ["autre conversation", "pièce jointe"] as const) {
+      let refuser: (r: Response) => void = () => {};
+      const { api, refs, toasts } = monter(null, {
+        courant: "c1",
+        fetch: (url, init) => {
+          if (url.endsWith("/archive") && init?.method === "POST")
+            return new Promise<Response>((r) => (refuser = r));
+          if (url.includes("generation-status")) return Promise.resolve(json({}));
+          return Promise.resolve(json(conv([{ role: "user", content: "x" }], { id: url.split("/").pop() })));
+        },
+      });
+      const archivage = api.archiveChat("c1");
+      expect(refs.currentChatId.value).toBeNull();
+      if (ailleurs === "autre conversation") await api.loadChat("c2");
+      else refs.attachedFiles.value = [{ name: "a.txt" }];
+      const avant = refs.currentChatId.value;
+      refuser(json({}, 500));
+      await archivage;
+      await new Promise((r) => setTimeout(r, 0));
+      expect(toasts.map((t) => t.message)).toContain("Archivage impossible");
+      expect(refs.currentChatId.value).toBe(avant);
+      expect(refs.chats.value.map((c) => c.id)).toEqual(["c1", "c2"]);
+      if (ailleurs === "pièce jointe") expect(refs.attachedFiles.value).toHaveLength(1);
+    }
+  });
+
   it("renommer : titre posé avant la réponse, ancien titre et message d'erreur si le serveur refuse", async () => {
     let repondre: (r: Response) => void = () => {};
     const { api, refs, toasts } = monter(null, {

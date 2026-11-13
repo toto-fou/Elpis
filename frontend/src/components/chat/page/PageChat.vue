@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/PageChat.vue — colonne du chat : dépôt de fichiers, en-tête, fil, composeur (saisie, mentions, menus « / » et « + », micro, mode plan, tâches, modèle, envoi) et perchoir de la mascotte. -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useTemplateRef, watch } from "vue";
 
 import { CLE_COMPOSEUR, CLE_CONVERSATION, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { glisserAuPremierEnvoi } from "../../../features/chat/composeur/premier-envoi";
 import { utiliserEchecsJobs } from "../../../features/chat/page/echecs-jobs";
 import MascottePerchee from "../../mascotte/MascottePerchee.vue";
 import MenuMention from "../composeur/MenuMention.vue";
@@ -33,6 +34,16 @@ const annonceQuestionnaire = computed(() => {
 });
 // Rien au-dessus du composeur : l'échec d'une tâche de fond est signalé par un toast.
 utiliserEchecsJobs(p, domaine(CLE_CONVERSATION));
+// Premier envoi (pas l'ouverture d'une conversation) : lu avant le rendu qui pose le message.
+const page = useTemplateRef<HTMLElement>("page");
+const bande = useTemplateRef<HTMLDivElement>("bande");
+watch(
+  () => p.messages.length === 0,
+  (vide, avant) => {
+    if (avant && !vide && p.isStreaming) glisserAuPremierEnvoi(bande.value, page.value);
+  },
+  { flush: "pre" },
+);
 // Le dépôt ne lit que les fichiers de la cible.
 function surFichiers(e: Event): void {
   p.handleFileUpload({ target: e.target as HTMLInputElement });
@@ -41,6 +52,7 @@ function surFichiers(e: Event): void {
 
 <template>
   <main
+    ref="page"
     class="flex flex-col h-full relative w-full min-w-0 flex-1"
     @dragenter="p.handleChatDragEnter"
     @dragover="p.handleChatDragOver"
@@ -62,7 +74,8 @@ function surFichiers(e: Event): void {
     <BoutonBas />
 
     <div
-      class="absolute left-0 right-0 px-4 md:px-6 pointer-events-none flex justify-center z-30 transition-all duration-300"
+      ref="bande"
+      class="absolute left-0 right-0 px-4 md:px-6 pointer-events-none flex justify-center z-30"
       :class="p.messages.length === 0 ? 'top-[44dvh]' : 'bottom-6'"
     >
       <!-- ``relative`` : ancre les panneaux « / » et @mention

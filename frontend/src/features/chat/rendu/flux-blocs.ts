@@ -63,6 +63,9 @@ const BALISES_VIDES = new Set(
 const FIN_OPTIONNELLE = new Set(
   "p li dt dd tr td th thead tbody tfoot option optgroup colgroup caption rt rp".split(" "),
 );
+const DEF_LIGNE = /^ {0,3}\[((?!\s*\])(?:\\.|[^[\]\\])+)\]:/;
+const DEF_SANS_ADRESSE = /^ {0,3}\[((?!\s*\])(?:\\.|[^[\]\\])+)\]:[ \t]*\n?$/;
+const AUCUN: ReadonlySet<string> = new Set();
 
 /** Texte tel que le rendu complet le lit : sauts de ligne normalisés, blancs de tête retirés (stable d'un appel à l'autre pendant le flux). */
 export function preparerTexte(texte: string): string {
@@ -93,12 +96,28 @@ function nbLiens(liens: Liens): number {
   return n;
 }
 
-function memesLiens(a: Liens, b: Liens): boolean {
-  const cles = Object.keys(a);
-  return (
-    cles.length === Object.keys(b).length &&
-    cles.every((c) => b[c]?.href === a[c]?.href && b[c]?.title === a[c]?.title)
-  );
+function copieLiens(liens: Liens): Liens {
+  return Object.assign(Object.create(null) as Liens, liens);
+}
+
+/** Étiquette d'un lien de référence telle que marked la range dans sa table. */
+function etiquette(brute: string): string {
+  return brute.toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Étiquettes dont la définition diffère d'une table à l'autre (ajoutée, retirée ou changée). */
+function etiquettesChangees(a: Liens, b: Liens): string[] {
+  const changees: string[] = [];
+  for (const k in a) if (b[k]?.href !== a[k]?.href || b[k]?.title !== a[k]?.title) changees.push(k);
+  for (const k in b) if (!(k in a)) changees.push(k);
+  return changees;
+}
+
+/** Vrai si la source peut citer l'une des étiquettes (`[etiquette]`, casse et blancs normalisés comme marked). */
+function cite(src: string, etiquettes: readonly string[]): boolean {
+  if (!etiquettes.length || !src.includes("[")) return false;
+  const s = src.toLowerCase().replace(/\s+/g, " ");
+  return etiquettes.some((e) => s.includes("[" + e + "]"));
 }
 
 function blanche(t: string, a: number, b: number): boolean {
@@ -230,6 +249,34 @@ function departsDesJetons(
   return departs;
 }
 
+/** Étiquette de la définition que la suite peut encore compléter d'un titre : sur la dernière ligne complète de `[debut, fin)`, ou sur l'avant-dernière quand son adresse est sur la dernière. */
+function provisoires(t: string, debut: number, fin: number): ReadonlySet<string> {
+  const dl = Math.max(debut, t.lastIndexOf("\n", fin - 2) + 1);
+  const m = DEF_LIGNE.exec(t.slice(dl, fin));
+  if (m?.[1]) return new Set([etiquette(m[1])]);
+  if (dl <= debut || !t.slice(dl, fin).trim()) return AUCUN;
+  const m2 = DEF_SANS_ADRESSE.exec(t.slice(Math.max(debut, t.lastIndexOf("\n", dl - 2) + 1), dl));
+  return m2?.[1] ? new Set([etiquette(m2[1])]) : AUCUN;
+}
+
+/** Inscrit dans la table partagée, en copies autonomes, les définitions nouvelles de `tmp` sauf les provisoires ; rend leurs étiquettes. */
+function engager(tmp: Liens, liens: Liens, retenues: ReadonlySet<string>): string[] {
+  const ajoutees: string[] = [];
+  for (const k in tmp) {
+    const v = tmp[k];
+    if (!v || k in liens || retenues.has(k)) continue;
+    liens[k] = { href: copie(v.href), title: v.title === undefined ? undefined : copie(v.title) };
+    ajoutees.push(k);
+  }
+  return ajoutees;
+}
+
+interface Region {
+  suite: number;
+  /** Étiquettes inscrites dans la table partagée par cette région. */
+  ajoutees: string[];
+}
+
 export function creerFlux(dep: DependancesFlux) {
   function lexer(src: string, liens: Liens): JetonMarked[] {
     const lx = dep.nouveauLexeur();
@@ -262,7 +309,7 @@ export function creerFlux(dep: DependancesFlux) {
     return { i, html: htmlDe(src, jetons, liens), src, fin, lim };
   }
 
-  /** Fige les groupes de `pos` à `fin` (tous, ou tous sauf le dernier) ; rend le nouveau décalage, ou `null` si les décalages des jetons sont illisibles. */
+  /** Fige les groupes de `pos` à `fin` (tous, ou tous sauf le dernier ; sans groupe, seules les lignes blanches sont passées) ; `null` si les décalages des jetons sont illisibles. */
   function figerRegion(
     t: string,
     pos: number,
@@ -271,12 +318,12 @@ export function creerFlux(dep: DependancesFlux) {
     nouveaux: BlocFlux[],
     base: number,
     garderDernier: boolean,
-  ): number | null {
-    const jetons = lexer(t.slice(pos, fin), liens);
+  ): Region | null {
+    const tmp = copieLiens(liens);
+    const jetons = lexer(t.slice(pos, fin), tmp);
     const departs = departsDesJetons(t, pos, fin, jetons);
     if (!departs) return null;
     const groupes = grouper(jetons, departs);
-    if (groupes.length === 0) return fin;
     const nb = garderDernier ? groupes.length - 1 : groupes.length;
     for (let g = 0; g < nb; g++) {
       const gr = groupes[g];
@@ -286,24 +333,40 @@ export function creerFlux(dep: DependancesFlux) {
       // Le bloc ne dépend que du texte jusqu'à la fin de la première ligne du bloc suivant.
       const nl = suivant === undefined ? -1 : t.indexOf("\n", suivant);
       const lim = nl === -1 || nl >= fin ? fin : nl + 1;
-      nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suite, lim, gr.jetons, liens));
+      nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suite, lim, gr.jetons, tmp));
     }
-    return garderDernier ? (groupes[groupes.length - 1]?.debut ?? pos) : fin;
+    const reste = groupes[Math.max(nb, 0)];
+    const suite =
+      nb < groupes.length && reste
+        ? reste.debut
+        : groupes.length || !garderDernier
+          ? fin
+          : Math.min(fin, sauterBlanches(t, pos));
+    const retenues = garderDernier ? provisoires(t, Math.max(suite, pos), fin) : AUCUN;
+    return { suite, ajoutees: engager(tmp, liens, retenues) };
   }
 
-  /** Re-rend, avec les liens connus à présent, les blocs dont la source contient un crochet. */
-  function rerendreLiens(blocs: readonly BlocFlux[], liens: Liens): BlocFlux[] {
-    return blocs.map((b) => {
-      if (!b.src.includes("[")) return b;
-      const html = dep.rendre(lexer(b.src, liens));
-      return html === b.html ? b : { ...b, html };
-    });
+  /** Re-rend, avec les liens connus à présent, les blocs de rang inférieur à `jusqua` qui citent l'une des étiquettes. */
+  function relire(
+    blocs: readonly BlocFlux[],
+    jusqua: number,
+    liens: Liens,
+    etiquettes: readonly string[],
+  ): readonly BlocFlux[] {
+    let sortie: BlocFlux[] | null = null;
+    for (let k = 0; k < jusqua; k++) {
+      const b = blocs[k];
+      if (!b || !cite(b.src, etiquettes)) continue;
+      const html = dep.rendre(lexer(b.src, copieLiens(liens)));
+      if (html !== b.html) (sortie ??= blocs.slice())[k] = { ...b, html };
+    }
+    return sortie ?? blocs;
   }
 
   function avancer(t: string, etat: EtatFlux): Avancee {
     const liens = etat.liens;
-    const avant = nbLiens(liens);
     const nouveaux: BlocFlux[] = [];
+    const aRelire: { jusqua: number; etiquettes: string[] }[] = [];
     let pos = etat.pos;
     let lexe = etat.lexe;
     let horizon = etat.horizon;
@@ -312,7 +375,7 @@ export function creerFlux(dep: DependancesFlux) {
       if (fence) {
         if (!fence.fermee) break;
         const fin = sauterBlanches(t, fence.fin + 1);
-        const jetons = lexer(t.slice(pos, fence.fin), liens);
+        const jetons = lexer(t.slice(pos, fence.fin), copieLiens(liens));
         nouveaux.push(bloc(t, etat.blocs.length + nouveaux.length, pos, fin, fin, jetons, liens));
         pos = fin;
         continue;
@@ -322,17 +385,19 @@ export function creerFlux(dep: DependancesFlux) {
       const taille = nl + 1 - pos;
       if (taille > ANALYSE_MAX && taille < lexe * CROISSANCE_ANALYSE) break;
       lexe = taille;
-      const suite = figerRegion(t, pos, nl + 1, liens, nouveaux, etat.blocs.length, true);
-      if (suite === null) break;
-      if (suite === pos) {
+      const avant = etat.blocs.length + nouveaux.length;
+      const r = figerRegion(t, pos, nl + 1, liens, nouveaux, etat.blocs.length, true);
+      if (!r) break;
+      if (r.ajoutees.length) aRelire.push({ jusqua: avant, etiquettes: r.ajoutees });
+      if (r.suite === pos) {
         horizon = nl + 1;
         break;
       }
-      pos = suite;
+      pos = r.suite;
       horizon = 0;
     }
     let blocs: readonly BlocFlux[] = nouveaux.length ? [...etat.blocs, ...nouveaux] : etat.blocs;
-    if (nbLiens(liens) > avant && blocs.some((b) => b.src.includes("["))) blocs = rerendreLiens(blocs, liens);
+    for (const r of aRelire) blocs = relire(blocs, r.jusqua, liens, r.etiquettes);
     return { etat: { blocs, pos, liens, lexe, horizon, texte: t, source: etat.source }, actif: t.slice(pos) };
   }
 
@@ -340,16 +405,22 @@ export function creerFlux(dep: DependancesFlux) {
   function terminer(t: string, etat: EtatFlux): Avancee {
     const courant = avancer(t, etat).etat;
     const liens = courant.liens;
-    const avant = nbLiens(liens);
     const nouveaux: BlocFlux[] = [];
     const base = courant.blocs.length;
-    const reste = t.slice(courant.pos);
-    if (reste.trim() !== "" && figerRegion(t, courant.pos, t.length, liens, nouveaux, base, false) === null) {
-      nouveaux.length = 0;
-      nouveaux.push(bloc(t, base, courant.pos, t.length, t.length, lexer(reste, liens), liens));
+    let ajoutees: string[] = [];
+    if (t.slice(courant.pos).trim() !== "") {
+      const r = figerRegion(t, courant.pos, t.length, liens, nouveaux, base, false);
+      if (r) ajoutees = r.ajoutees;
+      else {
+        nouveaux.length = 0;
+        const tmp = copieLiens(liens);
+        const jetons = lexer(t.slice(courant.pos), tmp);
+        nouveaux.push(bloc(t, base, courant.pos, t.length, t.length, jetons, tmp));
+        ajoutees = engager(tmp, liens, AUCUN);
+      }
     }
     let blocs: readonly BlocFlux[] = nouveaux.length ? [...courant.blocs, ...nouveaux] : courant.blocs;
-    if (nbLiens(liens) > avant && blocs.some((b) => b.src.includes("["))) blocs = rerendreLiens(blocs, liens);
+    if (ajoutees.length) blocs = relire(blocs, base, liens, ajoutees);
     return {
       etat: { blocs, pos: t.length, liens, lexe: courant.lexe, horizon: 0, texte: t, source: etat.source },
       actif: "",
@@ -366,11 +437,20 @@ export function creerFlux(dep: DependancesFlux) {
     let n = 0;
     while (n < etat.blocs.length && (etat.blocs[n]?.lim ?? Infinity) <= commun) n++;
     const gardes = etat.blocs.slice(0, n);
+    // Table refaite sur tout le texte gardé : sources des blocs et définitions logées entre deux blocs.
+    const lus = Object.create(null) as Liens;
+    let prec = 0;
+    for (const b of gardes) {
+      const debut = b.fin - b.src.length;
+      if (debut > prec && t.slice(prec, debut).includes("[")) lexer(t.slice(prec, debut), lus);
+      if (b.src.includes("[")) lexer(b.src, lus);
+      prec = b.fin;
+    }
     const liens = Object.create(null) as Liens;
-    for (const b of gardes) if (b.src.includes("[")) lexer(b.src, liens);
-    const blocs = memesLiens(liens, etat.liens) ? gardes : rerendreLiens(gardes, liens);
+    engager(lus, liens, AUCUN);
+    const changees = etiquettesChangees(etat.liens, liens);
     return {
-      blocs,
+      blocs: changees.length ? relire(gardes, gardes.length, liens, changees) : gardes,
       pos: n ? (gardes[n - 1]?.fin ?? 0) : 0,
       liens,
       lexe: 0,

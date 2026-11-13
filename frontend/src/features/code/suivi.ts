@@ -34,5 +34,3 @@ export function creerSuiviRendu() {
     codeNow,
   };
 }
-
-export type SuiviRendu = ReturnType<typeof creerSuiviRendu>;

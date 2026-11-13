@@ -97,13 +97,13 @@ export function creerDefilementVirtuel(
     });
   }
 
-  function poser(s: number, e: number, total: number, basNul = false): void {
+  function poser(s: number, e: number, total: number): void {
     s = tete(s);
     while (e < total && absorbe(messages.value, e)) e++;
     debut.value = s;
     fin.value = e;
     vsTopPad.value = somme(0, s);
-    vsBotPad.value = basNul ? 0 : somme(e, total);
+    vsBotPad.value = somme(e, total);
   }
 
   function recalculer(): void {
@@ -210,7 +210,7 @@ export function creerDefilementVirtuel(
     if (cible === null) return;
     const total = messages.value.length;
     const s = Math.max(cible, debut.value - PAS_OUVERTURE);
-    poser(s, total, total, true);
+    poser(s, total, total);
     if (s > cible) rafOuverture = requestAnimationFrame(etendreOuverture);
     else arreterOuverture();
   }
@@ -220,7 +220,7 @@ export function creerDefilementVirtuel(
     const cible = cibleOuverture.value;
     if (cible === null) return;
     const total = messages.value.length;
-    poser(Math.min(cible, total), total, total, true);
+    poser(Math.min(cible, total), total, total);
     arreterOuverture();
   }
 
@@ -240,7 +240,7 @@ export function creerDefilementVirtuel(
     arreterOuverture();
     const cible = total <= SEUIL_VIRTUEL ? 0 : Math.max(0, total - QUEUE);
     if (total - cible > PREMIERE_IMAGE) {
-      poser(total - PREMIERE_IMAGE, total, total, true);
+      poser(total - PREMIERE_IMAGE, total, total);
       cibleOuverture.value = cible;
       rafOuverture = requestAnimationFrame(() => {
         rafOuverture = requestAnimationFrame(etendreOuverture);
@@ -254,20 +254,20 @@ export function creerDefilementVirtuel(
       vsBotPad.value = 0;
       return;
     }
-    poser(Math.max(0, total - QUEUE), total, total, true);
+    poser(Math.max(0, total - QUEUE), total, total);
   }
 
   /** Queue visible pendant le flux ; garde rapide quand elle l'est déjà (appel à chaque flush). */
   function _vsEnsureTail(): void {
     const total = messages.value.length;
     if (cibleOuverture.value !== null) {
-      if (fin.value !== total) poser(debut.value, total, total, true);
+      if (fin.value !== total) poser(debut.value, total, total);
       return;
     }
     if (total <= SEUIL_VIRTUEL) return;
     const s = Math.max(0, total - QUEUE);
     if (debut.value === tete(s) && fin.value === total) return;
-    poser(s, total, total, true);
+    poser(s, total, total);
   }
 
   function flasher(idx: number): void {

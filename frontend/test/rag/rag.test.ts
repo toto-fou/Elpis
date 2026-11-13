@@ -4,6 +4,7 @@ import { effectScope, reactive } from "vue";
 import type { DocumentRag, TravailRag } from "@elpis/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Filtres from "../../src/features/rag/filtres";
 import { creerRag, EVT_COLLECTIONS, EVT_DISCUTER, EVT_TRAVAIL } from "../../src/features/rag/rag";
 import type { RechercheRag } from "../../src/features/rag/api";
 import {
@@ -21,6 +22,19 @@ import {
   travail,
   vider,
 } from "./aides";
+
+// Compteur des tris de la liste des documents (même calcul, observé).
+const tris = vi.hoisted(() => ({ n: 0 }));
+vi.mock("../../src/features/rag/filtres", async (original) => {
+  const m = await original<typeof Filtres>();
+  return {
+    ...m,
+    ordonnerDocuments: (...a: Parameters<typeof m.ordonnerDocuments>) => {
+      tris.n++;
+      return m.ordonnerDocuments(...a);
+    },
+  };
+});
 
 const scopes: ReturnType<typeof effectScope>[] = [];
 
@@ -409,6 +423,51 @@ describe("travaux d'indexation en direct", () => {
     expect(rg.documents.travail?.done).toBe(4);
     expect(rg.documents.documents[0]).toMatchObject({ status: "ready", chunk_count: 26 });
     expect(rg.documents.documents).toHaveLength(1);
+  });
+
+  it("2 000 documents, 200 événements d'état : la ligne change en place, sans retri ; une clé de tri changée retrie", async () => {
+    const docs = Array.from({ length: 2000 }, (_, i) =>
+      document(i, COLL, {
+        rel_path: `projet/d${i % 37}/fichier ${(i * 7919) % 2000}.pdf`,
+        bytes: (i * 7919) % 50_000,
+        status: "pending",
+      }),
+    );
+    const { rg, cible } = await demarrer(travail(1, COLL, { total: 2000, done: 0 }), docs);
+    rg.documents.tri = "taille";
+    const attendu = (): string[] =>
+      [...rg.documents.documents]
+        .sort((a, b) => b.bytes - a.bytes || a.rel_path.localeCompare(b.rel_path, "fr", { numeric: true }))
+        .map((d) => d.id);
+    expect(rg.documents.lignes.map((d) => d.id)).toEqual(attendu());
+    tris.n = 0;
+    for (let k = 0; k < 200; k++) {
+      const d = rg.documents.documents[(k * 613) % 2000]!;
+      const maj = { ...d, status: k % 2 ? ("ready" as const) : ("indexing" as const), chunk_count: k };
+      cible.dispatchEvent(
+        new CustomEvent(EVT_TRAVAIL, {
+          detail: { collection_id: COLL, job: travail(1, COLL, { total: 2000, done: k }), document: maj },
+        }),
+      );
+      const ligne = rg.documents.lignes.find((x) => x.id === d.id);
+      expect(ligne).toMatchObject({ status: maj.status, chunk_count: k });
+    }
+    expect(tris.n).toBe(0);
+    expect(rg.documents.lignes.map((d) => d.id)).toEqual(attendu());
+    rg.documents.filtreEtat = "prets";
+    expect(rg.documents.lignes).toHaveLength(100);
+    expect(rg.documents.lignes.every((d) => d.status === "ready")).toBe(true);
+    expect(tris.n).toBe(0);
+    rg.documents.filtreEtat = "tous";
+    const premier = rg.documents.lignes[0]!;
+    cible.dispatchEvent(
+      new CustomEvent(EVT_TRAVAIL, {
+        detail: { collection_id: COLL, job: travail(1, COLL), document: { ...premier, bytes: 0 } },
+      }),
+    );
+    expect(rg.documents.lignes.at(-1)?.id).toBe(premier.id);
+    expect(rg.documents.lignes.map((d) => d.id)).toEqual(attendu());
+    expect(tris.n).toBe(1);
   });
 
   it("événement pour un document nouveau : ajouté ; pour une autre collection : ignoré dans la liste", async () => {

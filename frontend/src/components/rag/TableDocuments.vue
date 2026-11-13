@@ -104,6 +104,7 @@ function mode(doc: { status: string }): "prete" | "attente" | "occupe" {
         <tr
           v-for="(doc, i) in affichees"
           :key="doc.id"
+          v-memo="[doc, decalage + i, d.virtualise, ouvrable, rg.estProprietaire, rg.utilisable]"
           :aria-rowindex="decalage + i + 2"
           :style="d.virtualise ? { height: HAUTEUR_LIGNE + 'px' } : undefined"
           data-rag-doc

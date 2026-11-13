@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/rag/rag-documents.ts — page RAG, onglet Documents : liste complète (filtre, tri, virtualisation), travaux d'indexation en direct, dépôt de fichiers et actions par ligne. */
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { ETATS_TRAVAIL_RAG_ACTIFS } from "@elpis/contracts";
 import type { DocumentRag, ResultatDepotRag, TravailRag } from "@elpis/contracts";
 
@@ -8,7 +8,7 @@ import { texteEchec } from "./base";
 import type { BaseRag } from "./base";
 import { bilanDepot, corpsDepot, decouperEnLots, phraseBilan, preparerDepot } from "./depot";
 import type { FichierADeposer } from "./depot";
-import { SEUIL_VIRTUALISATION, filtrerDocuments, inserer, trierDocuments } from "./filtres";
+import { SEUIL_VIRTUALISATION, correspondEtat, inserer, memesCles, ordonnerDocuments } from "./filtres";
 import type { CleTri, FiltreEtat } from "./filtres";
 import { accorder, documentActif, estimerRestant, pourcentage } from "./format";
 
@@ -28,7 +28,7 @@ export function travailActif(t: Pick<TravailRag, "status">): boolean {
 
 export function creerDocuments(base: BaseRag) {
   const { api } = base;
-  const documents = ref<DocumentRag[]>([]);
+  const documents = shallowRef<DocumentRag[]>([]);
   const total = ref(0);
   const chargement = ref(false);
   const erreur = ref("");
@@ -39,9 +39,18 @@ export function creerDocuments(base: BaseRag) {
   let sequence = 0;
   const termines = new Set<string>();
 
-  const lignes = computed(() =>
-    trierDocuments(filtrerDocuments(documents.value, filtreTexte.value, filtreEtat.value), tri.value),
+  // Liste du dernier tri, gardée tant que les identifiants et les clés de tri ne changent pas : un changement d'état ne retrie rien.
+  const cles = computed<DocumentRag[]>((avant) =>
+    avant !== undefined && memesCles(avant, documents.value) ? avant : documents.value,
   );
+  const ordre = computed(() => ordonnerDocuments(cles.value, filtreTexte.value, tri.value));
+  const lignes = computed(() => {
+    const liste = documents.value;
+    const etat = filtreEtat.value;
+    const sortie: DocumentRag[] = [];
+    for (const i of ordre.value) if (correspondEtat(liste[i]!, etat)) sortie.push(liste[i]!);
+    return sortie;
+  });
   const virtualise = computed(() => lignes.value.length > SEUIL_VIRTUALISATION);
   const filtrees = computed(() => filtreTexte.value.trim() !== "" || filtreEtat.value !== "tous");
 

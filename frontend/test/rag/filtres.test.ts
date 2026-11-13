@@ -8,9 +8,9 @@ import {
   correspondEtat,
   fenetreVirtuelle,
   filtrerCollections,
-  filtrerDocuments,
   inserer,
-  trierDocuments,
+  memesCles,
+  ordonnerDocuments,
 } from "../../src/features/rag/filtres";
 import type { FILTRES_ETAT } from "../../src/features/rag/filtres";
 import { collection, document, idRag, partagee } from "./aides";
@@ -44,16 +44,18 @@ describe("filtre des documents", () => {
     document(5, c, { rel_path: "HA/bascule.docx", status: "extracting" }),
   ];
 
+  const chemins = (texte: string): string[] =>
+    ordonnerDocuments(docs, texte, "chemin").map((i) => docs[i]!.rel_path);
+
   it("par texte dans le chemin, sans accents", () => {
-    expect(filtrerDocuments(docs, "procedure", "tous").map((d) => d.rel_path)).toEqual([
-      "VPN/Procédure-IPsec.docx",
-    ]);
-    expect(filtrerDocuments(docs, "reseau/", "tous")).toHaveLength(1);
+    expect(chemins("procedure")).toEqual(["VPN/Procédure-IPsec.docx"]);
+    expect(chemins("reseau/")).toHaveLength(1);
+    expect(chemins("  ")).toHaveLength(5);
   });
 
   it("par état", () => {
     const etats = (f: (typeof FILTRES_ETAT)[number]): string[] =>
-      filtrerDocuments(docs, "", f).map((d) => d.status);
+      docs.filter((d) => correspondEtat(d, f)).map((d) => d.status);
     expect(etats("prets")).toEqual(["ready"]);
     expect(etats("en_cours")).toEqual(["indexing", "extracting"]);
     expect(etats("attente")).toEqual(["pending"]);
@@ -62,9 +64,8 @@ describe("filtre des documents", () => {
   });
 
   it("texte et état se combinent", () => {
-    expect(filtrerDocuments(docs, "docx", "prets").map((d) => d.rel_path)).toEqual([
-      "VPN/Procédure-IPsec.docx",
-    ]);
+    const places = ordonnerDocuments(docs, "docx", "chemin").filter((i) => correspondEtat(docs[i]!, "prets"));
+    expect(places.map((i) => docs[i]!.rel_path)).toEqual(["VPN/Procédure-IPsec.docx"]);
     expect(correspondEtat({ status: "ready" }, "erreurs")).toBe(false);
   });
 });
@@ -77,26 +78,27 @@ describe("tri et insertion", () => {
     document(3, c, { rel_path: "a/zzz.md", bytes: 500, created_at: 1 }),
   ];
 
+  const trier = (tri: "chemin" | "taille" | "recent"): string[] =>
+    ordonnerDocuments(docs, "", tri).map((i) => docs[i]!.rel_path);
+
   it("chemin en ordre naturel (doc2 avant doc10)", () => {
-    expect(trierDocuments(docs, "chemin").map((d) => d.rel_path)).toEqual([
-      "a/zzz.md",
-      "b/doc2.md",
-      "b/doc10.md",
-    ]);
+    expect(trier("chemin")).toEqual(["a/zzz.md", "b/doc2.md", "b/doc10.md"]);
   });
 
   it("taille décroissante puis chemin, plus récent d'abord, sans toucher à l'entrée", () => {
-    expect(trierDocuments(docs, "taille").map((d) => d.rel_path)).toEqual([
-      "a/zzz.md",
-      "b/doc2.md",
-      "b/doc10.md",
-    ]);
-    expect(trierDocuments(docs, "recent").map((d) => d.rel_path)).toEqual([
-      "b/doc2.md",
-      "b/doc10.md",
-      "a/zzz.md",
-    ]);
+    expect(trier("taille")).toEqual(["a/zzz.md", "b/doc2.md", "b/doc10.md"]);
+    expect(trier("recent")).toEqual(["b/doc2.md", "b/doc10.md", "a/zzz.md"]);
     expect(docs.map((d) => d.rel_path)).toEqual(["b/doc10.md", "b/doc2.md", "a/zzz.md"]);
+  });
+
+  it("clés de tri : un changement d'état les garde, un chemin, une taille, une date ou un ajout les changent", () => {
+    const etat = inserer(docs, { ...docs[1]!, status: "indexing", chunk_count: 3 });
+    expect(memesCles(docs, etat)).toBe(true);
+    expect(memesCles(docs, inserer(docs, { ...docs[1]!, bytes: 1 }))).toBe(false);
+    expect(memesCles(docs, inserer(docs, { ...docs[1]!, rel_path: "c.md" }))).toBe(false);
+    expect(memesCles(docs, inserer(docs, { ...docs[1]!, created_at: 0 }))).toBe(false);
+    expect(memesCles(docs, inserer(docs, document(9, c)))).toBe(false);
+    expect(memesCles(docs, [docs[1]!, docs[0]!, docs[2]!])).toBe(false);
   });
 
   it("insère un document inconnu, remplace le connu", () => {

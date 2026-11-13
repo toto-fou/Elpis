@@ -312,6 +312,30 @@ describe("tableau des documents", () => {
     expect(ligne("scan.pdf").querySelector(".rag-strip")).toBeNull();
   });
 
+  it("chargement d'une collection : la première page tout de suite, des squelettes pour la suite, ni roue ni « vide »", async () => {
+    const page = (debut: number): DocumentRag[] =>
+      Array.from({ length: 500 }, (_, i) => doc(debut + i, idRag(1), { rel_path: `d/f${debut + i}.md` }));
+    let suite: () => void = () => undefined;
+    const documents = vi.fn((_id: string, offset: number) =>
+      offset === 0
+        ? Promise.resolve(ok({ documents: page(0), total: 1000 }))
+        : new Promise<ReturnType<typeof ok<{ documents: DocumentRag[]; total: number }>>>((r) => {
+            suite = () => r(ok({ documents: page(500), total: 1000 }));
+          }),
+    );
+    const m = await monter({ api: api({ documents }) });
+    await m.attendre();
+    expect(m.qa("[data-rag-doc]")).toHaveLength(500);
+    expect(m.qa("[data-rag-squelette]")).toHaveLength(6);
+    expect(m.q(".rag-table")?.getAttribute("aria-busy")).toBe("true");
+    expect(m.q(".rag-empty-docs")).toBeNull();
+    suite();
+    await m.attendre();
+    expect(m.qa("[data-rag-squelette]")).toHaveLength(0);
+    expect(m.q(".rag-table")?.getAttribute("aria-busy")).toBe("false");
+    expect(m.rg.documents.lignes).toHaveLength(1000);
+  });
+
   it("actions de ligne du propriétaire : réindexer, ouvrir, retirer, avec noms accessibles", async () => {
     const m = await monter({ api: api() });
     const l = m.qa("[data-rag-doc]")[0]!;

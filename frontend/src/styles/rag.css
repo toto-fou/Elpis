@@ -138,6 +138,10 @@ body.elpis-palette-argile:not(.elpis-app-dark) .rag-btn--primary:hover { backgro
 .rag-table tr.is-hover td, .rag-table tbody tr:hover td, .rag-table tbody tr:focus-within td { background: var(--surface-2); }
 .rag-table tbody tr:hover .rag-doc__dir, .rag-table tbody tr:focus-within .rag-doc__dir, .rag-table tbody tr:hover .rag-state, .rag-table tbody tr:focus-within .rag-state { color: var(--text-800); }
 .rag-table tr.rag-spacer td { height: auto; padding: 0; border: 0; }
+/* Documents encore en route : barres statiques à la hauteur d'une ligne. */
+.rag-table tbody tr.rag-skel:hover td { background: transparent; }
+.rag-skel i { display: block; width: 55%; height: 10px; border-radius: var(--radius-sm); background: var(--surface-3); }
+.rag-skel td:first-child i { width: 70%; }
 .rag-doc { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .rag-doc > i { font-size: 18px; color: var(--text-500); flex-shrink: 0; }
 .rag-doc__name { color: var(--text-900); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }

@@ -266,6 +266,47 @@ describe("documents", () => {
     expect(rg.documents.virtualise).toBe(true);
   });
 
+  it("autre collection : la première page s'affiche dès son arrivée, squelettes pour la suite ; un rechargement garde l'ancienne liste", async () => {
+    const page = (debut: number, n: number): DocumentRag[] =>
+      Array.from({ length: n }, (_, i) => document(debut + i, idRag(1)));
+    const attentes: Array<() => void> = [];
+    const documents = vi.fn(
+      (_id: string, offset: number) =>
+        new Promise<ReturnType<typeof ok<{ documents: DocumentRag[]; total: number }>>>((r) =>
+          attentes.push(() =>
+            r(ok({ documents: offset === 0 ? page(0, 500) : page(500, 500), total: 1000 })),
+          ),
+        ),
+    );
+    const { rg } = monter({
+      api: { collections: vi.fn(async () => ok([collection(1, { doc_count: 1000 }), MES[1]!])), documents },
+    });
+    const ouverture = rg.ouvrir();
+    await vider();
+    expect(rg.documents.chargement).toBe(true);
+    expect(rg.documents.squelettes).toBe(6);
+    attentes.shift()?.();
+    await vider();
+    expect(rg.documents.lignes).toHaveLength(500);
+    expect(rg.documents.chargement).toBe(true);
+    expect(rg.documents.squelettes).toBe(6);
+    attentes.shift()?.();
+    await vider();
+    await ouverture;
+    expect(rg.documents.lignes).toHaveLength(1000);
+    expect(rg.documents.squelettes).toBe(0);
+    // Même collection relue (fin d'un dépôt) : la liste reste entière jusqu'à la fin, sans squelette.
+    const relecture = rg.documents.charger(idRag(1));
+    await vider();
+    attentes.shift()?.();
+    await vider();
+    expect(rg.documents.lignes).toHaveLength(1000);
+    expect(rg.documents.squelettes).toBe(0);
+    attentes.shift()?.();
+    await relecture;
+    expect(rg.documents.chargement).toBe(false);
+  });
+
   it("au-delà de 500 lignes seulement le tableau est virtualisé ; le filtre le ramène sous le seuil", async () => {
     const docs = Array.from({ length: 501 }, (_, i) => document(i, idRag(1), { rel_path: `d/f${i}.md` }));
     const { rg } = monter({

@@ -74,7 +74,12 @@ function mode(doc: { status: string }): "prete" | "attente" | "occupe" {
 
 <template>
   <div ref="zone" class="rag-scroll" @scroll.passive="mesurer">
-    <table class="rag-table" :aria-rowcount="d.lignes.length + 1" aria-label="Documents de la collection">
+    <table
+      class="rag-table"
+      :aria-rowcount="d.lignes.length + 1"
+      :aria-busy="d.chargement"
+      aria-label="Documents de la collection"
+    >
       <colgroup>
         <col />
         <col />
@@ -204,15 +209,26 @@ function mode(doc: { status: string }): "prete" | "attente" | "occupe" {
         <tr v-if="d.virtualise && fenetre.bas > 0" class="rag-spacer" aria-hidden="true">
           <td colspan="5" :style="{ height: fenetre.bas + 'px' }"></td>
         </tr>
+        <tr v-for="n in d.squelettes" :key="'s' + n" class="rag-skel" aria-hidden="true" data-rag-squelette>
+          <td><i></i></td>
+          <td><i></i></td>
+          <td><i></i></td>
+          <td><i></i></td>
+          <td><i></i></td>
+        </tr>
       </tbody>
     </table>
-    <p v-if="d.chargement && d.lignes.length === 0" class="rag-empty-docs" role="status">
+    <p
+      v-if="d.chargement && d.lignes.length === 0 && d.squelettes === 0"
+      class="rag-empty-docs"
+      role="status"
+    >
       <i class="ph ph-circle-notch animate-spin" aria-hidden="true"></i> Chargement des documents…
     </p>
     <p v-else-if="d.erreur" class="rag-error" role="alert">
       <i class="ph ph-warning-circle" aria-hidden="true"></i><span>{{ d.erreur }}</span>
     </p>
-    <p v-else-if="d.lignes.length === 0" class="rag-empty-docs">
+    <p v-else-if="d.lignes.length === 0 && !d.chargement" class="rag-empty-docs">
       {{
         d.filtrees
           ? "Aucun document ne correspond au filtre."

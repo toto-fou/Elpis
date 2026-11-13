@@ -52,6 +52,12 @@ export function creerDocuments(base: BaseRag) {
     return sortie;
   });
   const virtualise = computed(() => lignes.value.length > SEUIL_VIRTUALISATION);
+  /** Lignes squelettes pendant un chargement : la suite attendue (total annoncé, sinon le compte de la collection), six au plus. */
+  const squelettes = computed(() => {
+    if (!chargement.value) return 0;
+    const attendus = total.value || (base.courante.value?.doc_count ?? 0);
+    return Math.min(6, Math.max(0, attendus - documents.value.length));
+  });
   const filtrees = computed(() => filtreTexte.value.trim() !== "" || filtreEtat.value !== "tous");
 
   /** Travail d'indexation actif de la collection affichée. */
@@ -109,6 +115,8 @@ export function creerDocuments(base: BaseRag) {
     erreur.value = "";
     const tous: DocumentRag[] = [];
     let attendus = 0;
+    // Liste vide (autre collection) : la première page s'affiche dès son arrivée, la suite en squelettes ; sinon l'ancienne reste jusqu'au bout.
+    const progressif = documents.value.length === 0;
     for (let page = 0; page < PAGES_MAX; page++) {
       const r = await api.documents(id, tous.length, PAGE);
       if (mien !== sequence) return;
@@ -120,6 +128,10 @@ export function creerDocuments(base: BaseRag) {
       attendus = r.valeur.total;
       tous.push(...r.valeur.documents);
       if (r.valeur.documents.length === 0 || tous.length >= attendus) break;
+      if (page === 0 && progressif) {
+        documents.value = [...tous];
+        total.value = attendus;
+      }
     }
     documents.value = tous;
     total.value = attendus;
@@ -333,6 +345,7 @@ export function creerDocuments(base: BaseRag) {
     tri,
     lignes,
     virtualise,
+    squelettes,
     filtrees,
     travaux,
     travail,

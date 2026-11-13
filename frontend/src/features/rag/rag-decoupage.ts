@@ -347,8 +347,7 @@ export function creerDecoupage(
       erreur.value = messageEchecDecoupage(r.code, r.message, "Le découpage n’a pas pu être appliqué.");
       return false;
     }
-    if (base.selection.value === id)
-      documents.majDocument(r.valeur.document);
+    if (base.selection.value === id) documents.majDocument(r.valeur.document);
     if (r.valeur.job !== null) documents.appliquerTravail(r.valeur.job);
     base.info(phrase);
     fermer();

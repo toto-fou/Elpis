@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/pages.test.ts — pages coquilles : vecteurs (versions, vendor), cache sur l'état du disque, empreintes vendor, entrées Vite, en-tête CSP. */
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
@@ -12,6 +13,7 @@ import {
   enteteCsp,
   modeCsp,
   POLITIQUE_CSP,
+  SCRIPT_HABILLAGE,
 } from "../src/interface/pages";
 
 const vecteurs = JSON.parse(readFileSync(new URL("./vecteurs/pages.json", import.meta.url), "utf-8")) as {
@@ -128,6 +130,12 @@ describe("entrées Vite (@entree)", () => {
     expect(neuf).not.toContain("main-A1");
   });
 
+  it("@habillage : le script autorisé par la CSP, tel quel, une fois par marqueur", () => {
+    const html = new Pages(frontend, "B5").assembler("<head><!-- @habillage --></head><body></body>");
+    expect(html).toBe(`<head><script>${SCRIPT_HABILLAGE}</script></head><body></body>`);
+    expect(SCRIPT_HABILLAGE).not.toMatch(/<\/script|`|\$\{/i);
+  });
+
   it("manifeste illisible : comme un build absent", () => {
     const chemin = join(frontend, MANIFESTE_WEB);
     mkdirSync(dirname(chemin), { recursive: true });
@@ -145,12 +153,13 @@ describe("politique de sécurité du contenu (CSP)", () => {
     expect(modeCsp("off")).toBe("off");
   });
 
-  it("en-tête selon le mode ; jamais de script en ligne ni évalué", () => {
+  it("en-tête selon le mode ; aucun script évalué, en ligne seulement celui de l'habillage", () => {
     expect(enteteCsp("enforce")).toEqual({ "content-security-policy": POLITIQUE_CSP });
     expect(enteteCsp("report-only")).toEqual({ "content-security-policy-report-only": POLITIQUE_CSP });
     expect(enteteCsp("off")).toEqual({});
     const script = /(?:^|; )script-src ([^;]*)/.exec(POLITIQUE_CSP)?.[1] ?? "";
-    expect(script).toBe("'self'");
+    const empreinte = createHash("sha256").update(SCRIPT_HABILLAGE).digest("base64");
+    expect(script).toBe(`'self' 'sha256-${empreinte}'`);
     expect(POLITIQUE_CSP).not.toMatch(/unsafe-eval/);
     expect(POLITIQUE_CSP).toMatch(/object-src 'none'/);
     expect(POLITIQUE_CSP).toMatch(/frame-ancestors 'self'/);

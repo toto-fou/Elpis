@@ -318,13 +318,13 @@ def test_la_liste_des_opacites_tolerees_ne_contient_pas_de_classe_morte():
 def test_le_marqueur_de_surface_sombre_est_bien_celui_pose_par_les_reglages():
     """Les remaps sont accrochés à ``elpis-dark-surface``, pas à autre chose.
 
-    ``features/reglages/apparence.ts`` pose ce marqueur sur ``document.body`` dès que le
+    ``features/reglages/habillage.ts`` pose ce marqueur sur ``document.body`` dès que le
     mode sombre OU un skin à base sombre est actif. Renommer l'un sans
     l'autre désactiverait tous les remaps d'un coup, sans erreur.
     """
-    reglages = (SRC / "features" / "reglages" / "apparence.ts").read_text(encoding="utf-8")
+    reglages = (SRC / "features" / "reglages" / "habillage.ts").read_text(encoding="utf-8")
     assert "elpis-dark-surface" in reglages, (
-        "apparence.ts ne pose plus 'elpis-dark-surface' — les remaps de "
+        "habillage.ts ne pose plus 'elpis-dark-surface' — les remaps de "
         "frontend/css/style.css sont alors tous inertes."
     )
     assert "elpis-dark-surface" in CSS.read_text(encoding="utf-8")

@@ -1142,12 +1142,17 @@ The `/` (chat), `/` and `/admin` (console) pages receive `POLITIQUE_CSP`
 reread on each page ([configuration](configuration.md#content-security-policy-securitycsp)):
 
 ```
-default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none';
 base-uri 'self'; frame-ancestors 'self'; form-action 'self'
 ```
 
-No inline or evaluated script (`eval`, `new Function`): Zod runs in
+One inline script only, allowed by its hash: `SCRIPT_HABILLAGE`, written by the
+server in place of the `<!-- @habillage -->` marker, sets the body classes (and
+the skin's stylesheets) of the last appearance remembered by the browser
+(`frontend/src/features/reglages/habillage.ts`, `localStorage` key
+`elpis-habillage`) before the first paint. No other inline script, no evaluated
+script (`eval`, `new Function`): Zod runs in
 `jitless` mode, set by `src/platform/zod-sans-eval.ts`, imported first by
 the entry points (a schema built earlier would read `jitless` as false and probe
 `new Function`). Each opening is justified by a violation report:
@@ -3823,7 +3828,7 @@ key, to move the former values into the vault (migrations and startup catch-ups)
 | **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet (format also read by the remaining Python): `decryptStrict` reads, without ever creating a key, the former LLM connector, image engine and MCP values and the AX site passwords being moved into the secrets vault |
 | **Secrets vault** | `packages/securite/src/coffre.ts`, `apps/core/src/secrets/` | AES-256-GCM, AAD per secret, key outside the database (`/etc/elpis/vault.key`); a value reaches the tool host only, by the signed internal resolution; see [Secrets vault](#secrets-vault) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
-| **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
+| **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'` plus the hash of the appearance script (`SCRIPT_HABILLAGE`), no other inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
 | **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | Remote Git URLs, AX diagnostics |
 | **Bounded bodies** | `packages/http/src/app.ts` (`limiteCorps` per route) | An upload beyond its route's limit is refused |
 | **Path traversal** | editor paths normalized by the tool host (`apps/toolhost/src/fichiers/`); links resolved by the container agent | Single chokepoint |

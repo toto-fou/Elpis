@@ -21,6 +21,7 @@ import { creerApiImages } from "../../features/images/api";
 import { creerImages } from "../../features/images/images";
 import { creerApiSecrets } from "../../features/secrets/api";
 import { setupEchantillonnage } from "../../features/reglages/echantillonnage";
+import { reglagesHabillage } from "../../features/reglages/habillage";
 import { setupReglages } from "../../features/reglages/reglages";
 import { creerVoix } from "../../features/voix/voix";
 import { ClientHttp } from "../../platform/http/client";
@@ -594,7 +595,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     editor_ratio: 50,
     chat_width: 70,
     assistant_name: "Elpis",
-    skin: "elpis",
+    // Apparence du dernier compte de ce navigateur, déjà posée avant le premier rendu : les réglages la confirment.
+    ...reglagesHabillage(),
     system_prompt: "",
     mcp_servers: [],
     sandbox_path_display: "",

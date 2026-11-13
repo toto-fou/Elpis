@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { EVT_SKINS_PERSO } from "../../src/features/reglages/skins-perso";
 
-import { classeSkin, creerApparence } from "../../src/features/reglages/apparence";
+import { creerApparence } from "../../src/features/reglages/apparence";
+import { classeSkin } from "../../src/features/reglages/habillage";
 import type { SkinApp } from "../../src/features/reglages/apparence";
 import type { CtxReglages, ReglagesApp, VueReglages } from "../../src/features/reglages/types";
 import { json } from "../aides";
@@ -25,6 +26,7 @@ const PERSO: SkinApp = {
 afterEach(() => {
   document.body.className = "";
   document.getElementById("elpis-plugin-skin")?.remove();
+  localStorage.clear();
 });
 
 let appels: string[] = [];

@@ -188,6 +188,7 @@ onBeforeUnmount(() => retirer?.());
       type="button"
       role="menuitem"
       :title="p.titre"
+      :data-precharge="p.vue"
       :aria-current="p.vue === b.currentView ? 'page' : undefined"
       class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
       :class="

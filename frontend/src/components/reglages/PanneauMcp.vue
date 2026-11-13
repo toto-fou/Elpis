@@ -238,6 +238,7 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
                 class="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-100 text-slate-400 hover:text-blue-600 transition-colors"
                 title="Gérer / ajouter un serveur"
                 aria-label="Gérer / ajouter un serveur"
+                data-precharge="mcp"
                 @click="rg.openMcpManager()"
               >
                 <i class="ph ph-plus text-xs font-bold" aria-hidden="true"></i>

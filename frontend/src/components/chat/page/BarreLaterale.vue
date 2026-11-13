@@ -156,6 +156,7 @@ function appui(e: PointerEvent, id: string): void {
       </button>
       <button
         title="Routines"
+        data-precharge="routines"
         class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
         :class="
           b.currentView === 'routines'
@@ -189,6 +190,7 @@ function appui(e: PointerEvent, id: string): void {
         </button>
         <button
           title="Paramètres"
+          data-precharge="reglages"
           class="w-9 h-9 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
           @click="b.openSettings"
         >
@@ -309,6 +311,7 @@ function appui(e: PointerEvent, id: string): void {
 
             <button
               title="Routines"
+              data-precharge="routines"
               class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
               :class="
                 b.currentView === 'routines'
@@ -548,6 +551,7 @@ function appui(e: PointerEvent, id: string): void {
 
             <button
               title="Paramètres"
+              data-precharge="reglages"
               class="w-8 h-8 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-colors flex items-center justify-center"
               @click="b.openSettings"
             >

@@ -213,6 +213,7 @@ const SEGMENT_INACTIF = "text-slate-600 hover:text-slate-800";
                 type="button"
                 class="text-xs font-medium text-blue-600 hover:text-blue-700 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 title="Seuil de compaction, dans les Paramètres"
+                data-precharge="reglages"
                 @click="rg.openSettingsTab('compaction')"
               >
                 Régler

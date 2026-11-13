@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/racine/App.vue — racine de la page de chat (index.html) : monte tous les modules, fournit les domaines injectés, dispose la console intégrée, la barre latérale, les pages et les fenêtres. -->
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { computed, defineAsyncComponent, nextTick, onUnmounted, reactive, watch } from "vue";
 import { creerApiRoutines } from "../../features/routines/api";
 import { creerRoutines } from "../../features/routines/routines";
 import { fournirDomaineRoutines } from "../../features/routines/domaine";
@@ -24,8 +24,10 @@ import { chargerMonaco } from "../../features/editor/chargeur";
 import { prechaufferEditeurs } from "../../features/editor/instances";
 import type { MonacoEditeurs } from "../../features/editor/instances";
 import { ensureVendor } from "../../platform/vendor";
+import { creerMorceaux } from "../../platform/differe";
 import { definirPrechargement, ecouterIntentions } from "../../platform/precharge";
 import { auRepos, auReposProlonge, definirOccupation } from "../../platform/repos";
+import { SELECTEUR_FOCUSABLES } from "../../utils/focus";
 import { fournirDomaineEditeur } from "../../features/editor/domaine";
 import { setupEditor } from "../../features/editor/editeur";
 import { fournirDomaineAdmin } from "../../features/admin/domaine";
@@ -35,7 +37,6 @@ import { fournirDomaineModales } from "../../features/chat/modales/domaine";
 import { fournirDomainesChat } from "../../features/chat/page/domaines";
 import { creerRacine } from "../../app/racine/racine";
 import { fournirDomainesRacine } from "../../app/racine/domaine";
-import CoqueConsole from "../admin/CoqueConsole.vue";
 import ModalesGroupes from "../admin/ModalesGroupes.vue";
 import BarreLaterale from "../chat/page/BarreLaterale.vue";
 import PageChat from "../chat/page/PageChat.vue";
@@ -53,19 +54,11 @@ import ProprietesModele from "../chat/modales/ProprietesModele.vue";
 import RemplissageTemplate from "../chat/modales/RemplissageTemplate.vue";
 import VisionneuseImages from "../chat/modales/VisionneuseImages.vue";
 import ZoomImage from "../chat/modales/ZoomImage.vue";
-import PageCode from "../code/PageCode.vue";
-import ModaleGit from "../editor/ModaleGit.vue";
 import PageEditeur from "../editor/PageEditeur.vue";
-import ModaleMcp from "../reglages/ModaleMcp.vue";
-import ModaleReglages from "../reglages/ModaleReglages.vue";
 import PanneauGeneration from "../reglages/PanneauGeneration.vue";
 import PanneauMcp from "../reglages/PanneauMcp.vue";
 import BulleSource from "../rag/BulleSource.vue";
-import PageAgents from "../agents/PageAgents.vue";
-import PageRag from "../rag/PageRag.vue";
 import VisionneuseSource from "../rag/VisionneuseSource.vue";
-import PageRoutines from "../routines/PageRoutines.vue";
-import PageStudio from "../studio/PageStudio.vue";
 import CartesConnexion from "./CartesConnexion.vue";
 import ApercuSkin from "../reglages/ApercuSkin.vue";
 import ChromeApp from "./ChromeApp.vue";
@@ -137,16 +130,116 @@ function prechaufferMonaco(tranche: (f: () => void) => void): Promise<void> | un
   );
 }
 
-// Éditeur : préchargé au survol ou au focus de son bouton ; sinon, comme la coloration du code, au repos prolongé.
+// Pages et fenêtres rares : morceaux à part, montés une fois chargés ; le chat reste affiché pendant le chargement.
+const IMPORTS = {
+  console: () => import("../admin/CoqueConsole.vue"),
+  reglages: () => import("../reglages/ModaleReglages.vue"),
+  mcp: () => import("../reglages/ModaleMcp.vue"),
+  git: () => import("../editor/ModaleGit.vue"),
+  routines: () => import("../routines/PageRoutines.vue"),
+  agents: () => import("../agents/PageAgents.vue"),
+  rag: () => import("../rag/PageRag.vue"),
+  studio: () => import("../studio/PageStudio.vue"),
+  code: () => import("../code/PageCode.vue"),
+};
+type Rare = keyof typeof IMPORTS;
+const RARES = Object.keys(IMPORTS) as Rare[];
+const LIBELLES: Record<Rare, string> = {
+  console: "La console",
+  reglages: "Paramètres",
+  mcp: "La gestion MCP",
+  git: "Git",
+  routines: "Routines",
+  agents: "Agents",
+  rag: "RAG",
+  studio: "Studio",
+  code: "Remote code",
+};
+// Monté (caché par sa propre condition) dès que son morceau est là, préchargé ou demandé.
+const montes = reactive(Object.fromEntries(RARES.map((k) => [k, false])) as Record<Rare, boolean>);
+const rares = creerMorceaux(IMPORTS, {
+  charge(k) {
+    montes[k] = true;
+  },
+  echec(k, reessayer) {
+    r.showToast(`${LIBELLES[k]} : chargement impossible, vérifiez la connexion au serveur.`, "error", {
+      actionLabel: "Réessayer",
+      onAction: reessayer,
+    });
+  },
+});
+const CoqueConsole = defineAsyncComponent(rares.charger.console);
+const ModaleReglages = defineAsyncComponent(rares.charger.reglages);
+const ModaleMcp = defineAsyncComponent(rares.charger.mcp);
+const ModaleGit = defineAsyncComponent(rares.charger.git);
+const PageRoutines = defineAsyncComponent(rares.charger.routines);
+const PageAgents = defineAsyncComponent(rares.charger.agents);
+const PageRag = defineAsyncComponent(rares.charger.rag);
+const PageStudio = defineAsyncComponent(rares.charger.studio);
+const PageCode = defineAsyncComponent(rares.charger.code);
+
+// Ce que l'écran demande à afficher : la page rechargée après une mise à jour, un message et un nouvel essai sur une coupure.
+const demandes = computed<Record<Rare, boolean>>(() => ({
+  console: !!r.isAdminView,
+  reglages: !!r.showSettingsModal,
+  mcp: !!r.showMcpManagerModal,
+  git: !!(
+    r.showGitCloneModal ||
+    r.showGitInitModal ||
+    r.showGitRemoteModal ||
+    r.showGitPushAuth ||
+    r.showGitMergeModal
+  ),
+  routines: r.currentView === "routines",
+  agents: r.currentView === "agents",
+  rag: r.currentView === "rag",
+  studio: r.currentView === "studio",
+  code: r.currentView === "code",
+}));
+watch(
+  demandes,
+  (d) => {
+    for (const k of RARES) if (d[k]) void rares.demander(k);
+  },
+  { immediate: true },
+);
+
+/** Fenêtre montée déjà ouverte (son morceau est arrivé après le clic) : elle prend le focus comme à l'ouverture. */
+function focaliserSiOuverte(k: Rare): void {
+  if (!demandes.value[k]) return;
+  void nextTick(() => {
+    const f = [...globalThis.document.querySelectorAll<HTMLElement>("[data-a11y-modal]")].pop();
+    if (!f || f.contains(globalThis.document.activeElement)) return;
+    (
+      f.querySelector<HTMLElement>('[tabindex="-1"]') ?? f.querySelector<HTMLElement>(SELECTEUR_FOCUSABLES)
+    )?.focus();
+  });
+}
+
+// Préchargés au survol, au focus ou à l'appui de leur bouton ; sinon, une fois connecté, après la coloration du code, au repos prolongé.
 definirOccupation(() => r.isStreaming);
-definirPrechargement("editeur", () => prechaufferMonaco((f) => auRepos(f, 1000)));
+for (const k of RARES) definirPrechargement(k, () => rares.precharger(k));
+definirPrechargement("editeur", () =>
+  Promise.all([prechaufferMonaco((f) => auRepos(f, 1000)), rares.precharger("git")]),
+);
 const retirerIntentions = ecouterIntentions();
 onUnmounted(retirerIntentions);
-onMounted(() =>
-  auReposProlonge(
-    () => ensureVendor("highlight"),
-    () => prechaufferMonaco((f) => auReposProlonge(f)),
-  ),
+watch(
+  () => !!r.user,
+  () =>
+    auReposProlonge(
+      () => ensureVendor("highlight"),
+      () => rares.precharger("reglages"),
+      () => rares.precharger("routines"),
+      () => r.settings.enable_mcp && rares.precharger("mcp"),
+      () => r.ragAllowed && rares.precharger("rag"),
+      () => r.features.agents && rares.precharger("agents"),
+      () => rares.precharger("studio"),
+      () => r.features.opencode && rares.precharger("code"),
+      () => r.settings.enable_editor && rares.precharger("git"),
+      () => prechaufferMonaco((f) => auReposProlonge(f)),
+    ),
+  { once: true },
 );
 </script>
 
@@ -155,14 +248,17 @@ onMounted(() =>
   <CartesConnexion />
 
   <div
-    v-if="r.user && !r.mustChangePassword && r.isAdminView"
+    v-if="r.user && !r.mustChangePassword && r.isAdminView && montes.console"
     class="h-full w-full flex bg-slate-50 overflow-hidden"
   >
     <!-- Coquille de la console (partagée avec admin.html). -->
     <CoqueConsole />
   </div>
 
-  <div v-if="r.user && !r.mustChangePassword && !r.isAdminView" class="flex h-full w-full relative">
+  <div
+    v-if="r.user && !r.mustChangePassword && !(r.isAdminView && montes.console)"
+    class="flex h-full w-full relative"
+  >
     <div
       v-if="r.showSidebar && !r.editorFullscreen"
       class="fixed inset-0 bg-black/40 z-40 lg:hidden"
@@ -180,20 +276,20 @@ onMounted(() =>
       <PanneauMcp />
       <PanneauGeneration />
       <PageEditeur />
-      <PageRoutines />
-      <PageAgents />
-      <PageRag v-if="r.ragPage" />
-      <PageStudio />
-      <PageCode />
+      <PageRoutines v-if="montes.routines" />
+      <PageAgents v-if="montes.agents" />
+      <PageRag v-if="montes.rag && r.ragPage" />
+      <PageStudio v-if="montes.studio" />
+      <PageCode v-if="montes.code" />
     </div>
   </div>
 
   <BulleSource />
-  <ModaleGit />
+  <ModaleGit v-if="montes.git" @vue:mounted="focaliserSiOuverte('git')" />
   <!-- Transfert (progression des imports et exports) : globale, la console s'en sert aussi. -->
   <ModaleTransfert />
-  <ModaleReglages />
-  <ModaleMcp />
+  <ModaleReglages v-if="montes.reglages" @vue:mounted="focaliserSiOuverte('reglages')" />
+  <ModaleMcp v-if="montes.mcp" @vue:mounted="focaliserSiOuverte('mcp')" />
   <ModalesGroupes />
   <ProprietesModele />
   <DetailsExecution />

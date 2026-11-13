@@ -10,6 +10,7 @@ import type {
   DepsHistorique,
   Message,
   RefsHistorique,
+  ResumeChat,
 } from "../../../src/features/chat/historique/historique";
 import {
   chatEnOuverture,
@@ -62,7 +63,7 @@ function monter(payload: unknown, o: Options = {}) {
     currentView: ref("accueil"),
     isStreaming: ref(false),
     isUserScrolling: ref(false),
-    chats: ref([
+    chats: ref<ResumeChat[]>([
       { id: "c1", title: "A" },
       { id: "c2", title: "B" },
     ]),

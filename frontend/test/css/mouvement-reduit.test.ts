@@ -208,16 +208,54 @@ describe("transitions nommées : jetons et mise en page", () => {
     for (const n of ["--courbe-fondu", "--courbe-entree", "--courbe-volet"]) expect(jeton(n), n).not.toBe("");
   });
 
-  it("les transitions nommées et les volets coulissants n'écrivent aucune durée en dur", () => {
-    const concernees = HORS_REDUIT.filter((r) =>
-      /-(enter|leave)-active|-move\b|\.elpis-slide-panel$/.test(r.selecteur),
-    );
+  it("les transitions nommées n'écrivent aucune durée en dur", () => {
+    const concernees = HORS_REDUIT.filter((r) => /-(enter|leave)-active|-move\b/.test(r.selecteur));
     expect(concernees.length).toBeGreaterThan(8);
     for (const r of concernees) {
       for (const v of declarations(r.corps, /^transition(-duration)?$/)) {
         expect(durees(v), `${r.f} ${r.selecteur} : ${v}`).toEqual([]);
       }
     }
+  });
+
+  it("les volets coulissants n'animent aucune propriété de mise en page, dans aucune feuille", () => {
+    const regles = REGLES.filter((r) => /elpis-slide-panel|\.volet-/.test(r.selecteur));
+    expect(regles.length).toBeGreaterThan(20);
+    for (const r of regles) {
+      for (const v of declarations(r.corps, /^transition-property$/))
+        for (const p of v.split(","))
+          expect(["opacity", "transform"], `${r.f} ${r.selecteur}`).toContain(p.trim());
+      for (const v of declarations(r.corps, /^transition$/))
+        for (const p of v.split(",").map((x) => x.trim().split(/\s+/)[0] ?? ""))
+          expect(["opacity", "transform"], `${r.f} ${r.selecteur} : ${v}`).toContain(p);
+    }
+  });
+
+  it("volet : la racine s'estompe, ses enfants glissent hors mouvement réduit, la sortie plus courte que l'entrée", () => {
+    const corps = (selecteur: string, media: RegExp | null): string =>
+      REGLES.find(
+        (r) =>
+          r.f === "css/style.css" &&
+          r.selecteur.split(",").some((s) => s.trim() === selecteur) &&
+          (media ? r.contexte.some((c) => media.test(c)) : r.contexte.length === 0),
+      )?.corps ?? "";
+    const glisse = /prefers-reduced-motion:\s*no-preference/;
+    expect(declarations(corps(".volet-enter-active", null), /^transition$/)).toEqual([
+      "opacity var(--duree-longue) var(--courbe-volet)",
+    ]);
+    expect(declarations(corps(".volet-leave-active", null), /^transition$/)).toEqual([
+      "opacity var(--duree-courte) var(--courbe-volet)",
+    ]);
+    expect(declarations(corps(".volet-enter-from", null), /^opacity$/)).toEqual(["0"]);
+    expect(declarations(corps(".volet-enter-active > *", glisse), /^transition$/)).toEqual([
+      "transform var(--duree-longue) var(--courbe-volet)",
+    ]);
+    expect(declarations(corps(".volet-leave-active > *", glisse), /^transition$/)).toEqual([
+      "transform var(--duree-courte) var(--courbe-volet)",
+    ]);
+    expect(declarations(corps(".volet-enter-from > *", glisse), /^transform$/)).toEqual([
+      "translateX(var(--volet-decalage, 1.5rem))",
+    ]);
   });
 
   it("le détail d'un outil n'anime aucune propriété de mise en page", () => {

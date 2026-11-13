@@ -1080,12 +1080,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    Fix : on override `.transition-all` pour ne cibler QUE les
    propriétés composite-friendly (GPU) + celles qui ont du sens pour un
    effet hover (couleurs, opacité, ombre, transform). Width/height/
-   position etc. restent instantanées par DÉFAUT.
-
-   Les panneaux qui DOIVENT animer leur largeur (éditeur latéral,
-   panneau MCP, etc.) utilisent la classe utilitaire `.elpis-slide-panel`
-   qui rétablit la transition de `width` spécifiquement, sans revenir
-   au comportement catastrophique du `transition-all` global.
+   position etc. restent instantanées par DÉFAUT, volets coulissants compris
+   (transition « volet » ci-dessous).
    ═════════════════════════════════════════════════════════════════════ */
 .transition-all {
     transition-property:
@@ -1094,34 +1090,32 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
         !important;
 }
 
-/* Panneaux qui doivent glisser en largeur (éditeur, MCP, sidebar…).
-   Appliquer en complément de `.transition-all` ou seul.
-
-   - `width` est animé explicitement.
-   - `flex-basis` est animé aussi au cas où le parent est un flexbox
-     qui utilise flex-basis plutôt que width.
-   - Courbe --courbe-volet = "material standard", naturelle pour l'œil,
-     ni trop abrupte ni trop lente.
-   - Durée --duree-longue (260 ms) : assez long pour être perçu comme une
-     animation, assez court pour ne pas agacer à chaque toggle.
-   NB (perf vague 3) : pas de `will-change: width` — `width` n'est PAS
-   compositable, le hint promouvait un layer en pure perte (et le garder
-   en permanence fragmente la mémoire GPU). */
-.elpis-slide-panel {
-    transition-property: width, flex-basis, flex-grow, opacity, padding, margin;
-    transition-duration: var(--duree-longue);
-    transition-timing-function: var(--courbe-volet);
+/* ─── Volets coulissants (`.elpis-slide-panel`, <Transition name="volet">) ──
+   La largeur prend sa valeur finale d'un coup : la colonne du chat n'est remise
+   en page qu'une fois par geste, au lieu d'une fois par image. Le contenu du
+   volet entre en glissant depuis son bord (opacité de la racine de la transition,
+   `transform` de ses enfants, rognés par le volet) ; il sort de même, plus vite,
+   et la largeur ne se replie qu'après sa sortie (`features/communs/volet.ts`).
+   Les rails à gauche glissent depuis la gauche, les volets à droite depuis la droite. */
+.volet-enter-active { transition: opacity var(--duree-longue) var(--courbe-volet); }
+.volet-leave-active { transition: opacity var(--duree-courte) var(--courbe-volet); }
+.volet-enter-from,
+.volet-leave-to {
+    opacity: 0;
+}
+aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
+@media (prefers-reduced-motion: no-preference) {
+    .volet-enter-active > * { transition: transform var(--duree-longue) var(--courbe-volet); }
+    .volet-leave-active > * { transition: transform var(--duree-courte) var(--courbe-volet); }
+    .volet-enter-from > *,
+    .volet-leave-to > * {
+        transform: translateX(var(--volet-decalage, 1.5rem));
+    }
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
-   Transition fluide via inline style uniquement : une valeur posée par
-   `!important` dans une classe court-circuite la transition du style
-   inline (la largeur saute sans interpolation).
-
-   La classe `.editor-fullscreen` ne sert plus qu'à
-   retirer la bordure et monter le z-index. Tout le reste (width,
-   flex-grow) passe par le :style inline du template, qui est
-   correctement transitionné par `.elpis-slide-panel`.
+   La classe ne fait que retirer la bordure et monter le z-index ; la largeur
+   et flex-grow passent par le :style du gabarit.
    ──────────────────────────────────────────────────────────────────── */
 .editor-fullscreen {
     border: none;
@@ -1288,7 +1282,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
     /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
     .popover-enter-active, .popover-leave-active,
     .popover-up-enter-active, .popover-up-leave-active,
-    .tool-detail-enter-active {
+    .tool-detail-enter-active,
+    .volet-enter-active, .volet-leave-active {
         transition-property: opacity !important;
         transition-duration: min(var(--duree-courte), 150ms) !important;
     }
@@ -1302,11 +1297,6 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
         transition-duration: min(var(--duree), 150ms) !important;
     }
     .toast-move { transition: none !important; }
-    /* Volets coulissants : la largeur change sans animation, le contenu s'estompe. */
-    .elpis-slide-panel.elpis-slide-panel {
-        transition-property: opacity !important;
-        transition-duration: 150ms !important;
-    }
     /* Transitions écrites à la main qui déplacent, tournent ou redimensionnent. */
     .elpis-zoom-btn,
     .set-switch-track::after,

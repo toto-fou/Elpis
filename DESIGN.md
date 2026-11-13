@@ -156,9 +156,15 @@ De facto scale, to follow so a new layer finds its place:
   `--duree` (200 ms: dialogs, toasts, fades), `--duree-longue` (260 ms: sliding
   panels); `--courbe-fondu` (`ease-out`: opacity and small offsets),
   `--courbe-entree` (dialogs, toasts, the save bar), `--courbe-volet`
-  (`.elpis-slide-panel`).
-- Animate `opacity` and `transform`; avoid layout properties
-  (accepted exception: the width of sliding panels).
+  (sliding panels).
+- Animate `opacity` and `transform`, never layout properties.
+- Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
+  Generation, editor) take their final width at once, so the chat column is
+  laid out once per gesture. Their content moves with the named transition
+  `volet` (opacity on the transition root, `transform` on its children, clipped
+  by the panel; rails from the left, right panels from the right); it leaves in
+  `--duree-courte`, and the width folds only once it has left
+  (`features/communs/volet.ts`, which also hands the focus over).
 - A skin sets the duration and curve of menus and dialogs (`popover`, `modal`)
   by overriding these variables on the transition classes (Terminal: shorter,
   linear), never properties other than `opacity` and `transform`; a large decoration
@@ -169,8 +175,8 @@ De facto scale, to follow so a new layer finds its place:
   and the opacity pulse of activity indicators (the spinner turns slower).
   Dropped: anything that moves, scales, resizes or rotates. A named Vue
   transition becomes an opacity fade in place, `min(its token, 150 ms)` long (its
-  offsets are declared under `@media (prefers-reduced-motion: no-preference)`); sliding panels change
-  width instantly. Every new animation or named transition gets its entry in
+  offsets are declared under `@media (prefers-reduced-motion: no-preference)`); a sliding
+  panel's content fades in place. Every new animation or named transition gets its entry in
   that block.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.

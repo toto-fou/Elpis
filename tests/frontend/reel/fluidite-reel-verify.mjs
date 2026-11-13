@@ -102,6 +102,18 @@ try {
             await page.waitForTimeout(350);
         }
 
+        // ── Volets coulissants : largeur posée d'un coup, contenu glissé en opacité et position ──
+        for (const [volet, cle] of [['volet latéral', 'showSidebar'], ['volet Génération', 'showSamplingPanel']]) {
+            await page.evaluate(ENREGISTRER);
+            for (let i = 0; i < 2; i += 1) {
+                await page.evaluate((k) => { const r = window.__racine(); r[k] = !r[k]; }, cle);
+                await page.waitForTimeout(450);
+            }
+            const vus = await page.evaluate(RELEVER);
+            const hors = vus.filter((x) => /^(width|height|min-|max-|flex|padding|margin|inset|left|right|top|bottom|gap)/.test(x.split('@')[0]));
+            v.ok(`${nom} : ${volet} ouvert puis fermé, contenu glissé, aucune propriété de mise en page animée`, vus.some((x) => x.startsWith('transform@')) && hors.length === 0, (hors.length ? hors : vus).slice(0, 4).join(' ; ') || 'aucune animation');
+        }
+
         // ── Redimensionnement ──
         const cdp = await ctx.newCDPSession(page);
         const r = await redimensionner(nav, page, cdp);

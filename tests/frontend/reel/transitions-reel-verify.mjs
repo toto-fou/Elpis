@@ -37,7 +37,7 @@ const hors_reduit = (vues) => vues.filter((x) => { const m = PERMIS_REDUIT.exec(
 // Transitions nommées : leurs classes posées sur un élément témoin, propriété et décalage d'entrée lus sur le style calculé.
 const SONDER = () => {
     const out = {};
-    for (const nom of ['modal', 'popover', 'popover-up', 'toast', 'fade', 'tool-detail', 'model-load', 'adm-bar']) {
+    for (const nom of ['modal', 'popover', 'popover-up', 'toast', 'fade', 'tool-detail', 'model-load', 'adm-bar', 'volet']) {
         const hote = document.createElement('div');
         hote.style.cssText = 'position:fixed;left:-9999px;top:0';
         hote.className = `${nom}-enter-active ${nom}-enter-from`;

@@ -142,7 +142,7 @@ describe("creerComposeur", () => {
     expect(m.envois()).toBe(1);
   });
 
-  it("un seul catalogue pour « / » et « + » : lu une fois, gardé 30 s, périmé par les Paramètres sans être vidé", async () => {
+  it("un seul catalogue pour « / » et « + » : gardé 30 s, périmé par les Paramètres sans être vidé, relu derrière à l'ouverture du « + »", async () => {
     const m = monterComposeur();
     const { catalogueSkills: skills, cataloguePrompts: prompts, templatesAll: gabarits } = m.c;
     expect([skills.value, prompts.value, gabarits.value]).toEqual([null, null, null]);
@@ -160,6 +160,10 @@ describe("creerComposeur", () => {
     expect(skills.value?.length).toBe(1);
     m.c.prechargerCatalogue();
     expect(m.urls.filter((u) => u === "/api/skills").length).toBe(2);
+    await new Promise((ok) => setTimeout(ok, 0));
+    m.c.prechargerCatalogue(true);
+    expect(m.urls.filter((u) => u === "/api/skills").length).toBe(3);
+    expect(skills.value?.length).toBe(1);
   });
 
   it("plafond de 10 pièces jointes", async () => {

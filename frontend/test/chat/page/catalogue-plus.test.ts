@@ -122,7 +122,7 @@ describe("catalogue du « + »", () => {
     const { hote } = monterCatalogue(comp);
     (hote.querySelector("[data-catalogue-plus]") as HTMLElement).click();
     await nextTick();
-    expect(noms()).toContain("prechargerCatalogue");
+    expect(appelsDe("prechargerCatalogue")).toEqual([[true]]);
     (hote.querySelector('[data-sous="skills"]') as HTMLElement).click();
     await nextTick();
     const sous = (id: string) => hote.querySelector(`[data-sous-menu="${id}"]`);

@@ -151,8 +151,8 @@ export interface MenuSlash {
   /** Skills et prompts du compte, partagés avec le « + » (`null` avant la première lecture). */
   catalogueSkills: Ref<Skill[] | null>;
   cataloguePrompts: Ref<PromptSlash[] | null>;
-  /** Lit skills, prompts et gabarits s'ils ont plus de 30 s : à l'ouverture du « + ». */
-  prechargerCatalogue(): void;
+  /** Lit skills, prompts et gabarits s'ils ont plus de 30 s, ou toujours avec `relire` (ouverture du « + »). */
+  prechargerCatalogue(relire?: boolean): void;
   selectSlash(item: Rangee | null | undefined): Promise<void>;
   selectValue(v: ValeurArgument | null | undefined): Promise<void>;
   selectSkill(skill: Skill | null | undefined): void;
@@ -266,10 +266,10 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     );
   });
 
-  function prechargerCatalogue(): void {
-    void skills.charger();
-    void prompts.charger();
-    void templates?.loadTemplates();
+  function prechargerCatalogue(relire?: boolean): void {
+    void skills.charger(relire);
+    void prompts.charger(relire);
+    void templates?.loadTemplates(relire);
   }
 
   const SLASH_CORE: readonly CommandeSlash[] = [

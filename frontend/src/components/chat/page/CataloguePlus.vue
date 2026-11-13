@@ -58,7 +58,8 @@ function basculer(): void {
   comp.showComposerPlus = !comp.showComposerPlus;
   if (!comp.showComposerPlus) return;
   comp.refreshInboxCount();
-  comp.prechargerCatalogue();
+  // Listes en mémoire montrées tout de suite, relues derrière : un skill appris côté serveur n'émet aucun événement.
+  comp.prechargerCatalogue(true);
   void nextTick(() => focusPremiere(menu.value));
 }
 

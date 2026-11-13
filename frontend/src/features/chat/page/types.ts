@@ -197,7 +197,7 @@ export interface DomaineComposeur {
   readonly catalogueSkills: readonly SkillCatalogue[] | null;
   readonly cataloguePrompts: readonly PromptCatalogue[] | null;
   readonly templatesAll: readonly GabaritCatalogue[] | null;
-  prechargerCatalogue(): void;
+  prechargerCatalogue(relire?: boolean): void;
   openTemplate(gabarit: GabaritCatalogue): unknown;
 }
 

@@ -134,10 +134,11 @@ export function creerComposeur(vue: VueComposeur, refs: RefsComposeur, ctx: Cont
     if (ctx.autoResize) ctx.autoResize();
   }
 
-  async function chargerFichiers(): Promise<void> {
-    if (tous.length > 0 && Date.now() - dateCache < 30000) return;
+  // Relit l'arbre au-delà de 30 s ; pendant la lecture, la liste montrée reste celle en mémoire.
+  function chargerFichiers(): Promise<void> {
+    if (tous.length > 0 && Date.now() - dateCache < 30000) return Promise.resolve();
     if (enVol) return enVol;
-    isMentionLoading.value = true;
+    isMentionLoading.value = tous.length === 0;
     enVol = (async () => {
       try {
         const res = await fetchAuth("/api/sandbox/tree", {}, true);
@@ -228,6 +229,16 @@ export function creerComposeur(vue: VueComposeur, refs: RefsComposeur, ctx: Cont
     mentionFiles.value = filtrer(query);
     mentionIndex.value = 0;
     showMentionDropdown.value = true;
+  }
+
+  // Liste relue pendant que le menu est ouvert : la ligne choisie au clavier reste choisie.
+  function refiltrer(): void {
+    if (!showMentionDropdown.value) return;
+    const choisi = mentionFiles.value[mentionIndex.value]?.path;
+    mentionFiles.value = filtrer(mentionQuery.value);
+    const i = mentionFiles.value.findIndex((f) => f.path === choisi);
+    mentionIndex.value =
+      i >= 0 ? i : Math.min(mentionIndex.value, Math.max(0, mentionFiles.value.length - 1));
   }
 
   function closeMentionDropdown(): void {
@@ -327,9 +338,10 @@ export function creerComposeur(vue: VueComposeur, refs: RefsComposeur, ctx: Cont
     const c = contexteMention();
     if (c !== null) {
       slash.slashDismiss();
-      await chargerFichiers();
-      if (contexteMention() === null) return;
       ouvrir(c.query);
+      const avant = dateCache;
+      await chargerFichiers();
+      if (dateCache !== avant) refiltrer();
       return;
     }
     if (showMentionDropdown.value) closeMentionDropdown();

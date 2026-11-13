@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/composeur/composeur.test.ts — composeur : @mention (arbre, filtre, récents, insertion en pièce jointe, plafond), cascade clavier ; composants MenuMention, PiecesJointes, ZoneSaisie. */
+/** frontend/test/chat/composeur/composeur.test.ts — composeur : @mention (ouverte avant la réponse de l'arbre, arbre relu derrière, filtre, récents, insertion en pièce jointe, plafond), cascade clavier ; composants MenuMention, PiecesJointes, ZoneSaisie. */
 import { computed, createApp, h, nextTick, reactive, ref, shallowRef } from "vue";
 import type { App, VNode } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import MenuMention from "../../../src/components/chat/composeur/MenuMention.vue";
 import PiecesJointes from "../../../src/components/chat/composeur/PiecesJointes.vue";
@@ -34,7 +34,7 @@ const ARBRE = {
   ],
 };
 
-function monterComposeur() {
+function monterComposeur(lireArbre: () => Promise<object> = () => Promise.resolve(ARBRE)) {
   const ta = document.createElement("textarea");
   document.body.appendChild(ta);
   const inputRef = ref<HTMLTextAreaElement | null>(ta);
@@ -48,10 +48,10 @@ function monterComposeur() {
     { ref, nextTick, computed, reactive },
     { inputRef, inputMessage, attachedFiles, isStreaming },
     {
-      fetchAuth: (url: string) => {
+      fetchAuth: async (url: string) => {
         urls.push(url);
-        const corps = url.startsWith("/api/sandbox/tree") ? JSON.stringify(ARBRE) : "print(1)\n";
-        return Promise.resolve(new Response(corps));
+        const corps = url.startsWith("/api/sandbox/tree") ? JSON.stringify(await lireArbre()) : "print(1)\n";
+        return new Response(corps);
       },
       showToast: (m: string) => toasts.push(m),
       sendMessage: () => {
@@ -84,6 +84,38 @@ describe("creerComposeur", () => {
     expect(tous[0]?.path).toBe("src/main.py");
     expect((m.c.mentionRecentCount as { value: number }).value).toBe(1);
     expect(m.urls.filter((u) => u.startsWith("/api/sandbox/tree")).length).toBe(1);
+  });
+
+  it("@ s'ouvre avant la réponse de l'arbre ; au-delà de 30 s, l'ancienne liste reste et la ligne choisie suit son fichier", async () => {
+    let arbre: object = ARBRE;
+    let liberer = (): void => undefined;
+    const m = monterComposeur(() => new Promise((ok) => (liberer = () => ok(arbre))));
+    const ouvert = () => (m.c.showMentionDropdown as { value: boolean }).value;
+    const charge = () => (m.c.isMentionLoading as { value: boolean }).value;
+    const chemins = () => (m.c.mentionFiles as { value: FichierMention[] }).value.map((f) => f.path);
+    const choisi = () => chemins()[(m.c.mentionIndex as { value: number }).value];
+    const touche = m.c.handleInputKeydown as (e: KeyboardEvent) => void;
+    const premier = m.taper("@");
+    expect([ouvert(), charge(), chemins()]).toEqual([true, true, []]);
+    liberer();
+    await premier;
+    expect([charge(), chemins()]).toEqual([false, ["README.md", "src/main.py"]]);
+    const plusTard = Date.now() + 31_000;
+    const horloge = vi.spyOn(Date, "now").mockReturnValue(plusTard);
+    try {
+      arbre = { items: [...ARBRE.items, { type: "file", path: "a.md", name: "a.md" }] };
+      const suite = m.taper("@");
+      expect([ouvert(), charge(), chemins()]).toEqual([true, false, ["README.md", "src/main.py"]]);
+      touche(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+      expect(choisi()).toBe("src/main.py");
+      liberer();
+      await suite;
+      expect(chemins()).toEqual(["a.md", "README.md", "src/main.py"]);
+      expect(choisi()).toBe("src/main.py");
+    } finally {
+      horloge.mockRestore();
+    }
+    expect(m.urls.filter((u) => u.startsWith("/api/sandbox/tree")).length).toBe(2);
   });
 
   it("clavier : flèches et Échap dans la liste ; Entrée envoie, sauf pendant un flux", async () => {

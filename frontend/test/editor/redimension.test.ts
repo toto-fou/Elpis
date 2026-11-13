@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/editor/redimension.test.ts — glissements de l'éditeur : une position par image, aucune mise en page synchrone pendant le geste, mise en page et ajustement au relâchement. */
-import { ref } from "vue";
+import { effectScope, ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { creerEtatEditeur } from "../../src/features/editor/etat";
 import { parImage, setupEditorResize } from "../../src/features/editor/redimension";
+import { setupEditorSplit } from "../../src/features/editor/vue-scindee";
 
 let images: Array<() => void> = [];
 beforeEach(() => {
@@ -108,5 +110,56 @@ describe("glissements de l'éditeur", () => {
     expect(m.layout).not.toHaveBeenCalled();
     document.dispatchEvent(new MouseEvent("mouseup"));
     expect(m.layout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("diviseur de la vue scindée", () => {
+  function scindee() {
+    const e = creerEtatEditeur();
+    const forcer = vi.fn();
+    const l = { robustLayout: forcer, relayoutDuringTransition: forcer };
+    const scope = effectScope();
+    const v = scope.run(() =>
+      setupEditorSplit(e, { models: {}, vis: {} } as never, l as never, {} as never),
+    )!;
+    const rangee = document.createElement("div");
+    rangee.getBoundingClientRect = () => ({ left: 100, width: 1000 }) as DOMRect;
+    const diviseur = document.createElement("div");
+    rangee.appendChild(diviseur);
+    const debut = (x: number): void => {
+      const ev = new MouseEvent("mousedown", { clientX: x });
+      Object.defineProperty(ev, "currentTarget", { value: diviseur });
+      v.splitResizeStart(ev);
+    };
+    return { e, forcer, debut, scope };
+  }
+
+  it("une part posée par image, bornée à 15-85 %, sans mise en page dans le geste ni au relâchement", () => {
+    const m = scindee();
+    m.debut(600);
+    bouger("clientX", [700, 750, 800]);
+    expect(m.e.splitRatio.value).toBe(50);
+    image();
+    expect(m.e.splitRatio.value).toBe(70);
+    bouger("clientX", [0]);
+    image();
+    expect(m.e.splitRatio.value).toBe(15);
+    bouger("clientX", [400]);
+    document.dispatchEvent(new MouseEvent("mouseup"));
+    expect(m.e.splitRatio.value).toBe(30);
+    expect(m.forcer).not.toHaveBeenCalled();
+    m.scope.stop();
+  });
+
+  it("relâchement manqué (fenêtre quittée) : le geste s'arrête, la souris ne déplace plus rien", () => {
+    const m = scindee();
+    m.debut(600);
+    bouger("clientX", [900]);
+    window.dispatchEvent(new Event("blur"));
+    expect(m.e.splitRatio.value).toBe(80);
+    bouger("clientX", [300]);
+    image();
+    expect(m.e.splitRatio.value).toBe(80);
+    m.scope.stop();
   });
 });

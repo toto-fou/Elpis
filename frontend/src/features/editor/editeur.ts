@@ -98,7 +98,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     clearScm: (p) => diff._clearScm(p),
     loadHead: (p, f) => diff._loadHead(p, f),
     headText: (p) => diff.texteTete(p),
-    forceLayout: () => page._forceLayout(),
     robustLayout: () => page.robustLayout(),
     smoothOpenLayout: () => page._smoothOpenLayout(),
     relayoutDuringTransition: () => page._relayoutMonacoDuringTransition(),

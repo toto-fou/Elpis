@@ -75,7 +75,6 @@ export interface LiensEditeur {
   clearScm(chemin: string): void;
   loadHead(chemin: string, force?: boolean): Promise<string | null>;
   headText(chemin: string): string | null;
-  forceLayout(): void;
   robustLayout(): void;
   smoothOpenLayout(): void;
   relayoutDuringTransition(): void;

@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import { purifierSvg } from "../chat/rendu/instance";
 import type { CtxEditeur, EtatEditeur } from "./etat";
 import type { LiensEditeur, ServicesEditeur } from "./liens";
+import { parImage, suivreGlissement } from "./redimension";
 
 const SVG_INVALIDE =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">' +
@@ -149,28 +150,27 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
     void nextTick(() => setSplitFile(chemin));
   }
 
-  /** Diviseur entre les deux panneaux : largeur du gauche en %, bornée à 15–85. */
+  let finPartage: (() => void) | null = null;
+  /** Diviseur entre les deux panneaux : largeur du gauche en %, bornée à 15–85, posée une fois par image ; l'observateur de taille remet Monaco en page. */
   function splitResizeStart(ev: MouseEvent | TouchEvent): void {
     ev.preventDefault();
     const rangee = (ev.currentTarget as HTMLElement | null)?.parentElement;
     if (!rangee) return;
     const boite = rangee.getBoundingClientRect();
-    const deplacer = (m: MouseEvent | TouchEvent): void => {
-      const x = "touches" in m ? (m.touches[0]?.clientX ?? 0) : m.clientX;
+    const part = parImage((x) => {
       e.splitRatio.value = Math.max(15, Math.min(85, ((x - boite.left) / boite.width) * 100));
-      l.forceLayout();
+    });
+    const deplacer = (m: Event): void => {
+      part.pousser("touches" in m ? ((m as TouchEvent).touches[0]?.clientX ?? 0) : (m as MouseEvent).clientX);
     };
     const finir = (): void => {
-      document.removeEventListener("mousemove", deplacer);
-      document.removeEventListener("mouseup", finir);
-      document.removeEventListener("touchmove", deplacer);
-      document.removeEventListener("touchend", finir);
-      l.robustLayout();
+      if (!finPartage) return;
+      finPartage();
+      finPartage = null;
+      part.vider();
     };
-    document.addEventListener("mousemove", deplacer);
-    document.addEventListener("mouseup", finir);
-    document.addEventListener("touchmove", deplacer, { passive: false });
-    document.addEventListener("touchend", finir);
+    finPartage?.();
+    finPartage = suivreGlissement(deplacer, finir);
   }
 
   // Aperçu Markdown / SVG à côté du code, rafraîchi pendant la frappe (200 ms).

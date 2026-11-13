@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/studio/menu.test.ts — menu du Studio : trame annotée (jeton de séquence, attente Studio fermé), éléments visibles, plans, zoom ancré, diviseur de l'arbre. */
+/** frontend/test/studio/menu.test.ts — menu du Studio : trame annotée (jeton de séquence, décodage seulement sans taille), éléments visibles, plans, zoom ancré, diviseur de l'arbre. */
 import { ref, watchSyncEffect } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,45 +86,21 @@ describe("menu du Studio", () => {
     expect(menu.studioFrame.value.imageUrl).toBe("");
   });
 
-  it("Studio fermé : la dernière trame attend l'ouverture, sans téléchargement ni décodage", async () => {
+  it("Studio fermé : la trame est téléchargée tout de suite (le serveur purge les siennes), décodée seulement sans taille", async () => {
     const decoder = vi.fn(() => Promise.resolve({ width: 640, height: 480, close: () => undefined }));
     vi.stubGlobal("createImageBitmap", decoder);
     const { menu, urls } = monter(
-      { "/img/2": () => new Response("y"), "/img/3": () => new Response("z") },
+      { "/img/1": () => new Response("x"), "/img/2": () => new Response("y") },
       "chat",
     );
     await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [], target: "vm" });
+    expect(urls).toEqual(["/img/1"]);
+    expect(menu.studioFrame.value).toMatchObject({ imageUrl: "blob:1", imgW: 100, imgH: 50 });
+    expect(decoder).not.toHaveBeenCalled();
     await menu.applyFrame({ image_url: "/img/2", boxes: [el("a", [0, 0, 10, 10])], target: "vm" });
-    expect(urls).toEqual([]);
-    expect(menu.studioFrame.value.imageUrl).toBe("");
-    menu.openStudio();
-    await vi.waitFor(() => expect(menu.studioFrame.value.imageUrl).toBe("blob:1"));
-    expect(urls).toContain("/img/2");
-    expect(urls).not.toContain("/img/1");
-    expect(menu.studioFrame.value).toMatchObject({ imgW: 640, imgH: 480 });
-    expect(menu.studioElements.value.map((e) => e.id)).toEqual(["a"]);
-    expect(menu.studioLive.value).toBe(true);
-    await menu.applyFrame({ image_url: "/img/3", img_w: 100, img_h: 50, boxes: [] });
     expect(decoder).toHaveBeenCalledTimes(1);
-    expect(menu.studioFrame.value).toMatchObject({ imageUrl: "blob:2", imgW: 100, imgH: 50 });
+    expect(menu.studioFrame.value).toMatchObject({ imageUrl: "blob:2", imgW: 640, imgH: 480 });
     vi.unstubAllGlobals();
-  });
-
-  it("une trame reçue Studio fermé depuis plus de 2,5 s s'affiche sans l'indicateur LIVE ; effacer le Studio l'oublie", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    const { menu, urls } = monter({ "/img/1": () => new Response("x") }, "chat");
-    await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [] });
-    vi.setSystemTime(Date.now() + 3000);
-    menu.openStudio();
-    await vi.waitFor(() => expect(menu.studioFrame.value.imageUrl).toBe("blob:1"));
-    expect(menu.studioLive.value).toBe(false);
-    menu.closeStudio();
-    await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [] });
-    menu.clearStudio();
-    menu.openStudio();
-    await Promise.resolve();
-    expect(urls.filter((u) => u === "/img/1")).toHaveLength(1);
-    vi.useRealTimers();
   });
 
   it("ne garde que les éléments dans le cadre et trie les grands cadres au fond", async () => {

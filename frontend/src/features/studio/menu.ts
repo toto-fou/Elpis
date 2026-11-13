@@ -220,7 +220,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   let minuterieLive: ReturnType<typeof setTimeout> | null = null;
   let activeChargee = false;
   let sequenceTrame = 0;
-  let trameEnAttente: { trame: TrameFil; recue: number } | null = null;
 
   const studioElements = computed<ElementStudio[]>(() => {
     const f = studioFrame.value;
@@ -503,8 +502,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   function openStudio(): void {
     currentView.value = "studio";
     void loadStudioTargets();
-    const attente = trameEnAttente;
-    if (attente) void applyFrame(attente.trame, Date.now() - attente.recue < 2500);
   }
 
   /** Quitter révoque la capture (blob) : l'écran de la machine cible ne reste pas vivant dans le tas. */
@@ -534,7 +531,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
 
   function clearStudio(): void {
-    trameEnAttente = null;
     if (dernierBlob) {
       try {
         URL.revokeObjectURL(dernierBlob);
@@ -556,14 +552,9 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     }
   }
 
-  /** Point d'entrée unique des images (live et manuel) ; seule la dernière demande écrit (jeton de séquence) ; Studio fermé, la dernière attend son ouverture sans être téléchargée. */
-  async function applyFrame(frame: TrameFil | null | undefined, live = true): Promise<void> {
+  /** Point d'entrée unique des images (live et manuel) ; seule la dernière demande écrit (jeton de séquence) ; Studio fermé aussi, le serveur purgeant ses trames après 15 min. */
+  async function applyFrame(frame: TrameFil | null | undefined): Promise<void> {
     if (!frame) return;
-    if (currentView.value !== "studio") {
-      trameEnAttente = { trame: frame, recue: Date.now() };
-      return;
-    }
-    trameEnAttente = null;
     const maSeq = ++sequenceTrame;
     const url = frame.image_url || frame.imageUrl || "";
     let blobUrl = "";
@@ -623,13 +614,11 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
       ts: frame.ts || Date.now(),
     };
     if (frame.target && !selectedTarget.value) selectedTarget.value = frame.target;
-    studioLive.value = live;
+    studioLive.value = true;
     if (minuterieLive) clearTimeout(minuterieLive);
-    minuterieLive = live
-      ? setTimeout(() => {
-          studioLive.value = false;
-        }, 2500)
-      : null;
+    minuterieLive = setTimeout(() => {
+      studioLive.value = false;
+    }, 2500);
   }
 
   async function captureAndAnnotate(): Promise<void> {

@@ -247,7 +247,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | undici | 8.12.3 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
-| ws | 8.22.0 | MIT |
+| ws | 8.22.1 | MIT |
 | xtend | 4.0.2 | MIT |
 | zod | 4.6.7 | MIT |
 | zod-to-json-schema | 3.25.2 | ISC |
@@ -350,7 +350,7 @@ the core bundle.
 | undici | 8.12.3 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
-| ws | 8.22.0 | MIT |
+| ws | 8.22.1 | MIT |
 | xtend | 4.0.2 | MIT |
 | yaml | 2.9.1 | ISC |
 | zod | 4.6.7 | MIT |

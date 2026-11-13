@@ -51,9 +51,13 @@ export interface RappelsMorceaux<K extends string> {
   charge(k: K): void;
   /** Coupure pendant une ouverture demandée par l'utilisateur. */
   echec(k: K, reessayer: () => void): void;
+  /** Vrai si un rechargement d'office ne perd rien (ni saisie, ni réponse en cours). */
+  rechargeable(): boolean;
+  /** Mise à jour de l'application quand la page ne peut pas se recharger d'office : l'utilisateur recharge lui-même. */
+  miseAJour(recharger: () => void): void;
 }
 
-/** Morceaux nommés : préchargement silencieux ; ouverture demandée qui recharge la page après une mise à jour ou signale une coupure. */
+/** Morceaux nommés : préchargement silencieux ; ouverture demandée qui, après une mise à jour, recharge la page (ou le propose si elle a une saisie ou une réponse en cours), sinon signale la coupure. */
 export function creerMorceaux<I extends Record<string, () => Promise<unknown>>>(
   importeurs: I,
   rappels: RappelsMorceaux<Extract<keyof I, string>>,
@@ -75,7 +79,9 @@ export function creerMorceaux<I extends Record<string, () => Promise<unknown>>>(
       await charger[k]();
       marquer(k);
     } catch {
-      if (!((await versionRemplacee()) && rechargerPage())) rappels.echec(k, () => void demander(k));
+      const remplacee = await versionRemplacee();
+      if (remplacee && !rappels.rechargeable()) rappels.miseAJour(() => location.reload());
+      else if (!(remplacee && rechargerPage())) rappels.echec(k, () => void demander(k));
     } finally {
       enDemande.delete(k);
     }

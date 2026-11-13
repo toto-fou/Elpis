@@ -167,6 +167,14 @@ const rares = creerMorceaux(IMPORTS, {
       onAction: reessayer,
     });
   },
+  rechargeable: () => !r.isStreaming && !r.inputMessage.trim(),
+  miseAJour(recharger) {
+    r.showToast("Application mise à jour : rechargez la page pour ouvrir cette fenêtre.", "info", {
+      actionLabel: "Recharger",
+      onAction: recharger,
+      duration: 30000,
+    });
+  },
 });
 const CoqueConsole = defineAsyncComponent(rares.charger.console);
 const ModaleReglages = defineAsyncComponent(rares.charger.reglages);

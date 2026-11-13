@@ -53,10 +53,12 @@ describe("morceaux à la demande", () => {
     expect(recharge).toHaveBeenCalledTimes(1);
   });
 
-  it("préchargement silencieux ; ouverture : monté, rechargement après une mise à jour, message puis nouvel essai sur une coupure", async () => {
+  it("préchargement silencieux ; ouverture : monté, message puis nouvel essai sur une coupure, après une mise à jour rechargement proposé (saisie en cours) ou d'office", async () => {
     const charges: string[] = [];
     const echecs: (() => void)[] = [];
+    const propositions: (() => void)[] = [];
     let coupure = true;
+    let saisie = "";
     const m = creerMorceaux(
       {
         studio: () => Promise.resolve({ default: "PageStudio" }),
@@ -64,7 +66,12 @@ describe("morceaux à la demande", () => {
           coupure ? Promise.reject(new Error("coupure")) : Promise.resolve({ default: "PageCode" }),
         rag: () => Promise.reject(new Error("404")),
       },
-      { charge: (k) => charges.push(k), echec: (_k, reessayer) => echecs.push(reessayer) },
+      {
+        charge: (k) => charges.push(k),
+        echec: (_k, reessayer) => echecs.push(reessayer),
+        rechargeable: () => !saisie,
+        miseAJour: (recharger) => propositions.push(recharger),
+      },
     );
     await m.precharger("studio");
     await m.demander("studio");
@@ -78,8 +85,16 @@ describe("morceaux à la demande", () => {
     await vi.waitFor(() => expect(charges).toEqual(["studio", "code"]));
 
     servir(() => Promise.resolve(new Response(PAGE.replace("AAAA1111", "CCCC3333"))));
+    saisie = "brouillon en cours";
     await m.demander("rag");
-    expect([echecs.length, recharge.mock.calls.length]).toEqual([1, 1]);
+    expect([echecs.length, propositions.length, recharge.mock.calls.length]).toEqual([1, 1, 0]);
+    propositions[0]?.();
+    expect(recharge).toHaveBeenCalledTimes(1);
+    sessionStorage.clear();
+    recharge.mockClear();
+    saisie = "";
+    await m.demander("rag");
+    expect([echecs.length, propositions.length, recharge.mock.calls.length]).toEqual([1, 1, 1]);
     await expect(m.precharger("rag")).rejects.toThrow("404");
     expect(recharge).toHaveBeenCalledTimes(1);
   });

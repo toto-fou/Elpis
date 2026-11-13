@@ -2,7 +2,7 @@
 /** frontend/src/features/chat/rendu/markdown.ts — moteur Markdown du chat : rendu final en cache LRU, rendu incrémental par blocs pendant le flux. */
 import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
 import { reparerFinDeBloc } from "./fin-de-bloc.ts";
-import { creerFlux, etatVide, preparerTexte } from "./flux-blocs.ts";
+import { copie, creerFlux, etatVide, preparerTexte } from "./flux-blocs.ts";
 import type { EtatFlux, JetonMarked, Liens, LexeurMarked } from "./flux-blocs.ts";
 import { estBlocOrdinaire, habillerBlocsCode, habillerBloc } from "./habillage-code.ts";
 
@@ -48,9 +48,12 @@ const FENCE_PARTIELLE: Readonly<Record<string, RegExp>> = {
   "`": /(^|\n)[ \t]*`{1,2}$/,
   "~": /(^|\n)[ \t]*~{1,2}$/,
 };
+const FENCE_LIGNE = /^(`{3,}|~{3,})/;
 const FERMETURES =
   /<\/(?:p|li|h[1-6]|td|th|blockquote|pre)>(?:\s*<\/(?:ul|ol|li|table|thead|tbody|tr|td|th|blockquote|div)>)*$/i;
 const QUEUE_CARET = 4096;
+const MORCEAUX_MAX = 200;
+const MORCEAU_MIN = 2000;
 
 function ouvreFence(md: string): boolean {
   return OUVRE_FENCE.test(md);
@@ -82,6 +85,33 @@ function corpsDeFence(corps: string, car: string): string {
     .replace(FENCE_PARTIELLE[car] ?? FENCE_PARTIELLE["`"]!, "$1")
     .replace(/\n$/, "");
   return w ? corps.slice(0, w) + queue : queue;
+}
+
+/** Décalages des lignes qui suivent une ligne vide hors fence : coupes d'un bloc actif trop long pour être rendu d'un tenant. */
+function coupesProse(md: string): number[] {
+  const coupes: number[] = [];
+  let car = "";
+  let n = 0;
+  let vide = false;
+  for (let i = 0; i < md.length;) {
+    const nl = md.indexOf("\n", i);
+    if (nl === -1) break;
+    const ligne = md.slice(i, nl).trim();
+    const m = FENCE_LIGNE.exec(ligne);
+    if (car) {
+      if (m?.[1] && m[1].charAt(0) === car && m[1].length >= n && m[1].length === ligne.length) car = "";
+    } else if (!ligne) vide = true;
+    else {
+      if (vide) coupes.push(i);
+      vide = false;
+      if (m?.[1] && !(m[1].charAt(0) === "`" && ligne.indexOf("`", m[1].length) !== -1)) {
+        car = m[1].charAt(0);
+        n = m[1].length;
+      }
+    }
+    i = nl + 1;
+  }
+  return coupes;
 }
 
 /** Configure le rendu `marked` partagé : code toujours échappé (la coloration vient après), chemins cliquables, purification de toute sortie. */
@@ -156,6 +186,7 @@ function creerLru(max: number): Lru {
 export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
   const messages = creerLru(CACHE_MAX);
   const blocsCache = creerLru(CACHE_BLOCS_MAX);
+  const morceaux = creerLru(MORCEAUX_MAX);
   let memoSrc = "";
   let memoHtml = "";
 
@@ -186,9 +217,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
   function rendreProse(texte: string, liens: Liens | undefined): string | null {
     const a = dep.analyseur;
     if (!a) return null;
-    const copie = Object.assign(Object.create(null) as Liens, liens);
     const lx = new a.Lexer();
-    lx.tokens.links = copie;
+    lx.tokens.links = Object.assign(Object.create(null) as Liens, liens);
     return rendreJetons(lx.lex(texte));
   }
 
@@ -291,20 +321,32 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
         ? habillerBloc(lang, cls, html)
         : '<pre><code class="' + cls + '">' + html + "</code></pre>";
     }
-    if (md.length > PROSE_MAX) {
-      const fm = /^[ \t]{0,3}(`{3,}|~{3,})/m.exec(md);
-      if (fm && fm.index > 0)
-        return (
-          renderStreamingActive(md.slice(0, fm.index), liens) +
-          renderStreamingActive(md.slice(fm.index), liens)
-        );
-      return '<div style="white-space:pre-wrap">' + echapperFlux(md) + "</div>";
-    }
     try {
+      if (md.length > PROSE_MAX) return renderGrosActif(md, liens);
       return rendreProse(reparerFinDeBloc(md), liens) ?? echapperFlux(md);
     } catch {
       return echapperFlux(md);
     }
+  }
+
+  // Bloc actif trop long pour un rendu par battement : morceaux terminés (coupés aux lignes vides hors fence, regroupés d'au moins MORCEAU_MIN caractères) rendus une fois, dernier morceau rendu comme un bloc actif.
+  function renderGrosActif(md: string, liens: Liens | undefined): string {
+    const coupes = coupesProse(md);
+    if (!coupes.length) return '<div style="white-space:pre-wrap">' + echapperFlux(md) + "</div>";
+    const sig = liens ? JSON.stringify(liens) : "";
+    const derniere = coupes[coupes.length - 1];
+    let html = "";
+    let debut = 0;
+    for (const c of coupes) {
+      if (c - debut < MORCEAU_MIN && c !== derniere) continue;
+      const morceau = md.slice(debut, c);
+      const cle = sig + "\u0000" + morceau;
+      html +=
+        morceaux.lire(cle) ??
+        morceaux.ecrire(copie(cle), rendreProse(morceau, liens) ?? echapperFlux(morceau));
+      debut = c;
+    }
+    return html + renderStreamingActive(md.slice(debut), liens);
   }
 
   function reprise(t: string, etat: EtatFlux | null): EtatFlux {
@@ -358,6 +400,7 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     clearMarkdownCache: () => {
       messages.vider();
       blocsCache.vider();
+      morceaux.vider();
       direct = null;
     },
     get tailleCache() {

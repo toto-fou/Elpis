@@ -174,3 +174,45 @@ describe("grandes régions", () => {
     expect(m.avancerFlux(t + "```\n\nSuite", etat).etat.blocs.length).toBe(1);
   });
 });
+
+describe("gros bloc actif", () => {
+  it("une liste lâche plus longue que la limite de prose garde ses éléments et ses blocs de code", () => {
+    let t = "Voici les étapes.\n\n";
+    for (let k = 1; t.length < 14000; k++)
+      t += `- **Étape ${k}** : installez le paquet.\n\n  \`\`\`bash\n  sudo apt install paquet-${k}\n  \`\`\`\n\n  Ensuite, relancez le service ${k}.\n\n`;
+    const r = m.avancerFlux(t, null);
+    const tpl = document.createElement("template");
+    tpl.innerHTML = r.actifHtml;
+    const codes = Array.from(tpl.content.querySelectorAll("pre code"), (c) => c.textContent ?? "");
+    expect(r.etat.blocs.length).toBe(1);
+    expect(codes.length).toBeGreaterThan(60);
+    expect(codes.some((c) => c.includes("Étape"))).toBe(false);
+    expect(tpl.content.querySelectorAll("li").length).toBeGreaterThan(60);
+  });
+
+  it("après une rafale qui finit par une longue liste, le bloc actif n'est jamais affiché brut", () => {
+    let a = "";
+    for (let k = 1; a.length < 60000; k++) a += `Paragraphe ${k} avec un peu de texte pour remplir.\n\n`;
+    for (let k = 1; a.length < 100000; k++) a += `- élément ${k} de la longue liste finale\n`;
+    let r = m.avancerFlux(a, null);
+    let t = a + "\nUn paragraphe après la liste.\n\n";
+    for (let k = 0; k < 100; k++) {
+      t += "Encore un paragraphe ordinaire.\n\n";
+      r = m.avancerFlux(t, r.etat);
+      expect(r.actifHtml.startsWith('<div style="white-space:pre-wrap">'), `pas ${k}`).toBe(false);
+    }
+  });
+
+  it("les morceaux terminés d'un gros bloc actif ne sont rendus qu'une fois", () => {
+    let t = "";
+    for (let k = 1; t.length < 14000; k++) t += `- élément ${k}\n\n  détail de l'élément ${k}\n\n`;
+    m.avancerFlux(t, null);
+    const rendu = vi.spyOn(marked.Parser, "parse");
+    try {
+      m.avancerFlux(t + "suite", null);
+      expect(rendu.mock.calls.length).toBeLessThanOrEqual(3);
+    } finally {
+      rendu.mockRestore();
+    }
+  });
+});

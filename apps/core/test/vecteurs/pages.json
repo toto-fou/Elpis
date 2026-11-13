@@ -1,5 +1,5 @@
 {
-  "source": "migration-kit/vecteurs/interface_pages.py, sans @include ni __VENDOR_V__ depuis L10 (pages coquilles) ; fichiers de static/ versionnés à leur empreinte",
+  "source": "migration-kit/vecteurs/interface_pages.py, sans @include ni __VENDOR_V__ depuis L10 (pages coquilles) ; seuls les fichiers de static/ sont versionnés, à leur empreinte",
   "fichiers": {},
   "cas": [
     {
@@ -23,7 +23,7 @@
     {
       "nom": "unicode",
       "page": "<head></head>E ünïcødé ?v=ancien-é ?v=é.ü-1_2",
-      "sortie": "<head></head>E ünïcødé ?v=BUILD-42 ?v=BUILD-42",
+      "sortie": "<head></head>E ünïcødé ?v=ancien-é ?v=é.ü-1_2",
       "lus": []
     },
     {

@@ -11,7 +11,6 @@ import { empreinteFichier } from "./statiques";
 /** Manifeste du build Vite (`npm run build -w @elpis/web`), relatif à `frontend/`. */
 export const MANIFESTE_WEB = "dist/.vite/manifest.json";
 
-const VERSION = /\?v=[\p{L}\p{N}_.-]+/gu;
 /** Fichier de `frontend/` lié par la page, avec sa version éventuelle. */
 const STATIQUE = /((?:src|href)=")(static\/([^"?]+))(\?v=[\p{L}\p{N}_.-]+)?(")/gu;
 const ENTREE = /<!--\s*@entree\s+(\S+)\s*-->/g;
@@ -227,10 +226,9 @@ export class Pages {
     return html;
   }
 
-  /** Fichier versionné ou vendor à son empreinte (relu s'il change), autre `?v=` au BUILD_ID, script d'habillage, puis les entrées Vite ; un build absent laisse un commentaire. */
+  /** Fichier versionné ou vendor à son empreinte (relu s'il change), script d'habillage, puis les entrées Vite ; un build absent laisse un commentaire. */
   assembler(contenu: string, lus: string[] = []): string {
-    let texte = contenu.replace(VERSION, () => `?v=${echapperHtml(this.buildId)}`);
-    texte = texte.replace(
+    const texte = contenu.replace(
       STATIQUE,
       (tout, a: string, chemin: string, rel: string, v: string | undefined, b: string) => {
         if (v === undefined && !rel.startsWith("vendor/")) return tout;

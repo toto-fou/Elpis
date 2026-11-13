@@ -101,7 +101,7 @@ describe("fichiers statiques", () => {
 
 describe("pages", () => {
   it("BUILD_ID sûr pris littéralement ; CRLF lu comme Python", () => {
-    writeFileSync(join(frontend, "p.html"), '<head></head>\r\n<script src="x.js?v=1"></script>\r');
+    writeFileSync(join(frontend, "p.html"), '<head></head>\r\n<script src="static/x.js?v=1"></script>\r');
     const html = new Pages(frontend, "B-1.2_x").rendre("p.html");
     expect(html).toContain('x.js?v=B-1.2_x"');
     expect(html).not.toContain("\r");
@@ -111,7 +111,7 @@ describe("pages", () => {
     mkdirSync(join(frontend, "pire"), { recursive: true });
     writeFileSync(
       join(frontend, "pire", "p.html"),
-      '<head></head><script src="x.js?v=1"></script><link href="static/vendor/absent.css">',
+      '<head></head><script src="static/x.js?v=1"></script><link href="static/vendor/absent.css">',
     );
     for (const mauvais of ['1"><script>alert(1)</script>', "B$$'", "\\g<0>", "a b", "é"]) {
       const html = new Pages(frontend, mauvais).rendre("pire/p.html");

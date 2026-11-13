@@ -307,6 +307,59 @@ describe("documents", () => {
     expect(rg.documents.chargement).toBe(false);
   });
 
+  it("pendant le chargement de la suite : un retrait, une réindexation et un événement survivent à la fin du chargement", async () => {
+    const page = (debut: number, n: number): DocumentRag[] =>
+      Array.from({ length: n }, (_, i) => document(debut + i, idRag(1)));
+    const attentes: Array<() => void> = [];
+    const documents = vi.fn(
+      (_id: string, offset: number) =>
+        new Promise<ReturnType<typeof ok<{ documents: DocumentRag[]; total: number }>>>((r) =>
+          attentes.push(() =>
+            r(ok({ documents: offset === 0 ? page(0, 500) : page(500, 500), total: 1000 })),
+          ),
+        ),
+    );
+    const { rg, cible } = monter({
+      api: { collections: vi.fn(async () => ok([collection(1, { doc_count: 1000 })])), documents },
+    });
+    const ouverture = rg.ouvrir();
+    await vider();
+    attentes.shift()?.();
+    await vider();
+    expect(rg.documents.lignes).toHaveLength(500);
+    expect(rg.documents.chargement).toBe(true);
+    const id = (n: number): string => document(n, idRag(1)).id;
+    await rg.documents.retirerDocument(rg.documents.lignes.find((d) => d.id === id(3))!);
+    await rg.documents.reindexerDocument(rg.documents.lignes.find((d) => d.id === id(4))!);
+    cible.dispatchEvent(
+      new CustomEvent(EVT_TRAVAIL, {
+        detail: {
+          collection_id: idRag(1),
+          job: travail(1, idRag(1)),
+          document: document(600, idRag(1), { status: "indexing" }),
+        },
+      }),
+    );
+    expect(rg.documents.documents.some((d) => d.id === id(3))).toBe(false);
+    attentes.shift()?.();
+    await vider();
+    await ouverture;
+    expect(rg.documents.chargement).toBe(false);
+    expect({
+      retireDeRetour: rg.documents.documents.some((d) => d.id === id(3)),
+      total: rg.documents.total,
+      lignes: rg.documents.documents.length,
+      reindexe: rg.documents.documents.find((d) => d.id === id(4))?.status,
+      evenement: rg.documents.documents.find((d) => d.id === id(600))?.status,
+    }).toEqual({
+      retireDeRetour: false,
+      total: 999,
+      lignes: 999,
+      reindexe: "pending",
+      evenement: "indexing",
+    });
+  });
+
   it("au-delà de 500 lignes seulement le tableau est virtualisé ; le filtre le ramène sous le seuil", async () => {
     const docs = Array.from({ length: 501 }, (_, i) => document(i, idRag(1), { rel_path: `d/f${i}.md` }));
     const { rg } = monter({

@@ -25,7 +25,7 @@ import {
   retirerRedecoupe,
 } from "./decoupage";
 import type { RedecoupeRag } from "./decoupage";
-import { inserer, sansAccents } from "./filtres";
+import { sansAccents } from "./filtres";
 import type { SurfaceDocuments } from "./rag-documents";
 
 export const DELAI_APERCU_MS = 400;
@@ -348,7 +348,7 @@ export function creerDecoupage(
       return false;
     }
     if (base.selection.value === id)
-      documents.documents.value = inserer(documents.documents.value, r.valeur.document);
+      documents.majDocument(r.valeur.document);
     if (r.valeur.job !== null) documents.appliquerTravail(r.valeur.job);
     base.info(phrase);
     fermer();

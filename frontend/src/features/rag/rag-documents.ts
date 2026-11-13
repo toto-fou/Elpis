@@ -26,6 +26,20 @@ export function travailActif(t: Pick<TravailRag, "status">): boolean {
   return (ETATS_TRAVAIL_RAG_ACTIFS as readonly string[]).includes(t.status);
 }
 
+/** Retraits et lignes changées (événements, actions) pendant un chargement de la liste. */
+interface JournalChargement {
+  retires: Set<string>;
+  lignes: Map<string, DocumentRag>;
+}
+
+/** Liste reçue du serveur, avec les retraits et les lignes changées depuis le début du chargement. */
+function fusionner(recus: readonly DocumentRag[], j: JournalChargement): DocumentRag[] {
+  const sortie = recus.filter((d) => !j.retires.has(d.id)).map((d) => j.lignes.get(d.id) ?? d);
+  const presents = new Set(sortie.map((d) => d.id));
+  for (const d of j.lignes.values()) if (!presents.has(d.id)) sortie.push(d);
+  return sortie;
+}
+
 export function creerDocuments(base: BaseRag) {
   const { api } = base;
   const documents = shallowRef<DocumentRag[]>([]);
@@ -38,6 +52,19 @@ export function creerDocuments(base: BaseRag) {
   const travaux = ref<TravailRag[]>([]);
   let sequence = 0;
   const termines = new Set<string>();
+  let journal: JournalChargement | null = null;
+
+  /** Ligne insérée ou remplacée ; notée si un chargement est en cours (la liste reçue ne l'efface pas). */
+  function majDocument(doc: DocumentRag): void {
+    documents.value = inserer(documents.value, doc);
+    journal?.lignes.set(doc.id, doc);
+  }
+
+  function oublierDocument(id: string): void {
+    documents.value = documents.value.filter((x) => x.id !== id);
+    journal?.lignes.delete(id);
+    journal?.retires.add(id);
+  }
 
   // Liste du dernier tri, gardée tant que les identifiants et les clés de tri ne changent pas : un changement d'état ne retrie rien.
   const cles = computed<DocumentRag[]>((avant) =>
@@ -100,6 +127,7 @@ export function creerDocuments(base: BaseRag) {
 
   function remiseAZero(): void {
     sequence++;
+    journal = null;
     documents.value = [];
     total.value = 0;
     erreur.value = "";
@@ -114,6 +142,8 @@ export function creerDocuments(base: BaseRag) {
     chargement.value = true;
     erreur.value = "";
     const tous: DocumentRag[] = [];
+    const j: JournalChargement = { retires: new Set(), lignes: new Map() };
+    journal = j;
     let attendus = 0;
     // Liste vide (autre collection) : la première page s'affiche dès son arrivée, la suite en squelettes ; sinon l'ancienne reste jusqu'au bout.
     const progressif = documents.value.length === 0;
@@ -123,18 +153,20 @@ export function creerDocuments(base: BaseRag) {
       if (!r.ok) {
         erreur.value = texteEchec(r, "Les documents n’ont pas pu être chargés.");
         chargement.value = false;
+        journal = null;
         return;
       }
       attendus = r.valeur.total;
       tous.push(...r.valeur.documents);
       if (r.valeur.documents.length === 0 || tous.length >= attendus) break;
       if (page === 0 && progressif) {
-        documents.value = [...tous];
+        documents.value = fusionner(tous, j);
         total.value = attendus;
       }
     }
-    documents.value = tous;
-    total.value = attendus;
+    journal = null;
+    documents.value = fusionner(tous, j);
+    total.value = Math.max(0, attendus - tous.filter((d) => j.retires.has(d.id)).length);
     chargement.value = false;
   }
 
@@ -182,8 +214,7 @@ export function creerDocuments(base: BaseRag) {
     // Un événement qui arrive après la fin de son travail est périmé (la relecture de fin a déjà fait foi).
     if (termines.has(e.job.id)) return;
     appliquerTravail(e.job);
-    if (e.document !== undefined && e.collection_id === base.selection.value)
-      documents.value = inserer(documents.value, e.document);
+    if (e.document !== undefined && e.collection_id === base.selection.value) majDocument(e.document);
   }
 
   async function agir(action: "suspendre" | "reprendre" | "annuler"): Promise<void> {
@@ -283,10 +314,10 @@ export function creerDocuments(base: BaseRag) {
     const id = base.selection.value;
     if (id === null) return;
     // La ligne passe en attente avant l'appel : les événements du travail, plus rapides que la réponse, la dépassent.
-    documents.value = inserer(documents.value, { ...d, status: "pending", error: null });
+    majDocument({ ...d, status: "pending", error: null });
     const r = await api.reindexer(id, [d.id], true);
     if (!r.ok) {
-      documents.value = inserer(documents.value, d);
+      majDocument(d);
       base.erreur(texteEchec(r, "La réindexation a échoué."));
       return;
     }
@@ -327,7 +358,7 @@ export function creerDocuments(base: BaseRag) {
       base.erreur(texteEchec(r, "Le document n’a pas pu être retiré."));
       return;
     }
-    documents.value = documents.value.filter((x) => x.id !== d.id);
+    oublierDocument(d.id);
     total.value = Math.max(0, total.value - 1);
     await base.rafraichirCollection(id);
     void base.rafraichirEtat();
@@ -357,6 +388,7 @@ export function creerDocuments(base: BaseRag) {
     progression,
     remiseAZero,
     charger,
+    majDocument,
     chargerTravaux,
     appliquerTravail,
     surTravail,

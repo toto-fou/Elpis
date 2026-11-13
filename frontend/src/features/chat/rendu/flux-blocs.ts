@@ -21,7 +21,7 @@ export interface BlocFlux {
   src: string;
   /** Décalage du premier caractère du bloc suivant. */
   fin: number;
-  /** Décalage jusqu'où le texte décide du bloc : la fin de la première ligne du bloc suivant ; infini pour le dernier bloc d'un texte terminé. */
+  /** Décalage jusqu'où le texte décide du bloc : les deux premières lignes du bloc suivant ; infini pour le dernier bloc d'un texte terminé. */
   lim: number;
 }
 
@@ -67,6 +67,9 @@ const FIN_OPTIONNELLE = new Set(
 );
 const DEF_LIGNE = /^ {0,3}\[((?!\s*\])(?:\\.|[^[\]\\])+)\]:/;
 const DEF_SANS_ADRESSE = /^ {0,3}\[((?!\s*\])(?:\\.|[^[\]\\])+)\]:[ \t]*\n?$/;
+// Lignes qui arrêtent le contenu d'un titre souligné (`lheading` de marked, version GFM).
+const COUPE_TITRE =
+  /^(?:[ \t]*$|(?:[*+-]|\d{1,9}[.)]) | {4}| {0,3}\t| {0,3}(?:`{3,}|~{3,})| {0,3}>| {0,3}#{1,6}| {0,3}<[^\n>]+>$| {0,3}\|?(?:[:\- ]*\|)+[:\- ]*$)/;
 const AUCUN: ReadonlySet<string> = new Set();
 
 /** Texte tel que le rendu complet le lit : sauts de ligne normalisés, blancs de tête retirés (stable d'un appel à l'autre pendant le flux). */
@@ -198,6 +201,8 @@ function empilerHtml(raw: string, pile: string[]): void {
 
 interface Groupe {
   debut: number;
+  /** Fin du dernier jeton non blanc du groupe. */
+  fin: number;
   jetons: JetonMarked[];
   longueur: number;
 }
@@ -215,12 +220,13 @@ function grouper(jetons: readonly JetonMarked[], departs: readonly number[]): Gr
       continue;
     }
     if (!ouvert) {
-      ouvert = { debut: departs[k] ?? 0, jetons: [], longueur: 0 };
+      ouvert = { debut: departs[k] ?? 0, fin: 0, jetons: [], longueur: 0 };
       groupes.push(ouvert);
       pile = [];
     }
     ouvert.jetons.push(j);
     ouvert.longueur += j.raw.length;
+    ouvert.fin = (departs[k] ?? 0) + j.raw.length;
     if (j.type === "html") empilerHtml(j.raw, pile);
     if (pile.length === 0 || ouvert.longueur > GROUPE_HTML_MAX) ouvert = null;
   }
@@ -250,6 +256,26 @@ function departsDesJetons(
     c = d + j.raw.length;
   }
   return departs;
+}
+
+/** Fin de la deuxième ligne qui commence en `debut`, bornée par `fin`. */
+function deuxLignes(t: string, debut: number, fin: number): number {
+  const l1 = t.indexOf("\n", debut);
+  if (l1 === -1 || l1 + 1 >= fin) return fin;
+  const l2 = t.indexOf("\n", l1 + 1);
+  return l2 === -1 || l2 + 1 >= fin ? fin : l2 + 1;
+}
+
+/** Fin de la première ligne qui empêche un soulignement à venir de faire d'un paragraphe, avec les lignes qui le suivent, un titre (marked) ; -1 si aucune avant `fin`. */
+function finCoupeTitre(t: string, finPara: number, fin: number): number {
+  let nl = t.indexOf("\n", Math.max(0, finPara - 1));
+  while (nl !== -1 && nl + 1 < fin) {
+    const debut = nl + 1;
+    nl = t.indexOf("\n", debut);
+    if (nl === -1 || nl >= fin) return -1;
+    if (COUPE_TITRE.test(t.slice(debut, nl))) return nl + 1;
+  }
+  return -1;
 }
 
 /** Étiquette de la définition que la suite peut encore compléter d'un titre : sur la dernière ligne complète de `[debut, fin)`, ou sur l'avant-dernière quand son adresse est sur la dernière. */
@@ -312,7 +338,7 @@ export function creerFlux(dep: DependancesFlux) {
     return { i, html: htmlDe(src, jetons, liens), src, fin, lim };
   }
 
-  /** Fige les groupes de `pos` à `fin` (tous, ou tous sauf le dernier ; sans groupe, seules les lignes blanches sont passées) ; `null` si les décalages des jetons sont illisibles. */
+  /** Fige les groupes de `pos` à `fin` (tous, ou tous sauf le dernier et un paragraphe qu'un soulignement peut encore changer ; sans groupe, seules les lignes blanches sont passées) ; `null` si les décalages des jetons sont illisibles. */
   function figerRegion(
     t: string,
     pos: number,
@@ -327,16 +353,21 @@ export function creerFlux(dep: DependancesFlux) {
     const departs = departsDesJetons(t, pos, fin, jetons);
     if (!departs) return null;
     const groupes = grouper(jetons, departs);
-    const nb = garderDernier ? groupes.length - 1 : groupes.length;
+    let nb = garderDernier ? groupes.length - 1 : groupes.length;
     for (let g = 0; g < nb; g++) {
       const gr = groupes[g];
       if (!gr) continue;
       const suivant = groupes[g + 1]?.debut;
-      const suite = suivant ?? fin;
-      // Le bloc ne dépend que du texte jusqu'à la fin de la première ligne du bloc suivant.
-      const nl = suivant === undefined ? -1 : t.indexOf("\n", suivant);
-      const lim = suivant === undefined ? Infinity : nl === -1 || nl >= fin ? fin : nl + 1;
-      nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suite, lim, gr.jetons, tmp));
+      let lim = suivant === undefined ? Infinity : deuxLignes(t, suivant, fin);
+      if (gr.jetons.length === 1 && gr.jetons[0]?.type === "paragraph") {
+        const coupe = finCoupeTitre(t, gr.fin, fin);
+        if (coupe === -1 && garderDernier) {
+          nb = g;
+          break;
+        }
+        lim = coupe === -1 ? Infinity : Math.max(lim, coupe);
+      }
+      nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suivant ?? fin, lim, gr.jetons, tmp));
     }
     const reste = groupes[Math.max(nb, 0)];
     const suite =

@@ -179,7 +179,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     if (deja !== undefined) return deja;
     try {
       const fichiers = Array.from(text.matchAll(FICHIER), (m) => m[1] ?? "");
-      const propre = text.replace(FICHIER, "").trim();
+      // Blancs de fin gardés comme dans le flux : le dernier saut de ligne décide de la dernière ligne.
+      const propre = preparerTexte(text.replace(FICHIER, ""));
       let html = analyser(propre) ?? escapeHtml(propre);
       if (fichiers.length > 0) {
         let tete = '<div class="flex flex-wrap gap-2 mb-3">';

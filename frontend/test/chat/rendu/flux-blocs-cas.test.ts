@@ -111,3 +111,31 @@ describe("texte terminé puis prolongé (Continuer après Stop ou troncature)", 
     expect(html(b?.etat ?? a!.etat)).toBe(html(a!.etat));
   });
 });
+
+describe("blocs figés stables", () => {
+  it("un tableau qui interrompt un paragraphe décide du paragraphe jusqu'à sa deuxième ligne", () => {
+    const diffuse = "Para\n| a | b |\n|---|---|\n| 1 | 2 |\n\nFin du texte";
+    const final = "Para\n| a | b |\nplus une ligne\n| 1 | 2 |\n\nFin du texte\n";
+    expect(finir(diffuse, final)).toBe(norm(m.renderMarkdown(final)));
+  });
+
+  it.each([
+    ["règle", "Un\n***\n===\n"],
+    ["puce en retrait", "Para\n  - puce\nsuite\n---\n"],
+    ["balise", "Texte\n<summary>R</summary>\n=====\n"],
+  ])("un soulignement qui arrive plus tard fait un titre comme dans le rendu complet (%s)", (_n, texte) => {
+    expect(finir(texte, texte, 1)).toBe(norm(m.renderMarkdown(texte)));
+  });
+
+  it("un paragraphe suivi d'une fence ou d'une liste est figé tout de suite", () => {
+    expect(m.avancerFlux("Voici le code :\n```py\nx", null).etat.blocs.length).toBe(1);
+    expect(m.avancerFlux("Intro :\n- a\n- b", null).etat.blocs.length).toBe(1);
+  });
+
+  it.each([
+    ["fence ouverte en dernière ligne", "Voici le code :\n```\n"],
+    ["puce vide en dernière ligne", "Liste :\n\n- "],
+  ])("le saut de ligne final compte comme dans le rendu complet (%s)", (_n, texte) => {
+    expect(finir(texte, texte, 1)).toBe(norm(m.renderMarkdown(texte)));
+  });
+});

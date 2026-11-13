@@ -174,15 +174,6 @@ export function volatileId(id: unknown): boolean {
 const inTree = (el: ElementUi | null | undefined): el is ElementUi => !!el && el.source !== "vision";
 const depthOf = (el: ElementUi | null | undefined): number => Number((el && el.depth) || 0);
 
-function idx(elements: readonly (ElementUi | null | undefined)[], el: ElementUi | null | undefined): number {
-  if (!el) return -1;
-  for (let i = 0; i < elements.length; i++) {
-    const e = elements[i];
-    if (e === el || (e && el.id !== undefined && e.id === el.id)) return i;
-  }
-  return -1;
-}
-
 function inBox(box: unknown, pt: readonly number[] | null | undefined): boolean {
   return (
     Array.isArray(box) &&
@@ -204,40 +195,122 @@ function centerOf(el: ElementUi | null | undefined): number[] | null {
     : null;
 }
 
-export function elementParent(elements: Elements, el: ElementUi | null | undefined): ElementUi | null {
+const norm = (s: unknown): string =>
+  String(s || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+interface Nomme {
+  e: ElementUi;
+  nm: string;
+  c: number[];
+}
+
+/** Index d'une liste, bâti en une passe : premier rang par objet et par identifiant, parent et enfants ; compteurs, racines et libellés à la demande. */
+export interface IndexElements {
+  readonly els: readonly (ElementUi | null | undefined)[];
+  readonly parObjet: Map<unknown, number>;
+  readonly parId: Map<unknown, number>;
+  readonly parent: Int32Array;
+  readonly enfants: (ElementUi[] | undefined)[];
+  aids?: Map<unknown, number>;
+  noms?: Map<string, Map<string, number>>;
+  racines?: ElementUi[];
+  nommes?: Nomme[];
+}
+
+/** Le parent d'un élément d'arbre est le plus proche avant lui et moins profond : une pile des candidats le donne en une passe. */
+export function indexerElements(elements: Elements): IndexElements {
   const els = elements ?? [];
-  const i = idx(els, el);
+  const ix: IndexElements = {
+    els,
+    parObjet: new Map(),
+    parId: new Map(),
+    parent: new Int32Array(els.length).fill(-1),
+    enfants: [],
+  };
+  const prof = new Float64Array(els.length);
+  const pile: number[] = [];
+  for (let i = 0; i < els.length; i++) {
+    const e = els[i];
+    if (!e) continue;
+    if (!ix.parObjet.has(e)) ix.parObjet.set(e, i);
+    if (e.id !== undefined && !ix.parId.has(e.id)) ix.parId.set(e.id, i);
+    if (!inTree(e)) continue;
+    const d = (prof[i] = depthOf(e));
+    for (let k = pile.length - 1; k >= 0; k--) {
+      const j = pile[k] as number;
+      if ((prof[j] as number) < d) {
+        ix.parent[i] = j;
+        (ix.enfants[j] ??= []).push(e);
+        break;
+      }
+    }
+    while (pile.length && (prof[pile[pile.length - 1] as number] as number) >= d) pile.pop();
+    pile.push(i);
+  }
+  return ix;
+}
+
+/** Rang du premier élément qui est `el` ou porte son identifiant ; -1 hors liste. */
+function position(ix: IndexElements, el: ElementUi | null | undefined): number {
+  if (!el) return -1;
+  const a = ix.parObjet.get(el) ?? -1;
+  const b = el.id !== undefined && !Number.isNaN(el.id) ? (ix.parId.get(el.id) ?? -1) : -1;
+  return a < 0 || (b >= 0 && b < a) ? b : a;
+}
+
+/** Un identifiant partagé renvoie au rang d'un autre élément : le parcours linéaire depuis ce rang tranche. */
+export function elementParent(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): ElementUi | null {
+  const i = position(ix, el);
   if (i < 0 || !inTree(el)) return null;
+  if (ix.els[i] === el) {
+    const p = ix.parent[i] as number;
+    return p >= 0 ? (ix.els[p] as ElementUi) : null;
+  }
   const d = depthOf(el);
   for (let j = i - 1; j >= 0; j--) {
-    const e = els[j];
-    if (!inTree(e)) continue;
-    if (depthOf(e) < d) return e;
+    const e = ix.els[j];
+    if (inTree(e) && depthOf(e) < d) return e;
   }
   return null;
 }
 
 /** Ancêtres, racine en premier (sans l'élément lui-même). */
-export function elementAncestors(elements: Elements, el: ElementUi | null | undefined): ElementUi[] {
+export function elementAncestors(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): ElementUi[] {
   const out: ElementUi[] = [];
-  let p = elementParent(elements, el);
+  let p = elementParent(ix.els, el, ix);
   let guard = 0;
   while (p && guard++ < 64) {
     out.unshift(p);
-    p = elementParent(elements, p);
+    p = elementParent(ix.els, p, ix);
   }
   return out;
 }
 
-export function elementChildren(elements: Elements, el: ElementUi | null | undefined): ElementUi[] {
-  const els = elements ?? [];
-  const i = idx(els, el);
+/** Enfants directs dans l'ordre de la liste ; hors index (identifiant partagé, profondeur illisible), parcours linéaire. */
+export function elementChildren(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): ElementUi[] {
+  const i = position(ix, el);
   if (i < 0 || !inTree(el)) return [];
   const d = depthOf(el);
+  if (ix.els[i] === el && !Number.isNaN(d)) return ix.enfants[i] ?? [];
   const out: ElementUi[] = [];
   let runMin = Infinity;
-  for (let j = i + 1; j < els.length; j++) {
-    const e = els[j];
+  for (let j = i + 1; j < ix.els.length; j++) {
+    const e = ix.els[j];
     if (!inTree(e)) continue;
     const dj = depthOf(e);
     if (dj <= d) break;
@@ -247,21 +320,23 @@ export function elementChildren(elements: Elements, el: ElementUi | null | undef
   return out;
 }
 
-export function elementRoots(elements: Elements): ElementUi[] {
-  const els = elements ?? [];
-  const out: ElementUi[] = [];
-  for (const e of els) if (inTree(e) && elementParent(els, e) === null) out.push(e);
-  return out;
+export function elementRoots(elements: Elements, ix: IndexElements = indexerElements(elements)): ElementUi[] {
+  return (ix.racines ??= ix.els.filter(
+    (e): e is ElementUi => inTree(e) && elementParent(ix.els, e, ix) === null,
+  ));
 }
 
-export function elementDescendants(elements: Elements, el: ElementUi | null | undefined): ElementUi[] {
-  const els = elements ?? [];
-  const i = idx(els, el);
+export function elementDescendants(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): ElementUi[] {
+  const i = position(ix, el);
   const out: ElementUi[] = [];
   if (i < 0 || !inTree(el)) return out;
   const d = depthOf(el);
-  for (let j = i + 1; j < els.length; j++) {
-    const e = els[j];
+  for (let j = i + 1; j < ix.els.length; j++) {
+    const e = ix.els[j];
     if (!inTree(e)) continue;
     if (depthOf(e) <= d) break;
     out.push(e);
@@ -269,38 +344,53 @@ export function elementDescendants(elements: Elements, el: ElementUi | null | un
   return out;
 }
 
-const norm = (s: unknown): string =>
-  String(s || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+function nbAutoId(ix: IndexElements, aid: unknown): number {
+  if (!ix.aids) {
+    const aids = (ix.aids = new Map());
+    for (const e of ix.els) if (e && e.auto_id) aids.set(e.auto_id, (aids.get(e.auto_id) ?? 0) + 1);
+  }
+  return ix.aids.get(aid) ?? 0;
+}
+
+function nbNomRole(ix: IndexElements, nm: string, role: string): number {
+  if (!ix.noms) {
+    const noms = (ix.noms = new Map<string, Map<string, number>>());
+    for (const e of ix.els) {
+      const n = norm(realName(e));
+      if (!n) continue;
+      const r = norm(e && e.role);
+      let parRole = noms.get(n);
+      if (!parRole) noms.set(n, (parRole = new Map()));
+      parRole.set(r, (parRole.get(r) ?? 0) + 1);
+    }
+  }
+  return ix.noms.get(nm)?.get(role) ?? 0;
+}
 
 /** Un nom (+ rôle) porté par plusieurs éléments du frame : le chemin tranche. */
-export function isAmbiguous(elements: Elements, el: ElementUi | null | undefined): boolean {
+export function isAmbiguous(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): boolean {
   const nm = norm(realName(el));
-  const role = norm(el && el.role);
-  if (!nm) return false;
-  let n = 0;
-  for (const e of elements ?? []) if (norm(realName(e)) === nm && norm(e && e.role) === role) n++;
-  return n > 1;
+  return !!nm && nbNomRole(ix, nm, norm(el && el.role)) > 1;
 }
 
-function uniqueAid(elements: Elements, el: ElementUi | null | undefined): boolean {
+function uniqueAid(ix: IndexElements, el: ElementUi | null | undefined): boolean {
   if (!el || !el.auto_id || volatileId(el.auto_id) || String(el.auto_id).indexOf("/") >= 0) return false;
-  let n = 0;
-  for (const e of elements ?? []) if (e && e.auto_id === el.auto_id && ++n > 1) return false;
-  return true;
+  return nbAutoId(ix, el.auto_id) <= 1;
 }
 
-function anchorSeg(el: ElementUi, elements: Elements): string {
-  if (uniqueAid(elements, el)) return "#" + el.auto_id;
+function anchorSeg(el: ElementUi, ix: IndexElements): string {
+  if (uniqueAid(ix, el)) return "#" + el.auto_id;
   return (el.role ? String(el.role) + ":" : "") + realName(el);
 }
 
-function anchorable(elements: Elements, el: ElementUi | null | undefined): boolean {
+function anchorable(ix: IndexElements, el: ElementUi | null | undefined): boolean {
   if (!el) return false;
   const nm = realName(el);
-  return !!(uniqueAid(elements, el) || (nm && nm.indexOf("/") < 0 && !isAmbiguous(elements, el)));
+  return !!(uniqueAid(ix, el) || (nm && nm.indexOf("/") < 0 && !isAmbiguous(ix.els, el, ix)));
 }
 
 function seg(el: ElementUi, siblings: readonly ElementUi[]): string {
@@ -317,26 +407,29 @@ function seg(el: ElementUi, siblings: readonly ElementUi[]): string {
 }
 
 /** Chemin structurel « <ancre>/role[n]/… » d'un élément ; vide hors arbre. */
-export function elementPath(elements: Elements, el: ElementUi | null | undefined): string {
-  const els = elements ?? [];
-  if (!inTree(el) || idx(els, el) < 0) return "";
-  if (anchorable(els, el)) return anchorSeg(el, els);
-  const chain = elementAncestors(els, el).concat([el]);
+export function elementPath(
+  elements: Elements,
+  el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
+): string {
+  if (!inTree(el) || position(ix, el) < 0) return "";
+  if (anchorable(ix, el)) return anchorSeg(el, ix);
+  const chain = elementAncestors(ix.els, el, ix).concat([el]);
   let start = -1;
   for (let i = chain.length - 2; i >= 0; i--) {
-    if (anchorable(els, chain[i])) {
+    if (anchorable(ix, chain[i])) {
       start = i;
       break;
     }
   }
   const segs: string[] = [];
-  if (start >= 0) segs.push(anchorSeg(chain[start] as ElementUi, els));
+  if (start >= 0) segs.push(anchorSeg(chain[start] as ElementUi, ix));
   else {
-    segs.push(seg(chain[0] as ElementUi, elementRoots(els)));
+    segs.push(seg(chain[0] as ElementUi, elementRoots(ix.els, ix)));
     start = 0;
   }
   for (let j = start + 1; j < chain.length; j++) {
-    segs.push(seg(chain[j] as ElementUi, elementChildren(els, chain[j - 1] as ElementUi)));
+    segs.push(seg(chain[j] as ElementUi, elementChildren(ix.els, chain[j - 1] as ElementUi, ix)));
   }
   return segs.join("/");
 }
@@ -386,6 +479,7 @@ function matchSeg(
 /** Résout un chemin dans la liste (strict, ou relâché : ancre puis N-ième descendant de ce rôle). */
 export function resolvePath(elements: Elements, path: unknown, relaxed: boolean = true): ElementUi | null {
   const els = elements ?? [];
+  const ix = indexerElements(els);
   const segs = String(path || "")
     .split("/")
     .map(parsePathSeg)
@@ -394,7 +488,7 @@ export function resolvePath(elements: Elements, path: unknown, relaxed: boolean 
   if (!first) return null;
   const pool =
     first.n !== undefined && first.auto_id === undefined && first.name === undefined
-      ? elementRoots(els)
+      ? elementRoots(els, ix)
       : liste(els).filter(inTree);
   let anchor: ElementUi | null = null;
   for (const p of pool) {
@@ -415,7 +509,7 @@ export function resolvePath(elements: Elements, path: unknown, relaxed: boolean 
   }
   let cur: ElementUi | null = anchor;
   for (let s = 1; cur && s < segs.length; s++) {
-    const kids = elementChildren(els, cur);
+    const kids = elementChildren(els, cur, ix);
     let next: ElementUi | null = null;
     for (const k of kids) {
       if (matchSeg(k, segs[s] ?? null, kids)) {
@@ -427,7 +521,7 @@ export function resolvePath(elements: Elements, path: unknown, relaxed: boolean 
   }
   if (cur || !relaxed || !anchor || segs.length < 2) return cur || null;
   const last = segs[segs.length - 1] as SegmentChemin;
-  const sub = elementDescendants(els, anchor);
+  const sub = elementDescendants(els, anchor, ix);
   if (last.n !== undefined) {
     const same = sub.filter((e) => norm(e.role) === last.role);
     return last.n > 0 && last.n <= same.length ? (same[last.n - 1] ?? null) : null;
@@ -436,32 +530,40 @@ export function resolvePath(elements: Elements, path: unknown, relaxed: boolean 
   return null;
 }
 
+function nommes(els: readonly (ElementUi | null | undefined)[]): Nomme[] {
+  const out: Nomme[] = [];
+  for (const e of els) {
+    if (!inTree(e)) continue;
+    const nm = realName(e);
+    const c = centerOf(e);
+    if (nm && nm.length <= 60 && c) out.push({ e, nm, c });
+  }
+  return out;
+}
+
 /** Libellé nommé le plus proche (même parent d'abord, puis géométrie) et son côté. */
 export function nearestLabel(
   elements: Elements,
   el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
 ): { label: string; side: string } | null {
   const c = centerOf(el);
   if (!c) return null;
-  const parent = elementParent(elements, el);
-  const pools: ElementUi[][] = [];
-  if (parent) pools.push(elementChildren(elements, parent));
-  pools.push(liste(elements).filter(inTree));
+  const parent = elementParent(ix.els, el, ix);
+  const pools: Nomme[][] = [];
+  if (parent) pools.push(nommes(elementChildren(ix.els, parent, ix)));
+  pools.push((ix.nommes ??= nommes(ix.els)));
   for (const pool of pools) {
     let best: { label: string; dx: number; dy: number } | null = null;
     let bestD = Infinity;
-    for (const e of pool) {
-      if (e === el || !inTree(e)) continue;
-      const nm = realName(e);
-      if (!nm || nm.length > 60) continue;
-      const ec = centerOf(e);
-      if (!ec) continue;
-      const dx = (c[0] ?? 0) - (ec[0] ?? 0);
-      const dy = (c[1] ?? 0) - (ec[1] ?? 0);
+    for (const x of pool) {
+      if (x.e === el) continue;
+      const dx = (c[0] ?? 0) - (x.c[0] ?? 0);
+      const dy = (c[1] ?? 0) - (x.c[1] ?? 0);
       const d = Math.sqrt(dx * dx + dy * dy) + Math.abs(dy);
       if (d < bestD) {
         bestD = d;
-        best = { label: nm, dx, dy };
+        best = { label: x.nm, dx, dy };
       }
     }
     if (best && bestD < 600) {
@@ -483,8 +585,9 @@ export function nearestLabel(
 export function windowAnchor(
   elements: Elements,
   el: ElementUi | null | undefined,
+  ix: IndexElements = indexerElements(elements),
 ): { window: string; rel: [number, number] } | null {
-  const anc = elementAncestors(elements, el);
+  const anc = elementAncestors(ix.els, el, ix);
   const root = anc.length ? (anc[0] as ElementUi) : null;
   if (!root || !Array.isArray(root.box) || root.box.length !== 4) return null;
   const c = centerOf(el);
@@ -504,7 +607,7 @@ export function windowAnchor(
   };
 }
 
-function buildAnchor(el: ElementUi, elements: Elements): Ancre {
+function buildAnchor(el: ElementUi, elements: Elements, index?: IndexElements): Ancre {
   const a: Ancre = {};
   for (const k of ANCHOR_FIELDS) {
     if (k === "label") continue;
@@ -513,18 +616,19 @@ function buildAnchor(el: ElementUi, elements: Elements): Ancre {
   }
   const nm = realName(el);
   if (nm) a.label = nm;
-  if (elements && elements.length) {
-    const p = elementPath(elements, el);
+  const ix = elements && elements.length ? (index ?? indexerElements(elements)) : null;
+  if (ix) {
+    const p = elementPath(ix.els, el, ix);
     if (p) a.path = p;
-    if (nm && isAmbiguous(elements, el)) a["ambiguous"] = true;
+    if (nm && isAmbiguous(ix.els, el, ix)) a["ambiguous"] = true;
     if (!nm && !el.auto_id) {
-      const nb = nearestLabel(elements, el);
+      const nb = nearestLabel(ix.els, el, ix);
       if (nb) {
         a["near"] = nb.label;
         a["side"] = nb.side;
       }
     }
-    const w = windowAnchor(elements, el);
+    const w = windowAnchor(ix.els, el, ix);
     if (w) {
       a["window"] = w.window;
       a["rel"] = w.rel;
@@ -534,45 +638,59 @@ function buildAnchor(el: ElementUi, elements: Elements): Ancre {
     a["volatile_id"] = true;
     if (nm || a.path) delete a["auto_id"];
   }
-  if (a["auto_id"] && elements && elements.length) {
-    let same = 0;
-    for (const e of elements) if (e && e.auto_id === a["auto_id"]) same++;
-    if (same > 1) {
-      a["shared_id"] = true;
-      if (nm || a.path) delete a["auto_id"];
-    }
+  if (a["auto_id"] && ix && nbAutoId(ix, a["auto_id"]) > 1) {
+    a["shared_id"] = true;
+    if (nm || a.path) delete a["auto_id"];
   }
   return a;
 }
 
-export function anchorFromElement(el: ElementUi | null | undefined, elements?: Elements): Ancre {
-  return buildAnchor(el || {}, elements);
+/** `ix` : index déjà bâti sur `elements` (survol de l'inspecteur). */
+export function anchorFromElement(
+  el: ElementUi | null | undefined,
+  elements?: Elements,
+  ix?: IndexElements,
+): Ancre {
+  return buildAnchor(el || {}, elements, ix);
 }
 
-/** Audit d'accessibilité : contrôles interactifs sans nom ni auto_id stable. */
-export function a11yAudit(elements?: Elements): Audit {
-  const els = elements ?? [];
-  const rows: AuditLigne[] = [];
+/** Contrôles interactifs de l'arbre, et ceux qui n'ont pas à la fois un nom et un auto_id stable. */
+function controlesAuditables(elements: Elements): {
+  interactive: number;
+  aNommer: { e: ElementUi; role: string; nm: string; stableAid: boolean }[];
+} {
   let interactive = 0;
-  for (const e of els) {
+  const aNommer: { e: ElementUi; role: string; nm: string; stableAid: boolean }[] = [];
+  for (const e of elements ?? []) {
     if (!inTree(e)) continue;
     const role = String(e.role || "").toLowerCase();
     if (INTERACTIVE_ROLES.indexOf(role) < 0) continue;
     interactive++;
     const nm = realName(e);
     const stableAid = !!(e.auto_id && !volatileId(e.auto_id));
-    if (nm && stableAid) continue;
-    const nb = nearestLabel(els, e);
-    rows.push({
-      id: e.id,
-      role,
-      missing: !nm && !stableAid ? "nom et auto_id" : !nm ? "nom" : "auto_id",
-      volatile: !!(e.auto_id && volatileId(e.auto_id)),
-      path: elementPath(els, e),
-      near: nb ? nb.label : "",
-      box: e.box,
-    });
+    if (!(nm && stableAid)) aNommer.push({ e, role, nm, stableAid });
   }
+  return { interactive, aNommer };
+}
+
+/** Comptes de l'audit, sans chemins ni voisins : le bouton les affiche à chaque trame. */
+export function a11yAuditResume(elements?: Elements): { interactive: number; rows: number; unnamed: number } {
+  const { interactive, aNommer } = controlesAuditables(elements);
+  return { interactive, rows: aNommer.length, unnamed: aNommer.filter((c) => !c.nm).length };
+}
+
+/** Audit d'accessibilité : contrôles interactifs sans nom ni auto_id stable. */
+export function a11yAudit(elements?: Elements, ix: IndexElements = indexerElements(elements)): Audit {
+  const { interactive, aNommer } = controlesAuditables(elements);
+  const rows = aNommer.map(({ e, role, nm, stableAid }): AuditLigne => ({
+    id: e.id,
+    role,
+    missing: !nm && !stableAid ? "nom et auto_id" : !nm ? "nom" : "auto_id",
+    volatile: !!(e.auto_id && volatileId(e.auto_id)),
+    path: elementPath(ix.els, e, ix),
+    near: nearestLabel(ix.els, e, ix)?.label ?? "",
+    box: e.box,
+  }));
   return { interactive, rows, unnamed: rows.filter((r) => r.missing !== "auto_id").length };
 }
 

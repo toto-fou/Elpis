@@ -7,6 +7,7 @@ import { anchorQuality, targetKwargs } from "../../modeles/automation-model.ts";
 import {
   a11yAudit,
   a11yAuditCsv,
+  a11yAuditResume,
   anchorFromElement,
   boxOnScreen,
   deepestAt,
@@ -345,7 +346,9 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
 
   const studioAuditOpen = ref(false);
+  /** Lignes complètes (chemins, voisins) lues seulement par le panneau ouvert et l'export ; le bouton lit les comptes. */
   const studioAudit = computed(() => a11yAudit(studioElements.value) as unknown as AuditStudio);
+  const studioAuditResume = computed(() => a11yAuditResume(studioElements.value));
   function toggleStudioAudit(): void {
     studioAuditOpen.value = !studioAuditOpen.value;
   }
@@ -972,6 +975,7 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     studioTreeDockDragStart,
     studioAuditOpen,
     studioAudit,
+    studioAuditResume,
     toggleStudioAudit,
     exportStudioAudit,
     studioHitTest,

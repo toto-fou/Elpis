@@ -663,14 +663,14 @@ function poserSaisieModale(el: unknown): void {
             :class="
               sd.studioAuditOpen
                 ? 'border-blue-300 bg-blue-50 text-blue-700'
-                : sd.studioAudit.unnamed
+                : sd.studioAuditResume.unnamed
                   ? 'border-amber-200 bg-amber-50 text-amber-700'
                   : 'border-slate-200 text-slate-500 hover:bg-slate-50'
             "
             @click="sd.toggleStudioAudit()"
           >
             <i class="ph ph-warning-circle"></i> Audit
-            <span v-if="sd.studioAudit.rows.length">{{ sd.studioAudit.rows.length }}</span>
+            <span v-if="sd.studioAuditResume.rows">{{ sd.studioAuditResume.rows }}</span>
           </button>
         </div>
         <!-- Audit a11y : ce que l'appli devrait nommer pour être automatisable sans chemin -->

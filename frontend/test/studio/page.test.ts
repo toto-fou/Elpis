@@ -30,6 +30,7 @@ function monter(opts: { expert: boolean; image: boolean; cibles?: number }) {
     studioTreeRows: [],
     studioStageMode: "inspect",
     studioAudit: { rows: [] },
+    studioAuditResume: { rows: 0, unnamed: 0 },
     selectedTarget: "c0",
     studioChatInput: "",
     autoAiPrompt: "",

@@ -73,15 +73,17 @@ export function creerVueFlux(c: CoeurChat) {
     if (t.idx >= 0) effacerAttente(t.idx);
   }
 
-  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle.
+  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle, les blocs de tête inchangés sont gardés.
   function surRemplacement(t: Tour): void {
     l.abandonnerFlux({ corps: true, narration: true });
-    if (t.idx >= 0 && l.getStreamMsgs()[t.idx])
+    const cur = l.getStreamMsgs()[t.idx];
+    if (t.idx >= 0 && cur)
       l.patch(
         t.idx,
         Object.assign(
-          { content: t.data.text || "", _pendingPreContent: "" },
-          STREAM_RENDER_CLEAR,
+          { _pendingPreContent: "" },
+          l.applyStreamRender(cur, t.data.text || ""),
+          { isStreaming: cur.isStreaming },
           PRE_RENDER_CLEAR,
         ),
       );
@@ -497,7 +499,7 @@ export function creerVueFlux(c: CoeurChat) {
       metrics: metriques,
       _prefillPct: undefined,
       isStreaming: false,
-      ...STREAM_RENDER_CLEAR,
+      ...l.figerCorps(cur, contenu),
       isTruncated: !!d["tool_limit_reached"] || !!d["cancelled"] || !!d["truncated"],
       run_ids: Array.isArray(runIds) && runIds.length ? runIds : cur.run_ids || null,
       compactions: Array.isArray(compactions) && compactions.length ? compactions : cur.compactions || null,

@@ -529,6 +529,13 @@ export function enrichirBlocs(scope: Element | Document, exclureComposants = fal
   planifierColoration(scope);
 }
 
+/** Enrichit un bloc déjà en place d'un corps Markdown (enveloppe d'un bloc figé) : blocs `pre` spéciaux, références `!id` en ligne, coloration ; le corps n'est pas touché. */
+export function enrichirBloc(bloc: Element): void {
+  bloc.querySelectorAll<HTMLElement>("pre").forEach((pre) => enrichirPre(pre));
+  referencesEnLigne(bloc, [bloc]);
+  planifierColoration(bloc);
+}
+
 const enAttente = new Set<() => void>();
 let attenteProgrammee = false;
 

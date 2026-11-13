@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/ContenuMarkdown.vue — corps Markdown d'un message : blocs figés et bloc actif pendant le flux, rendu complet en cache ensuite, enrichi (code, graphiques, Mermaid, SVG) par ce composant seul. -->
+<!-- frontend/src/components/chat/ContenuMarkdown.vue — corps Markdown d'un message : blocs figés et bloc actif pendant le flux et après (aucune reconstruction à la fin), rendu complet en cache pour les messages sans blocs, enrichi (code, graphiques, Mermaid, SVG) par ce composant seul. -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, onUpdated, useTemplateRef, watch } from "vue";
 
@@ -8,6 +8,7 @@ import {
   ATTRIBUT_COMPOSANT,
   annulerEnrichissement,
   balayerGraphiques,
+  enrichirBloc,
   enrichirBlocs,
   planifierEnrichissement,
 } from "../../features/chat/rendu/enrichissement";
@@ -27,7 +28,7 @@ export interface MessageMarkdown {
   isStreaming?: boolean;
   _mdBlocks?: readonly BlocRendu[] | null;
   _mdActiveHtml?: string | null;
-  /** Texte que les blocs rendent. */
+  /** Texte que les blocs rendent : le message garde ses blocs tant que son contenu lui est égal. */
   _mdFlux?: { source: string } | null;
   rag_sources?: readonly unknown[] | null;
 }
@@ -41,53 +42,117 @@ const props = defineProps<{
 const emit = defineEmits<{ "click-markdown": [evenement: MouseEvent] }>();
 const moteur = moteurMarkdown();
 
+const texte = computed(() => props.msg.displayContent || props.msg.content || "");
+const enBlocs = computed(
+  () =>
+    !!props.msg.isStreaming || (!!props.msg._mdBlocks?.length && props.msg._mdFlux?.source === texte.value),
+);
 const actif = computed(() => props.msg._mdActiveHtml ?? "");
-// Blocs figés puis bloc actif, sous la clé du prochain bloc figé : son nœud devient celui du bloc figé.
-const liste = computed(() => listerBlocs(props.msg._mdBlocks ?? [], actif.value));
-const html = computed(() => {
-  const texte = props.msg.displayContent || props.msg.content || "";
-  return props.recherche
-    ? moteur.renderMarkdownHighlight(texte, props.recherche)
-    : moteur.renderMarkdown(texte);
+// Blocs affichés : figés puis actif ; la recherche surligne chaque bloc une fois le flux fini.
+const liste = computed(() => {
+  const l = listerBlocs(props.msg._mdBlocks ?? [], actif.value);
+  const q = props.recherche;
+  return q && !props.msg.isStreaming ? l.map((b) => ({ i: b.i, html: moteur.surlignerHtml(b.html, q) })) : l;
 });
+const caretSeul = computed(
+  () => !!props.msg.isStreaming && !!props.msg.content && !actif.value && !props.msg._mdBlocks?.length,
+);
+const html = computed(() =>
+  props.recherche
+    ? moteur.renderMarkdownHighlight(texte.value, props.recherche)
+    : moteur.renderMarkdown(texte.value),
+);
 const racine = useTemplateRef<HTMLElement>("racine");
 const racineFlux = useTemplateRef<HTMLElement>("racineFlux");
 const proprietaire = { [ATTRIBUT_COMPOSANT]: "" };
+// Un `pre` sans habillage (bloc spécial) ou une référence `!id` de graphique : le seul HTML qui demande un parcours du DOM.
+const A_ENRICHIR = /<pre(?![^>]*data-cb-done)|![0-9a-fA-F]{12}\b/;
 
 let enrichi: { el: HTMLElement; html: string } | null = null;
-let figesVus = 0;
-let dernierHtml = "";
+let hoteVu: HTMLElement | null = null;
+const vus: { colores: string[]; enrichis: string[]; pastilles: string[] } = {
+  colores: [],
+  enrichis: [],
+  pastilles: [],
+};
 
-/** Enrichit le corps rendu ; un nouveau rendu à HTML et racine égaux le laisse tel quel (Vue n'a pas réécrit le DOM). */
-function enrichir(): void {
+/** Rangs des blocs figés dont le HTML affiché a changé depuis le dernier passage de `vus` (un nouvel hôte repart de zéro). */
+function nouveauxRangs(cle: keyof typeof vus): number[] {
+  const el = racineFlux.value;
+  if (el !== hoteVu) {
+    hoteVu = el;
+    for (const k of Object.keys(vus) as (keyof typeof vus)[]) vus[k] = [];
+  }
+  const l = liste.value;
+  const n = l.length - (actif.value ? 1 : 0);
+  const connus = vus[cle];
+  const rangs: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const h = l[i]?.html;
+    if (h !== undefined && connus[i] !== h) {
+      rangs.push(i);
+      connus[i] = h;
+    }
+  }
+  connus.length = n;
+  return rangs;
+}
+
+/** Enrichit un corps rendu en bloc ; un nouveau rendu à HTML et racine égaux le laisse tel quel (Vue n'a pas réécrit le DOM). */
+function enrichirComplet(): void {
   const el = racine.value;
-  if (props.msg.isStreaming || !el) return;
+  if (!el) return;
   if (enrichi && enrichi.el === el && enrichi.html === html.value) return;
   enrichi = { el, html: html.value };
   enrichirBlocs(el);
 }
 
-/** Confie à la coloration les blocs qui viennent d'être figés, et le dernier déjà vu dont le HTML a été réécrit ; le corps entier n'est jamais parcouru. */
-function colorerFiges(): void {
-  const el = props.msg.isStreaming ? racineFlux.value : null;
-  const b = el ? (props.msg._mdBlocks ?? []) : [];
-  const n = b.length;
-  const dernier = b[n - 1]?.html ?? "";
-  if (n === figesVus && dernier === dernierHtml) return;
-  for (let i = Math.max(0, Math.min(n, figesVus) - 1); i < n; i++) {
-    const bloc = el?.children[i];
-    if (bloc) planifierColoration(bloc);
+/** Enrichit en place les blocs dont le HTML vient de changer : seuls ceux qui portent un bloc spécial ou une référence de graphique sont parcourus, les autres vont à la coloration. */
+function enrichirFlux(): void {
+  const el = racineFlux.value;
+  if (!el) return;
+  const rangs = nouveauxRangs("enrichis");
+  for (const i of rangs) {
+    const bloc = el.children[i];
+    const h = liste.value[i]?.html ?? "";
+    if (!bloc) continue;
+    if (A_ENRICHIR.test(h)) {
+      balayerGraphiques();
+      enrichirBloc(bloc);
+    } else if (h.includes("code-wrapper")) planifierColoration(bloc);
   }
-  figesVus = n;
-  dernierHtml = dernier;
 }
 
-/** Pastilles des renvois [n] (pendant le flux comme à la fin) et marque celle dont la bulle ou la visionneuse est ouverte. */
-function poser(): void {
-  const el = racine.value ?? racineFlux.value;
+function enrichir(): void {
+  if (props.msg.isStreaming) return;
+  if (enBlocs.value) enrichirFlux();
+  else enrichirComplet();
+}
+
+/** Confie à la coloration les blocs qui viennent d'être figés (ou réécrits) ; le corps entier n'est jamais parcouru. */
+function colorerFiges(): void {
+  const el = props.msg.isStreaming ? racineFlux.value : null;
+  if (!el) return;
+  for (const i of nouveauxRangs("colores")) {
+    const bloc = el.children[i];
+    if (bloc) planifierColoration(bloc);
+  }
+}
+
+/** Pastilles des renvois [n] : pendant le flux, seulement les blocs qui viennent d'être figés et le bloc actif ; sinon (ou si `tout`) le corps entier. */
+function poser(tout = false): void {
   const r = props.renvois;
+  const flux = racineFlux.value;
+  const el = racine.value ?? flux;
   if (!el || !r) return;
-  poserPastilles(el, r.resoudre);
+  if (flux && props.msg.isStreaming && !tout) {
+    for (const i of nouveauxRangs("pastilles")) {
+      const bloc = flux.children[i];
+      if (bloc) poserPastilles(bloc as HTMLElement, r.resoudre);
+    }
+    const dernier = actif.value ? flux.children[liste.value.length - 1] : null;
+    if (dernier) poserPastilles(dernier as HTMLElement, r.resoudre);
+  } else poserPastilles(el, r.resoudre);
   marquer();
 }
 
@@ -128,7 +193,11 @@ onUpdated(() => {
   colorerFiges();
   poser();
 });
-watch(() => [props.msg.rag_sources, props.renvois], poser, { flush: "post" });
+watch(
+  () => [props.msg.rag_sources, props.renvois],
+  () => poser(true),
+  { flush: "post" },
+);
 watch(() => props.renvois?.courante() ?? null, marquer, { flush: "post" });
 onUnmounted(() => {
   annulerEnrichissement(enrichir);
@@ -139,10 +208,10 @@ onUnmounted(() => {
 <!-- eslint-disable vue/no-v-html -- HTML produit par le moteur Markdown : purifié (crochet de marked) ou échappé. -->
 <template>
   <div
-    v-if="props.msg.isStreaming"
+    v-if="enBlocs"
     ref="racineFlux"
     v-bind="proprietaire"
-    aria-busy="true"
+    :aria-busy="props.msg.isStreaming ? 'true' : undefined"
     class="markdown-body bg-transparent"
     @mouseover="surSurvol"
     @mouseout="surSortie"
@@ -153,10 +222,7 @@ onUnmounted(() => {
     <template v-for="blk in liste" :key="blk.i">
       <div style="display: contents" v-html="blk.html"></div>
     </template>
-    <span
-      v-if="props.msg.content && !actif && !props.msg._mdBlocks?.length"
-      class="elpis-stream-caret"
-    ></span>
+    <span v-if="caretSeul" class="elpis-stream-caret"></span>
   </div>
   <div
     v-else

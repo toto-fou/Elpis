@@ -51,6 +51,8 @@ export interface LiensChat {
   recevoirNarration(texte: string): void;
   abandonnerFlux(parties: PartiesFlux): void;
   applyPreRender(cur: MessageChat, texte: string): Objet;
+  applyStreamRender(cur: MessageChat, texte: string): Objet;
+  figerCorps(cur: MessageChat, contenu: string): Objet;
   flushShellPend(): void;
   armerShell(): void;
   shellFoldPend(st: { shellOut?: string | null }, pend: { chunk: string }): string;

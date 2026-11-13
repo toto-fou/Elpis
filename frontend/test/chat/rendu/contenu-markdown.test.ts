@@ -71,6 +71,13 @@ function flux(precedent: MessageMarkdown, texte: string): MessageMarkdown {
   };
 }
 
+/** Reproduit la fin de tour : le bloc actif est figé, le message garde ses blocs. */
+function fin(precedent: MessageMarkdown, texte: string): MessageMarkdown {
+  const r = moteurMarkdown().terminerFlux(texte, (precedent._mdFlux as EtatFlux | null | undefined) ?? null);
+  if (!r) throw new Error("le texte garde ses blocs");
+  return { content: texte, isStreaming: false, _mdBlocks: r.etat.blocs, _mdActiveHtml: "", _mdFlux: r.etat };
+}
+
 describe("ContenuMarkdown", () => {
   it("flux : les blocs figés gardent leur nœud DOM, seul le bloc actif change", async () => {
     let msg = flux({}, "Premier paragraphe.\n\nDeu");
@@ -211,6 +218,105 @@ describe("ContenuMarkdown", () => {
     etat.value = { content: charge, isStreaming: false };
     await nextTick();
     verifier();
+  });
+});
+
+describe("ContenuMarkdown : fin du flux sans reconstruction", () => {
+  const TEXTE =
+    "Premier paragraphe.\n\n## Titre\n\n- a\n- b\n\n```py\nx = 1\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\nDernier paragraphe";
+
+  it("les nœuds des blocs figés sont les mêmes objets avant et après la fin, comme la racine", async () => {
+    const msg = flux({}, TEXTE);
+    const { hote, etat } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    const avant = [...racine.children];
+    const pre = racine.querySelector("pre");
+    expect(avant.length).toBeGreaterThan(4);
+    expect(racine.getAttribute("aria-busy")).toBe("true");
+    expect(racine.querySelector(".elpis-stream-caret")).not.toBeNull();
+    etat.value = fin(msg, TEXTE + " fini.\n");
+    await nextTick();
+    expect(hote.firstElementChild).toBe(racine);
+    const apres = [...racine.children];
+    expect(apres.length).toBeGreaterThanOrEqual(avant.length);
+    avant.forEach((n, i) => expect(apres[i], `bloc ${i}`).toBe(n));
+    expect(racine.querySelector("pre")).toBe(pre);
+    expect(racine.hasAttribute("aria-busy")).toBe(false);
+    expect(racine.querySelector(".elpis-stream-caret")).toBeNull();
+    expect(racine.textContent).toContain("Dernier paragraphe fini.");
+    const corps = [...racine.children].map((c) => c.innerHTML).join("");
+    expect(corps.replace(/>\s+</g, "><").trim()).toBe(
+      moteurMarkdown()
+        .renderMarkdown(TEXTE + " fini.\n")
+        .replace(/>\s+</g, "><")
+        .trim(),
+    );
+  });
+
+  it("le texte final plus court ou différent garde les blocs de tête et affiche le texte final", async () => {
+    const msg = flux({}, "Un.\n\nDeux.\n\nTrois en cours");
+    const { hote, etat } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    const premier = racine.children[0];
+    const final = "Un.\n\nDeux modifié.\n\nQuatre.\n";
+    etat.value = fin(msg, final);
+    await nextTick();
+    expect(racine.children[0]).toBe(premier);
+    expect(racine.textContent).toContain("Deux modifié.");
+    expect(racine.textContent).not.toContain("Trois");
+    expect(racine.textContent).toContain("Quatre.");
+    expect(racine.hasAttribute("aria-busy")).toBe(false);
+  });
+
+  it("un message dont le texte ne correspond plus à ses blocs repasse au rendu complet", async () => {
+    const msg = fin(flux({}, "Un.\n\nDeux."), "Un.\n\nDeux.");
+    const { hote, etat } = monter(msg);
+    expect(hote.firstElementChild?.children.length).toBe(2);
+    etat.value = { ...msg, content: "Autre texte." };
+    await nextTick();
+    expect(hote.textContent).toBe("Autre texte.\n");
+    expect(hote.firstElementChild?.children.length).toBe(1);
+  });
+
+  it("recherche : les blocs gardés sont surlignés sans être reconstruits", async () => {
+    const msg = fin(flux({}, "Un monde.\n\nDeux mondes."), "Un monde.\n\nDeux mondes.");
+    const { hote, q } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    const blocs = [...racine.children];
+    q.value = "monde";
+    await nextTick();
+    expect(racine.querySelectorAll("mark.elpis-search-hl").length).toBe(2);
+    expect([...racine.children]).toEqual(blocs);
+    q.value = "";
+    await nextTick();
+    expect(racine.querySelector("mark")).toBeNull();
+  });
+
+  it("à la fin, les blocs spéciaux sont enrichis en place, sans toucher aux autres blocs", async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>';
+    const texte = "Avant.\n\n```svg\n" + svg + "\n```\n\nAprès";
+    const msg = flux({}, texte);
+    const { hote, etat } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    const avant = racine.children[0];
+    expect(racine.querySelector(".svg-render")).toBeNull();
+    etat.value = fin(msg, texte + ".\n");
+    await nextTick();
+    expect(racine.children[0]).toBe(avant);
+    expect(racine.querySelector(".svg-render svg")).not.toBeNull();
+    expect(hote.firstElementChild).toBe(racine);
+  });
+
+  it("une définition de lien qui arrive pendant le flux réécrit les blocs concernés", async () => {
+    let msg = flux({}, "Voir [la doc][d].\n\nUn paragraphe.\n\nFin");
+    const { hote, etat } = monter(msg);
+    const racine = hote.firstElementChild as HTMLElement;
+    expect(racine.querySelector("a")).toBeNull();
+    msg = flux(msg, "Voir [la doc][d].\n\nUn paragraphe.\n\n[d]: https://exemple.test/doc\n\nFin");
+    etat.value = msg;
+    await nextTick();
+    expect(racine.querySelector("a")?.getAttribute("href")).toBe("https://exemple.test/doc");
   });
 });
 

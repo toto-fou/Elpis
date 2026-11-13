@@ -436,6 +436,8 @@ export function setupChat(
     recevoirNarration: rendu.recevoirNarration,
     abandonnerFlux: rendu.abandonnerFlux,
     applyPreRender: rendu.applyPreRender,
+    applyStreamRender: rendu.applyStreamRender,
+    figerCorps: rendu.figerCorps,
     flushShellPend: rendu.flushShellPend,
     armerShell: rendu.armerShell,
     shellFoldPend: rendu.shellFoldPend,

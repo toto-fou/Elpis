@@ -774,18 +774,19 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       return;
     }
     // Stop pendant les outils sans texte : même marqueur que le serveur (la bulle reste alignée sur la base).
+    const contenu = texte || (avecOutils && !reflexion ? "_(génération interrompue)_" : "");
     msgs[li] = Object.assign(
       {},
       cur,
       {
-        content: texte || (avecOutils && !reflexion ? "_(génération interrompue)_" : ""),
+        content: contenu,
         _pendingPreContent: "",
         _pendingToolThinking: "",
         isStreaming: false,
         isTruncated: !reflexion,
         _toolImageProgress: null,
       },
-      STREAM_RENDER_CLEAR,
+      l.figerCorps(cur, contenu),
       PRE_RENDER_CLEAR,
     );
   }

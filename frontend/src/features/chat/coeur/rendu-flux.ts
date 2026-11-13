@@ -126,6 +126,12 @@ export function creerRenduFlux(c: CoeurChat) {
     return Object.assign({ _pendingPreContent: text }, applyIncrementalRender(cur, text, "_pp", false));
   }
 
+  // Fin du corps (final, Stop) : le bloc actif est figé avec les autres, le message garde ses blocs.
+  function figerCorps(cur: MessageChat, contenu: string): Objet {
+    const r = md.terminerFlux(contenu, (cur._mdFlux as EtatFlux | null | undefined) ?? null);
+    return r ? Object.assign(champsRendu(r, "_md", false), { _modelLoad: null }) : { ...STREAM_RENDER_CLEAR };
+  }
+
   // ── Battement : une boucle d'images pour les trois tampons et la sortie shell ──
   let image: number | null = null;
   let minuterie: ReturnType<typeof setTimeout> | null = null;
@@ -470,6 +476,7 @@ export function creerRenduFlux(c: CoeurChat) {
     settleScrollBottom,
     applyStreamRender,
     applyPreRender,
+    figerCorps,
     flushThinkBuf,
     stopThinkFlush,
     flushPreContentBuf,

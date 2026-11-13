@@ -81,6 +81,8 @@ export function configurerAnalyseur(analyseur: Analyseur, purifier: (html: unkno
 export interface MoteurMarkdown {
   renderMarkdown(text: string | null | undefined): string;
   renderMarkdownHighlight(text: string | null | undefined, query: string | null | undefined): string;
+  /** Surligne la requête dans un HTML déjà rendu (blocs d'un message qui a gardé ses blocs). */
+  surlignerHtml(html: string, query: string | null | undefined): string;
   renderStreamingActive(md: string, liens?: Liens): string;
   renderMarkdownLive(text: string | null | undefined): string;
   /** Avance la découpe d'un texte en flux ; l'état est repris si `texte` ne prolonge pas le texte sur lequel il repose. */
@@ -313,6 +315,7 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
   return {
     renderMarkdown,
     renderMarkdownHighlight,
+    surlignerHtml,
     renderStreamingActive,
     renderMarkdownLive,
     avancerFlux,

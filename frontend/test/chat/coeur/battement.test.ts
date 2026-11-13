@@ -460,3 +460,92 @@ describe("battement : une écriture de défilement par image", () => {
     stop();
   });
 });
+
+describe("battement : le corps garde ses blocs à la fin", () => {
+  const FIN = { type: "final", chat_id: "c1", run_ids: [], metrics: null, persisted: true };
+  const TEXTE = "Un paragraphe.\n\nDeux paragraphes.\n\n- a\n- b\n\nTrois";
+
+  async function diffuser(api: Api): Promise<void> {
+    await contenu(api, TEXTE);
+    await image(60);
+  }
+
+  it("final : le bloc actif est figé avec les autres, le message garde sa liste de blocs", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    const avant = bulle(r)?._mdBlocks ?? [];
+    expect(avant.length).toBeGreaterThan(0);
+    expect(bulle(r)?._mdActiveHtml).not.toBe("");
+    await api.handleStreamEvent({ ...FIN, assistant: "" });
+    const m = bulle(r);
+    expect(m?.isStreaming).toBe(false);
+    expect(m?.content).toBe(TEXTE);
+    expect(m?._mdActiveHtml).toBe("");
+    expect(m?._mdFlux?.source).toBe(TEXTE);
+    expect((m?._mdBlocks ?? []).map((b) => b.html).join("")).toBe(moteurMarkdown().renderMarkdown(TEXTE));
+    (m?._mdBlocks ?? []).slice(0, avant.length).forEach((b, i) => expect(b).toBe(avant[i]));
+    stop();
+  });
+
+  it("final : le texte du serveur plus long réutilise les blocs figés et rend le texte du serveur", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    const avant = bulle(r)?._mdBlocks ?? [];
+    const serveur = TEXTE + " et la fin.\n\nQuatre.\n";
+    await api.handleStreamEvent({ ...FIN, assistant: serveur });
+    const m = bulle(r);
+    expect(m?.content).toBe(serveur);
+    expect(m?._mdFlux?.source).toBe(serveur);
+    expect((m?._mdBlocks ?? []).map((b) => b.html).join("")).toBe(moteurMarkdown().renderMarkdown(serveur));
+    avant.forEach((b, i) => expect(m?._mdBlocks?.[i]).toBe(b));
+    stop();
+  });
+
+  it("Stop : le message arrêté garde ses blocs", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    api.stopGeneration();
+    const m = bulle(r);
+    expect(m?.isStreaming).toBe(false);
+    expect(m?._mdFlux?.source).toBe(m?.content);
+    expect((m?._mdBlocks ?? []).map((b) => b.html).join("")).toBe(
+      moteurMarkdown().renderMarkdown(m?.content),
+    );
+    stop();
+  });
+
+  it("remplacement du texte : les blocs de tête inchangés sont gardés, la suite est redécoupée", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    const tete = [...(bulle(r)?._mdBlocks ?? [])];
+    expect(tete.length).toBeGreaterThan(1);
+    const remplace = TEXTE.replace("Trois", "Tout autre texte.\n\nFin");
+    await api.handleStreamEvent({ type: "content_replace", text: remplace });
+    const m = bulle(r);
+    expect(m?.isStreaming).toBe(true);
+    expect(m?.content).toBe(remplace);
+    tete.forEach((b, i) => expect(m?._mdBlocks?.[i]).toBe(b));
+    expect(m?._mdFlux?.source).toBe(remplace);
+    stop();
+  });
+
+  it("erreur : les blocs sont retirés, le corps repasse au rendu complet", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    await api.handleStreamEvent({ type: "error", text: "boum" });
+    const m = bulle(r);
+    expect(m?.isStreaming).toBe(false);
+    expect(m?._mdBlocks).toBeNull();
+    expect(m?._mdFlux).toBeNull();
+    stop();
+  });
+
+  it("pièces jointes dans le texte : aucun bloc gardé", async () => {
+    const { api, r, stop } = monter();
+    await contenu(api, "--- FILE: a.txt ---\nx\n--- END FILE ---\nTexte");
+    await image(10);
+    await api.handleStreamEvent({ ...FIN, assistant: "" });
+    expect(bulle(r)?._mdBlocks).toBeNull();
+    stop();
+  });
+});

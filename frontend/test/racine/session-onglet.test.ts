@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { creerSessionOnglet } from "../../src/app/racine/session-onglet";
 import type { MessageChat } from "../../src/features/chat/coeur/types";
+import { moteurMarkdown } from "../../src/features/chat/rendu/instance";
 
 afterEach(() => sessionStorage.clear());
 
@@ -54,6 +55,28 @@ describe("instantané de l'onglet", () => {
       errorKind: "network",
     });
     expect(repris.toolSteps?.length).toBe(1);
+  });
+
+  it("n'enregistre pas les champs d'affichage du flux : le message repris se rend en entier", () => {
+    const m = moteurMarkdown();
+    const r = m.terminerFlux("Un.\n\nDeux.\n", null);
+    const msg = {
+      role: "assistant",
+      content: "Un.\n\nDeux.\n",
+      _mdBlocks: r?.etat.blocs,
+      _mdFlux: r?.etat,
+      _mdActiveHtml: "",
+    } as unknown as MessageChat;
+    const { dep, s } = monter([msg]);
+    s.sauverSession();
+    const brut = sessionStorage.getItem(Object.keys(sessionStorage)[0] ?? "") ?? "";
+    expect(brut).toContain("Un.");
+    expect(brut).not.toMatch(/_mdBlocks|_mdFlux|_mdActiveHtml|<p>/);
+    dep.messages.value = [];
+    s.restaurerSession();
+    const repris = dep.messages.value[0] as MessageChat;
+    expect(repris.content).toBe("Un.\n\nDeux.\n");
+    expect(repris._mdBlocks).toBeUndefined();
   });
 
   it("relit les captures du navigateur sur le serveur, rattachées à leur étape", () => {

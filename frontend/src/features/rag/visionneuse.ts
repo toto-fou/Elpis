@@ -150,10 +150,11 @@ export function creerVisionneuse(dep: DepsVisionneuse) {
     cache.clear();
   }
 
-  function remiseAZero(): void {
+  /** Tout à zéro ; avec `garderPage`, l'image affichée reste en place (atténuée) jusqu'à la suivante, sans surlignage. */
+  function remiseAZero(garderPage = false): void {
     page.etat = "inactif";
     page.num = null;
-    page.url = "";
+    if (!garderPage) page.url = "";
     page.boites = [];
     page.approximatif = false;
     page.sansSurlignage = false;
@@ -349,7 +350,7 @@ export function creerVisionneuse(dep: DepsVisionneuse) {
     const s = source.value;
     if (s === null) return;
     const jeton = ++sequence;
-    remiseAZero();
+    remiseAZero(true);
     droit.value = droitSources(s.passage.collection_id, dep.collections());
     if (droit.value === "inconnu") {
       await resoudreDroit(s, jeton);

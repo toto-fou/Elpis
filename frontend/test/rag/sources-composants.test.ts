@@ -358,6 +358,52 @@ describe("visionneuse", () => {
     expect(b.rg.sources.visionneuse.numero).toBe(4);
   });
 
+  it("changer de source : la page affichée reste, atténuée et sans surlignage, jusqu'à la suivante", async () => {
+    let lib: (r: Response) => void = () => undefined;
+    let appel = 0;
+    const image = (): Response =>
+      new Response(new Blob(["RIFFxxxxWEBP"]), { status: 200, headers: { "X-Rag-Dpi": "110" } });
+    const b = await monter({
+      composants: [VisionneuseSource],
+      api: {
+        localiser: vi.fn(async () =>
+          ok({
+            page: 8,
+            boxes: [[8, 100, 200, 300, 260] as [number, number, number, number, number]],
+            score: 1,
+            page_width: 595,
+            page_height: 842,
+          }),
+        ),
+      },
+      fetchAuth: () =>
+        ++appel === 2
+          ? new Promise<Response>((r) => {
+              lib = r;
+            })
+          : Promise.resolve(image()),
+    });
+    await b.rg.sources.voir(SOURCES[1] as never, 1);
+    await b.attendre();
+    const img = b.q<HTMLImageElement>("[data-rag-page] img") as HTMLImageElement;
+    const avant = img.getAttribute("src");
+    // Source 4 : même document, page 8, lue sur le réseau.
+    b.qa(".rag-viewer__nav .rag-cite")[3]?.click();
+    await b.attendre();
+    const papier = b.q("[data-rag-page]") as HTMLElement;
+    expect(b.q("[data-rag-page] img")).toBe(img);
+    expect(img.getAttribute("src")).toBe(avant);
+    expect(papier.classList.contains("is-attente")).toBe(true);
+    expect(papier.getAttribute("aria-busy")).toBe("true");
+    expect(b.qa("[data-rag-hl]")).toHaveLength(0);
+    expect(b.q(".rag-viewer__avis")).toBeNull();
+    lib(image());
+    await b.attendre();
+    expect(b.q("[data-rag-page] img")).toBe(img);
+    expect(img.getAttribute("src")).not.toBe(avant);
+    expect(papier.classList.contains("is-attente")).toBe(false);
+  });
+
   it("lecteur sans ouverture : pas de bascule Page/Texte ni d'original, une phrase claire, le passage cité", async () => {
     const lecteur = partagee(1, "Sophie Laurent", { name: "Procédures réseau", allow_source_open: false });
     const b = await monter({

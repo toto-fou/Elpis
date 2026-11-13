@@ -374,7 +374,10 @@ body.elpis-palette-argile:not(.elpis-app-dark) .rag-cite.is-on { color: var(--te
 .rag-viewer__lien { margin-left: 6px; background: transparent; border: 0; padding: 0 2px; font: inherit; font-weight: 500; color: var(--accent-text-strong); cursor: pointer; text-decoration: underline; }
 .rag-viewer__note { width: 100%; margin: 0; font-size: 12.5px; color: var(--text-600); }
 .rag-viewer__pager { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-700); flex-shrink: 0; }
-.rag-paper { position: relative; width: min(100%, 560px); flex-shrink: 0; background: var(--surface); box-shadow: 0 1px 3px color-mix(in srgb, var(--text-900) 18%, transparent), 0 8px 24px -10px color-mix(in srgb, var(--text-900) 30%, transparent); }
+.rag-paper { position: relative; width: min(100%, 560px); flex-shrink: 0; background: var(--surface); box-shadow: 0 1px 3px color-mix(in srgb, var(--text-900) 18%, transparent), 0 8px 24px -10px color-mix(in srgb, var(--text-900) 30%, transparent); transition: opacity var(--duree) var(--courbe-fondu); }
+/* Page suivante en route : la précédente s'atténue, après un court délai pour qu'une page déjà lue ne clignote pas. */
+.rag-paper.is-attente { opacity: .5; transition-delay: var(--duree-courte); }
+@media (prefers-reduced-motion: reduce) { .rag-paper { transition-duration: 150ms; } }
 .rag-paper img { display: block; width: 100%; height: auto; user-select: none; }
 /* La page rendue est toujours blanche : le surlignage est un surligneur (jetons --hl-*), visible même quand l'accent du skin est clair. */
 .rag-paper__hl { position: absolute; border-radius: 2px; background: var(--hl-bg); mix-blend-mode: multiply; box-shadow: 0 0 0 1px color-mix(in srgb, var(--hl-fg) 45%, transparent); pointer-events: none; }

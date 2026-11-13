@@ -346,6 +346,37 @@ describe("navigation", () => {
     expect(v.echap()).toBe(false);
   });
 
+  it("passer à une autre source : la page affichée reste, sans surlignage, jusqu'à l'arrivée de la suivante", async () => {
+    let lib: (r: Response) => void = () => undefined;
+    let appel = 0;
+    const { v } = monter({
+      fetchAuth: () =>
+        ++appel === 2
+          ? new Promise<Response>((r) => {
+              lib = r;
+            })
+          : Promise.resolve(imageWebp()),
+    });
+    const autre = source(3, { collectionId: collection(1).id, page: 9, boxes: [[9, 10, 20, 30, 40]] });
+    await v.ouvrir(avecBoites(2), [avecBoites(2), autre]);
+    v.imageChargee(909, 1286);
+    const premiere = v.page.url;
+    expect(v.surlignages.value).toHaveLength(1);
+    const suite = v.aller(3);
+    await vider();
+    expect(v.page.etat).toBe("chargement");
+    expect(v.page.url).toBe(premiere);
+    expect(v.page.num).toBeNull();
+    expect(v.surlignages.value).toEqual([]);
+    lib(imageWebp());
+    await suite;
+    expect(v.page.etat).toBe("pret");
+    expect(v.page.num).toBe(9);
+    expect(v.page.url).not.toBe(premiere);
+    v.fermer();
+    expect(v.page.url).toBe("");
+  });
+
   it("une réponse tardive d'une source précédente est ignorée", async () => {
     let lib: (r: Response) => void = () => undefined;
     const attente = new Promise<Response>((r) => {

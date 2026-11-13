@@ -194,7 +194,7 @@ const surImage = (e: Event): void => {
 
     <div class="rag-viewer__body" data-rag-corps>
       <template v-if="mode === 'page' && !vis.introuvable">
-        <div v-if="vis.page.etat === 'chargement'" class="rag-viewer__avis" role="status">
+        <div v-if="vis.page.etat === 'chargement' && !vis.page.url" class="rag-viewer__avis" role="status">
           <i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Chargement de la page…
         </div>
         <div
@@ -210,17 +210,25 @@ const surImage = (e: Event): void => {
             </button>
           </div>
         </div>
-        <template v-else-if="vis.page.etat === 'pret'">
-          <p v-if="vis.page.sansSurlignage" class="rag-viewer__note">
-            Le passage n’a pas pu être situé exactement dans la page : lisez-le dans l’onglet Texte.
-          </p>
-          <p v-else-if="vis.page.approximatif" class="rag-viewer__note">
-            Surlignage approximatif : le passage a été retrouvé dans la page par son texte.
-          </p>
-          <div class="rag-paper" data-rag-page>
+        <template v-else-if="vis.page.url">
+          <template v-if="vis.page.etat === 'pret'">
+            <p v-if="vis.page.sansSurlignage" class="rag-viewer__note">
+              Le passage n’a pas pu être situé exactement dans la page : lisez-le dans l’onglet Texte.
+            </p>
+            <p v-else-if="vis.page.approximatif" class="rag-viewer__note">
+              Surlignage approximatif : le passage a été retrouvé dans la page par son texte.
+            </p>
+          </template>
+          <!-- La page précédente reste à sa taille, atténuée, jusqu'à l'arrivée de la suivante. -->
+          <div
+            class="rag-paper"
+            :class="{ 'is-attente': vis.page.etat !== 'pret' }"
+            :aria-busy="vis.page.etat !== 'pret'"
+            data-rag-page
+          >
             <img
               :src="vis.page.url"
-              :alt="`Page ${vis.page.num} du document ${passage.document_name}`"
+              :alt="vis.page.num === null ? '' : `Page ${vis.page.num} du document ${passage.document_name}`"
               draggable="false"
               @load="surImage"
             />

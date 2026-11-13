@@ -157,16 +157,11 @@ describe("mouvement réduit", () => {
     }
   });
 
-  it.each(ENTREE_MARKUP.filter((n) => n !== "tool-detail"))(
-    "transition « %s » : citée en fondu d'opacité seul",
-    (nom) => {
-      const regle = REDUIT.find((r) =>
-        r.selecteur.split(",").some((s) => s.trim() === `.${nom}-enter-active`),
-      );
-      expect(regle, `.${nom}-enter-active absente du bloc`).toBeDefined();
-      expect(declarations(regle?.corps ?? "", /^transition-property$/)).toEqual(["opacity"]);
-    },
-  );
+  it.each(ENTREE_MARKUP)("transition « %s » : citée en fondu d'opacité seul", (nom) => {
+    const regle = REDUIT.find((r) => r.selecteur.split(",").some((s) => s.trim() === `.${nom}-enter-active`));
+    expect(regle, `.${nom}-enter-active absente du bloc`).toBeDefined();
+    expect(declarations(regle?.corps ?? "", /^transition-property$/)).toEqual(["opacity"]);
+  });
 
   it("les décalages d'entrée et de sortie des transitions nommées sont posés hors mouvement réduit", () => {
     const etats = HORS_REDUIT.filter((r) => /-(enter-from|leave-to)\b/.test(r.selecteur));
@@ -202,7 +197,7 @@ describe("mouvement réduit", () => {
   });
 });
 
-describe("jetons de mouvement", () => {
+describe("transitions nommées : jetons et mise en page", () => {
   const RACINE = REGLES.find((r) => r.f === "css/style.css" && r.selecteur === ":root")?.corps ?? "";
   const jeton = (nom: string): string => new RegExp(`${nom}:\\s*([^;]+);`).exec(RACINE)?.[1]?.trim() ?? "";
 
@@ -221,6 +216,19 @@ describe("jetons de mouvement", () => {
     for (const r of concernees) {
       for (const v of declarations(r.corps, /^transition(-duration)?$/)) {
         expect(durees(v), `${r.f} ${r.selecteur} : ${v}`).toEqual([]);
+      }
+    }
+  });
+
+  it("le détail d'un outil n'anime aucune propriété de mise en page", () => {
+    const regles = REGLES.filter((r) => /\.tool-detail-/.test(r.selecteur));
+    expect(regles.length).toBeGreaterThanOrEqual(3);
+    for (const r of regles) {
+      for (const v of declarations(
+        r.corps,
+        /^(transition|transition-property|max-height|height|overflow)$/,
+      )) {
+        expect(v, `${r.f} ${r.selecteur}`).not.toMatch(/height|width|grid|margin|padding|^hidden$/);
       }
     }
   });

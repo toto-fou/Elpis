@@ -1288,7 +1288,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
     /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
     .popover-enter-active, .popover-leave-active,
     .popover-up-enter-active, .popover-up-leave-active,
-    .tool-detail-enter-active, .tool-detail-leave-active {
+    .tool-detail-enter-active {
         transition-property: opacity !important;
         transition-duration: min(var(--duree-courte), 150ms) !important;
     }

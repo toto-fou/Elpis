@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 /* frontend/src/styles/chat.css — styles de la page de chat sortis d'index.html : détail d'outil, plein écran de l'éditeur, puces de fichier. */
-.tool-detail-enter-active, .tool-detail-leave-active { transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu), max-height var(--duree) var(--courbe-fondu); }
-.tool-detail-enter-from, .tool-detail-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: no-preference) {
-    .tool-detail-enter-active, .tool-detail-leave-active { max-height: 400px; overflow: hidden; }
-    .tool-detail-enter-from, .tool-detail-leave-to { transform: translateY(-4px); max-height: 0; }
-}
+/* Détail d'un outil : entrée en fondu avec un léger décalage (hors mouvement réduit) ; la hauteur n'est pas animée, la sortie est immédiate. */
+.tool-detail-enter-active { transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu); }
+.tool-detail-leave-active { transition: none; }
+.tool-detail-enter-from { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) { .tool-detail-enter-from { transform: translateY(-4px); } }
 .editor-fullscreen { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; border: none !important; }
 
 /* Puce de fichier : forme de document à coin plié. */

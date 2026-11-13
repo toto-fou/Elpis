@@ -35,6 +35,7 @@ export interface DependancesModale {
   startNewTemplate(): void;
   stopSandboxPolling(): void;
   reinitialisations: readonly (() => void)[];
+  /** États qui ne s'enregistrent pas seuls : la fermeture demande de confirmer leur abandon. */
   etatsSales: readonly { readonly value: boolean }[];
 }
 
@@ -199,10 +200,9 @@ export function creerModale(
     await ouverture;
   }
 
-  /** Seul `true` strict signifie « ne pas recharger » (un événement DOM, truthy, ne le signifie pas). */
+  /** Ferme aussitôt, l'écriture en attente part derrière puis le document est relu ; seul `true` strict saute confirmation et relecture. */
   async function closeSettings(sauterRecharge?: unknown): Promise<void> {
     const saute = sauterRecharge === true;
-    await persistance.viderEnAttente();
     if (!saute && dep.etatsSales.some((e) => e.value)) {
       const ok = await openConfirm(
         "Abandonner les modifications ?",
@@ -223,13 +223,7 @@ export function creerModale(
     } catch {
       /* au mieux */
     }
-    if (!saute) {
-      try {
-        void loadSettingsData();
-      } catch {
-        /* au mieux */
-      }
-    }
+    void persistance.viderEnAttente().then(() => (saute ? null : loadSettingsData()));
   }
 
   async function changeMyPassword(): Promise<void> {

@@ -106,7 +106,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
         mcp.mcpSearch.value = "";
       },
     ],
-    etatsSales: [persistance.settingsDirty, memoire.memoryDirty, prompts.templateDirty, secrets.sale],
+    etatsSales: [memoire.memoryDirty, prompts.templateDirty, secrets.sale],
   });
   liens.closeSettings = (sauter) => modale.closeSettings(sauter);
 

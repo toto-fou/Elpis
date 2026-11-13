@@ -115,14 +115,15 @@ describe("enregistrement automatique des Paramètres", () => {
     expect(toasts.at(-1)?.type).toBe("error");
   });
 
-  it("la fermeture enregistre d'abord ce qui est en attente", async () => {
+  it("la fermeture est immédiate et enregistre quand même ce qui est en attente", async () => {
     const { R, puts, settings } = monter({ valeur: false });
     await R.openSettings();
     settings.value.assistant_name = "Vite";
     await nextTick();
-    await R.closeSettings();
-    expect(puts).toEqual([{ assistant_name: "Vite" }]);
+    void R.closeSettings();
     expect(R.showSettingsModal.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(puts).toEqual([{ assistant_name: "Vite" }]);
   });
 
   it("rien n'est écrit tant que la fenêtre est fermée", async () => {

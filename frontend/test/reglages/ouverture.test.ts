@@ -20,8 +20,9 @@ function monter(initial: ReglagesApp) {
     inputMessage: ref(""),
     inputRef: ref(null),
   };
+  const toasts: string[] = [];
   const ctx: CtxReglages = {
-    showToast: () => undefined,
+    showToast: (m, type) => void toasts.push(`${type ?? "success"}: ${m}`),
     fetchAuth: (url, options) => fetch(url, options),
     openConfirm: () => Promise.resolve(true),
     openPrompt: () => Promise.resolve(null),
@@ -29,13 +30,13 @@ function monter(initial: ReglagesApp) {
   const R = setupReglages(Vue, refs, ctx, new ClientHttp(new GestionnaireSession(), fetch));
   const urls = (): string[] => appels.map((a) => `${a.init?.method ?? "GET"} ${a.url.split("?")[0]}`);
   /** Répond à la première requête encore en attente dont l'URL commence par `debut`. */
-  const repondre = (debut: string, corps: unknown, methode = "GET"): void => {
+  const repondre = (debut: string, corps: unknown, methode = "GET", statut = 200): void => {
     const a = appels.find((x) => x.url.startsWith(debut) && (x.init?.method ?? "GET") === methode);
     if (!a) throw new Error(`aucune requête ${methode} ${debut}`);
     appels.splice(appels.indexOf(a), 1);
-    a.repondre(json(corps));
+    a.repondre(json(corps, statut));
   };
-  return { R, settings, urls, repondre };
+  return { R, settings, urls, repondre, toasts };
 }
 
 describe("ouverture des Paramètres", () => {
@@ -109,5 +110,39 @@ describe("ouverture des Paramètres", () => {
     await vider();
     expect(urls()).toContain("GET /api/memory/state");
     expect(urls()).not.toContain("GET /api/usage/me");
+  });
+});
+
+describe("fermeture des Paramètres", () => {
+  it("Échap ferme dans la même tâche ; l'écriture en attente part, la relecture attend sa fin, l'échec est signalé", async () => {
+    const { R, settings, urls, repondre, toasts } = monter({});
+    const ouverture = R.openSettings();
+    repondre("/api/settings", { assistant_name: "Elpis" });
+    await ouverture;
+    settings.value.assistant_name = "Vite";
+    await nextTick();
+    void R.closeSettings();
+    expect(R.showSettingsModal.value).toBe(false);
+    await vider();
+    const surDocument = (): string[] => urls().filter((u) => u.endsWith(" /api/settings"));
+    expect(surDocument()).toEqual(["PUT /api/settings"]);
+    repondre("/api/settings", { detail: "non" }, "PUT", 500);
+    await vider();
+    expect(settings.value.assistant_name).toBe("Elpis");
+    expect(toasts.at(-1)).toMatch(/^error: /);
+    expect(surDocument()).toEqual(["GET /api/settings"]);
+  });
+
+  it("un gabarit en cours de saisie, qui ne s'enregistre pas seul, demande encore de confirmer", async () => {
+    const { R, repondre } = monter({});
+    const ouverture = R.openSettings();
+    repondre("/api/settings", {});
+    await ouverture;
+    R.startNewTemplate();
+    if (R.templateForm.value) R.templateForm.value.name = "brouillon";
+    const fermeture = R.closeSettings();
+    expect(R.showSettingsModal.value).toBe(true);
+    await fermeture;
+    expect(R.showSettingsModal.value).toBe(false);
   });
 });

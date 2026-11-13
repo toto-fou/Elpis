@@ -78,7 +78,6 @@ const CLES_ANCIENNE_SURFACE = [
   "showPasswordChange",
   "passwordForm",
   "APP_SKINS",
-  "skinsDefaut",
   "loadAppSkins",
   "skinCourant",
   "nomMarque",

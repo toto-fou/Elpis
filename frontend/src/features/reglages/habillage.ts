@@ -65,7 +65,8 @@ export function lireMemoire(): MemoireHabillage | null {
 }
 
 /** Réglages d'apparence de départ : ceux du dernier habillage posé, sinon Elpis clair. */
-export function reglagesHabillage(m: MemoireHabillage | null = lireMemoire()) {
+export function reglagesHabillage() {
+  const m = lireMemoire();
   return {
     skin: m?.id ?? "elpis",
     skin_palette: m?.p ?? "",

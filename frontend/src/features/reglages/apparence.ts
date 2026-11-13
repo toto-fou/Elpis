@@ -57,7 +57,7 @@ export function creerApparence(
 ) {
   const { computed, ref, watch } = vue;
   const APP_SKINS: Ref<SkinApp[]> = ref(SKINS_REPLI.map((s) => ({ ...s })));
-  const skinsDefaut = ref("elpis");
+  let skinDefaut = "elpis";
 
   /** Lit `/api/skins` (skins activés) ; faux si l'appel échoue. */
   async function loadAppSkins(): Promise<boolean> {
@@ -67,7 +67,7 @@ export function creerApparence(
       const d = objet(await corpsJson(r));
       const skins = liste(d["skins"]).filter(estObjet);
       if (skins.length) APP_SKINS.value = skins as SkinApp[];
-      if (typeof d["default"] === "string") skinsDefaut.value = d["default"];
+      if (typeof d["default"] === "string") skinDefaut = d["default"];
       return true;
     } catch {
       return false;
@@ -178,7 +178,7 @@ export function creerApparence(
     const actif = settings.value.skin === skin.id;
     if (!(await supprimerSkinPerso(skin.id.slice(PREFIXE_PERSO.length))))
       return ctx.showToast("Suppression impossible", "error");
-    if (actif) await setAppSkin(skinsDefaut.value);
+    if (actif) await setAppSkin(skinDefaut);
     ctx.showToast("Habillage supprimé");
   }
   /** Aperçu d'un habillage enregistré, dans la modale du chat. */
@@ -239,7 +239,6 @@ export function creerApparence(
 
   return {
     APP_SKINS,
-    skinsDefaut,
     loadAppSkins,
     skinCourant,
     paletteCourante,

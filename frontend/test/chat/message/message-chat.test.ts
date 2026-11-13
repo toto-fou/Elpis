@@ -2,7 +2,7 @@
 /** frontend/test/chat/message/message-chat.test.ts — ligne de message : en-tête et actions, édition, réflexion, pièces jointes, demande d'image, pied, incidents ; actions remontées par l'adaptateur. */
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App, VNode } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CLE_FIL, CLE_LISTE } from "../../../src/features/chat/page/domaines";
 import { CLE_PREFERENCES_CHAT } from "../../../src/features/reglages/affichage-chat";
@@ -172,6 +172,34 @@ describe("MessageChat", () => {
     d.open = true;
     d.dispatchEvent(new Event("toggle"));
     expect(appels.find((a) => a[0] === "setMsgUi")?.[2]).toEqual({ thinkingOpen: true });
+  });
+
+  it("« Copier » confirme sur place : coche et libellé « Réponse copiée » 1,5 s ; rien en cas d'échec", async () => {
+    vi.useFakeTimers();
+    try {
+      let reussite = true;
+      const hote = monter(
+        { role: "assistant", content: "Texte", metrics: {} },
+        contexte({ copyAssistantMessage: () => Promise.resolve(reussite) }),
+      );
+      const bouton = hote.querySelector("button[data-copier]") as HTMLButtonElement;
+      const etat = () => [
+        bouton.getAttribute("aria-label"),
+        bouton.querySelector("i")?.classList.contains("ph-check"),
+      ];
+      bouton.click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(etat()).toEqual(["Réponse copiée", true]);
+      expect(hote.querySelector("[role='status']")?.textContent).toBe("Réponse copiée");
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(etat()).toEqual(["Copier la réponse", false]);
+      reussite = false;
+      bouton.click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(etat()).toEqual(["Copier la réponse", false]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("réponse : réflexion en ligne « Réflexion · 3 s » dépliable à sa place, avant le corps", () => {

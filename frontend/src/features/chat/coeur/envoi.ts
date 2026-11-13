@@ -240,8 +240,9 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     return { ok: true, silent: true };
   }
 
-  async function copyAssistantMessage(contenu: string | null | undefined): Promise<void> {
-    if (!contenu) return;
+  // Vrai si la copie a réussi : le bouton le confirme sur place ; l'échec reste un toast.
+  async function copyAssistantMessage(contenu: string | null | undefined): Promise<boolean> {
+    if (!contenu) return false;
     const content = restaurerMarqueursTour(contenu);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(content);
@@ -255,9 +256,10 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
         document.execCommand("copy");
         document.body.removeChild(ta);
       }
-      ctx.showToast("Réponse copiée");
+      return true;
     } catch (err) {
       ctx.showToast("Impossible de copier : " + ((err instanceof Error && err.message) || ""), "error");
+      return false;
     }
   }
 

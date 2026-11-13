@@ -1,12 +1,33 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/studio/PageStudio.vue — page Studio : capture annotée d'une cible desktop, arbre UIA, inspecteur, mini-chat de pilotage, éditeur du script d'automatisation, exécution et rapport. -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { domaineStudio } from "../../features/studio/domaine";
+import CadreSurvolStudio from "./CadreSurvolStudio.vue";
+import InspecteurStudio from "./InspecteurStudio.vue";
 
 const sd = domaineStudio();
 const avance = computed(() => sd.studioExpert);
+
+const arbre = ref<HTMLElement | null>(null);
+let lignesSurvolees: Element[] = [];
+/** Surligne les lignes de l'élément survolé (sauf sélectionné) par leur classe, après chaque mise à jour : le survol ne re-rend pas la page. */
+function surlignerLigne([id, choisi]: readonly unknown[]): void {
+  for (const l of lignesSurvolees) l.classList.remove("bg-amber-50");
+  lignesSurvolees = [];
+  if (id === null || id === undefined || id === choisi || !arbre.value) return;
+  const cle = String(id).replace(/["\\]/g, "\\$&");
+  lignesSurvolees = Array.from(arbre.value.querySelectorAll(`[data-el-id="${cle}"]`));
+  for (const l of lignesSurvolees) l.classList.add("bg-amber-50");
+}
+watch(
+  [() => sd.hoveredElementId, () => sd.selectedElementId, () => sd.studioTreeRows, arbre],
+  surlignerLigne,
+  {
+    flush: "post",
+  },
+);
 
 function poserDefilement(el: unknown): void {
   sd.studioChatScrollEl = (el as HTMLElement | null) ?? null;
@@ -423,7 +444,12 @@ function poserSaisieModale(el: unknown): void {
             />
             <!-- Boxes d'éléments : UNIQUEMENT en mode Inspecter -->
             <g v-if="sd.studioStageMode === 'inspect'">
-              <g v-for="el in sd.studioOverlayElements" :key="el.id">
+              <!-- Le survol n'est pas lu ici : chaque boîte ne se redessine qu'à la sélection ou à une nouvelle trame -->
+              <g
+                v-for="el in sd.studioOverlayElements"
+                :key="el.id"
+                v-memo="[el, el.id === sd.selectedElementId, sd.studioFrame]"
+              >
                 <!-- Grands cadres (fenêtre/conteneur) : NON dessinés en permanence + pointer-events:none → ils ne bloquent pas -->
                 <rect
                   :x="el.box[0]"
@@ -432,13 +458,13 @@ function poserSaisieModale(el: unknown): void {
                   :height="el.box[3] - el.box[1]"
                   :fill="sd.isContainerBox(el) ? 'none' : 'transparent'"
                   :stroke="
-                    sd.isContainerBox(el)
-                      ? el.id === sd.hoveredElementId || el.id === sd.selectedElementId
-                        ? sd.boxStroke(el)
-                        : 'none'
-                      : sd.boxStroke(el)
+                    el.id === sd.selectedElementId
+                      ? 'var(--accent)'
+                      : sd.isContainerBox(el)
+                        ? 'none'
+                        : 'var(--accent-300)'
                   "
-                  :stroke-width="el.id === sd.hoveredElementId || el.id === sd.selectedElementId ? 4 : 2"
+                  :stroke-width="el.id === sd.selectedElementId ? 4 : 2"
                   vector-effect="non-scaling-stroke"
                   :style="{
                     pointerEvents: sd.isContainerBox(el) ? 'none' : 'auto',
@@ -453,17 +479,8 @@ function poserSaisieModale(el: unknown): void {
                     }}{{ el.auto_id ? " · #" + el.auto_id : "" }} — clic pour agir
                   </title>
                 </rect>
-                <text
-                  v-if="el.id === sd.hoveredElementId"
-                  :x="el.box[0]"
-                  :y="Math.max(12, el.box[1] - 4)"
-                  :font-size="Math.max(11, (sd.studioFrame.imgH || 1000) / 55)"
-                  fill="#f59e0b"
-                  style="paint-order: stroke; stroke: #fff; stroke-width: 3px"
-                >
-                  {{ sd.elementDisplay(el) }}
-                </text>
               </g>
+              <CadreSurvolStudio />
             </g>
             <!-- Sélection de zone (rubber-band) -->
             <rect
@@ -509,73 +526,7 @@ function poserSaisieModale(el: unknown): void {
             </g>
           </svg>
           <!-- Inspecteur : l'élément sous le pointeur (le plus profond), son fil d'ancêtres -->
-          <div
-            v-if="sd.studioInspectInfo && sd.studioStageMode === 'inspect'"
-            class="absolute bottom-3 left-3 right-3 z-20 flex justify-center pointer-events-none"
-          >
-            <div
-              class="pointer-events-auto max-w-full bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-lg text-xs elpis-studio-inspector"
-            >
-              <div class="flex items-center gap-1 px-2.5 h-8 min-w-0">
-                <template v-for="c in sd.studioInspectInfo.crumbs" :key="c.id">
-                  <button
-                    :title="'Sélectionner ' + (c.role || '') + ' — ' + sd.elementDisplay(c)"
-                    class="text-slate-500 hover:text-blue-700 truncate max-w-[120px] shrink-0"
-                    @click="sd.selectStudioElement(c.id, true)"
-                  >
-                    {{ sd.elementDisplay(c) }}
-                  </button>
-                  <i class="ph ph-caret-right text-slate-300 text-xs shrink-0"></i>
-                </template>
-                <span
-                  class="font-semibold text-slate-800 truncate max-w-[200px]"
-                  :title="sd.elementDisplay(sd.studioInspectInfo.el)"
-                  >{{ sd.elementDisplay(sd.studioInspectInfo.el) }}</span
-                >
-                <span class="text-slate-400 shrink-0">· {{ sd.studioInspectInfo.el.role || "vision" }}</span>
-                <span class="w-px h-4 bg-slate-200 mx-1 shrink-0"></span>
-                <span
-                  class="text-xs font-semibold px-1 rounded shrink-0"
-                  :class="sd.qualityClass(sd.studioInspectInfo.quality)"
-                  :title="'Qualité de la cible : ' + sd.qualityLabel(sd.studioInspectInfo.quality)"
-                  >{{ sd.qualityLabel(sd.studioInspectInfo.quality) }}</span
-                >
-                <code
-                  class="font-mono text-xs text-slate-700 truncate max-w-[380px]"
-                  :title="sd.studioInspectInfo.target"
-                  >{{ sd.studioInspectInfo.target || "—" }}</code
-                >
-                <button
-                  title="Copier la cible"
-                  class="w-6 h-6 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center shrink-0"
-                  @click="sd.copyStudioTarget()"
-                >
-                  <i class="ph ph-copy"></i>
-                </button>
-                <button
-                  title="Fiche de l'élément"
-                  class="w-6 h-6 rounded flex items-center justify-center shrink-0"
-                  :class="
-                    sd.studioInspectOpen
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'hover:bg-slate-100 text-slate-400 hover:text-slate-700'
-                  "
-                  @click="sd.studioInspectOpen = !sd.studioInspectOpen"
-                >
-                  <i class="ph ph-info"></i>
-                </button>
-              </div>
-              <div
-                v-if="sd.studioInspectOpen"
-                class="border-t border-slate-100 px-2.5 py-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 max-h-40 overflow-y-auto custom-scrollbar"
-              >
-                <template v-for="row in sd.studioInspectRows" :key="row.k">
-                  <span class="text-slate-400">{{ row.k }}</span>
-                  <span class="font-mono text-slate-700 truncate" :title="row.v">{{ row.v }}</span>
-                </template>
-              </div>
-            </div>
-          </div>
+          <InspecteurStudio />
           <!-- Bandeau « armé » : clic droit → Glisser depuis ici → on attend la destination. -->
           <div
             v-if="sd.studioDragFrom"
@@ -722,7 +673,7 @@ function poserSaisieModale(el: unknown): void {
             }}</code>
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto p-1 custom-scrollbar">
+        <div ref="arbre" class="flex-1 overflow-y-auto p-1 custom-scrollbar">
           <div v-if="sd.studioElements.length === 0" class="text-center py-10 px-4">
             <i class="ph ph-tree-structure text-slate-300 text-2xl block mb-2"></i>
             <p v-if="!sd.studioFrame.imageUrl" class="text-xs text-slate-400">
@@ -739,18 +690,14 @@ function poserSaisieModale(el: unknown): void {
           >
             Aucun élément ne correspond.
           </div>
+          <!-- Survol posé par surlignerLigne, hors du rendu : chaque ligne ne se redessine qu'à la sélection ou à une nouvelle trame -->
           <div
             v-for="row in sd.studioTreeRows"
             :key="row.el.id"
+            v-memo="[row, row.el.id === sd.selectedElementId]"
             :data-el-id="row.el.id"
             class="flex items-center gap-1 pr-1.5 py-1 rounded-md cursor-pointer transition-colors"
-            :class="
-              row.el.id === sd.selectedElementId
-                ? 'bg-blue-50 ring-1 ring-blue-200'
-                : row.el.id === sd.hoveredElementId
-                  ? 'bg-amber-50'
-                  : 'hover:bg-slate-50'
-            "
+            :class="row.el.id === sd.selectedElementId ? 'bg-blue-50 ring-1 ring-blue-200' : ''"
             :style="{ paddingLeft: 4 + row.depth * 12 + 'px' }"
             @mouseenter="sd.highlightElement(row.el.id)"
             @mouseleave="sd.clearHighlight()"

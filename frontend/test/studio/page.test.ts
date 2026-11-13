@@ -22,6 +22,7 @@ function monter(opts: { expert: boolean; image: boolean; cibles?: number }) {
     studioFrame: { imageUrl: opts.image ? "blob:x" : "", imgW: 10, imgH: 10 },
     studioTargets: Array.from({ length: opts.cibles ?? 1 }, (_, i) => ({ name: `c${i}`, os: "linux" })),
     studioElements: [],
+    studioOverlayElements: [],
     studioLayers: [],
     studioLayerFiltered: [],
     studioTab: "assistant",

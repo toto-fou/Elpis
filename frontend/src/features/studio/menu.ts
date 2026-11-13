@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/studio/menu.ts — Annotation Studio : capture annotée d'une cible desktop (live par SSE ou à la demande), plans, inspecteur, arbre UIA en colonne, zoom et déplacement de la scène. */
-import { computed, getCurrentScope, nextTick, onScopeDispose, ref } from "vue";
+import { computed, getCurrentScope, markRaw, nextTick, onScopeDispose, ref, shallowRef } from "vue";
 import type { Ref } from "vue";
 
 import { anchorQuality, targetKwargs } from "../../modeles/automation-model.ts";
@@ -15,6 +15,7 @@ import {
   elementLayers,
   elementTreeRows,
   filterByLayers,
+  indexerElements,
   layerOrdinal,
   realName,
 } from "../../modeles/scenario-model.ts";
@@ -167,7 +168,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   const lireJson: LecteurBureau = ctx.lireJson ?? ((r) => jsonOuVide(r));
   const toast = (m: string, t?: string): void => ctx.showToast?.(m, t);
 
-  const studioFrame = ref<FrameStudio>(trameVide());
+  /** Trame toujours remplacée en entier : référence peu profonde, ses boîtes ne passent pas par les proxys de la réactivité. */
+  const studioFrame = shallowRef<FrameStudio>(trameVide());
   const studioTargets = ref<CibleStudio[]>([]);
   const selectedTarget = ref("");
   const studioPrompt = ref("");
@@ -195,6 +197,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const H = Number(f.imgH || 0);
     return (f.boxes || []).filter((b) => b && boxOnScreen(b.box, W, H));
   });
+  /** Index de l'arbre de la trame, partagé par l'inspecteur (chaque survol) et l'audit. */
+  const indexStudio = computed(() => indexerElements(studioElements.value));
 
   /** Un grand cadre (fenêtre, conteneur) couvre l'écran : jamais dessiné en permanence, seulement au survol. */
   function isContainerBox(el: ElementUi): boolean {
@@ -289,8 +293,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const el = studioInspectEl.value;
     if (!el) return null;
     const els = studioElements.value;
-    const crumbs = elementAncestors(els, el) as ElementStudio[];
-    const anchor = anchorFromElement(el, els);
+    const crumbs = elementAncestors(els, el, indexStudio.value) as ElementStudio[];
+    const anchor = anchorFromElement(el, els, indexStudio.value);
     const quality = anchorQuality(anchor);
     const target = targetKwargs(anchor);
     const info = { el, crumbs, anchor, quality, target, path: anchor.path || "" };
@@ -347,7 +351,9 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
 
   const studioAuditOpen = ref(false);
   /** Lignes complètes (chemins, voisins) lues seulement par le panneau ouvert et l'export ; le bouton lit les comptes. */
-  const studioAudit = computed(() => a11yAudit(studioElements.value) as unknown as AuditStudio);
+  const studioAudit = computed(
+    () => a11yAudit(studioElements.value, indexStudio.value) as unknown as AuditStudio,
+  );
   const studioAuditResume = computed(() => a11yAuditResume(studioElements.value));
   function toggleStudioAudit(): void {
     studioAuditOpen.value = !studioAuditOpen.value;
@@ -579,9 +585,11 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
       }
     }
     dernierBlob = blobUrl;
+    const boxes = Array.isArray(frame.boxes) ? frame.boxes : [];
+    for (const b of boxes) if (b && typeof b === "object") markRaw(b);
     studioFrame.value = {
       imageUrl: blobUrl,
-      boxes: Array.isArray(frame.boxes) ? frame.boxes : [],
+      boxes,
       imgW: Number(frame.img_w || frame.imgW || 0) || natW || 0,
       imgH: Number(frame.img_h || frame.imgH || 0) || natH || 0,
       target: frame.target || selectedTarget.value || "",
@@ -743,11 +751,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const n = Number(c || 0);
     return n > 0 ? `${Math.round(n * 100)}%` : "—";
   }
-  function boxStroke(el: ElementUi | null | undefined): string {
-    if (el && el.id === selectedElementId.value) return "var(--accent)";
-    if (el && el.id === hoveredElementId.value) return "var(--warn-soft)";
-    return "var(--accent-300)";
-  }
 
   const studioZoom = ref<"fit" | number>("fit");
   const studioPan = ref({ x: 0, y: 0 });
@@ -908,7 +911,7 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const els = studioElements.value;
     const el = els.find((e) => e && e.id === id);
     if (!el) return;
-    const anc = elementAncestors(els, el);
+    const anc = elementAncestors(els, el, indexStudio.value);
     if (anc.some((a) => treeCollapsed.value[String(a.id)])) {
       const c = Object.assign({}, treeCollapsed.value);
       for (const a of anc) delete c[String(a.id)];
@@ -1017,7 +1020,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     setDepthMax,
     layerLabel,
     fmtConfidence,
-    boxStroke,
     isContainerBox,
     studioZoom,
     studioPan,

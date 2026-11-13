@@ -13,6 +13,7 @@ releases ship without it.
 | `tests/perf/`, `tests/load/`, `tests/frontend/*-verify.mjs` | benchmarks and Playwright harnesses, run by hand |
 
 `npm run typecheck` and `npm run lint` cover the test files too.
+`tests/frontend/app-fluidity-verify.mjs` measures every gesture of both pages against the real core (latency to the painted answer, long tasks, slow frames, layout shifts, profile of the slowest); its header lists the options.
 `tests/README.md` (French) has the conventions of the kit.
 
 ## Environment

@@ -107,6 +107,22 @@ describe("module des routines", () => {
     s._liberer();
   });
 
+  it("dernière routine supprimée ailleurs : la page rouverte ne la montre plus", async () => {
+    let liste: unknown[] = [ROUTINE];
+    const { s } = monter((u) => {
+      if (u === "/api/routines") return json({ items: liste });
+      if (u === "/api/skills") return json(SKILLS);
+      return json({ items: [] });
+    });
+    await s.openRoutinesPage();
+    s.closeRoutinesPage();
+    liste = [];
+    await s.openRoutinesPage();
+    expect(s.routines.value).toHaveLength(0);
+    expect([s.routineEditMode.value, s.viewed.value?.id ?? null]).toEqual(["", null]);
+    s._liberer();
+  });
+
   it("enregistre une édition : charge utile complète et retour à la vue", async () => {
     let corps: Record<string, unknown> = {};
     const { s, toasts } = monter((u, i) => {

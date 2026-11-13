@@ -384,8 +384,11 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     const connue = routines.value[0];
     if (connue) viewRoutine(connue);
     await loadRoutines();
+    const choisie = selectedRoutineId.value;
+    if (routines.value.some((r) => r.id === choisie)) return;
     const premiere = routines.value[0];
-    if (premiere && !routines.value.some((r) => r.id === selectedRoutineId.value)) viewRoutine(premiere);
+    if (premiere) viewRoutine(premiere);
+    else if (choisie !== null) reinitialiserEditeur();
   }
   function closeRoutinesPage(): void {
     currentView.value = "chat";

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/code/PageCode.vue — page « Code » : sessions opencode (liste et transcript riche), composer avec menus /model, /session et slash, permissions, questions, appairage et jeton. -->
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 import { domaineCode } from "../../features/code/domaine";
 import LibelleVivant from "../communs/LibelleVivant.vue";
@@ -18,11 +18,14 @@ function poserSaisie(el: unknown): void {
 
 // Montée à la première visite puis masquée hors de la vue Code : on y retrouve la session ouverte, à la même hauteur.
 const visitee = ref(false);
+const visible = computed(() => cd.currentView === "code");
+// Masquée sans perdre sa mise en page : la réafficher ne recalcule ni les styles ni les positions du transcript.
+const MASQUEE = "visibility: hidden; content-visibility: hidden; pointer-events: none";
 let hauteur = 0;
 watch(
-  () => cd.currentView === "code",
-  (visible) => {
-    if (!visible) {
+  visible,
+  (vue) => {
+    if (!vue) {
       hauteur = cd.transcriptEl?.scrollTop ?? 0;
       return;
     }
@@ -39,7 +42,8 @@ watch(
 <template>
   <div
     v-if="visitee"
-    v-show="cd.currentView === 'code'"
+    :inert="!visible || undefined"
+    :style="visible ? undefined : MASQUEE"
     role="region"
     aria-label="Remote code — sessions opencode"
     class="elpis-code-page absolute inset-0 z-[45] bg-white flex flex-col"
@@ -360,7 +364,8 @@ watch(
           @scroll.passive="cd.codeTranscriptScroll"
         >
           <!-- Messages de la session — parts rendues par features/code/rendu.ts -->
-          <div class="mx-auto space-y-4" :style="{ maxWidth: cd.settings.chat_width + '%' }">
+          <!-- Écart en gap, pas en space-y (sélecteur ~) : monter des messages en tête ne restyle pas ceux d'en dessous -->
+          <div class="mx-auto flex flex-col gap-4" :style="{ maxWidth: cd.settings.chat_width + '%' }">
             <!-- Session en cours de lecture : squelettes ; le texte d'attente reste pour une session vraiment vide -->
             <div v-if="!cd.codeMessages.length && cd.codeChargementSession" role="status" class="space-y-4">
               <span class="sr-only">Chargement de la session…</span>

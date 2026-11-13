@@ -140,6 +140,23 @@ describe("PageCode : mise à jour d'un message", () => {
   });
 });
 
+describe("PageCode : hors de la vue Code", () => {
+  it("reste montée, masquée et inerte, puis réapparaît telle quelle", async () => {
+    const { hote, valeurs } = monter(transcript(4));
+    const page = hote.querySelector<HTMLElement>(".elpis-code-page");
+    valeurs["currentView"] = "chat";
+    await nextTick();
+    expect(hote.querySelector(".elpis-code-page")).toBe(page);
+    expect(page?.hasAttribute("inert")).toBe(true);
+    expect(page?.style.visibility).toBe("hidden");
+    expect(page?.textContent).toContain("Étape 3");
+    valeurs["currentView"] = "code";
+    await nextTick();
+    expect(page?.hasAttribute("inert")).toBe(false);
+    expect(page?.getAttribute("style")).toBeNull();
+  });
+});
+
 describe("PageCode : session en cours de lecture", () => {
   it("affiche des squelettes, pas le texte d'attente", () => {
     const { hote } = monter([], { codeChargementSession: true });

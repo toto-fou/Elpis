@@ -139,9 +139,11 @@ try {
         widthStyles.filter(s => /max-width:\s*\d+(\.\d+)?%/.test(s)).length >= 2);
 
     // ── Aller-retour chat → Code : la session reste ouverte, à la même hauteur ──
-    const hautAvant = await page.evaluate(() => {
+    // Défilement réel simulé : le gestionnaire de défilement voit la position avant le départ.
+    const hautAvant = await page.evaluate(async () => {
         const el = window.__racine().transcriptEl;
         el.scrollTop = 40;
+        await new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 50)));
         return el.scrollTop;
     });
     await page.evaluate(() => { window.__racine().currentView = 'chat'; });

@@ -110,16 +110,21 @@ export function creerModale(
     return d;
   }
 
+  // Compte dont le document est en mémoire : après un changement de compte, la fenêtre attend le sien.
+  let compteDocument: string | null = null;
+
   /** Relit le document ; une clé changée depuis `base` (saisie pendant la lecture) garde sa valeur affichée. Rend le document reçu, ou null. */
   async function loadSettingsData(
     base = JSON.stringify(settings.value),
     modeles = true,
   ): Promise<string | null> {
     void dep.loadAppSkins();
+    const compte = user.value?.username ?? null;
     try {
       const res = await fetchAuth("/api/settings", {}, true);
       if (!res?.ok) return null;
       const recu = completerDefauts(objet(await corpsJson(res)) as ReglagesApp);
+      compteDocument = compte;
       const instantane = JSON.stringify(recu);
       const affiche = settings.value as Record<string, unknown>;
       for (const k of clesDifferentes(objet(JSON.parse(base)), affiche)) {
@@ -162,6 +167,7 @@ export function creerModale(
   /** Montre la fenêtre aussitôt avec le document en mémoire ; document, modèles et onglet se relisent en parallèle, l'instantané suit le document reçu. */
   async function openSettings(): Promise<void> {
     if (showSettingsModal.value) return chargerOnglet(settingsTab.value);
+    if (compteDocument !== (user.value?.username ?? null)) await loadSettingsData();
     const base = JSON.stringify(settings.value);
     persistance.snapshot.value = base;
     dep.cancelMemoryEdit();

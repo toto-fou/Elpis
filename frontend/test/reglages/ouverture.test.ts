@@ -10,11 +10,13 @@ import type { CtxReglages, RefsReglages, ReglagesApp } from "../../src/features/
 import { ClientHttp } from "../../src/platform/http/client";
 import { fetchManuel, json, vider } from "../aides";
 
-function monter(initial: ReglagesApp) {
+/** Réglages du compte « alice », document `initial` déjà lu une fois (démarrage de l'application). */
+async function monter(initial: ReglagesApp) {
   const { fetch, appels } = fetchManuel();
   const settings = ref<ReglagesApp>(initial);
+  const user = ref({ username: "alice" });
   const refs: RefsReglages = {
-    user: ref({ username: "alice" }),
+    user,
     settings,
     config: ref({ active_mcp_ids: [] }),
     inputMessage: ref(""),
@@ -36,12 +38,15 @@ function monter(initial: ReglagesApp) {
     appels.splice(appels.indexOf(a), 1);
     a.repondre(json(corps, statut));
   };
-  return { R, settings, urls, repondre, toasts };
+  const lecture = R.loadSettingsData();
+  repondre("/api/settings", initial);
+  await lecture;
+  return { R, settings, urls, repondre, toasts, user };
 }
 
 describe("ouverture des Paramètres", () => {
   it("affiche la fenêtre sans attendre le réseau ; document et dernier onglet partent ensemble", async () => {
-    const { R, urls } = monter({ assistant_name: "Elpis" });
+    const { R, urls } = await monter({ assistant_name: "Elpis" });
     R.settingsTab.value = "usage";
     void R.openSettings();
     expect(R.showSettingsModal.value).toBe(true);
@@ -51,7 +56,7 @@ describe("ouverture des Paramètres", () => {
   });
 
   it("une saisie faite pendant la lecture n'est ni écrasée ni perdue", async () => {
-    const { R, settings, urls, repondre } = monter({ assistant_name: "Elpis", system_prompt: "" });
+    const { R, settings, urls, repondre } = await monter({ assistant_name: "Elpis", system_prompt: "" });
     const ouverture = R.openSettings();
     settings.value.system_prompt = "Réponds en français.";
     await nextTick();
@@ -66,7 +71,7 @@ describe("ouverture des Paramètres", () => {
   });
 
   it("l'instantané est le document reçu : une valeur changée ailleurs n'est pas une modification", async () => {
-    const { R, settings, repondre } = monter({ assistant_name: "Elpis" });
+    const { R, settings, repondre } = await monter({ assistant_name: "Elpis" });
     const ouverture = R.openSettings();
     repondre("/api/settings", { assistant_name: "Zoé" });
     await ouverture;
@@ -75,7 +80,7 @@ describe("ouverture des Paramètres", () => {
   });
 
   it("document changé ailleurs, onglet lent : l'instantané suit le document reçu, rien n'est réécrit", async () => {
-    const { R, settings, urls, repondre, toasts } = monter({ assistant_name: "Elpis" });
+    const { R, settings, urls, repondre, toasts } = await monter({ assistant_name: "Elpis" });
     R.settingsTab.value = "usage";
     void R.openSettings();
     await vider();
@@ -91,7 +96,7 @@ describe("ouverture des Paramètres", () => {
   });
 
   it("un document identique ne remplace pas celui affiché", async () => {
-    const { R, settings, repondre } = monter({});
+    const { R, settings, repondre } = await monter({});
     const premiere = R.openSettings();
     repondre("/api/settings", { assistant_name: "Zoé" });
     await premiere;
@@ -104,7 +109,7 @@ describe("ouverture des Paramètres", () => {
   });
 
   it("fenêtre déjà ouverte : un autre onglet demandé garde la saisie en attente", async () => {
-    const { R, settings, urls, repondre } = monter({});
+    const { R, settings, urls, repondre } = await monter({});
     const ouverture = R.openSettings();
     repondre("/api/settings", { system_prompt: "" });
     await ouverture;
@@ -117,8 +122,22 @@ describe("ouverture des Paramètres", () => {
     expect(urls().filter((u) => u === "GET /api/settings")).toHaveLength(0);
   });
 
+  it("changement de compte : la fenêtre attend le document du nouveau compte", async () => {
+    const { R, settings, repondre, user } = await monter({ system_prompt: "Prompt d'alice" });
+    user.value = { username: "bob" };
+    const ouverture = R.openSettings();
+    await vider();
+    expect(R.showSettingsModal.value).toBe(false);
+    repondre("/api/settings", { system_prompt: "Prompt de bob" });
+    await vider();
+    expect(R.showSettingsModal.value).toBe(true);
+    expect(settings.value.system_prompt).toBe("Prompt de bob");
+    repondre("/api/settings", { system_prompt: "Prompt de bob" });
+    await ouverture;
+  });
+
   it("/memory ouvre l'onglet Mémoire sans relire l'onglet précédent", async () => {
-    const { R, urls } = monter({});
+    const { R, urls } = await monter({});
     R.settingsTab.value = "usage";
     void R.openSettingsTab("memory");
     expect(R.settingsTab.value).toBe("memory");
@@ -131,7 +150,7 @@ describe("ouverture des Paramètres", () => {
 
 describe("fermeture des Paramètres", () => {
   it("Échap ferme dans la même tâche ; l'écriture en attente part, la relecture attend sa fin, l'échec est signalé", async () => {
-    const { R, settings, urls, repondre, toasts } = monter({});
+    const { R, settings, urls, repondre, toasts } = await monter({});
     const ouverture = R.openSettings();
     repondre("/api/settings", { assistant_name: "Elpis" });
     await ouverture;
@@ -150,7 +169,7 @@ describe("fermeture des Paramètres", () => {
   });
 
   it("un gabarit en cours de saisie, qui ne s'enregistre pas seul, demande encore de confirmer", async () => {
-    const { R, repondre } = monter({});
+    const { R, repondre } = await monter({});
     const ouverture = R.openSettings();
     repondre("/api/settings", {});
     await ouverture;

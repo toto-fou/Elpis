@@ -22,11 +22,11 @@ function el(
   };
 }
 
-function monter(reponses: Record<string, () => Response> = {}) {
+function monter(reponses: Record<string, () => Response> = {}, vue = "studio") {
   const urls: string[] = [];
   const toasts: string[] = [];
   const menu = creerMenuStudio(
-    { currentView: ref("chat") },
+    { currentView: ref(vue) },
     {
       showToast: (m) => void toasts.push(m),
       fetchAuth: (url) => {
@@ -84,6 +84,47 @@ describe("menu du Studio", () => {
     menu.clearStudio();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:2");
     expect(menu.studioFrame.value.imageUrl).toBe("");
+  });
+
+  it("Studio fermé : la dernière trame attend l'ouverture, sans téléchargement ni décodage", async () => {
+    const decoder = vi.fn(() => Promise.resolve({ width: 640, height: 480, close: () => undefined }));
+    vi.stubGlobal("createImageBitmap", decoder);
+    const { menu, urls } = monter(
+      { "/img/2": () => new Response("y"), "/img/3": () => new Response("z") },
+      "chat",
+    );
+    await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [], target: "vm" });
+    await menu.applyFrame({ image_url: "/img/2", boxes: [el("a", [0, 0, 10, 10])], target: "vm" });
+    expect(urls).toEqual([]);
+    expect(menu.studioFrame.value.imageUrl).toBe("");
+    menu.openStudio();
+    await vi.waitFor(() => expect(menu.studioFrame.value.imageUrl).toBe("blob:1"));
+    expect(urls).toContain("/img/2");
+    expect(urls).not.toContain("/img/1");
+    expect(menu.studioFrame.value).toMatchObject({ imgW: 640, imgH: 480 });
+    expect(menu.studioElements.value.map((e) => e.id)).toEqual(["a"]);
+    expect(menu.studioLive.value).toBe(true);
+    await menu.applyFrame({ image_url: "/img/3", img_w: 100, img_h: 50, boxes: [] });
+    expect(decoder).toHaveBeenCalledTimes(1);
+    expect(menu.studioFrame.value).toMatchObject({ imageUrl: "blob:2", imgW: 100, imgH: 50 });
+    vi.unstubAllGlobals();
+  });
+
+  it("une trame reçue Studio fermé depuis plus de 2,5 s s'affiche sans l'indicateur LIVE ; effacer le Studio l'oublie", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { menu, urls } = monter({ "/img/1": () => new Response("x") }, "chat");
+    await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [] });
+    vi.setSystemTime(Date.now() + 3000);
+    menu.openStudio();
+    await vi.waitFor(() => expect(menu.studioFrame.value.imageUrl).toBe("blob:1"));
+    expect(menu.studioLive.value).toBe(false);
+    menu.closeStudio();
+    await menu.applyFrame({ image_url: "/img/1", img_w: 100, img_h: 50, boxes: [] });
+    menu.clearStudio();
+    menu.openStudio();
+    await Promise.resolve();
+    expect(urls.filter((u) => u === "/img/1")).toHaveLength(1);
+    vi.useRealTimers();
   });
 
   it("ne garde que les éléments dans le cadre, rend les feuilles et trie les grands cadres au fond", async () => {

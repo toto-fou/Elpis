@@ -192,42 +192,44 @@ describe("fenêtre", () => {
     expect(f.modalState.value.isOpen).toBe(false);
   });
 
-  it("confirmation : un texte arrivé après l'ouverture remplace le message et libère la validation, jamais après la fermeture ni sur une autre fenêtre", async () => {
+  it("confirmation : la note arrivée après l'ouverture prend sa ligne réservée ; une validation demandée avant est retenue", async () => {
     const f = creerFenetre();
-    let arrivee: (t: string) => void = () => {};
-    const p = f.openConfirm(
-      "Supprimer ?",
-      "Vous pourrez annuler.",
-      true,
-      undefined,
-      undefined,
-      new Promise((r) => (arrivee = r)),
-    );
+    const arrivees: ((t: string) => void)[] = [];
+    const note = () => new Promise<string>((r) => arrivees.push(r));
+    const p = f.openConfirm("Supprimer ?", "Vous pourrez annuler.", true, undefined, undefined, note());
     expect(f.modalState.value.message).toBe("Vous pourrez annuler.");
-    // Validation retenue tant que l'information n'est pas arrivée : ni clic ni Entrée ne confirment.
-    expect(f.modalTypedBlocked()).toBe(true);
+    expect(f.modalState.value.note).toBe("");
+    // Le bouton garde son aspect (rien de grisé) ; la validation attend la note.
+    expect(f.modalTypedBlocked()).toBe(false);
     f.handleModalSubmit();
     expect(f.modalState.value.isOpen).toBe(true);
-    arrivee("2 tâches de fond seront arrêtées.");
-    await vi.waitFor(() => expect(f.modalTypedBlocked()).toBe(false));
-    expect(f.modalState.value.message).toBe("2 tâches de fond seront arrêtées.");
+    arrivees[0]?.("2 tâches de fond seront arrêtées.");
+    await vi.waitFor(() => expect(f.modalState.value.note).toBe("2 tâches de fond seront arrêtées."));
+    // La note change la décision : la validation retenue ne passe pas, l'utilisateur la relit.
+    expect(f.modalState.value.isOpen).toBe(true);
+    expect(f.modalState.value.message).toBe("Vous pourrez annuler.");
     f.handleModalSubmit();
     expect(await p).toBe(true);
-    const vide = f.openConfirm("Vide ?", "garde", true, undefined, undefined, Promise.resolve(""));
-    await vi.waitFor(() => expect(f.modalTypedBlocked()).toBe(false));
-    expect(f.modalState.value.message).toBe("garde");
-    f.handleModalCancel();
-    expect(await vide).toBe(false);
-    let tardif: (t: string) => void = () => {};
-    const q = f.openConfirm("A ?", "a", false, undefined, undefined, new Promise((r) => (tardif = r)));
+    // Note vide : la validation retenue passe à son arrivée.
+    const vide = f.openConfirm("Vide ?", "garde", true, undefined, undefined, note());
+    f.handleModalSubmit();
+    arrivees[1]?.("");
+    expect(await vide).toBe(true);
+    // Sans note : aucune ligne réservée.
+    const simple = f.openConfirm("Simple ?", "s");
+    expect(f.modalState.value.note).toBeUndefined();
+    f.handleModalSubmit();
+    expect(await simple).toBe(true);
+    // Note tardive d'une fenêtre fermée : ignorée par la suivante.
+    const q = f.openConfirm("A ?", "a", false, undefined, undefined, note());
     f.handleModalCancel();
     expect(await q).toBe(false);
     const r = f.openConfirm("B ?", "b");
-    tardif("texte de A");
+    arrivees[2]?.("note de A");
     await Promise.resolve();
     await Promise.resolve();
-    expect(f.modalState.value.message).toBe("b");
-    expect(f.modalTypedBlocked()).toBe(false);
+    expect(f.modalState.value.note).toBeUndefined();
+    expect(f.modalState.value.isOpen).toBe(true);
     f.handleModalCancel();
     await r;
   });

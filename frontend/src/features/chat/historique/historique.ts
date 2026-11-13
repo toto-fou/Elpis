@@ -660,7 +660,7 @@ export function creerHistoriqueChat(
     });
   }
 
-  // « N tâches de fond seront arrêtées » : lu après l'ouverture de la confirmation, dont la validation l'attend 3 s au plus.
+  // « N tâches de fond seront arrêtées » : note de la confirmation, lue après son ouverture, attendue 3 s au plus.
   async function avertissementJobs(ids: readonly string[]): Promise<string> {
     let minuteur: ReturnType<typeof setTimeout> | undefined;
     const delai = new Promise<number>((r) => (minuteur = setTimeout(() => r(0), DELAI_TACHES_MS)));
@@ -817,7 +817,7 @@ export function creerHistoriqueChat(
         true,
         "Supprimer",
         undefined,
-        avertissementJobs(ids).then((a) => (a ? "Irréversible : " + a : "")),
+        avertissementJobs(ids),
       ))
     )
       return;

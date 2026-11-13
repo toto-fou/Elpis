@@ -145,6 +145,14 @@ function agirConversation(action: ActionConversation): void {
             {{ c.modalState.title }}
           </h3>
           <p v-if="c.modalState.message" class="text-slate-600 text-sm mb-5">{{ c.modalState.message }}</p>
+          <!-- Note arrivée après l'ouverture : sa ligne est réservée dès l'ouverture, le bouton ne bouge pas. -->
+          <p
+            v-if="c.modalState.note !== undefined"
+            class="text-slate-600 text-sm -mt-2 mb-5 min-h-6"
+            aria-live="polite"
+          >
+            {{ c.modalState.note }}
+          </p>
           <div v-if="c.modalState.type === 'prompt'" class="mb-5">
             <input
               :ref="(el) => (c.modalInputRef = el as HTMLInputElement | null)"

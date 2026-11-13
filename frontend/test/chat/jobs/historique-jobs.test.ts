@@ -96,7 +96,7 @@ function monter(compter?: (ids: readonly string[]) => Promise<number>) {
 }
 
 describe("suppression d'une conversation à tâches de fond", () => {
-  // La confirmation s'ouvre sans attendre ; le nombre de tâches arrive ensuite à la place de son message.
+  // La confirmation s'ouvre sans attendre ; le nombre de tâches arrive ensuite sur sa ligne réservée, sous le message.
   const SUITE = "Vous pourrez l’annuler quelques secondes.";
 
   it("la confirmation annonce « N tâches de fond seront arrêtées »", async () => {
@@ -141,7 +141,7 @@ describe("suppression d'une conversation à tâches de fond", () => {
       "Supprimer 2 conversation(s) ?",
       "Cette action est irréversible.",
     ]);
-    expect(await b.confirmations[0]?.[2]).toBe("Irréversible : 3 tâches de fond seront arrêtées.");
+    expect(await b.confirmations[0]?.[2]).toBe("3 tâches de fond seront arrêtées.");
   });
 
   it("comptage sans réponse : la validation n'attend pas plus de DELAI_TACHES_MS", async () => {

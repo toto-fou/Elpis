@@ -44,8 +44,11 @@ export interface EtatFenetre {
   inputValue: string;
   placeholder: string;
   requireText?: string;
-  /** Validation retenue : une information de la confirmation est encore attendue. */
+  /** Ligne d'information arrivée après l'ouverture (`""` : réservée, encore vide), sous le message. */
+  note?: string;
+  /** La note est attendue : une validation demandée entre-temps est retenue jusqu'à son arrivée. */
   attente?: boolean;
+  validationRetenue?: boolean;
   choices?: ChoixFenetre[];
   resolve: Resolution | null;
 }
@@ -212,7 +215,7 @@ export function creerFenetre() {
     void nextTick(() => focus.value?.focus());
   }
 
-  // `suite` : texte arrivé après l'ouverture, posé à la place du message (le bouton ne bouge pas) ; la validation l'attend.
+  // `suite` : note arrivée après l'ouverture, sur sa ligne réservée ; une validation demandée avant ne passe que si elle est vide.
   function openConfirm(
     title: string,
     message?: string,
@@ -231,20 +234,18 @@ export function creerFenetre() {
           confirmLabel: confirmLabel || (isDanger ? "Supprimer" : "Confirmer"),
           cancelLabel: cancelLabel || "Annuler",
           resolve: fin,
-          attente: !!suite,
+          ...(suite ? { note: "", attente: true } : {}),
         },
         modalCancelRef,
       );
-      const encore = (): boolean => modalState.value.isOpen && modalState.value.resolve === fin;
       void suite
-        ?.then(
-          (t) => {
-            if (t && encore()) modalState.value.message = t;
-          },
-          () => {},
-        )
-        .finally(() => {
-          if (encore()) modalState.value.attente = false;
+        ?.catch(() => "")
+        .then((t) => {
+          const m = modalState.value;
+          if (!m.isOpen || m.resolve !== fin) return;
+          m.note = t;
+          m.attente = false;
+          if (m.validationRetenue && !t) fermer(true);
         });
     });
   }
@@ -312,7 +313,6 @@ export function creerFenetre() {
 
   function modalTypedBlocked(): boolean {
     const m = modalState.value;
-    if (m.attente) return true;
     if (!m.requireText) return false;
     return (
       String(m.inputValue || "")
@@ -337,6 +337,10 @@ export function creerFenetre() {
     const m = modalState.value;
     if (!m.isOpen || !m.resolve) return;
     if (modalTypedBlocked()) return;
+    if (m.attente) {
+      m.validationRetenue = true;
+      return;
+    }
     fermer(m.type === "prompt" ? m.inputValue || null : true);
   }
 

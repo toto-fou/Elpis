@@ -1030,7 +1030,7 @@ describe("historique : suppression et actions groupées", () => {
     expect(refs.chats.value.map((c) => c.id)).toEqual(["c1", "c2"]);
   });
 
-  it("supprimer : la confirmation s'ouvre sans attendre les tâches de fond, leur nombre prend la place du message", async () => {
+  it("supprimer : la confirmation s'ouvre sans attendre les tâches de fond, leur nombre arrive sur sa propre ligne", async () => {
     const reponses: ((n: number) => void)[] = [];
     const { api, confirmations } = monter(null, {
       confirmer: false,
@@ -1050,7 +1050,7 @@ describe("historique : suppression et actions groupées", () => {
     void api.bulkDeleteChats();
     expect(confirmations[1]?.[1]).toBe("Cette action est irréversible.");
     reponses[1]?.(1);
-    expect(await confirmations[1]?.[5]).toBe("Irréversible : 1 tâche de fond sera arrêtée.");
+    expect(await confirmations[1]?.[5]).toBe("1 tâche de fond sera arrêtée.");
     void api.deleteChat("c2");
     reponses[2]?.(0);
     expect(await confirmations[2]?.[5]).toBe("");

@@ -53,6 +53,19 @@ describe("ensureVendor", () => {
     expect(vus).toHaveLength(2);
   });
 
+  it("les scripts d'un groupe sont tous demandés avant le premier chargement ; Chart.js tient en un fichier", async () => {
+    vi.resetModules();
+    const frais = await import("../src/platform/vendor");
+    const vus = scriptsSimules((src) => {
+      if (src.includes("langFR")) w["echarts"] = {};
+      if (src.includes("chart")) w["Chart"] = { register: () => undefined };
+    });
+    const p = Promise.all([frais.ensureVendor("echarts"), frais.ensureVendor("chart")]);
+    expect(vus.map((u) => u.split("/").pop())).toEqual(["echarts.min.js", "echarts-langFR.js", "chart.js"]);
+    await p;
+    delete w["Chart"];
+  });
+
   it("bibliothèque absente après chargement, groupe inconnu : rejet", async () => {
     scriptsSimules(() => undefined);
     await expect(ensureVendor("highlight")).rejects.toThrow(/non disponible/);

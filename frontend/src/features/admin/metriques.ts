@@ -131,7 +131,6 @@ export function creerMetriques(b: BaseAdmin) {
   let imageCreation = 0;
   let minuterieSondage: ReturnType<typeof setInterval> | null = null;
   let minuterieLive: ReturnType<typeof setInterval> | null = null;
-  let minuterieRendu: ReturnType<typeof setTimeout> | null = null;
   let sondageVoulu = false;
   let sequenceStats = 0;
   /** Chargement du tableau en vol : le sondage attend sa réponse au lieu de l'annuler. */
@@ -431,17 +430,11 @@ export function creerMetriques(b: BaseAdmin) {
     const recues = estObjet(json["data"]) ? (json["data"] as Record<string, DonneesWidget>) : {};
     dashboardData.value = { ...dashboardData.value, data: { ...dashboardData.value.data, ...recues } };
   };
-  function planifierRendu(): void {
-    if (minuterieRendu) clearTimeout(minuterieRendu);
-    minuterieRendu = setTimeout(() => {
-      minuterieRendu = null;
-      void ctx.nextTick().then(renderDynamicDashboard);
-    }, 150);
-  }
 
-  /** Mise en page demandée une fois, puis les seuls widgets visibles ; après le premier affichage, les graphes live suivent leur propre cadence. */
+  /** Mise en page demandée une fois, puis les seuls widgets visibles (Chart.js chargé en parallèle) ; les graphes live suivent ensuite leur propre cadence. */
   async function loadAdminStats(): Promise<void> {
     const maSequence = ++sequenceStats;
+    ensureVendor("chart").catch(() => undefined);
     const echec = (raison: string): void => {
       echecMaj.value = true;
       chargementEchoue("loadAdminStats", raison, loadAdminStats);
@@ -478,7 +471,7 @@ export function creerMetriques(b: BaseAdmin) {
       chargementReussi("loadAdminStats");
       echecMaj.value = false;
       derniereMaj.value = Date.now();
-      planifierRendu();
+      void ctx.nextTick().then(renderDynamicDashboard);
     } catch {
       echec("Erreur réseau.");
     } finally {
@@ -705,10 +698,6 @@ export function creerMetriques(b: BaseAdmin) {
     if (minuterieSondage) {
       clearInterval(minuterieSondage);
       minuterieSondage = null;
-    }
-    if (minuterieRendu) {
-      clearTimeout(minuterieRendu);
-      minuterieRendu = null;
     }
     stopLivePolling();
     destroyAllCharts();

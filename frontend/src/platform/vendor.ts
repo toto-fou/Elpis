@@ -4,7 +4,6 @@ export type GroupeVendor = "mermaid" | "highlight" | "chart" | "echarts";
 
 interface ChartUmd {
   register(...elements: unknown[]): void;
-  defaults: { set(cle: string, valeur: unknown): void };
   __elpisPluginsReady?: boolean;
 }
 
@@ -33,8 +32,6 @@ interface GlobalsVendor {
   hljs?: unknown;
   echarts?: unknown;
   Chart?: ChartUmd;
-  ChartDataLabels?: unknown;
-  "chartjs-plugin-annotation"?: unknown;
 }
 
 interface Groupe {
@@ -48,21 +45,7 @@ const g = (): GlobalsVendor => window as unknown as GlobalsVendor;
 const GROUPES: Readonly<Record<GroupeVendor, Groupe>> = {
   mermaid: { urls: ["vendor/mermaid.min.js"], pret: () => !!g().mermaid },
   highlight: { urls: ["vendor/highlight.min.js"], pret: () => !!g().hljs },
-  chart: {
-    urls: [
-      "vendor/chart.js",
-      "vendor/chartjs-adapter-date-fns.bundle.min.js",
-      "vendor/chartjs-plugin-datalabels.min.js",
-      "vendor/chartjs-plugin-annotation.min.js",
-      "vendor/chartjs-chart-treemap.min.js",
-      "vendor/chartjs-chart-sankey.min.js",
-      "vendor/chartjs-chart-matrix.min.js",
-      "vendor/chartjs-chart-boxplot.umd.min.js",
-      "vendor/chartjs-chart-financial.js",
-    ],
-    pret: () => g().Chart !== undefined,
-    apres: enregistrerGreffonsChart,
-  },
+  chart: { urls: ["vendor/chart.js"], pret: () => g().Chart !== undefined, apres: enregistrerGreffonsChart },
   echarts: { urls: ["vendor/echarts.min.js", "vendor/echarts-langFR.js"], pret: () => !!g().echarts },
 };
 
@@ -91,7 +74,7 @@ function chargerScript(url: string): Promise<void> {
   });
 }
 
-/** Charge un groupe une fois (appels concurrents partagés) ; un échec purge la mémoïsation pour permettre un nouvel essai. */
+/** Charge un groupe une fois (scripts demandés ensemble, exécutés dans l'ordre ; appels concurrents partagés) ; un échec purge la mémoïsation. */
 export function ensureVendor(nom: string): Promise<void> {
   const groupe = (GROUPES as Readonly<Record<string, Groupe | undefined>>)[nom];
   if (!groupe) return Promise.reject(new Error("Groupe vendor inconnu : " + nom));
@@ -99,9 +82,7 @@ export function ensureVendor(nom: string): Promise<void> {
   const cle = nom as GroupeVendor;
   const deja = enAttente.get(cle);
   if (deja) return deja;
-  let chaine = Promise.resolve();
-  for (const u of groupe.urls) chaine = chaine.then(() => chargerScript(urlVendor(u)));
-  const p = chaine
+  const p = Promise.all(groupe.urls.map((u) => chargerScript(urlVendor(u))))
     .then(() => {
       if (!groupe.pret()) throw new Error("Bibliothèque non disponible après chargement : " + nom);
       try {
@@ -140,17 +121,10 @@ function dessinerTexteCentral(graphe: GrapheChart): void {
   ctx.restore();
 }
 
-/** Greffons d'options de Chart.js (étiquettes, annotations, texte central), enregistrés une fois après le chargement du groupe. */
+/** Greffon de texte central de Chart.js, enregistré une fois après le chargement du groupe. */
 export function enregistrerGreffonsChart(): void {
-  const w = g();
-  const chart = w.Chart;
+  const chart = g().Chart;
   if (!chart || chart.__elpisPluginsReady) return;
-  if (w.ChartDataLabels) {
-    chart.register(w.ChartDataLabels);
-    chart.defaults.set("plugins.datalabels", { display: false });
-  }
-  const annotation = w["chartjs-plugin-annotation"];
-  if (annotation) chart.register(annotation);
   chart.register({ id: "elpisCenterText", afterDatasetsDraw: dessinerTexteCentral });
   chart.__elpisPluginsReady = true;
 }

@@ -155,6 +155,7 @@ describe("barre latérale", () => {
     editorFullscreen: false,
     currentView: "chat",
     currentChatId: "c2",
+    chatEnOuverture: null,
     settings: { enable_mcp: true },
     skinCourant: {},
     nomMarque: "Elpis",

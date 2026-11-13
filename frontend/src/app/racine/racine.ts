@@ -27,7 +27,6 @@ import { creerVoix } from "../../features/voix/voix";
 import { ClientHttp } from "../../platform/http/client";
 import { journal } from "../../platform/journal";
 import { creerHttpLegacy } from "../../platform/http/legacy";
-import { escapeHtml } from "../../utils/utils-purs";
 import { creerAnnonceur, creerFenetre, creerMenuContextuel, creerToasts } from "./chrome";
 import type { ElementMenu } from "./chrome";
 import { creerClavier } from "./clavier";
@@ -94,29 +93,6 @@ const APP_ICON_PRESETS = [
   "ph-bell",
   "ph-bookmark",
 ] as const;
-
-// La couleur d'un indicateur porte du sens (rose = alerte) : toute la palette des fournisseurs est couverte.
-const COULEURS_KPI: Readonly<Record<string, string>> = {
-  blue: "bg-blue-50 text-blue-600",
-  sky: "bg-sky-50 text-sky-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  teal: "bg-teal-50 text-teal-600",
-  green: "bg-emerald-50 text-emerald-600",
-  emerald: "bg-emerald-50 text-emerald-600",
-  purple: "bg-violet-50 text-violet-600",
-  violet: "bg-violet-50 text-violet-600",
-  indigo: "bg-indigo-50 text-indigo-600",
-  red: "bg-red-50 text-red-500",
-  rose: "bg-rose-50 text-rose-600",
-  orange: "bg-orange-50 text-orange-500",
-  amber: "bg-amber-50 text-amber-600",
-  yellow: "bg-yellow-50 text-yellow-600",
-  slate: "bg-slate-100 text-slate-600",
-};
-
-export function kpiIconClass(couleur: string | null | undefined): string {
-  return COULEURS_KPI[(couleur || "").toLowerCase()] ?? "bg-slate-100 text-slate-600";
-}
 
 /** Utilisateur connecté tel que la page le lit (compte de la session et champs du serveur). */
 export interface UtilisateurRacine {
@@ -1213,10 +1189,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     uploadFilesToSandbox: importBac.uploadFilesToSandbox,
     uploadProgress: importBac.uploadProgress,
     cancelSandboxUpload: importBac.cancelSandboxUpload,
-    kpiIconClass,
     appIconPresets: APP_ICON_PRESETS,
     elpisSanitize: purificateur(),
-    elpisEscape: escapeHtml,
     // Socle de la page (session et client HTTP), lu par les parcours réels.
     sessionPage: session,
     httpPage: http,

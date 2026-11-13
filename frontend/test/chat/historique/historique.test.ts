@@ -54,6 +54,7 @@ function monter(payload: unknown, o: Options = {}) {
     message: string;
     options?: { onAction?: () => void; onExpire?: () => void | Promise<void> };
   }[] = [];
+  const confirmations: unknown[][] = [];
   const refs = {
     messages: ref<readonly Message[]>([]),
     currentChatId: ref<string | null>(o.courant ?? null),
@@ -93,14 +94,17 @@ function monter(payload: unknown, o: Options = {}) {
     {
       fetchAuth,
       showToast: (message, _type, options) => toasts.push({ message, options }),
-      openConfirm: () => Promise.resolve(o.confirmer !== false),
+      openConfirm: (...args) => {
+        confirmations.push(args);
+        return Promise.resolve(o.confirmer !== false);
+      },
       openPrompt: () => Promise.resolve(null),
       showSidebar: ref(true),
     },
     deps,
     o.session ?? null,
   );
-  return { api, refs, journal, toasts };
+  return { api, refs, journal, toasts, confirmations };
 }
 
 const conv = (messages: unknown[], extra: Record<string, unknown> = {}) => ({
@@ -986,6 +990,32 @@ describe("historique : suppression et actions groupées", () => {
     expect(refs.currentChatId.value).toBe("c1");
     toasts[0]?.options?.onAction?.();
     expect(refs.chats.value.map((c) => c.id)).toEqual(["c1", "c2"]);
+  });
+
+  it("supprimer : la confirmation s'ouvre sans attendre les tâches de fond, leur nombre prend la place du message", async () => {
+    const reponses: ((n: number) => void)[] = [];
+    const { api, confirmations } = monter(null, {
+      confirmer: false,
+      deps: { compterJobsActifs: () => new Promise<number>((r) => reponses.push(r)) },
+    });
+    void api.deleteChat("c1");
+    expect(confirmations[0]?.slice(0, 4)).toEqual([
+      "Supprimer la conversation ?",
+      "Vous pourrez l’annuler quelques secondes.",
+      true,
+      "Supprimer",
+    ]);
+    reponses[0]?.(2);
+    expect(await confirmations[0]?.[5]).toBe("2 tâches de fond seront arrêtées.");
+    api.toggleChatSelectMode();
+    api.toggleChatSelect("c1");
+    void api.bulkDeleteChats();
+    expect(confirmations[1]?.[1]).toBe("Cette action est irréversible.");
+    reponses[1]?.(1);
+    expect(await confirmations[1]?.[5]).toBe("Irréversible : 1 tâche de fond sera arrêtée.");
+    void api.deleteChat("c2");
+    reponses[2]?.(0);
+    expect(await confirmations[2]?.[5]).toBe("");
   });
 
   it("confirmation refusée : rien n'est arrêté ni retiré ; sans stopRunForChat la suppression marche encore", async () => {

@@ -178,6 +178,35 @@ describe("fenêtre", () => {
     expect(f.modalState.value.isOpen).toBe(false);
   });
 
+  it("confirmation : un texte arrivé après l'ouverture remplace le message, jamais après la fermeture ni sur une autre fenêtre", async () => {
+    const f = creerFenetre();
+    let arrivee: (t: string) => void = () => {};
+    const p = f.openConfirm(
+      "Supprimer ?",
+      "Vous pourrez annuler.",
+      true,
+      undefined,
+      undefined,
+      new Promise((r) => (arrivee = r)),
+    );
+    expect(f.modalState.value.message).toBe("Vous pourrez annuler.");
+    arrivee("2 tâches de fond seront arrêtées.");
+    await Promise.resolve();
+    expect(f.modalState.value.message).toBe("2 tâches de fond seront arrêtées.");
+    f.handleModalCancel();
+    expect(await p).toBe(false);
+    let tardif: (t: string) => void = () => {};
+    const q = f.openConfirm("A ?", "a", false, undefined, undefined, new Promise((r) => (tardif = r)));
+    f.handleModalSubmit();
+    await q;
+    const r = f.openConfirm("B ?", "b");
+    tardif("texte de A");
+    await Promise.resolve();
+    expect(f.modalState.value.message).toBe("b");
+    f.handleModalCancel();
+    await r;
+  });
+
   it("saisie : la valeur, ou null à l'annulation", async () => {
     const f = creerFenetre();
     const p = f.openPrompt("Nom", "a.txt");

@@ -50,7 +50,14 @@ interface OptionsToast {
 export interface CtxHistorique {
   fetchAuth: FetchAuth;
   showToast(message: string, type?: string, options?: OptionsToast): void;
-  openConfirm(titre: string, texte?: string, danger?: boolean, libelle?: string): Promise<boolean>;
+  openConfirm(
+    titre: string,
+    texte?: string,
+    danger?: boolean,
+    libelle?: string,
+    annuler?: string,
+    suite?: Promise<string>,
+  ): Promise<boolean>;
   openPrompt(titre: string, valeur?: string): Promise<string | null>;
   showSidebar: Ref<boolean>;
   clearSavedSession?: () => void;
@@ -638,7 +645,7 @@ export function creerHistoriqueChat(
     });
   }
 
-  // « N tâches de fond seront arrêtées » : lecture best-effort, la suppression ne dépend pas d'elle.
+  // « N tâches de fond seront arrêtées » : lu après l'ouverture de la confirmation, qui n'attend pas.
   async function avertissementJobs(ids: readonly string[]): Promise<string> {
     const n = await Promise.resolve(deps.compterJobsActifs?.(ids) ?? 0).catch(() => 0);
     return n > 0 ? `${n} ${n > 1 ? "tâches de fond seront arrêtées" : "tâche de fond sera arrêtée"}.` : "";
@@ -650,9 +657,11 @@ export function creerHistoriqueChat(
     if (
       !(await openConfirm(
         "Supprimer la conversation ?",
-        await avertissementJobs([String(id)]),
+        "Vous pourrez l’annuler quelques secondes.",
         true,
         "Supprimer",
+        undefined,
+        avertissementJobs([String(id)]),
       ))
     )
       return;
@@ -785,9 +794,11 @@ export function creerHistoriqueChat(
     if (
       !(await openConfirm(
         `Supprimer ${ids.length} conversation(s) ?`,
-        ["Cette action est irréversible.", await avertissementJobs(ids)].filter(Boolean).join(" "),
+        "Cette action est irréversible.",
         true,
         "Supprimer",
+        undefined,
+        avertissementJobs(ids).then((a) => (a ? "Irréversible : " + a : "")),
       ))
     )
       return;

@@ -288,6 +288,8 @@ try {
     await ligne(F.titre).click({ button: 'right' });
     await page.locator('#custom-context-menu button', { hasText: 'Supprimer' }).click({ timeout: 5000 });
     await dialogue.waitFor({ timeout: 5000 });
+    // La confirmation s'ouvre sans attendre : le nombre de tâches arrive ensuite à la place du message.
+    await dialogue.getByText(/tâche de fond sera arrêtée/).waitFor({ timeout: 5000 }).catch(() => {});
     const msg = await dialogue.innerText();
     v.ok('suppression : la confirmation annonce « 1 tâche de fond sera arrêtée »', /1 tâche de fond sera arrêtée/.test(msg), msg.replace(/\s+/g, ' ').slice(0, 160));
     await dialogue.locator('button', { hasText: 'Annuler' }).click();

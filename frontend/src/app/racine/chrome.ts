@@ -210,14 +210,17 @@ export function creerFenetre() {
     void nextTick(() => focus.value?.focus());
   }
 
+  // `suite` : texte arrivé après l'ouverture, posé à la place du message (même ligne : le bouton ne bouge pas).
   function openConfirm(
     title: string,
     message?: string,
     isDanger?: boolean,
     confirmLabel?: string,
     cancelLabel?: string,
+    suite?: Promise<string>,
   ): Promise<boolean> {
     return new Promise((resolve) => {
+      const fin = (v: unknown): void => resolve(v === true);
       ouvrir(
         {
           title,
@@ -225,9 +228,15 @@ export function creerFenetre() {
           isDanger: !!isDanger,
           confirmLabel: confirmLabel || (isDanger ? "Supprimer" : "Confirmer"),
           cancelLabel: cancelLabel || "Annuler",
-          resolve: (v) => resolve(v === true),
+          resolve: fin,
         },
         modalCancelRef,
+      );
+      suite?.then(
+        (t) => {
+          if (t && modalState.value.isOpen && modalState.value.resolve === fin) modalState.value.message = t;
+        },
+        () => {},
       );
     });
   }

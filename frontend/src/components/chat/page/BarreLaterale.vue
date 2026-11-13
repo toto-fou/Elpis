@@ -40,6 +40,12 @@ const resultats = computed(() =>
     : [],
 );
 
+// Pastilles « en cours » : même ensemble, même référence (le sondage récrit la liste toutes les 5 s sans rien changer).
+const enCours = computed<ReadonlySet<string>>((avant) => {
+  const ids = new Set(b.activeRunIds);
+  return avant && avant.size === ids.size && [...ids].every((id) => avant.has(id)) ? avant : ids;
+});
+
 // Ligne marquée : la conversation en cours d'ouverture, sinon l'affichée.
 const courante = (id: string): boolean =>
   b.currentView === "chat" && (b.chatEnOuverture ?? b.currentChatId) === id;
@@ -521,7 +527,7 @@ function appui(e: PointerEvent, id: string): void {
                   >
                   <!-- Run en cours (tous onglets, tous appareils) : point d'accent qui respire (immobile en mouvement réduit). -->
                   <span
-                    v-if="b.activeRunIds.includes(String(chat.id))"
+                    v-if="enCours.has(String(chat.id))"
                     class="elpis-run-dot shrink-0"
                     role="img"
                     aria-label="Génération en cours"

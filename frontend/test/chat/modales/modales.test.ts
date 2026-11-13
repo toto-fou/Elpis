@@ -244,6 +244,31 @@ describe("barre latérale", () => {
     );
   });
 
+  it("runs en cours : une liste réécrite à l'identique ne re-rend pas le volet ; un ensemble changé déplace la pastille", async () => {
+    const b = etat<Record<string, unknown>>(BARRE);
+    let lectures = 0;
+    const compteur = new Proxy(b, {
+      get(c, cle, r) {
+        if (cle === "groupedHistory") lectures++;
+        return Reflect.get(c, cle, r) as unknown;
+      },
+    });
+    const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, compteur);
+    const pastilles = () =>
+      [...hote.querySelectorAll("[data-chat-row]")]
+        .filter((l) => l.querySelector(".elpis-run-dot"))
+        .map((l) => l.getAttribute("data-chat-id"));
+    expect(pastilles()).toEqual(["c1"]);
+    const avant = lectures;
+    b["activeRunIds"] = ["c1"];
+    await nextTick();
+    expect(lectures).toBe(avant);
+    b["activeRunIds"] = ["c2"];
+    await nextTick();
+    expect(lectures).toBeGreaterThan(avant);
+    expect(pastilles()).toEqual(["c2"]);
+  });
+
   it("recherche : titres du volet dès la première touche, serveur à la suite, roue discrète, « Recherche… » puis « Aucun résultat »", async () => {
     const b = etat<Record<string, unknown>>({
       ...BARRE,

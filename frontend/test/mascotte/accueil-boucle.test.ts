@@ -67,4 +67,22 @@ describe("scène d'accueil", () => {
     expect(effacements).toBeGreaterThan(cache);
     scene.detruire();
   });
+
+  it("après un souffle de feu, les braises des lettres gardent une image par image d'écran", async () => {
+    const hote = document.createElement("div");
+    document.body.appendChild(hote);
+    const scene = montrerAccueil(hote, {
+      scenario: "souffle",
+      intro: false,
+      mouvement: "toujours",
+      donnees: { anims: { idle: [["O"], ["D"]], feu: [["O"]] } },
+    });
+    await scene.pret;
+    signaler(true);
+    vi.advanceTimersByTime(scene.duree * 1000 + 3000);
+    const debut = effacements;
+    vi.advanceTimersByTime(1000);
+    expect(effacements - debut).toBeGreaterThan(50);
+    scene.detruire();
+  });
 });

@@ -1420,6 +1420,8 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
   // Scénario fini et effets éteints : seule l'image du sprite change, à sa cadence (rien à dessiner entre deux).
   function repos(t: number): { cle: string; attente: number } | null {
     if (t < DUREE + 2 || enSortie || boucleCourante || premier || pivot || !perso) return null;
+    // Lettres brûlées ou dorées par un souffle : leurs braises et leur tremblement suivent le temps.
+    if (pouvoirDuPerso() && ACTES.some((a) => a.souffle || a.balaye)) return null;
     const e = etat(t);
     if (EFFETS_CONTINUS.some((c) => e.acte[c])) return null;
     const nom = anim(animDeLActe(e));

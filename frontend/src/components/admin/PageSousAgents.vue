@@ -2,6 +2,7 @@
 <!-- frontend/src/components/admin/PageSousAgents.vue — page Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés et plafonds par tour, session web du compte. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -31,34 +32,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Explore le code et répond, sans rien modifier.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-explore"
-                  v-model="adm.agentsConfig.read_only.defaults.explore"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.explore"
-                  aria-label="Lecture seule par défaut : explore"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-explore"
-                  v-model="adm.agentsConfig.read_only.forced.explore"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.explore"
-                  aria-label="Imposer : explore"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-explore"
+                v-model="adm.agentsConfig.read_only.defaults.explore"
+                data-field="agents:read_only.defaults.explore"
+                aria-label="Lecture seule par défaut : explore"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-explore"
+                v-model="adm.agentsConfig.read_only.forced.explore"
+                data-field="agents:read_only.forced.explore"
+                aria-label="Imposer : explore"
+                texte="Imposer"
+              />
             </div>
           </div>
           <div class="adm-row" data-agent-type="implement">
@@ -71,34 +58,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Écrit la modification et la vérifie, sans commiter.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-implement"
-                  v-model="adm.agentsConfig.read_only.defaults.implement"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.implement"
-                  aria-label="Lecture seule par défaut : implement"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-implement"
-                  v-model="adm.agentsConfig.read_only.forced.implement"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.implement"
-                  aria-label="Imposer : implement"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-implement"
+                v-model="adm.agentsConfig.read_only.defaults.implement"
+                data-field="agents:read_only.defaults.implement"
+                aria-label="Lecture seule par défaut : implement"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-implement"
+                v-model="adm.agentsConfig.read_only.forced.implement"
+                data-field="agents:read_only.forced.implement"
+                aria-label="Imposer : implement"
+                texte="Imposer"
+              />
             </div>
           </div>
           <div class="adm-row" data-agent-type="verify">
@@ -107,34 +80,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Lance les tests et diagnostique.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-verify"
-                  v-model="adm.agentsConfig.read_only.defaults.verify"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.verify"
-                  aria-label="Lecture seule par défaut : verify"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-verify"
-                  v-model="adm.agentsConfig.read_only.forced.verify"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.verify"
-                  aria-label="Imposer : verify"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-verify"
+                v-model="adm.agentsConfig.read_only.defaults.verify"
+                data-field="agents:read_only.defaults.verify"
+                aria-label="Lecture seule par défaut : verify"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-verify"
+                v-model="adm.agentsConfig.read_only.forced.verify"
+                data-field="agents:read_only.forced.verify"
+                aria-label="Imposer : verify"
+                texte="Imposer"
+              />
             </div>
           </div>
           <div class="adm-row" data-agent-type="web">
@@ -147,34 +106,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Recherche web sur un navigateur réel, avec sources.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-web"
-                  v-model="adm.agentsConfig.read_only.defaults.web"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.web"
-                  aria-label="Lecture seule par défaut : web"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-web"
-                  v-model="adm.agentsConfig.read_only.forced.web"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.web"
-                  aria-label="Imposer : web"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-web"
+                v-model="adm.agentsConfig.read_only.defaults.web"
+                data-field="agents:read_only.defaults.web"
+                aria-label="Lecture seule par défaut : web"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-web"
+                v-model="adm.agentsConfig.read_only.forced.web"
+                data-field="agents:read_only.forced.web"
+                aria-label="Imposer : web"
+                texte="Imposer"
+              />
             </div>
           </div>
           <div class="adm-row" data-agent-type="pr">
@@ -185,34 +130,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Branche, commite et ouvre la pull request.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-pr"
-                  v-model="adm.agentsConfig.read_only.defaults.pr"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.pr"
-                  aria-label="Lecture seule par défaut : pr"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-pr"
-                  v-model="adm.agentsConfig.read_only.forced.pr"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.pr"
-                  aria-label="Imposer : pr"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-pr"
+                v-model="adm.agentsConfig.read_only.defaults.pr"
+                data-field="agents:read_only.defaults.pr"
+                aria-label="Lecture seule par défaut : pr"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-pr"
+                v-model="adm.agentsConfig.read_only.forced.pr"
+                data-field="agents:read_only.forced.pr"
+                aria-label="Imposer : pr"
+                texte="Imposer"
+              />
             </div>
           </div>
           <div class="adm-row" data-agent-type="custom">
@@ -223,34 +154,20 @@ const adm = domaineAdmin();
               <span class="sr-only">Agents créés par les comptes dans la page Agents.</span>
             </div>
             <div class="flex items-center gap-6 flex-wrap">
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-defaut-custom"
-                  v-model="adm.agentsConfig.read_only.defaults.custom"
-                  type="checkbox"
-                  data-field="agents:read_only.defaults.custom"
-                  aria-label="Lecture seule par défaut : Agents personnalisés"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Lecture seule par défaut</span>
-              </label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="ag-ro-impose-custom"
-                  v-model="adm.agentsConfig.read_only.forced.custom"
-                  type="checkbox"
-                  data-field="agents:read_only.forced.custom"
-                  aria-label="Imposer : Agents personnalisés"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">Imposer</span>
-              </label>
+              <InterrupteurConsole
+                id="ag-ro-defaut-custom"
+                v-model="adm.agentsConfig.read_only.defaults.custom"
+                data-field="agents:read_only.defaults.custom"
+                aria-label="Lecture seule par défaut : Agents personnalisés"
+                texte="Lecture seule par défaut"
+              />
+              <InterrupteurConsole
+                id="ag-ro-impose-custom"
+                v-model="adm.agentsConfig.read_only.forced.custom"
+                data-field="agents:read_only.forced.custom"
+                aria-label="Imposer : Agents personnalisés"
+                texte="Imposer"
+              />
             </div>
           </div>
         </div>
@@ -612,20 +529,13 @@ const adm = domaineAdmin();
                 ».</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="ag-session-web"
-                v-model="adm.agentsConfig.user_browser_session_allowed"
-                type="checkbox"
-                data-field="agents:user_browser_session_allowed"
-                aria-label="Session web du compte permise aux sous-agents"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">Permise</span>
-            </label>
+            <InterrupteurConsole
+              id="ag-session-web"
+              v-model="adm.agentsConfig.user_browser_session_allowed"
+              data-field="agents:user_browser_session_allowed"
+              aria-label="Session web du compte permise aux sous-agents"
+              texte="Permise"
+            />
           </div>
         </div>
       </section>

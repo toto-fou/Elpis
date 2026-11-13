@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
 import RecadrageImage from "../communs/RecadrageImage.vue";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -851,21 +852,11 @@ const adm = domaineAdmin();
                 >Entrée du menu chat qui installe le CLI sur le poste de l'utilisateur.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cfg-feat-opencode"
-                v-model="adm.configForm.features.opencode"
-                type="checkbox"
-                data-field="config:features.opencode"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.features.opencode ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cfg-feat-opencode"
+              v-model="adm.configForm.features.opencode"
+              data-field="config:features.opencode"
+            />
           </div>
 
           <div v-if="adm.configForm.features" class="adm-row">
@@ -881,21 +872,11 @@ const adm = domaineAdmin();
                 serveur. Les PDF restent visibles même désactivé.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cfg-feat-office"
-                v-model="adm.configForm.features.office_preview"
-                type="checkbox"
-                data-field="config:features.office_preview"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.features.office_preview ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cfg-feat-office"
+              v-model="adm.configForm.features.office_preview"
+              data-field="config:features.office_preview"
+            />
           </div>
         </div>
       </section>

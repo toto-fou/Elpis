@@ -2,6 +2,7 @@
 <!-- frontend/src/components/admin/PageApparence.vue — page Système › Apparence. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -206,19 +207,11 @@ const adm = domaineAdmin();
               sur les comptes.</span
             >
           </div>
-          <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-            <input
-              id="cfg-skins-user-custom"
-              v-model="adm.configForm.skins.user_custom"
-              type="checkbox"
-              data-field="config:skins.user_custom"
-              class="sr-only peer"
-            />
-            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
-            <span class="text-sm text-slate-700">{{
-              adm.configForm.skins.user_custom ? "Activé" : "Désactivé"
-            }}</span>
-          </label>
+          <InterrupteurConsole
+            id="cfg-skins-user-custom"
+            v-model="adm.configForm.skins.user_custom"
+            data-field="config:skins.user_custom"
+          />
         </div>
         <div class="adm-row">
           <div>

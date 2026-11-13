@@ -2,6 +2,7 @@
 <!-- frontend/src/components/admin/PageSandbox.vue — pages Sandbox. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -281,21 +282,13 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Le mode dossier n'est plus proposé aux utilisateurs.</span>
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="sb-force-docker"
-                v-model="adm.execConfig.force_user_docker"
-                type="checkbox"
-                data-field="exec:force_user_docker"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.execConfig.force_user_docker ? "Imposé" : "Au choix"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="sb-force-docker"
+              v-model="adm.execConfig.force_user_docker"
+              data-field="exec:force_user_docker"
+              oui="Imposé"
+              non="Au choix"
+            />
           </div>
 
           <div class="adm-row">

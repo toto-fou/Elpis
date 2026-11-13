@@ -8,6 +8,7 @@ import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
 import { ONGLETS_IMAGES, ONGLETS_VOIX, ongletsAvecModifications } from "../../features/admin/onglets";
 import CapacitesMoteur from "./CapacitesMoteur.vue";
 import SousOngletsConsole from "./SousOngletsConsole.vue";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 
@@ -957,21 +958,11 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 paramètres, s'il veut dicter et se faire lire les réponses.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-voice-on"
-                v-model="adm.configForm.voice.enabled"
-                type="checkbox"
-                data-field="config:voice.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.voice.enabled ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-voice-on"
+              v-model="adm.configForm.voice.enabled"
+              data-field="config:voice.enabled"
+            />
           </div>
 
           <div class="adm-row adm-row--full">
@@ -1106,21 +1097,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 class="adm-row"
               >
                 <label class="adm-row__label" for="cnx-voice-stt-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-voice-stt-verify"
-                    v-model="adm.configForm.voice.stt.verify"
-                    type="checkbox"
-                    data-field="config:voice.stt.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.voice.stt.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-voice-stt-verify"
+                  v-model="adm.configForm.voice.stt.verify"
+                  data-field="config:voice.stt.verify"
+                  oui="Vérifié"
+                  non="Non vérifié (auto-signé)"
+                />
               </div>
 
               <div class="adm-row adm-row--top">
@@ -1340,21 +1323,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 class="adm-row"
               >
                 <label class="adm-row__label" for="cnx-voice-tts-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-voice-tts-verify"
-                    v-model="adm.configForm.voice.tts.verify"
-                    type="checkbox"
-                    data-field="config:voice.tts.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.voice.tts.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-voice-tts-verify"
+                  v-model="adm.configForm.voice.tts.verify"
+                  data-field="config:voice.tts.verify"
+                  oui="Vérifié"
+                  non="Non vérifié (auto-signé)"
+                />
               </div>
             </template>
           </div>
@@ -1455,21 +1430,11 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               title="Propose « Images » dans le menu + du chat. Chaque compte peut ensuite couper l'entrée dans ses Paramètres."
               >Activation</label
             >
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-image-on"
-                v-model="adm.configForm.image.enabled"
-                type="checkbox"
-                data-field="config:image.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.image.enabled ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-image-on"
+              v-model="adm.configForm.image.enabled"
+              data-field="config:image.enabled"
+            />
           </div>
 
           <div class="adm-row adm-row--full">
@@ -1643,21 +1608,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             <template v-if="adm.configForm.image.url && adm.configForm.image.url.startsWith('https')">
               <div class="adm-row">
                 <label class="adm-row__label" for="cnx-image-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-image-verify"
-                    v-model="adm.configForm.image.verify"
-                    type="checkbox"
-                    data-field="config:image.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.image.verify ? "Vérifié" : "Non vérifié"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-image-verify"
+                  v-model="adm.configForm.image.verify"
+                  data-field="config:image.verify"
+                  oui="Vérifié"
+                  non="Non vérifié"
+                />
               </div>
               <div v-if="adm.configForm.image.verify" class="adm-row adm-row--top">
                 <label
@@ -1968,21 +1925,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Le modèle du chat peut réécrire la description avant l'envoi au moteur."
                 >Enrichir</label
               >
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="cnx-image-enhance"
-                  v-model="adm.configForm.image.enhance_enabled"
-                  type="checkbox"
-                  data-field="config:image.enhance_enabled"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">{{
-                  adm.configForm.image.enhance_enabled ? "Proposé" : "Retiré"
-                }}</span>
-              </label>
+              <InterrupteurConsole
+                id="cnx-image-enhance"
+                v-model="adm.configForm.image.enhance_enabled"
+                data-field="config:image.enhance_enabled"
+                oui="Proposé"
+                non="Retiré"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -2084,21 +2033,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 opencode ne sont pas concernés.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-tok-on"
-                v-model="adm.configForm.mcp.tokens.tools_enabled"
-                type="checkbox"
-                data-field="config:mcp.tokens.tools_enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.tokens.tools_enabled ? "Activés" : "Désactivés"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-tok-on"
+              v-model="adm.configForm.mcp.tokens.tools_enabled"
+              data-field="config:mcp.tokens.tools_enabled"
+              oui="Activés"
+              non="Désactivés"
+            />
           </div>
 
           <div class="adm-row">
@@ -2187,21 +2128,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 de fonctionner. Suit aussi l'interrupteur des jetons d'outils.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-oa-on"
-                v-model="adm.configForm.mcp.oauth.enabled"
-                type="checkbox"
-                data-field="config:mcp.oauth.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.oauth.enabled ? "Activée" : "Désactivée"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-oa-on"
+              v-model="adm.configForm.mcp.oauth.enabled"
+              data-field="config:mcp.oauth.enabled"
+              oui="Activée"
+              non="Désactivée"
+            />
           </div>
 
           <div class="adm-row">
@@ -2217,21 +2150,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 Coupé : seuls les clients déjà connus ou décrits par un document https sont acceptés.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-oa-dcr"
-                v-model="adm.configForm.mcp.oauth.dcr_enabled"
-                type="checkbox"
-                data-field="config:mcp.oauth.dcr_enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.oauth.dcr_enabled ? "Permis" : "Refusé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-oa-dcr"
+              v-model="adm.configForm.mcp.oauth.dcr_enabled"
+              data-field="config:mcp.oauth.dcr_enabled"
+              oui="Permis"
+              non="Refusé"
+            />
           </div>
 
           <div class="adm-row">

@@ -1411,6 +1411,40 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
   }
 
   let compteur = 0;
+  // Au repos, le dernier dessin et le réveil prévu ; `anime` : la boucle a démarré ; `horsVue` : accueil invisible.
+  let dessinee = "";
+  let reveil: ReturnType<typeof setTimeout> | null = null;
+  let anime = false;
+  let horsVue = false;
+
+  // Scénario fini et effets éteints : seule l'image du sprite change, à sa cadence (rien à dessiner entre deux).
+  function repos(t: number): { cle: string; attente: number } | null {
+    if (t < DUREE + 2 || enSortie || boucleCourante || premier || pivot || !perso) return null;
+    const e = etat(t);
+    if (EFFETS_CONTINUS.some((c) => e.acte[c])) return null;
+    const nom = anim(animDeLActe(e));
+    const pas = cadence(nom);
+    const ecoule = Math.max(0, t - e.acte.t) * 1000;
+    const { encre, or, sourd } = teintes;
+    return {
+      cle: `${nom}|${Math.floor(ecoule / pas)}|${encre}|${or}|${sourd}`,
+      attente: pas - (ecoule % pas),
+    };
+  }
+
+  function relancer(): void {
+    dessinee = "";
+    if (reveil !== null) clearTimeout(reveil);
+    reveil = null;
+    if (boucle === null && anime && !horsVue && vivant) boucle = requestAnimationFrame(image);
+  }
+
+  function arreter(): void {
+    if (boucle !== null) cancelAnimationFrame(boucle);
+    if (reveil !== null) clearTimeout(reveil);
+    boucle = reveil = null;
+  }
+
   function image(maintenant: number): void {
     boucle = requestAnimationFrame(image);
     if (enPause) return;
@@ -1437,7 +1471,20 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
         return;
       }
     }
-    dessiner(t);
+    const calme = repos(t);
+    if (!calme) {
+      dessinee = "";
+      dessiner(t);
+      return;
+    }
+    if (calme.cle !== dessinee) dessiner(t);
+    dessinee = calme.cle;
+    arreter();
+    reveil = setTimeout(() => {
+      reveil = null;
+      relireTeintes();
+      relancer();
+    }, calme.attente + 1);
   }
 
   function jouer(nom: string, opts: { intro?: boolean } = {}): void {
@@ -1472,18 +1519,29 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
     if (sobre.matches) {
       fige();
       annoncerFin();
-    }
+    } else relancer();
   }
 
   const surResize = () => {
     redimensionner();
     if (sobre.matches) fige();
+    else relancer();
   };
   addEventListener("resize", surResize);
 
   redimensionner();
   relireTeintes();
   let vivant = true;
+  // Accueil hors de la vue (vue masquée, colonne repliée) : la boucle s'arrête, elle reprend à son retour.
+  const observateur =
+    typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(([entree]) => {
+          horsVue = !entree?.isIntersecting;
+          if (horsVue) arreter();
+          else relancer();
+        })
+      : null;
+  observateur?.observe(hote);
   const pret = chargerPerso(base, nomPerso, options.donnees)
     .then((p) => {
       if (!vivant) return;
@@ -1510,7 +1568,10 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
       if (sobre.matches) {
         fige();
         annoncerFin();
-      } else boucle = requestAnimationFrame(image);
+      } else {
+        anime = true;
+        relancer();
+      }
     })
     .catch((err) => {
       hote.classList.add("accueil-erreur");
@@ -1538,11 +1599,13 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
       if (!enPause) return;
       depart += performance.now() / 1000 - tPause;
       enPause = false;
+      relancer();
     },
     rejouer() {
       premier = true;
       depart = performance.now() / 1000;
       finAnnoncee = false;
+      relancer();
     },
 
     aller(t, avecIntro = true) {
@@ -1554,13 +1617,27 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
     },
     detruire() {
       vivant = false;
-      if (boucle !== null) cancelAnimationFrame(boucle);
+      arreter();
+      observateur?.disconnect();
       removeEventListener("resize", surResize);
       canevas.remove();
       legende?.remove();
     },
   };
 }
+
+// Effets de l'acte courant qui bougent tant qu'il dure : la scène n'est pas au repos.
+const EFFETS_CONTINUS = [
+  "zzz",
+  "eclat",
+  "souffle",
+  "balaye",
+  "fumee",
+  "charge",
+  "aura",
+  "tonnerre",
+  "cabre",
+] as const;
 
 const CADENCE: Record<string, number> = {
   eclair: 90,

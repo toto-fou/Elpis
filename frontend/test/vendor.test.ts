@@ -58,7 +58,7 @@ describe("ensureVendor", () => {
     const frais = await import("../src/platform/vendor");
     const vus = scriptsSimules((src) => {
       if (src.includes("langFR")) w["echarts"] = {};
-      if (src.includes("chart")) w["Chart"] = { register: () => undefined };
+      if (src.includes("chart")) w["Chart"] = {};
     });
     const p = Promise.all([frais.ensureVendor("echarts"), frais.ensureVendor("chart")]);
     expect(vus.map((u) => u.split("/").pop())).toEqual(["echarts.min.js", "echarts-langFR.js", "chart.js"]);

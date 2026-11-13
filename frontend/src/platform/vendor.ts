@@ -2,42 +2,16 @@
 /** frontend/src/platform/vendor.ts — bibliothèques UMD chargées à la demande (Mermaid, highlight.js, Chart.js, ECharts) depuis les fichiers hachés du build. */
 export type GroupeVendor = "mermaid" | "highlight" | "chart" | "echarts";
 
-interface ChartUmd {
-  register(...elements: unknown[]): void;
-  __elpisPluginsReady?: boolean;
-}
-
-interface ZoneGraphe {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-interface TexteCentral {
-  text?: unknown;
-  subtext?: unknown;
-  color?: string;
-  size?: number;
-}
-
-interface GrapheChart {
-  chartArea?: ZoneGraphe;
-  ctx: CanvasRenderingContext2D;
-  config: { options?: { plugins?: { centerText?: TexteCentral } } };
-}
-
 interface GlobalsVendor {
   mermaid?: unknown;
   hljs?: unknown;
   echarts?: unknown;
-  Chart?: ChartUmd;
+  Chart?: unknown;
 }
 
 interface Groupe {
   readonly urls: readonly string[];
   pret(): boolean;
-  apres?(): void;
 }
 
 const g = (): GlobalsVendor => window as unknown as GlobalsVendor;
@@ -45,7 +19,7 @@ const g = (): GlobalsVendor => window as unknown as GlobalsVendor;
 const GROUPES: Readonly<Record<GroupeVendor, Groupe>> = {
   mermaid: { urls: ["vendor/mermaid.min.js"], pret: () => !!g().mermaid },
   highlight: { urls: ["vendor/highlight.min.js"], pret: () => !!g().hljs },
-  chart: { urls: ["vendor/chart.js"], pret: () => g().Chart !== undefined, apres: enregistrerGreffonsChart },
+  chart: { urls: ["vendor/chart.js"], pret: () => g().Chart !== undefined },
   echarts: { urls: ["vendor/echarts.min.js", "vendor/echarts-langFR.js"], pret: () => !!g().echarts },
 };
 
@@ -85,11 +59,6 @@ export function ensureVendor(nom: string): Promise<void> {
   const p = Promise.all(groupe.urls.map((u) => chargerScript(urlVendor(u))))
     .then(() => {
       if (!groupe.pret()) throw new Error("Bibliothèque non disponible après chargement : " + nom);
-      try {
-        groupe.apres?.();
-      } catch {
-        /* greffons facultatifs : le graphe reste rendu sans eux */
-      }
     })
     .catch((err: unknown) => {
       enAttente.delete(cle);
@@ -97,34 +66,4 @@ export function ensureVendor(nom: string): Promise<void> {
     });
   enAttente.set(cle, p);
   return p;
-}
-
-function dessinerTexteCentral(graphe: GrapheChart): void {
-  const ct = graphe.config.options?.plugins?.centerText;
-  const zone = graphe.chartArea;
-  if (!ct?.text || !zone) return;
-  const ctx = graphe.ctx;
-  const cx = (zone.left + zone.right) / 2;
-  const cy = (zone.top + zone.bottom) / 2;
-  const sombre = document.body.classList.contains("elpis-dark-surface");
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = ct.color || (sombre ? "#e2e8f0" : "#334155");
-  ctx.font = "600 " + String(ct.size || 22) + "px system-ui, sans-serif";
-  ctx.fillText(String(ct.text), cx, ct.subtext ? cy - 6 : cy);
-  if (ct.subtext) {
-    ctx.font = "400 12px system-ui, sans-serif";
-    ctx.globalAlpha = 0.65;
-    ctx.fillText(String(ct.subtext), cx, cy + 16);
-  }
-  ctx.restore();
-}
-
-/** Greffon de texte central de Chart.js, enregistré une fois après le chargement du groupe. */
-export function enregistrerGreffonsChart(): void {
-  const chart = g().Chart;
-  if (!chart || chart.__elpisPluginsReady) return;
-  chart.register({ id: "elpisCenterText", afterDatasetsDraw: dessinerTexteCentral });
-  chart.__elpisPluginsReady = true;
 }

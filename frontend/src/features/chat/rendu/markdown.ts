@@ -48,21 +48,40 @@ const FENCE_PARTIELLE: Readonly<Record<string, RegExp>> = {
   "`": /(^|\n)[ \t]*`{1,2}$/,
   "~": /(^|\n)[ \t]*~{1,2}$/,
 };
+const FERMETURES =
+  /<\/(?:p|li|h[1-6]|td|th|blockquote|pre)>(?:\s*<\/(?:ul|ol|li|table|thead|tbody|tr|td|th|blockquote|div)>)*$/i;
+const QUEUE_CARET = 4096;
 
 function ouvreFence(md: string): boolean {
   return OUVRE_FENCE.test(md);
 }
 
-/** Insère le caret de flux avant la fermeture de niveau texte la plus profonde du dernier bloc. */
+/** Insère le caret de flux avant la fermeture de niveau texte la plus profonde du dernier bloc ; seule la fin du HTML est lue. */
 export function injecterCaret(html: string): string {
   if (!html) return html;
-  const s = html.replace(/\s+$/, "");
-  const m =
-    /<\/code><\/pre>(?:<\/div>)?$/i.exec(s) ??
-    /<\/(?:p|li|h[1-6]|td|th|blockquote|pre)>(?:\s*<\/(?:ul|ol|li|table|thead|tbody|tr|td|th|blockquote|div)>)*$/i.exec(
-      s,
-    );
-  return m ? s.slice(0, m.index) + CARET + s.slice(m.index) : s + CARET;
+  const s = html.trimEnd();
+  let i = -1;
+  if (s.endsWith("</code></pre>")) i = s.length - 13;
+  else if (s.endsWith("</code></pre></div>")) i = s.length - 19;
+  else {
+    const debut = Math.max(0, s.length - QUEUE_CARET);
+    const m = FERMETURES.exec(debut ? s.slice(debut) : s);
+    if (m) i = debut + m.index;
+  }
+  return i >= 0 ? s.slice(0, i) + CARET + s.slice(i) : s + CARET;
+}
+
+/** Corps d'une fence en cours sans fermeture complète ou partielle ni dernier saut de ligne ; seules ses deux dernières lignes sont lues. */
+function corpsDeFence(corps: string, car: string): string {
+  let e = corps.length;
+  while (e > 0 && /\s/.test(corps.charAt(e - 1))) e--;
+  const derniere = corps.lastIndexOf("\n", e - 1);
+  const w = derniere <= 0 ? 0 : Math.max(0, corps.lastIndexOf("\n", derniere - 1));
+  const queue = (w ? corps.slice(w) : corps)
+    .replace(/\n?(`{3,}|~{3,})\s*$/, "")
+    .replace(FENCE_PARTIELLE[car] ?? FENCE_PARTIELLE["`"]!, "$1")
+    .replace(/\n$/, "");
+  return w ? corps.slice(0, w) + queue : queue;
 }
 
 /** Configure le rendu `marked` partagé : code toujours échappé (la coloration vient après), chemins cliquables, purification de toute sortie. */
@@ -264,11 +283,8 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
       const nl = md.indexOf("\n");
       const ouvrant = (nl === -1 ? lead : md.slice(0, nl)).trim();
       const lang = ouvrant.replace(/^(`{3,}|~{3,})\s*/, "").split(/\s+/)[0] ?? "";
-      const complet = (nl === -1 ? "" : md.slice(nl + 1)).replace(/\n?(`{3,}|~{3,})\s*$/, "");
       // Ni fermeture partielle ni saut de ligne final : le bloc ne rétrécit pas quand la fence se ferme.
-      const corps = complet
-        .replace(FENCE_PARTIELLE[lead.charAt(0)] ?? FENCE_PARTIELLE["`"]!, "$1")
-        .replace(/\n$/, "");
+      const corps = corpsDeFence(nl === -1 ? "" : md.slice(nl + 1), lead.charAt(0));
       const cls = "hljs" + (lang ? " language-" + echapperFlux(lang) : "");
       const html = echapperCorpsFence(corps);
       return estBlocOrdinaire(lang.toLowerCase(), () => corps)

@@ -25,14 +25,16 @@ export interface BlocFlux {
   lim: number;
 }
 
-/** État de découpe d'un texte : blocs figés, décalage du premier caractère non figé, liens de référence vus, taille du dernier texte analysé, textes (préparé, puis tel que reçu) sur lesquels il repose. */
+/** État de découpe d'un texte : blocs figés, décalage du premier caractère non figé, liens de référence vus, taille de la région analysée, textes (préparé, puis tel que reçu) sur lesquels il repose. */
 export interface EtatFlux {
   blocs: readonly BlocFlux[];
   pos: number;
   liens: Liens;
   lexe: number;
-  /** Fin des lignes complètes déjà analysées sans qu'un bloc se fige : sans ligne de plus, l'analyse ne change pas. */
+  /** Fin des lignes complètes déjà analysées depuis `pos` sans qu'un bloc se fige : sans ligne de plus, l'analyse ne change pas. */
   horizon: number;
+  /** Début de la première ligne pas encore lue de la fence ouverte en `pos` (0 : depuis son ouverture). */
+  fenceVue: number;
   /** Texte terminé : son dernier bloc a été figé sans savoir ce qui suit, un texte plus long le redécoupe. */
   fini: boolean;
   texte: string;
@@ -90,6 +92,7 @@ export function etatVide(): EtatFlux {
     liens: Object.create(null) as Liens,
     lexe: 0,
     horizon: 0,
+    fenceVue: 0,
     fini: false,
     texte: "",
     source: "",
@@ -156,10 +159,12 @@ interface Fence {
   fermee: boolean;
   /** Décalage du saut de ligne qui termine la ligne de fermeture. */
   fin: number;
+  /** Début de la première ligne pas encore lue jusqu'au bout. */
+  vu: number;
 }
 
-/** Fence qui ouvre le texte restant (lignes blanches mises à part) : fermée par une ligne complète, ou encore ouverte ; `null` sinon. */
-export function lireFence(t: string, pos: number): Fence | null {
+/** Fence qui ouvre le texte restant (lignes blanches mises à part) : fermée par une ligne complète, ou encore ouverte ; `null` sinon. La fermeture est cherchée à partir de `depuis`. */
+export function lireFence(t: string, pos: number, depuis = 0): Fence | null {
   let i = pos;
   while (i < t.length) {
     const nl = t.indexOf("\n", i);
@@ -175,14 +180,14 @@ export function lireFence(t: string, pos: number): Fence | null {
   const marque = m[1] ?? "";
   const car = marque.charAt(0);
   if (car === "`" && ouvrante.indexOf("`", m[0].length) !== -1) return null;
-  let j = nl1 === -1 ? -1 : nl1 + 1;
+  let j = nl1 === -1 ? -1 : Math.max(nl1 + 1, depuis);
   while (j !== -1 && j < t.length) {
     const nl = t.indexOf("\n", j);
     if (nl === -1) break;
-    if (estFermeture(t, j, nl, car, marque.length)) return { fermee: true, fin: nl };
+    if (estFermeture(t, j, nl, car, marque.length)) return { fermee: true, fin: nl, vu: j };
     j = nl + 1;
   }
-  return { fermee: false, fin: -1 };
+  return { fermee: false, fin: -1, vu: j === -1 ? 0 : j };
 }
 
 /** Met à jour la pile des éléments HTML restés ouverts après un bloc HTML de premier niveau (balises vides, à fin facultative et commentaires exclus ; une fermeture sans ouverture est ignorée). */
@@ -411,36 +416,40 @@ export function creerFlux(dep: DependancesFlux) {
     let pos = etat.pos;
     let lexe = etat.lexe;
     let horizon = etat.horizon;
+    let fenceVue = etat.fenceVue;
     for (let tours = 0; pos < t.length && tours < TOURS_MAX; tours++) {
-      const fence = lireFence(t, pos);
+      const fence = lireFence(t, pos, fenceVue);
       if (fence) {
-        if (!fence.fermee) break;
+        if (!fence.fermee) {
+          fenceVue = fence.vu;
+          break;
+        }
         const fin = sauterBlanches(t, fence.fin + 1);
         const jetons = lexer(t.slice(pos, fence.fin), copieLiens(liens));
         nouveaux.push(bloc(t, etat.blocs.length + nouveaux.length, pos, fin, fin, jetons, liens));
         pos = fin;
+        fenceVue = 0;
+        horizon = 0;
+        lexe = 0;
         continue;
       }
+      fenceVue = 0;
       const nl = t.lastIndexOf("\n");
-      if (nl < pos || (nl + 1 === horizon && pos === etat.pos)) break;
+      if (nl < pos || nl + 1 === horizon) break;
       const taille = nl + 1 - pos;
       if (taille > ANALYSE_MAX && taille < lexe * CROISSANCE_ANALYSE) break;
-      lexe = taille;
       const avant = etat.blocs.length + nouveaux.length;
       const r = figerRegion(t, pos, nl + 1, liens, nouveaux, etat.blocs.length, true);
       if (!r) break;
       if (r.ajoutees.length) aRelire.push({ jusqua: avant, etiquettes: r.ajoutees });
-      if (r.suite === pos) {
-        horizon = nl + 1;
-        break;
-      }
+      horizon = nl + 1;
+      lexe = nl + 1 - r.suite;
       pos = r.suite;
-      horizon = 0;
     }
     let blocs: readonly BlocFlux[] = nouveaux.length ? [...etat.blocs, ...nouveaux] : etat.blocs;
     for (const r of aRelire) blocs = relire(blocs, r.jusqua, liens, r.etiquettes);
     return {
-      etat: { blocs, pos, liens, lexe, horizon, fini: false, texte: t, source: etat.source },
+      etat: { blocs, pos, liens, lexe, horizon, fenceVue, fini: false, texte: t, source: etat.source },
       actif: t.slice(pos),
     };
   }
@@ -472,6 +481,7 @@ export function creerFlux(dep: DependancesFlux) {
         liens,
         lexe: 0,
         horizon: 0,
+        fenceVue: 0,
         fini: true,
         texte: t,
         source: etat.source,
@@ -512,6 +522,7 @@ export function creerFlux(dep: DependancesFlux) {
       liens,
       lexe: 0,
       horizon: 0,
+      fenceVue: 0,
       fini: false,
       texte: t,
       source: etat.source,

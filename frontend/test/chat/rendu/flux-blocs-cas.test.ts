@@ -3,6 +3,7 @@
 import * as marked from "marked";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { lireFence } from "../../../src/features/chat/rendu/flux-blocs";
 import type { EtatFlux } from "../../../src/features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
 import type { MoteurMarkdown } from "../../../src/features/chat/rendu/markdown";
@@ -143,5 +144,33 @@ describe("blocs figés stables", () => {
     ["puce vide en dernière ligne", "Liste :\n\n- "],
   ])("le saut de ligne final compte comme dans le rendu complet (%s)", (_n, texte) => {
     expect(finir(texte, texte, 1)).toBe(norm(m.renderMarkdown(texte)));
+  });
+});
+
+describe("grandes régions", () => {
+  it("après une rafale qui finit par une longue liste, la suite se fige dès 20 % de croissance de la région", () => {
+    let a = "";
+    for (let k = 1; a.length < 60000; k++) a += `Paragraphe ${k} avec un peu de texte pour remplir.\n\n`;
+    for (let k = 1; a.length < 100000; k++) a += `- élément ${k} de la longue liste finale\n`;
+    let r = m.avancerFlux(a, null);
+    const figes = r.etat.blocs.length;
+    let t = a + "\nUn paragraphe après la liste.\n\n";
+    for (let k = 0; k < 400; k++) {
+      t += "Encore un paragraphe ordinaire.\n\n";
+      r = m.avancerFlux(t, r.etat);
+    }
+    expect(r.etat.blocs.length).toBeGreaterThan(figes + 100);
+  });
+
+  it("la fermeture d'une fence ouverte est cherchée à partir de la dernière ligne lue", () => {
+    let t = "```py\n";
+    let etat: EtatFlux | null = null;
+    for (let k = 0; k < 50; k++) {
+      t += `x_${k} = ${k}\n`;
+      etat = m.avancerFlux(t, etat).etat;
+      expect(etat.fenceVue).toBe(t.length);
+    }
+    expect(lireFence(t + "```\n", 0, etat?.fenceVue)).toEqual(lireFence(t + "```\n", 0));
+    expect(m.avancerFlux(t + "```\n\nSuite", etat).etat.blocs.length).toBe(1);
   });
 });

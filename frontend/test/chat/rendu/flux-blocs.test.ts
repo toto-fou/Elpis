@@ -240,10 +240,10 @@ describe("reprise sur un texte modifié à n'importe quelle position", () => {
 
 describe("lireFence", () => {
   it("fence fermée par une ligne complète, ouverte sinon", () => {
-    expect(lireFence("```py\nx\n```\nsuite", 0)).toEqual({ fermee: true, fin: 11 });
-    expect(lireFence("```py\nx\n```", 0)).toEqual({ fermee: false, fin: -1 });
-    expect(lireFence("```py", 0)).toEqual({ fermee: false, fin: -1 });
-    expect(lireFence("\n  \n~~~\nx\n~~~\n", 0)).toEqual({ fermee: true, fin: 13 });
+    expect(lireFence("```py\nx\n```\nsuite", 0)).toMatchObject({ fermee: true, fin: 11 });
+    expect(lireFence("```py\nx\n```", 0)).toMatchObject({ fermee: false, fin: -1 });
+    expect(lireFence("```py", 0)).toMatchObject({ fermee: false, fin: -1 });
+    expect(lireFence("\n  \n~~~\nx\n~~~\n", 0)).toMatchObject({ fermee: true, fin: 13 });
   });
 
   it("la fermeture a au moins la longueur et le caractère de l'ouverture", () => {

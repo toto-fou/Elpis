@@ -89,6 +89,33 @@ describe("v-bloc-html", () => {
     expect(el.innerHTML).toBe(referenceDe(fige));
   });
 
+  it("prose qui grandit avant le curseur : même nœud texte, curseur gardé, sélection gardée", async () => {
+    const m = moteurMarkdown();
+    let a = actif("Premier paragraphe.\n\nUn second qui");
+    const { el, etat } = monter(a.html);
+    const caret = el.querySelector(".elpis-stream-caret");
+    const noeud = caret?.previousSibling as Text;
+    expect(noeud.data).toBe("Un second qui");
+    const plage = document.createRange();
+    plage.setStart(noeud, 3);
+    plage.setEnd(noeud, 9);
+    for (const suite of [" s'écrit", " encore, et", " encore & toujours"]) {
+      a = actif(a.etat.texte + suite, a.etat);
+      etat.value = a.html;
+      await nextTick();
+      expect(el.querySelector(".elpis-stream-caret")).toBe(caret);
+      expect(el.innerHTML).toBe(referenceDe(a.html));
+    }
+    expect(caret?.previousSibling).toBe(noeud);
+    expect(plage.toString()).toBe("second");
+    // Le rendu change de forme (emphase) : HTML reposé.
+    a = { html: m.injecterCaret(m.avancerFlux(a.etat.texte + " *fin*", a.etat).actifHtml), etat: a.etat };
+    etat.value = a.html;
+    await nextTick();
+    expect(el.innerHTML).toBe(referenceDe(a.html));
+    expect(el.querySelector("em")?.textContent).toBe("fin");
+  });
+
   it("repli : texte qui ne prolonge pas, code coloré, prose, entité inconnue", async () => {
     const a = actif("```py\nx = 1");
     const { el, etat } = monter(a.html);

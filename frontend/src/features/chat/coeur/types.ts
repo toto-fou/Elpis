@@ -169,6 +169,9 @@ export interface MessageChat {
   _statusLine?: string;
   _pendingPreContent?: string;
   _mdBlocks?: BlocRendu[] | null;
+  _mdActiveHtml?: string;
+  /** Texte dont `_mdActiveHtml` est le rendu exact (vide : le prochain ajout passe par un rendu). */
+  _mdActifTexte?: string;
   _mdFlux?: EtatFlux | null;
   _ppBlocks?: BlocRendu[] | null;
   _ppFlux?: EtatFlux | null;

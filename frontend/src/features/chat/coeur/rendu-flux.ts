@@ -6,6 +6,7 @@ import { getCurrentScope, markRaw, nextTick, onScopeDispose, toRaw } from "vue";
 import { marquerBattement } from "../../../utils/battement";
 import type { BlocFlux, EtatFlux } from "../rendu/flux-blocs.ts";
 import type { ResultatFlux } from "../rendu/markdown.ts";
+import { CARET } from "../rendu/bloc-html.ts";
 import { creerPorteur, synchroniserPorteur } from "../rendu/porteur-flux.ts";
 import { creerBudget, noterCout, sauterImage } from "./budget-battement.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
@@ -33,6 +34,7 @@ const BAS_PX = 4;
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
   _mdBlocks: null,
   _mdActiveHtml: "",
+  _mdActifTexte: "",
   _mdFlux: null,
   _modelLoad: null,
   _flux: null,
@@ -51,6 +53,7 @@ const LEGERS = new Set([
   ...TEXTES,
   "_mdBlocks",
   "_mdActiveHtml",
+  "_mdActifTexte",
   "_mdFlux",
   "_ppBlocks",
   "_ppActiveHtml",
@@ -77,6 +80,26 @@ function leger(cur: MessageChat, p: Objet): boolean {
     } else if (TEXTES.has(k) && vacuite(cur[k]) !== vacuite(p[k])) return false;
   }
   return true;
+}
+
+// Caractères sans rôle Markdown en milieu de ligne ; début de ligne permis (retrait, citation, puce, numéro) ; amorces de lien automatique.
+const SIMPLE = /^[\p{L}\p{M}\p{N} ,.;:!?'"’«»()%+=/-]*$/u;
+const DEBUT_LIGNE = /^[ \t]*(?:>[ \t]?)*(?:(?:[-+*]|\d{1,9}[.)])[ \t]+)?/;
+const LETTRE = /\p{L}/u;
+const AMORCE_LIEN = /www|https?:|ftp:|:\/\//i;
+
+/** HTML du bloc actif quand `texte` prolonge `base` (le texte dont `html` est le rendu) par des caractères simples sur une ligne déjà visible : l'ajout est inséré avant le curseur, sans analyse ni purification ; `null` s'il faut un rendu. */
+export function prolongerActif(html: string, base: string, texte: string): string | null {
+  if (!base || texte.length <= base.length || !texte.startsWith(base)) return null;
+  const ajout = texte.slice(base.length);
+  if (!SIMPLE.test(ajout)) return null;
+  const ligne = base.slice(base.lastIndexOf("\n") + 1);
+  const corps = ligne.slice(DEBUT_LIGNE.exec(ligne)?.[0].length ?? 0);
+  if (!LETTRE.test(corps) || !SIMPLE.test(corps) || AMORCE_LIEN.test(ligne + ajout)) return null;
+  const k = html.indexOf(CARET);
+  if (k <= 0 || k !== html.lastIndexOf(CARET) || html.charCodeAt(k - 1) === 62 || html.includes("<pre"))
+    return null;
+  return html.slice(0, k) + ajout + html.slice(k);
 }
 
 /** Le porteur suit le message remplacé : recopié tant que le message est en flux, lâché quand il en sort. */
@@ -176,8 +199,12 @@ export function creerRenduFlux(c: CoeurChat) {
     return champsRendu(md.avancerFlux(text, etat), P, caret);
   }
 
+  // Le texte dont le bloc actif est le rendu exact : un rendu de texte fini par un blanc ne le montre pas, le chemin rapide attend le suivant.
   function applyStreamRender(cur: MessageChat, content: string): Objet {
-    return Object.assign({ content, isStreaming: true }, applyIncrementalRender(cur, content, "_md"));
+    return Object.assign(
+      { content, isStreaming: true, _mdActifTexte: /\s$/.test(content) ? "" : content },
+      applyIncrementalRender(cur, content, "_md"),
+    );
   }
 
   function applyPreRender(cur: MessageChat, text: string): Objet {
@@ -188,7 +215,7 @@ export function creerRenduFlux(c: CoeurChat) {
   function figerCorps(cur: MessageChat, contenu: string): Objet {
     const r = md.terminerFlux(contenu, (cur._mdFlux as EtatFlux | null | undefined) ?? null);
     return r
-      ? Object.assign(champsRendu(r, "_md", false), { _modelLoad: null, _flux: null })
+      ? Object.assign(champsRendu(r, "_md", false), { _mdActifTexte: "", _modelLoad: null, _flux: null })
       : { ...STREAM_RENDER_CLEAR };
   }
 
@@ -336,7 +363,10 @@ export function creerRenduFlux(c: CoeurChat) {
     } catch (err) {
       journal.erreur("[voix]", err);
     }
-    return applyStreamRender(cur, content);
+    const html = prolongerActif(cur._mdActiveHtml ?? "", cur._mdActifTexte ?? "", content);
+    return html === null
+      ? applyStreamRender(cur, content)
+      : { content, isStreaming: true, _mdActiveHtml: html, _mdActifTexte: content };
   }
 
   // Le <pre> de la réflexion en cours : le dernier du fil.

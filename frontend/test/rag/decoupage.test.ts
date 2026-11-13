@@ -22,7 +22,6 @@ import {
   messageEchecDecoupage,
   normaliserParams,
   paramsDe,
-  paramsEgaux,
   paramsParDefaut,
   paramsPourExtension,
   resumeParams,
@@ -140,8 +139,10 @@ describe("normalisation et comparaison", () => {
   });
 
   it("deux jeux sont égaux sans tenir compte d'une valeur inutile", () => {
-    expect(paramsEgaux(base({ methode: "phrase", valeur: "x" }), base({ methode: "phrase" }))).toBe(true);
-    expect(paramsEgaux(base({ taille: 300 }), base())).toBe(false);
+    expect(clePourParams(base({ methode: "phrase", valeur: "x" }))).toBe(
+      clePourParams(base({ methode: "phrase" })),
+    );
+    expect(clePourParams(base({ taille: 300 }))).not.toBe(clePourParams(base()));
     expect(clePourParams(base())).toBe(clePourParams({ ...base() }));
   });
 

@@ -152,10 +152,6 @@ export function clePourParams(p: ParamsDecoupageRag): string {
   return JSON.stringify([n.methode, n.valeur ?? null, n.unite, n.taille, n.chevauchement, n.taille_max]);
 }
 
-export function paramsEgaux(a: ParamsDecoupageRag, b: ParamsDecoupageRag): boolean {
-  return clePourParams(a) === clePourParams(b);
-}
-
 /** Résumé d'une ligne : « Phrases · 512 jetons · chevauchement 64 ». */
 export function resumeParams(p: ParamsDecoupageRag): string {
   const unite = p.unite === "jetons" ? "jetons" : "caractères";

@@ -106,7 +106,11 @@ export function creerToasts() {
         onExpire: opts.onExpire,
       });
       if (deCle._timer) clearTimeout(deCle._timer);
-      deCle._timer = persistant ? undefined : setTimeout(() => removeToast(deCle.id, true), duree);
+      deCle._timer = undefined;
+      // En pause (survol, focus), la durée relancée attend la fin de la pause.
+      if (persistant) restes.delete(deCle.id);
+      else if (restes.has(deCle.id)) restes.set(deCle.id, duree);
+      else armer(deCle, duree);
       return deCle.id;
     }
     if (!opts.actionLabel && !opts.onExpire) {

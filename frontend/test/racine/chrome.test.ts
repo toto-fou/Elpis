@@ -166,6 +166,36 @@ describe("toasts", () => {
     expect(premier).not.toHaveBeenCalled();
     expect(dernier).toHaveBeenCalledOnce();
   });
+
+  it("un toast à clé mis à jour pendant la pause reste en pause, puis repart pour sa nouvelle durée", () => {
+    const t = creerToasts();
+    const id = t.showToast("Enregistré", "success", { cle: "k", duration: 6000 });
+    vi.advanceTimersByTime(1000);
+    t.pauseToast(id);
+    expect(t.showToast("Enregistré", "success", { cle: "k", duration: 6000 })).toBe(id);
+    vi.advanceTimersByTime(60_000);
+    expect(t.toasts.value).toHaveLength(1);
+    t.reprendreToast(id);
+    vi.advanceTimersByTime(5999);
+    expect(t.toasts.value).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(t.toasts.value).toHaveLength(0);
+  });
+
+  it("un toast à clé mis à jour hors pause peut ensuite être mis en pause avec le bon temps restant", () => {
+    const t = creerToasts();
+    const id = t.showToast("Enregistré", "success", { cle: "k", duration: 6000 });
+    vi.advanceTimersByTime(5000);
+    t.showToast("Enregistré", "success", { cle: "k", duration: 6000 });
+    vi.advanceTimersByTime(2000);
+    t.pauseToast(id);
+    vi.advanceTimersByTime(60_000);
+    t.reprendreToast(id);
+    vi.advanceTimersByTime(3999);
+    expect(t.toasts.value).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(t.toasts.value).toHaveLength(0);
+  });
 });
 
 describe("annonceur", () => {

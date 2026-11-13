@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/interface/pages.ts — pages HTML de l'application (coquilles) : entrées Vite `@entree` développées depuis le manifeste, fichiers statiques versionnés à leur empreinte, en cache tant que le disque ne bouge pas ; politique de sécurité du contenu (CSP) des pages. */
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -228,15 +229,13 @@ export class Pages {
 
   /** Fichier versionné ou vendor à son empreinte (relu s'il change), script d'habillage, puis les entrées Vite ; un build absent laisse un commentaire. */
   assembler(contenu: string, lus: string[] = []): string {
-    const texte = contenu.replace(
-      STATIQUE,
-      (tout, a: string, chemin: string, rel: string, v: string | undefined, b: string) => {
+    const texte = contenu
+      .replace(STATIQUE, (tout, a: string, chemin: string, rel: string, v: string | undefined, b: string) => {
         if (v === undefined && !rel.startsWith("vendor/")) return tout;
         lus.push(join(this.frontend, rel));
         return `${a}${chemin}?v=${echapperHtml(this.empreinte(rel))}${b}`;
-      },
-    );
-    texte = texte.replace(HABILLAGE, () => `<script>${SCRIPT_HABILLAGE}</script>`);
+      })
+      .replace(HABILLAGE, () => `<script>${SCRIPT_HABILLAGE}</script>`);
     if (!/<!--\s*@entree\s/.test(texte)) return texte;
     const chemin = join(this.frontend, MANIFESTE_WEB);
     lus.push(chemin);

@@ -244,6 +244,37 @@ describe("barre latérale", () => {
     );
   });
 
+  it("recherche : titres du volet dès la première touche, serveur à la suite, roue discrète, « Recherche… » puis « Aucun résultat »", async () => {
+    const b = etat<Record<string, unknown>>({
+      ...BARRE,
+      searchOpen: true,
+      chatSearch: "sec",
+      isSearchingChats: true,
+    });
+    const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, b);
+    const titres = () => [...hote.querySelectorAll("[data-chat-row]")].map((l) => l.textContent?.trim());
+    expect(titres()).toEqual(["Second"]);
+    expect(hote.querySelector(".relative > span > .ph-spinner.animate-spin")).not.toBeNull();
+    expect(hote.textContent).not.toContain("Aucun résultat");
+    b["chatSearchResults"] = [
+      { id: "c2", title: "Second" },
+      { id: "c9", title: "Seconde ancienne" },
+    ];
+    b["isSearchingChats"] = false;
+    await nextTick();
+    expect(titres()).toEqual(["Second", "Seconde ancienne"]);
+    expect(hote.querySelector(".ph-spinner")).toBeNull();
+    b["chatSearch"] = "zzz";
+    b["chatSearchResults"] = [];
+    b["isSearchingChats"] = true;
+    await nextTick();
+    expect(titres()).toEqual([]);
+    expect(hote.textContent).toContain("Recherche…");
+    b["isSearchingChats"] = false;
+    await nextTick();
+    expect(hote.textContent).toContain("Aucun résultat");
+  });
+
   it("section « Conversations » : loupe et sélection en icônes, nombre de cochés à la place du titre, « … » hors du flux", async () => {
     const b = etat<Record<string, unknown>>({
       ...BARRE,

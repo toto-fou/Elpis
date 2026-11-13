@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/BarreLaterale.vue — barre latérale : rail réduit et vue déployée (marque, nouveau chat, pages, recherche et historique groupé, sélection multiple, notifications, compte). -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import type { ComponentPublicInstance } from "vue";
 
 import { LOGO_ELPIS } from "../../../features/communs/logo";
@@ -9,6 +9,7 @@ import { useVolet } from "../../../features/communs/volet";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
 import { oublierPrecharge } from "../../../features/chat/historique/ouverture";
+import { fusionnerResultats } from "../../../features/chat/historique/recherche";
 import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
 import NotificationsPied from "./NotificationsPied.vue";
@@ -27,6 +28,17 @@ function brancherFondu(el: Element | ComponentPublicInstance | null): void {
   detacherFondu = el instanceof HTMLElement ? fonduDefilement(el) : null;
 }
 onBeforeUnmount(() => brancherFondu(null));
+
+// Recherche : les titres du volet répondent dès la première touche, le serveur complète.
+const resultats = computed(() =>
+  b.chatSearch
+    ? fusionnerResultats(
+        b.chatSearch,
+        b.groupedHistory.flatMap((g) => g.items),
+        b.chatSearchResults,
+      )
+    : [],
+);
 
 // Ligne marquée : la conversation en cours d'ouverture, sinon l'affichée.
 const courante = (id: string): boolean =>
@@ -374,9 +386,16 @@ function appui(e: PointerEvent, id: string): void {
                    champ n'apparaît QUE quand searchOpen. État : src/features/chat/historique/recherche.ts. -->
         <div v-show="b.searchOpen" class="px-2 pt-2 pb-1 shrink-0">
           <div class="relative">
-            <i
-              class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-base"
-            ></i>
+            <!-- Requête au serveur en cours : la loupe devient une roue, les résultats restent en place. -->
+            <span
+              class="absolute left-3 top-1/2 -translate-y-1/2 flex text-blue-400 text-base"
+              aria-hidden="true"
+            >
+              <i
+                class="ph"
+                :class="b.isSearchingChats ? 'ph-spinner animate-spin' : 'ph-magnifying-glass'"
+              ></i>
+            </span>
             <input
               :ref="(el) => (b.chatSearchRef = el as HTMLInputElement | null)"
               v-model="b.chatSearch"
@@ -403,17 +422,11 @@ function appui(e: PointerEvent, id: string): void {
             <div class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-1.5 pb-1.5">
               Résultats
             </div>
-            <div v-if="b.isSearchingChats" class="text-center py-3">
-              <i class="ph ph-spinner animate-spin text-slate-400 text-lg"></i>
-            </div>
-            <div
-              v-else-if="b.chatSearchResults.length === 0"
-              class="text-center py-3 text-xs text-slate-400 font-medium"
-            >
-              Aucun résultat
+            <div v-if="resultats.length === 0" class="text-center py-3 text-xs text-slate-400 font-medium">
+              {{ b.isSearchingChats ? "Recherche…" : "Aucun résultat" }}
             </div>
             <button
-              v-for="chat in b.chatSearchResults"
+              v-for="chat in resultats"
               :key="'s' + chat.id"
               type="button"
               data-chat-row

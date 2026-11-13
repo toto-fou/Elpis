@@ -21,6 +21,8 @@ import {
   creerRechercheChat,
   DELAI_RECHERCHE_MS,
   DELAI_SURLIGNAGE_MS,
+  fusionnerResultats,
+  titreCorrespond,
 } from "../../../src/features/chat/historique/recherche";
 
 afterEach(() => {
@@ -959,23 +961,69 @@ describe("recherche", () => {
       (r.chatSearch as Ref<string | null>).value = q;
       await vi.advanceTimersByTimeAsync(DELAI_RECHERCHE_MS + 1);
     };
+    const rapide = { id: "b", title: "Rapide" };
     await chercher("lent");
     await chercher("rapide");
-    reponses.get("rapide")?.(json({ items: [{ id: "b" }] }));
+    reponses.get("rapide")?.(json({ items: [rapide] }));
     await vi.advanceTimersByTimeAsync(0);
-    reponses.get("lent")?.(json({ items: [{ id: "a" }] }));
+    reponses.get("lent")?.(json({ items: [{ id: "a", title: "Lent" }] }));
     await vi.advanceTimersByTimeAsync(0);
-    expect(r.chatSearchResults.value).toEqual([{ id: "b" }]);
+    expect(r.chatSearchResults.value).toEqual([rapide]);
     expect(r.isSearchingChats.value).toBe(false);
-    await chercher("encore");
+    await chercher("rapid");
     r.cancelPendingSearch();
     expect(r.isSearchingChats.value).toBe(false);
-    reponses.get("encore")?.(json({ items: [{ id: "z" }] }));
+    reponses.get("rapid")?.(json({ items: [{ id: "z", title: "Rapidité" }] }));
     await vi.advanceTimersByTimeAsync(0);
-    expect(r.chatSearchResults.value).toEqual([{ id: "b" }]);
+    expect(r.chatSearchResults.value).toEqual([rapide]);
     r.closeChatSearch();
     await vi.advanceTimersByTimeAsync(0);
     expect(r.chatSearchResults.value).toEqual([]);
     expect(r.searchOpen.value).toBe(false);
+  });
+
+  it("historique : entre deux frappes, la réponse précédente reste pour ce qui correspond encore, sans attendre le serveur", async () => {
+    vi.useFakeTimers();
+    const reponses = new Map<string, (r: Response) => void>();
+    const r = monterRecherche(
+      (url) =>
+        new Promise<Response>((resoudre) => {
+          reponses.set(decodeURIComponent(url.split("q=")[1] ?? ""), resoudre);
+        }),
+    );
+    const saisie = r.chatSearch as Ref<string | null>;
+    saisie.value = "con";
+    await vi.advanceTimersByTimeAsync(DELAI_RECHERCHE_MS + 1);
+    const items = [
+      { id: "1", title: "Conversation 1" },
+      { id: "2", title: "Conversation 2" },
+      { id: "3", title: "Contrat" },
+    ];
+    reponses.get("con")?.(json({ items }));
+    await vi.advanceTimersByTimeAsync(0);
+    saisie.value = "CONVERSATION ";
+    await vi.advanceTimersByTimeAsync(0);
+    expect(r.chatSearchResults.value.map((x) => x.id)).toEqual(["1", "2"]);
+    expect(r.isSearchingChats.value).toBe(true);
+    saisie.value = "zut";
+    await vi.advanceTimersByTimeAsync(0);
+    expect(r.chatSearchResults.value).toEqual([]);
+  });
+
+  it("fusion : titres du volet d'abord et dans leur ordre, puis ceux du serveur à la suite, sans doublon", () => {
+    const volet = [
+      { id: "1", title: "Court 10" },
+      { id: "2", title: "Long" },
+      { id: "3", title: "court 1" },
+    ];
+    expect(fusionnerResultats("Court 1", volet, []).map((x) => x.id)).toEqual(["1", "3"]);
+    const serveur = [
+      { id: "3", title: "court 1" },
+      { id: "9", title: "Court 1 ancien" },
+      { id: "1", title: "Court 10" },
+    ];
+    expect(fusionnerResultats(" court 1", volet, serveur).map((x) => x.id)).toEqual(["1", "3", "9"]);
+    expect(fusionnerResultats("  ", volet, [])).toEqual([]);
+    expect(titreCorrespond(undefined, "a")).toBe(false);
   });
 });

@@ -949,6 +949,43 @@ describe("historique : lectures gardées (retour sans attente)", () => {
     expect(refs.messages.value[0]?.content).toBe("fil B");
   });
 
+  it("retour sur un aperçu pendant l'ouverture d'une autre : l'aperçu est relu du serveur et la génération sondée", async () => {
+    const contenus: Record<string, unknown> = {
+      c1: A,
+      c2: B,
+      c3: conv([{ role: "user", content: "fil C" }], { id: "c3" }),
+    };
+    const srv = serveur(contenus);
+    const { api, refs, journal } = monter(null, { fetch: srv.fetch });
+    refs.chats.value = [
+      { id: "c1", title: "A", updated_at: 10 },
+      { id: "c2", title: "B", updated_at: 20 },
+    ];
+    await api.loadChat("c1");
+    await api.loadChat("c2");
+    // Autre onglet : A a reçu une réponse sans que la liste locale le sache.
+    contenus.c1 = conv(
+      [
+        { role: "user", content: "fil A" },
+        { role: "assistant", content: "réponse venue d'ailleurs" },
+      ],
+      { id: "c1", title: "A", updated_at: 10 },
+    );
+    srv.retenir(true);
+    const apercu = api.loadChat("c1");
+    expect(refs.messages.value).toHaveLength(1);
+    const autre = api.loadChat("c3");
+    const retour = api.loadChat("c1");
+    srv.retenir(false);
+    srv.liberer();
+    await Promise.all([apercu, autre, retour]);
+    await vi.waitFor(() =>
+      expect(journal.filter((l) => l === "GET /api/chat/c1/generation-status").length).toBeGreaterThan(1),
+    );
+    expect(refs.currentChatId.value).toBe("c1");
+    expect(refs.messages.value).toHaveLength(2);
+  });
+
   it("bornes : cinq conversations au plus, taille totale plafonnée, une lecture trop grande n'est pas gardée", () => {
     for (let i = 0; i < GARDEES_MAX + 2; i++) garderConversation("k" + i, 0, "x", 1);
     expect(conversationGardee("k0", 0, null)).toBeNull();

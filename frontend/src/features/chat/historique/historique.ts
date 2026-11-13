@@ -393,6 +393,8 @@ export function creerHistoriqueChat(
   let sequence = 0;
   // Fil posé par la dernière lecture : s'il a changé depuis (envoi, édition, flux), sa lecture gardée n'est plus juste.
   let affiche: { id: string; n: number; dernier: Message | undefined } | null = null;
+  // Conversation affichée depuis sa lecture gardée et jeton de sa relecture au serveur, tant qu'elle n'a pas abouti.
+  let aRelire: { id: string; seq: number } | null = null;
   vue.watch(
     () => user.value,
     (u) => {
@@ -414,6 +416,7 @@ export function creerHistoriqueChat(
     oublierPrecharge();
     quitterFil();
     affiche = null;
+    aRelire = null;
     deps.detachFromStream();
     viderRendu();
     remettreComposeur(false);
@@ -455,6 +458,7 @@ export function creerHistoriqueChat(
 
   /** Pose une conversation lue (réponse du serveur ou lecture gardée) ; `remplacer` remet d'abord le rendu à zéro. */
   function appliquer(id: string, d: Record<string, unknown>, remplacer: boolean): void {
+    aRelire = null;
     if (remplacer) {
       deps.detachFromStream();
       viderRendu();
@@ -498,6 +502,8 @@ export function creerHistoriqueChat(
   async function loadChat(id: string, opts?: { force?: boolean; noAttach?: boolean }): Promise<void> {
     currentView.value = "chat";
     if (currentChatId.value === id && !opts?.force) {
+      // Retour sur un aperçu dont la relecture a été dépassée (ouverture d'une autre) : il est relu.
+      if (aRelire?.id === id && aRelire.seq !== sequence) return loadChat(id, { ...opts, force: true });
       if (chatEnOuverture.value !== null) {
         sequence++;
         chatEnOuverture.value = null;
@@ -516,7 +522,10 @@ export function creerHistoriqueChat(
     if (memeChat) viderRendu();
     remettreComposeur(memeChat);
     try {
-      if (apercu !== null) appliquer(id, objetJson(apercu), true);
+      if (apercu !== null) {
+        appliquer(id, objetJson(apercu), true);
+        aRelire = { id, seq };
+      }
       const res = await (reprendrePrecharge(id, generation) ?? fetchAuth(urlChat(id), {}, true));
       if (perime()) return;
       if (res && res.ok) {
@@ -556,6 +565,7 @@ export function creerHistoriqueChat(
       );
     } finally {
       if (seq === sequence) chatEnOuverture.value = null;
+      if (aRelire?.seq === seq && !perime()) aRelire = null;
     }
   }
 

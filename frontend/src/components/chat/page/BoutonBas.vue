@@ -8,21 +8,36 @@ import { mouvementReduit } from "../../../utils/dom";
 
 const conv = domaine(CLE_CONVERSATION);
 const bouton = useTemplateRef<HTMLButtonElement>("bouton");
-const GESTES = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+const GESTES = ["wheel", "touchstart", "touchmove", "pointerdown", "keydown"] as const;
+const TOUCHES_HAUT = new Set(["PageUp", "Home", "ArrowUp"]);
 let interrompre: (() => void) | null = null;
 
-// Glissé sur le dernier écran vers le bas réel (relu à chaque image) ; un geste de l'utilisateur l'interrompt.
+// Glissé sur le dernier écran vers le bas réel (relu à chaque image) ; seule une intention de remonter l'interrompt.
 function glisser(fil: HTMLElement, depart: number, fin: () => void): () => void {
   const g = globalThis;
   const duree =
     parseFloat(g.getComputedStyle(g.document.documentElement).getPropertyValue("--duree-longue")) || 260;
   const t0 = g.performance.now();
   let actif = true;
+  let toucheY = 0;
   const lacher = (): void => {
     actif = false;
-    for (const geste of GESTES) fil.removeEventListener(geste, lacher);
+    for (const geste of GESTES) fil.removeEventListener(geste, surGeste);
   };
-  for (const geste of GESTES) fil.addEventListener(geste, lacher, { passive: true });
+  // Mêmes intentions que le fil (app/racine/defilement.ts) ; interrompu près du bas, le suivi reprend quand même.
+  const surGeste = (e: Event): void => {
+    const y = (e as TouchEvent).touches?.[0]?.clientY ?? 0;
+    if (e.type === "touchstart") toucheY = y;
+    const remonte =
+      (e.type === "wheel" && (e as WheelEvent).deltaY < 0) ||
+      (e.type === "touchmove" && y - toucheY > 10) ||
+      (e.type === "keydown" && TOUCHES_HAUT.has((e as KeyboardEvent).key)) ||
+      (e.type === "pointerdown" && e.target === fil);
+    if (!remonte) return;
+    lacher();
+    if (fil.scrollHeight - fil.scrollTop - fil.clientHeight <= 30) fin();
+  };
+  for (const geste of GESTES) fil.addEventListener(geste, surGeste, { passive: true });
   fil.scrollTop = depart;
   const pas = (t: number): void => {
     if (!actif) return;

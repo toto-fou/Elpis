@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/page/bouton-bas.test.ts — « Aller en bas » : saut jusqu'à un écran du bas puis glissé vers le bas réel, suivi automatique rendu à la fin ; immédiat en mouvement réduit ; un geste interrompt le glissé. */
+/** frontend/test/chat/page/bouton-bas.test.ts — « Aller en bas » : saut jusqu'à un écran du bas puis glissé vers le bas réel, suivi automatique rendu à la fin ; immédiat en mouvement réduit ; seule une intention de remonter interrompt le glissé. */
 import { createApp, h, nextTick } from "vue";
 import type { App, InjectionKey } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,6 +81,19 @@ describe("« Aller en bas »", () => {
     expect(fil.scrollTop).toBe(9200);
     vi.advanceTimersByTime(300);
     expect(fil.scrollTop).toBe(9200);
+  });
+
+  it("un geste vers le bas (Fin) n'interrompt pas le glissé : le suivi automatique reprend à la fin", async () => {
+    const { fil, conv, bouton } = poser(false);
+    bouton.click();
+    await nextTick();
+    await nextTick();
+    vi.advanceTimersByTime(50);
+    fil.dispatchEvent(new KeyboardEvent("keydown", { key: "End" }));
+    fil.dispatchEvent(new WheelEvent("wheel", { deltaY: 120 }));
+    vi.advanceTimersByTime(400);
+    expect(fil.scrollTop).toBe(10_000 - 800);
+    expect(conv.isUserScrolling).toBe(false);
   });
 
   it("une molette pendant le glissé l'interrompt : l'utilisateur garde la main", async () => {

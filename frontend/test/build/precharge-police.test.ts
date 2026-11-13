@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/build/precharge-police.test.ts — la police des icônes est préchargée à l'URL exacte que style.css demande, sur les pages telles que le core les sert (réécriture des `?v=` des vendor comprise). */
+/** frontend/test/build/precharge-police.test.ts — la police des icônes est préchargée à l'URL exacte que style.css demande, sur les pages telles que le core les sert (réécriture des `?v=` des vendor comprise) ; celle d'un habillage, à une URL que sa feuille polices.css demande. */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -23,7 +23,8 @@ describe.each([
   ["admin.html", "http://elpis.test/admin"],
 ])("%s servie par le core", (page, adressePage) => {
   const html = new Pages(FRONTEND, "BUILD-TEST").rendre(page);
-  const balises = [...html.matchAll(/<link\b[^>]*>/gu)].map((m) => m[0]);
+  const modele = /<template id="elpis-habillages">([\s\S]*?)<\/template>/u.exec(html)?.[1] ?? "";
+  const balises = [...html.replace(modele, "").matchAll(/<link\b[^>]*>/gu)].map((m) => m[0]);
 
   it("une seule précharge, de la police woff2, en mode anonyme (celui des polices)", () => {
     const precharges = balises.filter((b) => /\brel="preload"/u.test(b));
@@ -31,6 +32,21 @@ describe.each([
     expect(precharges[0]).toMatch(/\bas="font"/u);
     expect(precharges[0]).toMatch(/\btype="font\/woff2"/u);
     expect(precharges[0]).toMatch(/\bcrossorigin\b/u);
+  });
+
+  it("habillages : la police préchargée d'un skin est l'une de celles que demande sa feuille polices.css", () => {
+    const precharges = [...modele.matchAll(/<link\b[^>]*rel="preload"[^>]*>/gu)].map((m) => m[0]);
+    expect(precharges.length).toBeGreaterThan(0);
+    for (const b of precharges) {
+      const href = /\bhref="([^"]+)"/u.exec(b)![1]!;
+      const skin = /\bdata-habillage="([^"]+)"/u.exec(b)![1]!;
+      expect(b).toMatch(/\bas="font"[^>]*\btype="font\/woff2"[^>]*\bcrossorigin\b/u);
+      const css = readFileSync(join(FRONTEND, "css/skins", skin, "polices.css"), "utf8");
+      const demandees = [...css.matchAll(/url\("([^"]+)"\)/gu)].map(
+        (m) => new URL(m[1]!, new URL(`static/css/skins/${skin}/polices.css`, adressePage)).href,
+      );
+      expect(demandees).toContain(new URL(href, adressePage).href);
+    }
   });
 
   it("l'URL préchargée est exactement celle que la feuille demande", () => {

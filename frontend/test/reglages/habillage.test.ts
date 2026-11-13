@@ -2,11 +2,12 @@
 /** frontend/test/reglages/habillage.test.ts — habillage de la page : classes du body sans retouche inutile, mémoire du navigateur, et le script d'avant le premier rendu du cœur qui la relit (même forme). */
 import { nextTick, ref } from "vue";
 import * as Vue from "vue";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SCRIPT_HABILLAGE } from "../../../apps/core/src/interface/pages";
 import { creerApparence } from "../../src/features/reglages/apparence";
 import {
+  avecFeuilles,
   CLE_HABILLAGE,
   lireMemoire,
   poserHabillage,
@@ -27,7 +28,7 @@ const TERMINAL: Habillage = {
 
 afterEach(() => {
   document.body.className = "";
-  document.getElementById("elpis-plugin-skin")?.remove();
+  for (const l of document.head.querySelectorAll("link[data-habillage]")) l.remove();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   localStorage.clear();
@@ -41,6 +42,11 @@ function refuserStockage(): void {
   vi.stubGlobal("localStorage", { getItem: refus, setItem: refus });
 }
 
+/** Fin de chargement des liens posés : happy-dom ne charge ni feuille ni police préchargée. */
+function charges(): void {
+  for (const l of document.head.querySelectorAll("link[data-habillage]")) l.dispatchEvent(new Event("load"));
+}
+
 /** Classes posées par le script du cœur sur un body vierge, et le HTML qu'il écrit dans la page. */
 function rejouerScript(sombreSysteme = false): { classes: string[]; ecrit: string[] } {
   document.body.className = "";
@@ -52,43 +58,43 @@ function rejouerScript(sombreSysteme = false): { classes: string[]; ecrit: strin
 }
 
 describe("poserHabillage", () => {
-  it("pose skin, palette, sombre et surface ; retire ceux d'avant", () => {
+  it("pose skin, palette, sombre et surface ; retire ceux d'avant", async () => {
     document.body.className = "h-full elpis-skin-elpis elpis-palette-argile";
-    poserHabillage(TERMINAL);
+    await poserHabillage(TERMINAL);
     expect([...document.body.classList].sort()).toEqual(
       ["elpis-app-dark", "elpis-dark-surface", "elpis-skin-terminal", "h-full"].sort(),
     );
-    poserHabillage({ ...TERMINAL, id: "emeraude", mode: "light", sombre: false, base: true });
+    await poserHabillage({ ...TERMINAL, id: "emeraude", mode: "light", sombre: false, base: true });
     expect([...document.body.classList].sort()).toEqual(
       ["elpis-dark-surface", "elpis-skin-emeraude", "h-full"].sort(),
     );
-    poserHabillage({ ...TERMINAL, id: "perso:mon-style", palette: "x y", sombre: false });
+    await poserHabillage({ ...TERMINAL, id: "perso:mon-style", palette: "x y", sombre: false });
     expect(document.body.className).toBe("h-full elpis-skin-perso");
   });
 
   it("le même habillage reposé ne touche pas au body (aucun recalcul de style)", async () => {
-    poserHabillage({ ...TERMINAL, palette: "nuit" });
+    await poserHabillage({ ...TERMINAL, palette: "nuit" });
     const mutations: MutationRecord[] = [];
     const obs = new MutationObserver((m) => mutations.push(...m));
     obs.observe(document.body, { attributes: true });
-    poserHabillage({ ...TERMINAL, palette: "nuit" });
+    await poserHabillage({ ...TERMINAL, palette: "nuit" });
     await Promise.resolve();
     obs.disconnect();
     expect(mutations).toEqual([]);
   });
 
-  it("feuille d'un skin servi : liée pour l'actif, retirée au retour", () => {
-    poserHabillage({ ...TERMINAL, id: "perso:x", feuilles: ["/api/skins/perso/x/skin.css?v=1"] });
+  it("feuille d'un skin servi : liée pour l'actif, retirée au retour", async () => {
+    await poserHabillage({ ...TERMINAL, id: "perso:x", feuilles: ["/api/skins/perso/x/skin.css?v=1"] });
     expect(document.getElementById("elpis-plugin-skin")?.getAttribute("href")).toBe(
       "/api/skins/perso/x/skin.css?v=1",
     );
-    poserHabillage(TERMINAL);
+    await poserHabillage(TERMINAL);
     expect(document.getElementById("elpis-plugin-skin")).toBeNull();
   });
 });
 
 describe("mémoire du navigateur", () => {
-  it("gardée à chaque pose, relue telle quelle ; réglages de départ qui en découlent", () => {
+  it("gardée à chaque pose, relue telle quelle ; réglages de départ qui en découlent", async () => {
     expect(lireMemoire()).toBeNull();
     expect(reglagesHabillage()).toEqual({
       skin: "elpis",
@@ -96,7 +102,7 @@ describe("mémoire du navigateur", () => {
       dark_mode: false,
       dark_mode_auto: false,
     });
-    poserHabillage({ ...TERMINAL, palette: "nuit", mode: "system", base: true, feuilles: ["/f.css"] });
+    await poserHabillage({ ...TERMINAL, palette: "nuit", mode: "system", base: true, feuilles: ["/f.css"] });
     expect(lireMemoire()).toEqual({ id: "terminal", p: "nuit", m: "system", b: true, f: ["/f.css"] });
     expect(reglagesHabillage()).toEqual({
       skin: "terminal",
@@ -106,14 +112,14 @@ describe("mémoire du navigateur", () => {
     });
   });
 
-  it("valeur illisible ou stockage refusé : aucune mémoire, rien ne casse", () => {
+  it("valeur illisible ou stockage refusé : aucune mémoire, rien ne casse", async () => {
     localStorage.setItem(CLE_HABILLAGE, "{pas du json");
     expect(lireMemoire()).toBeNull();
     localStorage.setItem(CLE_HABILLAGE, JSON.stringify({ id: "elpis", m: "rose", f: [1, "/a.css"] }));
     expect(lireMemoire()).toEqual({ id: "elpis", p: "", m: "light", b: false, f: ["/a.css"] });
     refuserStockage();
     expect(lireMemoire()).toBeNull();
-    expect(() => poserHabillage(TERMINAL)).not.toThrow();
+    await expect(poserHabillage(TERMINAL)).resolves.toBeUndefined();
     expect(document.body.classList.contains("elpis-skin-terminal")).toBe(true);
   });
 });
@@ -123,21 +129,21 @@ describe("script d'avant le premier rendu (apps/core/src/interface/pages.ts)", (
     expect(rejouerScript()).toEqual({ classes: ["elpis-skin-elpis"], ecrit: [] });
   });
 
-  it("relit ce que poserHabillage garde : mêmes classes", () => {
+  it("relit ce que poserHabillage garde : mêmes classes", async () => {
     for (const h of [
       TERMINAL,
       { ...TERMINAL, id: "elpis", palette: "argile", mode: "light", sombre: false } as const,
       { ...TERMINAL, id: "emeraude", mode: "light", sombre: false, base: true } as const,
       { ...TERMINAL, id: "", mode: "dark" } as const,
     ]) {
-      poserHabillage(h);
+      await poserHabillage(h);
       const attendues = [...document.body.classList].sort();
       expect(rejouerScript().classes).toEqual(attendues);
     }
   });
 
-  it("suivre le système : sombre selon la préférence du poste", () => {
-    poserHabillage({ ...TERMINAL, mode: "system", sombre: false });
+  it("suivre le système : sombre selon la préférence du poste", async () => {
+    await poserHabillage({ ...TERMINAL, mode: "system", sombre: false });
     expect(rejouerScript(false).classes).toEqual(["elpis-skin-terminal"]);
     expect(rejouerScript(true).classes).toEqual([
       "elpis-app-dark",
@@ -146,12 +152,18 @@ describe("script d'avant le premier rendu (apps/core/src/interface/pages.ts)", (
     ]);
   });
 
-  it("habillage personnel : classe perso et feuille du compte ; une URL hors /api/skins n'est pas écrite", () => {
+  it("habillage personnel : classe perso et feuille du compte ; une URL hors /api/skins n'est pas écrite", async () => {
     const url = "/api/skins/perso/mon-style/skin.css?v=3a9f";
-    poserHabillage({ ...TERMINAL, id: "perso:mon-style", mode: "light", sombre: false, feuilles: [url] });
+    await poserHabillage({
+      ...TERMINAL,
+      id: "perso:mon-style",
+      mode: "light",
+      sombre: false,
+      feuilles: [url],
+    });
     expect(rejouerScript()).toEqual({
       classes: ["elpis-skin-perso"],
-      ecrit: [`<link rel="stylesheet" id="elpis-plugin-skin" href="${url}">`],
+      ecrit: [`<link rel="stylesheet" id="elpis-plugin-skin" data-habillage href="${url}">`],
     });
     localStorage.setItem(
       CLE_HABILLAGE,
@@ -163,6 +175,105 @@ describe("script d'avant le premier rendu (apps/core/src/interface/pages.ts)", (
   it("stockage refusé : Elpis clair, sans erreur", () => {
     refuserStockage();
     expect(rejouerScript().classes).toEqual(["elpis-skin-elpis"]);
+  });
+});
+
+describe("feuilles de l'habillage actif seulement (modèle de la page)", () => {
+  const V = "?v=B1";
+  beforeEach(() => {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<link rel="stylesheet" href="static/css/style.css${V}">` +
+        '<template id="elpis-habillages">' +
+        `<link rel="stylesheet" href="static/css/skins/elpis/skin.css${V}" data-habillage="elpis">` +
+        '<link rel="preload" href="static/css/skins/terminal/polices/jb.woff2" as="font" type="font/woff2" crossorigin data-habillage="terminal">' +
+        `<link rel="stylesheet" href="static/css/skins/terminal/polices.css${V}" data-habillage="terminal">` +
+        `<link rel="stylesheet" href="static/css/skins/terminal/skin.css${V}" data-habillage="terminal">` +
+        "</template>" +
+        `<link rel="stylesheet" href="static/css/style.tailwind.css${V}">`,
+    );
+  });
+  afterEach(() => {
+    document.head.innerHTML = "";
+  });
+  const poses = (): string[] =>
+    [...document.head.querySelectorAll("link[data-habillage]")].map((l) => l.getAttribute("href") ?? "");
+
+  it("charge les feuilles et la police du skin entre style.css et Tailwind, puis bascule les classes", async () => {
+    document.body.className = "elpis-skin-elpis";
+    const fin = poserHabillage(TERMINAL);
+    await Promise.resolve();
+    expect(document.body.className).toBe("elpis-skin-elpis");
+    expect(poses().sort()).toEqual(
+      [
+        `static/css/skins/terminal/polices.css${V}`,
+        `static/css/skins/terminal/skin.css${V}`,
+        "static/css/skins/terminal/polices/jb.woff2",
+      ].sort(),
+    );
+    const ordre = [...document.head.children].map((e) => e.getAttribute("href") ?? e.id);
+    expect(ordre.indexOf("elpis-habillages")).toBeLessThan(
+      ordre.indexOf(`static/css/skins/terminal/skin.css${V}`),
+    );
+    expect(ordre.indexOf(`static/css/skins/terminal/skin.css${V}`)).toBeLessThan(
+      ordre.indexOf(`static/css/style.tailwind.css${V}`),
+    );
+    charges();
+    await fin;
+    expect(document.body.classList.contains("elpis-skin-terminal")).toBe(true);
+  });
+
+  it("deux choix rapprochés : le dernier l'emporte", async () => {
+    const a = poserHabillage(TERMINAL);
+    const b = poserHabillage({ ...TERMINAL, id: "elpis", sombre: false, mode: "light" });
+    charges();
+    await Promise.all([a, b]);
+    expect(document.body.className).toBe("elpis-skin-elpis");
+  });
+
+  it("feuilles déjà posées : bascule immédiate, aucune en double", async () => {
+    const a = poserHabillage(TERMINAL);
+    charges();
+    await a;
+    const b = poserHabillage({ ...TERMINAL, id: "elpis" });
+    charges();
+    await b;
+    const n = poses().length;
+    void poserHabillage(TERMINAL);
+    expect(document.body.classList.contains("elpis-skin-terminal")).toBe(true);
+    expect(poses()).toHaveLength(n);
+  });
+
+  it("feuille servie : marquée elpis-plugin-skin, retirée au retour à un intégré", async () => {
+    const url = "/api/skins/perso/x/skin.css?v=1";
+    await poserHabillage({ ...TERMINAL, id: "perso:x", feuilles: [url] });
+    expect(document.getElementById("elpis-plugin-skin")?.getAttribute("href")).toBe(url);
+    const retour = poserHabillage(TERMINAL);
+    charges();
+    await retour;
+    expect(document.getElementById("elpis-plugin-skin")).toBeNull();
+    expect(poses()).not.toContain(url);
+  });
+
+  it("avecFeuilles : lit une fois les feuilles d'un skin chargées, sans changer d'habillage", async () => {
+    document.body.className = "elpis-skin-elpis";
+    const lecture = avecFeuilles("terminal", () => poses().length);
+    charges();
+    const lu = await lecture;
+    expect(lu).toBe(3);
+    expect(document.body.className).toBe("elpis-skin-elpis");
+  });
+
+  it("script du cœur : écrit les liens du modèle pour le skin gardé", async () => {
+    const pose = poserHabillage(TERMINAL);
+    charges();
+    await pose;
+    const { ecrit } = rejouerScript();
+    expect(ecrit.map((h) => /href="([^"]+)"/.exec(h)?.[1])).toEqual([
+      "static/css/skins/terminal/polices/jb.woff2",
+      `static/css/skins/terminal/polices.css${V}`,
+      `static/css/skins/terminal/skin.css${V}`,
+    ]);
   });
 });
 

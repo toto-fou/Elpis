@@ -125,11 +125,8 @@ export function creerApparence(
   });
   watch(
     () => JSON.stringify(habillage.value),
-    () => {
-      poserHabillage(habillage.value);
-      // Graphiques et diagrammes déjà rendus : re-thème différé d'un tick.
-      setTimeout(rethemerRendus, 0);
-    },
+    // Graphiques et diagrammes déjà rendus : re-thème après la bascule.
+    () => void poserHabillage(habillage.value).then(() => setTimeout(rethemerRendus, 0)),
     { immediate: true },
   );
 

@@ -48,7 +48,7 @@ grays on a light surface (≥ 4.5:1). On the dark rail, use
 
 ## Themes and dark mode
 
-Three classes on `<body>`, set by `frontend/src/features/reglages/apparence.ts`:
+Three classes on `<body>`, set by `frontend/src/features/reglages/habillage.ts`:
 
 | Class | Role |
 |---|---|
@@ -95,8 +95,11 @@ the last open section is remembered and the rail search leads to it.
 
 Adding a theme: a file `frontend/css/skins/<id>/skin.css` that redefines the
 tokens under `body.elpis-skin-<id>` (and `.elpis-app-dark` for dark), an
-entry in the registry `frontend/css/skins/skins.json` (served by `/api/skins`), the `<link>` in `index.html` and
-`admin.html` after `style.css`. For its editor, a file
+entry in the registry `frontend/css/skins/skins.json` (served by `/api/skins`), its `<link data-habillage="<id>">`
+(and that of its `polices.css`, with a preload of its text font) in the inert `<template id="elpis-habillages">`
+of `index.html` and `admin.html`, after `style.css`. Only the active theme's sheets are loaded: before the
+first paint for the last appearance remembered by the browser (the `@habillage` script), on demand and before
+the class switch otherwise. For its editor, a file
 `frontend/css/skins/<id>/editeur.css`: no `<link>`, the frontend links it
 on demand. Fonts stay local (no download: the application must
 work offline).

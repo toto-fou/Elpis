@@ -1205,7 +1205,10 @@ the other colors are semantic (status).
 - **Registry.** Built-in skins are described by
   `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `palettes`, `darkBase`,
   `enabled_by_default`, `brand`, `mascot`); their stylesheet
-  `css/skins/<id>/skin.css` is linked statically by `index.html` and `admin.html`.
+  `css/skins/<id>/skin.css` is listed in the inert `<template id="elpis-habillages">` of
+  `index.html` and `admin.html`: only the active skin's sheets are linked, before the first
+  paint from the appearance remembered by the browser (`@habillage` script), then on demand,
+  loaded before the body classes switch (`frontend/src/features/reglages/habillage.ts`).
   Slate (empty `id`) is `style.css` with no class. `css/skins/<id>/editeur.css`
   (`ardoise/` for Slate) carries the skin's editor style; its presence is enough.
   `css/skins/<id>/polices.css` declares the skin's bundled fonts, apart from

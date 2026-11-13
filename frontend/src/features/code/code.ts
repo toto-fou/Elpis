@@ -671,7 +671,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     }
   }
 
-  /** Retour sur la page : la session ouverte et son transcript restent, tout est relu en parallèle (le flux était coupé hors de la page). */
+  /** Retour sur la page : la session ouverte et son transcript restent ; listes relues en parallèle, la session à l'ouverture du flux. */
   async function openCodePage(): Promise<void> {
     currentView.value = "code";
     codeModelOpen.value = false;
@@ -679,7 +679,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeRenamingId.value = "";
     codeLoading.value = true;
     const sid = codeActiveId.value;
-    const session = sid ? [loadMessages(sid), loadPermissions(sid), loadQuestions(sid)] : [];
     await Promise.all([
       loadHealth(),
       loadConfig(),
@@ -688,7 +687,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
       loadModels(),
       loadAgents(),
       loadClients(),
-      ...session,
     ]);
     // L'utilisateur a pu quitter la page pendant les await : armer le flux ici le laisserait orphelin.
     if (currentView.value !== "code") {
@@ -697,7 +695,8 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     }
     if (sid && sid === codeActiveId.value && !codeSessions.value.some((s) => s.id === sid)) backToList();
     if (codeAvailable.value) {
-      sseDejaOuvert = false;
+      // Session gardée : relue une fois le flux ouvert, rien de ce que la CLI émet entre-temps n'est perdu.
+      sseDejaOuvert = !!codeActiveId.value;
       connectStream();
       codeShowConnect.value = !codeSessions.value.length && !codeConnected.value;
       if (!minuterieSante) {
@@ -1292,9 +1291,13 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     }
   }
   function resynchroniser(): void {
+    const sid = codeActiveId.value;
     void loadHealth();
     void loadSessions();
-    if (codeActiveId.value) void loadMessages(codeActiveId.value);
+    if (!sid) return;
+    void loadMessages(sid);
+    void loadPermissions(sid);
+    void loadQuestions(sid);
   }
   function planifierReconnexion(): void {
     if (minuterieSse) return;

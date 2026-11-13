@@ -119,7 +119,8 @@ describe("module de la page Code", () => {
     expect(c.codeConfig.value.token).toBe("");
   });
 
-  it("au retour sur la page, garde la session ouverte et relit tout en parallèle", async () => {
+  it("au retour sur la page, garde la session ouverte et la relit une fois le flux ouvert", async () => {
+    vi.stubGlobal("EventSource", FauxFlux);
     let suffixe = "";
     const { c, appels, vue } = monter((u) => {
       if (u === "/api/code/sessions") return [{ id: "s1", connected: true }];
@@ -129,17 +130,26 @@ describe("module de la page Code", () => {
     await c.codeSelectSession("s1");
     const avant = c.codeMessages.value.slice();
     vue.value = "chat";
-    suffixe = " modifié";
     appels.length = 0;
     const retour = c.openCodePage();
     expect(appels.map(([, u]) => u)).toEqual(
-      expect.arrayContaining(["/api/code/health", "/api/code/sessions", "/api/code/sessions/s1/messages"]),
+      expect.arrayContaining(["/api/code/health", "/api/code/sessions"]),
     );
     await retour;
-    c.codeDisconnectStream();
     expect(c.codeActiveId.value).toBe("s1");
+    expect(c.codeMessages.value).toHaveLength(4);
+    // Émis par la CLI entre les lectures et l'ouverture du flux : rattrapé par la relecture à l'ouverture.
+    suffixe = " modifié";
+    FauxFlux.dernier?.onopen?.();
+    await new Promise((ok) => setTimeout(ok, 20));
+    c.codeDisconnectStream();
+    const relus = appels.map(([, u]) => u).filter((u) => u.startsWith("/api/code/sessions/s1/"));
+    expect(relus.sort()).toEqual([
+      "/api/code/sessions/s1/messages",
+      "/api/code/sessions/s1/permissions",
+      "/api/code/sessions/s1/questions",
+    ]);
     const apres = c.codeMessages.value;
-    expect(apres).toHaveLength(4);
     expect(apres.slice(0, 3).every((m, i) => m === avant[i])).toBe(true);
     expect(apres[3]).not.toBe(avant[3]);
     expect(apres[3]?.parts[0]?.text).toBe("texte 3 modifié");

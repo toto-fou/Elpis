@@ -397,11 +397,16 @@ describe("visionneuse", () => {
     expect(papier.getAttribute("aria-busy")).toBe("true");
     expect(b.qa("[data-rag-hl]")).toHaveLength(0);
     expect(b.q(".rag-viewer__avis")).toBeNull();
+    const annonce = b.q("[data-rag-page-annonce]") as HTMLElement;
+    expect(annonce.getAttribute("role")).toBe("status");
+    expect(texte(annonce)).toBe("Chargement de la page…");
     lib(image());
     await b.attendre();
     expect(b.q("[data-rag-page] img")).toBe(img);
     expect(img.getAttribute("src")).not.toBe(avant);
     expect(papier.classList.contains("is-attente")).toBe(false);
+    expect(b.q("[data-rag-page-annonce]")).toBe(annonce);
+    expect(texte(annonce)).toBe("");
   });
 
   it("lecteur sans ouverture : pas de bascule Page/Texte ni d'original, une phrase claire, le passage cité", async () => {

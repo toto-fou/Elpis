@@ -219,6 +219,9 @@ const surImage = (e: Event): void => {
               Surlignage approximatif : le passage a été retrouvé dans la page par son texte.
             </p>
           </template>
+          <p class="rag-sr" role="status" data-rag-page-annonce>
+            {{ vis.page.etat === "chargement" ? "Chargement de la page…" : "" }}
+          </p>
           <!-- La page précédente reste à sa taille, atténuée, jusqu'à l'arrivée de la suivante. -->
           <div
             class="rag-paper"

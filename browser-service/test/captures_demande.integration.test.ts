@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/captures_demande.integration.test.ts — vrai service construit (dist/main.mjs) + Chromium, hors ligne : captures d'étape seulement sur demande de l'hôte (en-tête), en JPEG, une par requête ; vision réduite à 1024 px à l'inspection ; pas compté sans capture (since_step).
+// browser-service/test/captures_demande.integration.test.ts — vrai service construit (dist/main.mjs) + Chromium, hors ligne : captures d'étape seulement sur demande de l'hôte (en-tête), en JPEG, une par requête ; vision réduite à 1024 px à l'inspection ; pas compté sans capture (since_step) ; captures explicites nommées au pas, sans étape en double.
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -21,6 +21,7 @@ const PAGE = `<html lang="en"><body style="margin:0;background:#fff">
 // Champs des réponses lus par ces essais.
 interface Corps {
   session_id: string;
+  screenshot: string | null;
   screenshot_step: number;
   vision_screenshot: string;
   step: number;
@@ -176,5 +177,37 @@ test(
     // Page défilée : la capture montre la fenêtre (blocs colorés), pas le haut blanc du document.
     assert.ok(octets.length > 8000, `capture blanche (${octets.length} octets)`);
     assert.deepEqual(captures(), [r.corps.vision_screenshot]);
+  },
+);
+
+test(
+  "captures explicites (screenshot, élément, som) : shot_<sid>_<pas>.png écrit avec ou sans captures d'étape, jamais d'étape en double",
+  { skip: SAUT, timeout: 60000 },
+  async () => {
+    for (const f of captures()) fs.unlinkSync(path.join(svc.dossier, "screenshots", f));
+    const vue = await appel("POST", "/screenshot");
+    assert.equal(vue.status, 200, vue.texte);
+    const n = (await inspecter()).corps.step - 1;
+    assert.equal(vue.corps.screenshot, `shot_${sid}_${n}.png`);
+    assert.equal(vue.corps.screenshot_step, undefined);
+    const element = await appel("POST", "/element_screenshot", { corps: { by_css: "#b0" }, captures: true });
+    assert.equal(element.status, 200, element.texte);
+    assert.equal(element.corps.screenshot, `shot_${sid}_${n + 2}.png`);
+    assert.equal(element.corps.screenshot_step, undefined);
+    const som = await appel(
+      "GET",
+      `/observe?${new URLSearchParams({ owner: OWNER, session_id: sid, mode: "som" })}`,
+      { captures: true },
+    );
+    assert.equal(som.status, 200, som.texte);
+    assert.equal(som.corps.screenshot, `shot_${sid}_${som.corps.step}.png`);
+    assert.equal(som.corps.screenshot_step, undefined);
+    await new Promise((r) => setTimeout(r, 400));
+    const png = fs.readFileSync(path.join(svc.dossier, "screenshots", `shot_${sid}_${n}.png`));
+    assert.equal(png.readUInt32BE(0), 0x89504e47);
+    assert.deepEqual(
+      captures(),
+      [`shot_${sid}_${n}.png`, `shot_${sid}_${n + 2}.png`, `shot_${sid}_${som.corps.step}.png`].sort(),
+    );
   },
 );

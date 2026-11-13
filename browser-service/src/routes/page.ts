@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import type { Application, Request, Response } from "express";
 import type { Frame, Page } from "playwright";
+import { nomCaptureExplicite } from "../captures.ts";
 import type { ServiceContext } from "../contexte.ts";
 import {
   INDICE_PLAFOND,
@@ -219,8 +220,7 @@ export function registerPageRoutes(app: Application, ctx: ServiceContext) {
       try {
         const { page } = req.session!;
         const { selector, full_page = false, annotate = false, skip_image = false } = req.body;
-        const sid = req.body.session_id;
-        const filename = `shot_${sid}_${Date.now()}.png`;
+        const filename = nomCaptureExplicite(req);
         const filepath = path.join(SCREENSHOT_DIR, filename);
 
         if (selector && !skip_image) {

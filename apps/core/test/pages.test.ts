@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/pages.test.ts — pages coquilles : vecteurs (versions, vendor), cache sur l'état du disque, empreintes vendor, entrées Vite, en-tête CSP. */
+/** apps/core/test/pages.test.ts — pages coquilles : vecteurs (versions, vendor), cache sur l'état du disque, empreintes des fichiers, entrées Vite, en-tête CSP. */
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -15,6 +15,7 @@ import {
   POLITIQUE_CSP,
   SCRIPT_HABILLAGE,
 } from "../src/interface/pages";
+import { empreinteFichier } from "../src/interface/statiques";
 
 const vecteurs = JSON.parse(readFileSync(new URL("./vecteurs/pages.json", import.meta.url), "utf-8")) as {
   fichiers: Record<string, string>;
@@ -34,8 +35,8 @@ afterAll(() => {
 });
 
 class PagesTemoin extends Pages {
-  override empreinteVendor(chemin: string): string {
-    return `fp(${chemin})`;
+  override empreinte(rel: string): string {
+    return `fp(${rel})`;
   }
 }
 
@@ -63,14 +64,30 @@ describe("rendu en cache", () => {
     expect(pages.rendre("index.html")).toContain('y.css?v=B1"');
   });
 
-  it("empreinte vendor : stable, propre au fichier, BUILD_ID si absent", () => {
+  it("empreinte : stable, propre au fichier, celle que /static/ sert immuable, BUILD_ID si absent", () => {
     mkdirSync(join(frontend, "vendor"), { recursive: true });
     writeFileSync(join(frontend, "vendor/a.js"), "a");
     const pages = new Pages(frontend, "B2");
-    const fp = pages.empreinteVendor("static/vendor/a.js");
+    const fp = pages.empreinte("vendor/a.js");
     expect(fp).toMatch(/^[0-9a-f]{10}$/);
-    expect(pages.empreinteVendor("static/vendor/a.js")).toBe(fp);
-    expect(pages.empreinteVendor("static/vendor/absent.js")).toBe("B2");
+    expect(pages.empreinte("vendor/a.js")).toBe(fp);
+    expect(fp).toBe(empreinteFichier(statSync(join(frontend, "vendor/a.js"))));
+    expect(pages.empreinte("vendor/absent.js")).toBe("B2");
+  });
+
+  it("feuille modifiée sans redémarrage : la page en cache est réassemblée avec sa nouvelle version", () => {
+    mkdirSync(join(frontend, "css"), { recursive: true });
+    const feuille = join(frontend, "css/vive.css");
+    writeFileSync(feuille, "a{}");
+    writeFileSync(join(frontend, "vive.html"), '<head><link href="static/css/vive.css?v=1"></head>');
+    const pages = new Pages(frontend, "B5");
+    const avant = pages.rendre("vive.html");
+    expect(avant).toContain(`vive.css?v=${empreinteFichier(statSync(feuille))}"`);
+    writeFileSync(feuille, "a{color:red}");
+    utimesSync(feuille, new Date(), new Date(Date.now() + 5_000));
+    const apres = pages.rendre("vive.html");
+    expect(apres).not.toBe(avant);
+    expect(apres).toContain(`vive.css?v=${empreinteFichier(statSync(feuille))}"`);
   });
 });
 

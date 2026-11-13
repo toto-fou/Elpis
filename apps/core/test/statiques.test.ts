@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/statiques.test.ts — `/static/*` : types, cache, revalidation, build Vite, chemins refusés. */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-import { cacheStatique, servirStatique, typeStatique } from "../src/interface/statiques";
+import { cacheStatique, empreinteFichier, servirStatique, typeStatique } from "../src/interface/statiques";
 import { appTest } from "./aides";
 
 const racine = mkdtempSync(join(tmpdir(), "elpis-statiques-"));
@@ -62,17 +62,26 @@ describe("règles de cache et de type", () => {
     expect(typeStatique("notes.map")).toBe("text/plain; charset=utf-8");
   });
 
-  it("vendor versionné immuable, applicatif revalidé, images sans règle", () => {
-    expect(cacheStatique("vendor/vue.js", "v=abc")).toBe("public, max-age=31536000, immutable");
-    expect(cacheStatique("vendor/vue.js", "")).toBe("no-cache, must-revalidate");
-    expect(cacheStatique("js/app.js", "v=1")).toBe("no-cache, must-revalidate");
-    expect(cacheStatique("logo.png", "v=1")).toBeUndefined();
-    expect(cacheStatique("js/APP.JS", "")).toBeUndefined();
+  it("URL à la version du fichier immuable ; autre version ou aucune : JS/CSS/HTML revalidés, images sans règle", () => {
+    const st = { mtimeMs: 1_731_500_000_123.456, size: 42 };
+    const v = empreinteFichier(st);
+    expect(v).toMatch(/^[0-9a-f]{10}$/);
+    for (const chemin of ["vendor/vue.js", "css/style.css", "css/skins/elpis/skin.css", "logo.png"])
+      expect(cacheStatique(chemin, v, st), chemin).toBe("public, max-age=31536000, immutable");
+    expect(cacheStatique("css/style.css", null, st)).toBe("no-cache, must-revalidate");
+    expect(cacheStatique("css/style.css", "1", st)).toBe("no-cache, must-revalidate");
+    expect(cacheStatique("css/style.css", v, { ...st, size: 43 })).toBe("no-cache, must-revalidate");
+    expect(cacheStatique("js/app.js", "1", st)).toBe("no-cache, must-revalidate");
+    expect(cacheStatique("logo.png", "1", st)).toBeUndefined();
+    expect(cacheStatique("js/APP.JS", null, st)).toBeUndefined();
   });
 
   it("build Vite haché : immuable sans paramètre de version", () => {
-    expect(cacheStatique("dist/assets/main-Ab1.js", "")).toBe("public, max-age=31536000, immutable");
-    expect(cacheStatique("dist/assets/police-Ab1.woff2", "")).toBe("public, max-age=31536000, immutable");
+    const st = { mtimeMs: 1, size: 1 };
+    expect(cacheStatique("dist/assets/main-Ab1.js", null, st)).toBe("public, max-age=31536000, immutable");
+    expect(cacheStatique("dist/assets/police-Ab1.woff2", null, st)).toBe(
+      "public, max-age=31536000, immutable",
+    );
   });
 });
 
@@ -94,9 +103,27 @@ describe("service des fichiers", () => {
     expect(r304.statusCode).toBe(304);
   });
 
-  it("vendor versionné : immuable", async () => {
-    const r = await app.inject({ method: "GET", url: "/static/vendor/vue.js?v=123" });
+  it("version du fichier : immuable, 304 compris ; fichier modifié : son ancienne URL est revalidée", async () => {
+    const fichier = join(frontend, "vendor/vue.js");
+    const v = empreinteFichier(statSync(fichier));
+    const r = await app.inject({ method: "GET", url: `/static/vendor/vue.js?v=${v}` });
     expect(r.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    const r304 = await app.inject({
+      method: "GET",
+      url: `/static/vendor/vue.js?v=${v}`,
+      headers: { "if-none-match": String(r.headers["etag"]) },
+    });
+    expect([r304.statusCode, r304.headers["cache-control"]]).toEqual([
+      304,
+      "public, max-age=31536000, immutable",
+    ]);
+    expect(
+      (await app.inject({ method: "GET", url: "/static/vendor/vue.js?v=123" })).headers["cache-control"],
+    ).toBe("no-cache, must-revalidate");
+    writeFileSync(fichier, "vue 2");
+    const apres = await app.inject({ method: "GET", url: `/static/vendor/vue.js?v=${v}` });
+    expect([apres.body, apres.headers["cache-control"]]).toEqual(["vue 2", "no-cache, must-revalidate"]);
+    expect(empreinteFichier(statSync(fichier))).not.toBe(v);
   });
 
   it("build Vite : asset immuable ; manifeste, sources et outillage jamais servis", async () => {

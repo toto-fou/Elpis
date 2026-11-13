@@ -151,8 +151,9 @@ the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assi
 
 **Frontend build**: Vite builds `frontend/dist/` when the release is prepared
 (`make_release.sh`); the core serves the entry points through their manifest (hashed
-names, long cache). The other static files (CSS, skins, assets) keep
-cache-busting through `BUILD_ID`.
+names, long cache). The other files the pages link (CSS, skins, assets)
+carry their fingerprint in `?v=` (modification time and size) and get the
+same long immutable cache.
 
 ---
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/interface/statiques.ts — `/static/*` : fichiers de `frontend/`, JS/CSS/HTML revalidés, vendor versionné et build Vite haché immuables. */
+/** apps/core/src/interface/statiques.ts — `/static/*` : fichiers de `frontend/`, build Vite haché et URL à la version du fichier immuables, autres JS/CSS/HTML revalidés. */
+import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
+import type { Stats } from "node:fs";
 import { extname, relative, sep } from "node:path";
 
 import { send } from "@fastify/send";
@@ -64,13 +66,20 @@ export function typeStatique(chemin: string): string {
   return TYPES[ext] ?? "text/plain; charset=utf-8";
 }
 
-/** JS/CSS/HTML : revalidation à chaque visite, sauf un vendor dont l'URL porte sa version et le build Vite, haché (immuables). */
-export function cacheStatique(chemin: string, requeteBrute: string): string | undefined {
-  if (chemin.startsWith("dist/assets/")) return "public, max-age=31536000, immutable";
-  if (!/\.(?:js|css|html|mjs)$/.test(chemin)) return undefined;
-  return chemin.startsWith("vendor/") && requeteBrute.includes("v=")
-    ? "public, max-age=31536000, immutable"
-    : "no-cache, must-revalidate";
+/** Version d'un fichier (`?v=` des pages) : change avec sa date de modification ou sa taille, donc à chaque mise à jour. */
+export function empreinteFichier(st: Pick<Stats, "mtimeMs" | "size">): string {
+  return createHash("sha256").update(`${st.mtimeMs}:${st.size}`).digest("hex").slice(0, 10);
+}
+
+/** Build Vite haché et URL à la version du fichier : immuables ; tout autre JS/CSS/HTML revalidé à chaque visite. */
+export function cacheStatique(
+  chemin: string,
+  version: string | null,
+  st: Pick<Stats, "mtimeMs" | "size">,
+): string | undefined {
+  if (chemin.startsWith("dist/assets/") || (version !== null && version === empreinteFichier(st)))
+    return "public, max-age=31536000, immutable";
+  return /\.(?:js|css|html|mjs)$/.test(chemin) ? "no-cache, must-revalidate" : undefined;
 }
 
 /** Le chemin brut (encodé) part à `send`, qui le décode une seule fois ; un lien qui sort de `frontend/` est refusé comme sous Starlette. */
@@ -80,7 +89,7 @@ export function servirStatique(frontend: string, prefixe = "/static") {
     const brut = requete.url.slice(prefixe.length);
     const q = brut.indexOf("?");
     const cheminBrut = q >= 0 ? brut.slice(0, q) : brut;
-    const requeteBrute = q >= 0 ? brut.slice(q + 1) : "";
+    const version = q >= 0 ? new URLSearchParams(brut.slice(q + 1)).get("v") : null;
     const r = await send(requete.raw, cheminBrut, {
       root: frontend,
       index: false,
@@ -113,7 +122,7 @@ export function servirStatique(frontend: string, prefixe = "/static") {
     }
     const entetes: Record<string, string> = { ...r.headers };
     if (r.statusCode !== 304) entetes["content-type"] = typeStatique(chemin);
-    const cache = cacheStatique(chemin, requeteBrute);
+    const cache = cacheStatique(chemin, version, r.metadata.stat);
     if (cache) entetes["cache-control"] = cache;
     return reponse.code(r.statusCode).headers(entetes).send(r.stream);
   };

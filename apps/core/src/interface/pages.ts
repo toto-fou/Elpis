@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/interface/pages.ts — pages HTML de l'application (coquilles) : entrées Vite `@entree` développées depuis le manifeste, `?v=` au BUILD_ID, vendor à son empreinte, en cache tant que le disque ne bouge pas ; politique de sécurité du contenu (CSP) des pages. */
-import { createHash } from "node:crypto";
+/** apps/core/src/interface/pages.ts — pages HTML de l'application (coquilles) : entrées Vite `@entree` développées depuis le manifeste, fichiers statiques versionnés à leur empreinte, en cache tant que le disque ne bouge pas ; politique de sécurité du contenu (CSP) des pages. */
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { reprPy } from "@elpis/commun";
 import { buildIdDepuis, configView } from "@elpis/config";
 
+import { empreinteFichier } from "./statiques";
+
 /** Manifeste du build Vite (`npm run build -w @elpis/web`), relatif à `frontend/`. */
 export const MANIFESTE_WEB = "dist/.vite/manifest.json";
 
 const VERSION = /\?v=[\p{L}\p{N}_.-]+/gu;
-const VENDOR = /((?:src|href)=")(static\/vendor\/[^"?]+)(")/g;
+/** Fichier de `frontend/` lié par la page, avec sa version éventuelle. */
+const STATIQUE = /((?:src|href)=")(static\/([^"?]+))(\?v=[\p{L}\p{N}_.-]+)?(")/gu;
 const ENTREE = /<!--\s*@entree\s+(\S+)\s*-->/g;
 const NOM_ENTREE = /^[a-z][a-z0-9-]*$/;
 const FICHIER_CONSTRUIT = /^assets\/[\w.-]+\.(?:js|css)$/;
@@ -195,7 +197,6 @@ function lireTexte(chemin: string): string {
 }
 
 export class Pages {
-  private readonly empreintes = new Map<string, string>();
   private readonly cache = new Map<string, PageEnCache>();
 
   private readonly frontend: string;
@@ -207,22 +208,13 @@ export class Pages {
     this.buildId = buildIdDepuis(buildId);
   }
 
-  /** Empreinte (mtime, taille) d'un fichier vendor, mémorisée pour la vie du process ; le BUILD_ID s'il manque. */
-  empreinteVendor(cheminStatique: string): string {
-    const deja = this.empreintes.get(cheminStatique);
-    if (deja) return deja;
-    const rel = cheminStatique.startsWith("static/")
-      ? cheminStatique.slice("static/".length)
-      : cheminStatique;
-    let empreinte: string;
+  /** Version d'un fichier de `frontend/` : celle que `/static/` sert en cache immuable ; le BUILD_ID s'il manque. */
+  empreinte(rel: string): string {
     try {
-      const st = statSync(join(this.frontend, rel), { bigint: true });
-      empreinte = createHash("sha256").update(`${st.mtimeNs}:${st.size}`).digest("hex").slice(0, 10);
+      return empreinteFichier(statSync(join(this.frontend, rel)));
     } catch {
-      empreinte = this.buildId;
+      return this.buildId;
     }
-    this.empreintes.set(cheminStatique, empreinte);
-    return empreinte;
   }
 
   rendre(page: string): string {
@@ -235,13 +227,16 @@ export class Pages {
     return html;
   }
 
-  /** `?v=` au BUILD_ID, vendor à son empreinte, script d'habillage, puis les entrées Vite ; un build absent laisse un commentaire. */
+  /** Fichier versionné ou vendor à son empreinte (relu s'il change), autre `?v=` au BUILD_ID, script d'habillage, puis les entrées Vite ; un build absent laisse un commentaire. */
   assembler(contenu: string, lus: string[] = []): string {
     let texte = contenu.replace(VERSION, () => `?v=${echapperHtml(this.buildId)}`);
     texte = texte.replace(
-      VENDOR,
-      (_m, a: string, chemin: string, b: string) =>
-        `${a}${chemin}?v=${echapperHtml(this.empreinteVendor(chemin))}${b}`,
+      STATIQUE,
+      (tout, a: string, chemin: string, rel: string, v: string | undefined, b: string) => {
+        if (v === undefined && !rel.startsWith("vendor/")) return tout;
+        lus.push(join(this.frontend, rel));
+        return `${a}${chemin}?v=${echapperHtml(this.empreinte(rel))}${b}`;
+      },
     );
     texte = texte.replace(HABILLAGE, () => `<script>${SCRIPT_HABILLAGE}</script>`);
     if (!/<!--\s*@entree\s/.test(texte)) return texte;

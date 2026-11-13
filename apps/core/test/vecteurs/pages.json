@@ -1,18 +1,24 @@
 {
-  "source": "migration-kit/vecteurs/interface_pages.py, sans @include ni __VENDOR_V__ depuis L10 (pages coquilles)",
+  "source": "migration-kit/vecteurs/interface_pages.py, sans @include ni __VENDOR_V__ depuis L10 (pages coquilles) ; fichiers de static/ versionnés à leur empreinte",
   "fichiers": {},
   "cas": [
     {
       "nom": "versions",
       "page": "<head><link href=\"static/css/s.css?v=4.23\"><script type=\"module\" src=\"static/x.js?v=1714123456-a3f9d2\"></script></head>",
-      "sortie": "<head><link href=\"static/css/s.css?v=BUILD-42\"><script type=\"module\" src=\"static/x.js?v=BUILD-42\"></script></head>",
-      "lus": []
+      "sortie": "<head><link href=\"static/css/s.css?v=fp(css/s.css)\"><script type=\"module\" src=\"static/x.js?v=fp(x.js)\"></script></head>",
+      "lus": [
+        "frontend/css/s.css",
+        "frontend/x.js"
+      ]
     },
     {
       "nom": "vendor",
       "page": "<head><link href=\"static/vendor/src/regular/style.css\" rel=\"stylesheet\"><link href=\"static/vendor/github-dark.min.css?v=old\" rel=\"stylesheet\"></head>",
-      "sortie": "<head><link href=\"static/vendor/src/regular/style.css?v=fp(static/vendor/src/regular/style.css)\" rel=\"stylesheet\"><link href=\"static/vendor/github-dark.min.css?v=BUILD-42\" rel=\"stylesheet\"></head>",
-      "lus": []
+      "sortie": "<head><link href=\"static/vendor/src/regular/style.css?v=fp(vendor/src/regular/style.css)\" rel=\"stylesheet\"><link href=\"static/vendor/github-dark.min.css?v=fp(vendor/github-dark.min.css)\" rel=\"stylesheet\"></head>",
+      "lus": [
+        "frontend/vendor/src/regular/style.css",
+        "frontend/vendor/github-dark.min.css"
+      ]
     },
     {
       "nom": "unicode",

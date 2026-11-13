@@ -90,6 +90,24 @@ describe("enregistrement automatique des Paramètres", () => {
     expect(pile.toasts.value).toHaveLength(0);
   });
 
+  it("rafale sur deux champs : Annuler ramène les deux à leur valeur d'avant la rafale", async () => {
+    const pile = creerToasts();
+    const { R, puts, settings } = monter({ valeur: false }, pile.showToast);
+    await R.openSettings();
+    settings.value.system_prompt = "Après";
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(1300);
+    settings.value.assistant_name = "Zoé";
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(1300);
+    expect(pile.toasts.value).toHaveLength(1);
+    pile.toasts.value[0]?.onAction?.();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(settings.value.system_prompt).toBe("Avant");
+    expect(settings.value.assistant_name).toBe("Elpis");
+    expect(puts.at(-1)).toEqual({ system_prompt: "Avant", assistant_name: "Elpis" });
+  });
+
   it("Annuler rétablit la valeur précédente et la réécrit", async () => {
     const { R, puts, settings, toasts } = monter({ valeur: false });
     await R.openSettings();

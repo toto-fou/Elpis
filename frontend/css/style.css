@@ -364,7 +364,6 @@ body .ring-blue-200      { --tw-ring-color: var(--accent-border); }
 body .ring-blue-400      { --tw-ring-color: var(--accent-ring); }
 body .ring-blue-500      { --tw-ring-color: var(--accent-ring); }
 body .focus\:ring-blue-500:focus { --tw-ring-color: var(--accent-ring); }
-body .focus\:ring-blue-500\/30:focus { --tw-ring-color: color-mix(in srgb, var(--accent-ring) 30%, transparent); }
 /* Toggles (peer-checked) : classe compilée en (0,3,0) → préfixe ``body``
    pour battre le CDN quel que soit l'ordre d'injection. Les deux formes
    de markup (.peer explicite / input direct) sont couvertes. */
@@ -379,7 +378,6 @@ body .bg-emerald-600     { background-color: var(--ok); color: var(--ok-fg); }
 body .bg-green-600       { background-color: var(--ok); color: var(--ok-fg); }
 body .hover\:bg-emerald-700:hover { background-color: var(--ok-strong); }
 body .bg-emerald-500     { background-color: var(--ok-soft); }
-body .bg-green-500       { background-color: var(--ok-soft); }
 body .text-emerald-500   { color: var(--ok-soft); }
 body .text-emerald-400   { color: var(--ok-400); }
 body .text-green-400     { color: var(--ok-400); }
@@ -891,11 +889,6 @@ aside.elpis-slide-panel .ring-\[\#0f172a\] { --tw-ring-color: var(--rail-bg); }
 aside.elpis-slide-panel .ring-\[\#0b1120\] { --tw-ring-color: var(--rail-bg-2); }
 /* Item / page ACTIF (teinte accent translucide) */
 aside.elpis-slide-panel .bg-blue-600\/20 { background-color: var(--rail-active-bg); }
-/* « Retour au chat » (rail admin) — alphas accent, parité rgb(37 99 235/α) */
-aside.elpis-slide-panel .bg-blue-600\/15 { background-color: color-mix(in srgb, var(--accent) 15%, transparent); }
-aside.elpis-slide-panel .hover\:bg-blue-600\/25:hover { background-color: color-mix(in srgb, var(--accent) 25%, transparent); }
-aside.elpis-slide-panel .border-blue-500\/20 { border-color: color-mix(in srgb, var(--accent-500) 20%, transparent); }
-aside.elpis-slide-panel .hover\:border-blue-500\/40:hover { border-color: color-mix(in srgb, var(--accent-500) 40%, transparent); }
 /* Fonds pleins accent dans le rail (« Nouveau chat », avatars initiales) :
    le texte suit --accent-fg. Déclaré APRÈS le remap .text-white → gagne à
    spécificité égale (le markup porte les deux classes sur l'élément). */
@@ -910,7 +903,6 @@ aside.elpis-slide-panel input {
 aside.elpis-slide-panel .focus\:border-blue-500\/60:focus { border-color: color-mix(in srgb, var(--accent-500) 60%, transparent); }
 /* Sélection multiple : cases et « Supprimer » lisibles sur rail clair comme sombre */
 aside.elpis-slide-panel .border-white\/25 { border-color: color-mix(in srgb, var(--rail-muted) 75%, transparent); }
-aside.elpis-slide-panel .hover\:border-white\/50:hover { border-color: var(--rail-muted); }
 aside.elpis-slide-panel .text-red-300 { color: color-mix(in srgb, #dc2626 45%, var(--rail-text-strong)); }
 /* Bouton Admin (privilège, vert sémantique) — adapté au rail via --rail-ok */
 aside.elpis-slide-panel .text-emerald-400 { color: var(--rail-ok); }
@@ -1416,8 +1408,8 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
  * ----------------------------------------------------------------
  *  Piloté par les tokens SÉMANTIQUES ``--danger-*`` (au lieu du rouge
  *  Tailwind cru bg-red-* et text-red-*, qui n'était ni bridgé en sombre ni
- *  décliné par skin → encart désaligné). Les parties NEUTRES (fond du bloc
- *  détail et du bouton) reprennent ``--surface`` générique → elles suivent
+ *  décliné par skin → encart désaligné). La partie NEUTRE (fond du
+ *  bouton) reprend ``--surface`` générique → elle suit
  *  automatiquement chaque skin ; seul l'ACCENT danger vient des tokens
  *  ``--danger-*`` (redéfinis en sombre et par les skins sombres).
  * ================================================================ */
@@ -1426,24 +1418,12 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     border: 1px solid var(--danger-border);
 }
 .elpis-error-title  { color: var(--danger-strong); }
-.elpis-error-detail {
-    color: var(--danger-text);
-    background-color: var(--surface);
-    border: 1px solid var(--danger-border-soft);
-    white-space: pre-wrap;
-    word-break: break-word;
-}
 .elpis-error-btn {
     background-color: var(--surface);
     color: var(--danger-text);
     border: 1px solid var(--danger-border);
 }
 .elpis-error-btn:hover { background-color: var(--danger-surface); }
-.elpis-error-avatar {
-    background-color: var(--danger-icon-bg);
-    color: var(--danger-icon-fg);
-    border: 1px solid var(--danger-border);
-}
 
 /* La ligne fichier : flex, alignement top (le bouton Download s'aligne
    avec la PREMIÈRE ligne nom du fichier, pas centré entre les 2 lignes
@@ -1462,16 +1442,6 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
 }
 .diff-row-flat--clickable:hover {
     background-color: #f8fafc;          /* slate-50 */
-}
-
-/* Mode éditeur désactivé : ligne info-only ; le curseur par défaut
-   (pas de feedback "cliquable") évite un faux signal. Le bouton
-   Download a son propre hover. */
-.diff-row-flat--readonly {
-    cursor: default;
-}
-.diff-row-flat--readonly:hover {
-    background-color: transparent;
 }
 
 /* Bouton Download : style outline doux. On veut qu'il soit clairement
@@ -1661,16 +1631,7 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
 .elpis-editor-light .border-white\/\[0\.08\] {
     border-color: #e2e8f0;              /* slate-200 — crisp, no alpha */
 }
-.elpis-editor-light .border-white\/20 {
-    border-color: #cbd5e1;              /* slate-300 — slightly darker */
-}
 .elpis-editor-light .border-black\/20 {
-    border-color: #e2e8f0;
-}
-
-/* — Divide utilities (between rows) ——————————————————————————— */
-.elpis-editor-light .divide-white\/5 > * + *,
-.elpis-editor-light .divide-white\/10 > * + * {
     border-color: #e2e8f0;
 }
 
@@ -1756,7 +1717,6 @@ body.elpis-dark-surface .hover\:bg-slate-50:hover      { background-color: var(-
 body.elpis-dark-surface .hover\:bg-slate-100:hover     { background-color: var(--surface-4); }
 body.elpis-dark-surface .hover\:bg-slate-200:hover     { background-color: var(--surface-5); }
 body.elpis-dark-surface .hover\:bg-white\/60:hover     { background-color: rgba(255, 255, 255, 0.04); }
-body.elpis-dark-surface .hover\:bg-white\/70:hover     { background-color: rgba(255, 255, 255, 0.05); }
 body.elpis-dark-surface .hover\:bg-white\/80:hover     { background-color: rgba(255, 255, 255, 0.06); }
 
 /* Focus background (formulaires) */
@@ -2018,33 +1978,14 @@ body.elpis-dark-surface .bg-pink-50           { background-color: rgba(236, 72, 
 /* Hover variants pour boutons accent */
 body.elpis-dark-surface .hover\:bg-blue-50:hover     { background-color: rgba(59, 130, 246, 0.20); }
 body.elpis-dark-surface .hover\:bg-red-50:hover      { background-color: rgba(239, 68, 68, 0.20); }
-body.elpis-dark-surface .hover\:bg-green-50:hover    { background-color: rgba(34, 197, 94, 0.20); }
 body.elpis-dark-surface .hover\:bg-emerald-50:hover  { background-color: rgba(16, 185, 129, 0.20); }
-body.elpis-dark-surface .hover\:bg-amber-50:hover    { background-color: rgba(245, 158, 11, 0.20); }
-body.elpis-dark-surface .hover\:bg-purple-50:hover   { background-color: rgba(168, 85, 247, 0.20); }
-body.elpis-dark-surface .hover\:bg-orange-50:hover   { background-color: rgba(249, 115, 22, 0.20); }
-body.elpis-dark-surface .hover\:bg-rose-50:hover     { background-color: rgba(244, 63, 94, 0.20); }
-
-/* Pastilles de statut bg-*-100 + texte -*-700 : les teintes TOKENISÉES
-   (blue/emerald/green/red/amber) sont désormais gérées par le bridge +
-   familles sémantiques (les deux modes). Ne restent ici que les teintes
-   hors familles (indigo/purple). */
-body.elpis-dark-surface .bg-purple-100  { background-color: rgba(168, 85, 247, 0.18); }
-body.elpis-dark-surface .text-indigo-700  { color: #a5b4fc; }
-body.elpis-dark-surface .text-purple-700  { color: #d8b4fe; }
 
 /* Borders accent claires (bg-*-200) — utilisées pour les boutons outline */
-body.elpis-dark-surface .border-purple-200    { border-color: rgba(168, 85, 247, 0.40); }
-body.elpis-dark-surface .border-orange-200    { border-color: rgba(249, 115, 22, 0.40); }
 body.elpis-dark-surface .border-rose-200      { border-color: rgba(244, 63, 94, 0.40); }
-body.elpis-dark-surface .border-indigo-200    { border-color: rgba(99, 102, 241, 0.40); }
 
 /* Hover borders */
 body.elpis-dark-surface .hover\:border-blue-200:hover   { border-color: rgba(59, 130, 246, 0.60); }
 body.elpis-dark-surface .hover\:border-red-200:hover    { border-color: rgba(239, 68, 68, 0.60); }
-body.elpis-dark-surface .hover\:border-green-200:hover  { border-color: rgba(34, 197, 94, 0.60); }
-body.elpis-dark-surface .hover\:border-amber-200:hover  { border-color: rgba(245, 158, 11, 0.60); }
-body.elpis-dark-surface .hover\:border-purple-200:hover { border-color: rgba(168, 85, 247, 0.60); }
 
 /* Rings + teinte /60 (état sélection de l'arbre des skills) — non couverts
    par les overrides ci-dessus (classes compilées distinctes). */
@@ -2069,30 +2010,18 @@ body.elpis-dark-surface .disabled\:bg-slate-50:disabled,
 body.elpis-dark-surface .disabled\:bg-slate-100:disabled {
     background-color: var(--surface-3);
 }
-body.elpis-dark-surface .disabled\:bg-slate-200:disabled {
-    background-color: var(--surface-4);
-}
 body.elpis-dark-surface .disabled\:bg-slate-300:disabled {
     background-color: var(--surface-5);
-}
-body.elpis-dark-surface .disabled\:bg-white:disabled {
-    background-color: var(--surface);
 }
 body.elpis-dark-surface .disabled\:text-slate-300:disabled,
 body.elpis-dark-surface .disabled\:text-slate-400:disabled,
 body.elpis-dark-surface .disabled\:text-slate-500:disabled {
     color: #64748b;                         /* slate-500 — discret, pas blanc */
 }
-body.elpis-dark-surface .disabled\:border-slate-200:disabled {
-    border-color: rgba(255, 255, 255, 0.08);
-}
 
 /* Variantes focus (utilisées dans les inputs avec focus:bg-white) */
 body.elpis-dark-surface .focus\:bg-white:focus {
     background-color: var(--surface);
-}
-body.elpis-dark-surface .focus\:bg-slate-50:focus {
-    background-color: var(--surface-2);
 }
 body.elpis-dark-surface .focus\:bg-slate-100:focus {
     background-color: var(--surface-3);
@@ -2103,12 +2032,6 @@ body.elpis-dark-surface .peer-checked\:bg-blue-600:checked ~ div,
 body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     /* déjà bleu, OK ; on n'override pas — color préservée */
 }
-
-/* Group hover variants (les enfants stylés au hover du parent .group) */
-body.elpis-dark-surface .group:hover .group-hover\:bg-slate-50         { background-color: var(--surface-3); }
-body.elpis-dark-surface .group:hover .group-hover\:bg-slate-100        { background-color: var(--surface-4); }
-body.elpis-dark-surface .group:hover .group-hover\:text-slate-700      { color: var(--text-800); }
-body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: var(--text-900); }
 
 /* ================================================================
  *  Modale de zoom des diagrammes (Mermaid)
@@ -2266,32 +2189,6 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
    fond propre à rogner — une teinte d'état se pose sur un élément INTERNE
    déjà arrondi, jamais sur la rangée pleine largeur. */
 .set-block--flush { padding: 0; }
-
-/* Contrôle segmenté d'un réglage à 2 ou 3 choix : piste neutre, choix actif en relief (aria-pressed). */
-.set-seg {
-    display: inline-flex;
-    gap: 0.125rem;
-    padding: 0.125rem;
-    border-radius: var(--radius-lg);
-    background: var(--surface-3);
-}
-.set-seg__btn {
-    min-height: 2rem;
-    padding: 0.25rem 0.75rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    font-size: 0.8125rem;
-    color: var(--text-600);
-    transition: background-color .15s ease, color .15s ease;
-}
-.set-seg__btn:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-4); }
-.set-seg__btn[aria-pressed="true"] {
-    background: var(--surface);
-    border-color: var(--border);
-    color: var(--text-900);
-}
-.set-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
-.set-seg__btn:disabled { cursor: not-allowed; opacity: .7; }
 
 /* ================================================================
  *  COMPOSANTS CONSOLE ADMIN  (.adm-*)
@@ -2823,18 +2720,6 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 }
 .adm-btn--icon:hover:not(:disabled) { background: var(--surface-3); color: var(--text-900); }
 
-/* Pastille « modifications non enregistrées ». Le point coloré reste un
-   utilitaire Tailwind sur le markup (accent remappé par les skins). */
-.adm-dirty {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-600);
-    white-space: nowrap;
-}
-
 /* Bloc replié (commandes d'installation, aides longues). */
 .adm-details {
     border-top: 1px solid var(--border-soft);
@@ -3221,7 +3106,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     min-width: 2.5rem; text-align: center;
     font-size: 0.6875rem; font-weight: 600; color: var(--text-500);
 }
-.adm-stepper__icon { color: var(--text-400); font-size: 0.875rem; margin-left: 0.125rem; }
 
 /* Popover de barre d'outils (widgets, collecte, export). */
 .adm-pop {
@@ -3236,7 +3120,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     box-shadow: 0 10px 30px rgba(15, 23, 42, .12);
     overflow: hidden;
 }
-.adm-pop--left { right: auto; left: 0; }
 .adm-pop__head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 0.5rem;
@@ -4246,24 +4129,17 @@ body.elpis-dark-surface .bg-blue-50\/50          { background-color: rgba(59, 13
 body.elpis-dark-surface .bg-amber-50\/60         { background-color: rgba(245, 158, 11, 0.12); }
 
 /* Bordures translucides (le panneau d'échantillonnage en pose 11). */
-body.elpis-dark-surface .border-slate-200\/70    { border-color: rgba(255, 255, 255, 0.08); }
 body.elpis-dark-surface .border-slate-200\/80    { border-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .border-amber-200\/60    { border-color: rgba(245, 158, 11, 0.28); }
-body.elpis-dark-surface .border-amber-200\/70    { border-color: rgba(245, 158, 11, 0.32); }
 body.elpis-dark-surface .border-amber-300\/60    { border-color: rgba(245, 158, 11, 0.36); }
-body.elpis-dark-surface .border-emerald-100      { border-color: rgba(16, 185, 129, 0.22); }
-body.elpis-dark-surface .border-red-300          { border-color: rgba(239, 68, 68, 0.45); }
 
 /* Hovers en nuance 100/200 : seules les -50 étaient remappées. */
 body.elpis-dark-surface .hover\:bg-blue-100:hover     { background-color: rgba(59, 130, 246, 0.22); }
 body.elpis-dark-surface .hover\:bg-red-100:hover      { background-color: rgba(239, 68, 68, 0.22); }
-body.elpis-dark-surface .hover\:bg-red-200:hover      { background-color: rgba(239, 68, 68, 0.30); }
 body.elpis-dark-surface .hover\:bg-amber-100:hover    { background-color: rgba(245, 158, 11, 0.22); }
 body.elpis-dark-surface .hover\:bg-emerald-100:hover  { background-color: rgba(16, 185, 129, 0.22); }
 body.elpis-dark-surface .hover\:bg-violet-100:hover   { background-color: rgba(139, 92, 246, 0.22); }
 body.elpis-dark-surface .hover\:bg-slate-100\/70:hover { background-color: rgba(255, 255, 255, 0.06); }
 body.elpis-dark-surface .hover\:bg-slate-100\/80:hover { background-color: rgba(255, 255, 255, 0.07); }
-body.elpis-dark-surface .hover\:bg-slate-200\/60:hover { background-color: rgba(255, 255, 255, 0.09); }
 body.elpis-dark-surface .hover\:border-blue-100:hover  { border-color: rgba(59, 130, 246, 0.35); }
 
 /* États focus : la variante `focus:` / `focus-within:` échappait aux remaps. */
@@ -4273,10 +4149,8 @@ body.elpis-dark-surface .focus-within\:border-slate-300:focus-within { border-co
 /* Anneaux (`ring-*`) : aucun n'était couvert — bord clair net autour des
    modales, des cartes et des champs en mode sombre. */
 body.elpis-dark-surface .ring-slate-200      { --tw-ring-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .ring-slate-500      { --tw-ring-color: rgba(255, 255, 255, 0.22); }
 body.elpis-dark-surface .ring-slate-900\/5   { --tw-ring-color: rgba(255, 255, 255, 0.06); }
 body.elpis-dark-surface .ring-slate-900\/10  { --tw-ring-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .ring-blue-300       { --tw-ring-color: rgba(59, 130, 246, 0.45); }
 body.elpis-dark-surface .ring-red-400        { --tw-ring-color: rgba(239, 68, 68, 0.45); }
 
 /* Fonds de pastille sans famille sémantique. */
@@ -4308,14 +4182,11 @@ body .text-rose-900      { color: var(--danger-strong); }
 body .hover\:text-blue-800:hover    { color: var(--accent-text-strong); }
 body .hover\:text-amber-800:hover   { color: var(--warn-text-strong); }
 body .hover\:text-amber-900:hover   { color: var(--warn-text-strong); }
-body .hover\:text-green-700:hover   { color: var(--ok-text-strong); }
-body .hover\:text-red-700:hover     { color: var(--danger-strong); }
 
 /* Teintes DÉCORATIVES sans famille sémantique : remap sombre seulement
    (en clair, les valeurs Tailwind sont justes). */
 body.elpis-dark-surface .text-violet-600      { color: #c4b5fd; }
 body.elpis-dark-surface .text-violet-700      { color: #c4b5fd; }
-body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 
 /* ── 4. Écran de secours (avant que Vue ne monte) ───────────────────────── *
  * `#vue-error-overlay` est peint avant que la moindre classe de thème soit
@@ -4325,7 +4196,6 @@ body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 @media (prefers-color-scheme: dark) {
     #vue-error-overlay          { background: #16181d !important; }
     #vue-error-overlay .box     { background: #1e1e1e !important; color: #e2e8f0 !important; }
-    #vue-error-overlay .tip     { color: #94a3b8 !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════

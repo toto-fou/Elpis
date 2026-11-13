@@ -39,7 +39,14 @@ class FausseSource implements SourceEvenements {
 /** Navigateur simulé : cookie de session commun, canaux de diffusion livrés de façon asynchrone. */
 class Navigateur {
   connecte = true;
+  compte = COMPTE_A.id;
+  motDePasse = false;
   readonly canaux = new Set<FauxCanal>();
+  /** Réponse de `/api/me-lite` pour le cookie courant. */
+  moi(): Record<string, unknown> {
+    if (this.motDePasse) return { logged_in: false, must_change_password: true };
+    return this.connecte ? { logged_in: true, id: this.compte } : { logged_in: false };
+  }
 }
 
 /** Onglet simulé : gelé, ni messages ni minuteries ; ralenti (caché depuis longtemps), minuteries seules retardées. */
@@ -51,7 +58,7 @@ interface Onglet {
   user: Ref<unknown>;
   doc: Document & { visibilityState: DocumentVisibilityState };
   sources: FausseSource[];
-  ctx: { systemAlert: Ref<unknown>; handleSessionExpired: Mock };
+  ctx: { systemAlert: Ref<unknown>; handleSessionExpired: Mock; checkAuth: Mock };
   rappels: Record<"onReconnect" | "onModelChanged" | "onNotification" | "pollModels", Mock>;
   sse: ReturnType<typeof setupChatSystemSSE>;
 }
@@ -117,6 +124,7 @@ function onglet(nav: Navigateur, compte: Compte = COMPTE_A, canal = true): Ongle
       o.session.fermer("expiration");
       o.user.value = null;
     }),
+    checkAuth: vi.fn(() => Promise.resolve()),
   };
   o.rappels = { onReconnect: vi.fn(), onModelChanged: vi.fn(), onNotification: vi.fn(), pollModels: vi.fn() };
   o.sse = setupChatSystemSSE(
@@ -132,7 +140,7 @@ function onglet(nav: Navigateur, compte: Compte = COMPTE_A, canal = true): Ongle
         return s;
       },
       creerCanal: canal ? (nom) => new FauxCanal(nom, nav, o) : null,
-      fetch: () => Promise.resolve(json({ logged_in: nav.connecte })),
+      fetch: () => Promise.resolve(json(nav.moi())),
       recharger: vi.fn(),
     },
   );
@@ -357,6 +365,47 @@ describe("session et comptes", () => {
     seule(ongs).ouvrir();
     await vi.advanceTimersByTimeAsync(1);
     expect(ongs[1]!.rappels.onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("mot de passe à changer dans un onglet : les autres passent au changement, pas à l'expiration", async () => {
+    const nav = new Navigateur();
+    const ongs = [onglet(nav), onglet(nav)];
+    connecter(ongs[0]!);
+    vi.advanceTimersByTime(ATTENTE_MS);
+    seule(ongs).ouvrir();
+    connecter(ongs[1]!);
+    vi.advanceTimersByTime(ATTENTE_MS);
+    nav.motDePasse = true;
+    ongs[0]!.session.motDePasseAChanger();
+    await vi.advanceTimersByTimeAsync(ATTENTE_MS * 8);
+    expect(ongs[1]!.session.etat.statut).toBe("mot_de_passe_a_changer");
+    expect(ongs[1]!.ctx.handleSessionExpired).not.toHaveBeenCalled();
+    expect(ouvertes(ongs)).toHaveLength(0);
+  });
+
+  it("onglet A reconnecté en B : les autres onglets de A purgent puis relisent la session (B), rien de B relayé à A", async () => {
+    const nav = new Navigateur();
+    const ongs = [onglet(nav), onglet(nav)];
+    connecter(ongs[0]!);
+    vi.advanceTimersByTime(ATTENTE_MS);
+    seule(ongs).ouvrir();
+    connecter(ongs[1]!);
+    vi.advanceTimersByTime(ATTENTE_MS);
+    const [a1, a2] = ongs as [Onglet, Onglet];
+    a1.session.fermer("deconnexion");
+    a1.user.value = null;
+    nav.compte = COMPTE_B.id;
+    a1.session.ouvrir(COMPTE_B);
+    a1.user.value = COMPTE_B;
+    a1.sse.connectSystemEvents();
+    await vi.advanceTimersByTimeAsync(ATTENTE_MS * 8);
+    expect(a2.ctx.handleSessionExpired).toHaveBeenCalledTimes(1);
+    expect(a2.ctx.checkAuth).toHaveBeenCalledTimes(1);
+    expect(a2.sources.filter((s) => !s.ferme)).toHaveLength(0);
+    seule(ongs).ouvrir();
+    seule(ongs).envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(1);
+    expect(a2.rappels.onModelChanged).not.toHaveBeenCalled();
   });
 
   it("session_expired relayé : tous les onglets expirent, aucun flux rouvert", () => {

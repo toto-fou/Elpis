@@ -27,6 +27,7 @@ export interface RefsSse {
 export interface CtxSse {
   readonly systemAlert: Ref<unknown>;
   handleSessionExpired?(): void;
+  checkAuth?(): Promise<unknown>;
 }
 
 export type ChatJobData = Extract<EvenementSysteme, { type: "chat_job" }>["data"];
@@ -200,14 +201,20 @@ export function setupChatSystemSSE(
     rattrapage = false;
   }
 
-  /** Un onglet du compte a perdu sa session : même cookie, donc relue ici ; terminée, elle l'est aussi pour cet onglet. */
+  /** Un onglet du compte a perdu sa session (même cookie) : relue ici ; mot de passe à changer, fin, ou autre compte (purge puis connexion de celui-ci). */
   function verifierSession(): void {
+    const { generation } = session;
+    const uid = session.compte?.id;
     void sonder("/api/me-lite", { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<unknown>) : null))
       .then((d) => {
-        if (!d || typeof d !== "object" || (d as { logged_in?: unknown }).logged_in) return;
+        if (!d || typeof d !== "object" || !session.estCourante(generation)) return;
+        const moi = d as { logged_in?: unknown; id?: unknown };
+        if (moi.logged_in && moi.id === uid) return;
         disconnectSystemEvents();
-        ctx.handleSessionExpired?.();
+        if (!moi.logged_in && "must_change_password" in moi) session.motDePasseAChanger();
+        else ctx.handleSessionExpired?.();
+        if (moi.logged_in) void ctx.checkAuth?.().catch(() => undefined);
       })
       .catch(() => undefined);
   }

@@ -89,6 +89,20 @@ describe("toasts", () => {
     expect(expire).toHaveBeenCalledOnce();
   });
 
+  it("un toast identique réaffiché pendant la pause ne relance pas la minuterie sous le pointeur", () => {
+    const t = creerToasts();
+    const id = t.showToast("Copié");
+    t.pauseToast(id);
+    expect(t.showToast("Copié")).toBe(id);
+    vi.advanceTimersByTime(10_000);
+    expect(t.toasts.value.map((x) => x.id)).toEqual([id]);
+    t.reprendreToast(id);
+    vi.advanceTimersByTime(3999);
+    expect(t.toasts.value).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(t.toasts.value).toHaveLength(0);
+  });
+
   it("le toast affiché se met en pause au focus de ses boutons et reprend quand le focus le quitte", () => {
     const toast = { id: 7, message: "Supprimée", type: "success", actionLabel: "Annuler", onAction() {} };
     monter(ChromeApp, [

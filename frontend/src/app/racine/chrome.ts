@@ -112,11 +112,11 @@ export function creerToasts() {
       );
       if (meme) {
         if (meme._timer) clearTimeout(meme._timer);
-        meme._timer = persistant
-          ? undefined
-          : setTimeout(() => {
-              toasts.value = toasts.value.filter((x) => x.id !== meme.id);
-            }, duree);
+        meme._timer = undefined;
+        // En pause (survol, focus), la durée relancée attend la fin de la pause.
+        if (persistant) restes.delete(meme.id);
+        else if (restes.has(meme.id)) restes.set(meme.id, duree);
+        else armer(meme, duree);
         return meme.id;
       }
     }

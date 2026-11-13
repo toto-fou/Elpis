@@ -5,6 +5,7 @@ import { shallowRef } from "vue";
 import type { Ref } from "vue";
 
 import { ensureVendor } from "../../platform/vendor";
+import { mouvementReduit } from "../../utils/dom";
 import { corpsJson, estObjet, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
 import { ecrirePeriode, lirePeriode, periodeValide } from "./periode";
@@ -119,6 +120,13 @@ function lirePrefsWidgets(): Record<string, boolean> {
     /* migration au mieux */
   }
   return prefs;
+}
+
+/** Durée en ms d'un jeton de mouvement de style.css (`260ms`, `0.2s`), le repli s'il manque. */
+function dureeJeton(nom: string, repli: number): number {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(nom).trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? (v.endsWith("ms") ? n : n * 1000) : repli;
 }
 
 export function creerMetriques(b: BaseAdmin) {
@@ -524,7 +532,7 @@ export function creerMetriques(b: BaseAdmin) {
     const options: Record<string, unknown> = {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 500 },
+      animation: mouvementReduit() ? false : { duration: dureeJeton("--duree-longue", 260) },
       plugins: { legend: { display: widget.type !== "bar", position: "bottom" } },
     };
     const plugins = options["plugins"] as Record<string, unknown>;

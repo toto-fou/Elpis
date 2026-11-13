@@ -127,4 +127,23 @@ describe("Métriques", () => {
     expect(mises()).toEqual([1, 2]);
     M.liberer();
   });
+
+  it("animation des graphes : retirée en mouvement réduit, à la durée du jeton sinon", async () => {
+    w.Chart = FauxChart;
+    document.documentElement.style.setProperty("--duree-longue", "0.3s");
+    const reduit = { matches: true };
+    vi.spyOn(window, "matchMedia").mockImplementation(() => reduit as MediaQueryList);
+    const { M } = monter(() => ({ a: serie(1), b: serie(2) }));
+    await M.loadAdminStats();
+    await vi.waitFor(() => expect(FauxChart.instances).toHaveLength(2), { interval: 5 });
+    expect(FauxChart.instances[0]?.options["animation"]).toBe(false);
+    M.destroyAllCharts();
+    FauxChart.instances = [];
+    reduit.matches = false;
+    M.renderDynamicDashboard();
+    await vi.waitFor(() => expect(FauxChart.instances).toHaveLength(2), { interval: 5 });
+    expect(FauxChart.instances[0]?.options["animation"]).toEqual({ duration: 300 });
+    document.documentElement.style.removeProperty("--duree-longue");
+    M.liberer();
+  });
 });

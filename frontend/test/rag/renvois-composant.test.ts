@@ -6,8 +6,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ContenuMarkdown from "../../src/components/chat/ContenuMarkdown.vue";
 import type { MessageMarkdown } from "../../src/components/chat/ContenuMarkdown.vue";
+import type { AffichageBlocs } from "../../src/features/chat/rendu/porteur-flux";
+import { poserPastilles } from "../../src/features/rag/renvois";
 import type { RenvoisMessage } from "../../src/features/rag/renvois";
+import type * as Renvois from "../../src/features/rag/renvois";
 import { source } from "./aides-sources";
+
+vi.mock("../../src/features/rag/renvois", async (origine) => {
+  const m = await origine<typeof Renvois>();
+  return { ...m, poserPastilles: vi.fn(m.poserPastilles) };
+});
 
 let app: App | null = null;
 afterEach(() => {
@@ -157,5 +165,54 @@ describe("ContenuMarkdown : renvois", () => {
     );
     await nextTick();
     expect(hote.querySelector("button.rag-cite")?.textContent).toBe("1");
+  });
+});
+
+describe("ContenuMarkdown : renvois pendant le flux", () => {
+  it("pastilles et marquage : seulement les blocs qui viennent d'être figés et le bloc actif", async () => {
+    const { r, courante } = fabrique(new Map([[1, source(1)]]));
+    const corps = shallowRef<AffichageBlocs>({
+      blocs: [{ i: 0, html: "<p>Premier [1].</p>" }],
+      actif: "<p>Second [1]</p>",
+    });
+    const { hote } = monter({ content: "x", isStreaming: true, _flux: { corps } }, r);
+    await nextTick();
+    const racine = hote.firstElementChild as HTMLElement;
+    const wrappers = (): Element[] => [...racine.children];
+    expect(hote.querySelectorAll("button.rag-cite").length).toBe(2);
+    const poses = vi.mocked(poserPastilles);
+    const lectures: Element[] = [];
+    const natif = Element.prototype.querySelectorAll;
+    const espion = vi.spyOn(Element.prototype, "querySelectorAll").mockImplementation(function (
+      this: Element,
+      s: string,
+    ) {
+      if (s === "[data-rag-n]") lectures.push(this);
+      return natif.call(this, s);
+    } as typeof natif);
+    try {
+      // Le bloc actif grandit : lui seul est repris.
+      poses.mockClear();
+      corps.value = { blocs: corps.value.blocs, actif: "<p>Second [1] et la suite</p>" };
+      await nextTick();
+      expect(poses.mock.calls.map(([b]) => wrappers().indexOf(b))).toEqual([1]);
+      expect([...new Set(lectures)].map((b) => wrappers().indexOf(b))).toEqual([1]);
+      // Un bloc se fige : lui et le nouveau bloc actif, jamais le premier ni le corps entier.
+      poses.mockClear();
+      lectures.length = 0;
+      corps.value = {
+        blocs: [...(corps.value.blocs ?? []), { i: 1, html: "<p>Second [1] et la suite.</p>" }],
+        actif: "<p>Troisième</p>",
+      };
+      await nextTick();
+      expect(poses.mock.calls.map(([b]) => wrappers().indexOf(b))).toEqual([1, 2]);
+      expect([...new Set(lectures)].map((b) => wrappers().indexOf(b))).toEqual([1, 2]);
+    } finally {
+      espion.mockRestore();
+    }
+    // La source ouverte change : tout le corps est marqué.
+    courante.value = 1;
+    await nextTick();
+    expect(hote.querySelectorAll("button.rag-cite.is-on").length).toBe(2);
   });
 });

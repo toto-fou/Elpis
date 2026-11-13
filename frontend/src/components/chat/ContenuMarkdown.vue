@@ -158,22 +158,29 @@ function poser(tout = false): void {
   const el = racine.value ?? flux;
   if (!el || !r) return;
   if (flux && props.msg.isStreaming && !tout) {
+    const blocs: HTMLElement[] = [];
     for (const i of nouveauxRangs("pastilles")) {
       const bloc = flux.children[i];
-      if (bloc) poserPastilles(bloc as HTMLElement, r.resoudre);
+      if (bloc) blocs.push(bloc as HTMLElement);
     }
     const dernier = actif.value ? flux.children[liste.value.length - 1] : null;
-    if (dernier) poserPastilles(dernier as HTMLElement, r.resoudre);
-  } else poserPastilles(el, r.resoudre);
+    if (dernier) blocs.push(dernier as HTMLElement);
+    for (const b of blocs) poserPastilles(b, r.resoudre);
+    marquer(blocs);
+    return;
+  }
+  poserPastilles(el, r.resoudre);
   marquer();
 }
 
-function marquer(): void {
+/** Pastille pleine pour le renvoi ouvert : dans `blocs` s'ils sont donnés (ceux que l'on vient de poser), sinon dans tout le corps. */
+function marquer(blocs?: readonly HTMLElement[]): void {
   const el = racine.value ?? racineFlux.value;
   if (!el || !props.renvois) return;
   const n = props.renvois.courante();
-  for (const p of el.querySelectorAll<HTMLElement>("[data-rag-n]"))
-    p.classList.toggle("is-on", n !== null && p.dataset["ragN"] === String(n));
+  for (const b of blocs ?? [el])
+    for (const p of b.querySelectorAll<HTMLElement>("[data-rag-n]"))
+      p.classList.toggle("is-on", n !== null && p.dataset["ragN"] === String(n));
 }
 
 function surSurvol(e: Event): void {
@@ -210,7 +217,11 @@ watch(
   () => poser(true),
   { flush: "post" },
 );
-watch(() => props.renvois?.courante() ?? null, marquer, { flush: "post" });
+watch(
+  () => props.renvois?.courante() ?? null,
+  () => marquer(),
+  { flush: "post" },
+);
 onUnmounted(() => {
   annulerEnrichissement(enrichir);
   balayerGraphiques();

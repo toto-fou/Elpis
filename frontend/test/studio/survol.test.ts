@@ -113,15 +113,16 @@ describe("Studio : survol", () => {
     expect(ligne(hote, "b").classList.contains("bg-amber-50")).toBe(true);
   });
 
-  it("élargir l'arbre change sa variable de largeur sans re-rendre la page", async () => {
+  it("élargir l'arbre change la largeur de sa seule colonne, sans re-rendre la page", async () => {
     const { hote, menu, roleIcon } = monter();
     await nextTick();
-    const racine = hote.querySelector(".elpis-studio-page") as HTMLElement;
-    expect(racine.style.getPropertyValue("--studio-arbre-l")).toBe(menu.studioTreeWidth.value + "px");
+    const colonne = ligne(hote, "a").closest(".shrink-0.border-l") as HTMLElement;
+    expect(colonne.style.width).toBe(menu.studioTreeWidth.value + "px");
     const rendus = roleIcon.mock.calls.length;
     menu.studioTreeWidth.value = 410;
     await nextTick();
-    expect(racine.style.getPropertyValue("--studio-arbre-l")).toBe("410px");
+    expect(colonne.style.width).toBe("410px");
+    expect((hote.querySelector(".elpis-studio-page") as HTMLElement).getAttribute("style")).toBeNull();
     expect(roleIcon.mock.calls.length).toBe(rendus);
   });
 });

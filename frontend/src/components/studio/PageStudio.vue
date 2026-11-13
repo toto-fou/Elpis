@@ -28,16 +28,13 @@ watch(
   { flush: "post" },
 );
 
-const page = ref<HTMLElement | null>(null);
-/** Largeurs de l'arbre et du rail posées en variables CSS : glisser un diviseur ne re-rend pas la page. */
+const colonneArbre = ref<HTMLElement | null>(null);
+const rail = ref<HTMLElement | null>(null);
+/** Largeurs de l'arbre et du rail posées sur ces deux colonnes seules : glisser un diviseur ne re-rend ni ne restyle la page. */
 watchEffect(
   () => {
-    if (!page.value) return;
-    page.value.style.setProperty("--studio-arbre-l", sd.studioTreeWidth + "px");
-    page.value.style.setProperty(
-      "--studio-rail-l",
-      (sd.studioTab === "script" ? sd.autoRailWidth : 420) + "px",
-    );
+    if (colonneArbre.value) colonneArbre.value.style.width = sd.studioTreeWidth + "px";
+    if (rail.value) rail.value.style.width = (sd.studioTab === "script" ? sd.autoRailWidth : 420) + "px";
   },
   { flush: "post" },
 );
@@ -53,7 +50,6 @@ function poserSaisieModale(el: unknown): void {
 <template>
   <div
     v-if="sd.currentView === 'studio'"
-    ref="page"
     role="region"
     aria-label="Annotation Studio"
     class="elpis-studio-page absolute inset-0 z-[45] bg-white flex flex-col"
@@ -558,8 +554,8 @@ function poserSaisieModale(el: unknown): void {
       <!-- ARBRE EN COLONNE : à côté de l'image et du code (env de code complet) -->
       <div
         v-if="avance && sd.studioTreeDock && sd.studioFrame.imageUrl"
+        ref="colonneArbre"
         class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0 bg-white"
-        style="width: var(--studio-arbre-l)"
       >
         <!-- Poignée : glisser vers la gauche élargit l'arbre ; double-clic = défaut. -->
         <div
@@ -815,10 +811,7 @@ function poserSaisieModale(el: unknown): void {
       </div>
 
       <!-- TABBED RAIL -->
-      <div
-        class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0"
-        style="width: var(--studio-rail-l)"
-      >
+      <div ref="rail" class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0">
         <!-- Poignée : la section Script s'étire vers la gauche (glisser), double-clic = largeur par défaut -->
         <div
           v-if="sd.studioTab === 'script'"

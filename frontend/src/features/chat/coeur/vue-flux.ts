@@ -73,20 +73,19 @@ export function creerVueFlux(c: CoeurChat) {
     if (t.idx >= 0) effacerAttente(t.idx);
   }
 
-  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle, les blocs de tête inchangés sont gardés.
+  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle, les blocs de tête inchangés sont gardés ; hors flux, tout est figé.
   function surRemplacement(t: Tour): void {
     l.abandonnerFlux({ corps: true, narration: true });
     const cur = l.getStreamMsgs()[t.idx];
-    if (t.idx >= 0 && cur)
-      l.patch(
-        t.idx,
-        Object.assign(
-          { _pendingPreContent: "" },
-          l.applyStreamRender(cur, t.data.text || ""),
-          { isStreaming: cur.isStreaming },
-          PRE_RENDER_CLEAR,
-        ),
-      );
+    if (!(t.idx >= 0 && cur)) return;
+    const texte = t.data.text || "";
+    const corps = cur.isStreaming
+      ? l.applyStreamRender(cur, texte)
+      : Object.assign({ content: texte }, l.figerCorps(cur, texte));
+    l.patch(
+      t.idx,
+      Object.assign({ _pendingPreContent: "" }, corps, { isStreaming: cur.isStreaming }, PRE_RENDER_CLEAR),
+    );
   }
 
   // Phase outils : le contenu va dans la ligne vivante du conteneur, jamais dans le corps.

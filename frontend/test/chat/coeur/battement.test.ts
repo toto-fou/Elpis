@@ -539,6 +539,22 @@ describe("battement : le corps garde ses blocs à la fin", () => {
     stop();
   });
 
+  it("remplacement après la fin : le texte du serveur est figé, sans curseur ni bloc actif", async () => {
+    const { api, r, stop } = monter();
+    await diffuser(api);
+    await api.handleStreamEvent({ ...FIN, assistant: "" });
+    const remplace = TEXTE.replace("Trois", "Une autre fin.");
+    await api.handleStreamEvent({ type: "content_replace", text: remplace });
+    const m = bulle(r);
+    expect(m?.isStreaming).toBe(false);
+    expect(m?.content).toBe(remplace);
+    expect(m?._mdActiveHtml).toBe("");
+    expect(m?._mdFlux?.source).toBe(remplace);
+    expect((m?._mdBlocks ?? []).map((b) => b.html).join("")).toBe(moteurMarkdown().renderMarkdown(remplace));
+    expect(m?._flux ?? null).toBeNull();
+    stop();
+  });
+
   it("erreur : les blocs sont retirés, le corps repasse au rendu complet", async () => {
     const { api, r, stop } = monter();
     await diffuser(api);
@@ -649,6 +665,29 @@ describe("porteur du flux : le message n'est remplacé que pour sa structure", (
     api.stopGeneration();
     expect(bulle(r)?.content).toBe("Début. " + "x".repeat(200));
     expect(bulle(r)?._flux).toBeNull();
+    stop();
+  });
+
+  it("Continuer après un Stop : le porteur est recréé au premier battement, puis le message garde son identité", async () => {
+    const { api, r, remplacements, stop } = monter();
+    await contenu(api, "Début de réponse.");
+    await image(30);
+    api.stopGeneration();
+    expect(bulle(r)?._flux).toBeNull();
+    // Comme continueGeneration : le même message rouvert au flux.
+    r.messages.value[1] = { ...(bulle(r) as MessageChat), isTruncated: false, isStreaming: true };
+    const avant = remplacements();
+    await contenu(api, " Suite.");
+    await image();
+    expect(remplacements()).toBe(avant + 1);
+    const m = bulle(r) as MessageChat;
+    expect(m._flux).toBeTruthy();
+    await contenu(api, " Et encore.");
+    await image(30);
+    expect(bulle(r)).toBe(m);
+    expect(m.content).toBe("Début de réponse. Suite. Et encore.");
+    expect(m._flux?.corps.value.actif).toBe(m._mdActiveHtml);
+    expect(m._flux?.corps.value.blocs ?? null).toBe(m._mdBlocks ?? null);
     stop();
   });
 

@@ -41,13 +41,15 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
 
           <div v-else class="space-y-1.5">
             <template v-for="cat in rg.mcpUserCategories" :key="cat.name">
-              <div
-                v-if="cat.name === 'browser'"
+              <!-- Navigateur : la ligne n'est pas un label (bouton AX), le libellé bascule l'interrupteur. -->
+              <component
+                :is="cat.name === 'browser' ? 'div' : 'label'"
                 class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-lg transition-colors"
+                :class="cat.name === 'browser' ? '' : 'cursor-pointer group'"
               >
-                <div
+                <span
                   class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
-                  @click="rg.localTools[cat.name] = !rg.localTools[cat.name]"
+                  @click="cat.name === 'browser' && (rg.localTools[cat.name] = !rg.localTools[cat.name])"
                 >
                   <div
                     class="w-6 h-6 rounded flex items-center justify-center shrink-0"
@@ -55,8 +57,8 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
                   >
                     <i class="ph text-sm" :class="cat.icon || 'ph-package'"></i>
                   </div>
-                  <span>{{ cat.label || cat.name }}</span>
-                </div>
+                  <span class="truncate">{{ cat.label || cat.name }}</span>
+                </span>
                 <span v-if="rg.catToolsCount(cat)" class="text-xs text-slate-400 shrink-0">{{
                   rg.catToolsCount(cat)
                 }}</span>
@@ -76,7 +78,7 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
                   ></i>
                 </span>
                 <button
-                  v-if="rg.localTools[cat.name]"
+                  v-if="cat.name === 'browser' && rg.localTools[cat.name]"
                   type="button"
                   title="Voir la cartographie AX Memory"
                   class="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-100 text-slate-400 hover:text-blue-600 transition-colors shrink-0"
@@ -84,49 +86,14 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
                 >
                   <i class="ph ph-git-branch text-sm"></i>
                 </button>
-                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input v-model="rg.localTools[cat.name]" type="checkbox" class="sr-only peer" />
-                  <div class="set-switch-track block" :class="rg.mcpCategoryToggleClass(cat)"></div>
-                </label>
-              </div>
-
-              <label
-                v-else
-                class="flex items-center gap-2 cursor-pointer group p-1.5 hover:bg-slate-50 rounded-lg transition-colors"
-              >
-                <span class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 flex-1 min-w-0">
-                  <div
-                    class="w-6 h-6 rounded flex items-center justify-center shrink-0"
-                    :class="rg.mcpCategoryBgClass(cat)"
-                  >
-                    <i class="ph text-sm" :class="cat.icon || 'ph-package'"></i>
-                  </div>
-                  <span class="truncate">{{ cat.label || cat.name }}</span>
-                </span>
-                <span v-if="rg.catToolsCount(cat)" class="text-xs text-slate-400 shrink-0">{{
-                  rg.catToolsCount(cat)
-                }}</span>
-
-                <span
-                  v-if="rg.localTools[cat.name] && (cat.tools || []).length"
-                  role="button"
-                  tabindex="0"
-                  title="Choisir les outils"
-                  class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer"
-                  @click.prevent.stop="rg.toggleToolCatOpen(cat.name)"
-                  @keydown.enter.prevent.stop="rg.toggleToolCatOpen(cat.name)"
-                  @keydown.space.prevent.stop="rg.toggleToolCatOpen(cat.name)"
+                <component
+                  :is="cat.name === 'browser' ? 'label' : 'span'"
+                  class="relative inline-flex items-center cursor-pointer shrink-0"
                 >
-                  <i
-                    class="ph ph-caret-right text-sm transition-transform"
-                    :class="rg.openToolCats[cat.name] ? 'rotate-90' : ''"
-                  ></i>
-                </span>
-                <span class="relative inline-flex items-center shrink-0">
                   <input v-model="rg.localTools[cat.name]" type="checkbox" class="sr-only peer" />
                   <div class="set-switch-track block" :class="rg.mcpCategoryToggleClass(cat)"></div>
-                </span>
-              </label>
+                </component>
+              </component>
 
               <div
                 v-if="rg.localTools[cat.name] && rg.openToolCats[cat.name] && (cat.tools || []).length"

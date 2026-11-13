@@ -57,3 +57,31 @@ describe("volets repliés", () => {
     expect(racine.hasAttribute("inert")).toBe(false);
   });
 });
+
+describe("volet MCP : lignes de catégorie", () => {
+  it("navigateur : ligne sans label, libellé qui bascule, bouton AX ; autres : ligne label", async () => {
+    const rg = etat({
+      settings: { enable_mcp: true },
+      showMcpPanel: true,
+      mcpUserCategories: [
+        { name: "browser", label: "Navigateur", tools: [] },
+        { name: "fs", label: "Fichiers", tools: [] },
+      ],
+      manifestServers: [],
+      pinnedServers: [],
+      localTools: { browser: false, fs: false },
+      openToolCats: {},
+    });
+    const hote = monter(PanneauMcp, [[CLE_REGLAGES, rg]]);
+    const lignes = [...hote.querySelectorAll(".space-y-1\\.5 > *")] as HTMLElement[];
+    expect(lignes.map((l) => l.tagName)).toEqual(["DIV", "LABEL"]);
+    (lignes[0]?.querySelector(".flex-1") as HTMLElement).click();
+    await nextTick();
+    expect((rg["localTools"] as Record<string, boolean>)["browser"]).toBe(true);
+    expect(hote.querySelectorAll('button[title="Voir la cartographie AX Memory"]')).toHaveLength(1);
+    (lignes[1]?.querySelector(".flex-1") as HTMLElement).click();
+    await nextTick();
+    expect((rg["localTools"] as Record<string, boolean>)["fs"]).toBe(true);
+    expect(hote.querySelectorAll('button[title="Voir la cartographie AX Memory"]')).toHaveLength(1);
+  });
+});

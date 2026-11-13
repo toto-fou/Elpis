@@ -65,6 +65,8 @@ try {
     await dialogue.locator('button', { hasText: 'Supprimer' }).click();
     const annuler = page.locator('.elpis-toast button', { hasText: 'Annuler' }).last();
     await annuler.waitFor({ timeout: 5000 }).catch(() => {});
+    // La ligne s'efface (fondu court) avant de quitter le DOM.
+    await ligne('Carnet de lectures').waitFor({ state: 'detached', timeout: 2000 }).catch(() => {});
     v.ok('Supprimer : retrait immédiat et toast avec « Annuler »', await ligne('Carnet de lectures').count() === 0 && await annuler.count() === 1);
     await annuler.click();
     await ligne('Carnet de lectures').waitFor({ timeout: 5000 }).catch(() => {});

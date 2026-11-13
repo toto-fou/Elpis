@@ -56,6 +56,7 @@ watch(
       ref="racine"
       class="elpis-slide-panel flex flex-col h-full relative z-30"
       data-editor-root
+      :inert="ed.showEditor && ed.settings.enable_editor ? undefined : true"
       :data-interface="duSkin ? 'skin' : 'classic'"
       :class="[
         ed.editorFullscreen ? 'editor-fullscreen' : '',

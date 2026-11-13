@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/liste/defilement-virtuel.ts — fenêtrage des longues conversations (au-delà de 30 messages) : marge de 10 messages, espaceurs, mesure des hauteurs, saut fiable vers un message (même contrat que l'ancien setupChatVirtualScroll), réveils regroupés dans la bulle qu'ils continuent. */
+/** frontend/src/features/chat/liste/defilement-virtuel.ts — fenêtrage des longues conversations (au-delà de 30 messages) : marge bornée en messages et en hauteurs de vue, messages hors de la vue montés au repos, espaceurs, mesure des hauteurs, saut fiable vers un message, réveils regroupés dans la bulle qu'ils continuent. */
 import type {
   computed as ComputedFn,
   nextTick as NextTick,
@@ -16,11 +16,16 @@ export const SEUIL_VIRTUEL = 30;
 export const MARGE_VIRTUELLE = 10;
 const HAUTEUR_DEFAUT = 180;
 const ECART = 32;
-// Queue rendue à l'ouverture et pendant le flux : même taille, l'ouverture n'enchaîne pas un second rendu.
+// Queue du flux : au plus autant de messages montés au bas du fil.
 const QUEUE = MARGE_VIRTUELLE * 2 + 5;
-// Ouverture d'une conversation : derniers messages seuls à la première image, puis un paquet par image vers le haut.
+// Ouverture d'une conversation (et retour en bas) : les derniers messages seuls dans l'image, la suite au repos.
 const PREMIERE_IMAGE = 8;
-const PAS_OUVERTURE = 6;
+// Marge montée au repos, en hauteurs de vue (au plus MARGE_VIRTUELLE messages).
+const MARGE_REPOS = 3;
+
+interface Echeance {
+  timeRemaining(): number;
+}
 
 export interface VueDefilement {
   ref: typeof RefFn;
@@ -73,10 +78,12 @@ export function creerDefilementVirtuel(
   /** Message mis en évidence après un saut : la ligne (composant MessageChat) lit cet index. */
   const vsFlashIdx = ref<number | null>(null);
   let raf: number | null = null;
-  let rafOuverture: number | null = null;
-  /** Début visé par une ouverture qui s'étend encore (null : aucune) ; sous le seuil, la fenêtre ne s'applique que pendant une ouverture. */
-  const cibleOuverture = ref<number | null>(null);
+  /** Annule le montage au repos planifié (null : aucun). */
+  let repos: (() => void) | null = null;
+  /** Petite conversation en cours d'ouverture : la fenêtre s'applique sous le seuil jusqu'à couvrir tout le fil. */
+  const ouverture = ref(false);
   let seqSaut = 0;
+  let sautEnCours = false;
   let minuterieFlash: ReturnType<typeof setTimeout> | null = null;
 
   const tete = (i: number): number => teteDeBulle(messages.value, i);
@@ -87,6 +94,20 @@ export function creerDefilementVirtuel(
     let h = 0;
     for (let i = de; i < a; i++) h += hauteur(i);
     return h;
+  }
+  // Message qui couvre le pixel `px` du fil (hauteurs mesurées, sinon estimées).
+  function rang(px: number): number {
+    const total = messages.value.length;
+    for (let i = 0, acc = 0; i < total; i++) if ((acc += hauteur(i)) > px) return i;
+    return Math.max(0, total - 1);
+  }
+  /** Fenêtre [début, fin) : la vue et `marge` pixels de part et d'autre, au plus MARGE_VIRTUELLE messages de chaque côté. */
+  function fenetre(st: number, vh: number, marge: number): [number, number] {
+    const total = messages.value.length;
+    return [
+      Math.max(rang(st) - MARGE_VIRTUELLE, rang(st - marge)),
+      Math.min(total, rang(st + vh) + MARGE_VIRTUELLE + 1, rang(st + vh + marge) + 1),
+    ];
   }
 
   function mesurer(): void {
@@ -106,48 +127,75 @@ export function creerDefilementVirtuel(
     vsBotPad.value = somme(e, total);
   }
 
+  // Fil collé en bas : la queue est l'affaire de _vsEnsureTail, la position lue dans le DOM peut précéder le collage.
+  const suitLeBas = (): boolean => !isUserScrolling.value && fin.value === messages.value.length;
+
+  /** Défilement de l'utilisateur : la fenêtre suit la vue ; fil collé en bas, elle s'étend au repos. */
   function recalculer(): void {
-    if (cibleOuverture.value !== null) {
-      if (!isUserScrolling.value) return;
-      arreterOuverture();
-    }
     const total = messages.value.length;
-    if (total <= SEUIL_VIRTUEL || !chatContainer.value) {
-      debut.value = 0;
-      fin.value = total;
-      vsTopPad.value = 0;
-      vsBotPad.value = 0;
+    const cont = chatContainer.value;
+    if (!cont || (total <= SEUIL_VIRTUEL && !ouverture.value)) {
+      ouverture.value = false;
+      poser(0, total, total);
       return;
     }
-    const st = chatContainer.value.scrollTop;
-    const vh = chatContainer.value.clientHeight;
-    let acc = 0;
-    let premier = 0;
-    for (let i = 0; i < total; i++) {
-      const h = hauteur(i);
-      if (acc + h > st) {
-        premier = i;
-        break;
-      }
-      acc += h;
-      if (i === total - 1) premier = total;
+    if (!suitLeBas()) poser(...fenetre(cont.scrollTop, cont.clientHeight, Infinity), total);
+    planifierRepos();
+  }
+
+  /** Un pas au repos : la fenêtre gagne un message vers la fenêtre de lecture (côté le moins couvert), perd ceux sortis de la marge ; vrai s'il reste à faire. */
+  function pas(): boolean {
+    const total = messages.value.length;
+    const cont = chatContainer.value;
+    if (total > SEUIL_VIRTUEL) ouverture.value = false;
+    if (!cont || sautEnCours || (total <= SEUIL_VIRTUEL && !ouverture.value)) return false;
+    mesurer();
+    const vh = cont.clientHeight;
+    const st = suitLeBas() ? Math.max(0, somme(0, total) - vh) : cont.scrollTop;
+    const [bs, be] = ouverture.value ? [0, total] : fenetre(st, vh, Infinity);
+    const [vs, ve] = ouverture.value ? [0, total] : fenetre(st, vh, MARGE_REPOS * vh);
+    let s = Math.max(debut.value, bs);
+    let e = Math.min(fin.value, be);
+    if (s >= e) [s, e] = [vs, ve];
+    else if (s > vs && (e >= ve || st - somme(0, s) < somme(0, e) - st - vh)) s--;
+    else if (e < ve) e++;
+    const [d0, f0] = [debut.value, fin.value];
+    poser(s, e, total);
+    if (ouverture.value && debut.value === 0 && fin.value === total) ouverture.value = false;
+    return (debut.value !== d0 || fin.value !== f0) && (debut.value > tete(vs) || fin.value < ve);
+  }
+
+  /** Montage au repos par tranches bornées en temps : chaque pas est mis en page avant de mesurer le temps restant. */
+  async function auRepos(echeance: Echeance): Promise<void> {
+    repos = null;
+    while (pas()) {
+      await nextTick();
+      chatContainer.value?.getBoundingClientRect();
+      if (echeance.timeRemaining() < 4) return planifierRepos();
     }
-    if (premier >= total) premier = Math.max(0, total - 1);
-    let dernier = premier;
-    let vu = acc;
-    for (let i = premier; i < total; i++) {
-      dernier = i;
-      vu += hauteur(i);
-      if (vu >= st + vh) break;
+  }
+
+  function planifierRepos(): void {
+    if (repos) return;
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback((d) => void auRepos(d), { timeout: 200 });
+      repos = () => cancelIdleCallback(id);
+    } else {
+      const id = setTimeout(() => void auRepos({ timeRemaining: () => 0 }), 50);
+      repos = () => clearTimeout(id);
     }
-    poser(Math.max(0, premier - MARGE_VIRTUELLE), Math.min(total, dernier + MARGE_VIRTUELLE + 1), total);
+  }
+
+  function annulerRepos(): void {
+    repos?.();
+    repos = null;
   }
 
   function onChatScroll(): void {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = null;
-      if (messages.value.length > SEUIL_VIRTUEL) mesurer();
+      if (messages.value.length > SEUIL_VIRTUEL || ouverture.value) mesurer();
       recalculer();
     });
   }
@@ -170,7 +218,7 @@ export function creerDefilementVirtuel(
   const visibleMessages = computed(() => {
     const msgs = messages.value;
     const total = msgs.length;
-    const virtuel = total > SEUIL_VIRTUEL || cibleOuverture.value !== null;
+    const virtuel = total > SEUIL_VIRTUEL || ouverture.value;
     const e = virtuel ? Math.min(fin.value, total) : total;
     const out: EntreeListe[] = [];
     let i = virtuel ? tete(debut.value) : 0;
@@ -197,37 +245,12 @@ export function creerDefilementVirtuel(
     }
   }
 
-  function arreterOuverture(): void {
-    if (rafOuverture) cancelAnimationFrame(rafOuverture);
-    rafOuverture = null;
-    cibleOuverture.value = null;
-  }
-
-  /** Une image de plus : la fenêtre gagne un paquet de messages vers le haut, jusqu'à la queue normale. */
-  function etendreOuverture(): void {
-    rafOuverture = null;
-    const cible = cibleOuverture.value;
-    if (cible === null) return;
-    const total = messages.value.length;
-    const s = Math.max(cible, debut.value - PAS_OUVERTURE);
-    poser(s, total, total);
-    if (s > cible) rafOuverture = requestAnimationFrame(etendreOuverture);
-    else arreterOuverture();
-  }
-
-  /** Ouverture terminée d'un coup (saut vers un message) : la fenêtre finale est posée. */
-  function terminerOuverture(): void {
-    const cible = cibleOuverture.value;
-    if (cible === null) return;
-    const total = messages.value.length;
-    poser(Math.min(cible, total), total, total);
-    arreterOuverture();
-  }
-
   function _vsReset(): void {
     annulerRaf();
-    arreterOuverture();
+    annulerRepos();
+    ouverture.value = false;
     seqSaut++;
+    sautEnCours = false;
     hauteurs.length = 0;
     debut.value = 0;
     fin.value = 0;
@@ -235,37 +258,25 @@ export function creerDefilementVirtuel(
     vsBotPad.value = 0;
   }
 
-  /** Fenêtre posée sur la queue AVANT le premier rendu d'un chat chargé : les derniers messages d'abord, la suite par paquets aux images suivantes. */
+  /** Fenêtre posée sur la queue AVANT le premier rendu d'un chat chargé : les derniers messages dans la première image, la suite au repos après elle. */
   function _vsInitTail(total: number): void {
-    arreterOuverture();
-    const cible = total <= SEUIL_VIRTUEL ? 0 : Math.max(0, total - QUEUE);
-    if (total - cible > PREMIERE_IMAGE) {
-      poser(total - PREMIERE_IMAGE, total, total);
-      cibleOuverture.value = cible;
-      rafOuverture = requestAnimationFrame(() => {
-        rafOuverture = requestAnimationFrame(etendreOuverture);
-      });
-      return;
-    }
-    if (total <= SEUIL_VIRTUEL) {
-      debut.value = 0;
-      fin.value = total;
-      vsTopPad.value = 0;
-      vsBotPad.value = 0;
-      return;
-    }
-    poser(Math.max(0, total - QUEUE), total, total);
+    annulerRepos();
+    ouverture.value = total > PREMIERE_IMAGE && total <= SEUIL_VIRTUEL;
+    poser(Math.max(0, total - PREMIERE_IMAGE), total, total);
+    if (total <= PREMIERE_IMAGE) return;
+    const id = requestAnimationFrame(() => {
+      repos = null;
+      planifierRepos();
+    });
+    repos = () => cancelAnimationFrame(id);
   }
 
-  /** Queue visible pendant le flux ; garde rapide quand elle l'est déjà (appel à chaque flush). */
+  /** Queue visible pendant le flux : seuls les messages ajoutés sont montés (au plus QUEUE) ; garde rapide, appel à chaque flush. */
   function _vsEnsureTail(): void {
     const total = messages.value.length;
-    if (cibleOuverture.value !== null) {
-      if (fin.value !== total) poser(debut.value, total, total);
-      return;
-    }
-    if (total <= SEUIL_VIRTUEL) return;
-    const s = Math.max(0, total - QUEUE);
+    if (total <= SEUIL_VIRTUEL && !ouverture.value) return;
+    const s =
+      fin.value > total - PREMIERE_IMAGE ? Math.max(debut.value, total - QUEUE) : total - PREMIERE_IMAGE;
     if (debut.value === tete(s) && fin.value === total) return;
     poser(s, total, total);
   }
@@ -302,7 +313,12 @@ export function creerDefilementVirtuel(
     if (!cont || total === 0) return;
     const idx = Math.max(0, Math.min(Math.floor(cible), total - 1));
     const seq = ++seqSaut;
-    terminerOuverture();
+    annulerRepos();
+    sautEnCours = idx !== total - 1;
+    if (ouverture.value) {
+      ouverture.value = false;
+      poser(0, total, total);
+    }
     if (idx === total - 1) {
       isUserScrolling.value = false;
       _vsEnsureTail();
@@ -334,6 +350,7 @@ export function creerDefilementVirtuel(
           if (seq === seqSaut) {
             mesurer();
             corriger(idx, opts, seq, true);
+            sautEnCours = false;
           }
           cont.style.overflowAnchor = ancrage || "";
         }, 250);
@@ -374,7 +391,7 @@ export function creerDefilementVirtuel(
         ro = null;
       }
       annulerRaf();
-      arreterOuverture();
+      annulerRepos();
     });
   }
 

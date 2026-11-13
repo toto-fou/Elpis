@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/liste/defilement-virtuel.test.ts — fenêtrage des longues conversations : seuil, fenêtre initiale, marge, cales, écran blanc évité, garde du rAF (file manuelle), dernier assistant. */
+/** frontend/test/chat/liste/defilement-virtuel.test.ts — fenêtrage des longues conversations : seuil, fenêtre initiale, marge dans l'image et au repos, cales, écran blanc évité, garde du rAF (files manuelles), dernier assistant. */
 import { strict as assert } from "node:assert";
 import { computed, nextTick, ref, watch } from "vue";
 import { afterEach, beforeEach, it, vi } from "vitest";
@@ -11,9 +11,12 @@ const SEUIL = 30;
 const TAMPON = 10;
 const PAS = 180 + 32;
 
-/** rAF en FILE vidée explicitement : un rAF synchrone laisserait le garde armé et le test vert sans rien tester. */
+/** rAF et repos en FILES vidées explicitement : un rappel synchrone laisserait le garde armé et le test vert sans rien tester. */
 let file = new Map<number, FrameRequestCallback>();
+let fileRepos = new Map<number, IdleRequestCallback>();
 let prochain = 0;
+/** Temps de repos rendu par l'échéance des rappels (0 : un pas par rappel). */
+let tempsRepos = 0;
 function videRaf(plafond = 20): number {
   let passes = 0;
   while (file.size > 0 && passes < plafond) {
@@ -24,16 +27,41 @@ function videRaf(plafond = 20): number {
   }
   return passes;
 }
+/** Un moment de repos : les rappels en attente, puis leurs suites (microtâches). */
+async function repos(): Promise<number> {
+  const lot = [...fileRepos.values()];
+  fileRepos.clear();
+  for (const cb of lot) cb({ didTimeout: false, timeRemaining: () => tempsRepos });
+  for (let k = 0; k < 50; k++) await nextTick();
+  return lot.length;
+}
+/** Images et moments de repos jusqu'à ce que plus rien ne soit planifié ; rend le nombre de moments de repos. */
+async function vider(plafond = 200): Promise<number> {
+  let n = 0;
+  while ((file.size > 0 || fileRepos.size > 0) && n < plafond) {
+    videRaf();
+    if (fileRepos.size) n += await repos();
+  }
+  return n;
+}
 
 beforeEach(() => {
   file = new Map();
+  fileRepos = new Map();
   prochain = 0;
+  tempsRepos = 0;
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
     prochain += 1;
     file.set(prochain, cb);
     return prochain;
   });
   vi.stubGlobal("cancelAnimationFrame", (id: number) => file.delete(id));
+  vi.stubGlobal("requestIdleCallback", (cb: IdleRequestCallback) => {
+    prochain += 1;
+    fileRepos.set(prochain, cb);
+    return prochain;
+  });
+  vi.stubGlobal("cancelIdleCallback", (id: number) => fileRepos.delete(id));
   vi.stubGlobal("ResizeObserver", undefined);
 });
 
@@ -49,13 +77,31 @@ interface Options {
   scrollTop?: number;
   hauteurVue?: number;
   sansConteneur?: boolean;
+  /** Hauteur mesurée de chaque ligne rendue (sinon rien n'est mesuré : hauteurs estimées). */
+  hauteurLigne?: number;
 }
 
 function monter(nbMessages: number, o: Options = {}) {
+  let rendus: () => number[] = () => [];
+  const mesures = new Set<number>();
   const conteneur = {
     scrollTop: o.scrollTop || 0,
     clientHeight: o.hauteurVue !== undefined ? o.hauteurVue : 900,
-    querySelectorAll: () => [],
+    querySelectorAll: () => {
+      const h = o.hauteurLigne;
+      if (!h) return [];
+      const r = rendus();
+      // Ancrage du navigateur : une ligne au-dessus de la vue qui prend sa vraie hauteur décale la position d'autant.
+      for (const i of r) {
+        if (mesures.has(i)) continue;
+        let haut = 0;
+        for (let j = 0; j < i; j++) haut += mesures.has(j) ? h + 32 : PAS;
+        mesures.add(i);
+        if (haut < conteneur.scrollTop) conteneur.scrollTop += h + 32 - PAS;
+      }
+      return r.map((i) => ({ dataset: { vsIdx: String(i) }, offsetHeight: h }));
+    },
+    getBoundingClientRect: () => ({ top: 0 }),
   };
   const refs = {
     messages: ref<Message[]>(
@@ -68,14 +114,22 @@ function monter(nbMessages: number, o: Options = {}) {
     isUserScrolling: ref(false),
   };
   const a = creerDefilementVirtuel({ ref, computed, watch, nextTick }, refs, {}) as unknown as Api;
+  rendus = () => a.visibleMessages.value.map((v) => v.idx);
   return {
     api: a,
     refs,
     conteneur,
+    /** Défilement : l'image seule (ce qui est monté dans l'image). */
     scroller(px: number) {
       conteneur.scrollTop = px;
       a.onChatScroll();
       videRaf();
+    },
+    /** Défilement, puis repos jusqu'à la fenêtre de lecture. */
+    async defiler(px: number) {
+      conteneur.scrollTop = px;
+      a.onChatScroll();
+      await vider();
     },
     videRaf: () => videRaf(),
     indices: (): number[] => a.visibleMessages.value.map((v) => v.idx),
@@ -143,12 +197,14 @@ it("les index restent ABSOLUS dans une fenêtre décalée", () => {
 
 // ── _vsInitTail : la fenêtre initiale ────────────────────────
 
-it("_vsInitTail sous le seuil : les 8 derniers à la première image, tout et sans cale à la suivante", () => {
+it("_vsInitTail sous le seuil : les 8 derniers à la première image, tout et sans cale au repos", async () => {
   const v = monter(10);
   v.api._vsInitTail(10);
   assert.deepStrictEqual(v.indices(), [2, 3, 4, 5, 6, 7, 8, 9]);
   assert.equal(v.api.vsTopPad.value, 2 * PAS);
   v.videRaf();
+  assert.equal(v.indices().length, 8, "rien de plus dans l'image qui suit");
+  await vider();
   assert.deepStrictEqual(v.indices(), [...Array(10).keys()]);
   assert.equal(v.api.vsTopPad.value, 0);
   assert.equal(v.api.vsBotPad.value, 0);
@@ -162,56 +218,100 @@ it("_vsInitTail jusqu'à 8 messages rend tout d'un coup, sans cale ni image plan
   assert.equal(v.videRaf(), 0);
 });
 
-it("_vsInitTail ouvre sur la FIN de la conversation", () => {
+// Vue de 900 px en bas de 100 messages estimés : premier message visible, puis début de la fenêtre de lecture.
+const PREMIER_EN_BAS = Math.floor((100 * PAS - 900) / PAS);
+
+it("_vsInitTail ouvre sur la FIN de la conversation", async () => {
   const v = monter(100);
   v.api._vsInitTail(100);
   assert.equal(v.at(-1), 99, "le dernier message doit être rendu");
   assert.equal(v.indices().length, 8, "huit messages à la première image");
-  v.videRaf();
+  await vider();
   const idx = v.indices();
   assert.equal(idx[idx.length - 1], 99);
-  assert.equal(idx.length, TAMPON * 2 + 5, "fenêtre finale de 2×tampon + 5");
-  assert.equal(idx[0], 100 - (TAMPON * 2 + 5));
+  assert.equal(idx[0], PREMIER_EN_BAS - TAMPON, "au repos : la vue et la marge de messages au-dessus");
 });
 
-it("ouverture : rien avant la première image peinte, puis six messages de plus par image", () => {
+it("ouverture : rien avant la première image peinte, puis un message par moment de repos", async () => {
   const v = monter(100);
   v.api._vsInitTail(100);
-  for (const attendu of [8, 14, 20, 25]) {
-    videRaf(1);
+  assert.equal(fileRepos.size, 0, "rien au repos avant la première image");
+  videRaf();
+  assert.equal(v.indices().length, 8, "aucun montage dans l'image qui suit");
+  for (let attendu = 9; attendu <= 100 - (PREMIER_EN_BAS - TAMPON); attendu++) {
+    assert.equal(await repos(), 1);
     assert.equal(v.indices().length, attendu);
     assert.equal(v.at(-1), 99);
   }
-  assert.equal(v.videRaf(), 0, "plus rien de planifié une fois la queue complète");
+  assert.equal(fileRepos.size + file.size, 0, "plus rien de planifié une fois la fenêtre complète");
+});
+
+it("ouverture : un repos assez long monte plusieurs messages à la suite", async () => {
+  const v = monter(100);
+  v.api._vsInitTail(100);
+  videRaf();
+  tempsRepos = 50;
+  assert.equal(await repos(), 1);
+  assert.equal(v.indices().length, 100 - (PREMIER_EN_BAS - TAMPON), "tout dans un seul moment de repos");
+});
+
+it("ouverture d'un fil de longs messages : les derniers couvrent la marge, rien de plus n'est monté", async () => {
+  const v = monter(100, { hauteurLigne: 1500 });
+  v.api._vsInitTail(100);
+  await vider();
+  assert.equal(v.indices().length, 8);
 });
 
 it("ouverture : un recalcul sans geste (taille, défilement programmé) ne l'étend pas d'un coup", () => {
   const v = monter(100);
   v.api._vsInitTail(100);
   v.api.onChatScroll();
-  videRaf(1);
+  videRaf();
   assert.equal(v.indices().length, 8);
 });
 
-it("ouverture : un défilement de l'utilisateur la coupe, la fenêtre suit le viewport", () => {
+it("ouverture : un défilement de l'utilisateur la coupe, la fenêtre suit le viewport", async () => {
   const v = monter(100);
   v.api._vsInitTail(100);
   v.refs.isUserScrolling.value = true;
-  v.scroller(50 * PAS);
+  await v.defiler(50 * PAS);
   assert.equal(v.indices()[0], 50 - TAMPON);
   assert.equal(v.videRaf(), 0, "l'ouverture ne reprend pas derrière le geste");
 });
 
-it("ouverture : un message ajouté pendant l'extension est rendu sans étendre la fenêtre d'un coup", () => {
+it("ouverture : un message ajouté pendant l'extension est rendu sans étendre la fenêtre d'un coup", async () => {
   const v = monter(100);
   v.api._vsInitTail(100);
   v.refs.messages.value = [...v.refs.messages.value, { role: "assistant", content: "suite" }];
   v.api._vsEnsureTail();
   assert.equal(v.at(-1), 100);
   assert.equal(v.indices().length, 9);
-  v.videRaf();
+  await vider();
   assert.equal(v.at(-1), 100);
-  assert.ok(v.indices().length >= TAMPON * 2 + 5);
+  assert.ok(v.indices().length > 9);
+});
+
+it("flux après l'ouverture : seul le message ajouté est monté, la queue ne dépasse pas 25 messages", () => {
+  const v = monter(100);
+  v.api._vsInitTail(100);
+  const msgs = [...v.refs.messages.value];
+  for (let k = 0; k < 30; k++) {
+    msgs.push({ role: "assistant", content: "r" + k });
+    v.refs.messages.value = [...msgs];
+    v.api._vsEnsureTail();
+    assert.equal(v.at(-1), msgs.length - 1);
+    assert.equal(v.indices().length, Math.min(9 + k, TAMPON * 2 + 5));
+  }
+});
+
+it("retour en bas depuis le haut d'un long fil : les derniers messages seuls dans l'image", async () => {
+  const v = monter(100);
+  v.refs.isUserScrolling.value = true;
+  await v.defiler(0);
+  v.refs.isUserScrolling.value = false;
+  v.api._vsEnsureTail();
+  assert.deepStrictEqual(v.indices(), [92, 93, 94, 95, 96, 97, 98, 99]);
+  assert.equal(v.api.vsBotPad.value, 0);
 });
 
 it("ouverture : un saut vers un message la termine d'un coup", () => {
@@ -248,12 +348,12 @@ it("_vsEnsureTail juste après _vsInitTail garde la fenêtre : pas de second ren
   assert.strictEqual(v.api.visibleMessages.value, avant);
 });
 
-it("_vsInitTail pose une cale au-dessus égale aux messages sautés", () => {
+it("_vsInitTail pose une cale au-dessus égale aux messages sautés", async () => {
   const v = monter(100);
   v.api._vsInitTail(100);
   assert.equal(v.api.vsTopPad.value, (100 - 8) * PAS);
-  v.videRaf();
-  assert.equal(v.api.vsTopPad.value, (100 - (TAMPON * 2 + 5)) * PAS);
+  await vider();
+  assert.equal(v.api.vsTopPad.value, (PREMIER_EN_BAS - TAMPON) * PAS);
 });
 
 // ── Fenêtrage au scroll ──────────────────────────────────────
@@ -276,20 +376,20 @@ it("scroller au milieu déplace la fenêtre sur le viewport", () => {
   assert.equal(idx[0], 50 - TAMPON, "le tampon amont doit être de " + TAMPON);
 });
 
-it("la fenêtre englobe le viewport plus un tampon de chaque côté", () => {
+it("la fenêtre englobe le viewport plus un tampon de chaque côté", async () => {
   const v = monter(200);
-  v.scroller(100 * PAS);
+  await v.defiler(100 * PAS);
   const idx = v.indices();
   const vus = Math.ceil(900 / PAS); // messages tenant dans la vue
   assert.equal(idx[0], 100 - TAMPON);
   assert.ok(idx.length >= vus + TAMPON, "fenêtre trop étroite : " + idx.length);
 });
 
-it("une vue plus haute rend plus de messages", () => {
+it("une vue plus haute rend plus de messages", async () => {
   const petite = monter(200, { hauteurVue: 400 });
-  petite.scroller(100 * PAS);
+  await petite.defiler(100 * PAS);
   const grande = monter(200, { hauteurVue: 2000 });
-  grande.scroller(100 * PAS);
+  await grande.defiler(100 * PAS);
   assert.ok(grande.indices().length > petite.indices().length);
 });
 
@@ -468,20 +568,24 @@ it("réveils : entrée stable tant que la bulle ne change pas, nouvelle quand un
   assert.equal(apres.suite[1]?.msg.content, "r1 complétée");
 });
 
-it("réveils, fenêtrage : membres regroupés sans hauteur propre, fenêtre jamais coupée au milieu d'une bulle", () => {
+it("réveils, fenêtrage : membres regroupés sans hauteur propre, fenêtre jamais coupée au milieu d'une bulle", async () => {
   const v = monter(100);
   const msgs = [...v.refs.messages.value];
   // 41 = réponse de l'agent ; 42..59 = réveils et réponses qui la continuent.
   for (let i = 42; i < 60; i++) msgs[i] = i % 2 ? { role: "assistant", content: "r" + i } : { ...REVEIL };
   v.refs.messages.value = msgs;
+  v.refs.isUserScrolling.value = true;
   for (const px of [0, 30 * PAS, 45 * PAS, 55 * PAS, 99 * PAS]) {
-    v.scroller(px);
-    const idx = v.indices();
-    assert.ok(!idx.some((i) => i > 41 && i < 60), "un membre regroupé a sa propre ligne à " + px);
-    const rendus = idx.length;
-    assert.equal(v.api.vsTopPad.value + rendus * PAS + v.api.vsBotPad.value, (100 - 18) * PAS, "à " + px);
+    for (const attendre of [false, true]) {
+      if (attendre) await v.defiler(px);
+      else v.scroller(px);
+      const idx = v.indices();
+      assert.ok(!idx.some((i) => i > 41 && i < 60), "un membre regroupé a sa propre ligne à " + px);
+      const rendus = idx.length;
+      assert.equal(v.api.vsTopPad.value + rendus * PAS + v.api.vsBotPad.value, (100 - 18) * PAS, "à " + px);
+    }
   }
-  v.scroller(48 * PAS);
+  await v.defiler(48 * PAS);
   assert.ok(v.indices().includes(41), "la tête de la bulle est rendue quand la fenêtre tombe dans sa suite");
   v.api._vsInitTail(100);
   assert.equal(v.at(-1), 99);

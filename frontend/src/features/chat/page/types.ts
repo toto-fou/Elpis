@@ -193,13 +193,11 @@ export interface DomaineComposeur {
   readonly planMode: boolean;
   setPlanMode(on: boolean): unknown;
   manualCompress(): unknown;
-  /** Catalogue du « + » : skills du compte par portée, prompts enregistrés, gabarits. */
-  readonly skillsByScope: Readonly<Record<string, readonly SkillCatalogue[]>>;
-  loadAllSkills(): unknown;
-  readonly savedPromptsList: readonly PromptCatalogue[];
-  loadSavedPrompts(): unknown;
-  readonly templatesAll: readonly GabaritCatalogue[];
-  loadTemplates(): unknown;
+  /** Catalogue du « + », partagé avec le menu « / » : `null` tant que la liste n'a pas été lue. */
+  readonly catalogueSkills: readonly SkillCatalogue[] | null;
+  readonly cataloguePrompts: readonly PromptCatalogue[] | null;
+  readonly templatesAll: readonly GabaritCatalogue[] | null;
+  prechargerCatalogue(): void;
   openTemplate(gabarit: GabaritCatalogue): unknown;
 }
 
@@ -213,6 +211,8 @@ export interface PromptCatalogue {
   id: string | number;
   title: string;
   content: string;
+  /** Reçu en partage : le « + » ne liste que les prompts du compte. */
+  shared?: boolean;
 }
 
 export interface GabaritCatalogue {

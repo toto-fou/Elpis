@@ -34,6 +34,13 @@ const ARBRE = {
   ],
 };
 
+const CATALOGUE: Record<string, object> = {
+  "/api/skills": { skills: [{ name: "revue", domain: "code" }] },
+  "/api/prompts": { items: [{ id: 1, title: "Résumé", content: "Résume." }] },
+  "/api/prompts/shared": { items: [{ id: 7, title: "Reçu", content: "Lu.", from_username: "bob" }] },
+  "/api/prompt-templates": { items: [{ name: "bug", content: "{{x}}" }] },
+};
+
 function monterComposeur(lireArbre: () => Promise<object> = () => Promise.resolve(ARBRE)) {
   const ta = document.createElement("textarea");
   document.body.appendChild(ta);
@@ -50,6 +57,8 @@ function monterComposeur(lireArbre: () => Promise<object> = () => Promise.resolv
     {
       fetchAuth: async (url: string) => {
         urls.push(url);
+        const json = CATALOGUE[url];
+        if (json) return new Response(JSON.stringify(json));
         const corps = url.startsWith("/api/sandbox/tree") ? JSON.stringify(await lireArbre()) : "print(1)\n";
         return new Response(corps);
       },
@@ -131,6 +140,26 @@ describe("creerComposeur", () => {
     m.isStreaming.value = true;
     touche(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
     expect(m.envois()).toBe(1);
+  });
+
+  it("un seul catalogue pour « / » et « + » : lu une fois, gardé 30 s, périmé par les Paramètres sans être vidé", async () => {
+    const m = monterComposeur();
+    const { catalogueSkills: skills, cataloguePrompts: prompts, templatesAll: gabarits } = m.c;
+    expect([skills.value, prompts.value, gabarits.value]).toEqual([null, null, null]);
+    m.c.prechargerCatalogue();
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(skills.value?.map((s) => s.name)).toEqual(["revue"]);
+    expect(prompts.value?.map((p) => [p.id, p.shared])).toEqual([
+      [1, false],
+      ["s7", true],
+    ]);
+    await m.taper("/skills");
+    await m.taper("/prompt");
+    expect(m.urls.filter((u) => u in CATALOGUE).length).toBe(4);
+    window.dispatchEvent(new Event("skills:changed"));
+    expect(skills.value?.length).toBe(1);
+    m.c.prechargerCatalogue();
+    expect(m.urls.filter((u) => u === "/api/skills").length).toBe(2);
   });
 
   it("plafond de 10 pièces jointes", async () => {

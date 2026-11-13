@@ -33,10 +33,10 @@ const INSERER: readonly { id: SousMenu; libelle: string; icone: string; commande
 
 const skills = computed(() => {
   const vus = new Set<string>();
-  return Object.values(comp.skillsByScope)
-    .flat()
-    .filter((s) => s.name && !vus.has(s.name) && vus.add(s.name));
+  return (comp.catalogueSkills ?? []).filter((s) => s.name && !vus.has(s.name) && vus.add(s.name));
 });
+const prompts = computed(() => (comp.cataloguePrompts ?? []).filter((pr) => !pr.shared));
+const gabarits = computed(() => comp.templatesAll ?? []);
 const epingles = computed(() => new Set(comp.pinnedSkills.map((s) => s.name)));
 const compacterPossible = computed(() => !!comp.currentChatId && !comp.isStreaming);
 
@@ -69,9 +69,7 @@ watch(
 
 function ouvrirSous(id: SousMenu, clavier: boolean): void {
   sous.value = sous.value === id && !clavier ? null : id;
-  if (sous.value === "skills") comp.loadAllSkills();
-  if (sous.value === "prompts") comp.loadSavedPrompts();
-  if (sous.value === "gabarits") comp.loadTemplates();
+  if (sous.value) comp.prechargerCatalogue();
   if (clavier) void nextTick(() => focusPremiere(sousMenu.el));
 }
 
@@ -241,7 +239,7 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
             </template>
             <template v-else-if="it.id === 'prompts'">
               <button
-                v-for="pr in comp.savedPromptsList"
+                v-for="pr in prompts"
                 :key="pr.id"
                 type="button"
                 role="menuitem"
@@ -251,13 +249,11 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
               >
                 <span class="truncate">{{ pr.title || pr.content }}</span>
               </button>
-              <div v-if="!comp.savedPromptsList.length" class="px-3 py-2 text-xs text-slate-500">
-                Aucun prompt
-              </div>
+              <div v-if="!prompts.length" class="px-3 py-2 text-xs text-slate-500">Aucun prompt</div>
             </template>
             <template v-else>
               <button
-                v-for="g in comp.templatesAll"
+                v-for="g in gabarits"
                 :key="g.name"
                 type="button"
                 role="menuitem"
@@ -267,9 +263,7 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
               >
                 <span class="truncate">{{ g.title || g.name }}</span>
               </button>
-              <div v-if="!comp.templatesAll.length" class="px-3 py-2 text-xs text-slate-500">
-                Aucun gabarit
-              </div>
+              <div v-if="!gabarits.length" class="px-3 py-2 text-xs text-slate-500">Aucun gabarit</div>
             </template>
           </div>
         </div>

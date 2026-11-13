@@ -25,11 +25,15 @@ function composeur(extra: Record<string, unknown> = {}) {
     currentChatId: "c1",
     planMode: false,
     pinnedSkills: [{ name: "revue-code" }],
-    skillsByScope: {
-      user: [{ name: "revue-code", description: "Relire" }],
-      global: [{ name: "migration-sql" }, { name: "revue-code" }],
-    },
-    savedPromptsList: [{ id: 1, title: "Résumé", content: "Résume ce fil." }],
+    catalogueSkills: [
+      { name: "revue-code", description: "Relire" },
+      { name: "migration-sql" },
+      { name: "revue-code" },
+    ],
+    cataloguePrompts: [
+      { id: 1, title: "Résumé", content: "Résume ce fil." },
+      { id: "s2", title: "Reçu", content: "Partagé.", shared: true },
+    ],
     templatesAll: [{ name: "bug", title: "Rapport de bug", content: "{{x}}" }],
     sharedPromptsList: [],
     sharedSelected: [],
@@ -74,7 +78,7 @@ describe("catalogue du « + »", () => {
     skills.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     await nextTick();
     await nextTick();
-    expect(noms()).toContain("loadAllSkills");
+    expect(noms()).toContain("prechargerCatalogue");
     const sous = hote.querySelector('[data-sous-menu="skills"]') as HTMLElement;
     expect(sous.getAttribute("role")).toBe("menu");
     const cases = [...sous.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
@@ -98,7 +102,11 @@ describe("catalogue du « + »", () => {
     const { hote, comp, p } = monterCatalogue();
     (hote.querySelector('[data-sous="prompts"]') as HTMLElement).click();
     await nextTick();
-    (hote.querySelector('[data-sous-menu="prompts"] [role="menuitem"]') as HTMLElement).click();
+    const lignes = [
+      ...hote.querySelectorAll('[data-sous-menu="prompts"] [role="menuitem"]'),
+    ] as HTMLElement[];
+    expect(lignes.map(texte)).toEqual(["Résumé"]);
+    lignes[0]?.click();
     expect((p as unknown as { inputMessage: string }).inputMessage).toBe("Bonjour\n\nRésume ce fil.");
     expect((comp as unknown as { showComposerPlus: boolean }).showComposerPlus).toBe(false);
     (comp as unknown as { showComposerPlus: boolean }).showComposerPlus = true;

@@ -216,12 +216,10 @@ const COMPOSEUR: Cles<DomaineComposeur> = {
   planMode: true,
   setPlanMode: true,
   manualCompress: true,
-  skillsByScope: true,
-  loadAllSkills: true,
-  savedPromptsList: true,
-  loadSavedPrompts: true,
+  catalogueSkills: true,
+  cataloguePrompts: true,
   templatesAll: true,
-  loadTemplates: true,
+  prechargerCatalogue: true,
   openTemplate: true,
 };
 

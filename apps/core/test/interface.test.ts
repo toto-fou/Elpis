@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/interface.test.ts — pages, configuration publique, logo d'accueil, voix et hôte d'écoute (vecteurs Python). */
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +14,7 @@ import {
   PAGE_APERCU_CODE,
   POLITIQUE_APERCU_CODE,
   POLITIQUE_CSP,
+  SCRIPT_HABILLAGE,
 } from "../src/interface/pages";
 import { hotePourConfig, hoteParDefaut } from "../src/ecoute";
 import { configVoix, drapeauxVoix } from "../src/voix/config";
@@ -69,6 +71,21 @@ describe("vecteurs Python : voix et hôte d'écoute", () => {
   });
 });
 
+/** Aucun script en ligne sinon celui de l'habillage, tel quel, autorisé par son empreinte dans la CSP de la même réponse. */
+function seulScriptEnLigneHabillage(html: string, csp: string): void {
+  const enLigne = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter((m) => !/\bsrc=/.test(m[1]!))
+    .map((m) => m[2]!);
+  expect(enLigne.length).toBeGreaterThan(0);
+  const scriptSrc = /(?:^|; )script-src ([^;]*)/.exec(csp)?.[1] ?? "";
+  for (const contenu of enLigne) {
+    expect(contenu).toBe(SCRIPT_HABILLAGE);
+    expect(scriptSrc.split(" ")).toContain(
+      `'sha256-${createHash("sha256").update(contenu).digest("base64")}'`,
+    );
+  }
+}
+
 describe("routes de l'interface", () => {
   it("main : page d'accueil sans cache, /admin redirige vers l'URL synthétisée", async () => {
     const app = await creerApp({ mode: "main", journal: journalMuet });
@@ -77,8 +94,8 @@ describe("routes de l'interface", () => {
     expect(accueil.headers["content-type"]).toBe("text/html; charset=utf-8");
     expect(accueil.headers["cache-control"]).toBe("no-cache, no-store, must-revalidate");
     expect(accueil.headers["pragma"]).toBe("no-cache");
-    expect(accueil.body).not.toContain("<script>");
     expect(accueil.headers["content-security-policy"]).toBe(POLITIQUE_CSP);
+    seulScriptEnLigneHabillage(accueil.body, String(accueil.headers["content-security-policy"]));
     const admin = await app.inject({ method: "GET", url: "/admin", headers: { host: "elpis.lan:8001" } });
     expect(admin.statusCode).toBe(302);
     expect(admin.headers["location"]).toBe("http://elpis.lan:8002/admin");
@@ -95,6 +112,7 @@ describe("routes de l'interface", () => {
       expect(r.headers["cache-control"], url).toBe("no-cache, no-store, must-revalidate");
       expect(r.headers["pragma"], url).toBeUndefined();
       expect(r.headers["content-security-policy"], url).toBe(POLITIQUE_CSP);
+      seulScriptEnLigneHabillage(r.body, String(r.headers["content-security-policy"]));
     }
     expect((await app.inject({ method: "GET", url: "/api/welcome-image" })).statusCode).toBe(404);
     await app.close();

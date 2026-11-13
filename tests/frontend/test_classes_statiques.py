@@ -33,11 +33,15 @@ tard — ou jamais, si personne n'ouvre le mode sombre ce jour-là.
    l'écran.
 
 3. LES PAGES SONT DES COQUILLES.
-   ``index.html`` et ``admin.html`` ne portent plus aucun script : un
-   point de montage, la fenêtre de diagnostic et les balises des entrées
-   Vite (``<!-- @entree … -->``). Un script en ligne réintroduit casserait
-   la politique de sécurité du contenu (``script-src 'self'``) ; un script
-   historique réintroduirait un ordre implicite de chargement.
+   ``index.html`` et ``admin.html`` ne portent aucun script dans leur
+   source : un point de montage, la fenêtre de diagnostic, les balises des
+   entrées Vite (``<!-- @entree … -->``) et les marqueurs
+   ``<!-- @habillage -->``. Le cœur remplace ces derniers par le seul script
+   en ligne admis, celui de l'habillage d'avant le premier rendu, autorisé
+   par son empreinte ``sha256`` dans la politique de sécurité du contenu
+   (``apps/core/src/interface/pages.ts``). Tout autre script en ligne
+   casserait cette politique ; un script historique réintroduirait un ordre
+   implicite de chargement.
 """
 
 from __future__ import annotations
@@ -337,7 +341,7 @@ ENTREES = {"index.html": ("main", "App"), "admin.html": ("admin", "AppConsole")}
 
 @pytest.mark.parametrize("page", PAGES)
 def test_aucun_script_ni_style_dans_les_pages(page: str):
-    """Ni balise <script>, ni <style>, ni attribut style= ou on…= : la CSP n'ouvre rien en ligne."""
+    """Ni balise <script>, ni <style>, ni attribut style= ou on…= dans la source : le seul script en ligne est écrit par le cœur."""
     html = _page(page)
     assert not re.search(r"<script\b", html, re.I), f"{page} contient une balise <script>"
     assert not re.search(r"<style\b", html, re.I), f"{page} contient une balise <style>"

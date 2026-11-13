@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/scenario-model.test.ts — modèle de scénario desktop : pas depuis une action, ancres, chemins, attentes, plans, élagage des cycles. */
+/** frontend/test/scenario-model.test.ts — modèle de scénario desktop : pas depuis une action, ancres, chemins, attentes, plans. */
 import { strict as assert } from "node:assert";
 import { it } from "vitest";
 
@@ -104,10 +104,9 @@ it("summarizeStep is readable", () => {
   assert.ok(M.summarizeStep({ op: "type", args: { text: "hi" } }).includes("hi"));
 });
 
-// ── Effet & élagage des allers-retours (V1) ─────────────────────────────────
+// ── Effet visible d'une action (V1) ─────────────────────────────────────────
 const A = "0000000000000000",
-  B = "ffffffffffffffff",
-  C = "00000000ffffffff";
+  B = "ffffffffffffffff";
 
 it("hamming basics", () => {
   assert.strictEqual(M.hamming(A, A), 0);
@@ -123,35 +122,6 @@ it("frameEffect changed/none/unknown", () => {
   assert.strictEqual(M.frameEffect(A, "0000000000000003", 6), "none"); // 2 bits ≤ 6
 });
 
-it("pruneCycles: flux linéaire conservé", () => {
-  const steps = [
-    { op: "a", sigBefore: A, sigAfter: B },
-    { op: "b", sigBefore: B, sigAfter: C },
-  ];
-  assert.strictEqual(M.pruneCycles(steps).length, 2);
-});
-it("pruneCycles: aller-retour supprimé", () => {
-  const steps = [
-    { op: "a", sigBefore: A, sigAfter: B },
-    { op: "b", sigBefore: B, sigAfter: A },
-  ];
-  assert.strictEqual(M.pruneCycles(steps).length, 0);
-});
-it("pruneCycles: sous-boucle retirée (garde le 1er pas)", () => {
-  const steps = [
-    { op: "a", sigBefore: A, sigAfter: B },
-    { op: "b", sigBefore: B, sigAfter: C },
-    { op: "c", sigBefore: C, sigAfter: B },
-  ];
-  const out = M.pruneCycles(steps);
-  assert.strictEqual(out.length, 1);
-  assert.strictEqual(out[0]!.op, "a");
-});
-it("pruneCycles: sans signatures, rien n'est élagué", () => {
-  assert.strictEqual(M.pruneCycles([{ op: "a" }, { op: "b" }]).length, 2);
-});
-
-// ── Attente / vérification d'événement (réussite fiable au rejeu) ───────────
 it("clampTimeout borne 1,5 s → 5 min", () => {
   assert.strictEqual(M.clampTimeout(10), 1500);
   assert.strictEqual(M.clampTimeout(60000), 60000);
@@ -185,19 +155,6 @@ it("diffElements : rien de neuf si identique", () => {
   assert.strictEqual(d.removed.length, 0);
 });
 
-it("expectFromElement présent / disparu", () => {
-  const el = { label: "Dialogue", role: "window", center: [5, 5] };
-  const a = M.expectFromElement(el);
-  assert.strictEqual(a.kind, "element");
-  assert.strictEqual(a.query, "Dialogue");
-  assert.strictEqual(a.anchor!.role, "window");
-  assert.strictEqual(M.expectFromElement(el, false).kind, "element_gone");
-});
-
-it("defaultExpect = stabilité", () => {
-  assert.deepStrictEqual(M.defaultExpect(), { kind: "stable" });
-});
-
 it("summarizeExpect : libellés + format de durée", () => {
   assert.strictEqual(
     M.summarizeExpect({ kind: "element", query: "Dialogue" }, 60000),
@@ -217,14 +174,6 @@ it("summarizeExpect appear + isWindowRole", () => {
   assert.ok(M.isWindowRole("Window"));
   assert.ok(M.isWindowRole("dialog"));
   assert.ok(!M.isWindowRole("button"));
-  assert.ok(M.EXPECT_KINDS.indexOf("appear") >= 0);
-});
-
-// C1 — vocabulaire complet exposé (value/state/count) côté modèle.
-it("EXPECT_KINDS expose value/state/count", () => {
-  ["value", "value_gone", "state", "count"].forEach((k) =>
-    assert.ok(M.EXPECT_KINDS.indexOf(k) >= 0, "manque " + k),
-  );
 });
 
 it("summarizeExpect value/state/count", () => {
@@ -246,15 +195,6 @@ it("summarizeExpect value/state/count", () => {
   );
 });
 
-it("pixelDiffRatio : fraction de pixels changés (seuil)", () => {
-  assert.strictEqual(M.pixelDiffRatio([0, 0, 0, 0], [0, 0, 0, 0]), 0);
-  assert.strictEqual(M.pixelDiffRatio([0, 0, 0, 0], [255, 255, 0, 0]), 0.5); // 2/4
-  assert.strictEqual(M.pixelDiffRatio([0], [10], 16), 0); // delta < seuil
-  assert.strictEqual(M.pixelDiffRatio([0], [40], 16), 1); // delta > seuil
-  assert.strictEqual(M.pixelDiffRatio(null, [1]), 0);
-  assert.strictEqual(M.pixelDiffRatio([1, 2], [1]), 0); // longueurs ≠
-});
-
 it("anchor inclut auto_id ; window_ready + launch (virage UIA)", () => {
   const s = M.scenarioStepFromDirect({
     op: "click",
@@ -268,7 +208,6 @@ it("anchor inclut auto_id ; window_ready + launch (virage UIA)", () => {
     },
   });
   assert.strictEqual(s.anchor.auto_id, "okBtn"); // ancre stable propagée
-  assert.ok(M.EXPECT_KINDS.indexOf("window_ready") >= 0);
   assert.strictEqual(
     M.summarizeExpect({ kind: "window_ready", query: "Bloc-notes" }, 60000),
     "fenêtre prête « Bloc-notes » · 1 min",

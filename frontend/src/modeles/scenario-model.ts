@@ -134,20 +134,6 @@ export const INTERACTIVE_ROLES = [
   "treeitem",
   "splitbutton",
 ];
-export const EXPECT_KINDS = [
-  "element",
-  "element_gone",
-  "text",
-  "text_gone",
-  "appear",
-  "window_ready",
-  "value",
-  "value_gone",
-  "state",
-  "count",
-  "stable",
-  "none",
-];
 const WINDOW_ROLES = ["window", "dialog", "frame", "document", "pane", "panel"];
 const MIN_TIMEOUT_MS = 1500;
 const MAX_TIMEOUT_MS = 300000;
@@ -868,38 +854,6 @@ export function frameEffect(
   return hamming(before, after) > seuil ? "changed" : "none";
 }
 
-/** Élague les allers-retours : un état déjà vu referme la boucle de pas qui l'a quitté. */
-export function pruneCycles<T extends Partial<PasScenario>>(
-  entree?: readonly T[] | null,
-  threshold?: number | null,
-): T[] {
-  const seuil = threshold == null ? 6 : threshold;
-  const steps = entree || [];
-  if (!steps.length) return [];
-  const kept: T[] = [];
-  const states: string[] = [(steps[0] as T).sigBefore || ""];
-  for (const step of steps) {
-    const after = step.sigAfter || "";
-    let backTo = -1;
-    if (after) {
-      for (let i = 0; i < states.length; i++) {
-        if (states[i] && hamming(states[i], after) <= seuil) {
-          backTo = i;
-          break;
-        }
-      }
-    }
-    if (backTo >= 0) {
-      kept.length = backTo;
-      states.length = backTo + 1;
-    } else {
-      kept.push(step);
-      states.push(after);
-    }
-  }
-  return kept;
-}
-
 export function isWindowRole(role: unknown): boolean {
   return WINDOW_ROLES.indexOf(String(role || "").toLowerCase()) >= 0;
 }
@@ -937,19 +891,6 @@ export function diffElements(
   const removed = b.filter((e) => !ak[elKey(e)]);
   added.sort((x, y) => area(y) - area(x));
   return { added, removed };
-}
-
-export function defaultExpect(): Attente {
-  return { kind: "stable" };
-}
-
-export function expectFromElement(entree: ElementUi | null | undefined, present?: boolean): Attente {
-  const el = entree || {};
-  return {
-    kind: present === false ? "element_gone" : "element",
-    query: el.label || el.query || "",
-    anchor: { label: el.label, role: el.role, box: el.box, center: el.center, source: el.source },
-  };
 }
 
 function fmtMs(ms: unknown): string {
@@ -1004,21 +945,6 @@ export function summarizeExpect(entree?: Attente | null, timeoutMs?: unknown): s
     default:
       return "écran stable · " + t;
   }
-}
-
-/** Fraction de pixels dont la luminance diffère de plus de `threshold` entre deux frames de même taille. */
-export function pixelDiffRatio(
-  a?: ArrayLike<number> | null,
-  b?: ArrayLike<number> | null,
-  threshold?: number | null,
-): number {
-  const seuil = threshold == null ? 16 : threshold;
-  if (!a || !b || a.length === 0 || a.length !== b.length) return 0;
-  let changed = 0;
-  for (let i = 0; i < a.length; i++) {
-    if (Math.abs((a[i] ?? 0) - (b[i] ?? 0)) > seuil) changed++;
-  }
-  return changed / a.length;
 }
 
 /** Liste plate (pré-ordre + depth) en lignes visibles d'un arbre repliable ; recherche à plat si `filter`. */

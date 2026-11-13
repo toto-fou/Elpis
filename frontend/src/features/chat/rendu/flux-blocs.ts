@@ -17,7 +17,7 @@ export interface LexeurMarked {
 export interface BlocFlux {
   i: number;
   html: string;
-  /** Texte source du bloc, jusqu'au début du bloc suivant. */
+  /** Texte source du bloc, jusqu'au début du bloc suivant ; copie autonome, qui ne retient pas le texte du battement. */
   src: string;
   /** Décalage du premier caractère du bloc suivant. */
   fin: number;
@@ -68,6 +68,11 @@ const FIN_OPTIONNELLE = new Set(
 export function preparerTexte(texte: string): string {
   const s = texte.indexOf("\r") === -1 ? texte : texte.replace(/\r\n?/g, "\n");
   return s.replace(/^\s+/, "");
+}
+
+/** Copie autonome d'une chaîne : une sous-chaîne garde en vie le texte entier dont elle est tirée. */
+export function copie(s: string): string {
+  return (" " + s).slice(1);
 }
 
 export function etatVide(): EtatFlux {
@@ -253,7 +258,7 @@ export function creerFlux(dep: DependancesFlux) {
     jetons: readonly JetonMarked[],
     liens: Liens,
   ): BlocFlux {
-    const src = t.slice(debut, fin);
+    const src = copie(t.slice(debut, fin));
     return { i, html: htmlDe(src, jetons, liens), src, fin, lim };
   }
 

@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, estObjet, lireSchema, objet } from "../../utils/lecture-json";
 import { normaliserServeursMcp } from "./mcp";
+import { clesDifferentes } from "./persistance";
 import type { Persistance } from "./persistance";
 import { ANCIENS_ONGLETS, entreeRail } from "./rail";
 import type { CtxReglages, ReglagesApp, RefsReglages, VueReglages } from "./types";
@@ -109,19 +110,31 @@ export function creerModale(
     return d;
   }
 
-  async function loadSettingsData(): Promise<void> {
+  /** Relit le document ; une clé changée depuis `base` (saisie pendant la lecture) garde sa valeur affichée. Rend le document reçu, ou null. */
+  async function loadSettingsData(
+    base = JSON.stringify(settings.value),
+    modeles = true,
+  ): Promise<string | null> {
     void dep.loadAppSkins();
     try {
       const res = await fetchAuth("/api/settings", {}, true);
-      if (res?.ok) {
-        const brut = objet(await corpsJson(res));
-        dep.reinitialiserEpingles();
-        settings.value = completerDefauts(brut as ReglagesApp);
-        if (settings.value.enable_model_selector) await ctx.loadAvailableModels?.();
-        if (!window.__ADMIN_ONLY_MODE__) void dep.loadSharedMcpServers();
+      if (!res?.ok) return null;
+      const recu = completerDefauts(objet(await corpsJson(res)) as ReglagesApp);
+      const instantane = JSON.stringify(recu);
+      const affiche = settings.value as Record<string, unknown>;
+      for (const k of clesDifferentes(objet(JSON.parse(base)), affiche)) {
+        if (affiche[k] === undefined) delete recu[k];
+        else recu[k] = affiche[k];
       }
+      if (JSON.stringify(recu) !== JSON.stringify(affiche)) {
+        dep.reinitialiserEpingles();
+        settings.value = recu;
+      }
+      if (modeles && recu.enable_model_selector) void ctx.loadAvailableModels?.();
+      if (!window.__ADMIN_ONLY_MODE__) void dep.loadSharedMcpServers();
+      return instantane;
     } catch {
-      /* réglages inchangés */
+      return null;
     }
   }
 
@@ -140,28 +153,30 @@ export function creerModale(
     };
   }
 
+  async function chargerOnglet(id: string): Promise<void> {
+    try {
+      await chargeursOnglet()[id]?.();
+    } catch {
+      /* onglet ouvert avec ses données précédentes */
+    }
+  }
+
+  /** Montre la fenêtre aussitôt avec le document en mémoire ; document, modèles et onglet se relisent en parallèle, l'instantané suit le document reçu. */
   async function openSettings(): Promise<void> {
-    await loadSettingsData();
-    persistance.snapshot.value = JSON.stringify(settings.value);
+    if (showSettingsModal.value) return chargerOnglet(settingsTab.value);
+    const base = JSON.stringify(settings.value);
+    persistance.snapshot.value = base;
     dep.cancelMemoryEdit();
     void dep.loadSavedPrompts();
     void dep.loadSharedPrompts();
     void dep.loadArchives();
-    const rouvert = chargeursOnglet()[settingsTab.value];
-    if (rouvert) {
-      try {
-        await rouvert();
-      } catch {
-        /* au mieux */
-      }
-    }
     showSettingsModal.value = true;
-    try {
-      await nextTick();
-      settingsDialogEl.value?.focus();
-    } catch {
-      /* focus indisponible */
-    }
+    void nextTick(() => settingsDialogEl.value?.focus());
+    if (settings.value.enable_model_selector) void ctx.loadAvailableModels?.();
+    const [recu] = await Promise.all([loadSettingsData(base, false), chargerOnglet(settingsTab.value)]);
+    if (recu === null || !showSettingsModal.value) return;
+    persistance.snapshot.value = recu;
+    if (persistance.settingsDirty.value) void persistance.viderEnAttente();
   }
 
   /** Ouvre sur un onglet précis ; « onglet:vue » cible une section (« appearance:mascotte ») ou une sous-vue (« prompts:templates »). */
@@ -172,23 +187,16 @@ export function creerModale(
       if (!showSettingsModal.value) await ctx.openAgentsPage?.();
       return;
     }
-    await openSettings();
-    if (!tab) return;
+    if (!tab) return openSettings();
     const [brut = tab, sousBrut = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];
     const ancien = ANCIENS_ONGLETS[brut];
     const cible = ancien?.onglet ?? brut;
     const sous = sousBrut || ancien?.section || "";
     settingsTab.value = cible;
     if (sous && entreeRail(cible)?.sections?.some((x) => x.id === sous)) settingsSections.value[cible] = sous;
-    const charger = chargeursOnglet()[cible];
-    if (charger) {
-      try {
-        await charger();
-      } catch {
-        /* onglet ouvert quand même */
-      }
-    }
+    const ouverture = openSettings();
     if (cible === "prompts" && sous === "templates") dep.startNewTemplate();
+    await ouverture;
   }
 
   /** Seul `true` strict signifie « ne pas recharger » (un événement DOM, truthy, ne le signifie pas). */

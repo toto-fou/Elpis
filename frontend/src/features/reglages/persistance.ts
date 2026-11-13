@@ -17,6 +17,12 @@ export function messageErreurReglages(statut: number, corps: unknown): string {
   return d && d.length < 120 ? d : "Paramètres non enregistrés : vérifiez les valeurs puis réessayez.";
 }
 
+/** Clés dont la valeur diffère entre deux états du document. */
+export function clesDifferentes(avant: Record<string, unknown>, apres: Record<string, unknown>): string[] {
+  const toutes = new Set([...Object.keys(avant), ...Object.keys(apres)]);
+  return [...toutes].filter((k) => JSON.stringify(avant[k]) !== JSON.stringify(apres[k]));
+}
+
 export interface LiensPersistance {
   closeSettings(sauterRecharge?: boolean): Promise<void> | void;
 }
@@ -96,15 +102,11 @@ export function creerPersistance(
 
   /** Clés du document différentes de l'instantané. */
   function clesModifiees(): string[] {
-    let avant: Record<string, unknown> = {};
     try {
-      avant = objet(JSON.parse(snapshot.value || "{}"));
+      return clesDifferentes(objet(JSON.parse(snapshot.value || "{}")), settings.value);
     } catch {
       return [];
     }
-    const apres = settings.value as Record<string, unknown>;
-    const toutes = new Set([...Object.keys(avant), ...Object.keys(apres)]);
-    return [...toutes].filter((k) => JSON.stringify(avant[k]) !== JSON.stringify(apres[k]));
   }
 
   /** Enregistre sur-le-champ les clés modifiées depuis l'instantané (valeur rétablie si l'écriture échoue). */

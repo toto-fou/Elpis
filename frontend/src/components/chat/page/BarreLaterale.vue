@@ -139,6 +139,7 @@ function appui(e: PointerEvent, id: string): void {
       </button>
       <button
         v-if="b.settings.enable_editor"
+        data-precharge="editeur"
         :title="b.showEditor ? 'Sandbox — ouvert' : 'Sandbox'"
         :aria-pressed="b.showEditor ? 'true' : 'false'"
         class="relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
@@ -284,6 +285,7 @@ function appui(e: PointerEvent, id: string): void {
 
             <button
               v-if="b.settings.enable_editor"
+              data-precharge="editeur"
               :title="b.showEditor ? 'Sandbox — ouvert' : 'Sandbox'"
               :aria-pressed="b.showEditor ? 'true' : 'false'"
               class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"

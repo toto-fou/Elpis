@@ -175,26 +175,30 @@ function options(p: PreferencesEditeur, theme: string): Record<string, unknown> 
 // Monaco a déjà servi (préchauffé ou éditeurs créés) : plus rien à préchauffer.
 let monacoServi = false;
 
-/** Crée puis libère, hors écran et sans toucher au thème global, un éditeur et un éditeur de différences aux réglages du compte : polices mesurées et services de Monaco prêts avant la première ouverture. */
+/** Crée puis libère, hors écran et sans toucher au thème global, un éditeur puis un éditeur de différences aux réglages du compte, chacun dans sa tranche : polices mesurées et services de Monaco prêts avant la première ouverture. */
 export function prechaufferEditeurs(
   monaco: MonacoEditeurs,
   reglages: ReglagesEditeur | null | undefined,
+  tranche: (f: () => void) => void = (f) => f(),
 ): void {
   if (monacoServi) return;
   monacoServi = true;
   const o = options(preferencesEditeur(reglages), "");
   delete o.theme;
-  const hote = document.createElement("div");
-  hote.style.cssText = "position:fixed;left:-10000px;top:0;width:640px;height:420px;visibility:hidden";
-  document.body.appendChild(hote);
-  try {
-    monaco.editor.create(hote, o).dispose();
-    monaco.editor.createDiffEditor(hote, { automaticLayout: false }).dispose();
-  } catch {
-    /* préchauffage facultatif */
-  } finally {
-    hote.remove();
-  }
+  const horsEcran = (creer: (hote: HTMLElement) => { dispose(): void }) => (): void => {
+    const hote = document.createElement("div");
+    hote.style.cssText = "position:fixed;left:-10000px;top:0;width:640px;height:420px;visibility:hidden";
+    document.body.appendChild(hote);
+    try {
+      creer(hote).dispose();
+    } catch {
+      /* préchauffage facultatif */
+    } finally {
+      hote.remove();
+    }
+  };
+  tranche(horsEcran((hote) => monaco.editor.create(hote, o)));
+  tranche(horsEcran((hote) => monaco.editor.createDiffEditor(hote, { automaticLayout: false })));
 }
 
 /** Crée l'éditeur principal, les deux autres à leur premier besoin (sans option de thème : le thème global reste celui de la page) ; tout ce qu'ils posent est libéré par `liberer`. */

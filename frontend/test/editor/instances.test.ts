@@ -150,6 +150,23 @@ describe("éditeurs Monaco", () => {
     expect(options).toHaveLength(avant);
   });
 
+  it("préchauffage en tranches : l'éditeur puis le diff, chacun dans la sienne", async () => {
+    vi.resetModules();
+    const m = await import("../../src/features/editor/instances");
+    const c = new Compteurs();
+    const { monaco, options } = fauxMonaco(c);
+    let diffs = 0;
+    const diff = monaco.editor.createDiffEditor;
+    monaco.editor.createDiffEditor = (el, o) => (diffs++, diff(el, o));
+    const tranches: (() => void)[] = [];
+    m.prechaufferEditeurs(monaco, {}, (f) => tranches.push(f));
+    expect([tranches.length, options.length, diffs]).toEqual([2, 0, 0]);
+    tranches[0]?.();
+    expect([options.length, diffs]).toEqual([1, 0]);
+    tranches[1]?.();
+    expect([options.length, diffs]).toEqual([1, 1]);
+  });
+
   it("préférences bornées et thème", () => {
     expect(
       preferencesEditeur({ editor_font_size: 99, editor_tab_size: 0, editor_word_wrap: "x" }),

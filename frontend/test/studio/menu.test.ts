@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/studio/menu.test.ts — menu du Studio : trame annotée (jeton de séquence), éléments visibles, feuilles, plans, zoom ancré. */
-import { ref } from "vue";
+import { ref, watchSyncEffect } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { creerMenuStudio } from "../../src/features/studio/menu";
+import { creerMenuStudio, glisserPoignee } from "../../src/features/studio/menu";
 import type { ElementStudio } from "../../src/features/studio/menu";
 
 function el(
@@ -178,5 +178,47 @@ describe("menu du Studio", () => {
     await menu.captureAndAnnotate();
     expect(toasts).toEqual(["annotation vision KO : x"]);
     expect(menu.studioCapturing.value).toBe(false);
+  });
+
+  it("glisser le diviseur de l'arbre : une largeur par image, fin au relâchement ou à la perte du pointeur", () => {
+    const images: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => images.push(f));
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    const { menu } = monter();
+    const poignee = document.createElement("div");
+    const largeurs: number[] = [];
+    const arret = watchSyncEffect(() => largeurs.push(menu.studioTreeWidth.value));
+    const depart = menu.studioTreeWidth.value;
+    menu.studioTreeDockDragStart({
+      button: 0,
+      clientX: 500,
+      pointerId: 1,
+      currentTarget: poignee,
+      preventDefault: () => undefined,
+    } as unknown as PointerEvent);
+    for (const x of [495, 490, 480]) poignee.dispatchEvent(new MouseEvent("pointermove", { clientX: x }));
+    expect(images).toHaveLength(1);
+    expect(largeurs).toEqual([depart]);
+    images.shift()?.(0);
+    expect(largeurs).toEqual([depart, depart + 20]);
+    poignee.dispatchEvent(new MouseEvent("pointermove", { clientX: 470 }));
+    poignee.dispatchEvent(new MouseEvent("lostpointercapture"));
+    expect(largeurs).toEqual([depart, depart + 20, depart + 30]);
+    expect(localStorage.getItem("studioTreeWidth")).toBe(String(depart + 30));
+    poignee.dispatchEvent(new MouseEvent("pointermove", { clientX: 300 }));
+    poignee.dispatchEvent(new MouseEvent("pointerup"));
+    images.splice(0).forEach((f) => f(0));
+    expect(largeurs).toHaveLength(3);
+    arret();
+    vi.unstubAllGlobals();
+  });
+
+  it("un autre bouton que le principal ne commence pas de glisser", () => {
+    const appliquer = vi.fn();
+    const poignee = document.createElement("div");
+    glisserPoignee({ button: 2, currentTarget: poignee } as unknown as PointerEvent, appliquer, appliquer);
+    poignee.dispatchEvent(new MouseEvent("pointermove", { clientX: 1 }));
+    poignee.dispatchEvent(new MouseEvent("pointerup"));
+    expect(appliquer).not.toHaveBeenCalled();
   });
 });

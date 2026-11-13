@@ -20,6 +20,7 @@ import {
   realName,
 } from "../../modeles/scenario-model.ts";
 import type { ElementUi } from "../../modeles/scenario-model.ts";
+import { parImage } from "../editor/redimension.ts";
 import type { LecteurBureau } from "./api.ts";
 
 /** Élément détecté par l'agent ou la vision : identifiant et boîte toujours présents (les autres filtrés par `boxOnScreen`). */
@@ -161,6 +162,35 @@ const surface = (el: ElementUi | null | undefined): number => {
 
 const jsonOuVide = async (r: Response | null): Promise<Record<string, unknown>> =>
   r ? ((await r.json().catch(() => ({}))) as Record<string, unknown>) : {};
+
+const FINS_GLISSER = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+
+/** Glisser d'une poignée de largeur : écart horizontal appliqué une fois par image, fin au relâchement ou à la perte du pointeur. */
+export function glisserPoignee(
+  ev: PointerEvent,
+  appliquer: (ecart: number) => void,
+  finir: () => void,
+): void {
+  if (!ev || ev.button) return;
+  const el = ev.currentTarget as HTMLElement;
+  const depart = ev.clientX;
+  const position = parImage((x) => appliquer(depart - x));
+  const deplacer = (e: PointerEvent): void => position.pousser(e.clientX);
+  const lacher = (): void => {
+    el.removeEventListener("pointermove", deplacer);
+    for (const t of FINS_GLISSER) el.removeEventListener(t, lacher);
+    position.vider();
+    finir();
+  };
+  try {
+    el.setPointerCapture(ev.pointerId);
+  } catch {
+    /* ancien navigateur */
+  }
+  el.addEventListener("pointermove", deplacer);
+  for (const t of FINS_GLISSER) el.addEventListener(t, lacher);
+  ev.preventDefault();
+}
 
 export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   const { currentView } = refs;
@@ -390,30 +420,13 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
   /** Poignée sur le bord gauche : glisser vers la gauche élargit l'arbre (la scène rétrécit). */
   function studioTreeDockDragStart(ev: PointerEvent): void {
-    if (!ev || ev.button) return;
-    const startX = ev.clientX;
     const startW = studioTreeWidth.value;
-    const el = ev.currentTarget as HTMLElement;
-    const move = (e: PointerEvent): void => {
-      studioTreeWidth.value = Math.round(
-        Math.max(TREE_W_MIN, Math.min(TREE_W_MAX, startW + (startX - e.clientX))),
-      );
-    };
-    const up = (): void => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      ecrireStockage("studioTreeWidth", String(studioTreeWidth.value));
-    };
-    try {
-      el.setPointerCapture(ev.pointerId);
-    } catch {
-      /* ancien navigateur */
-    }
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    ev.preventDefault();
+    glisserPoignee(
+      ev,
+      (ecart) =>
+        (studioTreeWidth.value = Math.round(Math.max(TREE_W_MIN, Math.min(TREE_W_MAX, startW + ecart)))),
+      () => ecrireStockage("studioTreeWidth", String(studioTreeWidth.value)),
+    );
   }
   function exportStudioAudit(): void {
     try {

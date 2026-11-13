@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/studio/survol.test.ts — survol du Studio : la ligne de l'arbre et le cadre de l'image suivent l'élément survolé sans re-rendre la page. */
+/** frontend/test/studio/survol.test.ts — survol et diviseurs du Studio : la ligne de l'arbre, le cadre de l'image et la largeur de l'arbre suivent sans re-rendre la page. */
 import { createApp, defineComponent, h, nextTick, provide, reactive, ref } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -111,5 +111,17 @@ describe("Studio : survol", () => {
     await nextTick();
     expect(ligne(hote, "b").className).not.toContain("bg-blue-50");
     expect(ligne(hote, "b").classList.contains("bg-amber-50")).toBe(true);
+  });
+
+  it("élargir l'arbre change sa variable de largeur sans re-rendre la page", async () => {
+    const { hote, menu, roleIcon } = monter();
+    await nextTick();
+    const racine = hote.querySelector(".elpis-studio-page") as HTMLElement;
+    expect(racine.style.getPropertyValue("--studio-arbre-l")).toBe(menu.studioTreeWidth.value + "px");
+    const rendus = roleIcon.mock.calls.length;
+    menu.studioTreeWidth.value = 410;
+    await nextTick();
+    expect(racine.style.getPropertyValue("--studio-arbre-l")).toBe("410px");
+    expect(roleIcon.mock.calls.length).toBe(rendus);
   });
 });

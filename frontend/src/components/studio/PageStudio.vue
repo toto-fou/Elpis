@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/studio/PageStudio.vue — page Studio : capture annotée d'une cible desktop, arbre UIA, inspecteur, mini-chat de pilotage, éditeur du script d'automatisation, exécution et rapport. -->
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 
 import { domaineStudio } from "../../features/studio/domaine";
 import CadreSurvolStudio from "./CadreSurvolStudio.vue";
@@ -24,9 +24,21 @@ function surlignerLigne([id, choisi]: readonly unknown[]): void {
 watch(
   [() => sd.hoveredElementId, () => sd.selectedElementId, () => sd.studioTreeRows, arbre],
   surlignerLigne,
-  {
-    flush: "post",
+  { flush: "post" },
+);
+
+const page = ref<HTMLElement | null>(null);
+/** Largeurs de l'arbre et du rail posées en variables CSS : glisser un diviseur ne re-rend pas la page. */
+watchEffect(
+  () => {
+    if (!page.value) return;
+    page.value.style.setProperty("--studio-arbre-l", sd.studioTreeWidth + "px");
+    page.value.style.setProperty(
+      "--studio-rail-l",
+      (sd.studioTab === "script" ? sd.autoRailWidth : 420) + "px",
+    );
   },
+  { flush: "post" },
 );
 
 function poserDefilement(el: unknown): void {
@@ -40,6 +52,7 @@ function poserSaisieModale(el: unknown): void {
 <template>
   <div
     v-if="sd.currentView === 'studio'"
+    ref="page"
     role="region"
     aria-label="Annotation Studio"
     class="elpis-studio-page absolute inset-0 z-[45] bg-white flex flex-col"
@@ -545,7 +558,7 @@ function poserSaisieModale(el: unknown): void {
       <div
         v-if="avance && sd.studioTreeDock && sd.studioFrame.imageUrl"
         class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0 bg-white"
-        :style="{ width: sd.studioTreeWidth + 'px' }"
+        style="width: var(--studio-arbre-l)"
       >
         <!-- Poignée : glisser vers la gauche élargit l'arbre ; double-clic = défaut. -->
         <div
@@ -803,7 +816,7 @@ function poserSaisieModale(el: unknown): void {
       <!-- TABBED RAIL -->
       <div
         class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0"
-        :style="{ width: (sd.studioTab === 'script' ? sd.autoRailWidth : 420) + 'px' }"
+        style="width: var(--studio-rail-l)"
       >
         <!-- Poignée : la section Script s'étire vers la gauche (glisser), double-clic = largeur par défaut -->
         <div

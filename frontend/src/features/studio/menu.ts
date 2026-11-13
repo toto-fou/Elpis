@@ -781,7 +781,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   const studioZoom = ref<"fit" | number>("fit");
   const studioPan = ref({ x: 0, y: 0 });
   const studioStage = ref({ w: 0, h: 0 });
-  const studioDensity = ref("leaves");
   let elementScene: Element | null = null;
 
   /** Mesure le cadre à l'écran ; l'objet n'est remplacé que si la taille change (chaque nouvel objet re-rend l'overlay). */
@@ -867,31 +866,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const vue = vueRect();
     studioPan.value = { x: vue.x + dx, y: vue.y + dy };
   }
-
-  /** Feuilles : éléments qui n'en contiennent aucun autre, pour casser l'empilement conteneur et cellules. */
-  const studioLeafIds = computed(() => {
-    const els = studioElements.value.filter((e) => e && e.box);
-    const feuilles = new Set(els.map((e) => e.id));
-    for (const ext of els) {
-      const [ax1 = 0, ay1 = 0, ax2 = 0, ay2 = 0] = ext.box ?? [];
-      for (const int of els) {
-        if (int === ext || !feuilles.has(ext.id)) continue;
-        const [bx1 = 0, by1 = 0, bx2 = 0, by2 = 0] = int.box ?? [];
-        const dedans = bx1 >= ax1 - 1 && by1 >= ay1 - 1 && bx2 <= ax2 + 1 && by2 <= ay2 + 1;
-        if (dedans && surface(int) < surface(ext) * 0.95) {
-          feuilles.delete(ext.id);
-          break;
-        }
-      }
-    }
-    return feuilles;
-  });
-  const studioVisibleElements = computed(() => {
-    const tout = studioOverlayElements.value;
-    if (studioDensity.value === "all") return tout;
-    const feuilles = studioLeafIds.value;
-    return tout.filter((el) => feuilles.has(el.id));
-  });
 
   const studioFilter = ref("");
   const treeCollapsed = ref<Record<string, boolean>>({});
@@ -1050,12 +1024,9 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     studioZoom,
     studioPan,
     studioStage,
-    studioDensity,
     studioViewBox,
     studioScale,
     studioFitScale,
-    studioVisibleElements,
-    studioLeafIds,
     measureStage,
     setStudioZoom,
     zoomStudio,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/studio/menu.test.ts — menu du Studio : trame annotée (jeton de séquence), éléments visibles, feuilles, plans, zoom ancré. */
+/** frontend/test/studio/menu.test.ts — menu du Studio : trame annotée (jeton de séquence, attente Studio fermé), éléments visibles, plans, zoom ancré, diviseur de l'arbre. */
 import { ref, watchSyncEffect } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -127,7 +127,7 @@ describe("menu du Studio", () => {
     vi.useRealTimers();
   });
 
-  it("ne garde que les éléments dans le cadre, rend les feuilles et trie les grands cadres au fond", async () => {
+  it("ne garde que les éléments dans le cadre et trie les grands cadres au fond", async () => {
     const { menu } = monter();
     menu.studioFrame.value = {
       imageUrl: "",
@@ -143,10 +143,6 @@ describe("menu du Studio", () => {
     };
     expect(menu.studioElements.value.map((e) => e.id)).toEqual(["grand", "petit"]);
     expect(menu.studioOverlayElements.value.map((e) => e.id)).toEqual(["grand", "petit"]);
-    expect([...menu.studioLeafIds.value]).toEqual(["petit"]);
-    expect(menu.studioVisibleElements.value.map((e) => e.id)).toEqual(["petit"]);
-    menu.studioDensity.value = "all";
-    expect(menu.studioVisibleElements.value).toHaveLength(2);
     expect(menu.isContainerBox(menu.studioElements.value[0] as ElementStudio)).toBe(true);
   });
 

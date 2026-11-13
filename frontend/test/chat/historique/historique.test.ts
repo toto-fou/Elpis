@@ -14,6 +14,11 @@ import type {
 import {
   chatEnOuverture,
   DELAI_PRECHARGE_MS,
+  GARDEES_CARACTERES_MAX,
+  GARDEES_MAX,
+  conversationGardee,
+  garderConversation,
+  oublierConversation,
   oublierPrecharge,
   precharger,
 } from "../../../src/features/chat/historique/ouverture";
@@ -29,6 +34,7 @@ afterEach(() => {
   vi.useRealTimers();
   chatEnOuverture.value = null;
   oublierPrecharge();
+  oublierConversation();
 });
 
 const json = (corps: unknown, statut = 200): Response =>
@@ -752,6 +758,208 @@ describe("historique : lecture lancée à l'appui", () => {
     precharger(() => Promise.reject(new Error("réseau")), "c2", 0);
     await api.loadChat("c2");
     expect(toasts[0]?.message).toContain("illisible");
+  });
+});
+
+describe("historique : lectures gardées (retour sans attente)", () => {
+  /** Serveur de test : contenu par conversation, réponses retenues à la demande. */
+  function serveur(contenus: Record<string, unknown>) {
+    const retenues: (() => void)[] = [];
+    let retenir = false;
+    const fetch = async (url: string): Promise<Response> => {
+      if (url.includes("generation-status")) return json({});
+      const id = url.split("/").pop() ?? "";
+      if (retenir) await new Promise<void>((r) => retenues.push(r));
+      const c = contenus[id];
+      return c === undefined ? json({}, 404) : json(c);
+    };
+    return {
+      fetch,
+      retenir: (v: boolean) => (retenir = v),
+      liberer: () => retenues.splice(0).forEach((r) => r()),
+    };
+  }
+  const A = conv([{ role: "user", content: "fil A" }], { id: "c1", title: "A", updated_at: 10 });
+  const B = conv([{ role: "user", content: "fil B" }], { id: "c2", title: "B", updated_at: 20 });
+
+  async function ouvrirPuisQuitter(o: Options = {}) {
+    const srv = serveur({ c1: A, c2: B });
+    const fenetre = vi.fn();
+    const modeles = vi.fn();
+    const m = monter(null, {
+      fetch: srv.fetch,
+      ...o,
+      deps: { _vsInitTail: fenetre, loadAvailableModels: modeles, ...o.deps },
+    });
+    m.refs.chats.value = [
+      { id: "c1", title: "A", updated_at: 10 },
+      { id: "c2", title: "B", updated_at: 20 },
+    ];
+    await m.api.loadChat("c1");
+    await m.api.loadChat("c2");
+    fenetre.mockClear();
+    return { ...m, srv, fenetre, modeles };
+  }
+
+  it("retour sur la précédente : fil affiché avant la réponse, rien n'est reposé si elle est identique, aucune relecture des modèles", async () => {
+    const { api, refs, srv, fenetre, modeles, journal } = await ouvrirPuisQuitter();
+    srv.retenir(true);
+    const retour = api.loadChat("c1");
+    expect(refs.currentChatId.value).toBe("c1");
+    expect(refs.currentChatTitle.value).toBe("A");
+    expect(refs.messages.value[0]?.content).toBe("fil A");
+    expect(chatEnOuverture.value).toBeNull();
+    const affiches = refs.messages.value;
+    srv.liberer();
+    await retour;
+    expect(refs.messages.value).toBe(affiches);
+    expect(fenetre).toHaveBeenCalledTimes(1);
+    expect(journal.filter((l) => l === "GET /api/saved/chats/c1")).toHaveLength(2);
+    await vi.waitFor(() => expect(journal).toContain("GET /api/chat/c1/generation-status"));
+    await api.startNewChat();
+    expect(modeles).not.toHaveBeenCalled();
+  });
+
+  it("réponse différente (autre onglet) : le fil affiché est remplacé par celui du serveur", async () => {
+    const contenus: Record<string, unknown> = { c1: A, c2: B };
+    const srv = serveur(contenus);
+    const { api, refs } = monter(null, { fetch: srv.fetch });
+    await api.loadChat("c1");
+    await api.loadChat("c2");
+    contenus.c1 = conv([{ role: "user", content: "fil A modifié" }], {
+      id: "c1",
+      title: "A",
+      updated_at: 10,
+    });
+    srv.retenir(true);
+    const retour = api.loadChat("c1");
+    expect(refs.messages.value[0]?.content).toBe("fil A");
+    srv.liberer();
+    await retour;
+    expect(refs.messages.value[0]?.content).toBe("fil A modifié");
+  });
+
+  it("fil touché avant de partir (envoi, édition) ou flux en cours : pas d'aperçu au retour", async () => {
+    for (const toucher of ["ajout", "remplacement", "flux"] as const) {
+      const srv = serveur({ c1: A, c2: B });
+      const { api, refs } = monter(null, { fetch: srv.fetch });
+      await api.loadChat("c1");
+      const liste = refs.messages.value as Message[];
+      if (toucher === "ajout") liste.push({ role: "user", content: "nouveau" });
+      if (toucher === "remplacement") liste.splice(0, 1, Object.freeze({ role: "user", content: "édité" }));
+      if (toucher === "flux") refs.isStreaming.value = true;
+      await api.loadChat("c2");
+      refs.isStreaming.value = false;
+      srv.retenir(true);
+      const retour = api.loadChat("c1");
+      expect(chatEnOuverture.value).toBe("c1");
+      expect(refs.currentChatId.value).toBe("c2");
+      srv.liberer();
+      await retour;
+      expect(refs.currentChatId.value).toBe("c1");
+    }
+  });
+
+  it("date de la liste plus récente, renommage, suppression, autre session ou déconnexion : la lecture gardée n'est pas reprise", async () => {
+    const cas: ((m: Awaited<ReturnType<typeof ouvrirPuisQuitter>>) => Promise<void> | void)[] = [
+      (m) => {
+        m.refs.chats.value = [{ id: "c1", title: "A", updated_at: 11 }];
+      },
+      async (m) => {
+        await m.api._doRenameChat("c1", "A2");
+      },
+      async (m) => {
+        await m.api.deleteChat("c1");
+        m.toasts[0]?.options?.onAction?.();
+      },
+      (m) => {
+        m.refs.user.value = null;
+      },
+    ];
+    for (const preparer of cas) {
+      const m = await ouvrirPuisQuitter();
+      await preparer(m);
+      m.srv.retenir(true);
+      const retour = m.api.loadChat("c1");
+      expect(m.refs.currentChatId.value).toBe("c2");
+      m.srv.liberer();
+      await retour;
+    }
+    const session = { generation: 1 };
+    const m = await ouvrirPuisQuitter({ session });
+    session.generation = 2;
+    m.srv.retenir(true);
+    const retour = m.api.loadChat("c1");
+    expect(m.refs.currentChatId.value).toBe("c2");
+    m.srv.liberer();
+    await retour;
+    expect(m.refs.currentChatId.value).toBe("c1");
+  });
+
+  it("conversation supprimée ailleurs pendant l'aperçu : message, nouveau chat, liste relue", async () => {
+    const contenus: Record<string, unknown> = { c1: A, c2: B };
+    const srv = serveur(contenus);
+    const { api, refs, toasts, journal } = monter(null, { fetch: srv.fetch });
+    await api.loadChat("c1");
+    await api.loadChat("c2");
+    delete contenus.c1;
+    await api.loadChat("c1");
+    expect(toasts.map((t) => t.message)).toEqual(["Cette conversation n’existe plus."]);
+    expect(refs.currentChatId.value).toBeNull();
+    expect(refs.messages.value).toEqual([]);
+    expect(journal).toContain("GET /api/saved/chats?archived=0");
+  });
+
+  it("envoi parti depuis l'aperçu avant la réponse : le fil n'est pas remplacé ; réponse lente d'un aperçu quitté jetée", async () => {
+    const contenus: Record<string, unknown> = { c1: A, c2: B };
+    const srv = serveur(contenus);
+    const { api, refs } = monter(null, { fetch: srv.fetch });
+    await api.loadChat("c1");
+    await api.loadChat("c2");
+    contenus.c1 = conv([{ role: "user", content: "autre version" }], {
+      id: "c1",
+      title: "A",
+      updated_at: 10,
+    });
+    srv.retenir(true);
+    const retour = api.loadChat("c1");
+    refs.isStreaming.value = true;
+    srv.liberer();
+    await retour;
+    expect(refs.messages.value[0]?.content).toBe("fil A");
+    srv.retenir(false);
+    refs.isStreaming.value = false;
+    // Course : aperçu de c1 puis aussitôt de c2 ; la réponse lente de c1 n'écrit rien.
+    await api.loadChat("c2");
+    await api.loadChat("c1");
+    await api.loadChat("c2");
+    srv.retenir(true);
+    const lent = api.loadChat("c1");
+    expect(refs.messages.value[0]?.content).toBe("autre version");
+    const vite = api.loadChat("c2");
+    expect(refs.currentChatId.value).toBe("c2");
+    srv.liberer();
+    await Promise.all([lent, vite]);
+    expect(refs.currentChatId.value).toBe("c2");
+    expect(refs.messages.value[0]?.content).toBe("fil B");
+  });
+
+  it("bornes : cinq conversations au plus, taille totale plafonnée, une lecture trop grande n'est pas gardée", () => {
+    for (let i = 0; i < GARDEES_MAX + 2; i++) garderConversation("k" + i, 0, "x", 1);
+    expect(conversationGardee("k0", 0, null)).toBeNull();
+    expect(conversationGardee("k1", 0, null)).toBeNull();
+    expect(conversationGardee("k2", 0, 1)).toBe("x");
+    oublierConversation();
+    const moitie = "y".repeat(GARDEES_CARACTERES_MAX / 2);
+    garderConversation("a", 0, moitie, 1);
+    garderConversation("b", 0, moitie, 1);
+    garderConversation("c", 0, "z", 1);
+    expect(conversationGardee("a", 0, null)).toBeNull();
+    expect(conversationGardee("b", 0, null)).toBe(moitie);
+    garderConversation("geant", 0, "g".repeat(GARDEES_CARACTERES_MAX + 1), 1);
+    expect(conversationGardee("geant", 0, null)).toBeNull();
+    garderConversation("autre", 1, "s", 1);
+    expect(conversationGardee("b", 0, null)).toBeNull();
   });
 });
 

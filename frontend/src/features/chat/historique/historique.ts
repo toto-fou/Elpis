@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/historique/historique.ts — conversations enregistrées : liste, nouveau chat, chargement (jetons de chargement et de session), archivage, renommage, suppression annulable, actions groupées. */
+/** frontend/src/features/chat/historique/historique.ts — conversations enregistrées : liste, nouveau chat, chargement (jetons de chargement et de session, lecture gardée affichée d'abord), archivage et renommage optimistes, suppression annulable, actions groupées. */
 import { schemaErreurTour, schemaMetaOutils, schemaResumeReveil } from "@elpis/contracts";
 import type { MetaOutils } from "@elpis/contracts";
 import type { Ref } from "vue";
@@ -8,7 +8,15 @@ import { copyImageFields } from "../../images/formats.ts";
 import { lireBilanTache } from "../outils/bilan-tache.ts";
 import { parseToolHistorySegments } from "../outils/segments.ts";
 import { sourcesRagValides } from "../../rag/sources.ts";
-import { chatEnOuverture, oublierPrecharge, reprendrePrecharge, urlChat } from "./ouverture";
+import {
+  chatEnOuverture,
+  conversationGardee,
+  garderConversation,
+  oublierConversation,
+  oublierPrecharge,
+  reprendrePrecharge,
+  urlChat,
+} from "./ouverture";
 import type { FetchAuth, VueFabrique } from "./recherche";
 
 export interface ResumeChat {
@@ -70,7 +78,6 @@ export interface DepsHistorique {
   _vsInitTail(n: number): void;
   clearChartInstances?: Rappel;
   resetDiffCardState?: Rappel;
-  loadAvailableModels(): unknown;
   resetMessageSearch?: Rappel;
   cancelEditMessage?: Rappel;
   setTodoList?: (taches: readonly unknown[]) => void;
@@ -311,6 +318,11 @@ async function lireJson(res: Response): Promise<Record<string, unknown>> {
   return enregistrement(corps) ? corps : {};
 }
 
+function objetJson(texte: string): Record<string, unknown> {
+  const corps: unknown = JSON.parse(texte);
+  return enregistrement(corps) ? corps : {};
+}
+
 /** Même contrat que l'ancien `setupChatHistory(vue, refs, ctx, deps)` de chat/_history.js. */
 export function creerHistoriqueChat(
   vue: VueFabrique,
@@ -370,12 +382,29 @@ export function creerHistoriqueChat(
 
   // Jeton de chargement : seul le dernier chargement demandé (ou un « Nouveau chat ») écrit.
   let sequence = 0;
+  // Fil posé par la dernière lecture : s'il a changé depuis (envoi, édition, flux), sa lecture gardée n'est plus juste.
+  let affiche: { id: string; n: number; dernier: Message | undefined } | null = null;
+  vue.watch(
+    () => user.value,
+    (u) => {
+      if (!u) oublierConversation();
+    },
+  );
+
+  function quitterFil(): void {
+    const a = affiche;
+    const liste = messages.value;
+    if (a && (isStreaming.value || liste.length !== a.n || liste[a.n - 1] !== a.dernier))
+      oublierConversation(a.id);
+  }
 
   async function startNewChat(): Promise<void> {
     currentView.value = "chat";
     sequence++;
     chatEnOuverture.value = null;
     oublierPrecharge();
+    quitterFil();
+    affiche = null;
     deps.detachFromStream();
     viderRendu();
     remettreComposeur(false);
@@ -394,7 +423,6 @@ export function creerHistoriqueChat(
       /* stockage indisponible */
     }
     if (etroit()) showSidebar.value = false;
-    void deps.loadAvailableModels();
     void nextTick(() => inputRef.value?.focus());
   }
 
@@ -416,6 +444,48 @@ export function creerHistoriqueChat(
       .catch(() => {});
   }
 
+  /** Pose une conversation lue (réponse du serveur ou lecture gardée) ; `remplacer` remet d'abord le rendu à zéro. */
+  function appliquer(id: string, d: Record<string, unknown>, remplacer: boolean): void {
+    if (remplacer) {
+      deps.detachFromStream();
+      viderRendu();
+    }
+    currentChatId.value = d.id as string;
+    currentChatTitle.value = d.title as string;
+    if (deps.setTodoList) {
+      const taches = Array.isArray(d.todos) ? d.todos : [];
+      const ouvertes = taches.some(
+        (t) => enregistrement(t) && t.status !== "completed" && t.status !== "cancelled",
+      );
+      deps.setTodoList(ouvertes ? taches : []);
+    }
+    deps.applyChatTools?.(d.tools);
+    deps.applyChatPlanMode?.(d.plan_mode);
+    deps.applyChatRag?.(d.rag);
+    deps.applyChatSecrets?.(d.secrets, d.id as string);
+    const bruts = (Array.isArray(d.messages) ? d.messages : []).filter(
+      (m): m is Message => enregistrement(m) && m.role !== "system",
+    );
+    const construits = construireMessages(bruts, deps._parseFileBlocks);
+    // Fenêtre posée avant l'affectation : le premier calcul des lignes visibles est déjà le bon.
+    deps._vsInitTail(construits.length);
+    messages.value = construits;
+    affiche = { id, n: construits.length, dernier: construits[construits.length - 1] };
+    deps.applyChatCtxUsage?.(d.ctx_usage, d.id as string);
+    if (etroit()) showSidebar.value = false;
+    isUserScrolling.value = false;
+    void nextTick(() => {
+      deps.scrollToBottom(true);
+      deps.settleScrollBottom?.();
+    });
+  }
+
+  // Date de dernière modification que la liste connaît, ou null.
+  function majListe(id: string): number | null {
+    const maj = Number(chats.value.find((c) => String(c.id) === id)?.updated_at);
+    return Number.isFinite(maj) ? maj : null;
+  }
+
   async function loadChat(id: string, opts?: { force?: boolean; noAttach?: boolean }): Promise<void> {
     currentView.value = "chat";
     if (currentChatId.value === id && !opts?.force) {
@@ -429,53 +499,37 @@ export function creerHistoriqueChat(
     const generation = session ? session.generation : 0;
     const perime = (): boolean => seq !== sequence || (session !== null && session.generation !== generation);
     const memeChat = currentChatId.value === id;
-    chatEnOuverture.value = memeChat ? null : id;
+    if (!memeChat) quitterFil();
+    // Lecture gardée : le fil s'affiche aussitôt, la réponse du serveur ne le remplace que s'il a changé.
+    const apercu = memeChat ? null : conversationGardee(id, generation, majListe(id));
+    chatEnOuverture.value = memeChat || apercu !== null ? null : id;
     deps.detachFromStream();
     if (memeChat) viderRendu();
     remettreComposeur(memeChat);
     try {
+      if (apercu !== null) appliquer(id, objetJson(apercu), true);
       const res = await (reprendrePrecharge(id, generation) ?? fetchAuth(urlChat(id), {}, true));
       if (perime()) return;
       if (res && res.ok) {
-        const d = await lireJson(res);
+        const texte = await res.text();
         if (perime()) return;
-        if (!memeChat) {
-          deps.detachFromStream();
-          viderRendu();
+        if (texte !== apercu) {
+          // Un envoi parti depuis l'aperçu garde son fil : la conversation sera relue au prochain retour.
+          if (apercu !== null && isStreaming.value) {
+            oublierConversation(id);
+            return;
+          }
+          const d = objetJson(texte);
+          appliquer(id, d, !memeChat);
+          garderConversation(id, generation, texte, Number(d.updated_at));
         }
-        currentChatId.value = d.id as string;
-        currentChatTitle.value = d.title as string;
-        if (deps.setTodoList) {
-          const taches = Array.isArray(d.todos) ? d.todos : [];
-          const ouvertes = taches.some(
-            (t) => enregistrement(t) && t.status !== "completed" && t.status !== "cancelled",
-          );
-          deps.setTodoList(ouvertes ? taches : []);
-        }
-        deps.applyChatTools?.(d.tools);
-        deps.applyChatPlanMode?.(d.plan_mode);
-        deps.applyChatRag?.(d.rag);
-        deps.applyChatSecrets?.(d.secrets, d.id as string);
-        const bruts = (Array.isArray(d.messages) ? d.messages : []).filter(
-          (m): m is Message => enregistrement(m) && m.role !== "system",
-        );
-        const construits = construireMessages(bruts, deps._parseFileBlocks);
-        // Fenêtre posée avant l'affectation : le premier calcul des lignes visibles est déjà le bon.
-        deps._vsInitTail(construits.length);
-        messages.value = construits;
-        deps.applyChatCtxUsage?.(d.ctx_usage, d.id as string);
-        if (etroit()) showSidebar.value = false;
-        isUserScrolling.value = false;
-        void deps.loadAvailableModels();
-        void nextTick(() => {
-          deps.scrollToBottom(true);
-          deps.settleScrollBottom?.();
-        });
         sonderRun(id, seq, opts);
       } else if (!res && !user.value) {
         /* 401 déjà traité par fetchAuth (écran de connexion) */
       } else if (res && res.status === 404) {
+        oublierConversation(id);
         showToast("Cette conversation n’existe plus.", "error");
+        if (apercu !== null) void startNewChat();
         void loadChatsList();
       } else {
         showToast(
@@ -546,6 +600,7 @@ export function creerHistoriqueChat(
     const avant = chat?.title;
     const courant = String(currentChatId.value) === String(id);
     const avantCourant = currentChatTitle.value;
+    oublierConversation(String(id));
     if (chat) chat.title = title;
     if (courant) currentChatTitle.value = title;
     try {
@@ -612,6 +667,7 @@ export function creerHistoriqueChat(
     const idx = chats.value.findIndex((c) => String(c.id) === idStr);
     if (idx < 0) return;
     const retire = chats.value[idx] as ResumeChat;
+    oublierConversation(idStr);
     chats.value.splice(idx, 1);
     if (String(currentChatId.value) === idStr) void startNewChat();
     let annule = false;
@@ -680,6 +736,7 @@ export function creerHistoriqueChat(
     annuler?: () => void,
   ): Promise<void> {
     const ensemble = new Set(ids.map(String));
+    for (const id of ensemble) oublierConversation(id);
     chats.value = chats.value.filter((c) => !ensemble.has(String(c.id)));
     if (ensemble.has(String(currentChatId.value))) void startNewChat();
     try {

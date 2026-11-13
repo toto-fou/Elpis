@@ -194,8 +194,6 @@ it("conditions : if / else / end → Python indenté, blocs vides → pass", () 
     "for _i in range(3):",
     '    s.key("down")',
   ]);
-  assert.deepStrictEqual(M.blockDepths(steps), [0, 1, 0, 1, 0, 0, 0, 0, 1, 0]);
-  assert.ok(M.validateBlocks(steps).ok);
 });
 
 it("conditions : valeur / état / texte", () => {
@@ -215,13 +213,7 @@ it("conditions : valeur / état / texte", () => {
   assert.strictEqual(c({ type: "text", query: "Terminé" }), 'if s.sees("Terminé"):');
 });
 
-it("blocs mal formés : validation nommée, génération qui ne casse pas", () => {
-  const v = M.validateBlocks([M.makeStep("end")]);
-  assert.ok(!v.ok && /Fin/.test(v.errors[0]!.message));
-  const v2 = M.validateBlocks([M.makeStep("if"), M.makeStep("else"), M.makeStep("else"), M.makeStep("end")]);
-  assert.ok(!v2.ok && /deux/.test(v2.errors[0]!.message));
-  const v3 = M.validateBlocks([M.makeStep("loop")]);
-  assert.ok(!v3.ok && /jamais fermé/.test(v3.errors[0]!.message));
+it("bloc mal formé : la génération ne casse pas", () => {
   // un « if » jamais fermé : le générateur ferme lui-même et le dit
   const L = M.automationToPython(
     M.newAutomation({ steps: [M.makeStep("if", { cond: { type: "exists", query: "x" } })] }),

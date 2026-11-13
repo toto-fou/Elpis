@@ -27,7 +27,7 @@ publierElement(useTemplateRef<HTMLDivElement>("conteneur"), (el) => emit("conten
     :aria-busy="conv.chatEnOuverture ? 'true' : undefined"
   >
     <div
-      class="elpis-chat-col mx-auto space-y-8 transition-transform duration-300"
+      class="elpis-chat-col mx-auto transition-transform duration-300"
       :style="{
         maxWidth: !conv.showEditor || !conv.settings.enable_editor ? conv.settings.chat_width + '%' : '48rem',
       }"

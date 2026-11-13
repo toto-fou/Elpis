@@ -427,7 +427,7 @@ body.elpis-skin-terminal .elpis-chat-col {
     margin-left: 0 !important;
     margin-right: auto !important;
 }
-body.elpis-skin-terminal .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.75rem; }
+body.elpis-skin-terminal .elpis-chat-col { row-gap: 1.75rem; }
 body.elpis-skin-terminal .elpis-msg-user,
 body.elpis-skin-terminal .elpis-msg-assistant { position: relative; gap: 0; }
 body.elpis-skin-terminal .elpis-msg-user > .shrink-0 { display: none; }

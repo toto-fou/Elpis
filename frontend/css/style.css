@@ -4078,8 +4078,10 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .elpis-bloc-travail [data-corps-bloc] .markdown-body > :last-child,
 .elpis-bloc-travail [data-corps-bloc] .markdown-body > div:last-child > :last-child { margin-bottom: 0; }
 
+/* Fil : écart des messages en row-gap ; une règle de frères sans classe (« A ~ B ») recalculerait tout le fil à chaque montage. */
+.elpis-chat-col { display: flex; flex-direction: column; row-gap: 2rem; }
 /* Densité compacte du fil (Paramètres › Chat) : messages, paragraphes et appels resserrés. */
-.elpis-fil-compact .elpis-chat-col > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem !important; }
+.elpis-fil-compact .elpis-chat-col { row-gap: 1.25rem !important; }
 .elpis-fil-compact .elpis-msg-assistant .markdown-body p { margin-bottom: 0.55em; }
 .elpis-fil-compact [data-fil-tour] .mt-3 { margin-top: 0.5rem; }
 .elpis-fil-compact [data-corps-bloc] { gap: 0.4rem; }

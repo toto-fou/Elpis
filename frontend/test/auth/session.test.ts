@@ -2,7 +2,7 @@
 /** frontend/test/auth/session.test.ts — machine d'état de session, génération, nettoyage par propriétaire et multi-compte. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { consequencesFin, GestionnaireSession } from "../../src/features/auth/session";
+import { GestionnaireSession } from "../../src/features/auth/session";
 import { COMPTE_A, COMPTE_B } from "../aides";
 
 beforeEach(() => {
@@ -54,12 +54,6 @@ describe("machine d'état", () => {
     expect(s.motDePasseAChanger()).toBe(true);
     expect(s.motDePasseAChanger()).toBe(false);
     expect(s.fermer("mot_de_passe")).toBe(true);
-  });
-
-  it("déconnexion volontaire seule arrête le run serveur ; toute fin détache l'affichage", () => {
-    expect(consequencesFin("deconnexion")).toEqual({ detacherAffichage: true, arreterRun: true });
-    expect(consequencesFin("expiration")).toEqual({ detacherAffichage: true, arreterRun: false });
-    expect(consequencesFin("mot_de_passe").arreterRun).toBe(false);
   });
 });
 

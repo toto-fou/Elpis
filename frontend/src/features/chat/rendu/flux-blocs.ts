@@ -21,7 +21,7 @@ export interface BlocFlux {
   src: string;
   /** Décalage du premier caractère du bloc suivant. */
   fin: number;
-  /** Décalage jusqu'où le texte décide du bloc : la fin de la première ligne du bloc suivant. */
+  /** Décalage jusqu'où le texte décide du bloc : la fin de la première ligne du bloc suivant ; infini pour le dernier bloc d'un texte terminé. */
   lim: number;
 }
 
@@ -33,6 +33,8 @@ export interface EtatFlux {
   lexe: number;
   /** Fin des lignes complètes déjà analysées sans qu'un bloc se fige : sans ligne de plus, l'analyse ne change pas. */
   horizon: number;
+  /** Texte terminé : son dernier bloc a été figé sans savoir ce qui suit, un texte plus long le redécoupe. */
+  fini: boolean;
   texte: string;
   source: string;
 }
@@ -85,6 +87,7 @@ export function etatVide(): EtatFlux {
     liens: Object.create(null) as Liens,
     lexe: 0,
     horizon: 0,
+    fini: false,
     texte: "",
     source: "",
   };
@@ -332,7 +335,7 @@ export function creerFlux(dep: DependancesFlux) {
       const suite = suivant ?? fin;
       // Le bloc ne dépend que du texte jusqu'à la fin de la première ligne du bloc suivant.
       const nl = suivant === undefined ? -1 : t.indexOf("\n", suivant);
-      const lim = nl === -1 || nl >= fin ? fin : nl + 1;
+      const lim = suivant === undefined ? Infinity : nl === -1 || nl >= fin ? fin : nl + 1;
       nouveaux.push(bloc(t, base + nouveaux.length, gr.debut, suite, lim, gr.jetons, tmp));
     }
     const reste = groupes[Math.max(nb, 0)];
@@ -398,7 +401,10 @@ export function creerFlux(dep: DependancesFlux) {
     }
     let blocs: readonly BlocFlux[] = nouveaux.length ? [...etat.blocs, ...nouveaux] : etat.blocs;
     for (const r of aRelire) blocs = relire(blocs, r.jusqua, liens, r.etiquettes);
-    return { etat: { blocs, pos, liens, lexe, horizon, texte: t, source: etat.source }, actif: t.slice(pos) };
+    return {
+      etat: { blocs, pos, liens, lexe, horizon, fini: false, texte: t, source: etat.source },
+      actif: t.slice(pos),
+    };
   }
 
   /** Fin du texte : le bloc actif est figé avec les autres, le texte est entièrement consommé. */
@@ -415,25 +421,38 @@ export function creerFlux(dep: DependancesFlux) {
         nouveaux.length = 0;
         const tmp = copieLiens(liens);
         const jetons = lexer(t.slice(courant.pos), tmp);
-        nouveaux.push(bloc(t, base, courant.pos, t.length, t.length, jetons, tmp));
+        nouveaux.push(bloc(t, base, courant.pos, t.length, Infinity, jetons, tmp));
         ajoutees = engager(tmp, liens, AUCUN);
       }
     }
     let blocs: readonly BlocFlux[] = nouveaux.length ? [...courant.blocs, ...nouveaux] : courant.blocs;
     if (ajoutees.length) blocs = relire(blocs, base, liens, ajoutees);
     return {
-      etat: { blocs, pos: t.length, liens, lexe: courant.lexe, horizon: 0, texte: t, source: etat.source },
+      etat: {
+        blocs,
+        pos: t.length,
+        liens,
+        lexe: 0,
+        horizon: 0,
+        fini: true,
+        texte: t,
+        source: etat.source,
+      },
       actif: "",
     };
   }
 
-  /** Reprise sur un texte qui ne prolonge pas celui de l'état : les blocs de tête dont la source est inchangée sont gardés, le reste est redécoupé. */
+  /** Reprise sur un texte qui ne prolonge pas celui de l'état (ou prolonge un texte terminé) : les blocs de tête que le texte commun décide sont gardés, le reste est redécoupé. */
   function reprendre(t: string, etat: EtatFlux): EtatFlux {
     const ancien = etat.texte;
-    if (t.startsWith(ancien)) return etat;
-    let commun = 0;
-    const max = Math.min(ancien.length, t.length);
-    while (commun < max && ancien.charCodeAt(commun) === t.charCodeAt(commun)) commun++;
+    const prolonge = t.startsWith(ancien);
+    if (prolonge && !etat.fini) return etat;
+    let commun = ancien.length;
+    if (!prolonge) {
+      commun = 0;
+      const max = Math.min(ancien.length, t.length);
+      while (commun < max && ancien.charCodeAt(commun) === t.charCodeAt(commun)) commun++;
+    }
     let n = 0;
     while (n < etat.blocs.length && (etat.blocs[n]?.lim ?? Infinity) <= commun) n++;
     const gardes = etat.blocs.slice(0, n);
@@ -455,6 +474,7 @@ export function creerFlux(dep: DependancesFlux) {
       liens,
       lexe: 0,
       horizon: 0,
+      fini: false,
       texte: t,
       source: etat.source,
     };

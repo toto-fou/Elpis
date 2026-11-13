@@ -83,3 +83,31 @@ describe("définitions de liens de référence", () => {
     expect(apres.blocs[1]?.html).toContain('<a href="https://exemple.test/x">x</a>');
   });
 });
+
+describe("texte terminé puis prolongé (Continuer après Stop ou troncature)", () => {
+  // Le message arrêté garde l'état de `terminerFlux` ; la suite prolonge son texte par morceaux.
+  function continuer(coupe: string, complet: string): string {
+    let etat = m.terminerFlux(coupe, diffuser(coupe, 3))?.etat ?? null;
+    for (let n = coupe.length + 3; n < complet.length; n += 3)
+      etat = m.avancerFlux(complet.slice(0, n), etat).etat;
+    const r = m.terminerFlux(complet, etat);
+    return r ? norm(html(r.etat)) : "";
+  }
+
+  it("une phrase coupée au milieu d'un mot reste un seul paragraphe", () => {
+    const complet = "Intro.\n\nVoici le début de la réponse complète.\n\nFin.\n";
+    expect(continuer("Intro.\n\nVoici le début de la répo", complet)).toBe(norm(m.renderMarkdown(complet)));
+  });
+
+  it("une fence coupée se poursuit, le texte qui suit n'est pas du code", () => {
+    const complet = "Texte\n\n```py\nx = 1\ny = 2\n```\n\nAprès le code, du **texte**.\n\nFin.\n";
+    expect(continuer("Texte\n\n```py\nx = 1\n", complet)).toBe(norm(m.renderMarkdown(complet)));
+  });
+
+  it("terminer deux fois le même texte rend le même HTML", () => {
+    const texte = "Un.\n\n- a\n- b\n\nFin";
+    const a = m.terminerFlux(texte, diffuser(texte, 2));
+    const b = m.terminerFlux(texte, a?.etat ?? null);
+    expect(html(b?.etat ?? a!.etat)).toBe(html(a!.etat));
+  });
+});

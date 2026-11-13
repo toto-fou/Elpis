@@ -45,6 +45,19 @@ describe("feuilles CSS", () => {
     },
   );
 
+  it("un menu ou une fenêtre qui s'estompe en sortant ne capte plus les clics", () => {
+    const sans = readFileSync(join(CSS, "style.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const regles = [...sans.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+    for (const classe of [".popover-leave-active", ".modal-leave-active"]) {
+      const regle = regles.find(
+        (m) =>
+          (m[1] ?? "").split(",").some((s) => s.trim() === classe) &&
+          /pointer-events:\s*none/.test(m[2] ?? ""),
+      );
+      expect(regle, classe).toBeDefined();
+    }
+  });
+
   it("le garde-fou voit un chemin qui referme un commentaire", () => {
     const sans = "/* skins/*/skin.css reste */ a{}".replace(/\/\*[\s\S]*?\*\//g, "");
     expect(sans).toContain("*/");

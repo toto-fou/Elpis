@@ -98,6 +98,14 @@ describe("lancerAssistantForm", () => {
     expect(generateResponse).toHaveBeenCalledOnce();
   });
 
+  it("double clic sur « Commencer l'entretien » : le second lancement ne relance rien", async () => {
+    const { envoi, startNewChat, generateResponse } = monter({ skill: true });
+    envoi.ouvrirAssistant("routine", { objectif: "Résumer", quand: "lundi" });
+    await Promise.all([envoi.lancerAssistantForm(), envoi.lancerAssistantForm()]);
+    expect(startNewChat).toHaveBeenCalledOnce();
+    expect(generateResponse).toHaveBeenCalledOnce();
+  });
+
   it("skill épinglé une seule fois ; catégorie absente : toast seulement si le descripteur le prévoit", async () => {
     const { c, envoi, toasts, pinnedSkills } = monter({ fs: false });
     envoi.ouvrirAssistant("skill", { sujet: "Déployer" });

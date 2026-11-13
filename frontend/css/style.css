@@ -1175,11 +1175,12 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
     transform-origin: top;
 }
-/* Un menu qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
+/* Un menu ou une fenêtre qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
    continue d'intercepter le clic suivant pendant 150 ms — et l'utilisateur
    qui referme un menu pour cliquer derrière retombe dessus. */
 .popover-leave-active,
-.popover-up-leave-active {
+.popover-up-leave-active,
+.modal-leave-active {
     pointer-events: none;
 }
 .popover-enter-from,

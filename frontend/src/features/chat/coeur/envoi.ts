@@ -302,10 +302,11 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     await sendMessage();
   }
 
+  /** Lance l'assistant du formulaire ouvert ; un second appel (double clic sur la fenêtre qui s'estompe) ne relance rien. */
   async function lancerAssistantForm(): Promise<void> {
     const form = e.assistantForm.value;
     const d = ASSISTANTS[form.id];
-    if (!d) return;
+    if (!d || !form.open) return;
     const manque = d.champs.find((c) => c.requis && !(form.valeurs[c.cle] || "").trim());
     if (manque) {
       ctx.showToast(`${manque.libelle} requis`, "error");

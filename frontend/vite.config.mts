@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
+import { precompression } from "./precompression.mts";
 import { vendorElpis } from "./vendor.config.mts";
 
 const ICI = fileURLToPath(new URL(".", import.meta.url));
@@ -13,7 +14,7 @@ export default defineConfig({
   root: ICI,
   base: "./",
   publicDir: false,
-  plugins: [vue(), vendorElpis()],
+  plugins: [vue(), vendorElpis(), precompression()],
   resolve: {
     // Build runtime : tous les gabarits sont des SFC compilés au build (frontend/test/build/sans-compilateur.test.ts).
     alias: [{ find: /^vue$/, replacement: "vue/dist/vue.runtime.esm-bundler.js" }],

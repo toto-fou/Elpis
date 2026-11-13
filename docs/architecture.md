@@ -153,7 +153,10 @@ the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assi
 (`make_release.sh`); the core serves the entry points through their manifest (hashed
 names, long cache). The other files the pages link (CSS, skins, assets)
 carry their fingerprint in `?v=` (modification time and size) and get the
-same long immutable cache.
+same long immutable cache. Text is compressed: the build writes `.br` and
+`.gz` next to each asset, served by `Accept-Encoding`; other static text is
+compressed once in memory; JSON responses of 16 KiB or more are compressed
+on the fly for same-origin requests only (BREACH), never a stream.
 
 ---
 

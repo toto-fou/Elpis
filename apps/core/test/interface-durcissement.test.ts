@@ -78,7 +78,7 @@ describe("fichiers statiques", () => {
     expect(r.headers["cache-control"]).toBe("no-cache, must-revalidate");
   });
 
-  it("types : extension intérieure des fichiers compressés, table complète pour frontend/", () => {
+  it("types : extension intérieure des fichiers compressés (variantes .br et .gz du build comprises), table complète pour frontend/", () => {
     expect(typeStatique("x.js.gz")).toBe("application/javascript; charset=utf-8");
     expect(typeStatique("x.avif")).toBe("image/avif");
     const reel = join(process.cwd(), "frontend");
@@ -88,7 +88,7 @@ describe("fichiers statiques", () => {
         if (d === reel && (NON_SERVIS_WEB.has(nom) || /\.(?:ts|mts|json)$/.test(nom))) continue;
         const p = join(d, nom);
         if (statSync(p).isDirectory()) parcourir(p);
-        else if (extname(nom)) extensions.add(extname(nom).toLowerCase());
+        else if (extname(nom)) extensions.add(extname(nom.replace(/\.(?:br|gz)$/u, "")).toLowerCase());
       }
     };
     parcourir(reel);

@@ -77,7 +77,6 @@ export interface LiensEditeur {
   headText(chemin: string): string | null;
   robustLayout(): void;
   smoothOpenLayout(): void;
-  relayoutDuringTransition(): void;
   closeEditorCtxMenu(): void;
   openEditorCtxMenu(e: MouseEvent): void;
   editorCtxComplete(): Promise<void>;

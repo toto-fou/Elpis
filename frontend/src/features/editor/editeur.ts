@@ -100,7 +100,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     headText: (p) => diff.texteTete(p),
     robustLayout: () => page.robustLayout(),
     smoothOpenLayout: () => page._smoothOpenLayout(),
-    relayoutDuringTransition: () => page._relayoutMonacoDuringTransition(),
     closeEditorCtxMenu: () => outils.closeEditorCtxMenu(),
     openEditorCtxMenu: (ev) => outils._openEditorCtxMenu(ev),
     editorCtxComplete: () => ia.editorCtxComplete(),

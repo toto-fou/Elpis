@@ -87,7 +87,6 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
     void nextTick(() => {
       if (monacoRef.instance2 && modelOk(splitTabPath.value)) mettreModeleDroit(splitTabPath.value);
       activePane.value = "right";
-      l.relayoutDuringTransition();
       l.robustLayout();
     });
   }
@@ -120,7 +119,6 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
     if (p.toLowerCase().endsWith(".html")) s.apercu.previewPath.value = p;
     mettreModeleDroit(null);
     void nextTick(() => {
-      l.relayoutDuringTransition();
       l.robustLayout();
     });
   }
@@ -202,7 +200,6 @@ export function setupEditorSplit(e: EtatEditeur, s: ServicesEditeur, l: LiensEdi
     mettreModeleDroit(null);
     rafraichirRendu();
     void nextTick(() => {
-      l.relayoutDuringTransition();
       l.robustLayout();
     });
   }

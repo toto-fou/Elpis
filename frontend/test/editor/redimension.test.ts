@@ -117,7 +117,7 @@ describe("diviseur de la vue scindée", () => {
   function scindee() {
     const e = creerEtatEditeur();
     const forcer = vi.fn();
-    const l = { robustLayout: forcer, relayoutDuringTransition: forcer };
+    const l = { robustLayout: forcer };
     const scope = effectScope();
     const v = scope.run(() =>
       setupEditorSplit(e, { models: {}, vis: {} } as never, l as never, {} as never),

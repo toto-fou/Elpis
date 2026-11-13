@@ -476,6 +476,33 @@ describe("console › RAG", () => {
     }
   });
 
+  it("sondage : arrêté onglet du navigateur caché, relancé tout de suite à son retour", async () => {
+    vi.useFakeTimers();
+    let cache = false;
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => cache });
+    try {
+      const { A, appels } = monter(() => undefined);
+      const travaux = (): number => appels.filter((a) => a.url.startsWith("/api/admin/rag/travaux")).length;
+      A.adminTab.value = "rag";
+      await A.loadRagAdmin();
+      cache = true;
+      document.dispatchEvent(new Event("visibilitychange"));
+      const avant = travaux();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(travaux()).toBe(avant);
+      cache = false;
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(travaux()).toBe(avant + 1);
+      await vi.advanceTimersByTimeAsync(3_100);
+      expect(travaux()).toBe(avant + 2);
+      A.adminTab.value = "overview";
+    } finally {
+      Reflect.deleteProperty(document, "hidden");
+      vi.useRealTimers();
+    }
+  });
+
   it("formats : octets et dates", () => {
     expect(ragAdmOctets(0)).toBe("0 o");
     expect(ragAdmOctets(2048)).toBe("2.0 Ko");

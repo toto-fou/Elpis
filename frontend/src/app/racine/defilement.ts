@@ -64,9 +64,15 @@ export function creerDefilementChat(src: SourceDefilement) {
     // Un appui dont la cible est le conteneur lui-même est un appui sur sa barre de défilement (ou sa marge).
     const surAppui = (e: PointerEvent): void => {
       barreTenue = e.target === el;
+      if (barreTenue) window.addEventListener("pointermove", surMouvement, { passive: true });
     };
     const surRelache = (): void => {
       barreTenue = false;
+      window.removeEventListener("pointermove", surMouvement);
+    };
+    // Relâchement perdu (bouton lâché hors de la fenêtre) : un mouvement sans bouton enfoncé vaut relâchement.
+    const surMouvement = (e: PointerEvent): void => {
+      if (e.buttons === 0) surRelache();
     };
     el.addEventListener("scroll", surDefilement, { passive: true });
     el.addEventListener("wheel", surMolette, { passive: true });
@@ -94,6 +100,7 @@ export function creerDefilementChat(src: SourceDefilement) {
       el.removeEventListener("pointerdown", surAppui);
       window.removeEventListener("pointerup", surRelache);
       window.removeEventListener("pointercancel", surRelache);
+      window.removeEventListener("pointermove", surMouvement);
       obs.disconnect();
     };
   }

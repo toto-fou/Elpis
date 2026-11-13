@@ -99,6 +99,21 @@ describe("fil collé en bas", () => {
     expect(isUserScrolling.value).toBe(false);
   });
 
+  it("relâchement perdu : un mouvement du pointeur sans bouton enfoncé rend la barre", async () => {
+    const { el, cible, isUserScrolling, verrouiller } = await monter(3000);
+    el.defiler(2400);
+    verrouiller();
+    el.appuyer(cible);
+    window.dispatchEvent(Object.assign(new Event("pointermove"), { buttons: 1 }));
+    el.defiler(2300);
+    expect(isUserScrolling.value).toBe(true);
+    isUserScrolling.value = false;
+    el.defiler(2400);
+    window.dispatchEvent(Object.assign(new Event("pointermove"), { buttons: 0 }));
+    el.defiler(2100);
+    expect(isUserScrolling.value).toBe(false);
+  });
+
   it("remonté par l'utilisateur, le fil ne bouge pas quand le contenu grandit", async () => {
     const { el, isUserScrolling } = await monter(2000);
     el.defiler(800);

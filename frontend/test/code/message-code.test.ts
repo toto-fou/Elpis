@@ -63,6 +63,8 @@ function monter(messages: MessageOpencode[]) {
     codePluginStale: false,
     codeLoading: false,
     codeMessages: messages,
+    codeMessagesRendus: messages,
+    codeDebutRendu: 0,
     codeLiveIdx: -1,
     codeBusyActive: false,
     codePerms: [],

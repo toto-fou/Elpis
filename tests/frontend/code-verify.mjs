@@ -138,6 +138,23 @@ try {
     ok('largeur : transcript + composer en % (chat_width)',
         widthStyles.filter(s => /max-width:\s*\d+(\.\d+)?%/.test(s)).length >= 2);
 
+    // ── Aller-retour chat → Code : la session reste ouverte, à la même hauteur ──
+    const hautAvant = await page.evaluate(() => {
+        const el = window.__racine().transcriptEl;
+        el.scrollTop = 40;
+        return el.scrollTop;
+    });
+    await page.evaluate(() => { window.__racine().currentView = 'chat'; });
+    await page.waitForTimeout(300);
+    ok('aller-retour : page masquée pendant le chat', !(await root().isVisible()));
+    await page.locator('button[data-menu-plus]:visible').first().click();
+    await page.locator('button[title^="Remote code"]:visible').first().click();
+    await page.waitForTimeout(400);
+    ok('aller-retour : session encore ouverte, sans clic', await bodyHas(/Refactor auth[\s\S]*\/home\/dev\/webapp/)
+        && await htmlHas(/<strong>le correctif<\/strong>/));
+    ok('aller-retour : même hauteur dans le transcript',
+        await page.evaluate((h) => Math.abs(window.__racine().transcriptEl.scrollTop - h) <= 1, hautAvant));
+
     // ── Retour à la liste ───────────────────────────────────────────────
     await root().locator('button[title="Retour aux sessions"]').click();
     await page.waitForTimeout(300);

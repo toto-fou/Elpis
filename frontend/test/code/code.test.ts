@@ -8,8 +8,9 @@ import { creerCode } from "../../src/features/code/code";
 function monter(routeur: (url: string, init?: RequestInit) => unknown) {
   const appels: Array<[string, string]> = [];
   const toasts: string[] = [];
+  const vue = ref("chat");
   const surface = creerCode(
-    { currentView: ref("chat") },
+    { currentView: vue },
     {
       showToast: (m) => void toasts.push(m),
       fetchJsonAuth: (url, init) => {
@@ -20,7 +21,17 @@ function monter(routeur: (url: string, init?: RequestInit) => unknown) {
       openConfirm: () => Promise.resolve(true),
     },
   );
-  return { c: surface, appels, toasts };
+  return { c: surface, appels, toasts, vue };
+}
+
+const image = (): Promise<void> => new Promise((ok) => requestAnimationFrame(() => ok()));
+
+/** Transcript de `n` messages de la session s1 ; `suffixe` change le texte du dernier. */
+function messages(n: number, suffixe = ""): unknown[] {
+  return Array.from({ length: n }, (_, i) => ({
+    info: { id: `m${i}`, role: i % 2 ? "assistant" : "user", sessionID: "s1", time: { completed: 1 } },
+    parts: [{ id: `m${i}p`, type: "text", text: `texte ${i}${i === n - 1 ? suffixe : ""}` }],
+  }));
 }
 
 describe("module de la page Code", () => {
@@ -88,6 +99,59 @@ describe("module de la page Code", () => {
     c.codeResetOnLogout();
     expect(c.codeSessions.value).toEqual([]);
     expect(c.codeConfig.value.token).toBe("");
+  });
+
+  it("au retour sur la page, garde la session ouverte et relit tout en parallèle", async () => {
+    let suffixe = "";
+    const { c, appels, vue } = monter((u) => {
+      if (u === "/api/code/sessions") return [{ id: "s1", connected: true }];
+      if (u === "/api/code/sessions/s1/messages") return messages(4, suffixe);
+      return [];
+    });
+    await c.codeSelectSession("s1");
+    const avant = c.codeMessages.value.slice();
+    vue.value = "chat";
+    suffixe = " modifié";
+    appels.length = 0;
+    const retour = c.openCodePage();
+    expect(appels.map(([, u]) => u)).toEqual(
+      expect.arrayContaining(["/api/code/health", "/api/code/sessions", "/api/code/sessions/s1/messages"]),
+    );
+    await retour;
+    c.codeDisconnectStream();
+    expect(c.codeActiveId.value).toBe("s1");
+    const apres = c.codeMessages.value;
+    expect(apres).toHaveLength(4);
+    expect(apres.slice(0, 3).every((m, i) => m === avant[i])).toBe(true);
+    expect(apres[3]).not.toBe(avant[3]);
+    expect(apres[3]?.parts[0]?.text).toBe("texte 3 modifié");
+  });
+
+  it("revient à la liste si la session ouverte a disparu entre-temps", async () => {
+    let sessions = [{ id: "s1", connected: true }];
+    const { c } = monter((u) => {
+      if (u === "/api/code/sessions") return sessions;
+      if (u === "/api/code/sessions/s1/messages") return messages(2);
+      return [];
+    });
+    await c.codeSelectSession("s1");
+    sessions = [];
+    await c.openCodePage();
+    c.codeDisconnectStream();
+    expect(c.codeActiveId.value).toBe("");
+    expect(c.codeMessages.value).toEqual([]);
+  });
+
+  it("ouvre un long transcript par la fin puis monte le reste image par image", async () => {
+    const { c } = monter((u) => (u === "/api/code/sessions/s1/messages" ? messages(30) : []));
+    await c.codeSelectSession("s1");
+    expect(c.codeMessages.value).toHaveLength(30);
+    expect(c.codeMessagesRendus.value.map((m) => m.id)).toEqual(
+      Array.from({ length: 8 }, (_, i) => `m${22 + i}`),
+    );
+    for (let i = 0; i < 8 && c.codeDebutRendu.value > 0; i++) await image();
+    expect(c.codeDebutRendu.value).toBe(0);
+    expect(c.codeMessagesRendus.value).toHaveLength(30);
   });
 
   it("normalise le code d'appairage avant l'envoi", async () => {

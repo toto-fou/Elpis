@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/code/PageCode.vue — page « Code » : sessions opencode (liste et transcript riche), composer avec menus /model, /session et slash, permissions, questions, appairage et jeton. -->
 <script setup lang="ts">
+import { nextTick, ref, watch } from "vue";
+
 import { domaineCode } from "../../features/code/domaine";
 import LibelleVivant from "../communs/LibelleVivant.vue";
 import MessageCode from "./MessageCode.vue";
@@ -13,11 +15,31 @@ function poserTranscript(el: unknown): void {
 function poserSaisie(el: unknown): void {
   cd.codeInputRef = (el as HTMLTextAreaElement | null) ?? null;
 }
+
+// Montée à la première visite puis masquée hors de la vue Code : on y retrouve la session ouverte, à la même hauteur.
+const visitee = ref(false);
+let hauteur = 0;
+watch(
+  () => cd.currentView === "code",
+  (visible) => {
+    if (!visible) {
+      hauteur = cd.transcriptEl?.scrollTop ?? 0;
+      return;
+    }
+    visitee.value = true;
+    void nextTick(() => {
+      const el = cd.transcriptEl;
+      if (el && hauteur && el.scrollTop !== hauteur) el.scrollTop = hauteur;
+    });
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <div
-    v-if="cd.currentView === 'code'"
+    v-if="visitee"
+    v-show="cd.currentView === 'code'"
     role="region"
     aria-label="Remote code — sessions opencode"
     class="elpis-code-page absolute inset-0 z-[45] bg-white flex flex-col"
@@ -343,10 +365,10 @@ function poserSaisie(el: unknown): void {
               En attente d'activité…
             </div>
             <MessageCode
-              v-for="(m, mi) in cd.codeMessages"
+              v-for="(m, mi) in cd.codeMessagesRendus"
               :key="m.id"
               :m="m"
-              :live="mi === cd.codeLiveIdx"
+              :live="mi + cd.codeDebutRendu === cd.codeLiveIdx"
             />
 
             <!-- La CLI travaille mais n'a encore rien écrit (aucun message assistant ouvert) : même gabarit qu'un message -->

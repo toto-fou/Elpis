@@ -230,11 +230,13 @@ describe("gestionnaire MCP à deux volets", () => {
     expect(R.mcpFlash.value).toBe("Publié");
   });
 
-  it("épingler un serveur publié ne salit pas le formulaire", async () => {
-    const { R, settings } = await ouvert();
+  it("épingler un serveur publié n'écrit que sa liste et ne salit pas le formulaire", async () => {
+    const { R, settings, appels } = await ouvert();
     R.mcpChoisir("s:shared:3");
     await R.mcpBasculerPanneau();
     expect(settings.value.shared_mcp_visible).toEqual(["shared:3"]);
+    const put = appels.filter((a) => a.methode === "PUT").at(-1);
+    expect(put?.corps).toEqual({ shared_mcp_visible: ["shared:3"] });
     expect(R.mcpEstEpingle("partage", "shared:3")).toBe(true);
     expect(R.mcpSale.value).toBe(false);
   });

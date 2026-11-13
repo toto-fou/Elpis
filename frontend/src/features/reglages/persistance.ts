@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/persistance.ts — persistance du document `settings` : instantané « non enregistré », enregistrement complet, écriture ciblée par clés et bascules immédiates. */
+/** frontend/src/features/reglages/persistance.ts — persistance du document `settings` : instantané « non enregistré », enregistrement automatique, écriture ciblée par clés et bascules immédiates. */
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, objet } from "../../utils/lecture-json";
@@ -23,18 +23,8 @@ export function clesDifferentes(avant: Record<string, unknown>, apres: Record<st
   return [...toutes].filter((k) => JSON.stringify(avant[k]) !== JSON.stringify(apres[k]));
 }
 
-export interface LiensPersistance {
-  closeSettings(sauterRecharge?: boolean): Promise<void> | void;
-}
-
-export function creerPersistance(
-  vue: VueReglages,
-  settings: Ref<ReglagesApp>,
-  ctx: CtxReglages,
-  liens: LiensPersistance,
-) {
+export function creerPersistance(vue: VueReglages, settings: Ref<ReglagesApp>, ctx: CtxReglages) {
   const { computed, ref, watch } = vue;
-  const settingsSaving = ref(false);
   const passwordSaving = ref(false);
   const snapshot = ref("");
   const settingsDirty = computed(() => !!snapshot.value && JSON.stringify(settings.value) !== snapshot.value);
@@ -172,36 +162,6 @@ export function creerPersistance(
     );
   }
 
-  async function saveSettings(closeModal = true): Promise<void> {
-    if (closeModal && settingsSaving.value) return;
-    if (closeModal) settingsSaving.value = true;
-    try {
-      const corpsEnvoye = JSON.stringify(settings.value);
-      const res = await ctx.fetchAuth("/api/settings", {
-        method: "PUT",
-        headers: ENTETES_JSON,
-        body: corpsEnvoye,
-      });
-      if (!res) {
-        ctx.showToast("Erreur réseau : paramètres non enregistrés.", "error");
-        return;
-      }
-      if (!res.ok) {
-        ctx.showToast(messageErreurReglages(res.status, await corpsJson(res)), "error");
-        return;
-      }
-      snapshot.value = corpsEnvoye;
-      if (closeModal) {
-        ctx.showToast("Paramètres enregistrés.");
-        void liens.closeSettings(true);
-      }
-    } catch {
-      ctx.showToast("Erreur réseau : paramètres non enregistrés.", "error");
-    } finally {
-      if (closeModal) settingsSaving.value = false;
-    }
-  }
-
   /** Écrit seulement les clés données (le serveur fusionne) ; `rollback` est rejoué si le PUT échoue. */
   function persistKeys(keys: readonly string[], opts: OptionsPersistance = {}): Promise<boolean> {
     return suivre(ecrireCles(keys, opts));
@@ -278,11 +238,9 @@ export function creerPersistance(
   }
 
   return {
-    settingsSaving,
     passwordSaving,
     snapshot,
     settingsDirty,
-    saveSettings,
     viderEnAttente,
     activerEnregistrementAuto,
     persistKeys,

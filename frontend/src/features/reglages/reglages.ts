@@ -27,9 +27,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   const showSettingsModal = vue.ref(false);
   const liens = { closeSettings: (_sauter?: boolean): Promise<void> | void => undefined };
 
-  const persistance = creerPersistance(vue, settings, ctx, {
-    closeSettings: (sauter) => liens.closeSettings(sauter),
-  });
+  const persistance = creerPersistance(vue, settings, ctx);
   persistance.activerEnregistrementAuto(showSettingsModal);
   const apparence = creerApparence(vue, settings, ctx, persistance, refs.feuilleEditeur);
   const mcp = creerMcp(vue, settings, config, ctx, persistance);
@@ -141,10 +139,8 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     showSettingsModal,
     secretsCompte: reactive(secrets),
     loadSecrets: secrets.charger,
-    settingsSaving: persistance.settingsSaving,
     passwordSaving: persistance.passwordSaving,
     settingsDirty: persistance.settingsDirty,
-    saveSettings: persistance.saveSettings,
   };
 }
 

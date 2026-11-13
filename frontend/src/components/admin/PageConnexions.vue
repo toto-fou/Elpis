@@ -522,218 +522,222 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
         </div>
 
         <teleport to="body">
-          <div
-            v-if="adm.admLlmForm && adm.adminTab === 'inference'"
-            class="adm-drawer-backdrop"
-            @click.self="adm.closeEngineDrawer()"
-          >
-            <aside
-              :ref="
-                (el) => {
-                  adm.engineDrawer = el as typeof adm.engineDrawer;
-                }
-              "
-              class="adm-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="cnx-drawer-title"
-              tabindex="-1"
-              @keydown.tab="adm.onEngineDrawerKey"
+          <Transition name="adm-tiroir">
+            <div
+              v-if="adm.admLlmForm && adm.adminTab === 'inference'"
+              class="adm-drawer-backdrop"
+              @click.self="adm.closeEngineDrawer()"
             >
-              <header class="adm-drawer__head">
-                <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
-                <h2 id="cnx-drawer-title" class="adm-drawer__title">
-                  {{
-                    adm.admLlmForm.id
-                      ? adm.engineConnector
-                        ? adm.engineConnector.label || adm.admLlmLabel(adm.engineConnector.provider_type)
-                        : "Connecteur"
-                      : "Nouveau connecteur"
-                  }}
-                </h2>
-                <span v-if="adm.admLlmForm.id && adm.engineConnector" class="adm-pill">{{
-                  adm.engineConnector.provider_type
-                }}</span>
-                <button
-                  type="button"
-                  class="adm-btn adm-btn--icon ml-auto"
-                  aria-label="Fermer"
-                  title="Fermer (Échap)"
-                  @click="adm.closeEngineDrawer()"
-                >
-                  <i class="ph ph-x" aria-hidden="true"></i>
-                </button>
-              </header>
-
-              <div class="adm-drawer__body">
-                <p
-                  v-if="adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]"
-                  class="text-xs"
-                  role="status"
-                  :class="
-                    adm.admLlmTest[adm.engineConnector.id]?.testing
-                      ? 'text-slate-500'
-                      : adm.admLlmTest[adm.engineConnector.id]?.ok
-                        ? 'text-emerald-700'
-                        : 'text-red-600'
-                  "
-                >
-                  <span v-if="adm.admLlmTest[adm.engineConnector.id]?.testing"
-                    ><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Test en cours…</span
-                  >
-                  <span v-else-if="adm.admLlmTest[adm.engineConnector.id]?.ok"
-                    ><i class="ph ph-check-circle" aria-hidden="true"></i> Joignable ·
-                    {{ adm.admLlmTest[adm.engineConnector.id]?.models_count }} modèle(s)</span
-                  >
-                  <span v-else
-                    ><i class="ph ph-warning-circle" aria-hidden="true"></i>
+              <aside
+                :ref="
+                  (el) => {
+                    adm.engineDrawer = el as typeof adm.engineDrawer;
+                  }
+                "
+                class="adm-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cnx-drawer-title"
+                tabindex="-1"
+                @keydown.tab="adm.onEngineDrawerKey"
+              >
+                <header class="adm-drawer__head">
+                  <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
+                  <h2 id="cnx-drawer-title" class="adm-drawer__title">
                     {{
-                      adm.admLlmTest[adm.engineConnector.id]?.hint ||
-                      adm.admLlmTest[adm.engineConnector.id]?.error ||
-                      "Échec"
-                    }}</span
-                  >
-                </p>
-
-                <CapacitesMoteur
-                  v-if="
-                    adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]?.sonde
-                  "
-                  :rapport="adm.admLlmTest[adm.engineConnector.id]?.sonde ?? null"
-                />
-
-                <label v-if="!adm.admLlmForm.id" class="adm-field">
-                  <span class="adm-field__label">Fournisseur</span>
-                  <select v-model="adm.admLlmForm.provider_type" class="set-select w-full">
-                    <option v-for="pt in adm.admLlmAllProviders" :key="pt" :value="pt">
-                      {{ adm.admLlmLabel(pt) }}
-                    </option>
-                  </select>
-                </label>
-                <label class="adm-field">
-                  <span class="adm-field__label" title="Vide = adresse officielle du fournisseur."
-                    >Adresse</span
-                  >
-                  <input
-                    v-model="adm.admLlmForm.base_url"
-                    placeholder="http://llm.example.lan:8000/v1"
-                    class="set-input font-mono text-xs"
-                  />
-                </label>
-                <label class="adm-field">
-                  <span class="adm-field__label">Clé API</span>
-                  <input
-                    v-model="adm.admLlmForm.api_key"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="
                       adm.admLlmForm.id
-                        ? adm.engineConnector && adm.engineConnector.has_key
-                          ? 'Enregistrée · vide = inchangée'
-                          : 'Aucune'
-                        : 'Facultative en local'
+                        ? adm.engineConnector
+                          ? adm.engineConnector.label || adm.admLlmLabel(adm.engineConnector.provider_type)
+                          : "Connecteur"
+                        : "Nouveau connecteur"
+                    }}
+                  </h2>
+                  <span v-if="adm.admLlmForm.id && adm.engineConnector" class="adm-pill">{{
+                    adm.engineConnector.provider_type
+                  }}</span>
+                  <button
+                    type="button"
+                    class="adm-btn adm-btn--icon ml-auto"
+                    aria-label="Fermer"
+                    title="Fermer (Échap)"
+                    @click="adm.closeEngineDrawer()"
+                  >
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                  </button>
+                </header>
+
+                <div class="adm-drawer__body">
+                  <p
+                    v-if="adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]"
+                    class="text-xs"
+                    role="status"
+                    :class="
+                      adm.admLlmTest[adm.engineConnector.id]?.testing
+                        ? 'text-slate-500'
+                        : adm.admLlmTest[adm.engineConnector.id]?.ok
+                          ? 'text-emerald-700'
+                          : 'text-red-600'
                     "
-                    class="set-input"
-                  />
-                </label>
-                <div class="grid grid-cols-2 gap-3">
-                  <label class="adm-field">
-                    <span class="adm-field__label">Modèle</span>
-                    <input
-                      v-model="adm.admLlmForm.default_model"
-                      placeholder="qwen3-coder-30b"
-                      title="Modèle par défaut"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Libellé</span>
-                    <input v-model="adm.admLlmForm.label" placeholder="vLLM interne" class="set-input" />
-                  </label>
-                </div>
-
-                <div v-if="adm.admLlmForm.provider_type === 'llamacpp'" class="grid grid-cols-3 gap-3">
-                  <label class="adm-field">
-                    <span class="adm-field__label">Contexte</span>
-                    <input
-                      v-model.number="adm.admLlmForm.context_window"
-                      type="number"
-                      min="0"
-                      placeholder="auto"
-                      title="Tokens par requête — vide : lu sur le serveur"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Modèles</span>
-                    <input
-                      v-model.number="adm.admLlmForm.max_models"
-                      type="number"
-                      min="0"
-                      placeholder="1"
-                      title="Modèles simultanés en mémoire sur ce serveur"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Requêtes</span>
-                    <input
-                      v-model.number="adm.admLlmForm.max_concurrency"
-                      type="number"
-                      min="0"
-                      placeholder="auto"
-                      title="Requêtes simultanées par modèle — vide : slots du serveur"
-                      class="set-input"
-                    />
-                  </label>
-                </div>
-                <details class="adm-details">
-                  <summary>Avancé</summary>
-                  <label class="adm-field mt-2">
-                    <span class="adm-field__label" title="Repli si le fournisseur n'expose pas la liste."
-                      >Modèles (un par ligne)</span
+                  >
+                    <span v-if="adm.admLlmTest[adm.engineConnector.id]?.testing"
+                      ><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Test en cours…</span
                     >
-                    <textarea
-                      v-model="adm.admLlmForm.models_json"
-                      rows="3"
-                      placeholder="model-a&#10;model-b"
-                      class="set-textarea"
-                    ></textarea>
-                  </label>
-                </details>
-              </div>
+                    <span v-else-if="adm.admLlmTest[adm.engineConnector.id]?.ok"
+                      ><i class="ph ph-check-circle" aria-hidden="true"></i> Joignable ·
+                      {{ adm.admLlmTest[adm.engineConnector.id]?.models_count }} modèle(s)</span
+                    >
+                    <span v-else
+                      ><i class="ph ph-warning-circle" aria-hidden="true"></i>
+                      {{
+                        adm.admLlmTest[adm.engineConnector.id]?.hint ||
+                        adm.admLlmTest[adm.engineConnector.id]?.error ||
+                        "Échec"
+                      }}</span
+                    >
+                  </p>
 
-              <footer class="adm-drawer__foot">
-                <button
-                  v-if="adm.admLlmForm.id && adm.engineConnector"
-                  type="button"
-                  class="adm-btn adm-btn--quiet adm-btn--danger-quiet mr-auto"
-                  @click="adm.deleteAdmLlmConnector(adm.engineConnector)"
-                >
-                  <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
-                </button>
-                <button
-                  v-if="adm.admLlmForm.id && adm.engineConnector"
-                  type="button"
-                  class="adm-btn adm-tool"
-                  @click="adm.testAdmLlmConnector(adm.engineConnector)"
-                >
-                  Tester
-                </button>
-                <button type="button" class="adm-btn adm-btn--quiet" @click="adm.closeEngineDrawer()">
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  :disabled="adm.admLlmBusy"
-                  class="adm-btn adm-btn--primary"
-                  @click="adm.saveAdmLlmConnector()"
-                >
-                  {{ adm.admLlmForm.id ? "Enregistrer" : "Ajouter" }}
-                </button>
-              </footer>
-            </aside>
-          </div>
+                  <CapacitesMoteur
+                    v-if="
+                      adm.admLlmForm.id &&
+                      adm.engineConnector &&
+                      adm.admLlmTest[adm.engineConnector.id]?.sonde
+                    "
+                    :rapport="adm.admLlmTest[adm.engineConnector.id]?.sonde ?? null"
+                  />
+
+                  <label v-if="!adm.admLlmForm.id" class="adm-field">
+                    <span class="adm-field__label">Fournisseur</span>
+                    <select v-model="adm.admLlmForm.provider_type" class="set-select w-full">
+                      <option v-for="pt in adm.admLlmAllProviders" :key="pt" :value="pt">
+                        {{ adm.admLlmLabel(pt) }}
+                      </option>
+                    </select>
+                  </label>
+                  <label class="adm-field">
+                    <span class="adm-field__label" title="Vide = adresse officielle du fournisseur."
+                      >Adresse</span
+                    >
+                    <input
+                      v-model="adm.admLlmForm.base_url"
+                      placeholder="http://llm.example.lan:8000/v1"
+                      class="set-input font-mono text-xs"
+                    />
+                  </label>
+                  <label class="adm-field">
+                    <span class="adm-field__label">Clé API</span>
+                    <input
+                      v-model="adm.admLlmForm.api_key"
+                      type="password"
+                      autocomplete="new-password"
+                      :placeholder="
+                        adm.admLlmForm.id
+                          ? adm.engineConnector && adm.engineConnector.has_key
+                            ? 'Enregistrée · vide = inchangée'
+                            : 'Aucune'
+                          : 'Facultative en local'
+                      "
+                      class="set-input"
+                    />
+                  </label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="adm-field">
+                      <span class="adm-field__label">Modèle</span>
+                      <input
+                        v-model="adm.admLlmForm.default_model"
+                        placeholder="qwen3-coder-30b"
+                        title="Modèle par défaut"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Libellé</span>
+                      <input v-model="adm.admLlmForm.label" placeholder="vLLM interne" class="set-input" />
+                    </label>
+                  </div>
+
+                  <div v-if="adm.admLlmForm.provider_type === 'llamacpp'" class="grid grid-cols-3 gap-3">
+                    <label class="adm-field">
+                      <span class="adm-field__label">Contexte</span>
+                      <input
+                        v-model.number="adm.admLlmForm.context_window"
+                        type="number"
+                        min="0"
+                        placeholder="auto"
+                        title="Tokens par requête — vide : lu sur le serveur"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Modèles</span>
+                      <input
+                        v-model.number="adm.admLlmForm.max_models"
+                        type="number"
+                        min="0"
+                        placeholder="1"
+                        title="Modèles simultanés en mémoire sur ce serveur"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Requêtes</span>
+                      <input
+                        v-model.number="adm.admLlmForm.max_concurrency"
+                        type="number"
+                        min="0"
+                        placeholder="auto"
+                        title="Requêtes simultanées par modèle — vide : slots du serveur"
+                        class="set-input"
+                      />
+                    </label>
+                  </div>
+                  <details class="adm-details">
+                    <summary>Avancé</summary>
+                    <label class="adm-field mt-2">
+                      <span class="adm-field__label" title="Repli si le fournisseur n'expose pas la liste."
+                        >Modèles (un par ligne)</span
+                      >
+                      <textarea
+                        v-model="adm.admLlmForm.models_json"
+                        rows="3"
+                        placeholder="model-a&#10;model-b"
+                        class="set-textarea"
+                      ></textarea>
+                    </label>
+                  </details>
+                </div>
+
+                <footer class="adm-drawer__foot">
+                  <button
+                    v-if="adm.admLlmForm.id && adm.engineConnector"
+                    type="button"
+                    class="adm-btn adm-btn--quiet adm-btn--danger-quiet mr-auto"
+                    @click="adm.deleteAdmLlmConnector(adm.engineConnector)"
+                  >
+                    <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
+                  </button>
+                  <button
+                    v-if="adm.admLlmForm.id && adm.engineConnector"
+                    type="button"
+                    class="adm-btn adm-tool"
+                    @click="adm.testAdmLlmConnector(adm.engineConnector)"
+                  >
+                    Tester
+                  </button>
+                  <button type="button" class="adm-btn adm-btn--quiet" @click="adm.closeEngineDrawer()">
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="adm.admLlmBusy"
+                    class="adm-btn adm-btn--primary"
+                    @click="adm.saveAdmLlmConnector()"
+                  >
+                    {{ adm.admLlmForm.id ? "Enregistrer" : "Ajouter" }}
+                  </button>
+                </footer>
+              </aside>
+            </div>
+          </Transition>
         </teleport>
       </section>
 

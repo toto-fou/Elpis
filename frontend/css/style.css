@@ -1284,6 +1284,8 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     .toast-enter-active, .toast-leave-active,
     .fade-enter-active, .fade-leave-active,
     .model-load-enter-active, .model-load-leave-active,
+    .adm-tiroir-enter-active, .adm-tiroir-leave-active,
+    .adm-tiroir-enter-active > .adm-drawer, .adm-tiroir-leave-active > .adm-drawer,
     .adm-bar-enter-active, .adm-bar-leave-active {
         transition-property: opacity !important;
         transition-duration: min(var(--duree), 150ms) !important;
@@ -3268,8 +3270,9 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     background: rgba(15, 23, 42, .35);
     display: flex; justify-content: center; align-items: flex-start;
     padding: 12vh 1rem 1rem;
-    animation: adm-fade .12s ease-out;
 }
+/* Palette en transition « modal » : sur le départ, elle laisse passer le clic suivant. */
+.adm-palette-backdrop.modal-leave-active { pointer-events: none; }
 .adm-palette {
     width: min(40rem, 100%); max-height: 70vh;
     display: flex; flex-direction: column;
@@ -3312,7 +3315,18 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     position: fixed; inset: 0; z-index: 6000;
     background: rgba(15, 23, 42, .35);
     display: flex; justify-content: flex-end;
-    animation: adm-fade .16s ease-out;
+}
+/* Transition « adm-tiroir » : le voile s'estompe et le panneau glisse, à l'ouverture comme à la fermeture. */
+.adm-tiroir-enter-active,
+.adm-tiroir-leave-active { transition: opacity var(--duree-longue) var(--courbe-volet); }
+.adm-tiroir-enter-active > .adm-drawer,
+.adm-tiroir-leave-active > .adm-drawer { transition: transform var(--duree-longue) var(--courbe-volet); }
+.adm-tiroir-leave-active { pointer-events: none; }
+.adm-tiroir-enter-from,
+.adm-tiroir-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .adm-tiroir-enter-from > .adm-drawer,
+    .adm-tiroir-leave-to > .adm-drawer { transform: translateX(1.5rem); }
 }
 .adm-drawer {
     width: min(28rem, 100vw); height: 100%;
@@ -3320,7 +3334,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     background: var(--surface);
     border-left: 1px solid var(--border);
     box-shadow: -8px 0 24px rgba(15, 23, 42, .12);
-    animation: adm-drawer-in .22s cubic-bezier(.22, 1, .36, 1);
     outline: none;
 }
 .adm-drawer__head {
@@ -3334,11 +3347,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border-soft);
-}
-@keyframes adm-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes adm-drawer-in { from { transform: translateX(1.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-    .adm-drawer-backdrop, .adm-drawer { animation: adm-fade 150ms ease-out; }
 }
 
 

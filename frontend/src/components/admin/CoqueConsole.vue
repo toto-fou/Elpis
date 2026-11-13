@@ -231,62 +231,64 @@ const heure = formateurDate({ timeStyle: "short" });
 
   <ModalesConsole />
 
-  <div v-if="adm.paletteOpen" class="adm-palette-backdrop" @click.self="adm.closePalette()">
-    <div
-      class="adm-palette"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Rechercher dans la console"
-      @keydown="adm.onPaletteKey"
-    >
-      <div class="adm-palette__search">
-        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        <input
-          :ref="
-            (el) => {
-              adm.paletteInput = el as typeof adm.paletteInput;
-            }
-          "
-          v-model="adm.paletteQuery"
-          type="text"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="adm-palette-list"
-          aria-autocomplete="list"
-          :aria-activedescendant="adm.paletteResults.length ? 'adm-pal-' + adm.paletteIndex : undefined"
-          placeholder="Page, réglage ou action"
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Rechercher une page, un réglage ou une action"
-        />
-        <kbd class="adm-kbd">Échap</kbd>
-      </div>
-      <ul id="adm-palette-list" class="adm-palette__list" role="listbox" aria-label="Résultats">
-        <li
-          v-for="(r, i) in adm.paletteResults"
-          :id="'adm-pal-' + i"
-          :key="r.key"
-          role="option"
-          :aria-selected="i === adm.paletteIndex ? 'true' : 'false'"
-          class="adm-palette__item"
-          :class="{ 'is-active': i === adm.paletteIndex }"
-          @mousemove="adm.paletteIndex = i"
-          @click="adm.runPaletteItem(r)"
-        >
-          <i class="ph adm-palette__icon" :class="r.icon" aria-hidden="true"></i>
-          <span class="adm-palette__label"
-            ><template v-for="(g, k) in r.segs" :key="k"
-              ><mark v-if="g.hit">{{ g.t }}</mark
-              ><template v-else>{{ g.t }}</template></template
-            ></span
+  <Transition name="modal">
+    <div v-if="adm.paletteOpen" class="adm-palette-backdrop" @click.self="adm.closePalette()">
+      <div
+        class="adm-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Rechercher dans la console"
+        @keydown="adm.onPaletteKey"
+      >
+        <div class="adm-palette__search">
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <input
+            :ref="
+              (el) => {
+                adm.paletteInput = el as typeof adm.paletteInput;
+              }
+            "
+            v-model="adm.paletteQuery"
+            type="text"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="adm-palette-list"
+            aria-autocomplete="list"
+            :aria-activedescendant="adm.paletteResults.length ? 'adm-pal-' + adm.paletteIndex : undefined"
+            placeholder="Page, réglage ou action"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Rechercher une page, un réglage ou une action"
+          />
+          <kbd class="adm-kbd">Échap</kbd>
+        </div>
+        <ul id="adm-palette-list" class="adm-palette__list" role="listbox" aria-label="Résultats">
+          <li
+            v-for="(r, i) in adm.paletteResults"
+            :id="'adm-pal-' + i"
+            :key="r.key"
+            role="option"
+            :aria-selected="i === adm.paletteIndex ? 'true' : 'false'"
+            class="adm-palette__item"
+            :class="{ 'is-active': i === adm.paletteIndex }"
+            @mousemove="adm.paletteIndex = i"
+            @click="adm.runPaletteItem(r)"
           >
-          <span v-if="r.meta" class="adm-palette__meta">{{ r.meta }}</span>
-          <span class="adm-palette__kind">{{ r.kindLabel }}</span>
-        </li>
-        <li v-if="!adm.paletteResults.length" class="adm-palette__empty" role="presentation">
-          Aucun résultat
-        </li>
-      </ul>
+            <i class="ph adm-palette__icon" :class="r.icon" aria-hidden="true"></i>
+            <span class="adm-palette__label"
+              ><template v-for="(g, k) in r.segs" :key="k"
+                ><mark v-if="g.hit">{{ g.t }}</mark
+                ><template v-else>{{ g.t }}</template></template
+              ></span
+            >
+            <span v-if="r.meta" class="adm-palette__meta">{{ r.meta }}</span>
+            <span class="adm-palette__kind">{{ r.kindLabel }}</span>
+          </li>
+          <li v-if="!adm.paletteResults.length" class="adm-palette__empty" role="presentation">
+            Aucun résultat
+          </li>
+        </ul>
+      </div>
     </div>
-  </div>
+  </Transition>
 </template>

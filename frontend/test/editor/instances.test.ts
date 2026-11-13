@@ -165,6 +165,16 @@ describe("éditeurs Monaco", () => {
     expect([options.length, diffs]).toEqual([1, 0]);
     tranches[1]?.();
     expect([options.length, diffs]).toEqual([1, 1]);
+
+    // Vrais éditeurs créés entre le survol et une tranche : la tranche ne crée plus rien.
+    vi.resetModules();
+    const n = await import("../../src/features/editor/instances");
+    const plus: (() => void)[] = [];
+    n.prechaufferEditeurs(monaco, {}, (f) => plus.push(f));
+    n.creerEditeurs(monaco, elements(), {}, rappels).liberer();
+    const avant = [options.length, diffs];
+    for (const f of plus) f();
+    expect([options.length, diffs]).toEqual(avant);
   });
 
   it("préférences bornées et thème", () => {

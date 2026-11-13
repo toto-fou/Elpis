@@ -7,7 +7,7 @@ export const CALME_MS = 5000;
 type Tranche = () => unknown;
 
 const file: Tranche[] = [];
-let occupe: () => boolean = () => false;
+let estOccupe: () => boolean = () => false;
 let derniereActivite = 0;
 let ecoute = false;
 let programmee = false;
@@ -19,9 +19,14 @@ export function auRepos(tache: () => void, delai = 3000): void {
   else setTimeout(tache, Math.min(delai, 1500));
 }
 
-/** Ce qui suspend la file de fond (un flux en cours, par exemple). */
+/** Ce qui suspend les travaux de fond et les préchargements (un flux en cours, par exemple). */
 export function definirOccupation(f: () => boolean): void {
-  occupe = f;
+  estOccupe = f;
+}
+
+/** Vrai tant que les travaux de fond doivent attendre. */
+export function occupe(): boolean {
+  return estOccupe();
 }
 
 function activite(): void {

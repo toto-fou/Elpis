@@ -172,20 +172,22 @@ function options(p: PreferencesEditeur, theme: string): Record<string, unknown> 
   };
 }
 
-// Monaco a déjà servi (préchauffé ou éditeurs créés) : plus rien à préchauffer.
+// Éditeurs créés : plus rien à préchauffer ; préchauffage déjà lancé : pas une seconde fois.
 let monacoServi = false;
+let prechauffageLance = false;
 
-/** Crée puis libère, hors écran et sans toucher au thème global, un éditeur puis un éditeur de différences aux réglages du compte, chacun dans sa tranche : polices mesurées et services de Monaco prêts avant la première ouverture. */
+/** Crée puis libère, hors écran et sans toucher au thème global, un éditeur puis un éditeur de différences aux réglages du compte, chacun dans sa tranche (sautée si les vrais éditeurs existent déjà) : polices mesurées et services de Monaco prêts avant la première ouverture. */
 export function prechaufferEditeurs(
   monaco: MonacoEditeurs,
   reglages: ReglagesEditeur | null | undefined,
   tranche: (f: () => void) => void = (f) => f(),
 ): void {
-  if (monacoServi) return;
-  monacoServi = true;
+  if (monacoServi || prechauffageLance) return;
+  prechauffageLance = true;
   const o = options(preferencesEditeur(reglages), "");
   delete o.theme;
   const horsEcran = (creer: (hote: HTMLElement) => { dispose(): void }) => (): void => {
+    if (monacoServi) return;
     const hote = document.createElement("div");
     hote.style.cssText = "position:fixed;left:-10000px;top:0;width:640px;height:420px;visibility:hidden";
     document.body.appendChild(hote);

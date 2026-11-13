@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { definirPrechargement, ecouterIntentions } from "../../src/platform/precharge";
+import { definirOccupation } from "../../src/platform/repos";
 
 const attendre = () => new Promise((ok) => setTimeout(ok, 0));
 let retirer = (): void => undefined;
@@ -31,6 +32,24 @@ describe("préchargement à l'intention", () => {
     await attendre();
     expect(editeur).toHaveBeenCalledTimes(1);
     expect(studio).toHaveBeenCalledTimes(1);
+  });
+
+  it("rien pendant un flux ; la clé reste relançable après", async () => {
+    let flux = true;
+    definirOccupation(() => flux);
+    const f = vi.fn();
+    definirPrechargement("routines-t", f);
+    document.body.innerHTML = '<button data-precharge="routines-t">Routines</button>';
+    retirer = ecouterIntentions();
+    const bouton = document.querySelector("button") as HTMLElement;
+    bouton.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+    await attendre();
+    expect(f).not.toHaveBeenCalled();
+    flux = false;
+    bouton.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+    await attendre();
+    expect(f).toHaveBeenCalledTimes(1);
+    definirOccupation(() => false);
   });
 
   it("un échec laisse la clé relançable ; plus rien une fois l'écoute retirée", async () => {

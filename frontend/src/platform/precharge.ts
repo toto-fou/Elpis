@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/platform/precharge.ts — préchargement à l'intention : survol, focus ou appui sur un élément `[data-precharge="cle …"]` lance une fois le préchargeur de chaque clé. */
 
+import { occupe } from "./repos";
+
 const prechargeurs = new Map<string, () => unknown>();
 const lances = new Set<string>();
 
@@ -9,10 +11,10 @@ export function definirPrechargement(cle: string, f: () => unknown): void {
   prechargeurs.set(cle, f);
 }
 
-/** Lance le préchargeur d'une clé une fois ; un échec le laisse relançable. */
+/** Lance le préchargeur d'une clé une fois, jamais pendant un flux ; un échec le laisse relançable. */
 export function precharger(cle: string): void {
   const f = prechargeurs.get(cle);
-  if (!f || lances.has(cle)) return;
+  if (!f || lances.has(cle) || occupe()) return;
   lances.add(cle);
   void Promise.resolve()
     .then(f)

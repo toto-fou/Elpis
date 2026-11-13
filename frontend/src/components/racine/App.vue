@@ -26,7 +26,7 @@ import type { MonacoEditeurs } from "../../features/editor/instances";
 import { ensureVendor } from "../../platform/vendor";
 import { creerMorceaux } from "../../platform/differe";
 import { definirPrechargement, ecouterIntentions } from "../../platform/precharge";
-import { auRepos, auReposProlonge, definirOccupation } from "../../platform/repos";
+import { auRepos, auReposProlonge, definirOccupation, occupe } from "../../platform/repos";
 import { SELECTEUR_FOCUSABLES } from "../../utils/focus";
 import { fournirDomaineEditeur } from "../../features/editor/domaine";
 import { setupEditor } from "../../features/editor/editeur";
@@ -228,7 +228,7 @@ function focaliserSiOuverte(k: Rare): void {
 definirOccupation(() => r.isStreaming);
 for (const k of RARES) definirPrechargement(k, () => rares.precharger(k));
 definirPrechargement("editeur", () =>
-  Promise.all([prechaufferMonaco((f) => auRepos(f, 1000)), rares.precharger("git")]),
+  Promise.all([prechaufferMonaco((f) => auRepos(() => !occupe() && f(), 1000)), rares.precharger("git")]),
 );
 const retirerIntentions = ecouterIntentions();
 onUnmounted(retirerIntentions);

@@ -119,6 +119,46 @@ describe("vecteurs Python de _pw_session", () => {
       expect(extractPwVisionCapture(outil, a, r), JSON.stringify([outil, a, r])).toBeNull();
   });
 
+  it("capture explicite (pw_page screenshot, pw_observe som) : montrée sans capture d'étape, de sa propre session, nom strict", () => {
+    const args = { session_id: "sessAAAA1111", action: "screenshot" };
+    const res = (nom: unknown, extra: object = {}): string =>
+      JSON.stringify({
+        ok: true,
+        screenshot: nom,
+        screenshot_url: `/api/playwright/screenshot/${String(nom)}`,
+        ...extra,
+      });
+    const attendu = (pas: number, nom = `shot_sessAAAA1111_${pas}.png`) => ({
+      url: `/api/playwright/screenshot/${nom}?t=1700000000123`,
+      step: pas,
+      session_id: "sessAAAA1111",
+    });
+    const lire = (outil: string, a: object, r: string) =>
+      extractPwScreenshotUrl(outil, a, r, 1_700_000_000.123);
+    expect(lire("pw_page", args, res("shot_sessAAAA1111_7.png"))).toEqual(attendu(7));
+    expect(lire("pw_observe", { sid: "sessAAAA1111", mode: "som" }, res("shot_sessAAAA1111_12.png"))).toEqual(
+      attendu(12),
+    );
+    // Préférée à une capture d'étape du même résultat.
+    expect(lire("pw_page", args, res("shot_sessAAAA1111_7.png", { screenshot_step: 7 }))).toEqual(attendu(7));
+    for (const nom of [
+      "shot_sessBBBB2222_7.png",
+      "shot_sessAAAA1111_7.jpg",
+      "shot_sessAAAA1111_0.png",
+      "shot_sessAAAA1111_1731500000000.png",
+      "shot_sessAAAA1111_7.png/../x",
+      "../shot_sessAAAA1111_7.png",
+      "shot_sessAAAA1111_x.png",
+      "smart_sessAAAA1111.png",
+      "view_sessAAAA1111.png",
+      7,
+      null,
+    ])
+      expect(lire("pw_page", args, res(nom)), JSON.stringify(nom)).toBeNull();
+    expect(lire("desktop_act", args, res("shot_sessAAAA1111_7.png"))).toBeNull();
+    expect(lire("pw_page", { session_id: "../x", action: "screenshot" }, res("shot_../x_7.png"))).toBeNull();
+  });
+
   it("chemins des fichiers compagnons : aucune traversée", () => {
     process.env["PW_OWNERS_DIR"] = "/srv/proprietaires";
     for (const c of v.chemins) expect(pwOwnerPath(c.sid), String(c.sid)).toBe(c.valeur);

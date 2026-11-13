@@ -23,6 +23,7 @@ import {
   cheminsNavigateurBac,
   chargerAutorite,
   defisAuth,
+  extractPwScreenshotUrl,
   Feuilles,
   jugeRelaisBac,
   reponseDigest,
@@ -348,7 +349,7 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
     await outil("pw_session", { action: "stop", session_id: tr["session_id"] });
   }, 120_000);
 
-  it("captures à la demande : aucune par défaut, une étape JPEG par appel si demandée, vision 1024 px à inspect", async () => {
+  it("captures à la demande : aucune par défaut, une étape JPEG par appel si demandée, vision 1024 px à inspect, capture explicite toujours", async () => {
     const pavés = Array.from(
       { length: 120 },
       (_, i) =>
@@ -423,6 +424,20 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
       `[captures] pw_page inspect avec vision : ${msInspect.toFixed(0)} ms (sans : ${(performance.now() - t1).toFixed(0)} ms), ` +
         `${Math.round(jpeg.length / 1024)} Ko`,
     );
+    // Capture explicite : prise et montrée avec ou sans captures d'étape, jamais doublée d'une étape.
+    for (const meta of [{}, { web_captures: "1" }]) {
+      const avant = captures();
+      const args = { session_id: sid, action: "screenshot" };
+      const shot = await outil("pw_page", args, meta);
+      const nom = String(shot["screenshot"]);
+      expect(nom).toMatch(new RegExp(`^shot_${sid}_[0-9]+\\.png$`, "u"));
+      expect(shot["screenshot_step"]).toBeUndefined();
+      expect(extractPwScreenshotUrl("pw_page", args, JSON.stringify(shot))?.["url"]).toMatch(
+        new RegExp(`^/api/playwright/screenshot/${nom}\\?t=[0-9]+$`, "u"),
+      );
+      await new Promise((ok) => setTimeout(ok, 1000));
+      expect(captures()).toEqual([...avant, nom].sort());
+    }
     await outil("pw_session", { action: "stop", session_id: sid });
   }, 180_000);
 

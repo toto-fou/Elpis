@@ -679,7 +679,7 @@ describe("lot complet et relances", () => {
     expect([texte["web_captures"], texte["vision"]]).toEqual(["1", undefined]);
   });
 
-  it("vision : plus aucun rapatriement après chaque action ; à pw_page inspect, la seule capture de la vision, injectée", async () => {
+  it("vision : plus aucun rapatriement après chaque action ; à pw_page inspect, la seule capture de la vision, injectée ; capture explicite montrée, sans image pour le modèle", async () => {
     const dossier = mkdtempSync(path.join(tmpdir(), "elpis-pw-screens-"));
     vi.stubEnv("PW_SCREENS_DIR", dossier);
     writeFileSync(path.join(dossier, "vision_sessAAAA1111_4.jpg"), "jpeg");
@@ -756,6 +756,16 @@ describe("lot complet et relances", () => {
       const sansCapture = await lot("pw_page", { session_id: "sessAAAA1111", action: "inspect" });
       expect(suivies).toEqual(["vision_sessAAAA1111_4.jpg"]);
       expect(sansCapture.map((m) => m["role"])).toEqual(["assistant", "tool"]);
+      resultats["pw_page"] =
+        '{"ok": true, "action": "screenshot", "screenshot": "shot_sessAAAA1111_6.png", "screenshot_url": "/api/playwright/screenshot/shot_sessAAAA1111_6.png"}';
+      const explicite = await lot("pw_page", { session_id: "sessAAAA1111", action: "screenshot" });
+      expect(explicite.map((m) => m["role"])).toEqual(["assistant", "tool"]);
+      expect(suivies).toEqual(["vision_sessAAAA1111_4.jpg"]);
+      expect(evenements.filter((e) => e["type"] === "tool_result").at(-1)).toMatchObject({
+        screenshot_url: "/api/playwright/screenshot/shot_sessAAAA1111_6.png?t=1000",
+        screenshot_step: 6,
+        screenshot_session: "sessAAAA1111",
+      });
     } finally {
       rmSync(dossier, { recursive: true, force: true });
     }

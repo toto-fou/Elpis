@@ -43,6 +43,12 @@ function echapperFlux(s: string): string {
 }
 
 const OUVRE_FENCE = /^(?:[ \t]*\n)*[ ]{0,3}(?:`{3}|~{3})/;
+const CHIFFRES_NUS = /\n[ \t]*\d{1,3}$/;
+const FENCE_PARTIELLE: Readonly<Record<string, RegExp>> = {
+  "`": /(^|\n)[ \t]*`{1,2}$/,
+  "~": /(^|\n)[ \t]*~{1,2}$/,
+};
+
 function ouvreFence(md: string): boolean {
   return OUVRE_FENCE.test(md);
 }
@@ -257,7 +263,11 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
       const nl = md.indexOf("\n");
       const ouvrant = (nl === -1 ? lead : md.slice(0, nl)).trim();
       const lang = ouvrant.replace(/^(`{3,}|~{3,})\s*/, "").split(/\s+/)[0] ?? "";
-      const corps = (nl === -1 ? "" : md.slice(nl + 1)).replace(/\n?(`{3,}|~{3,})\s*$/, "");
+      const complet = (nl === -1 ? "" : md.slice(nl + 1)).replace(/\n?(`{3,}|~{3,})\s*$/, "");
+      // Ni fermeture partielle ni saut de ligne final : le bloc ne rétrécit pas quand la fence se ferme.
+      const corps = complet
+        .replace(FENCE_PARTIELLE[lead.charAt(0)] ?? FENCE_PARTIELLE["`"]!, "$1")
+        .replace(/\n$/, "");
       const cls = "hljs" + (lang ? " language-" + echapperFlux(lang) : "");
       const html = echapperCorpsFence(corps);
       return estBlocOrdinaire(lang.toLowerCase(), () => corps)
@@ -284,14 +294,21 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     return etat && flux ? flux.reprendre(t, etat) : (etat ?? etatVide());
   }
 
+  // Chiffres seuls sur la ligne inachevée d'un bloc qui a du texte avant : début possible d'un numéro de liste, retenu jusqu'à ce que la suite tranche.
+  function sansNumeroNu(actif: string): string {
+    const m = CHIFFRES_NUS.exec(actif);
+    return m && !ouvreFence(actif) && actif.slice(0, m.index).trim() ? actif.slice(0, m.index) : actif;
+  }
+
   function avancerFlux(texte: string, etat: EtatFlux | null): ResultatFlux {
     const t = preparerTexte(texte);
     const courant = reprise(t, etat);
     if (!flux) return { etat: courant, actifHtml: echapperFlux(t) };
     const r = flux.avancer(t, courant);
+    const actif = sansNumeroNu(r.actif);
     return {
       etat: { ...r.etat, source: texte },
-      actifHtml: r.actif.trim() ? renderStreamingActive(r.actif, r.etat.liens) : "",
+      actifHtml: actif.trim() ? renderStreamingActive(actif, r.etat.liens) : "",
     };
   }
 

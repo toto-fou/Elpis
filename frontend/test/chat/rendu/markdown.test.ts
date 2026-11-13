@@ -202,6 +202,81 @@ describe("blocs figés : purification explicite", () => {
   });
 });
 
+describe("fence active : fermeture partielle", () => {
+  const code = (md: string): string => {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = m.renderStreamingActive(md);
+    return tpl.content.querySelector("pre code")?.textContent ?? "";
+  };
+
+  it.each([
+    ["```py\nx = 1\n`", "x = 1"],
+    ["```py\nx = 1\n``", "x = 1"],
+    ["```py\nx = 1\n  ``", "x = 1"],
+    ["```py\n``", ""],
+    ["~~~\nx = 1\n~", "x = 1"],
+    ["~~~\nx = 1\n~~", "x = 1"],
+  ])("une dernière ligne de 1 ou 2 caractères de la fence ouvrante est retenue : %j", (md, attendu) => {
+    expect(code(md)).toBe(attendu);
+  });
+
+  it.each([
+    ["```py\nx = 1\n~", "x = 1\n~"],
+    ["~~~\nx = 1\n`", "x = 1\n`"],
+    ["```py\nx = `y`", "x = `y`"],
+    ["```py\nx = 1\n``y", "x = 1\n``y"],
+    ["```py\nx = 1\n`` ", "x = 1\n`` "],
+    ["```py\n``\nx = 1", "``\nx = 1"],
+    ["```py\nx = 1\n.`", "x = 1\n.`"],
+  ])("du vrai code n'est jamais masqué : %j", (md, attendu) => {
+    expect(code(md)).toBe(attendu);
+  });
+
+  it("la fermeture complète reste retirée, la ligne retenue réapparaît dès que la suite la contredit", () => {
+    expect(code("```py\nx = 1\n```")).toBe("x = 1");
+    expect(code("```py\nx = 1\n``")).toBe("x = 1");
+    expect(code("```py\nx = 1\n``a")).toBe("x = 1\n``a");
+  });
+
+  it("le bloc ne rétrécit jamais : la ligne du curseur n'est affichée qu'avec son premier caractère", () => {
+    const texte = "```py\nx = 1\ny = 2\n```\n";
+    const lignes = (md: string): number => code(md).split("\n").length;
+    let precedent = 0;
+    for (let n = 6; n <= texte.length; n++) {
+      const courant = lignes(texte.slice(0, n));
+      expect(courant, JSON.stringify(texte.slice(0, n))).toBeGreaterThanOrEqual(precedent);
+      precedent = courant;
+    }
+  });
+
+  it("le bloc figé est le même que le dernier état affiché", () => {
+    const texte = "```py\nx = 1\ny = 2\n```\n";
+    const fige = (m.terminerFlux(texte, null)?.etat.blocs ?? []).map((b) => b.html).join("");
+    expect(m.renderStreamingActive(texte.slice(0, -1)).trim()).toBe(fige.trim());
+  });
+});
+
+describe("numéro nu sous du texte", () => {
+  const actif = (texte: string): string => m.avancerFlux(texte, null).actifHtml;
+
+  it("chiffres seuls sur la ligne inachevée : retenus tant que la suite ne tranche pas", () => {
+    const liste = "1. un\n2. deux\n\n";
+    expect(actif(liste + "3")).toBe(actif(liste.trimEnd()));
+    expect(actif(liste + "12")).toBe(actif(liste.trimEnd()));
+    expect(actif(liste + "3.")).toBe(actif(liste.trimEnd()));
+    expect(actif(liste + "3. Tr")).toContain("Tr");
+    expect(actif(liste + "3 pommes")).toContain("3 pommes");
+    expect(actif(liste + "3 ")).toContain("3");
+  });
+
+  it("jamais pour le premier texte du bloc, ni dans une fence, ni à la fin du texte", () => {
+    expect(actif("42")).toContain("42");
+    expect(actif("```\nx\n42")).toContain("42");
+    const fin = m.terminerFlux("Un.\n\n3", null);
+    expect(fin?.etat.blocs.map((b) => b.html).join("")).toContain("<p>3</p>");
+  });
+});
+
 describe("rendu incrémental", () => {
   it("découpe monotone : le décalage ne recule jamais, un bloc figé ne change plus, jamais de coupe dans une fence", () => {
     const texte = "Titre\n\n```py\na = 1\n\nb = 2\n```\n\nFin du texte";

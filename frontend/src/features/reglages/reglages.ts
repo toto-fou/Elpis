@@ -82,7 +82,6 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     loadSharedMcpServers: mcp.loadSharedMcpServers,
     reinitialiserEpingles: reinitialiserEpingles,
     loadSavedPrompts: prompts.loadSavedPrompts,
-    loadSharedPrompts: prompts.loadSharedPrompts,
     loadPromptTemplates: prompts.loadPromptTemplates,
     loadArchives: archives.loadArchives,
     loadLlmConnectors: llm.loadLlmConnectors,

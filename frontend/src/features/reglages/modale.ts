@@ -20,7 +20,6 @@ export interface DependancesModale {
   loadSharedMcpServers(): Promise<void>;
   reinitialiserEpingles(): void;
   loadSavedPrompts(): Promise<void>;
-  loadSharedPrompts(): Promise<void>;
   loadPromptTemplates(): Promise<void>;
   loadArchives(): Promise<void>;
   loadLlmConnectors(): Promise<void>;
@@ -167,7 +166,6 @@ export function creerModale(
     persistance.snapshot.value = base;
     dep.cancelMemoryEdit();
     void dep.loadSavedPrompts();
-    void dep.loadSharedPrompts();
     void dep.loadArchives();
     showSettingsModal.value = true;
     void nextTick(() => settingsDialogEl.value?.focus());

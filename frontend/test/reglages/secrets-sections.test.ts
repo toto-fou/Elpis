@@ -121,7 +121,6 @@ describe("openSettingsTab", () => {
       loadSharedMcpServers: vi.fn(async () => {}),
       reinitialiserEpingles: vi.fn(),
       loadSavedPrompts: vi.fn(async () => {}),
-      loadSharedPrompts: vi.fn(async () => {}),
       loadPromptTemplates: vi.fn(async () => {}),
       loadArchives: vi.fn(async () => {}),
       loadLlmConnectors: vi.fn(async () => {}),

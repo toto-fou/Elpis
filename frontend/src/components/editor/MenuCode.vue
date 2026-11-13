@@ -4,6 +4,15 @@
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const ACTIONS_IA = [
+  { action: "explain", icone: "ph-question text-blue-400", libelle: "Expliquer ce code" },
+  { action: "comment", icone: "ph-chat-dots text-sky-400", libelle: "Commenter (IA)" },
+  { action: "refactor", icone: "ph-arrows-clockwise text-slate-400", libelle: "Refactoriser" },
+  { action: "bugs", icone: "ph-bug text-red-400", libelle: "Chercher des bugs" },
+  { action: "optimize", icone: "ph-lightning text-yellow-400", libelle: "Optimiser" },
+  { action: "docstring", icone: "ph-note-pencil text-green-400", libelle: "Ajouter docstring" },
+  { action: "tests", icone: "ph-test-tube text-slate-400", libelle: "Générer des tests" },
+];
 </script>
 
 <template>
@@ -61,53 +70,13 @@ const ed = domaineEditeur();
         </button>
         <template v-if="ed.editorCtxMenu.hasSelection">
           <button
+            v-for="x in ACTIONS_IA"
+            :key="x.action"
             class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('explain')"
+            @mousedown.stop.prevent="ed.editorCtxRunAI(x.action)"
           >
-            <i class="ph ph-question text-blue-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Expliquer ce code</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('comment')"
-          >
-            <i class="ph ph-chat-dots text-sky-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Commenter (IA)</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('refactor')"
-          >
-            <i class="ph ph-arrows-clockwise text-slate-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Refactoriser</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('bugs')"
-          >
-            <i class="ph ph-bug text-red-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Chercher des bugs</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('optimize')"
-          >
-            <i class="ph ph-lightning text-yellow-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Optimiser</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('docstring')"
-          >
-            <i class="ph ph-note-pencil text-green-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Ajouter docstring</span>
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            @mousedown.stop.prevent="ed.editorCtxRunAI('tests')"
-          >
-            <i class="ph ph-test-tube text-slate-400 text-base shrink-0"></i>
-            <span class="text-[13px] text-slate-300">Générer des tests</span>
+            <i class="ph text-base shrink-0" :class="x.icone"></i>
+            <span class="text-[13px] text-slate-300">{{ x.libelle }}</span>
           </button>
         </template>
       </div>

@@ -74,6 +74,22 @@ describe("ouverture des Paramètres", () => {
     expect(R.settingsDirty.value).toBe(false);
   });
 
+  it("document changé ailleurs, onglet lent : l'instantané suit le document reçu, rien n'est réécrit", async () => {
+    const { R, settings, urls, repondre, toasts } = monter({ assistant_name: "Elpis" });
+    R.settingsTab.value = "usage";
+    void R.openSettings();
+    await vider();
+    repondre("/api/settings", { assistant_name: "Zoé" });
+    await vider();
+    expect(settings.value.assistant_name).toBe("Zoé");
+    expect(R.settingsDirty.value).toBe(false);
+    // GET /api/usage/me reste sans réponse au-delà du délai de l'enregistrement automatique.
+    await new Promise((r) => setTimeout(r, 900));
+    await vider();
+    expect(urls().filter((u) => u === "PUT /api/settings")).toEqual([]);
+    expect(toasts).toEqual([]);
+  });
+
   it("un document identique ne remplace pas celui affiché", async () => {
     const { R, settings, repondre } = monter({});
     const premiere = R.openSettings();

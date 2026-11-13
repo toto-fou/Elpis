@@ -170,7 +170,8 @@ export function creerModale(
     showSettingsModal.value = true;
     void nextTick(() => settingsDialogEl.value?.focus());
     if (settings.value.enable_model_selector) void ctx.loadAvailableModels?.();
-    const [recu] = await Promise.all([loadSettingsData(base, false), chargerOnglet(settingsTab.value)]);
+    void chargerOnglet(settingsTab.value);
+    const recu = await loadSettingsData(base, false);
     if (recu === null || !showSettingsModal.value) return;
     persistance.snapshot.value = recu;
     if (persistance.settingsDirty.value) void persistance.viderEnAttente();

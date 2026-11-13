@@ -132,6 +132,8 @@ export interface HistoriqueChat {
 // `globalThis` plutôt que `window` : le module se charge aussi dans Node (harnais des scripts historiques).
 const globaux = (): GlobalsHistorique & Partial<Pick<Window, "innerWidth" | "addEventListener">> =>
   globalThis as unknown as GlobalsHistorique;
+/** Attente au-delà de laquelle la suppression se confirme sans le nombre de tâches de fond (elle les arrête de toute façon). */
+export const DELAI_TACHES_MS = 3000;
 // Une seule écoute du déchargement par page, quel que soit le nombre d'historiques créés.
 let dechargementEcoute = false;
 const etroit = (): boolean => (globaux().innerWidth ?? 1024) < 1024;
@@ -645,9 +647,13 @@ export function creerHistoriqueChat(
     });
   }
 
-  // « N tâches de fond seront arrêtées » : lu après l'ouverture de la confirmation, qui n'attend pas.
+  // « N tâches de fond seront arrêtées » : lu après l'ouverture de la confirmation, dont la validation l'attend 3 s au plus.
   async function avertissementJobs(ids: readonly string[]): Promise<string> {
-    const n = await Promise.resolve(deps.compterJobsActifs?.(ids) ?? 0).catch(() => 0);
+    let minuteur: ReturnType<typeof setTimeout> | undefined;
+    const delai = new Promise<number>((r) => (minuteur = setTimeout(() => r(0), DELAI_TACHES_MS)));
+    const compte = Promise.resolve(deps.compterJobsActifs?.(ids) ?? 0).catch(() => 0);
+    const n = await Promise.race([compte, delai]);
+    clearTimeout(minuteur);
     return n > 0 ? `${n} ${n > 1 ? "tâches de fond seront arrêtées" : "tâche de fond sera arrêtée"}.` : "";
   }
 

@@ -44,6 +44,8 @@ export interface EtatFenetre {
   inputValue: string;
   placeholder: string;
   requireText?: string;
+  /** Validation retenue : une information de la confirmation est encore attendue. */
+  attente?: boolean;
   choices?: ChoixFenetre[];
   resolve: Resolution | null;
 }
@@ -210,7 +212,7 @@ export function creerFenetre() {
     void nextTick(() => focus.value?.focus());
   }
 
-  // `suite` : texte arrivé après l'ouverture, posé à la place du message (même ligne : le bouton ne bouge pas).
+  // `suite` : texte arrivé après l'ouverture, posé à la place du message (le bouton ne bouge pas) ; la validation l'attend.
   function openConfirm(
     title: string,
     message?: string,
@@ -229,15 +231,21 @@ export function creerFenetre() {
           confirmLabel: confirmLabel || (isDanger ? "Supprimer" : "Confirmer"),
           cancelLabel: cancelLabel || "Annuler",
           resolve: fin,
+          attente: !!suite,
         },
         modalCancelRef,
       );
-      suite?.then(
-        (t) => {
-          if (t && modalState.value.isOpen && modalState.value.resolve === fin) modalState.value.message = t;
-        },
-        () => {},
-      );
+      const encore = (): boolean => modalState.value.isOpen && modalState.value.resolve === fin;
+      void suite
+        ?.then(
+          (t) => {
+            if (t && encore()) modalState.value.message = t;
+          },
+          () => {},
+        )
+        .finally(() => {
+          if (encore()) modalState.value.attente = false;
+        });
     });
   }
 
@@ -304,6 +312,7 @@ export function creerFenetre() {
 
   function modalTypedBlocked(): boolean {
     const m = modalState.value;
+    if (m.attente) return true;
     if (!m.requireText) return false;
     return (
       String(m.inputValue || "")

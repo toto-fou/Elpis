@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/jobs/historique-jobs.test.ts — historique : message de réveil relu avec sa ligne, confirmation de suppression qui annonce les tâches de fond arrêtées. */
+/** frontend/test/chat/jobs/historique-jobs.test.ts — historique : message de réveil relu avec sa ligne, confirmation de suppression ouverte aussitôt, qui annonce ensuite les tâches de fond arrêtées. */
 import * as Vue from "vue";
 import { ref } from "vue";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { construireMessages, creerHistoriqueChat } from "../../../src/features/chat/historique/historique";
+import {
+  construireMessages,
+  creerHistoriqueChat,
+  DELAI_TACHES_MS,
+} from "../../../src/features/chat/historique/historique";
 import type {
   DepsHistorique,
   Message,
@@ -44,7 +48,7 @@ describe("messages de réveil relus", () => {
 });
 
 function monter(compter?: (ids: readonly string[]) => Promise<number>) {
-  const confirmations: [string, string | undefined][] = [];
+  const confirmations: [string, string | undefined, Promise<string> | undefined][] = [];
   const refs = {
     messages: ref<readonly Message[]>([]),
     currentChatId: ref<string | null>(null),
@@ -78,8 +82,8 @@ function monter(compter?: (ids: readonly string[]) => Promise<number>) {
     {
       fetchAuth: () => Promise.resolve(json({})),
       showToast: () => undefined,
-      openConfirm: (titre, texte) => {
-        confirmations.push([titre, texte]);
+      openConfirm: (titre, texte, _danger, _libelle, _annuler, suite) => {
+        confirmations.push([titre, texte, suite]);
         return Promise.resolve(false);
       },
       openPrompt: () => Promise.resolve(null),
@@ -92,6 +96,9 @@ function monter(compter?: (ids: readonly string[]) => Promise<number>) {
 }
 
 describe("suppression d'une conversation à tâches de fond", () => {
+  // La confirmation s'ouvre sans attendre ; le nombre de tâches arrive ensuite à la place de son message.
+  const SUITE = "Vous pourrez l’annuler quelques secondes.";
+
   it("la confirmation annonce « N tâches de fond seront arrêtées »", async () => {
     const vus: (readonly string[])[] = [];
     const b = monter((ids) => {
@@ -100,25 +107,23 @@ describe("suppression d'une conversation à tâches de fond", () => {
     });
     await b.api.deleteChat("c1");
     expect(vus).toEqual([["c1"]]);
-    expect(b.confirmations).toEqual([["Supprimer la conversation ?", "2 tâches de fond seront arrêtées."]]);
+    expect(b.confirmations[0]?.slice(0, 2)).toEqual(["Supprimer la conversation ?", SUITE]);
+    expect(await b.confirmations[0]?.[2]).toBe("2 tâches de fond seront arrêtées.");
   });
 
   it("une seule tâche : singulier", async () => {
     const b = monter(() => Promise.resolve(1));
     await b.api.deleteChat("c1");
-    expect(b.confirmations[0]?.[1]).toBe("1 tâche de fond sera arrêtée.");
+    expect(await b.confirmations[0]?.[2]).toBe("1 tâche de fond sera arrêtée.");
   });
 
   it("aucune tâche, comptage en échec ou sans module : confirmation inchangée", async () => {
-    const a = monter(() => Promise.resolve(0));
-    await a.api.deleteChat("c1");
-    expect(a.confirmations[0]?.[1]).toBe("");
-    const b = monter(() => Promise.reject(new Error("réseau")));
-    await b.api.deleteChat("c1");
-    expect(b.confirmations[0]?.[1]).toBe("");
-    const c = monter();
-    await c.api.deleteChat("c1");
-    expect(c.confirmations[0]?.[1]).toBe("");
+    for (const compter of [() => Promise.resolve(0), () => Promise.reject(new Error("réseau")), undefined]) {
+      const b = monter(compter);
+      await b.api.deleteChat("c1");
+      expect(b.confirmations[0]?.[1]).toBe(SUITE);
+      expect(await b.confirmations[0]?.[2]).toBe("");
+    }
   });
 
   it("suppression groupée : le total des conversations choisies s'ajoute au message", async () => {
@@ -132,9 +137,26 @@ describe("suppression d'une conversation à tâches de fond", () => {
     b.api.toggleChatSelect("c2");
     await b.api.bulkDeleteChats();
     expect(vus).toEqual([["c1", "c2"]]);
-    expect(b.confirmations[0]).toEqual([
+    expect(b.confirmations[0]?.slice(0, 2)).toEqual([
       "Supprimer 2 conversation(s) ?",
-      "Cette action est irréversible. 3 tâches de fond seront arrêtées.",
+      "Cette action est irréversible.",
     ]);
+    expect(await b.confirmations[0]?.[2]).toBe("Irréversible : 3 tâches de fond seront arrêtées.");
+  });
+
+  it("comptage sans réponse : la validation n'attend pas plus de DELAI_TACHES_MS", async () => {
+    vi.useFakeTimers();
+    try {
+      const b = monter(() => new Promise<number>(() => {}));
+      void b.api.deleteChat("c1");
+      let arrivee: string | null = null;
+      void b.confirmations[0]?.[2]?.then((t) => (arrivee = t));
+      await vi.advanceTimersByTimeAsync(DELAI_TACHES_MS - 1);
+      expect(arrivee).toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(arrivee).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

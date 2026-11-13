@@ -178,7 +178,7 @@ describe("fenêtre", () => {
     expect(f.modalState.value.isOpen).toBe(false);
   });
 
-  it("confirmation : un texte arrivé après l'ouverture remplace le message, jamais après la fermeture ni sur une autre fenêtre", async () => {
+  it("confirmation : un texte arrivé après l'ouverture remplace le message et libère la validation, jamais après la fermeture ni sur une autre fenêtre", async () => {
     const f = creerFenetre();
     let arrivee: (t: string) => void = () => {};
     const p = f.openConfirm(
@@ -190,19 +190,30 @@ describe("fenêtre", () => {
       new Promise((r) => (arrivee = r)),
     );
     expect(f.modalState.value.message).toBe("Vous pourrez annuler.");
+    // Validation retenue tant que l'information n'est pas arrivée : ni clic ni Entrée ne confirment.
+    expect(f.modalTypedBlocked()).toBe(true);
+    f.handleModalSubmit();
+    expect(f.modalState.value.isOpen).toBe(true);
     arrivee("2 tâches de fond seront arrêtées.");
-    await Promise.resolve();
+    await vi.waitFor(() => expect(f.modalTypedBlocked()).toBe(false));
     expect(f.modalState.value.message).toBe("2 tâches de fond seront arrêtées.");
+    f.handleModalSubmit();
+    expect(await p).toBe(true);
+    const vide = f.openConfirm("Vide ?", "garde", true, undefined, undefined, Promise.resolve(""));
+    await vi.waitFor(() => expect(f.modalTypedBlocked()).toBe(false));
+    expect(f.modalState.value.message).toBe("garde");
     f.handleModalCancel();
-    expect(await p).toBe(false);
+    expect(await vide).toBe(false);
     let tardif: (t: string) => void = () => {};
     const q = f.openConfirm("A ?", "a", false, undefined, undefined, new Promise((r) => (tardif = r)));
-    f.handleModalSubmit();
-    await q;
+    f.handleModalCancel();
+    expect(await q).toBe(false);
     const r = f.openConfirm("B ?", "b");
     tardif("texte de A");
     await Promise.resolve();
+    await Promise.resolve();
     expect(f.modalState.value.message).toBe("b");
+    expect(f.modalTypedBlocked()).toBe(false);
     f.handleModalCancel();
     await r;
   });

@@ -2,6 +2,8 @@
 /** frontend/src/features/editor/instances.ts — éditeurs Monaco de l'éditeur (principal, puis diff et panneau droit à leur premier besoin) : options issues des réglages, abonnements et observateur possédés puis libérés ensemble, préférences et thème appliqués à chaud. */
 import { markRaw } from "vue";
 
+import { mouvementReduit } from "../../platform/mouvement";
+
 export interface Jetable {
   dispose(): void;
 }
@@ -147,6 +149,17 @@ export interface Editeurs<
 // Une fois par page (Monaco est global) : formateur Python et suivi des marqueurs.
 let globauxEnregistres = false;
 
+/** Défilement et curseur animés, sauf en mouvement réduit (choix du compte, sinon poste) ; le curseur animé est celui de l'éditeur principal. */
+function optionsMouvement(principal: boolean): Record<string, unknown> {
+  const reduit = mouvementReduit();
+  return {
+    smoothScrolling: !reduit,
+    ...(principal
+      ? { cursorBlinking: reduit ? "blink" : "smooth", cursorSmoothCaretAnimation: reduit ? "off" : "on" }
+      : {}),
+  };
+}
+
 function options(p: PreferencesEditeur, theme: string): Record<string, unknown> {
   return {
     value: "",
@@ -163,7 +176,7 @@ function options(p: PreferencesEditeur, theme: string): Record<string, unknown> 
     insertSpaces: p.insertSpaces,
     wordWrap: p.wordWrap,
     scrollBeyondLastLine: false,
-    smoothScrolling: true,
+    ...optionsMouvement(false),
     padding: { top: 12, bottom: 12 },
     bracketPairColorization: { enabled: true },
     contextmenu: false,
@@ -220,8 +233,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   const instance = markRaw(
     monaco.editor.create(el.principal, {
       ...options(prefs, theme),
-      cursorBlinking: "smooth",
-      cursorSmoothCaretAnimation: "on",
+      ...optionsMouvement(true),
       renderWhitespace: "selection",
       "semanticHighlighting.enabled": true,
       suggest: { showWords: false },
@@ -323,7 +335,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
       prefsAppliquees = true;
       for (const ed of [instance, instance2, diff]) {
         try {
-          ed?.updateOptions(prefs);
+          ed?.updateOptions({ ...prefs, ...optionsMouvement(ed === instance) });
         } catch {
           /* éditeur libéré */
         }

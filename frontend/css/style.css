@@ -1301,6 +1301,8 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
         transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow !important;
         transition-duration: 150ms !important;
     }
+    /* Éditeur de code : son volet de recherche se pose sans glisser (défilement et curseur : options de Monaco, instances.ts). */
+    .monaco-editor .find-widget { transition: none !important; }
     /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
     .popover-leave-active, .popover-up-leave-active,
     .tool-detail-enter-active,

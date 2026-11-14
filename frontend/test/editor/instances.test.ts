@@ -280,4 +280,32 @@ describe("éditeurs Monaco", () => {
     expect(options.at(-1)).toMatchObject({ fontSize: 22 });
     f.liberer();
   });
+
+  it("mouvement : défilement et curseur animés, coupés en mouvement réduit, et repris à chaud quand le choix change", () => {
+    // Une seule liste de requête, vivante comme celle du navigateur.
+    const poste = { matches: false };
+    vi.stubGlobal("matchMedia", () => poste);
+    const { monaco, options } = fauxMonaco(new Compteurs());
+    const f = creerEditeurs(monaco, elements(), {}, rappels);
+    f.droit();
+    expect(options[0]).toMatchObject({
+      smoothScrolling: true,
+      cursorBlinking: "smooth",
+      cursorSmoothCaretAnimation: "on",
+    });
+    expect(options[1]).toMatchObject({ smoothScrolling: true });
+    expect(options[1]).not.toHaveProperty("cursorSmoothCaretAnimation");
+    poste.matches = true;
+    f.appliquerPreferences({});
+    expect(options[0]).toMatchObject({
+      smoothScrolling: false,
+      cursorBlinking: "blink",
+      cursorSmoothCaretAnimation: "off",
+    });
+    expect(options[1]).toMatchObject({ smoothScrolling: false });
+    f.liberer();
+    const g = creerEditeurs(monaco, elements(), {}, rappels);
+    expect(options.at(-1)).toMatchObject({ smoothScrolling: false, cursorSmoothCaretAnimation: "off" });
+    g.liberer();
+  });
 });

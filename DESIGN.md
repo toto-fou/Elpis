@@ -188,7 +188,9 @@ De facto scale, to follow so a new layer finds its place:
   another panel moving at the same time causes no jump at the end. The panel's
   content is held at its final width by the transition classes
   (`.elpis-slide-panel:is(.volet-enter-active, .volet-leave-active)`), and a
-  panel's exit ends with its width animation, not with its fade.
+  panel's exit ends with its width animation, not with its fade; it starts from
+  the width seen at the gesture (the editor closed from full screen retracts
+  from the whole width instead of dropping to half first).
 - Menus and small floating surfaces open and close through `<TransitionMenu>`
   (`popover` down from the anchor's top edge, `popover-up` up from its bottom
   edge, corner with `.menu-ancre-gauche` / `.menu-ancre-droite`): opacity, a
@@ -218,10 +220,11 @@ De facto scale, to follow so a new layer finds its place:
   workstation, `platform/mouvement.ts` inverts that media feature in every
   loaded sheet (skins included) and restores it otherwise, so a sheet needs
   nothing more than the two media blocks above. Code never reads the media
-  query itself: it calls `mouvementReduit()`. Limits: a motion rule added with
-  `insertRule`, or a `<style>` outside `<head>`, is not seen (none exists); the
-  code editor's own animations (search panel, folding icons) keep following the
-  workstation.
+  query itself: it calls `mouvementReduit()`. The code editor follows it too:
+  smooth scrolling, the animated caret and the sliding search panel are off
+  when motion is reduced (`features/editor/instances.ts`). Limit: a motion rule
+  added with `insertRule`, or a `<style>` outside `<head>`, is not seen (none
+  exists).
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.
 

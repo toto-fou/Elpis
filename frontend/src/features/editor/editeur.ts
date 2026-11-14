@@ -846,6 +846,7 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
         r.editor_word_wrap,
         r.editor_minimap,
         r.editor_line_numbers,
+        r.ui_motion,
       ].join("|");
     },
     (_cur, avant) => {

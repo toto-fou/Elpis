@@ -317,6 +317,29 @@ try {
     });
     ok('statut aligné sur le texte du message (même colonne)',
         !!alignLeft && Math.abs(alignLeft[0] - alignLeft[1]) < 1);
+    // Message en cours rendu par blocs : un bloc figé garde ses nœuds d'une mise à jour à l'autre, son code est coloré avant la fin.
+    const texteBlocs = 'Je commence par les cas limites.\n\n```python\ndef f(x):\n    return x + 1\n```\n\nPuis';
+    const partBlocs = (text) => inject({ type: 'message.part.updated', properties: { part: {
+        id: 'm4p1', type: 'text', text, messageID: 'm4', sessionID: 's1', time: { start: Date.now() } } } });
+    const CORPS = '.elpis-code-page .markdown-body';
+    await partBlocs(texteBlocs);
+    await page.waitForTimeout(400);
+    await page.evaluate((sel) => {
+        const c = [...document.querySelectorAll(sel)].at(-1);
+        window.__p0 = c.querySelector('p');
+        window.__pre0 = c.querySelector('pre');
+    }, CORPS);
+    await partBlocs(texteBlocs + ' les erreurs.\n\nEnfin');
+    await page.waitForFunction((sel) => !![...document.querySelectorAll(sel)].at(-1)
+        .querySelector('pre code span[class^="hljs-"]'), CORPS, { timeout: 4000 }).catch(() => {});
+    const blocs = await page.evaluate((sel) => {
+        const c = [...document.querySelectorAll(sel)].at(-1);
+        return { p: c.querySelector('p') === window.__p0, pre: c.querySelector('pre') === window.__pre0,
+            suite: /Enfin/.test(c.textContent), colore: !!c.querySelector('pre code span[class^="hljs-"]'),
+            enCours: c.getAttribute('aria-busy') === 'true' };
+    }, CORPS);
+    ok('flux par blocs : paragraphe et code figés gardent leurs nœuds', blocs.p && blocs.pre && blocs.suite);
+    ok('flux par blocs : code figé coloré avant la fin du message', blocs.colore && blocs.enCours);
     await inject({ type: 'session.idle', properties: { sessionID: 's1' } });
     await page.waitForTimeout(300);
     ok('idle : Envoyer revient', await root().locator('button[title="Envoyer"]').count() === 1);

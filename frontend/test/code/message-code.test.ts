@@ -74,14 +74,13 @@ function monter(messages: MessageOpencode[], autres: Record<string, unknown> = {
     settings: { chat_width: 70 },
     logoApp: "/logo.png",
     user: { avatar: null },
-    codeSteps: etapes,
+    codeSteps: (m: MessageOpencode, live?: boolean) => {
+      rendus.push(m.id);
+      return etapes(m, live);
+    },
     codeFmtVal: formaterValeur,
     codeToolLabel: libelleOutil,
     codeMsgError: () => null,
-    renderMarkdown: (s: string) => {
-      rendus.push(s);
-      return `<p>${s}</p>`;
-    },
     ...autres,
   });
   const domaine = new Proxy(valeurs, {
@@ -98,15 +97,18 @@ function monter(messages: MessageOpencode[], autres: Record<string, unknown> = {
 }
 
 describe("PageCode : détail d'un outil", () => {
-  it("le dépli ne re-rend que la ligne de l'outil", async () => {
+  it("le dépli ne re-rend que la ligne de l'outil, sans re-rendre son Markdown", async () => {
     const { hote, rendus } = monter(transcript(40));
-    expect(rendus).toHaveLength(20);
+    expect(rendus).toHaveLength(40);
     const boutons = [...hote.querySelectorAll<HTMLButtonElement>(".elpis-code-tool-row button")];
     expect(boutons).toHaveLength(20);
+    const titre = hote.querySelectorAll("h2")[19];
+    expect(titre?.textContent).toBe("Étape 39");
     rendus.length = 0;
     boutons[19]?.click();
     await nextTick();
-    expect(rendus).toEqual(["## Étape 39"]);
+    expect(rendus).toEqual(["x39"]);
+    expect(hote.querySelectorAll("h2")[19]).toBe(titre);
     expect(hote.textContent).toContain("sortie 39");
     expect(hote.textContent).not.toContain("sortie 37");
   });
@@ -135,7 +137,7 @@ describe("PageCode : mise à jour d'un message", () => {
     rendus.length = 0;
     lignes[5]?.parts.splice(0, 1, { id: "x5p1", type: "text", text: "## Étape 5 revue" });
     await nextTick();
-    expect(rendus).toEqual(["## Étape 5 revue"]);
+    expect(rendus).toEqual(["x5"]);
     expect(hote.textContent).toContain("Étape 5 revue");
   });
 });

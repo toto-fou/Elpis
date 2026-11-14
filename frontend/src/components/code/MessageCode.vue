@@ -1,18 +1,43 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/code/MessageCode.vue — une ligne du transcript opencode (note de commande ou message et ses parts) ; ses détails dépliés lui sont propres, une bascule ne re-rend qu'elle. -->
+<!-- frontend/src/components/code/MessageCode.vue — une ligne du transcript opencode (note de commande ou message et ses parts) ; ses détails dépliés lui sont propres, une bascule ne re-rend qu'elle ; ses parts texte sont des corps Markdown du chat, rendus par blocs pendant le flux. -->
 <script setup lang="ts">
 import { reactive } from "vue";
 
+import type { EtatFlux } from "../../features/chat/rendu/flux-blocs";
+import { moteurMarkdown } from "../../features/chat/rendu/instance";
 import { domaineCode } from "../../features/code/domaine";
 import type { MessageOpencode } from "../../features/code/rendu";
+import ContenuMarkdown from "../chat/ContenuMarkdown.vue";
+import type { MessageMarkdown } from "../chat/ContenuMarkdown.vue";
 import LibelleVivant from "../communs/LibelleVivant.vue";
 import CarteDiff from "./CarteDiff.vue";
 
 defineProps<{ m: MessageOpencode; live: boolean }>();
 
 const cd = domaineCode();
+const moteur = moteurMarkdown();
 const ouverts = reactive<Record<string, boolean>>({});
 const reflexions = reactive<Record<string, boolean>>({});
+const corps = new Map<string, MessageMarkdown>();
+
+/** Corps d'une part texte, comme un message du chat : découpe reprise d'une mise à jour à l'autre, blocs gardés à la fin ; même objet tant que rien ne change. */
+function corpsDe(id: string, texte: string, vivant: boolean): MessageMarkdown {
+  const avant = corps.get(id);
+  if (avant?.content === texte && !!avant.isStreaming === vivant) return avant;
+  const etat = (avant?._mdFlux as EtatFlux | null | undefined) ?? null;
+  const r = vivant ? moteur.avancerFlux(texte, etat) : etat && moteur.terminerFlux(texte, etat);
+  const neuf: MessageMarkdown = r
+    ? {
+        content: texte,
+        isStreaming: vivant,
+        _mdBlocks: r.etat.blocs,
+        _mdActiveHtml: r.actifHtml,
+        _mdFlux: r.etat,
+      }
+    : { content: texte };
+  corps.set(id, neuf);
+  return neuf;
+}
 
 function basculer(id: string): void {
   ouverts[id] = !ouverts[id];
@@ -26,7 +51,6 @@ function surReflexion(id: string, enCours: boolean, ev: Event): void {
 }
 </script>
 
-<!-- eslint-disable vue/no-v-html -- Markdown du transcript rendu par le moteur du chat (purifié par DOMPurify). -->
 <template>
   <div class="flex gap-3" :class="m.role === 'user' ? 'flex-row-reverse' : ''">
     <!-- Trace de commande (« ce qui a été fait » : /cmd, /undo…) — pill centrée persistante, posée par l'app à l'envoi -->
@@ -116,12 +140,13 @@ function surReflexion(id: string, enCours: boolean, ev: Event): void {
             <i v-if="m.pending" class="ph ph-clock mr-1.5 opacity-80"></i>{{ item.text }}
           </div>
 
-          <!-- Texte assistant : markdown (pipeline du chat : marked+hljs+sanitize) -->
-          <div
+          <!-- Texte assistant : corps Markdown du chat (blocs figés gardés pendant le flux, même purification) ; ni graphique ni habillage du chat -->
+          <ContenuMarkdown
             v-else-if="item.kind === 'text' && !item.heavy"
-            class="w-full text-left markdown-body"
-            v-html="item.live ? cd.renderMarkdownLive(item.text) : cd.renderMarkdown(item.text)"
-          ></div>
+            class="w-full text-left"
+            data-sans-graphiques
+            :msg="corpsDe(item.id, item.text, !!item.live)"
+          />
           <div
             v-else-if="item.kind === 'text'"
             class="w-full text-sm whitespace-pre-wrap break-words text-left text-slate-800"

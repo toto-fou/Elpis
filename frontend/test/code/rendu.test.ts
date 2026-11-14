@@ -127,4 +127,26 @@ describe("parts en éléments", () => {
       { kind: "compaction", label: "Contexte compacté" },
     ]);
   });
+
+  it("un texte est en flux tant que ni sa part ni son message ne sont finis", () => {
+    const parts = [
+      { id: "a", type: "text", text: "fini", time: { start: 1, end: 2 } },
+      { id: "b", type: "text", text: "en cours", time: { start: 3 } },
+    ];
+    expect(etapes(message(parts)).map((e) => (e.kind === "text" ? e.live : null))).toEqual([false, true]);
+    const fin = etapes(message(parts, { time: { completed: 5 } }));
+    expect(fin.map((e) => (e.kind === "text" ? e.live : null))).toEqual([false, false]);
+  });
+
+  it("autour d'une fence diff fermée, le premier texte garde l'id de la part et les ids suivent le rang", () => {
+    const text = "avant\n```diff\n+x\n```\nmilieu\n```diff\n+y\n```\naprès";
+    const els = etapes(message([{ id: "p", type: "text", text }]));
+    expect(els.map((e) => [e.kind, e.id, e.kind === "text" ? e.live : undefined])).toEqual([
+      ["text", "p", true],
+      ["diff", "p:d1", undefined],
+      ["text", "p:t2", true],
+      ["diff", "p:d3", undefined],
+      ["text", "p:t4", true],
+    ]);
+  });
 });

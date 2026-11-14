@@ -241,7 +241,10 @@ describe("routes Git rejouées (vecteurs Python)", () => {
           o.timeoutS,
           o.maxOut,
         ]);
-        return resultatReseau(trouve(s.reseau, g));
+        // Écart voulu : seuls des identifiants demandés par l'amont sont enregistrés ; le faux réseau du rejeu, comme le Python, les suppose demandés.
+        const resultat = resultatReseau(trouve(s.reseau, g));
+        resultat.identifiantsDemandes = Boolean(o.auth);
+        return resultat;
       };
       reseauGit.pull = async (_a, cwd, remote, branche = "", mode = "--ff-only", o) => {
         appels.push(["pull", cwd, remote, branche, mode, o.auth ? [...o.auth] : null, o.timeoutS, o.maxOut]);

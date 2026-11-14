@@ -36,29 +36,50 @@ const SANS_PORTEE = compte(3, "github.com", null, { last_used: 999 });
 const SANS_JETON = compte(4, "forge.lan", "", { has_token: false, last_used: 999 });
 const TOUS = [PERSO, ROBOT, SANS_PORTEE, SANS_JETON];
 
+/** Ce que dit git dans le bac quand un dépôt demande des identifiants qu'il n'a pas (il ne peut pas les demander). */
+const REFUS_GIT = "fatal: could not read Username for 'https://forge.lan': terminal prompts disabled";
+
 function json(corps: unknown, status = 200): Response {
   return new Response(JSON.stringify(corps), { status, headers: { "Content-Type": "application/json" } });
 }
 
 describe("ce que dit l'adresse", () => {
-  it("compte qui servira : le plus précis de l'hôte ; ni un compte sans portée, ni sans jeton ; autre schéma : invalide", () => {
+  it("compte que le serveur prendra : le plus précis de l'hôte, même sans jeton (il n'en essaie pas d'autre) ; jamais un compte sans portée ; autre schéma : invalide", () => {
     expect(accesClone("  ", TOUS)).toEqual({ etat: "vide" });
     expect(accesClone("git@github.com:acme/api.git", TOUS)).toEqual({ etat: "invalide" });
-    expect(accesClone("https://github.com/acme/api.git", TOUS)).toMatchObject({
+    expect(accesClone("HTTPS://github.com/acme/api.git", TOUS)).toEqual({ etat: "invalide" });
+    expect(accesClone("https://github.com/Acme/API.git", TOUS)).toMatchObject({
       etat: "compte",
       hote: "github.com",
-      chemin: "acme/api",
+      chemin: "Acme/API",
       compte: ROBOT,
     });
     expect(accesClone("https://github.com/autre/depot", TOUS)).toMatchObject({
       etat: "compte",
       compte: PERSO,
     });
-    expect(accesClone("https://forge.lan/a/b.git", TOUS)).toEqual({
+    expect(accesClone("https://forge.lan/a/b.git", TOUS)).toMatchObject({
+      etat: "sans-jeton",
+      compte: SANS_JETON,
+    });
+    expect(accesClone("https://ailleurs.lan/a/b.git", TOUS)).toEqual({
       etat: "aucun",
-      hote: "forge.lan",
+      hote: "ailleurs.lan",
       chemin: "a/b",
     });
+    // Un compte plus précis sans jeton masque celui de tout l'hôte, comme côté serveur.
+    const vide = compte(7, "github.com", "acme/api", { has_token: false });
+    expect(accesClone("https://github.com/acme/api", [PERSO, vide])).toMatchObject({
+      etat: "sans-jeton",
+      compte: vide,
+    });
+    // Hôte lu tel qu'écrit, port compris : un port explicite n'est pas l'hôte du compte.
+    expect(accesClone("https://github.com:443/acme/api", TOUS)).toMatchObject({
+      etat: "aucun",
+      hote: "github.com:443",
+    });
+    // Adresse illisible sur un hôte découpé en portées : aucun compte.
+    expect(accesClone("https://github.com/acme/api?x=1", TOUS)).toMatchObject({ etat: "aucun" });
     expect(accesClone("https://github.com/acme/api", [SANS_PORTEE])).toMatchObject({ etat: "aucun" });
     expect(accesClone("https://github.com/acme/api", null)).toMatchObject({ etat: "aucun" });
     expect(comptesUtilisables(TOUS).map((c) => c.id)).toEqual([1, 2]);
@@ -66,37 +87,51 @@ describe("ce que dit l'adresse", () => {
     expect(nomCompte(compte(9, "h", ""))).toBe("h");
   });
 
-  it("dossier créé : dernier segment sans `.git` ; portées des identifiants : de l'hôte au dépôt, proposée comme le serveur", () => {
+  it("dossier créé : dernier segment sans `.git` ; portées des identifiants : de l'hôte au dépôt, celle d'un compte existant signalée, proposée comme le serveur ; rien d'office pour une adresse illisible sur un hôte déjà pris", () => {
     expect(dossierDuClone("https://github.com/acme/api.git")).toBe("api");
     expect(dossierDuClone(" https://github.com/acme/api/ ")).toBe("api");
     expect(dossierDuClone("")).toBe("");
     const p = (url: string, comptes: CompteClone[]) => porteesIdentifiants(accesClone(url, comptes), comptes);
     expect(p("https://forge.lan/acme/api.git", [])).toEqual({
       choix: [
-        { valeur: "", libelle: "forge.lan" },
-        { valeur: "acme", libelle: "forge.lan/acme" },
-        { valeur: "acme/api", libelle: "forge.lan/acme/api" },
+        { valeur: "", libelle: "forge.lan", remplace: null },
+        { valeur: "acme", libelle: "forge.lan/acme", remplace: null },
+        { valeur: "acme/api", libelle: "forge.lan/acme/api", remplace: null },
       ],
       defaut: "",
     });
     expect(p("https://github.com/autre/depot", [PERSO]).defaut).toBe("autre");
-    expect(p("https://github.com/acme/api", TOUS).defaut).toBe("acme");
-    expect(p("https://github.com/acme/api?x=1", [PERSO])).toEqual({
-      choix: [{ valeur: "", libelle: "github.com" }],
-      defaut: "",
+    const tous = p("https://github.com/Acme/api", TOUS);
+    expect(tous.defaut).toBe("Acme");
+    expect(tous.choix.map((c) => c.remplace)).toEqual([
+      "github.com · perso",
+      "github.com/acme · robot",
+      null,
+    ]);
+    expect(p("https://github.com/seul.git", [PERSO])).toEqual({
+      choix: [{ valeur: "", libelle: "github.com", remplace: "github.com · perso" }],
+      defaut: null,
     });
-    expect(p("pas une adresse", TOUS)).toEqual({ choix: [], defaut: "" });
+    expect(p("https://github.com/seul.git", []).defaut).toBe("");
+    expect(p("pas une adresse", TOUS)).toEqual({ choix: [], defaut: null });
   });
 
-  it("compte proposé : le seul utilisable, sinon le dernier utilisé ; refus d'accès : identifiants en cause, jamais un 409 du relais", () => {
+  it("compte proposé : le seul utilisable, sinon le dernier utilisé ; refus d'accès : les messages de git et des forges, jamais un 409 du relais ni un simple nom de dépôt", () => {
     expect(comptePropose(TOUS)?.id).toBe(2);
     expect(comptePropose([PERSO])?.id).toBe(1);
     expect(comptePropose([SANS_PORTEE, SANS_JETON])).toBeNull();
     expect(comptePropose(undefined)).toBeNull();
-    expect(refusDAcces(400, "fatal: Authentication failed for 'https://…'")).toBe(true);
-    expect(refusDAcces(400, "The requested URL returned error: 403")).toBe(true);
-    expect(refusDAcces(409, "Relais Git : authentification hors de l'opération")).toBe(false);
-    expect(refusDAcces(400, "fatal: repository not found")).toBe(false);
+    for (const message of [
+      "fatal: could not read Username for 'https://forge.lan': terminal prompts disabled",
+      "fatal: Authentication failed for 'https://…'",
+      "remote: HTTP Basic: Access denied",
+      "The requested URL returned error: 403",
+      "remote: Invalid username or password.",
+    ])
+      expect(refusDAcces(400, message), message).toBe(true);
+    expect(refusDAcces(409, "Relais Git : authentification refusée (401)")).toBe(false);
+    expect(refusDAcces(400, "fatal: repository 'https://h/acme/oauth-lib.git/' not found")).toBe(false);
+    expect(refusDAcces(400, "fatal: unable to access: Could not resolve host")).toBe(false);
   });
 });
 
@@ -156,21 +191,33 @@ describe("clonage avec identifiants saisis", () => {
     });
     expect(v.toasts.at(-1)).toBe("Cloné dans api/ Identifiants enregistrés.");
     expect(JSON.stringify(v.toasts)).not.toContain("tok");
+    // Saisis mais non enregistrés (dépôt public, portée prise, compte à vérifier) : dit.
+    const sans = monter((url) =>
+      url.endsWith("/clone")
+        ? json({ ok: true, repo: "api", message: "Cloné dans api/", credentials_saved: false })
+        : json({ repos: [], is_repo: false }),
+    );
+    sans.api.gitOpenCloneModal();
+    sans.api.gitCloneForm.value = { url: "https://forge.lan/acme/api.git", dir: "" };
+    Object.assign(sans.api.gitCloneCreds.value, { ouvert: true, token: "tok" });
+    expect(await sans.api.gitClone()).toBe(false);
+    expect(sans.vus[0]?.[1]).not.toHaveProperty("cred_scope");
+    expect(sans.toasts.at(-1)).toBe("Cloné dans api/ Identifiants non enregistrés.");
   });
 
   it("refus d'accès : la fenêtre reste, la saisie des identifiants s'ouvre ; un refus du relais ne la demande pas ; la déconnexion purge tout", async () => {
-    const refus = monter(() => json({ detail: "fatal: Authentication failed" }, 400));
+    const refus = monter(() => json({ detail: REFUS_GIT }, 400));
     refus.api.gitOpenCloneModal();
     refus.api.gitCloneForm.value = { url: "https://forge.lan/acme/api.git", dir: "" };
     expect(await refus.api.gitClone()).toBe(false);
     expect(refus.api.showGitCloneModal.value).toBe(true);
-    expect(refus.api.gitError.value).toBe("fatal: Authentication failed");
+    expect(refus.api.gitError.value).toBe(REFUS_GIT);
     expect(refus.api.gitCloneCreds.value).toMatchObject({ ouvert: true, refus: true });
     refus.api.gitCloneCreds.value.token = "secret";
     refus.api.resetOnLogout();
     expect(refus.api.gitCloneCreds.value.token).toBe("");
     expect(refus.api.showGitCloneModal.value).toBe(false);
-    const relais = monter(() => json({ detail: "Relais Git : dépôt refusé (auth)" }, 409));
+    const relais = monter(() => json({ detail: "Relais Git : dépôt refusé (401)" }, 409));
     relais.api.gitOpenCloneModal();
     relais.api.gitCloneForm.value = { url: "https://forge.lan/acme/api.git", dir: "" };
     await relais.api.gitClone();
@@ -272,15 +319,17 @@ describe("fenêtre montée", () => {
     expect(v.q("[data-identifiants]")).toBeNull();
     await v.saisir("#clone-url", "https://forge.lan/equipe/outil.git");
     expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("aucun");
-    expect(v.q("[data-acces]")?.textContent).toContain("Aucun compte pour forge.lan");
+    expect(v.q("[data-acces]")?.textContent).toContain("Aucun compte ne s'applique sur forge.lan");
     v.q<HTMLButtonElement>("[data-saisir]")!.click();
     await nextTick();
-    expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent)).toEqual([
+    expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent?.trim())).toEqual([
       "forge.lan",
       "forge.lan/equipe",
       "forge.lan/equipe/outil",
     ]);
     expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("");
+    await v.saisir("#clone-jeton", "tok");
+    expect(v.q("[data-acces]")?.textContent).toContain("Identifiants saisis pour forge.lan");
     v.q<HTMLButtonElement>("[data-cloner]")!.click();
     await nextTick();
     expect(v.clones).toEqual([""]);
@@ -292,22 +341,83 @@ describe("fenêtre montée", () => {
     v.q<HTMLButtonElement>("[data-cloner]")!.click();
     await nextTick();
     expect(v.clones.at(-1)).toBe("equipe");
-    // Une autre adresse : la portée choisie pour la précédente ne suit pas.
-    await v.saisir("#clone-url", "https://github.com/autre/depot.git");
-    expect(v.etat.gitCloneCreds.value.portee).toBeNull();
-    expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("autre");
+    // Même hôte, autre dépôt : les identifiants restent, la portée choisie ne suit pas.
+    await v.saisir("#clone-url", "https://forge.lan/autre/depot.git");
+    expect(v.etat.gitCloneCreds.value).toMatchObject({ ouvert: true, token: "tok", portee: null });
+    expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("");
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
     expect(v.q("[data-acces]")?.textContent).toContain("Adresse http(s) attendue");
     expect(v.q("[data-identifiants]")).toBeNull();
   });
 
+  it("identifiants saisis pour un hôte : oubliés dès que l'adresse change d'hôte (dépôt choisi dans la liste compris) et à la fermeture", async () => {
+    const v = monter([PERSO, ROBOT]);
+    await v.saisir("#clone-url", "https://forge.lan/equipe/outil.git");
+    v.q<HTMLButtonElement>("[data-saisir]")!.click();
+    await nextTick();
+    await v.saisir("#clone-identifiant", "bob");
+    await v.saisir("#clone-jeton", "jeton-forge");
+    v.racine.gitPickRepo({ clone_url: "https://github.com/acme/site.git" });
+    await nextTick();
+    expect(v.etat.gitCloneCreds.value).toEqual({
+      ouvert: false,
+      user: "",
+      token: "",
+      portee: null,
+      refus: false,
+    });
+    expect(v.q("[data-acces]")?.textContent).toContain("Compte github.com/acme · robot");
+    v.q<HTMLButtonElement>("[data-cloner]")!.click();
+    await nextTick();
+    expect(v.etat.gitCloneCreds.value.token).toBe("");
+    v.q<HTMLButtonElement>("[data-saisir]")!.click();
+    await nextTick();
+    await v.saisir("#clone-jeton", "autre");
+    v.etat.showGitCloneModal.value = false;
+    await nextTick();
+    expect(v.etat.gitCloneCreds.value).toEqual({
+      ouvert: false,
+      user: "",
+      token: "",
+      portee: null,
+      refus: false,
+    });
+  });
+
+  it("compte sans jeton : annoncé comme tel ; une portée déjà prise dit qu'elle remplace son jeton ; adresse illisible sur un hôte déjà pris : identifiants pour ce clone seulement, rien n'est envoyé à enregistrer", async () => {
+    const vide = compte(7, "github.com", "acme/api", { has_token: false, label: "ci" });
+    const v = monter([PERSO, vide]);
+    await v.saisir("#clone-url", "https://github.com/acme/api.git");
+    expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("sans-jeton");
+    expect(v.q("[data-acces]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "Compte github.com/acme/api · ci sans jeton",
+    );
+    v.q<HTMLButtonElement>("[data-saisir]")!.click();
+    await nextTick();
+    expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("acme/api");
+    expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent?.trim())).toEqual([
+      "github.com — remplace son jeton",
+      "github.com/acme",
+      "github.com/acme/api — remplace son jeton",
+    ]);
+    // Même hôte : le bloc reste ouvert.
+    await v.saisir("#clone-url", "https://github.com/seul.git");
+    expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("aucun");
+    expect(v.q("#clone-portee")).toBeNull();
+    expect(v.q("[data-non-enregistres]")?.textContent).toContain("Utilisés pour ce clone seulement");
+    await v.saisir("#clone-jeton", "tok");
+    v.q<HTMLButtonElement>("[data-cloner]")!.click();
+    await nextTick();
+    expect(v.clones.at(-1)).toBeUndefined();
+  });
+
   it("refus d'accès : le message le dit avant le détail ; « Comptes Git » ferme la fenêtre et ouvre la partie des Paramètres", async () => {
     const v = monter([]);
-    v.etat.gitError.value = "fatal: Authentication failed";
+    v.etat.gitError.value = REFUS_GIT;
     v.etat.gitCloneCreds.value.refus = true;
     await nextTick();
     expect(v.q("[data-erreur]")?.textContent).toContain("Accès refusé : saisissez des identifiants.");
-    expect(v.q("[data-erreur]")?.textContent).toContain("fatal: Authentication failed");
+    expect(v.q("[data-erreur]")?.textContent).toContain(REFUS_GIT);
     v.q<HTMLButtonElement>("[data-comptes]")!.click();
     await nextTick();
     expect(v.etat.showGitCloneModal.value).toBe(false);

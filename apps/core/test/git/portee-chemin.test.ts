@@ -32,7 +32,7 @@ import {
 } from "../../src/git/connecteurs";
 import type { LigneConnecteur } from "../../src/git/connecteurs";
 import { brancherAdressesInterdites } from "../../src/git/garde";
-import { porteeDesSaisis } from "../../src/git/resolveur";
+import { porteeDesSaisis, saveGitCredential } from "../../src/git/resolveur";
 import { cheminCouvre, cheminDepot, cheminExact, elargit, normaliserPortee } from "../../src/secrets/portee";
 import { portsMigrationsDuCore } from "../../src/secrets/reprise";
 import { COLONNES_SECRET, dechiffrerLigne, modifierSecret } from "../../src/secrets/stockage";
@@ -517,6 +517,58 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     expect(await jeton(bob, "https://double.lan/acme/api.git")).toBe("tok-vieux");
     expect(await jeton(bob, "https://double.lan/autre/x.git")).toBe("tok-recent");
     expect((await appel(bob, "PUT", `/api/git/connectors/${jamais}`, { path: "" })).statusCode).toBe(409);
+  });
+
+  it("identifiants saisis au clone : jamais repris par un compte importé du bac, à vérifier (son type et son API viennent de l'agent) ; une portée demandée ne remplace rien d'autre que son compte", async () => {
+    const acteur = { userId: bob, username: "bob" };
+    const importe = await createConnector(
+      t.base,
+      bob,
+      "bitbucket-cloud",
+      "import.lan",
+      { token: "tok-agent", label: "imported", source: "sandbox-file" },
+      acteur,
+    );
+    expect((await secretDe(importe))["state"]).toBe("unverified");
+    for (const portee of [undefined, "", "acme"])
+      expect(
+        await saveGitCredential(
+          t.base,
+          bob,
+          "https://import.lan/acme/api.git",
+          "bob",
+          "tok-humain",
+          "",
+          acteur,
+          portee,
+        ),
+        String(portee),
+      ).toSatisfy((id: number | null) => id === null || id !== importe);
+    expect((await secretDe(importe))["state"]).toBe("unverified");
+    expect(await clair(importe)).toBe("tok-agent");
+    expect(await ligne(importe)).toMatchObject({ path: "" });
+    expect(
+      (
+        await t.base.get<{ provider_type: string }>("SELECT provider_type FROM git_connectors WHERE id = ?", [
+          importe,
+        ])
+      )?.provider_type,
+    ).toBe("bitbucket-cloud");
+  });
+
+  it("unicité entre types : un compte générique et un compte de forge ne couvrent jamais exactement le même endroit, casse ignorée", async () => {
+    await creer(bob, { provider_type: "generic", host: "mixte.lan", path: "Acme", token: "t1" });
+    const r = await appel(bob, "POST", "/api/git/connectors", {
+      provider_type: "gitea",
+      host: "mixte.lan",
+      path: "acme",
+      token: "t2",
+    });
+    expect(r.statusCode).toBe(409);
+    const autre = await creer(bob, { provider_type: "gitea", host: "mixte.lan", path: "autre", token: "t3" });
+    expect(
+      (await appel(bob, "PUT", `/api/git/connectors/${autre}`, { path: "ACME", token: "t4" })).statusCode,
+    ).toBe(409);
   });
 
   it("portée saisie : jamais tronquée (une saisie trop longue est refusée, pas raccourcie en une portée plus large)", async () => {

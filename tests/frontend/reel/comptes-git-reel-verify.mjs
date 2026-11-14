@@ -33,7 +33,8 @@ async function simuler(page) {
         if (p === '/api/sandbox/git/status') return json({ is_repo: false });
         if (p === '/api/sandbox/git/clone') {
             clones.push(JSON.parse(req.postData() || '{}'));
-            if (refuser) return json({ detail: "fatal: Authentication failed for 'https://forge.lan/equipe/outil.git/'" }, 400);
+            // Ce que dit git dans le bac devant un dépôt qui demande des identifiants : il ne peut pas les demander.
+            if (refuser) return json({ detail: "fatal: could not read Username for 'https://forge.lan': terminal prompts disabled" }, 400);
             return json({ ok: true, repo: 'outil', message: 'Cloné dans outil/', credentials_saved: true });
         }
         return json({});
@@ -150,7 +151,20 @@ try {
     await clone.locator('#clone-identifiant').fill('bob');
     await clone.locator('#clone-jeton').fill('jeton-forge');
     await clone.locator('#clone-portee').selectOption('equipe');
+    v.ok('identifiants saisis : la ligne d\'accès le dit à la place du compte',
+        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Identifiants saisis pour forge.lan'));
     await capture(page, '4-clonage-identifiants');
+    // Autre hôte : ce qui a été saisi pour forge.lan est oublié, rien ne part vers github.com.
+    await clone.locator('[data-depot]').first().click();
+    v.ok('changer d\'hôte oublie les identifiants saisis',
+        (await clone.locator('[data-identifiants]').count()) === 0 &&
+        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com/acme · robot'));
+    await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
+    await clone.locator('[data-saisir]').click();
+    v.ok('la saisie rouverte est vide', (await clone.locator('#clone-jeton').inputValue()) === '' && (await clone.locator('#clone-identifiant').inputValue()) === '');
+    await clone.locator('#clone-identifiant').fill('bob');
+    await clone.locator('#clone-jeton').fill('jeton-forge');
+    await clone.locator('#clone-portee').selectOption('equipe');
     refuser = false;
     await clone.locator('#clone-jeton').press('Enter');
     await clone.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});

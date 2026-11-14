@@ -218,6 +218,29 @@ describe.skipIf(!PYTHON || !IP)("réseau par le relais (amont du réseau local)"
     expect(r).toEqual({ statut: 200, corps: { ok: true, skipped: ["local"] } });
   }, 90_000);
 
+  it("dépôt public : des identifiants saisis ne lui sont jamais présentés, donc jamais enregistrés", async () => {
+    const dossier = path.join(racine, "public");
+    mkdirSync(dossier);
+    const ouvert = await demarrerAmont(dossier, false);
+    const tcp = await relaisTcp(IP as string, Number(new URL(ouvert.url).port));
+    try {
+      const r = await appel("POST", "clone", {
+        url: `http://${IP}:${tcp.port}/depot.git`,
+        dir: "publique",
+        ...IDS,
+        cred_scope: "",
+      });
+      expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+      expect(r.corps).toMatchObject({ ok: true, repo: "publique", credentials_saved: false });
+      expect(enregistres).toEqual([]);
+      expect(ouvert.vus.length).toBeGreaterThan(0);
+      expect(ouvert.vus.every(([, , a]) => a === undefined)).toBe(true);
+    } finally {
+      await tcp.fermer();
+      await ouvert.fermer();
+    }
+  });
+
   it("push : configuration de git suivie, rien de nouveau → « Déjà à jour »", async () => {
     expect((await appel("POST", "clone", { url, dir: "copie", ...IDS })).statut).toBe(200);
     const c = path.join(work, "copie");

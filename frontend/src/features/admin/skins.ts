@@ -12,6 +12,7 @@ import type { Ref } from "vue";
 
 import type { ClientHttp } from "../../platform/http/client";
 import type { ApiResult } from "../../platform/http/resultat";
+import { avecFeuilles } from "../reglages/habillage";
 
 export interface JetonSkin {
   k: string;
@@ -372,16 +373,20 @@ export function setupAdminSkins(ctx: CtxSkinsAdmin | null | undefined, http: Cli
       if (r.type === "ok") detail = r.valeur;
     }
     const builtinId = source === "builtin" ? id : "";
-    const noms = nomsJetons(builtinId);
     const darkBase = !!base?.darkBase;
-    const modes = {} as Record<Modes, ReturnType<typeof jetonsDepuis>>;
-    for (const mode of ["light", "dark"] as const) {
-      const dark = mode === "dark";
-      const ardoise = lireJetons("", dark, false, noms);
-      let vals = lireJetons(builtinId, dark, darkBase, noms);
-      if (detail) vals = { ...ardoise, ...(detail.tokens[mode] ?? {}) };
-      modes[mode] = jetonsDepuis(vals, ardoise);
-    }
+    // Seule la feuille du skin actif est chargée : celle de la base l'est le temps de la lecture.
+    const modes = await avecFeuilles(builtinId, () => {
+      const noms = nomsJetons(builtinId);
+      const lus = {} as Record<Modes, ReturnType<typeof jetonsDepuis>>;
+      for (const mode of ["light", "dark"] as const) {
+        const dark = mode === "dark";
+        const ardoise = lireJetons("", dark, false, noms);
+        let vals = lireJetons(builtinId, dark, darkBase, noms);
+        if (detail) vals = { ...ardoise, ...(detail.tokens[mode] ?? {}) };
+        lus[mode] = jetonsDepuis(vals, ardoise);
+      }
+      return lus;
+    });
     ed.tokens = { light: modes.light.principaux, dark: modes.dark.principaux };
     ed.extra = { light: modes.light.autres, dark: modes.dark.autres };
     ed.darkBase = darkBase;

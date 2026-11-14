@@ -21,16 +21,16 @@ const emit = defineEmits<{ actualiser: []; basculerAuto: [] }>();
 
 const heureSeconde = formateurDate({ hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
+// Le libellé ne change pas pendant un sondage : seule l'icône tourne, la ligne garde sa largeur.
 const libelle = computed(() => {
-  if (props.chargement) return "Actualisation…";
   if (props.echec) return "Échec de l'actualisation";
-  if (props.derniereMaj === null) return "Pas encore chargé";
-  return `Mis à jour à ${heureSeconde(props.derniereMaj)}`;
+  if (props.derniereMaj !== null) return `Mis à jour à ${heureSeconde(props.derniereMaj)}`;
+  return props.chargement ? "Actualisation…" : "Pas encore chargé";
 });
 </script>
 
 <template>
-  <div class="adm-maj" :class="{ 'is-error': echec && !chargement }">
+  <div class="adm-maj" :class="{ 'is-error': echec }" :aria-busy="chargement ? 'true' : undefined">
     <span class="adm-maj__etat">
       <i
         class="ph"
@@ -65,8 +65,8 @@ const libelle = computed(() => {
       class="adm-btn adm-btn--icon adm-tool"
       title="Actualiser maintenant"
       aria-label="Actualiser maintenant"
-      :disabled="chargement"
-      @click="emit('actualiser')"
+      :aria-disabled="chargement ? 'true' : undefined"
+      @click="chargement || emit('actualiser')"
     >
       <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
     </button>

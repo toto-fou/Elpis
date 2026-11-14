@@ -8,6 +8,8 @@ import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
 import { ONGLETS_IMAGES, ONGLETS_VOIX, ongletsAvecModifications } from "../../features/admin/onglets";
 import CapacitesMoteur from "./CapacitesMoteur.vue";
 import SousOngletsConsole from "./SousOngletsConsole.vue";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
+import ChampNombreConsole from "./ChampNombreConsole.vue";
 
 const adm = domaineAdmin();
 
@@ -522,218 +524,222 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
         </div>
 
         <teleport to="body">
-          <div
-            v-if="adm.admLlmForm && adm.adminTab === 'inference'"
-            class="adm-drawer-backdrop"
-            @click.self="adm.closeEngineDrawer()"
-          >
-            <aside
-              :ref="
-                (el) => {
-                  adm.engineDrawer = el as typeof adm.engineDrawer;
-                }
-              "
-              class="adm-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="cnx-drawer-title"
-              tabindex="-1"
-              @keydown.tab="adm.onEngineDrawerKey"
+          <Transition name="adm-tiroir">
+            <div
+              v-if="adm.admLlmForm && adm.adminTab === 'inference'"
+              class="adm-drawer-backdrop"
+              @click.self="adm.closeEngineDrawer()"
             >
-              <header class="adm-drawer__head">
-                <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
-                <h2 id="cnx-drawer-title" class="adm-drawer__title">
-                  {{
-                    adm.admLlmForm.id
-                      ? adm.engineConnector
-                        ? adm.engineConnector.label || adm.admLlmLabel(adm.engineConnector.provider_type)
-                        : "Connecteur"
-                      : "Nouveau connecteur"
-                  }}
-                </h2>
-                <span v-if="adm.admLlmForm.id && adm.engineConnector" class="adm-pill">{{
-                  adm.engineConnector.provider_type
-                }}</span>
-                <button
-                  type="button"
-                  class="adm-btn adm-btn--icon ml-auto"
-                  aria-label="Fermer"
-                  title="Fermer (Échap)"
-                  @click="adm.closeEngineDrawer()"
-                >
-                  <i class="ph ph-x" aria-hidden="true"></i>
-                </button>
-              </header>
-
-              <div class="adm-drawer__body">
-                <p
-                  v-if="adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]"
-                  class="text-xs"
-                  role="status"
-                  :class="
-                    adm.admLlmTest[adm.engineConnector.id]?.testing
-                      ? 'text-slate-500'
-                      : adm.admLlmTest[adm.engineConnector.id]?.ok
-                        ? 'text-emerald-700'
-                        : 'text-red-600'
-                  "
-                >
-                  <span v-if="adm.admLlmTest[adm.engineConnector.id]?.testing"
-                    ><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Test en cours…</span
-                  >
-                  <span v-else-if="adm.admLlmTest[adm.engineConnector.id]?.ok"
-                    ><i class="ph ph-check-circle" aria-hidden="true"></i> Joignable ·
-                    {{ adm.admLlmTest[adm.engineConnector.id]?.models_count }} modèle(s)</span
-                  >
-                  <span v-else
-                    ><i class="ph ph-warning-circle" aria-hidden="true"></i>
+              <aside
+                :ref="
+                  (el) => {
+                    adm.engineDrawer = el as typeof adm.engineDrawer;
+                  }
+                "
+                class="adm-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cnx-drawer-title"
+                tabindex="-1"
+                @keydown.tab="adm.onEngineDrawerKey"
+              >
+                <header class="adm-drawer__head">
+                  <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
+                  <h2 id="cnx-drawer-title" class="adm-drawer__title">
                     {{
-                      adm.admLlmTest[adm.engineConnector.id]?.hint ||
-                      adm.admLlmTest[adm.engineConnector.id]?.error ||
-                      "Échec"
-                    }}</span
-                  >
-                </p>
-
-                <CapacitesMoteur
-                  v-if="
-                    adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]?.sonde
-                  "
-                  :rapport="adm.admLlmTest[adm.engineConnector.id]?.sonde ?? null"
-                />
-
-                <label v-if="!adm.admLlmForm.id" class="adm-field">
-                  <span class="adm-field__label">Fournisseur</span>
-                  <select v-model="adm.admLlmForm.provider_type" class="set-select w-full">
-                    <option v-for="pt in adm.admLlmAllProviders" :key="pt" :value="pt">
-                      {{ adm.admLlmLabel(pt) }}
-                    </option>
-                  </select>
-                </label>
-                <label class="adm-field">
-                  <span class="adm-field__label" title="Vide = adresse officielle du fournisseur."
-                    >Adresse</span
-                  >
-                  <input
-                    v-model="adm.admLlmForm.base_url"
-                    placeholder="http://llm.example.lan:8000/v1"
-                    class="set-input font-mono text-xs"
-                  />
-                </label>
-                <label class="adm-field">
-                  <span class="adm-field__label">Clé API</span>
-                  <input
-                    v-model="adm.admLlmForm.api_key"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="
                       adm.admLlmForm.id
-                        ? adm.engineConnector && adm.engineConnector.has_key
-                          ? 'Enregistrée · vide = inchangée'
-                          : 'Aucune'
-                        : 'Facultative en local'
+                        ? adm.engineConnector
+                          ? adm.engineConnector.label || adm.admLlmLabel(adm.engineConnector.provider_type)
+                          : "Connecteur"
+                        : "Nouveau connecteur"
+                    }}
+                  </h2>
+                  <span v-if="adm.admLlmForm.id && adm.engineConnector" class="adm-pill">{{
+                    adm.engineConnector.provider_type
+                  }}</span>
+                  <button
+                    type="button"
+                    class="adm-btn adm-btn--icon ml-auto"
+                    aria-label="Fermer"
+                    title="Fermer (Échap)"
+                    @click="adm.closeEngineDrawer()"
+                  >
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                  </button>
+                </header>
+
+                <div class="adm-drawer__body">
+                  <p
+                    v-if="adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]"
+                    class="text-xs"
+                    role="status"
+                    :class="
+                      adm.admLlmTest[adm.engineConnector.id]?.testing
+                        ? 'text-slate-500'
+                        : adm.admLlmTest[adm.engineConnector.id]?.ok
+                          ? 'text-emerald-700'
+                          : 'text-red-600'
                     "
-                    class="set-input"
-                  />
-                </label>
-                <div class="grid grid-cols-2 gap-3">
-                  <label class="adm-field">
-                    <span class="adm-field__label">Modèle</span>
-                    <input
-                      v-model="adm.admLlmForm.default_model"
-                      placeholder="qwen3-coder-30b"
-                      title="Modèle par défaut"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Libellé</span>
-                    <input v-model="adm.admLlmForm.label" placeholder="vLLM interne" class="set-input" />
-                  </label>
-                </div>
-
-                <div v-if="adm.admLlmForm.provider_type === 'llamacpp'" class="grid grid-cols-3 gap-3">
-                  <label class="adm-field">
-                    <span class="adm-field__label">Contexte</span>
-                    <input
-                      v-model.number="adm.admLlmForm.context_window"
-                      type="number"
-                      min="0"
-                      placeholder="auto"
-                      title="Tokens par requête — vide : lu sur le serveur"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Modèles</span>
-                    <input
-                      v-model.number="adm.admLlmForm.max_models"
-                      type="number"
-                      min="0"
-                      placeholder="1"
-                      title="Modèles simultanés en mémoire sur ce serveur"
-                      class="set-input"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span class="adm-field__label">Requêtes</span>
-                    <input
-                      v-model.number="adm.admLlmForm.max_concurrency"
-                      type="number"
-                      min="0"
-                      placeholder="auto"
-                      title="Requêtes simultanées par modèle — vide : slots du serveur"
-                      class="set-input"
-                    />
-                  </label>
-                </div>
-                <details class="adm-details">
-                  <summary>Avancé</summary>
-                  <label class="adm-field mt-2">
-                    <span class="adm-field__label" title="Repli si le fournisseur n'expose pas la liste."
-                      >Modèles (un par ligne)</span
+                  >
+                    <span v-if="adm.admLlmTest[adm.engineConnector.id]?.testing"
+                      ><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Test en cours…</span
                     >
-                    <textarea
-                      v-model="adm.admLlmForm.models_json"
-                      rows="3"
-                      placeholder="model-a&#10;model-b"
-                      class="set-textarea"
-                    ></textarea>
-                  </label>
-                </details>
-              </div>
+                    <span v-else-if="adm.admLlmTest[adm.engineConnector.id]?.ok"
+                      ><i class="ph ph-check-circle" aria-hidden="true"></i> Joignable ·
+                      {{ adm.admLlmTest[adm.engineConnector.id]?.models_count }} modèle(s)</span
+                    >
+                    <span v-else
+                      ><i class="ph ph-warning-circle" aria-hidden="true"></i>
+                      {{
+                        adm.admLlmTest[adm.engineConnector.id]?.hint ||
+                        adm.admLlmTest[adm.engineConnector.id]?.error ||
+                        "Échec"
+                      }}</span
+                    >
+                  </p>
 
-              <footer class="adm-drawer__foot">
-                <button
-                  v-if="adm.admLlmForm.id && adm.engineConnector"
-                  type="button"
-                  class="adm-btn adm-btn--quiet adm-btn--danger-quiet mr-auto"
-                  @click="adm.deleteAdmLlmConnector(adm.engineConnector)"
-                >
-                  <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
-                </button>
-                <button
-                  v-if="adm.admLlmForm.id && adm.engineConnector"
-                  type="button"
-                  class="adm-btn adm-tool"
-                  @click="adm.testAdmLlmConnector(adm.engineConnector)"
-                >
-                  Tester
-                </button>
-                <button type="button" class="adm-btn adm-btn--quiet" @click="adm.closeEngineDrawer()">
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  :disabled="adm.admLlmBusy"
-                  class="adm-btn adm-btn--primary"
-                  @click="adm.saveAdmLlmConnector()"
-                >
-                  {{ adm.admLlmForm.id ? "Enregistrer" : "Ajouter" }}
-                </button>
-              </footer>
-            </aside>
-          </div>
+                  <CapacitesMoteur
+                    v-if="
+                      adm.admLlmForm.id &&
+                      adm.engineConnector &&
+                      adm.admLlmTest[adm.engineConnector.id]?.sonde
+                    "
+                    :rapport="adm.admLlmTest[adm.engineConnector.id]?.sonde ?? null"
+                  />
+
+                  <label v-if="!adm.admLlmForm.id" class="adm-field">
+                    <span class="adm-field__label">Fournisseur</span>
+                    <select v-model="adm.admLlmForm.provider_type" class="set-select w-full">
+                      <option v-for="pt in adm.admLlmAllProviders" :key="pt" :value="pt">
+                        {{ adm.admLlmLabel(pt) }}
+                      </option>
+                    </select>
+                  </label>
+                  <label class="adm-field">
+                    <span class="adm-field__label" title="Vide = adresse officielle du fournisseur."
+                      >Adresse</span
+                    >
+                    <input
+                      v-model="adm.admLlmForm.base_url"
+                      placeholder="http://llm.example.lan:8000/v1"
+                      class="set-input font-mono text-xs"
+                    />
+                  </label>
+                  <label class="adm-field">
+                    <span class="adm-field__label">Clé API</span>
+                    <input
+                      v-model="adm.admLlmForm.api_key"
+                      type="password"
+                      autocomplete="new-password"
+                      :placeholder="
+                        adm.admLlmForm.id
+                          ? adm.engineConnector && adm.engineConnector.has_key
+                            ? 'Enregistrée · vide = inchangée'
+                            : 'Aucune'
+                          : 'Facultative en local'
+                      "
+                      class="set-input"
+                    />
+                  </label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="adm-field">
+                      <span class="adm-field__label">Modèle</span>
+                      <input
+                        v-model="adm.admLlmForm.default_model"
+                        placeholder="qwen3-coder-30b"
+                        title="Modèle par défaut"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Libellé</span>
+                      <input v-model="adm.admLlmForm.label" placeholder="vLLM interne" class="set-input" />
+                    </label>
+                  </div>
+
+                  <div v-if="adm.admLlmForm.provider_type === 'llamacpp'" class="grid grid-cols-3 gap-3">
+                    <label class="adm-field">
+                      <span class="adm-field__label">Contexte</span>
+                      <input
+                        v-model.number="adm.admLlmForm.context_window"
+                        type="number"
+                        min="0"
+                        placeholder="auto"
+                        title="Tokens par requête — vide : lu sur le serveur"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Modèles</span>
+                      <input
+                        v-model.number="adm.admLlmForm.max_models"
+                        type="number"
+                        min="0"
+                        placeholder="1"
+                        title="Modèles simultanés en mémoire sur ce serveur"
+                        class="set-input"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span class="adm-field__label">Requêtes</span>
+                      <input
+                        v-model.number="adm.admLlmForm.max_concurrency"
+                        type="number"
+                        min="0"
+                        placeholder="auto"
+                        title="Requêtes simultanées par modèle — vide : slots du serveur"
+                        class="set-input"
+                      />
+                    </label>
+                  </div>
+                  <details class="adm-details">
+                    <summary>Avancé</summary>
+                    <label class="adm-field mt-2">
+                      <span class="adm-field__label" title="Repli si le fournisseur n'expose pas la liste."
+                        >Modèles (un par ligne)</span
+                      >
+                      <textarea
+                        v-model="adm.admLlmForm.models_json"
+                        rows="3"
+                        placeholder="model-a&#10;model-b"
+                        class="set-textarea"
+                      ></textarea>
+                    </label>
+                  </details>
+                </div>
+
+                <footer class="adm-drawer__foot">
+                  <button
+                    v-if="adm.admLlmForm.id && adm.engineConnector"
+                    type="button"
+                    class="adm-btn adm-btn--quiet adm-btn--danger-quiet mr-auto"
+                    @click="adm.deleteAdmLlmConnector(adm.engineConnector)"
+                  >
+                    <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
+                  </button>
+                  <button
+                    v-if="adm.admLlmForm.id && adm.engineConnector"
+                    type="button"
+                    class="adm-btn adm-tool"
+                    @click="adm.testAdmLlmConnector(adm.engineConnector)"
+                  >
+                    Tester
+                  </button>
+                  <button type="button" class="adm-btn adm-btn--quiet" @click="adm.closeEngineDrawer()">
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="adm.admLlmBusy"
+                    class="adm-btn adm-btn--primary"
+                    @click="adm.saveAdmLlmConnector()"
+                  >
+                    {{ adm.admLlmForm.id ? "Enregistrer" : "Ajouter" }}
+                  </button>
+                </footer>
+              </aside>
+            </div>
+          </Transition>
         </teleport>
       </section>
 
@@ -953,21 +959,11 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 paramètres, s'il veut dicter et se faire lire les réponses.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-voice-on"
-                v-model="adm.configForm.voice.enabled"
-                type="checkbox"
-                data-field="config:voice.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.voice.enabled ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-voice-on"
+              v-model="adm.configForm.voice.enabled"
+              data-field="config:voice.enabled"
+            />
           </div>
 
           <div class="adm-row adm-row--full">
@@ -1102,21 +1098,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 class="adm-row"
               >
                 <label class="adm-row__label" for="cnx-voice-stt-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-voice-stt-verify"
-                    v-model="adm.configForm.voice.stt.verify"
-                    type="checkbox"
-                    data-field="config:voice.stt.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.voice.stt.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-voice-stt-verify"
+                  v-model="adm.configForm.voice.stt.verify"
+                  data-field="config:voice.stt.verify"
+                  oui="Vérifié"
+                  non="Non vérifié (auto-signé)"
+                />
               </div>
 
               <div class="adm-row adm-row--top">
@@ -1299,20 +1287,16 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
 
               <div class="adm-row">
                 <label class="adm-row__label" for="cnx-voice-vitesse">Vitesse</label>
-                <div class="flex items-center gap-2">
-                  <input
-                    id="cnx-voice-vitesse"
-                    v-model.number="adm.configForm.voice.tts.speed"
-                    data-field="config:voice.tts.speed"
-                    type="number"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
-                    class="set-input adm-num"
-                  />
-                  <span class="adm-unit">×</span>
-                </div>
+                <ChampNombreConsole
+                  id="cnx-voice-vitesse"
+                  v-model="adm.configForm.voice.tts.speed"
+                  data-field="config:voice.tts.speed"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
+                  unite="×"
+                />
               </div>
 
               <div class="adm-row">
@@ -1336,21 +1320,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 class="adm-row"
               >
                 <label class="adm-row__label" for="cnx-voice-tts-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-voice-tts-verify"
-                    v-model="adm.configForm.voice.tts.verify"
-                    type="checkbox"
-                    data-field="config:voice.tts.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.voice.tts.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-voice-tts-verify"
+                  v-model="adm.configForm.voice.tts.verify"
+                  data-field="config:voice.tts.verify"
+                  oui="Vérifié"
+                  non="Non vérifié (auto-signé)"
+                />
               </div>
             </template>
           </div>
@@ -1451,21 +1427,11 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               title="Propose « Images » dans le menu + du chat. Chaque compte peut ensuite couper l'entrée dans ses Paramètres."
               >Activation</label
             >
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-image-on"
-                v-model="adm.configForm.image.enabled"
-                type="checkbox"
-                data-field="config:image.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.image.enabled ? "Activé" : "Désactivé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-image-on"
+              v-model="adm.configForm.image.enabled"
+              data-field="config:image.enabled"
+            />
           </div>
 
           <div class="adm-row adm-row--full">
@@ -1639,21 +1605,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             <template v-if="adm.configForm.image.url && adm.configForm.image.url.startsWith('https')">
               <div class="adm-row">
                 <label class="adm-row__label" for="cnx-image-verify">Certificat</label>
-                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                  <input
-                    id="cnx-image-verify"
-                    v-model="adm.configForm.image.verify"
-                    type="checkbox"
-                    data-field="config:image.verify"
-                    class="sr-only peer"
-                  />
-                  <span
-                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                  ></span>
-                  <span class="text-sm text-slate-700">{{
-                    adm.configForm.image.verify ? "Vérifié" : "Non vérifié"
-                  }}</span>
-                </label>
+                <InterrupteurConsole
+                  id="cnx-image-verify"
+                  v-model="adm.configForm.image.verify"
+                  data-field="config:image.verify"
+                  oui="Vérifié"
+                  non="Non vérifié"
+                />
               </div>
               <div v-if="adm.configForm.image.verify" class="adm-row adm-row--top">
                 <label
@@ -1744,19 +1702,15 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Plus grand côté qu'un compte peut demander."
                 >Côté max</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-maxside"
-                  v-model.number="adm.configForm.image.max_side"
-                  data-field="config:image.max_side"
-                  type="number"
-                  min="256"
-                  max="4096"
-                  step="64"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">px</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-maxside"
+                v-model="adm.configForm.image.max_side"
+                data-field="config:image.max_side"
+                min="256"
+                max="4096"
+                step="64"
+                unite="px"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -1776,18 +1730,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </div>
             <div class="adm-row">
               <label class="adm-row__label" for="cnx-image-n">Par demande</label>
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-n"
-                  v-model.number="adm.configForm.image.max_n"
-                  data-field="config:image.max_n"
-                  type="number"
-                  min="1"
-                  max="8"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">images</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-n"
+                v-model="adm.configForm.image.max_n"
+                data-field="config:image.max_n"
+                min="1"
+                max="8"
+                unite="images"
+              />
             </div>
             <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
               <label
@@ -1813,18 +1763,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Compté à partir du début du calcul (pas de l'attente en file)."
                 >Délai</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-timeout"
-                  v-model.number="adm.configForm.image.timeout_sec"
-                  data-field="config:image.timeout_sec"
-                  type="number"
-                  min="10"
-                  max="1800"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">s</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-timeout"
+                v-model="adm.configForm.image.timeout_sec"
+                data-field="config:image.timeout_sec"
+                min="10"
+                max="1800"
+                unite="s"
+              />
             </div>
             <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
               <label
@@ -1944,18 +1890,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Appels de l'outil generate_image permis par tour du modèle."
                 >Outil</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-tool"
-                  v-model.number="adm.configForm.image.tool_max_calls"
-                  data-field="config:image.tool_max_calls"
-                  type="number"
-                  min="1"
-                  max="20"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">appels/tour</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-tool"
+                v-model="adm.configForm.image.tool_max_calls"
+                data-field="config:image.tool_max_calls"
+                min="1"
+                max="20"
+                unite="appels/tour"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -1964,21 +1906,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Le modèle du chat peut réécrire la description avant l'envoi au moteur."
                 >Enrichir</label
               >
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="cnx-image-enhance"
-                  v-model="adm.configForm.image.enhance_enabled"
-                  type="checkbox"
-                  data-field="config:image.enhance_enabled"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">{{
-                  adm.configForm.image.enhance_enabled ? "Proposé" : "Retiré"
-                }}</span>
-              </label>
+              <InterrupteurConsole
+                id="cnx-image-enhance"
+                v-model="adm.configForm.image.enhance_enabled"
+                data-field="config:image.enhance_enabled"
+                oui="Proposé"
+                non="Retiré"
+              />
             </div>
             <div class="adm-row">
               <label
@@ -1987,18 +1921,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 title="Images gardées par compte ; les plus anciennes sont effacées."
                 >Conserver</label
               >
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-image-keep"
-                  v-model.number="adm.configForm.image.keep_per_user"
-                  data-field="config:image.keep_per_user"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">par compte</span>
-              </div>
+              <ChampNombreConsole
+                id="cnx-image-keep"
+                v-model="adm.configForm.image.keep_per_user"
+                data-field="config:image.keep_per_user"
+                min="1"
+                max="1000"
+                unite="par compte"
+              />
             </div>
           </div>
         </div>
@@ -2039,18 +1969,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">0 = relire à chaque appel.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-mcp-ttl"
-                v-model.number="adm.configForm.mcp.tools_cache_ttl_sec"
-                data-field="config:mcp.tools_cache_ttl_sec"
-                type="number"
-                min="0"
-                max="86400"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-mcp-ttl"
+              v-model="adm.configForm.mcp.tools_cache_ttl_sec"
+              data-field="config:mcp.tools_cache_ttl_sec"
+              min="0"
+              max="86400"
+              unite="s"
+            />
           </div>
         </div>
       </section>
@@ -2080,21 +2006,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 opencode ne sont pas concernés.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-tok-on"
-                v-model="adm.configForm.mcp.tokens.tools_enabled"
-                type="checkbox"
-                data-field="config:mcp.tokens.tools_enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.tokens.tools_enabled ? "Activés" : "Désactivés"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-tok-on"
+              v-model="adm.configForm.mcp.tokens.tools_enabled"
+              data-field="config:mcp.tokens.tools_enabled"
+              oui="Activés"
+              non="Désactivés"
+            />
           </div>
 
           <div class="adm-row">
@@ -2124,18 +2042,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               <label class="adm-row__label" title="0 = sans limite." for="cnx-tok-days">Durée maximale</label>
               <span class="sr-only">0 = sans limite.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-tok-days"
-                v-model.number="adm.configForm.mcp.tokens.max_days"
-                data-field="config:mcp.tokens.max_days"
-                type="number"
-                min="0"
-                max="3650"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">jours</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-tok-days"
+              v-model="adm.configForm.mcp.tokens.max_days"
+              data-field="config:mcp.tokens.max_days"
+              min="0"
+              max="3650"
+              unite="jours"
+            />
           </div>
 
           <div class="adm-row">
@@ -2183,21 +2097,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 de fonctionner. Suit aussi l'interrupteur des jetons d'outils.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-oa-on"
-                v-model="adm.configForm.mcp.oauth.enabled"
-                type="checkbox"
-                data-field="config:mcp.oauth.enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.oauth.enabled ? "Activée" : "Désactivée"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-oa-on"
+              v-model="adm.configForm.mcp.oauth.enabled"
+              data-field="config:mcp.oauth.enabled"
+              oui="Activée"
+              non="Désactivée"
+            />
           </div>
 
           <div class="adm-row">
@@ -2213,21 +2119,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 Coupé : seuls les clients déjà connus ou décrits par un document https sont acceptés.</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-oa-dcr"
-                v-model="adm.configForm.mcp.oauth.dcr_enabled"
-                type="checkbox"
-                data-field="config:mcp.oauth.dcr_enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.mcp.oauth.dcr_enabled ? "Permis" : "Refusé"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="cnx-oa-dcr"
+              v-model="adm.configForm.mcp.oauth.dcr_enabled"
+              data-field="config:mcp.oauth.dcr_enabled"
+              oui="Permis"
+              non="Refusé"
+            />
           </div>
 
           <div class="adm-row">
@@ -2237,18 +2135,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">Entre 300 et 86 400 secondes.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-oa-ttl"
-                v-model.number="adm.configForm.mcp.oauth.access_ttl_s"
-                data-field="config:mcp.oauth.access_ttl_s"
-                type="number"
-                min="300"
-                max="86400"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">secondes</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-oa-ttl"
+              v-model="adm.configForm.mcp.oauth.access_ttl_s"
+              data-field="config:mcp.oauth.access_ttl_s"
+              min="300"
+              max="86400"
+              unite="secondes"
+            />
           </div>
 
           <div class="adm-row">
@@ -2261,18 +2155,14 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               >
               <span class="sr-only">Borné par la durée maximale des jetons d'outils.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-oa-days"
-                v-model.number="adm.configForm.mcp.oauth.refresh_days"
-                data-field="config:mcp.oauth.refresh_days"
-                type="number"
-                min="1"
-                max="3650"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">jours</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-oa-days"
+              v-model="adm.configForm.mcp.oauth.refresh_days"
+              data-field="config:mcp.oauth.refresh_days"
+              min="1"
+              max="3650"
+              unite="jours"
+            />
           </div>
 
           <div class="adm-row">

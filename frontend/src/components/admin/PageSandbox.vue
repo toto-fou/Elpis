@@ -2,6 +2,8 @@
 <!-- frontend/src/components/admin/PageSandbox.vue — pages Sandbox. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
+import ChampNombreConsole from "./ChampNombreConsole.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -103,36 +105,30 @@ const adm = domaineAdmin();
               <label class="adm-row__label" title="Plafond par container." for="sb-mem">Mémoire</label>
               <span class="sr-only">Plafond par container.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-mem"
-                v-model.number="adm.execConfig.limits.memory_mb"
-                data-field="exec:limits.memory_mb"
-                type="number"
-                min="256"
-                max="65536"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">Mo</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-mem"
+              v-model="adm.execConfig.limits.memory_mb"
+              data-field="exec:limits.memory_mb"
+              min="256"
+              max="65536"
+              class="font-mono"
+              unite="Mo"
+            />
           </div>
           <div class="adm-row">
             <div>
               <label class="adm-row__label" title="100 = un cœur complet." for="sb-cpu">Processeur</label>
               <span class="sr-only">100 = un cœur complet.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-cpu"
-                v-model.number="adm.execConfig.limits.cpu_quota_pct"
-                data-field="exec:limits.cpu_quota_pct"
-                type="number"
-                min="10"
-                max="1600"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">%</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-cpu"
+              v-model="adm.execConfig.limits.cpu_quota_pct"
+              data-field="exec:limits.cpu_quota_pct"
+              min="10"
+              max="1600"
+              class="font-mono"
+              unite="%"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -141,18 +137,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Garde-fou contre les fork bombs.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-pids"
-                v-model.number="adm.execConfig.limits.pids_max"
-                data-field="exec:limits.pids_max"
-                type="number"
-                min="16"
-                max="8192"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">PIDs max</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-pids"
+              v-model="adm.execConfig.limits.pids_max"
+              data-field="exec:limits.pids_max"
+              min="16"
+              max="8192"
+              class="font-mono"
+              unite="PIDs max"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -161,18 +154,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Au-delà, la commande est interrompue.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-timeout"
-                v-model.number="adm.execConfig.limits.timeout_s"
-                data-field="exec:limits.timeout_s"
-                type="number"
-                min="5"
-                max="7200"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">s</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-timeout"
+              v-model="adm.execConfig.limits.timeout_s"
+              data-field="exec:limits.timeout_s"
+              min="5"
+              max="7200"
+              class="font-mono"
+              unite="s"
+            />
           </div>
         </div>
       </section>
@@ -206,18 +196,15 @@ const adm = domaineAdmin();
                 /work).</span
               >
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-disk-warn"
-                v-model.number="adm.execConfig.disk.warn_pct"
-                data-field="exec:disk.warn_pct"
-                type="number"
-                min="10"
-                max="99"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">%</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-disk-warn"
+              v-model="adm.execConfig.disk.warn_pct"
+              data-field="exec:disk.warn_pct"
+              min="10"
+              max="99"
+              class="font-mono"
+              unite="%"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -232,18 +219,15 @@ const adm = domaineAdmin();
                 restent permises.</span
               >
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-disk-refuse"
-                v-model.number="adm.execConfig.disk.refuse_pct"
-                data-field="exec:disk.refuse_pct"
-                type="number"
-                min="11"
-                max="100"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">%</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-disk-refuse"
+              v-model="adm.execConfig.disk.refuse_pct"
+              data-field="exec:disk.refuse_pct"
+              min="11"
+              max="100"
+              class="font-mono"
+              unite="%"
+            />
           </div>
           <p
             v-if="adm.execConfig.disk.warn_pct >= adm.execConfig.disk.refuse_pct"
@@ -281,21 +265,13 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Le mode dossier n'est plus proposé aux utilisateurs.</span>
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="sb-force-docker"
-                v-model="adm.execConfig.force_user_docker"
-                type="checkbox"
-                data-field="exec:force_user_docker"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.execConfig.force_user_docker ? "Imposé" : "Au choix"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="sb-force-docker"
+              v-model="adm.execConfig.force_user_docker"
+              data-field="exec:force_user_docker"
+              oui="Imposé"
+              non="Au choix"
+            />
           </div>
 
           <div class="adm-row">
@@ -308,18 +284,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Seuil utilisé par « Recycler les inactifs ». 0 = jamais.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-idle"
-                v-model.number="adm.execConfig.idle_kill_hours"
-                data-field="exec:idle_kill_hours"
-                type="number"
-                min="0"
-                max="168"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">heures</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-idle"
+              v-model="adm.execConfig.idle_kill_hours"
+              data-field="exec:idle_kill_hours"
+              min="0"
+              max="168"
+              class="font-mono"
+              unite="heures"
+            />
           </div>
 
           <details class="adm-details adm-details--rows">
@@ -480,18 +453,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Réveils automatiques d'une même conversation par heure.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-wakes-per-hour"
-                v-model.number="adm.execConfig.jobs.wakes_per_hour"
-                data-field="exec:jobs.wakes_per_hour"
-                type="number"
-                min="1"
-                max="600"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">réveils</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-wakes-per-hour"
+              v-model="adm.execConfig.jobs.wakes_per_hour"
+              data-field="exec:jobs.wakes_per_hour"
+              min="1"
+              max="600"
+              class="font-mono"
+              unite="réveils"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -503,18 +473,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Au-delà, la tâche est arrêtée et réveille la conversation.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-max-runtime-h"
-                v-model.number="adm.execConfig.jobs.max_runtime_h"
-                data-field="exec:jobs.max_runtime_h"
-                type="number"
-                min="1"
-                max="720"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">heures</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-max-runtime-h"
+              v-model="adm.execConfig.jobs.max_runtime_h"
+              data-field="exec:jobs.max_runtime_h"
+              min="1"
+              max="720"
+              class="font-mono"
+              unite="heures"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -526,18 +493,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Texte remis au modèle pour un événement, tronqué au-delà.</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-event-max-bytes"
-                v-model.number="adm.execConfig.jobs.event_max_bytes"
-                data-field="exec:jobs.event_max_bytes"
-                type="number"
-                min="256"
-                max="65536"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">octets</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-event-max-bytes"
+              v-model="adm.execConfig.jobs.event_max_bytes"
+              data-field="exec:jobs.event_max_bytes"
+              min="256"
+              max="65536"
+              class="font-mono"
+              unite="octets"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -549,18 +513,15 @@ const adm = domaineAdmin();
               >
               <span class="sr-only">Texte total remis au modèle pour un réveil (plusieurs événements).</span>
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-wake-max-bytes"
-                v-model.number="adm.execConfig.jobs.wake_max_bytes"
-                data-field="exec:jobs.wake_max_bytes"
-                type="number"
-                min="1024"
-                max="262144"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">octets</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-wake-max-bytes"
+              v-model="adm.execConfig.jobs.wake_max_bytes"
+              data-field="exec:jobs.wake_max_bytes"
+              min="1024"
+              max="262144"
+              class="font-mono"
+              unite="octets"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -574,18 +535,15 @@ const adm = domaineAdmin();
                 >Tours de réveil menés en même temps par compte ; les autres attendent leur tour.</span
               >
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-wake-concurrency"
-                v-model.number="adm.execConfig.jobs.wake_concurrency"
-                data-field="exec:jobs.wake_concurrency"
-                type="number"
-                min="1"
-                max="8"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">tours</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-wake-concurrency"
+              v-model="adm.execConfig.jobs.wake_concurrency"
+              data-field="exec:jobs.wake_concurrency"
+              min="1"
+              max="8"
+              class="font-mono"
+              unite="tours"
+            />
           </div>
           <div class="adm-row">
             <div>
@@ -599,18 +557,15 @@ const adm = domaineAdmin();
                 >Les tâches terminées et leurs événements sont purgés après ce délai.</span
               >
             </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="sb-job-retention-days"
-                v-model.number="adm.execConfig.jobs.retention_days"
-                data-field="exec:jobs.retention_days"
-                type="number"
-                min="1"
-                max="365"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">jours</span>
-            </div>
+            <ChampNombreConsole
+              id="sb-job-retention-days"
+              v-model="adm.execConfig.jobs.retention_days"
+              data-field="exec:jobs.retention_days"
+              min="1"
+              max="365"
+              class="font-mono"
+              unite="jours"
+            />
           </div>
         </div>
       </section>

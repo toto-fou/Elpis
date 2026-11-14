@@ -5,6 +5,7 @@ import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
+import InterrupteurConsole from "./InterrupteurConsole.vue";
 
 const adm = domaineAdmin();
 
@@ -124,21 +125,13 @@ const sansFile = computed(() => {
                 >N'active rien : chaque utilisateur reste libre de l'activer (désactivée par défaut).</span
               >
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="llm-comp-enabled"
-                v-model="adm.compressionCfg.enabled"
-                type="checkbox"
-                data-field="compression:enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.compressionCfg.enabled ? "Autorisée" : "Interdite pour tous"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="llm-comp-enabled"
+              v-model="adm.compressionCfg.enabled"
+              data-field="compression:enabled"
+              oui="Autorisée"
+              non="Interdite pour tous"
+            />
           </div>
 
           <div v-if="adm.compressionCfg.enabled" class="adm-row">
@@ -282,21 +275,13 @@ const sansFile = computed(() => {
               >
               <span class="sr-only">Affiche le choix du modèle et du connecteur dans le chat.</span>
             </div>
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="llm-model-selector"
-                v-model="adm.configForm.app.enable_model_selector"
-                type="checkbox"
-                data-field="config:app.enable_model_selector"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.app.enable_model_selector ? "Affiché" : "Masqué"
-              }}</span>
-            </label>
+            <InterrupteurConsole
+              id="llm-model-selector"
+              v-model="adm.configForm.app.enable_model_selector"
+              data-field="config:app.enable_model_selector"
+              oui="Affiché"
+              non="Masqué"
+            />
           </div>
         </div>
       </section>

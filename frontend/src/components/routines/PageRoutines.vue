@@ -92,7 +92,7 @@ const rt = domaineRoutines();
           class="flex-1 flex flex-col items-center justify-center text-center px-6"
         >
           <i class="ph ph-clock-countdown text-slate-300 text-3xl block mb-3"></i>
-          <p v-if="rt.routinesLoading" class="text-sm text-slate-400">Chargement…</p>
+          <p v-if="rt.routinesLoading && !rt.routines.length" class="text-sm text-slate-400">Chargement…</p>
           <template v-else-if="rt.routines.length === 0">
             <p class="text-sm text-slate-500">Aucune routine planifiée.</p>
             <button

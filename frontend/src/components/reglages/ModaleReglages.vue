@@ -106,12 +106,24 @@ watchEffect(() => {
 
               <OngletMemoire v-if="rg.settingsTab === 'memory'" />
 
-              <OngletConnexions v-if="rg.settingsTab === 'secrets' && section?.id === 'jetons'" />
+              <OngletConnexions
+                v-if="rg.settingsTab === 'secrets' && section?.id === 'jetons'"
+                key="jetons"
+                genre="tools"
+              />
+
+              <OngletConnexions
+                v-if="rg.settingsTab === 'secrets' && section?.id === 'remote'"
+                key="remote"
+                genre="opencode"
+              />
 
               <OngletConnecteurs v-if="rg.settingsTab === 'secrets' && section?.id === 'git'" />
 
               <OngletSecrets
-                v-if="rg.settingsTab === 'secrets' && section?.id !== 'jetons' && section?.id !== 'git'"
+                v-if="
+                  rg.settingsTab === 'secrets' && !['jetons', 'remote', 'git'].includes(section?.id ?? '')
+                "
               />
 
               <OngletModelesIA v-if="rg.settingsTab === 'ai_models'" />

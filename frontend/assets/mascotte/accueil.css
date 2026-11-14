@@ -155,8 +155,14 @@
     100% { transform: translate(15px, -27px) rotate(14deg); opacity: 0; }
 }
 
-/* Comme la feuille générée, on RALENTIT de moitié plutôt que d'arrêter : le
-   personnage reste lisible pour qui demande moins de mouvement. */
+/* Comme la feuille générée, on RALENTIT de moitié plutôt que d'arrêter ; les z
+   ne montent plus ni ne tournent, ils s'allument et s'éteignent en place. */
 @media (prefers-reduced-motion: reduce) {
-    .perchoir-zzz i { animation-duration: 8.4s; }
+    .perchoir-zzz i { animation-name: perchoir-z-reduit; animation-duration: 8.4s; }
+}
+@keyframes perchoir-z-reduit {
+    0%   { opacity: 0; }
+    12%  { opacity: .85; }
+    62%  { opacity: .6; }
+    64%, 100% { opacity: 0; }
 }

@@ -409,9 +409,9 @@ body.elpis-skin-veilleuse main > header .text-sm.font-medium.truncate {
 }
 
 /* ── Le fil : la largeur réglée par le compte, la question grande et légère, sans bulle ── */
-body.elpis-skin-veilleuse main > .overflow-y-auto.scroll-smooth { scrollbar-gutter: stable both-edges; }
-body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 3.5rem; }
-body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > .elpis-msg-user + .elpis-msg-assistant { margin-top: 1.75rem; }
+body.elpis-skin-veilleuse main > .overflow-y-auto.elpis-fil { scrollbar-gutter: stable both-edges; }
+body.elpis-skin-veilleuse .elpis-chat-col { row-gap: 3.5rem; }
+body.elpis-skin-veilleuse:not(.elpis-fil-compact) .elpis-chat-col > .elpis-msg-user + .elpis-msg-assistant { margin-top: -1.75rem; }
 body.elpis-skin-veilleuse .elpis-msg-user > .shrink-0 { display: none; }
 body.elpis-skin-veilleuse .elpis-msg-user > .flex-1 > .flex.items-baseline { margin-bottom: 0.375rem; }
 body.elpis-skin-veilleuse :is(.elpis-msg-user, .elpis-msg-assistant) > .flex-1 > .flex.items-baseline > span {
@@ -800,13 +800,11 @@ body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-curr
 /* Étiquettes de la console (« Défaut »…) : l'accent prévu pour le texte, lisible en petite taille. */
 body.elpis-skin-veilleuse .adm-tag:not(.adm-tag--soft) { color: var(--accent-text); }
 
-/* ── Mouvement : les menus s'allument doucement, comme sous la lampe ; opacité et position seulement ── */
-body.elpis-skin-veilleuse :is(.popover-enter-active, .popover-up-enter-active) {
-    transition: opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+/* ── Mouvement : les menus s'allument doucement (entrée commune) et s'éteignent comme une lampe qu'on baisse ; opacité et position seulement ── */
+body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) {
+    --duree-courte: 140ms;
+    --courbe-fondu: ease-in;
 }
-body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) { transition: opacity 140ms ease-in, transform 140ms ease-in; }
-body.elpis-skin-veilleuse .popover-enter-from { transform: translateY(-6px) scale(0.98); }
-body.elpis-skin-veilleuse .popover-up-enter-from { transform: translateY(6px) scale(0.98); }
 body.elpis-skin-veilleuse :is(.modal-enter-active, .modal-leave-active) > * {
-    transition: opacity 220ms ease-out, transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree-longue) var(--courbe-entree);
 }

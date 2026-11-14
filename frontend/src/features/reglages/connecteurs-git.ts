@@ -11,7 +11,7 @@ import type { Ref } from "vue";
 
 import type { ClientHttp } from "../../platform/http/client";
 import { valeurOuNull } from "../../platform/http/resultat";
-import { cibleCompte, lirePortee, niveauxPortee } from "./portee-git";
+import { cibleCompte, lirePortee, niveauxPortee } from "../../utils/portee-git";
 
 export type { ConnecteurGit };
 

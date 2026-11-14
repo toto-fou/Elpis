@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/portee-git.ts — portée d'un compte git côté interface, avec les règles du serveur : chemin d'organisation ou de dépôt, saisie « hôte/chemin », niveaux proposés pour un dépôt, compte qui sert une URL de clonage. */
+/** frontend/src/utils/portee-git.ts — portée d'un compte git côté interface, avec les règles du serveur : chemin d'organisation ou de dépôt, saisie « hôte/chemin », niveaux proposés pour un dépôt, compte qui sert une URL de clonage. */
 
 /** Ce que la portée lit d'un compte git : son hôte, et son chemin (`""` tout l'hôte, `null` sans portée). */
 export interface PorteeCompte {

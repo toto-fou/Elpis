@@ -2,7 +2,7 @@
 <!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes pour un hôte, une organisation ou un dépôt, jeton en écriture seule. -->
 <script setup lang="ts">
 import { domaineReglages } from "../../../features/reglages/domaine";
-import { cibleCompte } from "../../../features/reglages/portee-git";
+import { cibleCompte } from "../../../utils/portee-git";
 
 const rg = domaineReglages();
 </script>

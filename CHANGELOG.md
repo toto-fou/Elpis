@@ -138,6 +138,13 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Clone window of the editor.** Wider and reordered: the repositories of a Git account are
+  listed as soon as it opens (the account is chosen only when there are several), the line
+  under the address says which account will authenticate the clone or that none applies, and
+  the folder shows the name it will get. Without an account, or after an access refusal (said
+  in plain words above git's message), credentials are typed in place and saved for the host,
+  the organization or the repository; before, the window sent you to Settings and lost the
+  address. A successful clone now reports that the credentials were saved.
 - **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
   *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
   `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).

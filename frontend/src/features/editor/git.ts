@@ -5,6 +5,7 @@ import type { Ref } from "vue";
 import type { z } from "zod";
 
 import { partagerArbre } from "./arbre";
+import { refusDAcces } from "./clonage";
 import { remplacerContenu } from "./ecriture-modele";
 import type { ModeleEditable } from "./ecriture-modele";
 import type { Onglet } from "./fichiers";
@@ -76,6 +77,22 @@ interface DepotConnecteur {
   [cle: string]: unknown;
 }
 
+/** Identifiants saisis dans la fenêtre de clonage : bloc ouvert, portée choisie pour les enregistrer (`null` : celle proposée), dernier clone refusé faute d'accès. */
+export interface IdentifiantsClone {
+  ouvert: boolean;
+  user: string;
+  token: string;
+  portee: string | null;
+  refus: boolean;
+}
+const identifiantsCloneVides = (): IdentifiantsClone => ({
+  ouvert: false,
+  user: "",
+  token: "",
+  portee: null,
+  refus: false,
+});
+
 const JSON_POST = { method: "POST", headers: { "Content-Type": "application/json" } } as const;
 const BRANCHES_VIDES: Branches = { current: "", local: [], remote: [] };
 
@@ -105,6 +122,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   const gitLoading = ref(false);
   const showGitCloneModal = ref(false);
   const gitCloneForm = ref({ url: "", dir: "" });
+  const gitCloneCreds = ref(identifiantsCloneVides());
   const gitCloneConnectorId = ref("");
   const gitCloneRepos: Ref<DepotConnecteur[]> = ref([]);
   const gitCloneReposLoading = ref(false);
@@ -136,6 +154,8 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   function resetOnLogout(): void {
     gitCredUser.value = "";
     gitCredToken.value = "";
+    gitCloneCreds.value = identifiantsCloneVides();
+    showGitCloneModal.value = false;
     gitCredShowPwd.value = false;
     showGitPushAuth.value = false;
     showGitMergeModal.value = false;
@@ -287,16 +307,29 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
     });
   }
 
-  async function gitClone(): Promise<void> {
-    if (!gitCloneForm.value.url) return;
+  /** Clone l'adresse saisie ; des identifiants saisis l'authentifient et, s'il réussit, sont enregistrés pour `portee` (absente : choisie par le serveur) ; un refus d'accès ouvre leur saisie ; vrai s'ils ont été enregistrés. */
+  async function gitClone(portee?: string): Promise<boolean> {
+    if (!gitCloneForm.value.url || gitLoading.value) return false;
     gitError.value = "";
+    const saisie = gitCloneCreds.value;
+    saisie.refus = false;
+    const jeton = saisie.ouvert ? saisie.token.trim() : "";
+    const corps: Record<string, unknown> = { ...gitCloneForm.value };
+    if (jeton) {
+      corps["cred_user"] = saisie.user.trim();
+      corps["cred_token"] = jeton;
+      if (portee !== undefined) corps["cred_scope"] = portee;
+    }
+    let enregistres = false;
     await occuper(async () => {
-      const r = await poster("/api/sandbox/git/clone", gitCloneForm.value);
+      const r = await poster("/api/sandbox/git/clone", corps);
       if (r && r.ok) {
         showGitCloneModal.value = false;
         const d = await lireJson(r, schemaGitDepotCree);
-        showToast(d?.message || "Clone terminé !");
+        enregistres = !!d && "credentials_saved" in d && d.credentials_saved === true;
+        showToast((d?.message || "Clone terminé !") + (enregistres ? " Identifiants enregistrés." : ""));
         gitCloneForm.value = { url: "", dir: "" };
+        gitCloneCreds.value = identifiantsCloneVides();
         await gitLoadRepos();
         if (d?.repo) gitCurrentRepo.value = d.repo;
         await gitRefresh();
@@ -304,9 +337,12 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
       } else {
         const message = r ? await detail(r, "Erreur") : "Session expirée / erreur réseau";
         gitError.value = message;
+        if (r && refusDAcces(r.status, message))
+          Object.assign(gitCloneCreds.value, { ouvert: true, refus: true });
         showToast(message, "error");
       }
     });
+    return enregistres;
   }
 
   const gitFilteredCloneRepos = computed(() => {
@@ -324,6 +360,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
     gitCloneRepoFilter.value = "";
     gitError.value = "";
     gitCloneForm.value = { url: "", dir: "" };
+    gitCloneCreds.value = identifiantsCloneVides();
     showGitCloneModal.value = true;
   }
 
@@ -919,6 +956,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
     gitError,
     showGitCloneModal,
     gitCloneForm,
+    gitCloneCreds,
     showGitBranchMenu,
     gitCloneConnectorId,
     gitCloneRepos,

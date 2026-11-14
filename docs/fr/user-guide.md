@@ -1132,6 +1132,13 @@ Un panneau Git complet, sur les dépôts de votre sandbox :
 L'authentification passe par vos [comptes Git](#comptes-git) : aucun
 identifiant n'est écrit dans la sandbox.
 
+**Cloner un dépôt.** La fenêtre liste les dépôts d'un de vos comptes Git (*Mes dépôts* ; choisissez le
+compte si vous en avez plusieurs) et accepte n'importe quelle adresse. Sous l'adresse, elle dit quel
+compte servira, le plus précis qui couvre le dépôt, ou qu'aucun ne s'applique. Sans compte, ou si
+l'accès est refusé, saisissez des identifiants sur place : ils authentifient ce clone et, s'il
+réussit, sont enregistrés comme compte Git pour l'endroit que vous choisissez (l'hôte,
+l'organisation ou le dépôt). Le dossier prend par défaut le nom du dépôt.
+
 ### Snapshots
 
 Un **instantané** de votre sandbox, pris à la demande, restaurable en un clic.

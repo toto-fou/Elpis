@@ -1039,6 +1039,7 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     gitError: git.gitError,
     showGitCloneModal: git.showGitCloneModal,
     gitCloneForm: git.gitCloneForm,
+    gitCloneCreds: git.gitCloneCreds,
     showGitBranchMenu: git.showGitBranchMenu,
     gitCloneConnectorId: git.gitCloneConnectorId,
     gitCloneRepos: git.gitCloneRepos,

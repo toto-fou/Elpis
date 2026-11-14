@@ -2123,8 +2123,10 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   `''` for the whole host, an organization (`acme`) or a repository (`acme/api`; nested groups
   allowed), `NULL` for an account with no scope (inactive: migration `0030_git_account_scope`
   leaves it so when several accounts shared a host, and gives the host to the most recently
-  used). Unique per `(owner_user_id, host, path)`, the path compared without case when an
-  account is created or moved; the label is free text. A path is plain
+  used). Unique per `(owner_user_id, host, path)`; when an account is created or moved, the
+  path is also compared without case unless both accounts are `generic`; the label is free text.
+  The public view carries `to_verify` for an account whose token was imported from the sandbox
+  file and not verified yet. A path is plain
   segments (`[A-Za-z0-9._~-]`, no `.git`, eight at most; `cheminDepot`,
   `apps/core/src/secrets/portee.ts`), stored in lower case, except for a `generic` account,
   whose server may tell paths apart by case (`cheminPourType`).

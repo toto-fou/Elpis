@@ -20,7 +20,9 @@ const comptes = computed(() => comptesUtilisables(ed.gitConnectors));
 const acces = computed(() => accesClone(ed.gitCloneForm.url, ed.gitConnectors));
 const portees = computed(() => porteesIdentifiants(acces.value, ed.gitConnectors));
 const dossier = computed(() => dossierDuClone(ed.gitCloneForm.url));
-const hote = computed(() => ("hote" in acces.value ? acces.value.hote : ""));
+/** Schéma et hôte de l'adresse : ce vers quoi des identifiants saisis partiraient. */
+const origine = computed(() => ("origine" in acces.value ? acces.value.origine : ""));
+const connu = computed(() => acces.value.etat !== "vide" && acces.value.etat !== "invalide");
 /** Des identifiants saisis serviront à la place d'un compte. */
 const saisis = computed(() => ed.gitCloneCreds.ouvert && ed.gitCloneCreds.token.trim() !== "");
 /** Portée où les identifiants seront enregistrés ; `null` : nulle part, ils ne servent qu'à ce clone. */
@@ -35,8 +37,8 @@ function oublierIdentifiants(): void {
   Object.assign(ed.gitCloneCreds, { ouvert: false, user: "", token: "", portee: null, refus: false });
 }
 
-// Des identifiants saisis pour un hôte ne partent jamais vers un autre : changer d'hôte les efface, fermer aussi.
-watch(hote, oublierIdentifiants);
+// Des identifiants saisis pour un hôte ne partent jamais vers un autre, ni en clair s'ils l'ont été pour https : changer d'hôte ou de schéma les efface, fermer aussi.
+watch(origine, oublierIdentifiants);
 watch(
   () => ed.showGitCloneModal,
   (ouverte) => {
@@ -221,14 +223,11 @@ function versJeton(): void {
             <p
               id="clone-acces"
               class="text-xs text-slate-500 mt-1 leading-snug"
+              aria-live="polite"
               data-acces
               :data-etat="acces.etat"
             >
-              <template
-                v-if="
-                  saisis && (acces.etat === 'compte' || acces.etat === 'sans-jeton' || acces.etat === 'aucun')
-                "
-              >
+              <template v-if="saisis && 'hote' in acces">
                 <i class="ph ph-key" aria-hidden="true"></i> Identifiants saisis pour
                 <span class="font-mono text-slate-700">{{ acces.hote }}</span>
               </template>
@@ -247,10 +246,23 @@ function versJeton(): void {
                   </button>
                 </template>
               </template>
-              <template v-else-if="acces.etat === 'sans-jeton'">
+              <template v-else-if="acces.etat === 'sans-jeton' || acces.etat === 'a-verifier'">
                 <span class="text-amber-600"
-                  >Compte <span class="font-mono">{{ nomCompte(acces.compte) }}</span> sans jeton</span
-                ><template v-if="!ed.gitCloneCreds.ouvert">
+                  >Compte <span class="font-mono">{{ nomCompte(acces.compte) }}</span>
+                  {{ acces.etat === "a-verifier" ? "à vérifier" : "sans jeton" }}</span
+                >
+                <template v-if="acces.etat === 'a-verifier'">
+                  ·
+                  <button
+                    type="button"
+                    class="text-blue-600 hover:underline font-medium"
+                    data-verifier
+                    @click="ouvrirComptes"
+                  >
+                    Comptes Git
+                  </button>
+                </template>
+                <template v-if="!ed.gitCloneCreds.ouvert">
                   ·
                   <button
                     type="button"
@@ -263,9 +275,7 @@ function versJeton(): void {
                 </template>
               </template>
               <template v-else-if="acces.etat === 'aucun'">
-                Aucun compte ne s'applique sur
-                <span class="font-mono text-slate-700">{{ acces.hote }}</span
-                ><template v-if="!ed.gitCloneCreds.ouvert">
+                Aucun compte ne s'applique à cette adresse<template v-if="!ed.gitCloneCreds.ouvert">
                   : dépôt public, ou
                   <button
                     type="button"
@@ -279,6 +289,9 @@ function versJeton(): void {
               </template>
               <span v-else-if="acces.etat === 'invalide'" class="text-amber-600"
                 >Adresse http(s) attendue</span
+              >
+              <span v-if="connu && 'clair' in acces && acces.clair" class="text-amber-600" data-clair>
+                · http : envoi en clair</span
               >
             </p>
           </div>
@@ -318,18 +331,14 @@ function versJeton(): void {
                 >Enregistrer pour</label
               >
               <select id="clone-portee" v-model="portee" class="set-select flex-1 min-w-0 font-mono">
-                <option v-for="p in portees.choix" :key="p.valeur" :value="p.valeur">
-                  {{ p.libelle }}{{ p.remplace ? " — remplace son jeton" : "" }}
+                <option v-for="p in portees.choix" :key="p.valeur" :value="p.valeur" :disabled="p.fermee">
+                  {{ p.libelle
+                  }}{{ p.fermee ? " — compte à vérifier" : p.remplace ? " — met à jour ce compte" : "" }}
                 </option>
               </select>
             </div>
-            <p
-              v-else
-              class="text-xs text-slate-500"
-              title="Adresse de dépôt inhabituelle sur un hôte qui a déjà son compte : rien n'est remplacé."
-              data-non-enregistres
-            >
-              Utilisés pour ce clone seulement.
+            <p v-else class="text-xs text-slate-500" data-non-enregistres>
+              Non enregistrés : ils ne servent qu'à ce clone.
             </p>
           </div>
 

@@ -19,6 +19,8 @@ export const schemaConnecteurGit = z.object({
   updated_at: horodatage,
   last_used: horodatage.nullable(),
   has_token: z.boolean(),
+  /** Jeton importé du bac, à vérifier par son propriétaire avant de servir. */
+  to_verify: z.boolean().optional(),
 });
 export type ConnecteurGit = z.infer<typeof schemaConnecteurGit>;
 export const schemaReponseConnecteursGit = z.object({

@@ -158,11 +158,11 @@ function jetonLisible(s: LigneSecret | undefined, l: PorteeCompte): boolean {
   }
 }
 
-/** `_public` : vue sans jeton (réponses HTTP) ; `has_token` vrai seulement si le jeton du coffre est utilisable. */
+/** `_public` : vue sans jeton (réponses HTTP) ; `has_token` vrai seulement si le jeton du coffre est utilisable ; `to_verify` : jeton importé du bac, que son propriétaire n'a pas encore vérifié. */
 function publique(r: Record<string, unknown>, secrets: ReadonlyMap<number, LigneSecret>): Dict {
   const l = ligneDe(r);
   const s = l.secret_id === null ? undefined : secrets.get(l.secret_id);
-  return { ...colonnes(r), has_token: jetonLisible(s, l) };
+  return { ...colonnes(r), has_token: jetonLisible(s, l), to_verify: s?.state === "unverified" };
 }
 
 function maintenant(): number {
@@ -207,19 +207,21 @@ async function nomLibre(x: Executeur, l: LigneConnecteur, sauf?: string): Promis
   );
 }
 
-/** Refuse (`PorteePrise`) la portée qu'un autre compte git du propriétaire a déjà, casse du chemin ignorée (deux comptes de types différents ne couvrent jamais exactement le même endroit). */
+/** Refuse (`PorteePrise`) la portée qu'un autre compte git du propriétaire a déjà ; la casse du chemin est ignorée dès que l'un des deux comptes n'est pas générique (ils couvriraient exactement le même endroit), deux comptes génériques ne se gênent qu'à chemin identique. */
 async function exigerPorteeLibre(
   x: Executeur,
   uid: number,
   hote: string,
   chemin: string,
+  type: string,
   sauf = 0,
 ): Promise<void> {
-  const pris = await x.get<{ id: number }>(
-    "SELECT id FROM git_connectors WHERE owner_user_id=? AND host=? AND LOWER(path)=LOWER(?) AND id<>?",
+  const voisins = await x.all<{ path: string; provider_type: string }>(
+    "SELECT path, provider_type FROM git_connectors WHERE owner_user_id=? AND host=? AND LOWER(path)=LOWER(?) AND id<>?",
     [uid, hote, chemin, sauf],
   );
-  if (pris) throw new PorteePrise(hote, chemin);
+  if (voisins.some((v) => v.path === chemin || type !== "generic" || v.provider_type !== "generic"))
+    throw new PorteePrise(hote, chemin);
 }
 
 /** Secret git du compte git, s'il existe encore (supprimé dans Secrets : `null`). */
@@ -308,7 +310,7 @@ export async function createConnector(
   const hote = lowerPy(host || "");
   const chemin = cheminPourType(champs.path ?? "", providerType);
   return base.ecriture(async () => {
-    await exigerPorteeLibre(base, uid, hote, chemin);
+    await exigerPorteeLibre(base, uid, hote, chemin, providerType);
     const id = await base.insertId(
       "INSERT INTO git_connectors(owner_user_id, provider_type, host, path, api_base, label, username, token_enc, token_scheme, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
       [
@@ -376,7 +378,8 @@ export async function updateConnector(
     const jeton = champs.token || "";
     if (sets.length === 0 && !jeton) return false;
     const porteeChange = apres.path !== null && (apres.host !== avant.host || apres.path !== avant.path);
-    if (porteeChange) await exigerPorteeLibre(base, uid, apres.host, apres.path as string, cid);
+    if (porteeChange)
+      await exigerPorteeLibre(base, uid, apres.host, apres.path as string, apres.provider_type, cid);
     const secret = await secretDe(base, avant);
     const ailleurs = apres.host !== avant.host || apiEffective(apres) !== apiEffective(avant);
     const effacer = !jeton && ailleurs && (secret !== null || strPy(avant["token_enc"] ?? "") !== "");

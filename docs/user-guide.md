@@ -1187,11 +1187,14 @@ credential is written to the sandbox.
 **Clone a repository.** The window lists the repositories of one of your Git accounts (*Mes dépôts*;
 pick the account when you have several) and takes any address. Under the address it says which
 account will be used, the most specific one that covers the repository (it says so when that
-account has no token), or that none applies. With no account, or when access is refused, type
+account has no token or holds an imported token still to verify), or that none applies; an
+`http://` address is flagged as sent in clear. A repository at the root of a host
+(`https://git.example/project.git`, a single path segment) is not served by any account. With no account, or when access is refused, type
 credentials in place: they are sent if the host asks for them and, when the clone then succeeds,
 saved as a Git account for the place you choose (the host, the organization or the repository;
-a place that already has an account says it replaces its token). The window tells you when they
-were not saved. Changing the host of the address, or closing the window, forgets what you typed.
+a place that already has an account says it updates that account). The window tells you when they
+were not saved. Changing the host or the scheme of the address, or closing the window, forgets
+what you typed.
 The folder defaults to the repository name.
 
 ### Snapshots

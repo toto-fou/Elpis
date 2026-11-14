@@ -25,6 +25,13 @@ const rg = domaineReglages();
                 data-sans-portee
                 >sans portée</span
               >
+              <span
+                v-if="c.to_verify"
+                class="ml-1.5 text-xs font-normal text-amber-600"
+                title="Jeton importé de votre sandbox : vérifiez-le dans Secrets web, ou saisissez-le ici."
+                data-a-verifier
+                >à vérifier</span
+              >
             </div>
             <div class="text-xs text-slate-500">
               {{ c.provider_type }}<span v-if="c.username"> · {{ c.username }}</span>

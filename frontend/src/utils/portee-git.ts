@@ -68,24 +68,35 @@ export function lirePortee(brut: string): { host: string; path: string } | null 
   return hote && HOTE.test(hote) && chemin !== null ? { host: hote, path: chemin } : null;
 }
 
-/** Hôte et chemin du dépôt d'une URL de clonage `http(s)://` (schéma en minuscules), lus comme le serveur : hôte tel qu'écrit, port compris, en minuscules ; chemin sans barres finales ni un `.git`, rien d'autre ; chemin `null` s'il n'est pas fait de segments simples ou n'en a qu'un ; `null` si ce n'est pas une telle URL. */
-export function depotDeLUrl(url: string): { host: string; chemin: string | null } | null {
+/** Dépôt d'une URL de clonage, lu comme le serveur : schéma, hôte tel qu'écrit (port compris, en minuscules), chemin (`null` s'il n'est pas fait de segments simples ou n'en a qu'un) ; `servi` : le serveur cherche un compte pour cette adresse (au moins un propriétaire et un dépôt). */
+export interface DepotUrl {
+  readonly schema: "http" | "https";
+  readonly host: string;
+  readonly chemin: string | null;
+  readonly servi: boolean;
+}
+
+/** Dépôt d'une URL de clonage `http(s)://` (schéma en minuscules) ; chemin sans barres finales ni un `.git`, rien d'autre ; `null` si ce n'est pas une telle URL. */
+export function depotDeLUrl(url: string): DepotUrl | null {
   const t = url.trim();
   if (!/^https?:\/\//u.test(t) || !URL.canParse(t)) return null;
+  const schema = t.startsWith("https://") ? "https" : "http";
   const apresSchema = t.slice(t.indexOf("://") + 3);
   const barre = apresSchema.search(/[/?#]/u);
   const autorite = barre < 0 ? apresSchema : apresSchema.slice(0, barre);
   const host = autorite.slice(autorite.lastIndexOf("@") + 1).toLowerCase();
   if (!host || !HOTE.test(host)) return null;
   let brut = barre < 0 || apresSchema[barre] !== "/" ? "" : apresSchema.slice(barre + 1);
-  if (barre >= 0 && (apresSchema[barre] !== "/" || brut.includes("?") || brut.includes("#")))
-    return { host, chemin: null };
   let fin = brut.length;
   while (fin > 0 && brut[fin - 1] === "/") fin--;
   brut = brut.slice(0, fin);
   if (brut.endsWith(".git")) brut = brut.slice(0, -4);
+  // Le serveur ne cherche un compte que pour `propriétaire/dépôt` : un dépôt à la racine de l'hôte n'en reçoit aucun.
+  const servi = brut.split("/").filter(Boolean).length >= 2;
+  if (barre >= 0 && apresSchema[barre] !== "/") return { schema, host, chemin: null, servi: false };
+  if (brut.includes("?") || brut.includes("#")) return { schema, host, chemin: null, servi };
   const chemin = cheminExact(brut);
-  return { host, chemin: chemin !== null && chemin.includes("/") ? chemin : null };
+  return { schema, host, chemin: chemin !== null && chemin.includes("/") ? chemin : null, servi };
 }
 
 /** Compte le plus précis qui couvre le dépôt sur son hôte : le plus long chemin, comparé selon le type de chaque compte ; un compte sans portée ne sert pas ; un dépôt illisible n'a de compte que si aucun compte de l'hôte n'est borné à un chemin ; `null` si aucun. */

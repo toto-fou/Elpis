@@ -25,6 +25,7 @@ export interface ConnecteurGit {
   path: string | null;
   label?: string;
   has_token?: boolean;
+  to_verify?: boolean;
   [cle: string]: unknown;
 }
 

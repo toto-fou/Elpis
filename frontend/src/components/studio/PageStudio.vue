@@ -7,6 +7,7 @@ import { domaineStudio } from "../../features/studio/domaine";
 import CadreSurvolStudio from "./CadreSurvolStudio.vue";
 import InspecteurStudio from "./InspecteurStudio.vue";
 import MenuContexteStudio from "./MenuContexteStudio.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const sd = domaineStudio();
 const avance = computed(() => sd.studioExpert);
@@ -127,10 +128,15 @@ function poserSaisieModale(el: unknown): void {
                 >{{ sd.studioLayerFiltered.length }}/{{ sd.studioElements.length }}</span
               >
             </button>
-            <template v-if="sd.studioLayersOpen">
-              <div class="fixed inset-0 z-[54]" @click="sd.studioLayersOpen = false"></div>
+            <div
+              v-if="sd.studioLayersOpen"
+              class="fixed inset-0 z-[54]"
+              @click="sd.studioLayersOpen = false"
+            ></div>
+            <TransitionMenu>
               <div
-                class="absolute left-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-2 text-left"
+                v-if="sd.studioLayersOpen"
+                class="menu-ancre-gauche absolute left-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-2 text-left"
               >
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
@@ -198,7 +204,7 @@ function poserSaisieModale(el: unknown): void {
                   </button>
                 </div>
               </div>
-            </template>
+            </TransitionMenu>
           </div>
         </template>
       </div>
@@ -268,10 +274,15 @@ function poserSaisieModale(el: unknown): void {
               <i class="ph ph-caret-down text-xs"></i>
             </button>
           </div>
-          <template v-if="sd.studioActionsOpen">
-            <div class="fixed inset-0 z-[54]" @click="sd.studioActionsOpen = false"></div>
+          <div
+            v-if="sd.studioActionsOpen"
+            class="fixed inset-0 z-[54]"
+            @click="sd.studioActionsOpen = false"
+          ></div>
+          <TransitionMenu>
             <div
-              class="absolute right-0 top-full mt-1 z-[55] w-44 bg-white rounded-lg shadow-xl border border-slate-200 p-1 text-left"
+              v-if="sd.studioActionsOpen"
+              class="menu-ancre-droite absolute right-0 top-full mt-1 z-[55] w-44 bg-white rounded-lg shadow-xl border border-slate-200 p-1 text-left"
             >
               <button
                 :disabled="sd.studioReading || !sd.selectedTarget"
@@ -291,7 +302,7 @@ function poserSaisieModale(el: unknown): void {
                 <i class="ph ph-broom"></i> Vider
               </button>
             </div>
-          </template>
+          </TransitionMenu>
         </div>
         <!-- Réglages Studio : sélection d'écran(s) capturé(s)/piloté(s) -->
         <div class="relative">
@@ -308,10 +319,15 @@ function poserSaisieModale(el: unknown): void {
           >
             <i class="ph ph-gear text-sm"></i>
           </button>
-          <template v-if="sd.studioSettingsOpen">
-            <div class="fixed inset-0 z-[54]" @click="sd.studioSettingsOpen = false"></div>
+          <div
+            v-if="sd.studioSettingsOpen"
+            class="fixed inset-0 z-[54]"
+            @click="sd.studioSettingsOpen = false"
+          ></div>
+          <TransitionMenu>
             <div
-              class="absolute right-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-3 text-left"
+              v-if="sd.studioSettingsOpen"
+              class="menu-ancre-droite absolute right-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-3 text-left"
             >
               <!-- Mode de capture : VRAI toggle (switch) -->
               <div class="flex items-center justify-between gap-2">
@@ -382,7 +398,7 @@ function poserSaisieModale(el: unknown): void {
                 « Tous les écrans » = vue d'ensemble ; un écran précis = capture + clics ciblés dessus.
               </p>
             </div>
-          </template>
+          </TransitionMenu>
         </div>
       </div>
     </header>
@@ -1178,11 +1194,16 @@ function poserSaisieModale(el: unknown): void {
                     <i class="ph ph-caret-down text-xs"></i>
                   </button>
                 </div>
-                <template v-if="sd.autoRunMenuOpen">
-                  <div class="fixed inset-0 z-[54]" @click="sd.autoRunMenuOpen = false"></div>
-                  <!-- Ancré à DROITE (le rail est le bord de la page : left-0 + w-72 débordait). -->
+                <div
+                  v-if="sd.autoRunMenuOpen"
+                  class="fixed inset-0 z-[54]"
+                  @click="sd.autoRunMenuOpen = false"
+                ></div>
+                <!-- Ancré à DROITE (le rail est le bord de la page : left-0 + w-72 débordait). -->
+                <TransitionMenu>
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs elpis-run-menu"
+                    v-if="sd.autoRunMenuOpen"
+                    class="menu-ancre-droite absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs elpis-run-menu"
                   >
                     <button
                       :disabled="!!sd.autoRun?.running"
@@ -1229,7 +1250,7 @@ function poserSaisieModale(el: unknown): void {
                       </button>
                     </div>
                   </div>
-                </template>
+                </TransitionMenu>
               </div>
               <div class="relative shrink-0">
                 <button
@@ -1244,10 +1265,11 @@ function poserSaisieModale(el: unknown): void {
                 >
                   <i class="ph" :class="sd.autoDlBusy ? 'ph-spinner animate-spin' : 'ph-download-simple'"></i>
                 </button>
-                <template v-if="sd.autoDlOpen">
-                  <div class="fixed inset-0 z-[54]" @click="sd.autoDlOpen = false"></div>
+                <div v-if="sd.autoDlOpen" class="fixed inset-0 z-[54]" @click="sd.autoDlOpen = false"></div>
+                <TransitionMenu>
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs"
+                    v-if="sd.autoDlOpen"
+                    class="menu-ancre-droite absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs"
                   >
                     <button class="w-full text-left px-3 py-2 hover:bg-slate-50" @click="sd.autoDownload()">
                       <div class="font-medium text-slate-800 flex items-center gap-1.5">
@@ -1283,7 +1305,7 @@ function poserSaisieModale(el: unknown): void {
                       </div>
                     </button>
                   </div>
-                </template>
+                </TransitionMenu>
               </div>
               <button
                 title="Copier le code"

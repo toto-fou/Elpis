@@ -266,7 +266,7 @@ describe("bulle", () => {
     b.q<HTMLButtonElement>(".rag-pop__voir")?.click();
     await nextTick();
     expect(voir).toHaveBeenCalledOnce();
-    expect(b.q("[data-rag-bulle]")).toBeNull();
+    expect(b.q("[data-rag-bulle]:not([inert])")).toBeNull();
   });
 
   it("collection partagée sans ouverture : l'auteur est nommé et le lien dit « Voir le passage »", async () => {
@@ -288,7 +288,7 @@ describe("bulle", () => {
     await nextTick();
     expect(b.rg.sources.echap()).toBe(true);
     await nextTick();
-    expect(b.q("[data-rag-bulle]")).toBeNull();
+    expect(b.q("[data-rag-bulle]:not([inert])")).toBeNull();
   });
 });
 

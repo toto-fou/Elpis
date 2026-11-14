@@ -52,6 +52,14 @@ describe("menu dans son cadre", () => {
     expect(droite.style.translate).toBe("-36px");
   });
 
+  it("menu en pleine entrée (échelle et glissement) : bords lus sans sa transformation", () => {
+    const entrant = menuDans({ left: 0, right: 400 }, { left: 200, right: 200 + 0.97 * 230 });
+    entrant.style.transform = "matrix(0.97, 0, 0, 0.97, 0, -6)";
+    entrant.style.transformOrigin = "0px 0px";
+    garderDansCadre(entrant);
+    expect(entrant.style.translate).toBe("-36px");
+  });
+
   it("dans le cadre, ou sans cadre : pas de décalage", () => {
     const dedans = menuDans({ left: 0, right: 400 }, { left: 100, right: 300 });
     dedans.style.translate = "12px";

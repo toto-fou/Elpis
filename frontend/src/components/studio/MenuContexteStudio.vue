@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { RACCOURCIS_TOUCHES } from "../../features/studio/dialogue";
 import { domaineStudio } from "../../features/studio/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 interface Entree {
   faire: () => void;
@@ -134,14 +135,16 @@ const visible = (id: string): boolean =>
 </script>
 
 <template>
-  <template v-if="sd.studioCtxMenu">
+  <div
+    v-if="sd.studioCtxMenu"
+    class="fixed inset-0 z-[60]"
+    @click="sd.closeStudioCtx"
+    @contextmenu.prevent="sd.closeStudioCtx"
+  ></div>
+  <TransitionMenu>
     <div
-      class="fixed inset-0 z-[60]"
-      @click="sd.closeStudioCtx"
-      @contextmenu.prevent="sd.closeStudioCtx"
-    ></div>
-    <div
-      class="fixed z-[61] min-w-[210px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-sm elpis-ctx-menu"
+      v-if="sd.studioCtxMenu"
+      class="menu-ancre-gauche fixed z-[61] min-w-[210px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-sm elpis-ctx-menu"
       :style="{ left: sd.studioCtxMenu.x + 'px', top: sd.studioCtxMenu.y + 'px' }"
     >
       <div class="px-3 py-1 text-xs text-slate-400 border-b border-slate-100 mb-1 truncate">
@@ -171,38 +174,40 @@ const visible = (id: string): boolean =>
               :class="m.id === 'script' ? 'text-blue-300' : 'text-slate-300'"
             ></i>
           </button>
-          <div
-            v-if="sd.studioCtxSub === m.id"
-            class="absolute bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="[m.panneau, sd.ctxSubPos()]"
-          >
-            <div v-if="m.id === 'script'" class="px-3 pt-0.5 pb-1 text-xs text-slate-400 truncate">
-              S'insère au curseur{{
-                sd.studioCtxMenu.el ? " — cible : " + sd.elementDisplay(sd.studioCtxMenu.el) : ""
-              }}
-            </div>
-            <template v-for="x in m.entrees" :key="x.libelle">
-              <template v-if="!x.siElement || sd.studioCtxMenu.el">
-                <div v-if="x.sep" class="my-1 border-t border-slate-100"></div>
-                <button
-                  class="w-full text-left px-3 py-1.5 flex items-center gap-2"
-                  :class="x.bleu ? 'hover:bg-blue-50 text-blue-700' : 'hover:bg-slate-50'"
-                  @click="x.faire()"
-                >
-                  <i class="ph" :class="x.icone"></i>
-                  {{ x.sansElement && !sd.studioCtxMenu.el ? x.sansElement : x.libelle }}
-                  <span
-                    v-if="x.delai"
-                    class="ml-auto text-xs text-slate-400"
-                    title="Délai (champ « Délai » de la palette)"
-                    >{{ sd.autoWaitSec }} s</span
+          <TransitionMenu :haut="sd.ctxSubUp()">
+            <div
+              v-if="sd.studioCtxSub === m.id"
+              class="absolute bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
+              :class="[m.panneau, sd.ctxSubPos()]"
+            >
+              <div v-if="m.id === 'script'" class="px-3 pt-0.5 pb-1 text-xs text-slate-400 truncate">
+                S'insère au curseur{{
+                  sd.studioCtxMenu.el ? " — cible : " + sd.elementDisplay(sd.studioCtxMenu.el) : ""
+                }}
+              </div>
+              <template v-for="x in m.entrees" :key="x.libelle">
+                <template v-if="!x.siElement || sd.studioCtxMenu.el">
+                  <div v-if="x.sep" class="my-1 border-t border-slate-100"></div>
+                  <button
+                    class="w-full text-left px-3 py-1.5 flex items-center gap-2"
+                    :class="x.bleu ? 'hover:bg-blue-50 text-blue-700' : 'hover:bg-slate-50'"
+                    @click="x.faire()"
                   >
-                </button>
+                    <i class="ph" :class="x.icone"></i>
+                    {{ x.sansElement && !sd.studioCtxMenu.el ? x.sansElement : x.libelle }}
+                    <span
+                      v-if="x.delai"
+                      class="ml-auto text-xs text-slate-400"
+                      title="Délai (champ « Délai » de la palette)"
+                      >{{ sd.autoWaitSec }} s</span
+                    >
+                  </button>
+                </template>
               </template>
-            </template>
-          </div>
+            </div>
+          </TransitionMenu>
         </div>
       </template>
     </div>
-  </template>
+  </TransitionMenu>
 </template>

@@ -93,7 +93,9 @@ const etiquettes = (tr: HTMLElement): string[] =>
     (e.textContent ?? "").trim(),
   );
 const entrees = (hote: HTMLElement): string[] =>
-  [...hote.querySelectorAll('[role="menu"] [role="menuitem"]')].map((b) => (b.textContent ?? "").trim());
+  [...hote.querySelectorAll('[role="menu"]:not([inert]) [role="menuitem"]')].map((b) =>
+    (b.textContent ?? "").trim(),
+  );
 
 async function ouvrirMenu(hote: HTMLElement, nom: string): Promise<void> {
   ligne(hote, nom).querySelector<HTMLButtonElement>("[aria-haspopup=menu]")!.click();
@@ -178,7 +180,7 @@ describe("table des secrets", () => {
     expect(document.activeElement?.textContent?.trim()).toBe("Modifier");
     menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await attendre();
-    expect(hote.querySelector('[role="menu"]')).toBeNull();
+    expect(hote.querySelector('[role="menu"]:not([inert])')).toBeNull();
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Actions sur intranet-admin");
   });
 

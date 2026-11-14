@@ -28,6 +28,7 @@ function monter(tab: string, el: object | null) {
     autoWaitSec: 12,
     elementDisplay: (e: { label?: string }) => e.label ?? "",
     ctxSubPos: () => "left-full ml-1 top-0",
+    ctxSubUp: () => false,
     closeStudioCtx: noter("closeStudioCtx"),
     ctxScript: noter("ctxScript"),
     ctxAct: noter("ctxAct"),

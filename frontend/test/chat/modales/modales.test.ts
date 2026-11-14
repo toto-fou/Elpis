@@ -466,7 +466,7 @@ describe("barre latérale", () => {
       await nextTick();
       expect(appels.some(([cle]) => cle === "openRagPage")).toBe(true);
       expect(b.menuPagesOuvert).toBe(false);
-      expect(hote.querySelector("[role='menu'].elpis-rail-flyout")).toBeNull();
+      expect(hote.querySelector("[role='menu'].elpis-rail-flyout:not([inert])")).toBeNull();
       // Page du sous-menu affichée : « Plus » marqué actif (et son nom dans la vue déployée), l'entrée porte aria-current.
       b.currentView = "studio";
       await nextTick();

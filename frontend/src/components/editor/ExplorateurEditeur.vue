@@ -9,6 +9,7 @@ import HistoriqueSession from "./HistoriqueSession.vue";
 import MenuFichiers from "./MenuFichiers.vue";
 import PanneauGit from "./PanneauGit.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 const duSkin = computed(() => ed.interfaceEditeur === "skin");
@@ -167,9 +168,10 @@ function nomVue(v: (typeof VUES)[number]): string {
       >
         {{ ed.gitStatus.modified.length + ed.gitStatus.untracked.length + ed.gitStatus.staged.length }}
       </button>
-      <template v-if="ed.showExplorerMenu">
-        <div class="fixed inset-0 z-40" @click="ed.showExplorerMenu = false"></div>
+      <div v-if="ed.showExplorerMenu" class="fixed inset-0 z-40" @click="ed.showExplorerMenu = false"></div>
+      <TransitionMenu>
         <div
+          v-if="ed.showExplorerMenu"
           role="menu"
           aria-label="Vue de l'explorateur"
           class="absolute left-1.5 right-1.5 top-full mt-1 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
@@ -235,7 +237,7 @@ function nomVue(v: (typeof VUES)[number]): string {
             <i v-if="ed.explorerTab === 'history'" class="ph ph-check text-[10px]"></i>
           </button>
         </div>
-      </template>
+      </TransitionMenu>
     </div>
 
     <div v-else class="elpis-ed-vues">

@@ -13,6 +13,7 @@ import {
   placerPlus,
 } from "../../../features/chat/page/menu-pages-plus";
 import type { PagePlus } from "../../../features/chat/page/menu-pages-plus";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const props = defineProps<{ compact: boolean }>();
 const b = domaine(CLE_BARRE);
@@ -159,40 +160,42 @@ onBeforeUnmount(() => retirer?.());
     }}</span>
     <i class="ph ph-caret-right text-xs shrink-0 text-slate-400"></i>
   </button>
-  <div
-    v-if="ouvert"
-    :id="idMenu"
-    ref="menu"
-    role="menu"
-    aria-label="Plus"
-    class="elpis-rail-flyout fixed z-[100] w-52 p-1 rounded-xl border shadow-2xl flex flex-col gap-0.5"
-    :style="{ left: position.left + 'px', top: position.top + 'px' }"
-    @keydown="surClavier"
-  >
-    <button
-      v-for="p in pages"
-      :key="p.vue"
-      type="button"
-      role="menuitem"
-      :title="p.titre"
-      :data-precharge="p.vue"
-      :aria-current="p.vue === b.currentView ? 'page' : undefined"
-      class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
-      :class="
-        p.vue === b.currentView
-          ? 'bg-blue-600/20 text-white'
-          : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-      "
-      @click="choisir(p)"
+  <TransitionMenu>
+    <div
+      v-if="ouvert"
+      :id="idMenu"
+      ref="menu"
+      role="menu"
+      aria-label="Plus"
+      class="menu-ancre-gauche elpis-rail-flyout fixed z-[100] w-52 p-1 rounded-xl border shadow-2xl flex flex-col gap-0.5"
+      :style="{ left: position.left + 'px', top: position.top + 'px' }"
+      @keydown="surClavier"
     >
-      <i
-        class="ph text-base shrink-0 transition-colors"
-        :class="[
-          p.icone,
-          p.vue === b.currentView ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200',
-        ]"
-      ></i>
-      <span class="flex-1 truncate">{{ p.libelle }}</span>
-    </button>
-  </div>
+      <button
+        v-for="p in pages"
+        :key="p.vue"
+        type="button"
+        role="menuitem"
+        :title="p.titre"
+        :data-precharge="p.vue"
+        :aria-current="p.vue === b.currentView ? 'page' : undefined"
+        class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
+        :class="
+          p.vue === b.currentView
+            ? 'bg-blue-600/20 text-white'
+            : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+        "
+        @click="choisir(p)"
+      >
+        <i
+          class="ph text-base shrink-0 transition-colors"
+          :class="[
+            p.icone,
+            p.vue === b.currentView ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200',
+          ]"
+        ></i>
+        <span class="flex-1 truncate">{{ p.libelle }}</span>
+      </button>
+    </div>
+  </TransitionMenu>
 </template>

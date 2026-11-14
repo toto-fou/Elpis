@@ -2,6 +2,7 @@
 <!-- frontend/src/components/editor/MenuCode.vue — menu contextuel du code : complétion et actions IA, édition, navigation, chat. -->
 <script setup lang="ts">
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 const ACTIONS_IA = [
@@ -16,16 +17,18 @@ const ACTIONS_IA = [
 </script>
 
 <template>
-  <template v-if="ed.editorCtxMenu.show">
-    <div
-      class="fixed inset-0 z-[499]"
-      @mousedown.prevent
-      @click="ed.closeEditorCtxMenu()"
-      @contextmenu.prevent="ed.closeEditorCtxMenu()"
-    ></div>
+  <div
+    v-if="ed.editorCtxMenu.show"
+    class="fixed inset-0 z-[499]"
+    @mousedown.prevent
+    @click="ed.closeEditorCtxMenu()"
+    @contextmenu.prevent="ed.closeEditorCtxMenu()"
+  ></div>
 
+  <TransitionMenu>
     <div
-      class="fixed z-[500] w-64 bg-[#1e1e1e] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden select-none elpis-ed-menu-code"
+      v-if="ed.editorCtxMenu.show"
+      class="menu-ancre-gauche fixed z-[500] w-64 bg-[#1e1e1e] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden select-none elpis-ed-menu-code"
       :style="{ top: ed.editorCtxMenu.y + 'px', left: ed.editorCtxMenu.x + 'px' }"
       @mousedown.stop.prevent
       @click.stop
@@ -169,5 +172,5 @@ const ACTIONS_IA = [
         </button>
       </div>
     </div>
-  </template>
+  </TransitionMenu>
 </template>

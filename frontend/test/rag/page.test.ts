@@ -963,13 +963,13 @@ describe("onglet Réglages et menu « … »", () => {
     expect(items.at(-1)!.classList.contains("is-danger")).toBe(true);
     m.rg.echapPage();
     await m.attendre();
-    expect(m.q('[role="menu"]')).toBeNull();
+    expect(m.q('[role="menu"]:not([inert])')).toBeNull();
     declencheur.click();
     await m.attendre();
-    m.qa('[role="menu"] [role="menuitem"]')[3]!.click();
+    m.qa('[role="menu"]:not([inert]) [role="menuitem"]')[3]!.click();
     await m.attendre();
     expect(m.rg.onglet).toBe("reglages");
-    expect(m.q('[role="menu"]')).toBeNull();
+    expect(m.q('[role="menu"]:not([inert])')).toBeNull();
   });
 
   it("menu : flèches entre les entrées", async () => {

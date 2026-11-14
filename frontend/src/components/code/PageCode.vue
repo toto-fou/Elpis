@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from "vue";
 
 import { domaineCode } from "../../features/code/domaine";
 import LibelleVivant from "../communs/LibelleVivant.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import MessageCode from "./MessageCode.vue";
 
 const cd = domaineCode();
@@ -522,7 +523,7 @@ watch(
             </div>
 
             <!-- Picker /session : reprendre une autre session de la même CLI -->
-            <transition name="fade">
+            <TransitionMenu haut>
               <div
                 v-if="cd.codeSessionOpen"
                 class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden"
@@ -574,10 +575,10 @@ watch(
                   </li>
                 </ul>
               </div>
-            </transition>
+            </TransitionMenu>
 
             <!-- Dropdown « / » : commandes app (/model…) + commandes de la CLI, filtrées/triées en tapant -->
-            <transition name="fade">
+            <TransitionMenu haut>
               <div
                 v-if="cd.codeSlashOpen"
                 class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden"
@@ -641,10 +642,10 @@ watch(
                   </li>
                 </ul>
               </div>
-            </transition>
+            </TransitionMenu>
 
             <!-- Sélecteur /model : modèles remontés par la CLI (plugin v3), groupés par provider -->
-            <transition name="fade">
+            <TransitionMenu haut>
               <div
                 v-if="cd.codeModelOpen"
                 class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden"
@@ -717,7 +718,7 @@ watch(
                   </template>
                 </ul>
               </div>
-            </transition>
+            </TransitionMenu>
 
             <div
               class="elpis-compose-card relative bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 focus-within:border-slate-300 transition-colors flex flex-col"

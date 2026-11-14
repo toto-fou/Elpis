@@ -7,6 +7,7 @@ import type { ItemMenuRag } from "../../features/rag/base";
 import { domaineRag } from "../../features/rag/domaine";
 import { entreesMenu, naviguerMenu } from "../../features/chat/page/menu-clavier";
 import { elementActif, focusPerdu, surPointeurPage } from "../../features/rag/dom";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const props = defineProps<{
   id: string;
@@ -77,29 +78,31 @@ watch(ouvert, async (o) => {
       <i v-if="props.icone" class="ph" :class="props.icone" aria-hidden="true"></i>{{ props.texte }}
       <i v-if="props.texte" class="ph ph-caret-down" aria-hidden="true"></i>
     </button>
-    <div
-      v-if="ouvert"
-      ref="menu"
-      class="rag-menu shadow-2xl"
-      :class="{ 'rag-menu--left': props.gauche }"
-      role="menu"
-      :aria-label="props.libelle"
-      @keydown="surClavier"
-    >
-      <template v-for="it in props.items" :key="it.id">
-        <div v-if="it.separateurAvant" class="rag-menu__sep" role="separator"></div>
-        <button
-          type="button"
-          class="rag-menu__item"
-          :class="{ 'is-on': it.actif === true, 'is-danger': it.danger }"
-          :role="it.actif === undefined ? 'menuitem' : 'menuitemradio'"
-          :aria-checked="it.actif === undefined ? undefined : it.actif ? 'true' : 'false'"
-          :disabled="it.desactive"
-          @click="choisir(it)"
-        >
-          <i v-if="it.icone" class="ph" :class="it.icone" aria-hidden="true"></i>{{ it.libelle }}
-        </button>
-      </template>
-    </div>
+    <TransitionMenu>
+      <div
+        v-if="ouvert"
+        ref="menu"
+        class="rag-menu shadow-2xl"
+        :class="{ 'rag-menu--left': props.gauche }"
+        role="menu"
+        :aria-label="props.libelle"
+        @keydown="surClavier"
+      >
+        <template v-for="it in props.items" :key="it.id">
+          <div v-if="it.separateurAvant" class="rag-menu__sep" role="separator"></div>
+          <button
+            type="button"
+            class="rag-menu__item"
+            :class="{ 'is-on': it.actif === true, 'is-danger': it.danger }"
+            :role="it.actif === undefined ? 'menuitem' : 'menuitemradio'"
+            :aria-checked="it.actif === undefined ? undefined : it.actif ? 'true' : 'false'"
+            :disabled="it.desactive"
+            @click="choisir(it)"
+          >
+            <i v-if="it.icone" class="ph" :class="it.icone" aria-hidden="true"></i>{{ it.libelle }}
+          </button>
+        </template>
+      </div>
+    </TransitionMenu>
   </span>
 </template>

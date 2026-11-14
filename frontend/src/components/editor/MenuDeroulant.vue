@@ -4,6 +4,7 @@
 import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import { elementActif, empilerCouche, garderDansCadre } from "../../features/editor/couches";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const props = withDefaults(
   defineProps<{ etiquette: string; cote?: "gauche" | "droite"; sens?: "bas" | "haut"; largeur?: string }>(),
@@ -76,9 +77,10 @@ function surClic(e: MouseEvent): void {
 <template>
   <div ref="racine" class="ed2-ancre">
     <slot name="declencheur" :ouvert="ouvert" :basculer="basculer"></slot>
-    <template v-if="ouvert">
-      <div class="ed2-capture" @click="fermer(false)" @contextmenu.prevent="fermer(false)"></div>
+    <div v-if="ouvert" class="ed2-capture" @click="fermer(false)" @contextmenu.prevent="fermer(false)"></div>
+    <TransitionMenu :haut="props.sens === 'haut'">
       <div
+        v-if="ouvert"
         ref="menu"
         role="menu"
         :aria-label="props.etiquette"
@@ -90,6 +92,6 @@ function surClic(e: MouseEvent): void {
       >
         <slot :fermer="fermer"></slot>
       </div>
-    </template>
+    </TransitionMenu>
   </div>
 </template>

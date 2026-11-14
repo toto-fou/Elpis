@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: MIT
+/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre de clonage de l'éditeur (dépôts du compte, compte qui servira, identifiants saisis sur place et leur portée). */
+// Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CAPTURES=dossier] node tests/frontend/reel/comptes-git-reel-verify.mjs
+import fs from 'node:fs';
+import path from 'node:path';
+
+import * as bac from '../aides-bac.mjs';
+import { demarrerCoreReel, lancerNavigateur, attendreMontage, verifications, contexteConnecte } from '../lib/core-reel.mjs';
+
+const v = verifications('comptes-git-reel');
+const core = await demarrerCoreReel();
+const nav = await lancerNavigateur();
+const CAPTURES = process.env.ELPIS_CAPTURES || '';
+const clones = [];
+let refuser = true;
+
+const DEPOTS = [
+    { full_name: 'acme/api', clone_url: 'https://github.com/acme/api.git', private: true, description: 'API interne' },
+    { full_name: 'acme/site', clone_url: 'https://github.com/acme/site.git', private: false, description: '' },
+];
+
+/** Bac et forge simulés au niveau réseau : aucun dépôt local, liste des dépôts d'un compte, clone refusé une fois faute d'accès. */
+async function simuler(page) {
+    await page.route('**/api/sandbox/**', async (route) => {
+        const req = route.request();
+        const p = new URL(req.url()).pathname;
+        const json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+        if (p === '/api/sandbox/tree') return json(bac.arbre([]));
+        if (p === '/api/sandbox/quota') return json(bac.quota({ used_mb: 1, quota_mb: 5120 }));
+        if (p === '/api/sandbox/me') return json(bac.moi());
+        if (p === '/api/sandbox/check-mtimes') return json(bac.etats());
+        if (p === '/api/sandbox/git/repos') return json({ repos: [] });
+        if (p === '/api/sandbox/git/status') return json({ is_repo: false });
+        if (p === '/api/sandbox/git/clone') {
+            clones.push(JSON.parse(req.postData() || '{}'));
+            if (refuser) return json({ detail: "fatal: Authentication failed for 'https://forge.lan/equipe/outil.git/'" }, 400);
+            return json({ ok: true, repo: 'outil', message: 'Cloné dans outil/', credentials_saved: true });
+        }
+        return json({});
+    });
+    await page.route('**/api/git/connectors/*/repos', (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, host: 'github.com', repos: DEPOTS }) }));
+}
+
+const capture = async (page, nom) => {
+    if (!CAPTURES) return;
+    fs.mkdirSync(CAPTURES, { recursive: true });
+    await page.screenshot({ path: path.join(CAPTURES, `${nom}.png`) });
+};
+
+try {
+    const ctx = await contexteConnecte(nav, core.urlMain, core.comptes.user);
+    const page = await ctx.newPage();
+    const erreurs = [];
+    page.on('pageerror', (e) => erreurs.push(String(e.message || e)));
+    await simuler(page);
+    await page.goto(core.urlMain + '/');
+    await attendreMontage(page);
+
+    // ── Paramètres › Secrets › Comptes Git
+    await page.locator('button[title="Paramètres"]:visible').first().click();
+    const dialogue = page.locator('[role="dialog"][aria-label="Paramètres"]');
+    await dialogue.waitFor({ timeout: 10000 }).catch(() => {});
+    const rail = dialogue.getByRole('navigation', { name: 'Sections des paramètres' });
+    v.ok('rail : « Secrets » seul, plus d\'entrée « Comptes Git »',
+        (await rail.getByRole('button', { name: 'Secrets', exact: true }).count()) === 1 &&
+        (await rail.getByRole('button', { name: 'Comptes Git', exact: true }).count()) === 0);
+    await rail.getByRole('button', { name: 'Secrets', exact: true }).click();
+    const parties = dialogue.locator('[data-sous-menu] [data-section]');
+    v.ok('Secrets : trois parties, Comptes Git au milieu',
+        JSON.stringify(await parties.evaluateAll((l) => l.map((e) => e.dataset.section))) === '["web","git","jetons"]');
+    await dialogue.locator('[data-sous-menu] [data-section="git"]').click();
+    const git = dialogue.locator('[data-onglet-git]');
+    await git.waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('partie Comptes Git affichée, vide', (await git.textContent() || '').includes('Aucun compte Git'));
+
+    const ajouter = async ({ url, niveau, jeton, libelle }) => {
+        await git.getByRole('button', { name: 'Ajouter un compte' }).click();
+        const champUrl = git.locator('input[placeholder*="repo.git"]');
+        await champUrl.fill(url);
+        const analyse = page.waitForResponse((r) => r.url().endsWith('/api/git/connectors/parse'), { timeout: 10000 }).catch(() => null);
+        await champUrl.blur();
+        await analyse;
+        await git.locator('[data-niveau]').first().waitFor({ timeout: 10000 }).catch(() => {});
+        const niveaux = await git.locator('[data-niveau]').evaluateAll((l) => l.map((e) => e.textContent.trim()));
+        if (niveau) await git.locator('[data-niveau]', { hasText: new RegExp(`^\\s*${niveau.replaceAll('.', '\\.')}\\s*$`) }).click();
+        await git.locator('input[type="password"]').fill(jeton);
+        if (libelle) await git.locator('input[placeholder^="Label"]').fill(libelle);
+        const portee = await git.locator('[data-portee]').inputValue();
+        const rep = page.waitForResponse((r) => r.url().endsWith('/api/git/connectors') && r.request().method() === 'POST', { timeout: 10000 }).catch(() => null);
+        await git.getByRole('button', { name: 'Ajouter', exact: true }).click();
+        const r = await rep;
+        return { niveaux, portee, statut: r ? r.status() : 0 };
+    };
+
+    const hote = await ajouter({ url: 'https://github.com/Acme/API.git', jeton: 'jeton-perso', libelle: 'perso' });
+    v.ok('URL collée : trois niveaux proposés, tout l\'hôte par défaut',
+        JSON.stringify(hote.niveaux) === '["github.com","github.com/acme","github.com/acme/api"]' && hote.portee === 'github.com' && hote.statut === 200,
+        JSON.stringify(hote));
+    await capture(page, '1-comptes-git-liste');
+    const org = await ajouter({ url: 'https://github.com/Acme/API.git', niveau: 'github.com/acme', jeton: 'jeton-robot', libelle: 'robot' });
+    v.ok('second compte du même hôte, pour l\'organisation', org.portee === 'github.com/acme' && org.statut === 200, JSON.stringify(org));
+    const lignes = async () => git.locator('[data-portee-compte]').evaluateAll((l) => l.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+    await page.waitForFunction(() => document.querySelectorAll('[data-portee-compte]').length === 2, null, { timeout: 10000 }).catch(() => {});
+    v.ok('liste : chaque compte avec ce à quoi il s\'applique',
+        JSON.stringify(await lignes()) === '["github.com · perso","github.com/acme · robot"]', JSON.stringify(await lignes()));
+    const double = await ajouter({ url: 'https://github.com/autre/depot.git', jeton: 'jeton-3' });
+    v.ok('même portée une seconde fois : refusée (409)', double.statut === 409, JSON.stringify(double));
+    await capture(page, '2-comptes-git-formulaire');
+    await git.getByRole('button', { name: 'Annuler' }).click();
+
+    // Ancien lien : l'identifiant d'onglet « connectors » ouvre la partie.
+    await dialogue.locator('[data-sous-menu] [data-section="web"]').click();
+    await page.evaluate(() => window.__racine().openSettingsTab('connectors'));
+    await git.waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('ancien lien « connectors » : la partie Comptes Git s\'ouvre, comptes chargés', (await git.locator('[data-portee-compte]').count()) === 2);
+    await page.keyboard.press('Escape');
+    await dialogue.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+
+    // ── Fenêtre de clonage de l'éditeur
+    await page.locator('button[title*="Sandbox"]:visible').first().click();
+    await page.evaluate(() => { const r = window.__racine(); r.gitOpenTab(); r.loadGitConnectors(); });
+    // Le nom accessible du bouton porte le glyphe de son icône : il est cherché par son texte.
+    await page.locator('button').filter({ hasText: /^\s*Cloner\s*$/ }).first().click();
+    const clone = page.locator('[data-modale-clonage]');
+    await clone.waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('fenêtre de clonage ouverte', await clone.isVisible());
+    await clone.locator('[data-depot]').first().waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('« Mes dépôts » : un choix de compte, les dépôts listés sans geste',
+        (await clone.locator('#clone-compte option').count()) === 2 && (await clone.locator('[data-depot]').count()) === 2);
+    await clone.locator('[data-depot]').first().click();
+    v.ok('dépôt choisi : adresse remplie, compte le plus précis annoncé, dossier proposé',
+        (await clone.locator('#clone-url').inputValue()) === 'https://github.com/acme/api.git' &&
+        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com/acme · robot') &&
+        (await clone.locator('#clone-dossier').getAttribute('placeholder')) === 'api',
+        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' '));
+    await capture(page, '3-clonage-compte');
+    await clone.locator('#clone-url').fill('https://github.com/autre/depot.git');
+    v.ok('autre organisation : le compte de tout l\'hôte', ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com · perso'));
+    await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
+    v.ok('hôte sans compte : dit, avec la saisie d\'identifiants proposée',
+        (await clone.locator('[data-acces]').getAttribute('data-etat')) === 'aucun' && (await clone.locator('[data-saisir]').count()) === 1);
+    await clone.locator('[data-cloner]').click();
+    await clone.locator('[data-erreur]').waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('clone refusé faute d\'accès : dit en clair, la saisie s\'ouvre sur place',
+        ((await clone.locator('[data-erreur]').textContent()) || '').includes('Accès refusé') && (await clone.locator('[data-identifiants]').count()) === 1);
+    v.ok('portées proposées pour les identifiants : de l\'hôte au dépôt, tout l\'hôte d\'office',
+        JSON.stringify(await clone.locator('#clone-portee option').evaluateAll((l) => l.map((e) => e.textContent.trim()))) === '["forge.lan","forge.lan/equipe","forge.lan/equipe/outil"]' &&
+        (await clone.locator('#clone-portee').inputValue()) === '');
+    await clone.locator('#clone-identifiant').fill('bob');
+    await clone.locator('#clone-jeton').fill('jeton-forge');
+    await clone.locator('#clone-portee').selectOption('equipe');
+    await capture(page, '4-clonage-identifiants');
+    refuser = false;
+    await clone.locator('#clone-jeton').press('Enter');
+    await clone.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+    const dernier = clones.at(-1) || {};
+    v.ok('clone relancé avec les identifiants et la portée choisie ; fenêtre fermée',
+        !(await clone.isVisible()) && dernier.cred_user === 'bob' && dernier.cred_token === 'jeton-forge' && dernier.cred_scope === 'equipe' && clones[0].cred_token === undefined,
+        JSON.stringify({ ...dernier, cred_token: dernier.cred_token ? '…' : undefined }));
+    v.ok('aucune erreur de page', erreurs.length === 0, erreurs.join(' | '));
+} finally {
+    await nav.close();
+    await core.arreter();
+}
+process.exit(v.bilan());

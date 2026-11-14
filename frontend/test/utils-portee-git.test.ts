@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/portee-git.test.ts — portée d'un compte git côté interface : mêmes chemins et même couverture que le serveur, saisie « hôte/chemin », niveaux d'un dépôt, compte qui sert une URL, portée proposée pour des identifiants saisis. */
+/** frontend/test/utils-portee-git.test.ts — portée d'un compte git côté interface : mêmes chemins et même couverture que le serveur, saisie « hôte/chemin », niveaux d'un dépôt, compte qui sert une URL, portée proposée pour des identifiants saisis. */
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,7 +11,7 @@ import {
   lirePortee,
   niveauxPortee,
   porteeDesSaisis,
-} from "../../src/features/reglages/portee-git";
+} from "../src/utils/portee-git";
 
 const c = (id: number, host: string, path: string | null) => ({ id, host, path });
 

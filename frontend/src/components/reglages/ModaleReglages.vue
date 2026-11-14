@@ -34,6 +34,7 @@ watchEffect(() => {
   if (!ancien) return;
   rg.settingsTab = ancien.onglet;
   rg.settingsSections[ancien.onglet] = ancien.section;
+  void rg.chargerOnglet(ancien.onglet);
 });
 </script>
 
@@ -107,9 +108,11 @@ watchEffect(() => {
 
               <OngletConnexions v-if="rg.settingsTab === 'secrets' && section?.id === 'jetons'" />
 
-              <OngletSecrets v-if="rg.settingsTab === 'secrets' && section?.id !== 'jetons'" />
+              <OngletConnecteurs v-if="rg.settingsTab === 'secrets' && section?.id === 'git'" />
 
-              <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
+              <OngletSecrets
+                v-if="rg.settingsTab === 'secrets' && section?.id !== 'jetons' && section?.id !== 'git'"
+              />
 
               <OngletModelesIA v-if="rg.settingsTab === 'ai_models'" />
 

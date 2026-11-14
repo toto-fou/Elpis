@@ -482,7 +482,7 @@ export function gereParConnecteur(l: Pick<LigneSecret, "kind" | "user_id" | "nam
   if (l.kind === "llm")
     return "This secret is the key of an LLM connector: change or delete it with the connector (Settings › AI models; Administration › Models and services for a shared connector).";
   if (l.kind === "git")
-    return "This secret is the token of a Git account: change or delete it with the account (Settings › Git accounts).";
+    return "This secret is the token of a Git account: change or delete it with the account (Settings › Secrets › Git accounts).";
   if (l.kind === "mcp")
     return "This secret holds the credentials of an MCP server: change or delete them with the server (MCP servers; Administration › Models and services › MCP for a shared server).";
   if (l.kind === "token" && l.user_id === null && l.name === NOM_CLE_IMAGES)

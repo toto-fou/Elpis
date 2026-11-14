@@ -21,7 +21,7 @@ import type { CompteGit } from "./commun";
 
 /** Marche à suivre rendue à l'agent quand un dépôt exige un identifiant : seul l'utilisateur en saisit, dans ses réglages. */
 export const SANS_COMPTE_GIT =
-  "Private repo? Ask the user to add a Git account for this host in Settings › Git accounts: " +
+  "Private repo? Ask the user to add a Git account for this host in Settings › Secrets › Git accounts: " +
   "its token is then used automatically by clone / push / pull / git_submit. A token is never passed to a tool, nor in the URL.";
 
 export interface ArgsClone {
@@ -98,7 +98,7 @@ export async function gitClone(c: CompteGit, a: ArgsClone): Promise<Dict> {
     if (!reussi(cl)) {
       const detail = stripPy(String(cl["stderr"] || cl["stdout"] || cl["fix"] || ""));
       const conseil = avecJeton
-        ? "Check the Git account's token (the user updates it in Settings › Git accounts), the URL, or the network connectivity."
+        ? "Check the Git account's token (the user updates it in Settings › Secrets › Git accounts), the URL, or the network connectivity."
         : SANS_COMPTE_GIT;
       return errGit(
         "clone_failed",

@@ -160,6 +160,13 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
+  *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
+  `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).
+  The form names things for what they are: one **URL** field (of the server, an organization or a
+  repository) offers at once what the account can be used for, the whole server by default; the
+  type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
+  taken when several fit. An account without a scope is marked *inactif*.
 - **Browser refusal messages in English.** An address refused by the browser policy (scheme,
   malformed address, destination) is reported to the model in English, like the relay's reasons.
 - **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision

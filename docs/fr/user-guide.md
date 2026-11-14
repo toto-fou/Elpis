@@ -52,7 +52,7 @@
 - [Le Studio (pilotage d'écran)](#le-studio-pilotage-décran)
 - [Remote code (sessions OpenCode)](#remote-code-sessions-opencode)
 - [Bibliothèque de skills](#bibliothèque-de-skills)
-- [Connecteurs Git](#connecteurs-git)
+- [Comptes Git](#comptes-git)
 - [Notifications](#notifications)
 - [Prompts sauvegardés et partagés](#prompts-sauvegardés-et-partagés)
   - [Templates de prompt](#templates-de-prompt)
@@ -506,7 +506,7 @@ web ; sous chaque groupe de l'onglet Droits, une ligne dit ce que fait l'option 
 fusion) est visible hors de votre machine : aucun agent ne l'appelle. L'agent `pr`
 prépare la branche et le commit, puis rend l'appel exact ; c'est l'assistant qui le
 lance, dans le chat, où vous le voyez. Aucun agent, ni l'assistant, ne reçoit jamais de
-jeton Git : vous l'ajoutez vous-même dans Paramètres → Comptes Git.
+jeton Git : vous l'ajoutez vous-même dans Paramètres → Secrets → Comptes Git.
 
 **Plusieurs agents à la fois.** Les agents qu'un même message lance partent ensemble,
 dans la limite réglée par l'administrateur. Le harnais ne les ordonne pas : c'est
@@ -1331,16 +1331,29 @@ Un bouton **Assistant** ouvre une conversation pré-configurée pour vous aider 
 
 ---
 
-## Connecteurs Git
+## Comptes Git
 
-Paramètres → **Connecteurs** : enregistrez vos accès aux forges (GitHub,
-GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
+Paramètres → **Secrets** → **Comptes Git** : enregistrez vos accès aux forges (GitHub,
+GitLab, Bitbucket cloud ou serveur, Gitea / Forgejo, ou tout autre serveur Git).
 
-- Collez simplement l'URL d'un dépôt : le service et l'hôte sont détectés.
-- **Tester** valide le jeton et liste les dépôts accessibles.
+- **URL** : collez l'URL de votre serveur Git, d'une organisation ou d'un dépôt ; le type de
+  serveur est reconnu.
+- **Utiliser ce compte pour** dit où le compte sert : tout le serveur (`github.com`), une
+  organisation (`github.com/acme`) ou un seul dépôt (`github.com/acme/api`). L'URL propose les
+  niveaux qu'elle contient, tout le serveur d'office. Plusieurs comptes peuvent partager un hôte ; pour un dépôt, c'est le plus précis qui le
+  couvre qui sert : un jeton personnel pour l'hôte et un jeton limité à une organisation ou à un
+  dépôt cohabitent. Deux comptes ne peuvent pas s'appliquer exactement au même endroit.
+- Réduire ce à quoi un compte s'applique garde son jeton ; l'élargir ou le déplacer le redemande.
+- La casse du chemin est ignorée, sauf pour le type *Autre serveur Git*, où elle est gardée telle que
+  saisie. Sur Bitbucket Server, le chemin commence par `scm/`, comme dans l'adresse de clonage
+  (`bb.example/scm/proj`).
+- Un compte marqué *inactif* (deux comptes partageaient un hôte avant cette version) ne sert
+  pas tant que vous ne l'avez pas modifié pour choisir à quoi il sert.
+- **Tester** valide le jeton ; la fenêtre *Ajouter un dépôt* de l'éditeur liste les dépôts du compte, dans
+  la limite de ce à quoi il s'applique.
 - Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais
   écrit dans votre sandbox, jamais renvoyé à votre navigateur, jamais montré à
-  l'assistant. Laissez le champ vide en modifiant un connecteur pour garder le
+  l'assistant. Laissez le champ vide en modifiant un compte pour garder le
   jeton actuel. Changer l'hôte, le type de service ou l'adresse de l'API sans
   saisir de jeton efface le jeton : saisissez-le à nouveau pour la nouvelle
   adresse.
@@ -1348,10 +1361,10 @@ GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
   ne sert pas tant que vous ne l'avez pas vérifié dans Paramètres › Secrets
   (l'assistant a pu écrire ce fichier).
 
-Ces connecteurs alimentent le panneau Git de l'éditeur et les outils Git de
+Ces comptes alimentent le panneau Git de l'éditeur et les outils Git de
 l'assistant : un `git clone` sur une forge privée fonctionne sans que vous
 tapiez d'identifiants. L'assistant ne peut pas recevoir de jeton dans le chat :
-quand un dépôt en demande un, il vous invite à ajouter le connecteur ici.
+quand un dépôt en demande un, il vous invite à ajouter le compte ici.
 
 [↑ Sommaire](#sommaire)
 

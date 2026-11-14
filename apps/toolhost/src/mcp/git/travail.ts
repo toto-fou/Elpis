@@ -362,7 +362,7 @@ export interface PortPr {
 const CORPS_MAX = 200_000;
 
 const SANS_JETON =
-  " (no Git account provides a token for this host: ask the user to add one in Settings › Git accounts; a token is never passed to a tool)";
+  " (no Git account provides a token for this host: ask the user to add one in Settings › Secrets › Git accounts; a token is never passed to a tool)";
 
 /** `git_submit` : branche d'agent poussée par le relais (seule elle peut bouger), puis PR ouverte par le core ou URL de repli. */
 export function gitSubmit(
@@ -433,7 +433,7 @@ export function gitSubmit(
       if (!detail) detail = `git returned no output: probably a silent authentication failure${note}`;
       return errGit(
         "push_failed",
-        `git push failed: ${prefixePy(detail, 400)}. Common causes: missing credentials (ask the user to add a Git account for this host in Settings › Git accounts), force-push required (NOT enabled automatically), or a remote that refuses.`,
+        `git push failed: ${prefixePy(detail, 400)}. Common causes: missing credentials (ask the user to add a Git account for this host in Settings › Secrets › Git accounts), force-push required (NOT enabled automatically), or a remote that refuses.`,
         { branch: br, remote, returncode: pu["returncode"] ?? null },
       );
     }
@@ -501,14 +501,14 @@ function issuePr(r: IssuePr, br: string, pousses: number, base: string, draft: b
       const hote = s("host");
       const message =
         provider === "unknown"
-          ? `Pushed to origin/${br}, but the host ${reprPy(hote)} is not recognized automatically (self-hosted). To open the PR without a token, ask the user to add a Git account with the right provider type (e.g. 'gitea') for this host in Settings › Git accounts.`
-          : `Pushed to origin/${br}. No Git account for ${hote || provider}: open the PR via fallback_url, or ask the user to add one in Settings › Git accounts.`;
+          ? `Pushed to origin/${br}, but the host ${reprPy(hote)} is not recognized automatically (self-hosted). To open the PR without a token, ask the user to add a Git account with the right provider type (e.g. 'gitea') for this host in Settings › Secrets › Git accounts.`
+          : `Pushed to origin/${br}. No Git account for ${hote || provider}: open the PR via fallback_url, or ask the user to add one in Settings › Secrets › Git accounts.`;
       return ok({ branch: br, commits_pushed: pousses, provider, fallback_url: s("fallback_url"), message });
     }
     case "blocked_api_base":
       return errGit(
         "blocked_api_base",
-        `The Git account API (${reprPy(s("api_base"))}) is refused by the SSRF guard: ${s("reason")}. Ask the user to fix its API base in Settings › Git accounts.`,
+        `The Git account API (${reprPy(s("api_base"))}) is refused by the SSRF guard: ${s("reason")}. Ask the user to fix its API base in Settings › Secrets › Git accounts.`,
         { branch: br, commits_pushed: pousses, fallback_url: s("fallback_url") },
       );
     case "no_api":

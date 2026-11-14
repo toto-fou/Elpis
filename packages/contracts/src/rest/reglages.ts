@@ -80,6 +80,8 @@ const reglagesEcrivables = {
   footer_metrics: z.enum(["full", "essential", "hidden"]),
   /** Densité du fil : confortable (défaut), compacte. */
   thread_density: z.enum(["comfortable", "compact"]),
+  /** Animations de l'interface : suivre le poste (défaut), complètes, réduites. */
+  ui_motion: z.enum(["system", "full", "reduced"]),
   /** Réglages du panneau Génération (échantillonnage, longueur, réflexion, tours d'outils), communs à tous les chats du compte. */
   sampling_override: dictionnaire,
 };

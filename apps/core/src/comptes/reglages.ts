@@ -125,6 +125,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "thinking_display",
   "footer_metrics",
   "thread_density",
+  "ui_motion",
   "sampling_override",
 ]);
 
@@ -132,7 +133,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
 export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set(["skin", "dark_mode", "dark_mode_auto"]);
 
 const SANDBOX_PROTECTED = ["sandbox_mode", "network_profile_id"] as const;
-/** Préférences d'affichage (chat, éditeur) à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
+/** Préférences d'affichage (chat, éditeur, animations) à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
 export const CHOIX_AFFICHAGE: Readonly<Record<string, readonly string[]>> = {
   chat_workflow: ["classic", "work_block", "timeline", "terminal"],
   context_display: ["tokens", "fill", "percent", "ring"],
@@ -140,6 +141,7 @@ export const CHOIX_AFFICHAGE: Readonly<Record<string, readonly string[]>> = {
   footer_metrics: ["full", "essential", "hidden"],
   thread_density: ["comfortable", "compact"],
   editor_ui: ["skin", "classic"],
+  ui_motion: ["system", "full", "reduced"],
 };
 /** Cases coercées en booléen strict au PUT. */
 const BOOLEENS = [

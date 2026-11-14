@@ -42,6 +42,15 @@
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
 
+    /* Mouvement — durées et courbes des transitions nommées et des volets coulissants. */
+    --duree-courte:  150ms;                  /* sortie des menus, détail d'outil */
+    --duree:         200ms;                  /* entrée des menus, fenêtres, toasts, fondus, barre de chargement */
+    --duree-longue:  260ms;                  /* volets coulissants */
+    --duree-image:   16ms;                   /* une image à 60 Hz : avance des menus, visibles dès leur première image */
+    --courbe-fondu:  ease-out;               /* opacité et petits décalages */
+    --courbe-entree: cubic-bezier(0.2, 0.8, 0.2, 1);   /* entrée des menus, fenêtres, toasts, barre d'enregistrement */
+    --courbe-volet:  cubic-bezier(0.4, 0, 0.2, 1);     /* volets coulissants */
+
     /* Fond de page */
     --app-bg: #f1f5f9;                       /* body (slate-100) */
 
@@ -356,7 +365,6 @@ body .ring-blue-200      { --tw-ring-color: var(--accent-border); }
 body .ring-blue-400      { --tw-ring-color: var(--accent-ring); }
 body .ring-blue-500      { --tw-ring-color: var(--accent-ring); }
 body .focus\:ring-blue-500:focus { --tw-ring-color: var(--accent-ring); }
-body .focus\:ring-blue-500\/30:focus { --tw-ring-color: color-mix(in srgb, var(--accent-ring) 30%, transparent); }
 /* Toggles (peer-checked) : classe compilée en (0,3,0) → préfixe ``body``
    pour battre le CDN quel que soit l'ordre d'injection. Les deux formes
    de markup (.peer explicite / input direct) sont couvertes. */
@@ -371,7 +379,6 @@ body .bg-emerald-600     { background-color: var(--ok); color: var(--ok-fg); }
 body .bg-green-600       { background-color: var(--ok); color: var(--ok-fg); }
 body .hover\:bg-emerald-700:hover { background-color: var(--ok-strong); }
 body .bg-emerald-500     { background-color: var(--ok-soft); }
-body .bg-green-500       { background-color: var(--ok-soft); }
 body .text-emerald-500   { color: var(--ok-soft); }
 body .text-emerald-400   { color: var(--ok-400); }
 body .text-green-400     { color: var(--ok-400); }
@@ -438,27 +445,53 @@ body {
     30%           { transform: translateY(-4px); opacity: 1;   }
 }
 
-/* ── Indicateur « écriture en mémoire » (transitoire, chat) ──────────────
-   Ligne de texte affichée pendant qu'un tour écrit en mémoire long-terme
-   (outil `memory`) : le `title` fourni, sur UNE ligne. Shimmer monochrome
-   « wave » qui balaie le texte (état de progression, sur la rampe de texte,
-   pas un dégradé décoratif), puis fondu de disparition (.mem-fade) quand le
-   tour est fini. Reduced-motion : shimmer ralenti (cf. bloc dédié). */
+/* ── Libellé vivant (composant LibelleVivant, .mem-wave) ──────────────────
+   Libellé d'un tour qui réfléchit, travaille ou écrit en mémoire : texte
+   normal en --text-400, balayé par un éclat --text-800 (état de progression,
+   sur la rampe de texte, pas un dégradé décoratif). L'éclat est une fenêtre
+   à bords adoucis qui glisse de gauche à droite et laisse voir une copie du
+   texte en couleur d'éclat qui glisse en sens inverse de la même distance :
+   la copie reste immobile sur le libellé, seule la fenêtre la révèle. Seuls
+   transform s'animent (compositeur). Fenêtre = 50 % du libellé, copie = 100 %.
+   Reduced-motion : balayage ralenti (cf. bloc dédié). */
 .mem-wave {
-    background-image: linear-gradient(100deg,
-        var(--text-400) 0%, var(--text-400) 38%,
-        var(--text-800) 50%,
-        var(--text-400) 62%, var(--text-400) 100%);
-    background-size: 220% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-    animation: mem-wave-sweep 1.7s linear infinite;
+    position: relative;
+    contain: paint;
+    color: var(--text-400);
+    -webkit-text-fill-color: var(--text-400);
 }
-@keyframes mem-wave-sweep {
-    0%   { background-position: 130% 0; }
-    100% { background-position: -130% 0; }
+.mem-wave-fenetre {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 50%;
+    overflow: hidden;
+    text-overflow: inherit;
+    pointer-events: none;
+    user-select: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 50%, transparent 100%);
+    animation: mem-wave-fenetre 1.7s linear infinite;
+}
+.mem-wave-copie {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 200%;
+    overflow: hidden;
+    text-overflow: inherit;
+    color: var(--text-800);
+    -webkit-text-fill-color: var(--text-800);
+    animation: mem-wave-copie 1.7s linear infinite;
+}
+.mem-wave-copie::before { content: attr(data-texte); }
+@keyframes mem-wave-fenetre {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(200%); }
+}
+@keyframes mem-wave-copie {
+    from { transform: translateX(50%); }
+    to   { transform: translateX(-100%); }
 }
 
 .markdown-body { line-height: 1.6; color: var(--prose-body); font-size: 0.95rem; }
@@ -857,11 +890,6 @@ aside.elpis-slide-panel .ring-\[\#0f172a\] { --tw-ring-color: var(--rail-bg); }
 aside.elpis-slide-panel .ring-\[\#0b1120\] { --tw-ring-color: var(--rail-bg-2); }
 /* Item / page ACTIF (teinte accent translucide) */
 aside.elpis-slide-panel .bg-blue-600\/20 { background-color: var(--rail-active-bg); }
-/* « Retour au chat » (rail admin) — alphas accent, parité rgb(37 99 235/α) */
-aside.elpis-slide-panel .bg-blue-600\/15 { background-color: color-mix(in srgb, var(--accent) 15%, transparent); }
-aside.elpis-slide-panel .hover\:bg-blue-600\/25:hover { background-color: color-mix(in srgb, var(--accent) 25%, transparent); }
-aside.elpis-slide-panel .border-blue-500\/20 { border-color: color-mix(in srgb, var(--accent-500) 20%, transparent); }
-aside.elpis-slide-panel .hover\:border-blue-500\/40:hover { border-color: color-mix(in srgb, var(--accent-500) 40%, transparent); }
 /* Fonds pleins accent dans le rail (« Nouveau chat », avatars initiales) :
    le texte suit --accent-fg. Déclaré APRÈS le remap .text-white → gagne à
    spécificité égale (le markup porte les deux classes sur l'élément). */
@@ -876,7 +904,6 @@ aside.elpis-slide-panel input {
 aside.elpis-slide-panel .focus\:border-blue-500\/60:focus { border-color: color-mix(in srgb, var(--accent-500) 60%, transparent); }
 /* Sélection multiple : cases et « Supprimer » lisibles sur rail clair comme sombre */
 aside.elpis-slide-panel .border-white\/25 { border-color: color-mix(in srgb, var(--rail-muted) 75%, transparent); }
-aside.elpis-slide-panel .hover\:border-white\/50:hover { border-color: var(--rail-muted); }
 aside.elpis-slide-panel .text-red-300 { color: color-mix(in srgb, #dc2626 45%, var(--rail-text-strong)); }
 /* Bouton Admin (privilège, vert sémantique) — adapté au rail via --rail-ok */
 aside.elpis-slide-panel .text-emerald-400 { color: var(--rail-ok); }
@@ -893,17 +920,25 @@ aside.elpis-slide-panel .elpis-notif-pop .text-slate-400 { color: var(--text-400
 aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500); }
 /* Chat en cours de génération (volet) : point d'accent dont le halo respire.
    Indicateur d'activité, pas une décoration : il garde son pouls même en
-   mouvement réduit (une pastille figée se lit comme un gel), sans déplacement. */
+   mouvement réduit (une pastille figée se lit comme un gel), sans déplacement.
+   Le halo est un pseudo-élément : seuls transform et opacity s'animent (compositeur). */
 .elpis-run-dot {
+    position: relative;
     width: 6px;
     height: 6px;
     border-radius: 9999px;
     background: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.elpis-run-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
     animation: elpis-run-dot 1.8s ease-in-out infinite;
 }
 @keyframes elpis-run-dot {
-    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 6%, transparent); }
+    50% { transform: scale(1.17); opacity: 0.25; }
 }
 /* Sous-menu « Plus » (RAG, Studio, Remote code) : enfant DOM du rail posé en
    fixed à sa droite ; même fond et mêmes remaps que le rail, qu'il prolonge. */
@@ -937,6 +972,22 @@ aside.elpis-slide-panel .elpis-rail-flyout {
 .chat-history-scroll.fade-bottom { --sb-fade-bottom: 28px; }
 @media (prefers-reduced-motion: reduce) {
   .chat-history-scroll { transition: none; }
+}
+/* Voile du volet en fenêtre étroite : au-dessus de la colonne du chat (z 40), sous le volet (z 50). */
+.elpis-voile-volet { z-index: 45; }
+/* Lignes de l'historique (TransitionGroup « elpis-ligne ») : une ligne qui part s'efface et sort du flux,
+   les suivantes glissent à leur place ; en mouvement réduit, fondu sur place puis retrait. Classes doublées :
+   elles l'emportent sur `transition-colors` et `relative` de la feuille Tailwind, chargée après. */
+.elpis-ligne-enter-active.elpis-ligne-enter-active,
+.elpis-ligne-leave-active.elpis-ligne-leave-active { transition: opacity var(--duree-courte) var(--courbe-fondu); }
+.elpis-ligne-enter-from,
+.elpis-ligne-leave-to { opacity: 0; }
+/* Sortie : l'état final est posé dès `-leave-active`, le fondu part à la première image (sans les deux images d'attente de `-leave-to`). */
+.elpis-ligne-leave-active.elpis-ligne-leave-active { opacity: 0; }
+.elpis-ligne-leave-active { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .elpis-ligne-move.elpis-ligne-move { transition: transform var(--duree-courte) var(--courbe-fondu); }
+  .elpis-ligne-leave-active.elpis-ligne-leave-active { position: absolute; left: 0; right: 0; }
 }
 
 /* ── En-tête de chat FLOTTANT ────────────────────────────────────────────
@@ -1038,12 +1089,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    Fix : on override `.transition-all` pour ne cibler QUE les
    propriétés composite-friendly (GPU) + celles qui ont du sens pour un
    effet hover (couleurs, opacité, ombre, transform). Width/height/
-   position etc. restent instantanées par DÉFAUT.
-
-   Les panneaux qui DOIVENT animer leur largeur (éditeur latéral,
-   panneau MCP, etc.) utilisent la classe utilitaire `.elpis-slide-panel`
-   qui rétablit la transition de `width` spécifiquement, sans revenir
-   au comportement catastrophique du `transition-all` global.
+   position etc. restent instantanées par DÉFAUT, volets coulissants compris
+   (transition « volet » ci-dessous).
    ═════════════════════════════════════════════════════════════════════ */
 .transition-all {
     transition-property:
@@ -1052,34 +1099,46 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
         !important;
 }
 
-/* Panneaux qui doivent glisser en largeur (éditeur, MCP, sidebar…).
-   Appliquer en complément de `.transition-all` ou seul.
-
-   - `width` est animé explicitement.
-   - `flex-basis` est animé aussi au cas où le parent est un flexbox
-     qui utilise flex-basis plutôt que width.
-   - Easing `cubic-bezier(0.4, 0, 0.2, 1)` = "material standard",
-     naturel pour l'œil, ni trop abrupt ni trop lent.
-   - Durée 260ms : assez long pour être perçu comme une animation,
-     assez court pour ne pas agacer à chaque toggle.
-   NB (perf vague 3) : pas de `will-change: width` — `width` n'est PAS
-   compositable, le hint promouvait un layer en pure perte (et le garder
-   en permanence fragmente la mémoire GPU). */
-.elpis-slide-panel {
-    transition-property: width, flex-basis, flex-grow, opacity, padding, margin;
-    transition-duration: 260ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+/* ─── Volets coulissants (`.elpis-slide-panel`, <Transition name="volet">) ──
+   La largeur du volet glisse avec le geste : la colonne du chat et la barre de
+   saisie la suivent image par image (mesuré : une image lente au plus par geste
+   sur un long fil, processeur ralenti 4 fois). Le contenu garde sa largeur
+   finale, rogné par le volet : il ne se remet pas en page pendant le geste. Il
+   entre en glissant depuis son bord (opacité de la racine de la transition,
+   `transform` de ses enfants) et sort de même, un peu plus vite
+   (`features/communs/volet.ts`). Un panneau large (l'éditeur) glisse plus
+   longtemps : `volet.ts` remplace sur lui `--volet-duree`, et la largeur du
+   fil et de la barre de saisie, qui change de règle avec lui, glisse au même
+   rythme. En mouvement réduit : largeur posée d'un coup, fondu sur place. Les rails à gauche glissent depuis la gauche, les volets à
+   droite depuis la droite. */
+.volet-enter-active { --volet-duree: var(--duree-longue); transition: opacity var(--volet-duree) var(--courbe-volet); }
+.volet-leave-active { --volet-duree: var(--duree); transition: opacity var(--volet-duree) var(--courbe-volet); }
+.volet-enter-from,
+.volet-leave-to {
+    opacity: 0;
+}
+/* Sortie : l'état final est posé dès `-leave-active`, elle part à la première image (sans les deux images d'attente de `-leave-to`). */
+.volet-leave-active { opacity: 0; }
+aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
+@media (prefers-reduced-motion: no-preference) {
+    .volet-enter-active > * { transition: transform var(--volet-duree) var(--courbe-volet); }
+    .volet-leave-active > * { transition: transform var(--volet-duree) var(--courbe-volet); }
+    .volet-enter-from > *,
+    .volet-leave-to > * {
+        transform: translateX(var(--volet-decalage, 1.5rem));
+    }
+    .volet-leave-active > * { transform: translateX(var(--volet-decalage, 1.5rem)); }
+    /* Largeur : les rails (<aside>) par leur style, les panneaux de droite par `glisserLargeur` (volet.ts), contenu tenu à sa largeur finale. */
+    aside.elpis-slide-panel { transition: width var(--duree-longue) var(--courbe-volet); }
+    .elpis-slide-panel:is(.volet-enter-active, .volet-leave-active) { overflow: hidden; }
+    .elpis-slide-panel:is(.volet-enter-active, .volet-leave-active) > * { min-width: var(--volet-largeur); }
+    /* Fermé alors qu'il couvrait la page (éditeur en plein écran) : il se rétracte au-dessus du chat, qui a déjà sa place derrière lui. */
+    .elpis-slide-panel[data-volet-couvrant] { position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; }
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
-   Transition fluide via inline style uniquement : une valeur posée par
-   `!important` dans une classe court-circuite la transition du style
-   inline (la largeur saute sans interpolation).
-
-   La classe `.editor-fullscreen` ne sert plus qu'à
-   retirer la bordure et monter le z-index. Tout le reste (width,
-   flex-grow) passe par le :style inline du template, qui est
-   correctement transitionné par `.elpis-slide-panel`.
+   La classe ne fait que retirer la bordure et monter le z-index ; la largeur
+   et flex-grow passent par le :style du gabarit.
    ──────────────────────────────────────────────────────────────────── */
 .editor-fullscreen {
     border: none;
@@ -1101,11 +1160,11 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    ──────────────────────────────────────────────────────────────────── */
 .modal-enter-active,
 .modal-leave-active {
-    transition: opacity 180ms ease-out;
+    transition: opacity var(--duree) var(--courbe-fondu);
 }
 .modal-enter-active > *,
 .modal-leave-active > * {
-    transition: opacity 180ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree) var(--courbe-entree);
 }
 .modal-enter-from,
 .modal-leave-to {
@@ -1114,48 +1173,64 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .modal-enter-from > *,
 .modal-leave-to > * {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .modal-enter-from > *,
+    .modal-leave-to > * {
+        transform: translateY(12px) scale(0.98);
+    }
 }
 
-/* ─── Transition « popover » réutilisable (menus / dropdowns / panneaux) ───
-   Entrée ET sortie animées (fondu + légère descente), symétrique. GPU-only
-   (opacity + transform). Cible 150 ms ease-out : assez rapide pour ne pas
-   retarder l'utilisateur en tâche, assez présent pour supprimer le « pop »
-   sec. À wrapper autour d'un <Transition name="popover"> sur un menu à
-   root unique. Neutralisée sous prefers-reduced-motion (liste plus bas). */
-.popover-enter-active,
-.popover-leave-active {
-    transition: opacity 150ms ease-out, transform 150ms ease-out;
-    transform-origin: top;
+/* ─── Menus flottants : transitions « popover » et « popover-up » (<TransitionMenu>) ───
+   Menus déroulants et contextuels, listes de choix, sous-menus, palettes et petits flottants.
+   « popover » s'ouvre vers le bas depuis le bord haut de son ancre, « popover-up » (menu posé
+   au-dessus de son bouton) vers le haut depuis le bord bas ; `.menu-ancre-gauche` ou
+   `.menu-ancre-droite` place l'origine au coin de l'ancre. Entrée : fondu, glissement de
+   `--menu-glisse` et échelle `--menu-echelle`, décélérés ; @starting-style la fait partir
+   dès la première image du menu (Vue n'ôte `-enter-from` que deux images plus tard). Sortie
+   plus brève : son état final est posé dès `-leave-active` (départ à la première image) et le
+   menu qui part ne prend plus ni clic ni focus. Les deux partent avec une image d'avance
+   (`--duree-image`) : sans elle, la première image d'une transition jouée par le compositeur
+   montre encore l'état de départ. Opacité et transform seulement ; un skin règle durées,
+   courbes, glissement et échelle en surchargeant ces variables sur ces classes. */
+:is(.popover-enter-active, .popover-leave-active, .popover-up-enter-active, .popover-up-leave-active) {
+    --menu-glisse: 6px;
+    --menu-echelle: 0.97;
 }
-/* Un menu qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
-   continue d'intercepter le clic suivant pendant 150 ms — et l'utilisateur
-   qui referme un menu pour cliquer derrière retombe dessus. */
+.popover-enter-active,
+.popover-up-enter-active {
+    transition: opacity var(--duree) var(--courbe-entree), transform var(--duree) var(--courbe-entree);
+    transition-delay: calc(-1 * var(--duree-image));
+}
 .popover-leave-active,
 .popover-up-leave-active {
+    transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
+    transition-delay: calc(-1 * var(--duree-image));
+    opacity: 0;
+}
+.popover-enter-active, .popover-leave-active { transform-origin: var(--menu-origine, center) top; }
+.popover-up-enter-active, .popover-up-leave-active { transform-origin: var(--menu-origine, center) bottom; }
+.menu-ancre-gauche { --menu-origine: left; }
+.menu-ancre-droite { --menu-origine: right; }
+@starting-style {
+    .popover-enter-active,
+    .popover-up-enter-active { opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+        .popover-enter-active { transform: translateY(calc(-1 * var(--menu-glisse))) scale(var(--menu-echelle)); }
+        .popover-up-enter-active { transform: translateY(var(--menu-glisse)) scale(var(--menu-echelle)); }
+    }
+    .popover-leave-active { transform: translateY(calc(-1 * var(--menu-glisse))) scale(var(--menu-echelle)); }
+    .popover-up-leave-active { transform: translateY(var(--menu-glisse)) scale(var(--menu-echelle)); }
+}
+/* Un menu ou une fenêtre qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
+   continue d'intercepter le clic suivant — et l'utilisateur qui referme un menu pour
+   cliquer derrière retombe dessus. */
+.popover-leave-active,
+.popover-up-leave-active,
+.modal-leave-active {
     pointer-events: none;
-}
-.popover-enter-from,
-.popover-leave-to {
-    opacity: 0;
-    transform: translateY(-4px);
-}
-
-/* ─── Variante « popover-up » : menus ANCRÉS PAR LE BAS ────────────────────
-   Les menus du composeur (« + », RAG, partages, tâches) sont posés en
-   `bottom-full` : ils poussent vers le haut depuis leur bouton. Leur faire
-   jouer `popover`, qui descend de −4 px avec l'origine en haut, les fait
-   entrer À CONTRESENS de l'ouverture — le mouvement contredit la géométrie.
-   Mêmes durée et courbe, sens inversé et origine en bas. */
-.popover-up-enter-active,
-.popover-up-leave-active {
-    transition: opacity 150ms ease-out, transform 150ms ease-out;
-    transform-origin: bottom;
-}
-.popover-up-enter-from,
-.popover-up-leave-to {
-    opacity: 0;
-    transform: translateY(4px);
 }
 
 /* ─── Transition « model-load » : la barre de chargement rend sa place ─────
@@ -1166,15 +1241,20 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    taille naturelle pendant l'animation. */
 .model-load-enter-active,
 .model-load-leave-active {
-    transition: opacity 200ms ease-out, max-width 220ms ease-out, gap 220ms ease-out;
+    transition: opacity var(--duree) var(--courbe-fondu), max-width var(--duree) var(--courbe-fondu), gap var(--duree) var(--courbe-fondu);
     overflow: hidden;
     max-width: 140px;
 }
 .model-load-enter-from,
 .model-load-leave-to {
     opacity: 0;
-    max-width: 0;
-    gap: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .model-load-enter-from,
+    .model-load-leave-to {
+        max-width: 0;
+        gap: 0;
+    }
 }
 
 /* ─── Transition « toast » ─────────────────────────────────────────────────
@@ -1184,77 +1264,110 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    quand l'un d'eux part, au lieu de sauter. */
 .toast-enter-active,
 .toast-leave-active {
-    transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree) var(--courbe-entree);
 }
-.toast-enter-from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-}
+.toast-enter-from,
 .toast-leave-to {
     opacity: 0;
-    transform: translateX(16px);
 }
 .toast-move {
-    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform var(--duree) var(--courbe-entree);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .toast-enter-from {
+        transform: translateY(12px) scale(0.98);
+    }
+    .toast-leave-to {
+        transform: translateX(16px);
+    }
 }
 
-/* ─── Respect du setting "prefers-reduced-motion" ─────────────────────
-   Utilisateurs qui ont activé la réduction des animations dans leur
-   système (accessibilité, nausée vestibulaire, batterie) : on coupe
-   les animations non essentielles mais on garde les transitions de
-   couleur pour le feedback visuel.
+/* ─── Mouvement réduit (prefers-reduced-motion: reduce) ──────────────
+   Ce que la préférence vise (WCAG 2.3.3) est le mouvement : déplacement,
+   échelle, taille, rotation décorative. Un fondu d'opacité ou de couleur
+   n'en est pas un, et un indicateur figé se lit comme un gel de l'app. Règle :
+   - gardés : fondus d'opacité et de couleur, 150 ms au plus ; pouls d'opacité
+     des indicateurs d'activité, ralentis ;
+   - retirés : transform, largeur, hauteur, marges, position ; rotation décorative
+     (la roue de chargement tourne, ralentie : une roue figée se lit comme un gel).
+   Chaque transition Vue nommée est citée ici : elle ne matche aucun sélecteur
+   générique ([class*=…]). Ses décalages d'entrée sont posés hors de ce mode
+   (@media no-preference), l'élément apparaît donc à sa place finale.
    ──────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+    /* Utilitaires de transition : couleur et opacité seulement. */
+    .transition:not(.transition-none),
     .transition-all,
-    [class*="duration-"],
-    [class*="transition-"] {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
+    [class*="transition-"]:not(.transition-none),
+    [class*="duration-"] {
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow !important;
+        transition-duration: 150ms !important;
     }
-    /* Neutralise toutes les animations Tailwind (.animate-spin =
-       "spin 1s linear infinite", .animate-[fadeIn_…], .animate-[slideUp_…])
-       qui, sans ça, continuaient de tourner indéfiniment (spinners plein
-       écran, spinners de connexion) malgré la demande de l'OS. WCAG 2.3.3. */
+    /* Éditeur de code : son volet de recherche se pose sans glisser (défilement et curseur : options de Monaco, instances.ts). */
+    .monaco-editor .find-widget { transition: none !important; }
+    /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
+    .popover-leave-active, .popover-up-leave-active,
+    .tool-detail-enter-active,
+    .volet-enter-active, .volet-leave-active {
+        transition-property: opacity !important;
+        transition-duration: min(var(--duree-courte), 150ms) !important;
+    }
+    .popover-enter-active, .popover-up-enter-active,
+    .modal-enter-active, .modal-leave-active,
+    .modal-enter-active > *, .modal-leave-active > *,
+    .toast-enter-active, .toast-leave-active,
+    .fade-enter-active, .fade-leave-active,
+    .model-load-enter-active, .model-load-leave-active,
+    .adm-tiroir-enter-active, .adm-tiroir-leave-active,
+    .adm-tiroir-enter-active > .adm-drawer, .adm-tiroir-leave-active > .adm-drawer,
+    .adm-bar-enter-active, .adm-bar-leave-active {
+        transition-property: opacity !important;
+        transition-duration: min(var(--duree), 150ms) !important;
+    }
+    .elpis-ligne-enter-active, .elpis-ligne-leave-active {
+        transition-property: opacity !important;
+        transition-duration: min(var(--duree-courte), 150ms) !important;
+    }
+    .toast-move, .elpis-ligne-move { transition: none !important; }
+    /* Transitions écrites à la main qui déplacent, tournent ou redimensionnent. */
+    .elpis-zoom-btn,
+    .set-switch-track::after,
+    .adm-details > summary::before,
+    .np-card__chev,
+    .task-run-caret,
+    .elpis-effect-caret,
+    .elpis-img-tile__fill { transition: none !important; }
+    .adm-progression { transition-duration: 150ms !important; }
+    /* Animations Tailwind : retirées (spinners plein écran, apparitions), sauf ce qui suit.
+       .animate-[fadeIn_…] est un fondu : gardé, court. .animate-[slideUp_…] devient ce fondu. */
     [class*="animate-"],
     .elpis-changed-line-highlight,
     .elpis-changed-line-gutter {
         animation: none !important;
     }
-    /* …mais une roue de chargement FIGÉE est indiscernable d'un gel de
-       l'app : les indicateurs d'activité (.animate-spin) sont essentiels
-       (WCAG 2.3.3 ne vise que le mouvement décoratif). On garde la
-       rotation, simplement RALENTIE (2 s/tour au lieu de 1 s).
-       Keyframes à nous : ne dépend pas de l'ordre d'injection du CDN
-       Tailwind. Déclaré APRÈS [class*="animate-"] (même spécificité)
-       pour gagner la cascade. */
+    [class*="animate-[fadeIn_"],
+    [class*="animate-[slideUp_"] { animation: fadeIn 150ms ease-out !important; }
+    /* Indicateurs d'activité, ralentis. Roue de chargement : rotation à 2 s/tour au lieu de 1 s.
+       Keyframes à nous : l'ordre d'injection de la feuille Tailwind n'y change rien. */
     .animate-spin { animation: elpisSpinReduced 2s linear infinite !important; }
     @keyframes elpisSpinReduced { to { transform: rotate(360deg); } }
-    /* Indicateur « typing » : essentiel comme le spinner → conservé, ralenti. */
-    .elpis-typing > span { animation-duration: 2.4s !important; }
-    /* Point d'activité + curseur du terminal en direct : indicateurs
-       essentiels (une commande tourne) → conservés, ralentis. */
+    /* Pouls d'opacité (point, étape d'outil, jauge). Une classe motion-reduce:animate-none du markup garde le dernier mot. */
+    .animate-pulse:not(.motion-reduce\:animate-none) { animation: elpisPulseReduced 3s ease-in-out infinite !important; }
+    @keyframes elpisPulseReduced { 50% { opacity: 0.4; } }
+    /* Halo « ping » : l'échelle disparaît, le halo reste agrandi et respire en opacité autour de son point. */
+    .animate-ping:not(.motion-reduce\:animate-none) { transform: scale(1.8); animation: elpisPingReduced 2.4s ease-in-out infinite !important; }
+    @keyframes elpisPingReduced { 0%, 100% { opacity: 0; } 50% { opacity: 0.6; } }
+    /* Indicateur « typing » : trois points dont l'opacité ondule, sans la montée. */
+    .elpis-typing > span { animation: elpisTypingReduced 2.4s ease-in-out infinite !important; }
+    .elpis-typing > span:nth-child(2) { animation-delay: .32s !important; }
+    .elpis-typing > span:nth-child(3) { animation-delay: .64s !important; }
+    @keyframes elpisTypingReduced { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
+    /* Point d'activité + curseur du terminal en direct : une commande tourne. */
     .shell-live-dot.is-running { animation: shellDotPulse 3s ease-in-out infinite !important; }
     .shell-live-body .sh-cursor { animation: shellDotPulse 3s ease-in-out infinite !important; }
-    /* Shimmer « écriture en mémoire » : indicateur d'activité → conservé, ralenti. */
-    .mem-wave { animation-duration: 3.4s !important; }
+    /* Éclat des libellés vivants. */
+    .mem-wave-fenetre, .mem-wave-copie { animation-duration: 3.4s !important; }
     .editor-fullscreen { animation: none !important; }
-    /* Les classes de <Transition> Vue NOMMÉES (.modal-*,
-       .toast-*, .fade-*, …) ne matchent PAS les sélecteurs [class*=…]
-       ci-dessus (pas de préfixe "transition-"/"animate-") : modales et
-       toasts continuaient d'animer malgré la préférence OS. Liste tenue
-       en phase avec les <Transition name="…"> du markup (fade, modal,
-       model-load, toast, tool-detail). */
-    .modal-enter-active, .modal-leave-active,
-    .modal-enter-active > *, .modal-leave-active > *,
-    .toast-enter-active, .toast-leave-active, .toast-move,
-    .fade-enter-active, .fade-leave-active,
-    .popover-enter-active, .popover-leave-active,
-    .popover-up-enter-active, .popover-up-leave-active,
-    .model-load-enter-active, .model-load-leave-active,
-    .tool-detail-enter-active, .tool-detail-leave-active {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-    }
     /* Flash de saut (outline / recherche) — pas de pulsation animée. */
     .vs-jump-flash { animation: none !important; background-color: color-mix(in srgb, var(--accent-500) 10%, transparent) !important; }
 }
@@ -1335,8 +1448,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
  * ----------------------------------------------------------------
  *  Piloté par les tokens SÉMANTIQUES ``--danger-*`` (au lieu du rouge
  *  Tailwind cru bg-red-* et text-red-*, qui n'était ni bridgé en sombre ni
- *  décliné par skin → encart désaligné). Les parties NEUTRES (fond du bloc
- *  détail et du bouton) reprennent ``--surface`` générique → elles suivent
+ *  décliné par skin → encart désaligné). La partie NEUTRE (fond du
+ *  bouton) reprend ``--surface`` générique → elle suit
  *  automatiquement chaque skin ; seul l'ACCENT danger vient des tokens
  *  ``--danger-*`` (redéfinis en sombre et par les skins sombres).
  * ================================================================ */
@@ -1345,24 +1458,12 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
     border: 1px solid var(--danger-border);
 }
 .elpis-error-title  { color: var(--danger-strong); }
-.elpis-error-detail {
-    color: var(--danger-text);
-    background-color: var(--surface);
-    border: 1px solid var(--danger-border-soft);
-    white-space: pre-wrap;
-    word-break: break-word;
-}
 .elpis-error-btn {
     background-color: var(--surface);
     color: var(--danger-text);
     border: 1px solid var(--danger-border);
 }
 .elpis-error-btn:hover { background-color: var(--danger-surface); }
-.elpis-error-avatar {
-    background-color: var(--danger-icon-bg);
-    color: var(--danger-icon-fg);
-    border: 1px solid var(--danger-border);
-}
 
 /* La ligne fichier : flex, alignement top (le bouton Download s'aligne
    avec la PREMIÈRE ligne nom du fichier, pas centré entre les 2 lignes
@@ -1381,16 +1482,6 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 .diff-row-flat--clickable:hover {
     background-color: #f8fafc;          /* slate-50 */
-}
-
-/* Mode éditeur désactivé : ligne info-only ; le curseur par défaut
-   (pas de feedback "cliquable") évite un faux signal. Le bouton
-   Download a son propre hover. */
-.diff-row-flat--readonly {
-    cursor: default;
-}
-.diff-row-flat--readonly:hover {
-    background-color: transparent;
 }
 
 /* Bouton Download : style outline doux. On veut qu'il soit clairement
@@ -1492,9 +1583,9 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
     color: var(--danger-strong);
 }
 
-/* Réduit motion : pas d'animation d'entrée. */
+/* Mouvement réduit : l'entrée se fait en fondu seul. */
 @media (prefers-reduced-motion: reduce) {
-    .diff-rows { animation: none; }
+    .diff-rows { animation: fadeIn 150ms ease-out; }
 }
 
 /* ================================================================
@@ -1580,16 +1671,7 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
 .elpis-editor-light .border-white\/\[0\.08\] {
     border-color: #e2e8f0;              /* slate-200 — crisp, no alpha */
 }
-.elpis-editor-light .border-white\/20 {
-    border-color: #cbd5e1;              /* slate-300 — slightly darker */
-}
 .elpis-editor-light .border-black\/20 {
-    border-color: #e2e8f0;
-}
-
-/* — Divide utilities (between rows) ——————————————————————————— */
-.elpis-editor-light .divide-white\/5 > * + *,
-.elpis-editor-light .divide-white\/10 > * + * {
     border-color: #e2e8f0;
 }
 
@@ -1675,7 +1757,6 @@ body.elpis-dark-surface .hover\:bg-slate-50:hover      { background-color: var(-
 body.elpis-dark-surface .hover\:bg-slate-100:hover     { background-color: var(--surface-4); }
 body.elpis-dark-surface .hover\:bg-slate-200:hover     { background-color: var(--surface-5); }
 body.elpis-dark-surface .hover\:bg-white\/60:hover     { background-color: rgba(255, 255, 255, 0.04); }
-body.elpis-dark-surface .hover\:bg-white\/70:hover     { background-color: rgba(255, 255, 255, 0.05); }
 body.elpis-dark-surface .hover\:bg-white\/80:hover     { background-color: rgba(255, 255, 255, 0.06); }
 
 /* Focus background (formulaires) */
@@ -1937,33 +2018,14 @@ body.elpis-dark-surface .bg-pink-50           { background-color: rgba(236, 72, 
 /* Hover variants pour boutons accent */
 body.elpis-dark-surface .hover\:bg-blue-50:hover     { background-color: rgba(59, 130, 246, 0.20); }
 body.elpis-dark-surface .hover\:bg-red-50:hover      { background-color: rgba(239, 68, 68, 0.20); }
-body.elpis-dark-surface .hover\:bg-green-50:hover    { background-color: rgba(34, 197, 94, 0.20); }
 body.elpis-dark-surface .hover\:bg-emerald-50:hover  { background-color: rgba(16, 185, 129, 0.20); }
-body.elpis-dark-surface .hover\:bg-amber-50:hover    { background-color: rgba(245, 158, 11, 0.20); }
-body.elpis-dark-surface .hover\:bg-purple-50:hover   { background-color: rgba(168, 85, 247, 0.20); }
-body.elpis-dark-surface .hover\:bg-orange-50:hover   { background-color: rgba(249, 115, 22, 0.20); }
-body.elpis-dark-surface .hover\:bg-rose-50:hover     { background-color: rgba(244, 63, 94, 0.20); }
-
-/* Pastilles de statut bg-*-100 + texte -*-700 : les teintes TOKENISÉES
-   (blue/emerald/green/red/amber) sont désormais gérées par le bridge +
-   familles sémantiques (les deux modes). Ne restent ici que les teintes
-   hors familles (indigo/purple). */
-body.elpis-dark-surface .bg-purple-100  { background-color: rgba(168, 85, 247, 0.18); }
-body.elpis-dark-surface .text-indigo-700  { color: #a5b4fc; }
-body.elpis-dark-surface .text-purple-700  { color: #d8b4fe; }
 
 /* Borders accent claires (bg-*-200) — utilisées pour les boutons outline */
-body.elpis-dark-surface .border-purple-200    { border-color: rgba(168, 85, 247, 0.40); }
-body.elpis-dark-surface .border-orange-200    { border-color: rgba(249, 115, 22, 0.40); }
 body.elpis-dark-surface .border-rose-200      { border-color: rgba(244, 63, 94, 0.40); }
-body.elpis-dark-surface .border-indigo-200    { border-color: rgba(99, 102, 241, 0.40); }
 
 /* Hover borders */
 body.elpis-dark-surface .hover\:border-blue-200:hover   { border-color: rgba(59, 130, 246, 0.60); }
 body.elpis-dark-surface .hover\:border-red-200:hover    { border-color: rgba(239, 68, 68, 0.60); }
-body.elpis-dark-surface .hover\:border-green-200:hover  { border-color: rgba(34, 197, 94, 0.60); }
-body.elpis-dark-surface .hover\:border-amber-200:hover  { border-color: rgba(245, 158, 11, 0.60); }
-body.elpis-dark-surface .hover\:border-purple-200:hover { border-color: rgba(168, 85, 247, 0.60); }
 
 /* Rings + teinte /60 (état sélection de l'arbre des skills) — non couverts
    par les overrides ci-dessus (classes compilées distinctes). */
@@ -1988,30 +2050,18 @@ body.elpis-dark-surface .disabled\:bg-slate-50:disabled,
 body.elpis-dark-surface .disabled\:bg-slate-100:disabled {
     background-color: var(--surface-3);
 }
-body.elpis-dark-surface .disabled\:bg-slate-200:disabled {
-    background-color: var(--surface-4);
-}
 body.elpis-dark-surface .disabled\:bg-slate-300:disabled {
     background-color: var(--surface-5);
-}
-body.elpis-dark-surface .disabled\:bg-white:disabled {
-    background-color: var(--surface);
 }
 body.elpis-dark-surface .disabled\:text-slate-300:disabled,
 body.elpis-dark-surface .disabled\:text-slate-400:disabled,
 body.elpis-dark-surface .disabled\:text-slate-500:disabled {
     color: #64748b;                         /* slate-500 — discret, pas blanc */
 }
-body.elpis-dark-surface .disabled\:border-slate-200:disabled {
-    border-color: rgba(255, 255, 255, 0.08);
-}
 
 /* Variantes focus (utilisées dans les inputs avec focus:bg-white) */
 body.elpis-dark-surface .focus\:bg-white:focus {
     background-color: var(--surface);
-}
-body.elpis-dark-surface .focus\:bg-slate-50:focus {
-    background-color: var(--surface-2);
 }
 body.elpis-dark-surface .focus\:bg-slate-100:focus {
     background-color: var(--surface-3);
@@ -2022,12 +2072,6 @@ body.elpis-dark-surface .peer-checked\:bg-blue-600:checked ~ div,
 body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     /* déjà bleu, OK ; on n'override pas — color préservée */
 }
-
-/* Group hover variants (les enfants stylés au hover du parent .group) */
-body.elpis-dark-surface .group:hover .group-hover\:bg-slate-50         { background-color: var(--surface-3); }
-body.elpis-dark-surface .group:hover .group-hover\:bg-slate-100        { background-color: var(--surface-4); }
-body.elpis-dark-surface .group:hover .group-hover\:text-slate-700      { color: var(--text-800); }
-body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: var(--text-900); }
 
 /* ================================================================
  *  Modale de zoom des diagrammes (Mermaid)
@@ -2167,6 +2211,12 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
     padding: 0.875rem;          /* p-3.5 ; l'arrondi reste en utilitaire (first/last) */
     transition: background-color .15s ease;
 }
+/* Rangées d'un même bloc dont les contrôles segmentés partagent une colonne : même largeur et boutons
+   de même taille d'une rangée à l'autre, alignés (Apparence : Mode, Animations). */
+.set-colonnes { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.set-colonnes > .set-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.set-colonnes .adm-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.set-colonnes .adm-seg__btn { text-align: center; }
 /* Sous-item : indentation seule, SANS accent gauche bleu (anti-pattern banni). */
 .set-row--sub { padding: 0.625rem 0.875rem 0.625rem 2.25rem; }  /* py-2.5 pr-3.5 pl-9 */
 
@@ -2185,32 +2235,6 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
    fond propre à rogner — une teinte d'état se pose sur un élément INTERNE
    déjà arrondi, jamais sur la rangée pleine largeur. */
 .set-block--flush { padding: 0; }
-
-/* Contrôle segmenté d'un réglage à 2 ou 3 choix : piste neutre, choix actif en relief (aria-pressed). */
-.set-seg {
-    display: inline-flex;
-    gap: 0.125rem;
-    padding: 0.125rem;
-    border-radius: var(--radius-lg);
-    background: var(--surface-3);
-}
-.set-seg__btn {
-    min-height: 2rem;
-    padding: 0.25rem 0.75rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    font-size: 0.8125rem;
-    color: var(--text-600);
-    transition: background-color .15s ease, color .15s ease;
-}
-.set-seg__btn:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-4); }
-.set-seg__btn[aria-pressed="true"] {
-    background: var(--surface);
-    border-color: var(--border);
-    color: var(--text-900);
-}
-.set-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
-.set-seg__btn:disabled { cursor: not-allowed; opacity: .7; }
 
 /* ================================================================
  *  COMPOSANTS CONSOLE ADMIN  (.adm-*)
@@ -2467,12 +2491,12 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 .adm-changes__vals s { color: var(--text-400); }
 .adm-changes__vals b { font-weight: 600; color: var(--text-900); }
 .adm-bar-enter-active,
-.adm-bar-leave-active { transition: transform .18s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
+.adm-bar-leave-active { transition: transform var(--duree) var(--courbe-entree), opacity var(--duree) var(--courbe-fondu); }
 .adm-bar-enter-from,
-.adm-bar-leave-to { transform: translateY(100%); opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-    .adm-bar-enter-active,
-    .adm-bar-leave-active { transition: none; }
+.adm-bar-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .adm-bar-enter-from,
+    .adm-bar-leave-to { transform: translateY(100%); }
 }
 /* Lien discret (renvoi vers une autre page de la console). */
 .adm-link {
@@ -2495,6 +2519,8 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    /* Largeur du rail déplié : le contenu ne se remet pas en page pendant que le rail glisse. */
+    min-width: 16rem;
     width: 16rem;
 }
 .adm-rail__mini {
@@ -2742,18 +2768,6 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 }
 .adm-btn--icon:hover:not(:disabled) { background: var(--surface-3); color: var(--text-900); }
 
-/* Pastille « modifications non enregistrées ». Le point coloré reste un
-   utilitaire Tailwind sur le markup (accent remappé par les skins). */
-.adm-dirty {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-600);
-    white-space: nowrap;
-}
-
 /* Bloc replié (commandes d'installation, aides longues). */
 .adm-details {
     border-top: 1px solid var(--border-soft);
@@ -2976,7 +2990,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 }
 @keyframes adm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) {
-    .adm-skeleton { animation: none; }
+    .adm-skeleton { animation-duration: 2.8s; }
 }
 
 /* ================================================================
@@ -3140,13 +3154,13 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     min-width: 2.5rem; text-align: center;
     font-size: 0.6875rem; font-weight: 600; color: var(--text-500);
 }
-.adm-stepper__icon { color: var(--text-400); font-size: 0.875rem; margin-left: 0.125rem; }
 
 /* Popover de barre d'outils (widgets, collecte, export). */
 .adm-pop {
     position: absolute;
     top: 100%;
     right: 0;
+    --menu-origine: right;
     margin-top: 0.25rem;
     z-index: 50;
     background: var(--surface);
@@ -3155,7 +3169,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     box-shadow: 0 10px 30px rgba(15, 23, 42, .12);
     overflow: hidden;
 }
-.adm-pop--left { right: auto; left: 0; }
 .adm-pop__head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 0.5rem;
@@ -3304,8 +3317,9 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     background: rgba(15, 23, 42, .35);
     display: flex; justify-content: center; align-items: flex-start;
     padding: 12vh 1rem 1rem;
-    animation: adm-fade .12s ease-out;
 }
+/* Palette en transition « modal » : sur le départ, elle laisse passer le clic suivant. */
+.adm-palette-backdrop.modal-leave-active { pointer-events: none; }
 .adm-palette {
     width: min(40rem, 100%); max-height: 70vh;
     display: flex; flex-direction: column;
@@ -3340,7 +3354,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 /* Réglage atteint par la recherche : contour 1,5 s (statique si mouvement réduit). */
 .adm-flash { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--radius-md); animation: adm-flash 1.5s ease-out; }
 @keyframes adm-flash { 0%, 60% { outline-color: var(--accent-ring); } 100% { outline-color: transparent; } }
-@media (prefers-reduced-motion: reduce) { .adm-flash { animation: none; } .adm-palette-backdrop { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .adm-flash { animation: none; } }
 
 /* Tiroir d'objet (connecteur…) : panneau à droite, son propre
    Enregistrer. Remplace la carte imbriquée dans la carte. */
@@ -3348,7 +3362,18 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     position: fixed; inset: 0; z-index: 6000;
     background: rgba(15, 23, 42, .35);
     display: flex; justify-content: flex-end;
-    animation: adm-fade .16s ease-out;
+}
+/* Transition « adm-tiroir » : le voile s'estompe et le panneau glisse, à l'ouverture comme à la fermeture. */
+.adm-tiroir-enter-active,
+.adm-tiroir-leave-active { transition: opacity var(--duree-longue) var(--courbe-volet); }
+.adm-tiroir-enter-active > .adm-drawer,
+.adm-tiroir-leave-active > .adm-drawer { transition: transform var(--duree-longue) var(--courbe-volet); }
+.adm-tiroir-leave-active { pointer-events: none; }
+.adm-tiroir-enter-from,
+.adm-tiroir-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .adm-tiroir-enter-from > .adm-drawer,
+    .adm-tiroir-leave-to > .adm-drawer { transform: translateX(1.5rem); }
 }
 .adm-drawer {
     width: min(28rem, 100vw); height: 100%;
@@ -3356,7 +3381,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     background: var(--surface);
     border-left: 1px solid var(--border);
     box-shadow: -8px 0 24px rgba(15, 23, 42, .12);
-    animation: adm-drawer-in .22s cubic-bezier(.22, 1, .36, 1);
     outline: none;
 }
 .adm-drawer__head {
@@ -3370,11 +3394,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border-soft);
-}
-@keyframes adm-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes adm-drawer-in { from { transform: translateX(1.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-    .adm-drawer-backdrop, .adm-drawer { animation: adm-fade .01s linear; }
 }
 
 
@@ -3435,9 +3454,10 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .adm-skeleton--kpi { display: block; width: 4.5rem; height: 1.25rem; margin: 0.25rem 0; }
 .adm-skeleton--bloc { position: absolute; inset: 1rem; height: auto; }
 @media (prefers-reduced-motion: reduce) {
-    .adm-progression.is-on::after, .adm-maj__auto[aria-pressed="true"] .adm-maj__point,
-    .adm-direct.is-on .adm-maj__point { animation: none; }
-    .adm-progression::after { width: 100%; opacity: .6; }
+    .adm-maj__auto[aria-pressed="true"] .adm-maj__point,
+    .adm-direct.is-on .adm-maj__point { animation-duration: 4s; }
+    .adm-progression.is-on::after { animation: adm-pulse 2.4s ease-in-out infinite; }
+    .adm-progression::after { width: 100%; }
 }
 .adm-dash__menu { width: 20rem; }
 .adm-menu__go { margin-left: auto; font-size: 0.75rem; }
@@ -4000,7 +4020,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 @keyframes term-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) {
     .term-tab-dot.is-connecting,
-    .term-tab-dot.is-reconnecting { animation: none; }
+    .term-tab-dot.is-reconnecting { animation-duration: 2.4s; }
 }
 
 /* Bouton « fermer » de l'onglet — n'apparaît qu'au survol ou sur l'actif. */
@@ -4044,6 +4064,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
   animation: elpis-caret-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes elpis-caret-pulse { 50% { opacity: 0.35; } }
+/* Texte qui coule (classe posée sur le fil par le battement du flux) : caret plein ; il pulse 400 ms après le dernier caractère. */
+.elpis-texte-coule .elpis-stream-caret { animation: none; }
 
 /* Fil du tour : le dernier élément d'un texte rend sa marge,
  * l'espacement entre réflexion, texte et étapes est celui du fil (FilTour.vue). */
@@ -4087,8 +4109,10 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .elpis-bloc-travail [data-corps-bloc] .markdown-body > :last-child,
 .elpis-bloc-travail [data-corps-bloc] .markdown-body > div:last-child > :last-child { margin-bottom: 0; }
 
+/* Fil : écart des messages en row-gap ; une règle de frères sans classe (« A ~ B ») recalculerait tout le fil à chaque montage. */
+.elpis-chat-col { display: flex; flex-direction: column; row-gap: 2rem; }
 /* Densité compacte du fil (Paramètres › Chat) : messages, paragraphes et appels resserrés. */
-.elpis-fil-compact .elpis-chat-col > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem !important; }
+.elpis-fil-compact .elpis-chat-col { row-gap: 1.25rem !important; }
 .elpis-fil-compact .elpis-msg-assistant .markdown-body p { margin-bottom: 0.55em; }
 .elpis-fil-compact [data-fil-tour] .mt-3 { margin-top: 0.5rem; }
 .elpis-fil-compact [data-corps-bloc] { gap: 0.4rem; }
@@ -4164,24 +4188,17 @@ body.elpis-dark-surface .bg-blue-50\/50          { background-color: rgba(59, 13
 body.elpis-dark-surface .bg-amber-50\/60         { background-color: rgba(245, 158, 11, 0.12); }
 
 /* Bordures translucides (le panneau d'échantillonnage en pose 11). */
-body.elpis-dark-surface .border-slate-200\/70    { border-color: rgba(255, 255, 255, 0.08); }
 body.elpis-dark-surface .border-slate-200\/80    { border-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .border-amber-200\/60    { border-color: rgba(245, 158, 11, 0.28); }
-body.elpis-dark-surface .border-amber-200\/70    { border-color: rgba(245, 158, 11, 0.32); }
 body.elpis-dark-surface .border-amber-300\/60    { border-color: rgba(245, 158, 11, 0.36); }
-body.elpis-dark-surface .border-emerald-100      { border-color: rgba(16, 185, 129, 0.22); }
-body.elpis-dark-surface .border-red-300          { border-color: rgba(239, 68, 68, 0.45); }
 
 /* Hovers en nuance 100/200 : seules les -50 étaient remappées. */
 body.elpis-dark-surface .hover\:bg-blue-100:hover     { background-color: rgba(59, 130, 246, 0.22); }
 body.elpis-dark-surface .hover\:bg-red-100:hover      { background-color: rgba(239, 68, 68, 0.22); }
-body.elpis-dark-surface .hover\:bg-red-200:hover      { background-color: rgba(239, 68, 68, 0.30); }
 body.elpis-dark-surface .hover\:bg-amber-100:hover    { background-color: rgba(245, 158, 11, 0.22); }
 body.elpis-dark-surface .hover\:bg-emerald-100:hover  { background-color: rgba(16, 185, 129, 0.22); }
 body.elpis-dark-surface .hover\:bg-violet-100:hover   { background-color: rgba(139, 92, 246, 0.22); }
 body.elpis-dark-surface .hover\:bg-slate-100\/70:hover { background-color: rgba(255, 255, 255, 0.06); }
 body.elpis-dark-surface .hover\:bg-slate-100\/80:hover { background-color: rgba(255, 255, 255, 0.07); }
-body.elpis-dark-surface .hover\:bg-slate-200\/60:hover { background-color: rgba(255, 255, 255, 0.09); }
 body.elpis-dark-surface .hover\:border-blue-100:hover  { border-color: rgba(59, 130, 246, 0.35); }
 
 /* États focus : la variante `focus:` / `focus-within:` échappait aux remaps. */
@@ -4191,10 +4208,8 @@ body.elpis-dark-surface .focus-within\:border-slate-300:focus-within { border-co
 /* Anneaux (`ring-*`) : aucun n'était couvert — bord clair net autour des
    modales, des cartes et des champs en mode sombre. */
 body.elpis-dark-surface .ring-slate-200      { --tw-ring-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .ring-slate-500      { --tw-ring-color: rgba(255, 255, 255, 0.22); }
 body.elpis-dark-surface .ring-slate-900\/5   { --tw-ring-color: rgba(255, 255, 255, 0.06); }
 body.elpis-dark-surface .ring-slate-900\/10  { --tw-ring-color: rgba(255, 255, 255, 0.10); }
-body.elpis-dark-surface .ring-blue-300       { --tw-ring-color: rgba(59, 130, 246, 0.45); }
 body.elpis-dark-surface .ring-red-400        { --tw-ring-color: rgba(239, 68, 68, 0.45); }
 
 /* Fonds de pastille sans famille sémantique. */
@@ -4226,14 +4241,11 @@ body .text-rose-900      { color: var(--danger-strong); }
 body .hover\:text-blue-800:hover    { color: var(--accent-text-strong); }
 body .hover\:text-amber-800:hover   { color: var(--warn-text-strong); }
 body .hover\:text-amber-900:hover   { color: var(--warn-text-strong); }
-body .hover\:text-green-700:hover   { color: var(--ok-text-strong); }
-body .hover\:text-red-700:hover     { color: var(--danger-strong); }
 
 /* Teintes DÉCORATIVES sans famille sémantique : remap sombre seulement
    (en clair, les valeurs Tailwind sont justes). */
 body.elpis-dark-surface .text-violet-600      { color: #c4b5fd; }
 body.elpis-dark-surface .text-violet-700      { color: #c4b5fd; }
-body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 
 /* ── 4. Écran de secours (avant que Vue ne monte) ───────────────────────── *
  * `#vue-error-overlay` est peint avant que la moindre classe de thème soit
@@ -4243,7 +4255,6 @@ body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 @media (prefers-color-scheme: dark) {
     #vue-error-overlay          { background: #16181d !important; }
     #vue-error-overlay .box     { background: #1e1e1e !important; color: #e2e8f0 !important; }
-    #vue-error-overlay .tip     { color: #94a3b8 !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -4545,7 +4556,7 @@ mark.elpis-search-hit {
     display: inline-block; flex: none; border: 1.5px solid currentColor; border-radius: 2px;
 }
 .elpis-img-pop {
-    position: absolute; left: 0; bottom: calc(100% + 0.5rem); z-index: 100;
+    position: absolute; left: 0; bottom: calc(100% + 0.5rem); z-index: 100; --menu-origine: left;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); padding: 0.5rem;
 }
@@ -4781,7 +4792,7 @@ mark.elpis-search-hit {
    animations » (une tuile immobile se lit comme un gel). */
 @media (prefers-reduced-motion: reduce) {
     .elpis-img-tile__wash { animation-duration: 30s !important; animation-iteration-count: infinite !important; }
-    .elpis-img-reveal { animation: none !important; }
+    .elpis-img-reveal { animation: fadeIn 150ms ease-out !important; }
 }
 
 /* Console › Images : ligne d'état du test, groupe supprimé. */
@@ -4903,12 +4914,14 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 .elpis-ask-liste { display: flex; flex-direction: column; gap: 2px; max-height: 45dvh; overflow-y: auto; padding: 2px; margin: -2px; }
 .elpis-ask-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 12px 8px; }
 .elpis-compose-card.elpis-ask-ouvert:focus-within { border-color: var(--accent-border); }
+/* Skins à carte de composeur opaque : aucun flou derrière (rien ne se voit au travers). */
+body:is(.elpis-skin-elpis, .elpis-skin-kiki, .elpis-skin-llamacpp, .elpis-skin-emeraude, .elpis-skin-pingouins) .elpis-compose-card {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
 body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: transparent; border-color: var(--accent-text); color: var(--accent-text); }
 @media (max-width: 640px), (pointer: coarse) { .elpis-ask-aide-clavier { display: none; } }
 .elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) {
-    .elpis-ask-opt, .elpis-ask-btn { transition: none; }
-}
 
 /* Gestionnaire des serveurs MCP (ModaleMcp et ses volets) : champs, point d'état (forme + texte), fil pendant un test. */
 .elpis-mcp-titre { font-family: var(--font-titre, inherit); }
@@ -4930,8 +4943,8 @@ select.elpis-mcp-champ { padding-right: 0.375rem; cursor: pointer; }
 @keyframes elpis-mcp-tourne { to { transform: rotate(360deg); } }
 @keyframes elpis-mcp-fil { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 @media (prefers-reduced-motion: reduce) {
-    .elpis-mcp-pt--busy, .elpis-mcp-fil { animation: none; }
-    .elpis-mcp-fil { background: var(--accent-500); }
+    .elpis-mcp-pt--busy { animation-duration: 2.4s; }
+    .elpis-mcp-fil { animation: none; background: var(--accent-500); }
 }
 
 /* ── Journal de sécurité (Journaux › Sécurité) ── */

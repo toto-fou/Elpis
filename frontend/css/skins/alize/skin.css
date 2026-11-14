@@ -411,10 +411,10 @@ body.elpis-skin-alize aside.elpis-slide-panel .w-12 button.bg-blue-700:hover { b
 
 /* ── En-tête et fil ─────────────────────────────────────────────────────── */
 body.elpis-skin-alize main > header > .relative { padding: 1rem 1.25rem 0; }
-body.elpis-skin-alize main > .overflow-y-auto.scroll-smooth { scrollbar-gutter: stable both-edges; }
+body.elpis-skin-alize main > .overflow-y-auto.elpis-fil { scrollbar-gutter: stable both-edges; }
 
 /* ── Conversation : votre message dans un voile, la réponse à même la feuille ── */
-body.elpis-skin-alize .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 2.75rem; }
+body.elpis-skin-alize .elpis-chat-col { row-gap: 2.75rem; }
 body.elpis-skin-alize .elpis-msg-user > .shrink-0 { display: none; }
 body.elpis-skin-alize .elpis-msg-user > .flex-1 {
     position: relative;

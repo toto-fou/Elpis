@@ -4,6 +4,7 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { journal } from "../../platform/journal";
+import { lireChoixMouvement, mouvementReduitPour } from "../../platform/mouvement";
 import type { SceneAccueil, montrerAccueil } from "./accueil";
 
 export interface EntreeCatalogue {
@@ -294,8 +295,9 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
   let scene: SceneAccueil | null = null;
   let montage = 0;
 
-  const mouvementReduit =
-    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mouvementReduit = computed(() =>
+    mouvementReduitPour(lireChoixMouvement((settings.value || {}).ui_motion)),
+  );
 
   function demonterScene(): void {
     scene?.detruire();
@@ -338,8 +340,8 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
       anime,
       "(réglage :",
       String(reglage),
-      "· système réduit :",
-      mouvementReduit,
+      "· mouvement réduit :",
+      mouvementReduit.value,
       ")",
     );
   }
@@ -372,12 +374,9 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
     }
   });
 
-  watch(
-    () => (settings.value || {}).welcome_mascot_anime,
-    () => {
-      if (accueilHote.value) void monterScene(false);
-    },
-  );
+  watch([() => (settings.value || {}).welcome_mascot_anime, mouvementReduit], () => {
+    if (accueilHote.value) void monterScene(false);
+  });
 
   watch(
     () => {

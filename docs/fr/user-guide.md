@@ -1346,6 +1346,9 @@ GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
   couvre qui sert : un jeton personnel pour l'hôte et un jeton limité à une organisation ou à un
   dépôt cohabitent. Deux comptes ne peuvent pas s'appliquer exactement au même endroit.
 - Réduire ce à quoi un compte s'applique garde son jeton ; l'élargir ou le déplacer le redemande.
+- La casse du chemin est ignorée, sauf pour un service *generic*, où elle est gardée telle que
+  saisie. Sur Bitbucket Server, le chemin commence par `scm/`, comme dans l'adresse de clonage
+  (`bb.example/scm/proj`).
 - Un compte marqué *sans portée* (deux comptes partageaient un hôte avant cette version) ne sert
   pas tant que vous n'avez pas dit à quoi il s'applique.
 - **Tester** valide le jeton ; la fenêtre de clonage de l'éditeur liste les dépôts du compte, dans

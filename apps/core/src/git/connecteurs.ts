@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/git/connecteurs.ts — comptes git (connecteurs) par compte (shared_infra/git/connectors.py) : jeton en écriture seule dans le coffre « Secrets » (genre `git`, portée : l'hôte, avec un chemin d'organisation ou de dépôt facultatif), relu côté serveur seulement, jamais rendu par les vues publiques ; le compte le plus précis qui couvre un dépôt le sert. */
-import { hostname, lowerPy, port, stripPy, strPy, urlsplit, veritePy, versFlottantPy } from "@elpis/commun";
+import {
+  hostname,
+  lowerPy,
+  port,
+  rstripPy,
+  stripPy,
+  strPy,
+  urlsplit,
+  veritePy,
+  versFlottantPy,
+} from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { nomDeriveCoffre } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 import { urlNonAmbigue } from "@elpis/securite";
 
 import { ErreurSecret } from "../secrets/erreurs";
-import { cheminCouvre, cheminDepot, hoteExact, porteeGit, validerIdentifiant } from "../secrets/portee";
+import { cheminCouvre, cheminExact, hoteExact, porteeGit, validerIdentifiant } from "../secrets/portee";
 import {
   creerSecret,
   dechiffrerLigne,
@@ -272,7 +282,7 @@ async function ecrireJeton(
   ]);
 }
 
-/** Compte git créé pour sa portée (`path` normalisé ; absent : tout l'hôte ; déjà prise : `PorteePrise`), son jeton écrit dans le coffre (une seule transaction ; à vérifier s'il vient d'une `source` sans humain) ; son id. */
+/** Compte git créé pour sa portée (`path` en forme, mis à la casse de son type ; absent : tout l'hôte ; déjà prise : `PorteePrise`), son jeton écrit dans le coffre (une seule transaction ; à vérifier s'il vient d'une `source` sans humain) ; son id. */
 export async function createConnector(
   base: Base,
   uid: number,
@@ -290,7 +300,7 @@ export async function createConnector(
 ): Promise<number> {
   const t = maintenant();
   const hote = lowerPy(host || "");
-  const chemin = champs.path ?? "";
+  const chemin = cheminPourType(champs.path ?? "", providerType);
   return base.ecriture(async () => {
     await exigerPorteeLibre(base, uid, hote, chemin);
     const id = await base.insertId(
@@ -330,7 +340,7 @@ function apiEffective(l: LigneConnecteur): string {
   return getProvider(l.provider_type).apiBase(l.host, l.api_base || "");
 }
 
-/** `update_connector` : champs non nuls remplacés (`path` déjà normalisé ; portée prise par un autre compte : `PorteePrise`), jeton seulement s'il est non vide (dans le coffre) ; l'hôte ou l'API effective (type compris) changés sans nouveau jeton effacent le jeton (secret du coffre ou ancien clair pas encore migré), qui ne suit jamais le compte ailleurs ; un chemin élargi sans nouveau jeton est refusé par le coffre (`secret_value_required`) ; faux si rien à faire ou introuvable. */
+/** `update_connector` : champs non nuls remplacés (`path` en forme, mis à la casse du type ; portée prise par un autre compte : `PorteePrise`), jeton seulement s'il est non vide (dans le coffre) ; l'hôte ou l'API effective (type compris) changés sans nouveau jeton effacent le jeton (secret du coffre ou ancien clair pas encore migré), qui ne suit jamais le compte ailleurs ; un chemin élargi sans nouveau jeton est refusé par le coffre (`secret_value_required`) ; faux si rien à faire ou introuvable. */
 export async function updateConnector(
   base: Base,
   uid: number,
@@ -344,12 +354,18 @@ export async function updateConnector(
     const sets: string[] = [];
     const vals: Valeur[] = [];
     const apres: LigneConnecteur = { ...avant };
-    for (const k of ["provider_type", "host", "path", "api_base", "label", "username"] as const) {
+    for (const k of ["provider_type", "host", "api_base", "label", "username"] as const) {
       const v = champs[k];
       if (v === null || v === undefined) continue;
       sets.push(`${k}=?`);
       vals.push(k === "host" ? lowerPy(v) : v);
       apres[k] = k === "host" ? lowerPy(v) : v;
+    }
+    const voulu = champs.path === null || champs.path === undefined ? avant.path : champs.path;
+    apres.path = voulu === null ? null : cheminPourType(voulu, apres.provider_type);
+    if (apres.path !== avant.path) {
+      sets.push("path=?");
+      vals.push(apres.path);
     }
     const jeton = champs.token || "";
     if (sets.length === 0 && !jeton) return false;
@@ -490,20 +506,44 @@ function clairPermis(remoteUrl: string, host: string, apiBase: string): boolean 
   );
 }
 
-/** Chemin `organisation/dépôt` d'une URL de dépôt, en segments simples ; `null` s'il ne se lit pas (seul un compte de tout l'hôte le couvre). */
-export function cheminDeLUrl(remoteUrl: string): string | null {
-  const info = detectProvider(remoteUrl);
-  return info ? cheminDepot(`${info.owner}/${info.repo}`) || null : null;
+/** Chemin tel que le compare un compte de ce type : sans la casse pour les forges qui l'ignorent, exact pour un service générique. */
+export function cheminPourType(chemin: string, type: string): string {
+  return type === "generic" ? chemin : chemin.toLowerCase();
 }
 
-/** Compte le plus précis qui couvre `chemin` parmi ceux d'un hôte (le plus long chemin ; les comptes sans portée ne servent pas) ; `undefined` si aucun. */
+/** Chemin du dépôt d'une URL, lu comme le relais git le joint (chemin de l'URL, barres finales et un `.git` retirés, rien d'autre), casse gardée ; forme SSH : celui de `detectProvider` ; `null` s'il n'est pas fait de segments simples (requête, encodage, `@`, segment vide, second `.git`) ou n'en a qu'un. */
+export function cheminDeLUrl(remoteUrl: string): string | null {
+  const url = stripPy(remoteUrl || "");
+  let brut: string;
+  if (url.includes("://")) {
+    let chemin: string;
+    try {
+      const p = urlsplit(url);
+      if (p.query || p.fragment || !p.path.startsWith("/")) return null;
+      chemin = rstripPy(p.path, "/");
+    } catch {
+      return null;
+    }
+    brut = (chemin.endsWith(".git") ? chemin.slice(0, -4) : chemin).slice(1);
+  } else {
+    const info = detectProvider(url);
+    if (!info) return null;
+    brut = `${info.owner}/${info.repo}`;
+  }
+  const lu = cheminExact(brut);
+  return lu !== null && lu.includes("/") ? lu : null;
+}
+
+/** Compte le plus précis qui couvre `chemin` parmi ceux d'un hôte : le plus long chemin, comparé selon le type de chaque compte ; un compte sans portée ne sert pas ; un dépôt illisible (`null`) n'a de compte que si aucun compte de l'hôte n'est borné à un chemin ; `undefined` si aucun. */
 export function compteCouvrant(
   comptes: readonly LigneConnecteur[],
   chemin: string | null,
 ): LigneConnecteur | undefined {
+  if (chemin === null && comptes.some((l) => Boolean(l.path))) return undefined;
   let retenu: LigneConnecteur | undefined;
   for (const l of comptes) {
-    if (l.path === null || !cheminCouvre(l.path, chemin)) continue;
+    if (l.path === null) continue;
+    if (!cheminCouvre(l.path, chemin === null ? null : cheminPourType(chemin, l.provider_type))) continue;
     if (retenu === undefined || l.path.length > (retenu.path ?? "").length) retenu = l;
   }
   return retenu;
@@ -523,7 +563,8 @@ async function compteDuDepot(
   const l = host ? compteCouvrant(await findForHost(base, uid, host), chemin) : undefined;
   if (!l) return null;
   const apiBase = getProvider(l.provider_type).apiBase(host, l.api_base || "");
-  return clairPermis(remoteUrl, host, apiBase) ? { l, host, apiBase, chemin } : null;
+  const cible = chemin === null ? null : cheminPourType(chemin, l.provider_type);
+  return clairPermis(remoteUrl, host, apiBase) ? { l, host, apiBase, chemin: cible } : null;
 }
 
 /** `resolve_git_credential` : compte git de l'hôte exact du dépôt qui couvre son chemin, jamais en clair vers un hôte public ; jeton lu dans le coffre pour ce dépôt (compté, journalisé), `last_used` mis à jour ; `null` sans compte ni jeton utilisable. */

@@ -19,8 +19,12 @@ export interface FormulaireGit {
   id?: ConnecteurGit["id"];
   provider_type: string;
   repo_url: string;
-  /** « S'applique à » : `hôte`, `hôte/organisation` ou `hôte/organisation/dépôt`. */
+  /** « S'applique à » : `hôte`, `hôte/organisation` ou `hôte/organisation/dépôt` ; vide pour un compte sans portée. */
   portee: string;
+  /** Portée à l'ouverture d'une modification : inchangée, ni l'hôte ni le chemin ne partent ; `null` : création. */
+  depart: string | null;
+  /** Hôte du compte modifié (indice de saisie d'un compte sans portée). */
+  hote: string;
   /** Portées proposées d'après l'URL collée, de tout l'hôte au dépôt. */
   niveaux: string[];
   api_base: string;
@@ -67,6 +71,8 @@ export function setupGitConnecteurs(
       provider_type: "github",
       repo_url: "",
       portee: "",
+      depart: null,
+      hote: "",
       niveaux: [],
       api_base: "",
       label: "",
@@ -77,11 +83,14 @@ export function setupGitConnecteurs(
   }
 
   function editGitConnector(c: ConnecteurGit): void {
+    const portee = c.path === null ? "" : cibleCompte(c);
     gitConnForm.value = {
       id: c.id,
       provider_type: c.provider_type,
       repo_url: "",
-      portee: cibleCompte(c),
+      portee,
+      depart: portee,
+      hote: c.host,
       niveaux: [],
       api_base: c.api_base || "",
       label: c.label || "",
@@ -118,15 +127,21 @@ export function setupGitConnecteurs(
   async function saveGitConnector(): Promise<void> {
     const f = gitConnForm.value;
     if (!f) return;
-    const saisie = (f.portee || "").trim() || (f.repo_url || "").trim();
-    if (!saisie) {
-      toast("URL du dépôt ou hôte requis", "error");
-      return;
-    }
-    const portee = (f.portee || "").trim() ? lirePortee(f.portee) : { host: saisie, path: "" };
-    if (portee === null) {
-      toast("Portée invalide : hôte, hôte/organisation ou hôte/organisation/dépôt", "error");
-      return;
+    const edition = !!f.id;
+    // Portée laissée telle quelle : rien n'en part (un compte sans portée le reste, un autre garde la sienne).
+    const inchangee = edition && (f.portee || "").trim() === (f.depart ?? "");
+    let portee: { host: string; path: string } | null = null;
+    if (!inchangee) {
+      const saisie = (f.portee || "").trim() || (f.repo_url || "").trim();
+      if (!saisie) {
+        toast("URL du dépôt ou hôte requis", "error");
+        return;
+      }
+      portee = (f.portee || "").trim() ? lirePortee(f.portee) : { host: saisie, path: "" };
+      if (portee === null) {
+        toast("Portée invalide : hôte, hôte/organisation ou hôte/organisation/dépôt", "error");
+        return;
+      }
     }
     if (!f.id && !(f.token || "").trim()) {
       toast("Jeton ou mot de passe requis", "error");
@@ -134,11 +149,9 @@ export function setupGitConnecteurs(
     }
     gitConnBusy.value = true;
     try {
-      const edition = !!f.id;
       const corps: Record<string, string> = {
         provider_type: f.provider_type,
-        host: portee.host,
-        path: portee.path,
+        ...(portee === null ? {} : { host: portee.host, path: portee.path }),
         api_base: (f.api_base || "").trim(),
         label: (f.label || "").trim(),
         username: (f.username || "").trim(),

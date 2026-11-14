@@ -115,7 +115,11 @@ const rg = domaineReglages();
         <input
           id="git-portee"
           v-model="rg.gitConnForm.portee"
-          placeholder="git.example.lan ou git.example.lan/organisation"
+          :placeholder="
+            rg.gitConnForm.hote
+              ? rg.gitConnForm.hote + ' ou ' + rg.gitConnForm.hote + '/organisation'
+              : 'git.example.lan ou git.example.lan/organisation'
+          "
           title="Tout l'hôte, une organisation ou un dépôt : le compte le plus précis sert."
           class="set-input mt-0.5 font-mono"
           data-portee

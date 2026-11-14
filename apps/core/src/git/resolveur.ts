@@ -18,6 +18,7 @@ import { cheminCouvre, cheminDepot, hoteExact } from "../secrets/portee";
 import type { Acteur } from "../secrets/stockage";
 import {
   cheminDeLUrl,
+  cheminPourType,
   compteCouvrant,
   createConnector,
   findForHost,
@@ -41,21 +42,24 @@ export function hoteEtFournisseur(cible: string): [string, string] {
   return [lowerPy(normalizeHost(cible) || ""), "unknown"];
 }
 
-/** Portée où ranger des identifiants saisis au clone : celle demandée si elle couvre le dépôt ; sinon celle du compte à chemin qui le couvre, tout l'hôte s'il n'a aucun compte, ou le parent du dépôt quand un compte tient déjà tout l'hôte (jamais remplacé d'office). */
+/** Portée où ranger des identifiants saisis au clone, dans la casse de l'URL : celle demandée si elle couvre le dépôt ; sinon celle du compte à chemin qui le couvre, tout l'hôte si aucun compte ne l'a, ou le parent du dépôt quand un compte tient déjà tout l'hôte ; `null` (rien n'est enregistré) quand le dépôt est illisible et que tout l'hôte a déjà son compte, jamais remplacé d'office. */
 export function porteeDesSaisis(
   comptes: readonly LigneConnecteur[],
   chemin: string | null,
   demandee?: string | null,
-): string {
+): string | null {
+  const prefixe = (segments: number): string => (chemin ?? "").split("/").slice(0, segments).join("/");
   const d = typeof demandee === "string" ? cheminDepot(demandee) : null;
-  if (d !== null && cheminCouvre(d, chemin)) return d;
+  if (d === "") return "";
+  if (d !== null && cheminCouvre(d.toLowerCase(), chemin === null ? null : chemin.toLowerCase()))
+    return prefixe(d.split("/").length);
+  if (chemin === null) return comptes.some((c) => c.path === "") ? null : "";
   const couvrant = compteCouvrant(comptes, chemin);
   if (couvrant === undefined) return "";
-  if (couvrant.path) return couvrant.path;
-  return chemin === null ? "" : chemin.slice(0, Math.max(0, chemin.lastIndexOf("/")));
+  return prefixe(couvrant.path ? couvrant.path.split("/").length : chemin.split("/").length - 1);
 }
 
-/** `save_git_credential` (clone de l'éditeur) : compte git de la portée retenue (`porteeDesSaisis`) rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte. */
+/** `save_git_credential` (clone de l'éditeur) : compte git de la portée retenue (`porteeDesSaisis`) rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte, ou quand rien n'est à enregistrer. */
 export async function saveGitCredential(
   base: Base,
   uid: number,
@@ -72,7 +76,8 @@ export async function saveGitCredential(
   const net = stripPy(jeton);
   const comptes = await findForHost(base, uid, hote);
   const chemin = porteeDesSaisis(comptes, cheminDeLUrl(cible), portee);
-  const existant = comptes.find((c) => c.path === chemin);
+  if (chemin === null) return null;
+  const existant = comptes.find((c) => c.path === cheminPourType(chemin, c.provider_type));
   if (existant !== undefined) {
     await updateConnector(base, uid, existant.id, { token: net, username: utilisateur || null }, acteur);
     return existant.id;

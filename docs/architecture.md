@@ -2124,12 +2124,16 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   allowed), `NULL` for an account with no scope (inactive: migration `0030_git_account_scope`
   leaves it so when several accounts shared a host, and gives the host to the most recently
   used). Unique per `(owner_user_id, host, path)`; the label is free text. A path is plain
-  lower-case segments (`[a-z0-9._~-]`, no `.git`, eight at most; `cheminDepot`,
-  `apps/core/src/secrets/portee.ts`).
+  segments (`[A-Za-z0-9._~-]`, no `.git`, eight at most; `cheminDepot`,
+  `apps/core/src/secrets/portee.ts`), stored in lower case, except for a `generic` account,
+  whose server may tell paths apart by case (`cheminPourType`).
 - **Resolution** (`compteDuDepot`): among the accounts of the exact host of the remote, the one
-  with the longest path that covers the repository path on a segment boundary; none covers it:
-  no credential. A repository path that is not plain segments (query, percent-encoding, dot
-  segments) is only covered by a whole-host account.
+  with the longest path that covers the repository path on a segment boundary, compared in the
+  case of each account's type; none covers it: no credential. The repository path is read the
+  way the Git relay reaches it (the URL path, trailing slashes and one `.git` removed, nothing
+  else: `cheminDeLUrl`). A path that is not plain segments (query, percent-encoding, `@`, empty
+  or dot segment, second `.git`) is only covered by a whole-host account, and by none as soon
+  as an account of that host is narrowed to a path.
 - The token lives in the [secrets vault](#secrets-vault): one `git` secret per connector, scope
   `{"host": "<host[:port]>"}` or `{"host": …, "path": "<path>"}`, named
   `git-<host>-<path>-<label>` (slug, suffixed when taken), linked by
@@ -2168,7 +2172,8 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   the editor's clone and push/pull dialogs (a token typed at clone time is saved through the
   internal route, origin `editeur`, for the scope chosen in the dialog (`cred_scope`); without
   one: the path-scoped account that covers the repository, the whole host when no account has
-  it, otherwise the repository's parent path, never over a whole-host account; push and pull
+  it, otherwise the repository's parent path, never over a whole-host account (an unreadable
+  repository path on a host whose whole-host account exists saves nothing); push and pull
   never save it).
 - Providers: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Each one can open a PR/MR.

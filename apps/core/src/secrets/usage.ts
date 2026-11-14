@@ -7,7 +7,7 @@ import { contexteDeConversation, genreAttachable, idsAttaches } from "./attache"
 import { ErreurSecret } from "./erreurs";
 import {
   cheminCouvre,
-  cheminDepot,
+  cheminExact,
   hoteExact,
   lirePolitique,
   origineExacte,
@@ -107,13 +107,13 @@ function partiesCibleGit(cible: string): [string, string] {
   return barre < 0 ? [cible, ""] : [cible.slice(0, barre), cible.slice(barre + 1)];
 }
 
-/** Cible git normalisée : hôte exact et chemin du dépôt ; un chemin illisible vaut l'hôte seul (que seule une portée de tout l'hôte couvre) ; hôte illisible : `null`. */
+/** Cible git normalisée : hôte exact et chemin du dépôt, déjà en forme (`cheminExact`) ; tout autre chemin vaut l'hôte seul (que seule une portée de tout l'hôte couvre) ; hôte illisible : `null`. */
 function cibleGit(cible: string): string | null {
   const [brutHote, brutChemin] = partiesCibleGit(cible);
   const hote = hoteExact(brutHote);
   if (hote === null) return null;
-  const chemin = cheminDepot(brutChemin);
-  return chemin ? `${hote}/${chemin}` : hote;
+  const chemin = cheminExact(brutChemin);
+  return chemin === null ? hote : `${hote}/${chemin}`;
 }
 
 /** Cible normalisée selon l'usage ; illisible : `null`. */

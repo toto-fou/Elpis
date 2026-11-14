@@ -13,6 +13,7 @@ export interface CompteClone {
   readonly id: string | number;
   readonly host: string;
   readonly path: string | null;
+  readonly provider_type?: string | undefined;
   readonly label?: string | undefined;
   readonly has_token?: boolean | undefined;
   readonly last_used?: unknown;
@@ -55,7 +56,7 @@ export function dossierDuClone(url: string): string {
   return /\/([^/]+?)(?:\.git)?\/?$/u.exec(url.trim())?.[1] ?? "";
 }
 
-/** Portées où ranger des identifiants saisis pour ce dépôt, de tout l'hôte au dépôt, et celle proposée d'office. */
+/** Portées où ranger des identifiants saisis pour ce dépôt, de tout l'hôte au dépôt, et celle proposée d'office (tout l'hôte quand le serveur n'en choisirait aucune : le choix affiché est alors celui de l'utilisateur). */
 export function porteesIdentifiants(
   acces: AccesClone,
   comptes: readonly CompteClone[] | null | undefined,
@@ -65,7 +66,7 @@ export function porteesIdentifiants(
     valeur: n,
     libelle: cibleCompte({ host: acces.hote, path: n }),
   }));
-  return { choix, defaut: porteeDesSaisis(comptesUtilisables(comptes), acces.hote, acces.chemin) };
+  return { choix, defaut: porteeDesSaisis(comptesUtilisables(comptes), acces.hote, acces.chemin) ?? "" };
 }
 
 /** Compte dont les dépôts sont proposés à l'ouverture : le seul utilisable, sinon le dernier utilisé ; `null` sans compte. */

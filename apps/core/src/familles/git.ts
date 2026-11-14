@@ -23,6 +23,7 @@ import type { FastifyRequest } from "fastify";
 import { textePy } from "../comptes/aides";
 import {
   cheminDeLUrl,
+  cheminPourType,
   contexteUtilisateur,
   createConnector,
   deleteConnector,
@@ -111,16 +112,18 @@ const REFUS_COFFRE: Readonly<Partial<Record<CodeErreurSecret, readonly [number, 
   secret_limit: [409, "Trop de secrets pour ce compte : supprimez-en dans Paramètres › Secrets."],
 };
 
-/** Portée saisie (`organisation` ou `organisation/dépôt`, vide : tout l'hôte), normalisée ; illisible : 400. */
+/** Portée saisie (`organisation` ou `organisation/dépôt`, absente ou vide : tout l'hôte), mise en forme, jamais tronquée ; illisible ou trop longue : 400. */
 function porteeSaisie(brut: unknown): string {
-  const chemin = cheminDepot(nettoyer(brut, 300));
+  if (brut === null || brut === undefined) return "";
+  const chemin = typeof brut === "string" && brut.length <= 300 ? cheminDepot(brut) : null;
   if (chemin === null)
     throw new HttpError(400, "Portée invalide : une organisation ou organisation/dépôt, sans espace.");
   return chemin;
 }
 
-/** Dépôts d'une liste que la portée du compte couvre (par l'adresse de clonage, à défaut le nom complet). */
-function depotsCouverts(depots: unknown, chemin: string): unknown {
+/** Dépôts d'une liste que la portée du compte couvre (par l'adresse de clonage, à défaut le nom complet), comparés selon son type. */
+function depotsCouverts(depots: unknown, l: LigneConnecteur): unknown {
+  const chemin = l.path ?? "";
   if (!chemin || !Array.isArray(depots)) return depots;
   return depots.filter((d) => {
     const url = getPy(d, "clone_url");
@@ -128,7 +131,7 @@ function depotsCouverts(depots: unknown, chemin: string): unknown {
     const lu =
       (typeof url === "string" ? cheminDeLUrl(url) : null) ??
       (typeof nom === "string" ? cheminDepot(nom) || null : null);
-    return cheminCouvre(chemin, lu);
+    return cheminCouvre(chemin, lu === null ? null : cheminPourType(lu, l.provider_type));
   });
 }
 
@@ -211,7 +214,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         return {
           ok: true,
           host,
-          path: cheminDeLUrl(url) ?? "",
+          path: cheminPourType(cheminDeLUrl(url) ?? "", type),
           detected_provider_type: detecte,
           api_base: apiBase,
           scheme,
@@ -261,7 +264,8 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         }
         if (champs.provider_type && !PROVIDER_TYPES.includes(champs.provider_type))
           throw new HttpError(400, "provider_type invalide");
-        if (inPy("path", data)) champs.path = porteeSaisie(getPy(data, "path"));
+        if (inPy("path", data) && getPy(data, "path") !== null)
+          champs.path = porteeSaisie(getPy(data, "path"));
         if (inPy("token", data) && stripPy(textePy(getPy(data, "token"))))
           champs.token = stripPy(getPy(data, "token") as string);
         if (!(await avecCoffre(() => updateConnector(base, uid, id, champs, acteur(req, uid)))))
@@ -289,7 +293,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const res = copieDict(await prov.listRepos(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "repos", []);
-        poserCle(res, "repos", depotsCouverts(res["repos"], ligne.path ?? ""));
+        poserCle(res, "repos", depotsCouverts(res["repos"], ligne));
         const depots = res["repos"];
         auditer(req, uid, "git.connector.list_repos", {
           connector_id: id,

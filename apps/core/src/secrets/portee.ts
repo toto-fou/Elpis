@@ -19,7 +19,7 @@ const META_MAX = 4096;
 const SERVEUR = /^[\x21-\x7e]{1,128}$/u;
 const HOTE_PORT = /^(\[[0-9A-Fa-f:.]+\]|[^:[\]]+)(?::(\d{1,5}))?$/u;
 const CONTROLE = /\p{Cc}/u;
-const SEGMENT_DEPOT = /^[a-z0-9._~-]+$/u;
+const SEGMENT_DEPOT = /^[A-Za-z0-9._~-]+$/u;
 const CHEMIN_DEPOT_MAX = 200;
 const SEGMENTS_DEPOT_MAX = 8;
 
@@ -73,18 +73,23 @@ export function hoteExact(brut: string): string | null {
   return port === undefined ? u.hostname : `${u.hostname}:${port}`;
 }
 
-/** Chemin d'une organisation ou d'un dépôt sur son hôte (`acme`, `acme/api`) : segments simples en minuscules, sans barres aux bords ni `.git` final ; `""` : tout l'hôte ; `null` s'il ne se lit pas. */
+/** Chemin déjà en forme : segments simples (`[A-Za-z0-9._~-]`, ni `.` ni `..`), sans barre aux bords ni `.git` final, casse gardée ; `null` sinon (aucune remise en forme : ce que joint le relais git est ce qui est lu). */
+export function cheminExact(brut: string): string | null {
+  if (brut === "" || brut.length > CHEMIN_DEPOT_MAX || brut.toLowerCase().endsWith(".git")) return null;
+  const segments = brut.split("/");
+  if (segments.length > SEGMENTS_DEPOT_MAX) return null;
+  return segments.every((s) => SEGMENT_DEPOT.test(s) && s !== "." && s !== "..") ? brut : null;
+}
+
+/** Chemin d'une organisation ou d'un dépôt saisi (`acme`, `acme/api`) : espaces et barres des bords et un `.git` final retirés, puis `cheminExact` ; `""` : tout l'hôte ; `null` s'il ne se lit pas. */
 export function cheminDepot(brut: string): string | null {
   let debut = 0;
   let fin = brut.length;
   while (debut < fin && (brut[debut] === "/" || brut[debut] === " ")) debut++;
   while (fin > debut && (brut[fin - 1] === "/" || brut[fin - 1] === " ")) fin--;
-  let t = brut.slice(debut, fin).toLowerCase();
+  let t = brut.slice(debut, fin);
   if (t.endsWith(".git")) t = t.slice(0, -4);
-  if (t === "") return "";
-  const segments = t.split("/");
-  if (t.length > CHEMIN_DEPOT_MAX || segments.length > SEGMENTS_DEPOT_MAX) return null;
-  return segments.every((s) => SEGMENT_DEPOT.test(s) && s !== "." && s !== "..") ? t : null;
+  return t === "" ? "" : cheminExact(t);
 }
 
 /** Le chemin d'une portée couvre celui d'un dépôt : tout l'hôte (`""`), le chemin même, ou un de ses parents sur une frontière de segment ; un dépôt illisible (`null`) n'est couvert que par tout l'hôte. */

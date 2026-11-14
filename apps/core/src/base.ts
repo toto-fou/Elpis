@@ -7,6 +7,7 @@ import {
   demarrerBase as demarrerBaseCommune,
   MIGRATION_COFFRE_GIT,
   MIGRATION_COFFRE_LLM_IMAGES,
+  MIGRATION_PORTEE_GIT,
   nettoyerSousVerrou,
   prendreVerrouSchema,
   walCheckpoint,
@@ -25,6 +26,7 @@ export const MIGRATIONS_DU_CORE: readonly Migration[] = [
   MIGRATION_COFFRE_GIT,
   MIGRATION_COFFRE_LLM_IMAGES,
   MIGRATION_MCP,
+  MIGRATION_PORTEE_GIT,
 ];
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";

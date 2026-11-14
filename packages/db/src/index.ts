@@ -78,3 +78,4 @@ export {
 } from "./coffre-llm-images";
 export type { BilanReprise, CleLue, PortsReprise } from "./coffre-llm-images";
 export { aadWebhookRoutine, MIGRATION_COFFRE_GIT, nomDeriveCoffre } from "./coffre-git";
+export { MIGRATION_PORTEE_GIT } from "./portee-git";

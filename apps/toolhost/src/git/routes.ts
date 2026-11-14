@@ -648,6 +648,7 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
             texteNu(getPy(data, "cred_user")),
             texteNu(getPy(data, "cred_token")),
             texteNu(getPy(data, "provider_type")),
+            typeof getPy(data, "cred_scope") === "string" ? texteNu(getPy(data, "cred_scope")) : null,
           );
         } catch {
           enregistre = false;

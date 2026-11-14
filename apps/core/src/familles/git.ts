@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/git.ts — `/api/git/connectors*` : comptes git du compte, jeton en écriture seule dans le coffre « Secrets », test et dépôts côté serveur sous garde SSRF (shared_infra/git/routes.py). */
+/** apps/core/src/familles/git.ts — `/api/git/connectors*` : comptes git du compte et leur portée (tout l'hôte, une organisation ou un dépôt), jeton en écriture seule dans le coffre « Secrets », test et dépôts côté serveur sous garde SSRF (shared_infra/git/routes.py). */
 import {
   copieDict,
   getPy,
@@ -22,12 +22,14 @@ import type { FastifyRequest } from "fastify";
 
 import { textePy } from "../comptes/aides";
 import {
+  cheminDeLUrl,
   contexteUtilisateur,
   createConnector,
   deleteConnector,
   getConnector,
   jetonDuConnecteur,
   listConnectors,
+  PorteePrise,
   PROVIDER_TYPES,
   updateConnector,
 } from "../git/connecteurs";
@@ -41,6 +43,7 @@ import type { OptionsHttp } from "../git/http";
 import { auditerRequete, ipDeRequete } from "../journal-securite/auditer";
 import type { Famille } from "../routes";
 import { refusDeCle } from "../secrets/erreurs";
+import { cheminCouvre, cheminDepot } from "../secrets/portee";
 import { utilisateur } from "./comptes";
 import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
 
@@ -103,15 +106,42 @@ const REFUS_COFFRE: Readonly<Partial<Record<CodeErreurSecret, readonly [number, 
   ],
   secret_undecryptable: [409, "Jeton illisible avec la clé actuelle du coffre : saisissez-le à nouveau."],
   secret_value_invalid: [400, "Jeton invalide : 16 384 caractères au plus."],
-  secret_scope_invalid: [400, "host invalide pour un compte Git"],
+  secret_scope_invalid: [400, "Hôte ou portée invalide pour un compte Git."],
+  secret_value_required: [400, "Ressaisissez le jeton pour élargir la portée du compte."],
   secret_limit: [409, "Trop de secrets pour ce compte : supprimez-en dans Paramètres › Secrets."],
 };
 
-/** Écriture dans le coffre ; un refus devient une `HttpError` lisible par l'interface. */
+/** Portée saisie (`organisation` ou `organisation/dépôt`, vide : tout l'hôte), normalisée ; illisible : 400. */
+function porteeSaisie(brut: unknown): string {
+  const chemin = cheminDepot(nettoyer(brut, 300));
+  if (chemin === null)
+    throw new HttpError(400, "Portée invalide : une organisation ou organisation/dépôt, sans espace.");
+  return chemin;
+}
+
+/** Dépôts d'une liste que la portée du compte couvre (par l'adresse de clonage, à défaut le nom complet). */
+function depotsCouverts(depots: unknown, chemin: string): unknown {
+  if (!chemin || !Array.isArray(depots)) return depots;
+  return depots.filter((d) => {
+    const url = getPy(d, "clone_url");
+    const nom = getPy(d, "full_name");
+    const lu =
+      (typeof url === "string" ? cheminDeLUrl(url) : null) ??
+      (typeof nom === "string" ? cheminDepot(nom) || null : null);
+    return cheminCouvre(chemin, lu);
+  });
+}
+
+/** Écriture dans le coffre ; un refus du coffre ou une portée déjà prise devient une `HttpError` lisible par l'interface. */
 async function avecCoffre<T>(f: () => Promise<T>): Promise<T> {
   try {
     return await f();
   } catch (e) {
+    if (e instanceof PorteePrise)
+      throw new HttpError(
+        409,
+        `Un autre compte s'applique déjà à ${e.chemin ? `${e.hote}/${e.chemin}` : `tout ${e.hote}`}.`,
+      );
     const r = refusDeCle(e);
     if (r === null) throw e;
     const [statut, message] = REFUS_COFFRE[r.code] ?? [r.statut, r.message];
@@ -178,7 +208,14 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         let apiBase = getProvider(type).apiBase(host, "");
         if (scheme === "http" && apiBase && apiBase.includes(`://${host}`))
           apiBase = apiBase.replace("https://", "http://");
-        return { ok: true, host, detected_provider_type: detecte, api_base: apiBase, scheme };
+        return {
+          ok: true,
+          host,
+          path: cheminDeLUrl(url) ?? "",
+          detected_provider_type: detecte,
+          api_base: apiBase,
+          scheme,
+        };
       }),
       route("POST", "/api/git/connectors", async (req) => {
         const uid = utilisateur(req);
@@ -201,6 +238,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
             host,
             {
               token,
+              path: porteeSaisie(getPy(data, "path")),
               apiBase: nettoyer(getPy(data, "api_base"), 400),
               label: nettoyer(getPy(data, "label")),
               username: nettoyer(getPy(data, "username")),
@@ -223,10 +261,11 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         }
         if (champs.provider_type && !PROVIDER_TYPES.includes(champs.provider_type))
           throw new HttpError(400, "provider_type invalide");
+        if (inPy("path", data)) champs.path = porteeSaisie(getPy(data, "path"));
         if (inPy("token", data) && stripPy(textePy(getPy(data, "token"))))
           champs.token = stripPy(getPy(data, "token") as string);
         if (!(await avecCoffre(() => updateConnector(base, uid, id, champs, acteur(req, uid)))))
-          throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
+          throw new HttpError(404, "Compte introuvable ou rien à modifier");
         auditer(req, uid, "git.connector.update", { connector_id: id });
         return { ok: true };
       }),
@@ -234,7 +273,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const uid = utilisateur(req);
         const id = cid(req);
         if (!(await avecCoffre(() => deleteConnector(base, uid, id, acteur(req, uid)))))
-          throw new HttpError(404, "Connecteur introuvable");
+          throw new HttpError(404, "Compte introuvable");
         auditer(req, uid, "git.connector.delete", { connector_id: id });
         return { ok: true };
       }),
@@ -242,7 +281,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const uid = utilisateur(req);
         const id = cid(req);
         const ligne = await getConnector(base, uid, id);
-        if (!ligne) throw new HttpError(404, "Connecteur introuvable");
+        if (!ligne) throw new HttpError(404, "Compte introuvable");
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api", repos: [] };
         if (motif) return { ok: false, error: `blocked: ${motif}`, repos: [] };
@@ -250,6 +289,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const res = copieDict(await prov.listRepos(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "repos", []);
+        poserCle(res, "repos", depotsCouverts(res["repos"], ligne.path ?? ""));
         const depots = res["repos"];
         auditer(req, uid, "git.connector.list_repos", {
           connector_id: id,
@@ -266,7 +306,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const uid = utilisateur(req);
         const id = cid(req);
         const ligne = await getConnector(base, uid, id);
-        if (!ligne) throw new HttpError(404, "Connecteur introuvable");
+        if (!ligne) throw new HttpError(404, "Compte introuvable");
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api" };
         if (motif) return { ok: false, error: `blocked: ${motif}` };

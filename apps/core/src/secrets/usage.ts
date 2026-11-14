@@ -5,14 +5,23 @@ import type { Base, Executeur } from "@elpis/db";
 
 import { contexteDeConversation, genreAttachable, idsAttaches } from "./attache";
 import { ErreurSecret } from "./erreurs";
-import { hoteExact, lirePolitique, origineExacte, origines, parOrigines } from "./portee";
+import {
+  cheminCouvre,
+  cheminDepot,
+  hoteExact,
+  lirePolitique,
+  origineExacte,
+  origines,
+  parOrigines,
+  porteeGit,
+} from "./portee";
 import { dechiffrerLigne, journaliser, lignesDe, lireLigneParNom, maintenant, porteeDe } from "./stockage";
 import type { Acteur, LigneSecret, Proprietaire } from "./stockage";
 
 /** Ce que demande l'appelant : l'usage (le genre attendu), la cible, et le secret désigné par son nom s'il y en a un. */
 export interface DemandeUsage {
   usage: GenreSecret;
-  /** Origine (web-login, http-auth), hôte (git), id de connecteur (llm), id de serveur (mcp) ; rien pour un jeton. */
+  /** Origine (web-login, http-auth), `hôte[/chemin du dépôt]` (git), id de connecteur (llm), id de serveur (mcp) ; rien pour un jeton. */
   cible?: string | number | null;
   nom?: string | null;
 }
@@ -92,10 +101,25 @@ export function permisPourContexte(x: Executeur, l: LigneSecret, c: ContexteUsag
   return attache(x, l, c);
 }
 
+/** Hôte et chemin d'une cible git `hôte[:port][/chemin]` (chemin vide : l'hôte seul). */
+function partiesCibleGit(cible: string): [string, string] {
+  const barre = cible.indexOf("/");
+  return barre < 0 ? [cible, ""] : [cible.slice(0, barre), cible.slice(barre + 1)];
+}
+
+/** Cible git normalisée : hôte exact et chemin du dépôt ; un chemin illisible vaut l'hôte seul (que seule une portée de tout l'hôte couvre) ; hôte illisible : `null`. */
+function cibleGit(cible: string): string | null {
+  const [brutHote, brutChemin] = partiesCibleGit(cible);
+  const hote = hoteExact(brutHote);
+  if (hote === null) return null;
+  const chemin = cheminDepot(brutChemin);
+  return chemin ? `${hote}/${chemin}` : hote;
+}
+
 /** Cible normalisée selon l'usage ; illisible : `null`. */
 function cibleNormalisee(usage: GenreSecret, cible: DemandeUsage["cible"]): string | number | null {
   if (parOrigines(usage)) return typeof cible === "string" ? origineExacte(cible) : null;
-  if (usage === "git") return typeof cible === "string" ? hoteExact(cible) : null;
+  if (usage === "git") return typeof cible === "string" ? cibleGit(cible) : null;
   if (usage === "llm") return typeof cible === "number" && Number.isSafeInteger(cible) ? cible : null;
   if (usage === "mcp") return typeof cible === "string" && cible.trim() ? cible.trim() : null;
   return null;
@@ -107,8 +131,12 @@ function couvre(l: LigneSecret, usage: GenreSecret, cible: string | number | nul
   if (cible === null) return false;
   const p = porteeDe(l);
   if (parOrigines(usage)) return origines(p).includes(String(cible));
+  if (usage === "git") {
+    const [hote, chemin] = partiesCibleGit(String(cible));
+    const g = porteeGit(p);
+    return g.host === hote && cheminCouvre(g.path, chemin);
+  }
   const champs = p as Record<string, unknown>;
-  if (usage === "git") return champs["host"] === cible;
   if (usage === "llm") return champs["connector_id"] === cible;
   return champs["server"] === cible;
 }

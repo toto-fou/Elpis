@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/portee.ts — règles d'un secret : nom (slug), portée selon le genre (origines exactes, hôte, connecteur, serveur), politique, identifiant, valeur, métadonnées, AAD liée aux colonnes qui décident de son usage. */
+/** apps/core/src/secrets/portee.ts — règles d'un secret : nom (slug), portée selon le genre (origines exactes, hôte et chemin d'un dépôt, connecteur, serveur), politique, identifiant, valeur, métadonnées, AAD liée aux colonnes qui décident de son usage. */
 import { createHash } from "node:crypto";
 
 import {
@@ -19,6 +19,9 @@ const META_MAX = 4096;
 const SERVEUR = /^[\x21-\x7e]{1,128}$/u;
 const HOTE_PORT = /^(\[[0-9A-Fa-f:.]+\]|[^:[\]]+)(?::(\d{1,5}))?$/u;
 const CONTROLE = /\p{Cc}/u;
+const SEGMENT_DEPOT = /^[a-z0-9._~-]+$/u;
+const CHEMIN_DEPOT_MAX = 200;
+const SEGMENTS_DEPOT_MAX = 8;
 
 export function estGenre(v: unknown): v is GenreSecret {
   return typeof v === "string" && (GENRES_SECRET as readonly string[]).includes(v);
@@ -70,6 +73,35 @@ export function hoteExact(brut: string): string | null {
   return port === undefined ? u.hostname : `${u.hostname}:${port}`;
 }
 
+/** Chemin d'une organisation ou d'un dépôt sur son hôte (`acme`, `acme/api`) : segments simples en minuscules, sans barres aux bords ni `.git` final ; `""` : tout l'hôte ; `null` s'il ne se lit pas. */
+export function cheminDepot(brut: string): string | null {
+  let debut = 0;
+  let fin = brut.length;
+  while (debut < fin && (brut[debut] === "/" || brut[debut] === " ")) debut++;
+  while (fin > debut && (brut[fin - 1] === "/" || brut[fin - 1] === " ")) fin--;
+  let t = brut.slice(debut, fin).toLowerCase();
+  if (t.endsWith(".git")) t = t.slice(0, -4);
+  if (t === "") return "";
+  const segments = t.split("/");
+  if (t.length > CHEMIN_DEPOT_MAX || segments.length > SEGMENTS_DEPOT_MAX) return null;
+  return segments.every((s) => SEGMENT_DEPOT.test(s) && s !== "." && s !== "..") ? t : null;
+}
+
+/** Le chemin d'une portée couvre celui d'un dépôt : tout l'hôte (`""`), le chemin même, ou un de ses parents sur une frontière de segment ; un dépôt illisible (`null`) n'est couvert que par tout l'hôte. */
+export function cheminCouvre(portee: string, chemin: string | null): boolean {
+  if (portee === "") return true;
+  return chemin !== null && (chemin === portee || chemin.startsWith(`${portee}/`));
+}
+
+/** Hôte et chemin d'une portée git enregistrée (`path` absent : tout l'hôte). */
+export function porteeGit(p: PorteeSecret): { host: string; path: string } {
+  const champs = p as { host?: unknown; path?: unknown };
+  return {
+    host: typeof champs.host === "string" ? champs.host : "",
+    path: typeof champs.path === "string" ? champs.path : "",
+  };
+}
+
 function refusPortee(message: string): ErreurSecret {
   return new ErreurSecret(422, "secret_scope_invalid", message);
 }
@@ -112,9 +144,15 @@ export function normaliserPortee(genre: GenreSecret, brut: unknown, titulaire?: 
     return { origins: origines };
   }
   if (genre === "git") {
-    const hote = cles.length === 1 && typeof p["host"] === "string" ? hoteExact(p["host"]) : null;
-    if (hote === null) throw refusPortee("Invalid scope: 'host' is a git host name, with an optional port.");
-    return { host: hote };
+    const hote = typeof p["host"] === "string" ? hoteExact(p["host"]) : null;
+    const brutChemin = p["path"];
+    const chemin =
+      brutChemin === undefined ? "" : typeof brutChemin === "string" ? cheminDepot(brutChemin) : null;
+    if (hote === null || chemin === null || cles.some((k) => k !== "host" && k !== "path"))
+      throw refusPortee(
+        "Invalid scope: 'host' is a git host name with an optional port, 'path' an optional organization or repository path.",
+      );
+    return chemin === "" ? { host: hote } : { host: hote, path: chemin };
   }
   if (genre === "llm") {
     const id = p["connector_id"];
@@ -132,11 +170,16 @@ export function normaliserPortee(genre: GenreSecret, brut: unknown, titulaire?: 
   return {};
 }
 
-/** La nouvelle portée donne accès à une cible que l'ancienne ne couvrait pas (origine ajoutée, autre hôte, connecteur ou serveur). */
+/** La nouvelle portée donne accès à une cible que l'ancienne ne couvrait pas (origine ajoutée, autre hôte ou chemin git hors de l'ancien, autre connecteur ou serveur). */
 export function elargit(genre: GenreSecret, avant: PorteeSecret, apres: PorteeSecret): boolean {
   if (parOrigines(genre)) {
     const anciennes = new Set(origines(avant));
     return origines(apres).some((o) => !anciennes.has(o));
+  }
+  if (genre === "git") {
+    const a = porteeGit(avant);
+    const b = porteeGit(apres);
+    return a.host !== b.host || !cheminCouvre(a.path, b.path);
   }
   return JSON.stringify(avant) !== JSON.stringify(apres);
 }

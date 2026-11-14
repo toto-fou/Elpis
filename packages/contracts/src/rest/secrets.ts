@@ -55,7 +55,10 @@ export const schemaPorteeOrigines = z.strictObject({
   origins: z.array(z.string().max(2048)).min(1).max(ORIGINES_SECRET_MAX),
 });
 /** git : hôte, port facultatif. */
-export const schemaPorteeHote = z.strictObject({ host: z.string().min(1).max(300) });
+export const schemaPorteeHote = z.strictObject({
+  host: z.string().min(1).max(300),
+  path: z.string().min(1).max(200).optional(),
+});
 /** llm : connecteur. */
 export const schemaPorteeConnecteur = z.strictObject({ connector_id: entier.positive() });
 /** mcp : serveur. */

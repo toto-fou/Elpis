@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/git.ts — connecteurs git du compte (`/api/git/connectors*`) : jeton en écriture seule, test et dépôts côté serveur. */
+/** packages/contracts/src/rest/git.ts — comptes git du compte (`/api/git/connectors*`) : portée sur un hôte (tout l'hôte, une organisation ou un dépôt), jeton en écriture seule, test et dépôts côté serveur. */
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
@@ -9,6 +9,8 @@ export const schemaConnecteurGit = z.object({
   owner_user_id: entier,
   provider_type: z.string(),
   host: z.string(),
+  /** `""` : tout l'hôte ; chemin d'une organisation ou d'un dépôt ; `null` : sans portée (compte inactif). */
+  path: z.string().nullable(),
   api_base: z.string(),
   label: z.string(),
   username: z.string(),
@@ -28,11 +30,12 @@ export const schemaCorpsAnalyseUrlGit = z.object({
   url: z.string().optional(),
   provider_type: z.string().optional(),
 });
-/** Analyse d'une URL de dépôt : hôte, type détecté et base d'API ; `{ok: false}` si l'URL ne dit rien. */
+/** Analyse d'une URL de dépôt : hôte, chemin du dépôt (vide s'il ne se lit pas), type détecté et base d'API ; `{ok: false}` si l'URL ne dit rien. */
 export const schemaReponseAnalyseUrlGit = z.union([
   z.object({
     ok: z.literal(true),
     host: z.string(),
+    path: z.string(),
     detected_provider_type: z.string(),
     api_base: z.string(),
     scheme: z.string(),
@@ -43,6 +46,7 @@ export const schemaReponseAnalyseUrlGit = z.union([
 export const schemaCorpsConnecteurGit = z.object({
   provider_type: z.string(),
   host: z.string(),
+  path: z.string().optional(),
   token: z.string(),
   api_base: z.string().optional(),
   label: z.string().optional(),
@@ -51,6 +55,7 @@ export const schemaCorpsConnecteurGit = z.object({
 export const schemaCorpsMajConnecteurGit = z.object({
   provider_type: z.string().optional(),
   host: z.string().optional(),
+  path: z.string().optional(),
   token: z.string().optional(),
   api_base: z.string().optional(),
   label: z.string().optional(),

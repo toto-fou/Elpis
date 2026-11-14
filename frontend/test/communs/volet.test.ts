@@ -190,6 +190,27 @@ describe("useVolet : largeur qui glisse", () => {
     expect(el.style.getPropertyValue("--volet-duree")).toBe("");
   });
 
+  it("fermé alors qu'il était plus large au geste (éditeur en plein écran) : la sortie part de cette largeur", async () => {
+    const { c } = await monter();
+    let largeur = 830;
+    const { el, jouees } = panneau();
+    el.getBoundingClientRect = () => ({ width: largeur }) as DOMRect;
+    document.body.appendChild(el);
+    etat.ouvert = true;
+    c.onBeforeEnter();
+    c.onEnter(el);
+    jouees[0]?.finir();
+    // Plein écran au moment du geste ; le rendu qui suit le ramène à sa largeur de panneau.
+    largeur = 1920;
+    etat.ouvert = false;
+    largeur = 830;
+    c.onBeforeLeave(el);
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("300ms");
+    c.onLeave(el, rien);
+    expect(jouees[1]?.images.map((i) => i["width"])).toEqual(["1920px", "0px"]);
+    el.remove();
+  });
+
   it("une racine qui n'est pas un panneau (contenu d'un rail) n'est pas animée : sa sortie finit avec sa transition", async () => {
     const { c } = await monter();
     const contenu = panneau();

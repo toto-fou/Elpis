@@ -94,7 +94,7 @@ function dureeGlissement(el: HTMLElement, distance: number, entree: boolean): nu
 }
 
 /** Panneau racine de la transition (MCP, Génération, éditeur) : sa largeur glisse de 0 à sa valeur ou l'inverse, plus longtemps s'il est large ; la colonne du chat suit, son contenu garde sa largeur finale (`--volet-largeur`). */
-function glisserLargeur(el: Element, entree: boolean): Animation | null {
+function glisserLargeur(el: Element, entree: boolean, auGeste = 0): Animation | null {
   if (!glisse(el)) return null;
   const enCours = glissements.has(el);
   const actuelle = el.getBoundingClientRect().width;
@@ -102,7 +102,8 @@ function glisserLargeur(el: Element, entree: boolean): Animation | null {
   const finale = el.getBoundingClientRect().width;
   if (!(finale > 0)) return null;
   el.style.setProperty("--volet-largeur", `${finale}px`);
-  const depart = entree ? (enCours ? actuelle : 0) : actuelle;
+  // Sortie : depuis la largeur vue au geste si le rendu l'a réduite d'un coup (éditeur fermé en plein écran).
+  const depart = entree ? (enCours ? actuelle : 0) : Math.max(actuelle, auGeste);
   const arrivee = entree ? finale : 0;
   const duration = dureeGlissement(el, Math.abs(arrivee - depart), entree);
   const easing = courbeVolet();
@@ -157,11 +158,14 @@ export function useVolet(
   let declencheur: HTMLElement | null = null;
   let quitte: HTMLElement | null = null;
   let rendre = false;
+  let panneau: Element | null = null;
+  let auGeste = 0;
   // Lu au geste, avant le rendu : la largeur est juste dès la première image et l'élément actif est encore celui de l'utilisateur.
   watch(
     ouvert,
     (v) => {
       releverDeparts();
+      auGeste = !v && panneau?.isConnected ? panneau.getBoundingClientRect().width : 0;
       if (v) declencheur = actif();
       else quitte = actif();
       if (v || !montre) deplie.value = v;
@@ -174,13 +178,14 @@ export function useVolet(
       montre = true;
     },
     onEnter(el) {
+      panneau = el;
       glisserLargeur(el, true);
       if (declencheur && !el.contains(declencheur) && !affiche(declencheur))
         focaliser(el.querySelector(SELECTEUR_FOCUSABLES));
     },
     onBeforeLeave(el) {
       // Avant les classes de sortie : le fondu part avec elles, sa durée doit déjà être celle de la largeur.
-      if (glisse(el)) dureeGlissement(el, el.getBoundingClientRect().width, false);
+      if (glisse(el)) dureeGlissement(el, Math.max(el.getBoundingClientRect().width, auGeste), false);
       rendre = !!quitte && el.contains(quitte);
       if (rendre && declencheur && !el.contains(declencheur) && affiche(declencheur)) {
         focaliser(declencheur);
@@ -189,7 +194,7 @@ export function useVolet(
     },
     onLeave(el, fin) {
       // La sortie finit avec la largeur (un fondu repris en cours de route finirait avant elle) ; sans glissement, avec la transition de la racine.
-      const a = glisserLargeur(el, false);
+      const a = glisserLargeur(el, false, auGeste);
       if (a) void a.finished.then(fin, () => undefined);
       else setTimeout(fin, dureeTransition(el));
     },

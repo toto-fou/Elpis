@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/apparence-sections-reel-verify.mjs — Apparence contre le core TS réel : bandeau Thème, Éditeur, Mascotte, palette, retour à l'éditeur classique, logo par défaut, deux mondes. */
+/** tests/frontend/reel/apparence-sections-reel-verify.mjs — Apparence contre le core TS réel : bandeau Thème, Éditeur, Mascotte, palette, animations du compte, retour à l'éditeur classique, logo par défaut, deux mondes. */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [SHOTS_DIR=…] node tests/frontend/reel/apparence-sections-reel-verify.mjs
 import { demarrerCoreReel, lancerNavigateur, contexteConnecte, attendreMontage, verifications } from '../lib/core-reel.mjs';
 
@@ -77,6 +77,38 @@ try {
     await page.locator('#set-palette').selectOption('');
     await page.waitForFunction(() => !document.body.classList.contains('elpis-palette-argile'));
     await attendre((r) => !r.skin_palette);
+
+    // ════ Animations : le choix du compte l'emporte sur le poste (émulé en mouvement réduit) ════
+    const animations = (nom) => modale.locator('[aria-labelledby="set-mouvement-lbl"] [role="radio"]', { hasText: nom });
+    const coche = () => modale.locator('[aria-labelledby="set-mouvement-lbl"] [aria-checked="true"]').innerText();
+    // Le volet du chat ne fait glisser sa largeur que hors mouvement réduit : témoin de ce que lisent les feuilles.
+    const mouvement = () => page.evaluate(() => ({
+        poste: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        glisse: /width/.test(getComputedStyle(document.querySelector('aside.elpis-slide-panel')).transitionProperty),
+        garde: localStorage.getItem('elpis-mouvement'),
+    }));
+    const choixAnimations = (await modale.locator('[aria-labelledby="set-mouvement-lbl"] [role="radio"]').allInnerTexts()).join('|');
+    v.ok(`Animations : ${choixAnimations}, « Système » par défaut`, choixAnimations === 'Système|Complètes|Réduites' && (await coche()) === 'Système' && avant.ui_motion === undefined);
+    const depart = await mouvement();
+    v.ok('Animations « Système » : la page suit le poste (mouvement réduit, largeur posée d\'un coup)', depart.poste && !depart.glisse && depart.garde === null);
+    await animations('Complètes').click();
+    await page.waitForFunction(() => localStorage.getItem('elpis-mouvement') === 'full');
+    const complet = await mouvement();
+    v.ok('Animations « Complètes » : dès le clic, le volet glisse malgré le poste', complet.poste && complet.glisse && (await coche()) === 'Complètes');
+    v.ok('Animations « Complètes » enregistrées dans le compte', await attendre((r) => r.ui_motion === 'full'));
+    await page.reload();
+    await attendreMontage(page);
+    const recharge = await mouvement();
+    v.ok('Animations : après rechargement, le choix du compte est repris', recharge.glisse && recharge.garde === 'full');
+    await page.locator('button[title="Paramètres"]:visible').first().click();
+    await rail('Apparence');
+    await page.locator('#set-skin').waitFor({ timeout: 10000 });
+    await animations('Réduites').click();
+    await page.waitForFunction(() => localStorage.getItem('elpis-mouvement') === 'reduced');
+    v.ok('Animations « Réduites » : la largeur ne glisse plus', !(await mouvement()).glisse && await attendre((r) => r.ui_motion === 'reduced'));
+    await animations('Système').click();
+    await page.waitForFunction(() => localStorage.getItem('elpis-mouvement') === null);
+    v.ok('Animations « Système » : la page suit de nouveau le poste', !(await mouvement()).glisse && await attendre((r) => r.ui_motion === 'system'));
 
     // ════ Éditeur : retour au classique ═════════════════════════════════════
     await section('editeur');

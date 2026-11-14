@@ -338,7 +338,7 @@ The same tools are served over **MCP** (Model Context Protocol, streamable
 HTTP) at the application's address: an editor, a command-line assistant, an
 agent or a script that speaks MCP can use them.
 
-1. Create a **tool token** in **Settings › Access tokens** and tick the
+1. Create a **tool token** in **Settings › Secrets › Jetons MCP** and tick the
    families you want (`browser` and `desktop` are never ticked by default).
 2. Copy the configuration block provided: one entry per family, with the URL
    `https://<server-address>/api/mcp-bridge/<family>` and the header
@@ -355,7 +355,7 @@ it opens an Elpis page: sign in if needed, check the application's name and its
 return address, tick the families to entrust to it
 (`browser` and `desktop` are never ticked by default), then click **Authorize**. Access lasts
 30 days at most (the administrator can change this); remove it whenever you like
-in **Settings › Access tokens › Authorized apps**.
+in **Settings › Secrets › Jetons MCP › Applications autorisées**.
 
 ### Using your tools from another platform (OpenAPI)
 
@@ -364,7 +364,7 @@ The tools that work in your sandbox — files (`fs`), terminal
 and skill scripts (`skill_run`) — are also exposed as an **OpenAPI 3.1 API**, for
 platforms and scripts that do not speak MCP.
 
-1. Create a **tool token** (`ept_…`) in **Settings › Access tokens**, ticking
+1. Create a **tool token** (`ept_…`) in **Settings › Secrets › Jetons MCP**, ticking
    the families you want. It is shown only once; if you lose it,
    regenerate it.
 2. In the platform, declare one tool server per family:
@@ -1520,7 +1520,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | **Skills** | *Global*: the instance library and its drafts. *Personal*: your own procedures |
 | **Archives** | Your archived conversations: restore or delete |
 | **Sandbox** | Container state, network profile, restart, emptying the working folder |
-| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets). *Git accounts*: your access to Git hosts; see [Git accounts](#git-accounts) |
+| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets). *Git accounts*: your access to Git hosts; see [Git accounts](#git-accounts). *Jetons MCP*: tokens for your Elpis tools from another client. *Remote*: one token per machine connected to Remote code; revoking it disconnects that machine. Elpis keeps only a fingerprint of these tokens: their value is shown once, when created |
 
 Tabs with a lot of content are split into parts, in a strip at the top of the content; the modal returns to the last part
 you opened, and the rail search leads to the right one.

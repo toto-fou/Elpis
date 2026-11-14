@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/connexions.ts — Paramètres › Connexions : jetons personnels (`/api/tokens*`) et applications OAuth autorisées. */
+/** frontend/src/features/reglages/connexions.ts — Paramètres › Secrets › Jetons MCP et Remote : jetons personnels (`/api/tokens*`, outils d'un côté, postes reliés en Remote de l'autre) et applications OAuth autorisées. */
 import {
   schemaReponseAutorisationsOauth,
   schemaReponseJetonCree,
@@ -44,6 +44,9 @@ export interface EtatConnexions {
   oauthEnabled: boolean;
 }
 
+/** Jetons d'outils (MCP, OpenAPI) ou jetons des postes reliés en Remote : chaque partie des Paramètres n'en montre qu'un genre. */
+export type GenreJeton = "tools" | "opencode";
+
 export interface CtxConnexions {
   showToast?(message: string, type?: string): void;
   openConfirm?(titre: string, message: string, danger: boolean, libelle: string): Promise<boolean>;
@@ -58,7 +61,7 @@ export function buildBlocks(
   kind?: string,
 ): BlocConfig[] {
   const tok = token || PLACEHOLDER;
-  if (kind === "opencode") return [{ id: "remote", label: "opencode", lang: "text", text: "/remote " + tok }];
+  if (kind === "opencode") return [{ id: "remote", label: "Commande", lang: "text", text: "/remote " + tok }];
   const fams = (families ?? []).filter(Boolean);
   const auth = { Authorization: "Bearer " + tok };
   const mcp: Record<string, unknown> = {};
@@ -160,12 +163,16 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
     else toast("Retrait refusé.", "error");
   }
 
-  function cnxNew(): void {
+  function cnxNew(genre: GenreJeton = "tools"): void {
+    if (genre === "opencode") {
+      set({ form: { kind: genre, name: "", families: {}, days: null }, reveal: null, error: "" });
+      return;
+    }
     const pol = cnxState.value.policy ?? { families: [], max_days: 90 };
     const familles: Record<string, boolean> = {};
     for (const f of pol.families) familles[f.name] = f.name !== "desktop" && f.name !== "browser";
     const days = pol.max_days ? Math.min(30, pol.max_days) : 30;
-    set({ form: { kind: "tools", name: "", families: familles, days }, reveal: null, error: "" });
+    set({ form: { kind: genre, name: "", families: familles, days }, reveal: null, error: "" });
   }
 
   const cnxCancel = (): void => set({ form: null, error: "" });
@@ -217,7 +224,10 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
   }
 
   async function cnxRevoke(item: Jeton): Promise<void> {
-    const msg = "Les clients qui utilisent « " + item.name + " » perdront l'accès immédiatement.";
+    const msg =
+      item.kind === "opencode"
+        ? "Le poste relié par « " + item.name + " » sera déconnecté immédiatement."
+        : "Les clients qui utilisent « " + item.name + " » perdront l'accès immédiatement.";
     if (ctx?.openConfirm && !(await ctx.openConfirm("Révoquer le jeton ?", msg, true, "Révoquer"))) return;
     const r = await http.requete("/api/tokens/" + encodeURIComponent(String(item.id)), { method: "DELETE" });
     if (r.type !== "ok") {
@@ -266,8 +276,6 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
   }
 
   const cnxSchemaHref = (family: string): string => "/api/tokens/schema/" + encodeURIComponent(family);
-  const cnxKindLabel = (kind: string): string =>
-    ({ tools: "Outils", opencode: "opencode", vision: "Vision" })[kind as "tools"] ?? kind;
   function cnxDate(ts: unknown): string {
     if (!ts) return "";
     try {
@@ -293,7 +301,6 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
     cnxBlocks,
     cnxCopy,
     cnxSchemaHref,
-    cnxKindLabel,
     cnxDate,
   };
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre « Ajouter un dépôt » de l'éditeur (liste d'un compte ou URL, récapitulatif, compte qui servira, identifiants saisis sur place et leur portée, dépôt neuf initialisé). */
+/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git et jetons contre le core TS réel : parties « Jetons MCP » et « Remote » séparées ; partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre « Ajouter un dépôt » de l'éditeur (liste d'un compte ou URL, récapitulatif, compte qui servira, identifiants saisis sur place et leur portée, dépôt neuf initialisé). */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CAPTURES=dossier] node tests/frontend/reel/comptes-git-reel-verify.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -75,8 +75,9 @@ try {
         (await rail.getByRole('button', { name: 'Comptes Git', exact: true }).count()) === 0);
     await rail.getByRole('button', { name: 'Secrets', exact: true }).click();
     const parties = dialogue.locator('[data-sous-menu] [data-section]');
-    v.ok('Secrets : trois parties, Comptes Git au milieu',
-        JSON.stringify(await parties.evaluateAll((l) => l.map((e) => e.dataset.section))) === '["web","git","jetons"]');
+    v.ok('Secrets : quatre parties, les jetons MCP et Remote séparés',
+        JSON.stringify(await parties.evaluateAll((l) => l.map((e) => e.dataset.section))) === '["web","git","jetons","remote"]' &&
+        JSON.stringify(await parties.evaluateAll((l) => l.map((e) => e.textContent.trim()))) === '["Secrets web","Comptes Git","Jetons MCP","Remote"]');
     await dialogue.locator('[data-sous-menu] [data-section="git"]').click();
     const git = dialogue.locator('[data-onglet-git]');
     await git.waitFor({ timeout: 10000 }).catch(() => {});
@@ -147,6 +148,40 @@ try {
     await page.evaluate(() => window.__racine().openSettingsTab('connectors'));
     await git.waitFor({ timeout: 10000 }).catch(() => {});
     v.ok('ancien lien « connectors » : la partie Comptes Git s\'ouvre, comptes chargés', (await git.locator('[data-portee-compte]').count()) === 2);
+
+    // ── Jetons MCP et Remote : chaque partie n'a que les siens.
+    const nomsDe = (zone) => zone.locator('[data-jeton] .text-sm').evaluateAll((l) => l.map((e) => e.textContent.replace(/\s+/g, ' ').trim().replace(/ …\S+$/, '')));
+    const creer = async (zone, nom) => {
+        await zone.locator('[data-nouveau-jeton]').click();
+        await zone.locator('[data-nom-jeton]').fill(nom);
+        await zone.getByRole('button', { name: 'Créer', exact: true }).click();
+        await zone.locator('[data-jeton-montre]').waitFor({ timeout: 10000 }).catch(() => {});
+        return ((await zone.locator('[data-jeton-montre]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+    };
+    await dialogue.locator('[data-sous-menu] [data-section="jetons"]').click();
+    const mcp = dialogue.locator('[data-jetons="tools"]');
+    await mcp.waitFor({ timeout: 10000 }).catch(() => {});
+    const montreMcp = await creer(mcp, 'client de test');
+    v.ok('Jetons MCP : formulaire sans choix de type, jeton d\'outils montré une fois',
+        (await mcp.locator('select').count()) === 0 && /ept_[A-Za-z0-9_-]{20,}/.test(montreMcp) && JSON.stringify(await nomsDe(mcp)) === '["client de test"]', JSON.stringify(await nomsDe(mcp)));
+    await dialogue.locator('[data-sous-menu] [data-section="remote"]').click();
+    const remote = dialogue.locator('[data-jetons="opencode"]');
+    await remote.waitFor({ timeout: 10000 }).catch(() => {});
+    v.ok('Remote : une partie à elle, vide, sans le jeton d\'outils ni les applications autorisées',
+        (await remote.textContent() || '').includes('Aucun poste relié.') && !(await remote.textContent() || '').includes('client de test') &&
+        !(await remote.textContent() || '').includes('Applications autorisées') && (await mcp.count()) === 0);
+    if (await remote.locator('[data-nouveau-jeton]').isDisabled()) {
+        v.ok('Remote désactivé sur ce serveur : dit, création fermée', ((await remote.locator('[data-desactive]').textContent()) || '').includes('Remote est désactivé'));
+    } else {
+        const montreRemote = await creer(remote, 'poste de test');
+        v.ok('Remote : jeton de poste montré une fois avec sa commande, listé ici seulement',
+            /\/remote pcr_[A-Za-z0-9_-]{20,}/.test(montreRemote) && JSON.stringify(await nomsDe(remote)) === '["poste de test"]', JSON.stringify(await nomsDe(remote)));
+        await capture(page, '6-remote');
+        await dialogue.locator('[data-sous-menu] [data-section="jetons"]').click();
+        await mcp.waitFor({ timeout: 10000 }).catch(() => {});
+        v.ok('Jetons MCP : toujours le seul jeton d\'outils, le jeton Remote n\'y est pas',
+            JSON.stringify(await nomsDe(mcp)) === '["client de test"]' && (await mcp.locator('[data-jeton-montre]').count()) === 0, JSON.stringify(await nomsDe(mcp)));
+    }
     await page.keyboard.press('Escape');
     await dialogue.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 

@@ -339,7 +339,7 @@ Les mêmes outils sont servis en **MCP** (Model Context Protocol, HTTP
 streamable) à l'adresse de l'application : un éditeur, un assistant en ligne de
 commande, un agent ou un script qui parle MCP peut les utiliser.
 
-1. Créez un **jeton d'outils** dans **Paramètres › Connexions** et cochez les
+1. Créez un **jeton d'outils** dans **Paramètres › Secrets › Jetons MCP** et cochez les
    familles voulues (`browser` et `desktop` ne le sont jamais d'office).
 2. Copiez le bloc de configuration proposé : une entrée par famille, d'URL
    `https://<adresse-du-serveur>/api/mcp-bridge/<famille>`, avec l'en-tête
@@ -356,7 +356,7 @@ il ouvre une page d'Elpis : connectez-vous si besoin, vérifiez le nom de
 l'application et son adresse de retour, cochez les familles à lui confier
 (`browser` et `desktop` jamais d'office), puis **Autoriser**. L'accès dure
 30 jours au plus (réglable par l'administrateur) ; retirez-le quand vous voulez
-dans **Paramètres › Connexions › Applications autorisées**.
+dans **Paramètres › Secrets › Jetons MCP › Applications autorisées**.
 
 ### Utiliser vos outils depuis une autre plateforme (OpenAPI)
 
@@ -365,7 +365,7 @@ Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal
 et scripts de skills (`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
 plateformes et scripts qui ne parlent pas MCP.
 
-1. Créez un **jeton d'outils** (`ept_…`) dans **Paramètres › Connexions**, en
+1. Créez un **jeton d'outils** (`ept_…`) dans **Paramètres › Secrets › Jetons MCP**, en
    cochant les familles voulues. Il n'est montré qu'une fois ; en cas de perte,
    régénérez-le.
 2. Dans la plateforme, déclarez un serveur d'outils par famille :
@@ -1468,7 +1468,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Skills** | *Global* : la bibliothèque de l'instance et ses brouillons. *Perso* : vos propres procédures |
 | **Archives** | Vos conversations archivées : restaurer ou supprimer |
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
-| **Secrets** | Votre coffre : identifiants de sites et jetons. *Comptes Git* : vos accès aux forges Git ; voir [Comptes Git](#comptes-git) |
+| **Secrets** | Votre coffre : identifiants de sites et jetons. *Comptes Git* : vos accès aux forges Git ; voir [Comptes Git](#comptes-git). *Jetons MCP* : jetons pour utiliser vos outils Elpis depuis un autre client. *Remote* : un jeton par poste relié à Remote code ; le révoquer déconnecte ce poste. Elpis ne garde que l'empreinte de ces jetons : leur valeur n'est montrée qu'une fois, à leur création |
 
 Les onglets chargés se divisent en parties, dans un bandeau en haut du contenu ; la modale revient à la dernière partie
 ouverte, et la recherche du rail mène à la bonne.

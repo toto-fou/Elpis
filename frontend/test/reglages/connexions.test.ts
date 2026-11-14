@@ -73,7 +73,9 @@ describe("blocs de configuration", () => {
     expect(buildBlocks("", ["fs"], "u", "v", "tools").every((b) => b.text.includes("<VOTRE_JETON>"))).toBe(
       true,
     );
-    expect(buildBlocks("pcr_x", [], "u", "v", "opencode").map((b) => b.text)).toEqual(["/remote pcr_x"]);
+    expect(buildBlocks("pcr_x", [], "u", "v", "opencode")).toEqual([
+      { id: "remote", label: "Commande", lang: "text", text: "/remote pcr_x" },
+    ]);
   });
 });
 
@@ -84,6 +86,27 @@ describe("setupConnexions", () => {
     D.cnxNew();
     expect(D.cnxState.value.form?.families).toEqual({ fs: true, git: true, desktop: false });
     expect(D.cnxState.value.form?.days).toBe(30);
+  });
+
+  it("nouveau jeton Remote : un nom seulement, ni familles ni durée ; envoyé avec son genre", async () => {
+    const { D, vus } = monter((_u, o) =>
+      o?.method === "POST"
+        ? json({ token: "pcr_neuf", item: jeton(5, { kind: "opencode", families: [] }) })
+        : json(LISTE()),
+    );
+    await D.loadConnexions();
+    D.cnxNew("opencode");
+    expect(D.cnxState.value.form).toEqual({ kind: "opencode", name: "", families: {}, days: null });
+    D.cnxState.value.form!.name = "poste du bureau";
+    await D.cnxCreate();
+    expect(JSON.parse(vus.find((v) => v[1] === "POST")![2] as string)).toEqual({
+      kind: "opencode",
+      name: "poste du bureau",
+      families: [],
+      days: null,
+    });
+    expect(D.cnxState.value.tab).toBe("remote");
+    expect(D.cnxBlocks().map((b) => b.text)).toEqual(["/remote pcr_neuf"]);
   });
 
   it("création : familles cochées envoyées, jeton montré une fois", async () => {

@@ -150,7 +150,9 @@ follow [SemVer](https://semver.org/).
   repositories of a Git account, listed as soon as the window opens; the account is chosen when
   there are several), *Depuis une URL* (one field, with an example on your own server; an SSH URL,
   credentials in the URL, a query or a malformed host are refused with the reason) and *Nouveau
-  dépôt* (folder, and optionally the author name and e-mail of its commits). For a clone, three
+  dépôt* (its folder only: commits are attributed automatically, yours to your account, the
+  assistant's to "account (Elpis agent)"; the author name and e-mail fields are gone, since
+  filling them made the assistant commit under that name). For a clone, three
   lines say what will happen: the repository as it was read, the account that will authenticate
   it (with the reason when several accounts exist on that server) or that none applies, and the
   folder. *Cloner* is offered once a repository is read. The window opens smoothly: no blur behind

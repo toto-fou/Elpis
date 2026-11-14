@@ -1187,8 +1187,9 @@ credential is written to the sandbox.
 **Add a repository.** One button, *Ajouter un dépôt*, opens a window with three ways: *Mes dépôts*
 (the repositories of one of your Git accounts; pick the account when you have several), *Depuis une
 URL* (any http(s) clone URL; an SSH URL is refused with the reason) and *Nouveau dépôt* (an empty
-repository initialized in a folder of your workspace, with an optional author name and e-mail for
-its commits). For a clone, three lines say what will happen: the repository as it was read, the
+repository initialized in a folder of your workspace). Commits are attributed automatically: yours
+to your account (`alice <alice@elpis>`), the assistant's to `alice (Elpis agent)`, on `agent/…`
+branches; a pull request it opens belongs to the Git account whose token is used. For a clone, three lines say what will happen: the repository as it was read, the
 account that will be used, and the folder. The account is the most specific one that covers the
 repository; the window says so when several accounts exist on that server, when the account has
 no token or holds an imported token still to verify, or when none applies. Over

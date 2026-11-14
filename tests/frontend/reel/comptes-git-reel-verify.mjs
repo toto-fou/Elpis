@@ -265,16 +265,15 @@ try {
     await page.locator('[data-ajouter-depot]').click();
     await clone.waitFor({ timeout: 10000 }).catch(() => {});
     await clone.locator('[data-source="nouveau"]').click();
-    v.ok('« Nouveau dépôt » : dossier, auteur et e-mail sur place, « Initialiser » à la place de « Cloner »',
+    v.ok('« Nouveau dépôt » : le dossier seulement, l\'attribution des commits annoncée comme automatique, « Initialiser » à la place de « Cloner »',
         (await clone.locator('[data-recap]').count()) === 0 && (await texte('[data-cloner]')) === 'Initialiser' && !(await clone.locator('[data-cloner]').isDisabled()) &&
-        JSON.stringify(await clone.locator('[data-nouveau] label').evaluateAll((l) => l.map((e) => e.textContent.trim()))) === '["Dossier","Auteur","E-mail"]');
+        (await clone.locator('[data-nouveau] input').count()) === 1 && (await texte('[data-attribution]')).includes('(Elpis agent)'));
     await clone.locator('#init-dossier').fill('mon-projet');
-    await clone.locator('#init-auteur').fill('Alice');
     await capture(page, '5-nouveau-depot');
-    await clone.locator('#init-auteur').press('Enter');
+    await clone.locator('#init-dossier').press('Enter');
     await clone.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
-    v.ok('dépôt initialisé avec le dossier et l\'auteur saisis ; fenêtre fermée',
-        !(await clone.isVisible()) && inits.length === 1 && inits[0].dir === 'mon-projet' && inits[0].user_name === 'Alice', JSON.stringify(inits));
+    v.ok('dépôt initialisé dans le dossier saisi, sans identité imposée ; fenêtre fermée',
+        !(await clone.isVisible()) && inits.length === 1 && JSON.stringify(inits[0]) === '{"dir":"mon-projet"}', JSON.stringify(inits));
     v.ok('aucune erreur de page', erreurs.length === 0, erreurs.join(' | '));
 } finally {
     await nav.close();

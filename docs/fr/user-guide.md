@@ -1135,8 +1135,10 @@ identifiant n'est écrit dans la sandbox.
 **Ajouter un dépôt.** Un seul bouton, *Ajouter un dépôt*, ouvre une fenêtre à trois façons : *Mes
 dépôts* (les dépôts d'un de vos comptes Git ; choisissez le compte si vous en avez plusieurs),
 *Depuis une URL* (n'importe quelle URL de clonage en http(s) ; une URL SSH est refusée avec la
-raison) et *Nouveau dépôt* (un dépôt vide initialisé dans un dossier de votre espace de travail,
-avec, si vous le voulez, le nom et l'e-mail d'auteur de ses commits). Pour un clone, trois lignes
+raison) et *Nouveau dépôt* (un dépôt vide initialisé dans un dossier de votre espace de travail).
+Les commits sont attribués automatiquement : les vôtres à votre compte (`alice <alice@elpis>`),
+ceux de l'assistant à `alice (Elpis agent)`, sur des branches `agent/…` ; une demande de fusion
+qu'il ouvre appartient au compte Git dont le jeton sert. Pour un clone, trois lignes
 disent ce qui sera fait : le dépôt tel qu'il a été lu, le compte qui servira, et le dossier. Ce
 compte est le plus précis qui couvre le dépôt ; la fenêtre le dit quand ce serveur a plusieurs
 comptes, quand le compte n'a pas de jeton ou porte un jeton importé encore à vérifier, ou quand

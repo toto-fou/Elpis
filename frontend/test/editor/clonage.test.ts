@@ -353,7 +353,7 @@ describe("fenêtre montée", () => {
       gitError: ref(""),
       gitLoading: ref(false),
       gitConnectors: ref(comptes),
-      gitInitForm: ref({ user_name: "", user_email: "", dir: "" }),
+      gitInitForm: ref({ dir: "" }),
     };
     const racine = proxyRefs({
       ...etat,
@@ -506,7 +506,7 @@ describe("fenêtre montée", () => {
     expect(generique.q("[data-acces]")?.textContent).toContain("Compte git.lan · interne");
   });
 
-  it("« Nouveau dépôt » : dossier, auteur et e-mail sur place, « Initialiser » offert sans URL et à la place de « Cloner » ; plusieurs comptes du même serveur : la ligne d'accès dit que le plus précis est pris", async () => {
+  it("« Nouveau dépôt » : le dossier seulement (auteur attribué d'office), « Initialiser » offert sans URL et à la place de « Cloner » ; plusieurs comptes du même serveur : la ligne d'accès dit que le plus précis est pris", async () => {
     const v = monter([PERSO, ROBOT]);
     await nextTick();
     expect([...document.querySelectorAll("[role=tab]")].map((o) => o.textContent?.trim())).toEqual([
@@ -526,8 +526,10 @@ describe("fenêtre montée", () => {
     expect(bouton().textContent?.trim()).toBe("Initialiser");
     expect(bouton().disabled).toBe(false);
     await v.saisir("#init-dossier", "mon-projet");
-    await v.saisir("#init-auteur", "Alice");
-    expect(v.etat.gitInitForm.value).toEqual({ user_name: "Alice", user_email: "", dir: "mon-projet" });
+    expect(v.etat.gitInitForm.value).toEqual({ dir: "mon-projet" });
+    // Pas de nom ni d'e-mail à saisir : l'attribution est automatique, et dite.
+    expect(document.querySelectorAll("[data-nouveau] input")).toHaveLength(1);
+    expect(v.q("[data-attribution]")?.textContent).toContain("(Elpis agent)");
     bouton().click();
     await nextTick();
     expect(v.racine.gitInit).toHaveBeenCalledTimes(1);

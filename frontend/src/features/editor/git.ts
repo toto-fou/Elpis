@@ -131,7 +131,8 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   const showGitBranchMenu = ref(false);
   const showGitRemoteModal = ref(false);
   const gitRemoteForm = ref({ url: "" });
-  const gitInitForm = ref({ user_name: "", user_email: "", dir: "" });
+  /** Dépôt neuf : son dossier seulement ; l'identité des commits est posée d'office (compte pour les vôtres, « compte (Elpis agent) » pour ceux de l'assistant). */
+  const gitInitForm = ref({ dir: "" });
   const showGitMoreMenu = ref(false);
   const gitError = ref("");
   const showGitRepoMenu = ref(false);

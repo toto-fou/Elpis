@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/editor/ModaleClonage.vue — fenêtre « Ajouter un dépôt » : dépôt cloné depuis la liste d'un compte git ou depuis son URL (dépôt lu, compte qui servira ou identifiants saisis sur place, dossier), ou dépôt neuf initialisé. -->
+<!-- frontend/src/components/editor/ModaleClonage.vue — fenêtre « Ajouter un dépôt » : dépôt cloné depuis la liste d'un compte git ou depuis son URL (dépôt lu, compte qui servira ou identifiants saisis sur place, dossier), ou dépôt neuf initialisé dans un dossier (ses commits sont attribués d'office). -->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 
@@ -412,25 +412,10 @@ function versJeton(): void {
                 Dépôt vide créé dans ce dossier de votre espace de travail ; sans nom : à sa racine.
               </p>
             </div>
-            <label for="init-auteur" class="font-medium text-slate-500">Auteur</label>
-            <input
-              id="init-auteur"
-              v-model="ed.gitInitForm.user_name"
-              placeholder="Votre nom (facultatif)"
-              title="Nom inscrit sur vos commits dans ce dépôt"
-              class="set-input"
-              @keydown.enter="valider"
-            />
-            <label for="init-email" class="font-medium text-slate-500">E-mail</label>
-            <input
-              id="init-email"
-              v-model="ed.gitInitForm.user_email"
-              placeholder="vous@exemple.lan (facultatif)"
-              title="E-mail inscrit sur vos commits dans ce dépôt"
-              autocomplete="off"
-              class="set-input font-mono"
-              @keydown.enter="valider"
-            />
+            <span class="font-medium text-slate-500">Auteur</span>
+            <p class="min-w-0 text-slate-500 leading-snug" data-attribution>
+              Automatique : vos commits à votre compte, ceux de l'assistant à « votre compte (Elpis agent) ».
+            </p>
           </div>
 
           <div

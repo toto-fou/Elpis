@@ -358,6 +358,43 @@ describe.skipIf(!PYTHON)("routes locales par l'agent", () => {
     expect(existsSync(path.join(p, "vrai", "neuf.txt"))).toBe(false);
   }, 60_000);
 
+  it("gestes du panneau signés du compte, sans identité à saisir : dépôt neuf sans identité, et dépôt qui porte celle de l'assistant (elle reste dans sa configuration)", async () => {
+    const signatures = (d: string, n = 1): string[] =>
+      spawnSync("git", ["log", `-${n}`, "--format=%an <%ae> | %cn <%ce>"], { cwd: d, encoding: "utf-8" })
+        .stdout.trim()
+        .split("\n");
+    const identiteLocale = (d: string): string =>
+      spawnSync("git", ["config", "--local", "--get-regexp", "^user\\."], {
+        cwd: d,
+        encoding: "utf-8",
+      }).stdout.trim();
+    let r = await appel("POST", "init", { dir: "sans-identite" });
+    expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+    const neuf = path.join(work, "sans-identite");
+    expect(identiteLocale(neuf)).toBe("");
+    writeFileSync(path.join(neuf, "a.txt"), "a\n");
+    r = await appel("POST", "stage", { repo: "sans-identite", paths: ["a.txt"] });
+    expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+    r = await appel("POST", "commit", { repo: "sans-identite", message: "premier" });
+    expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+    expect(signatures(neuf)).toEqual(["alice <alice@elpis> | alice <alice@elpis>"]);
+    expect(identiteLocale(neuf)).toBe("");
+    // L'assistant a travaillé dans le dépôt : son identité y est posée, mais un geste du panneau reste celui du compte.
+    spawnSync("git", ["config", "--local", "user.name", "alice (Elpis agent)"], { cwd: neuf });
+    spawnSync("git", ["config", "--local", "user.email", "alice@elpis.local"], { cwd: neuf });
+    writeFileSync(path.join(neuf, "a.txt"), "b\n");
+    await appel("POST", "stage", { repo: "sans-identite", paths: ["a.txt"] });
+    r = await appel("POST", "commit", { repo: "sans-identite", message: "second" });
+    expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+    r = await appel("POST", "revert-last", { repo: "sans-identite" });
+    expect(r.statut, JSON.stringify(r.corps)).toBe(200);
+    expect(signatures(neuf, 2)).toEqual([
+      "alice <alice@elpis> | alice <alice@elpis>",
+      "alice <alice@elpis> | alice <alice@elpis>",
+    ]);
+    expect(identiteLocale(neuf)).toContain("alice (Elpis agent)");
+  });
+
   it("`~` est un nom de dépôt ; status, branches, log, diff, arbre, commit-diff, show-file", async () => {
     git(work, "init", "-q", "-b", "main", "~");
     let r = await appel("GET", "status", { repo: "~" });

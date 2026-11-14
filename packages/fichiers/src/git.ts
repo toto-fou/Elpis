@@ -329,6 +329,8 @@ export interface OptionsReseau {
   readonly timeoutS?: number;
   readonly maxOut?: number;
   readonly garde?: GardeDepot;
+  /** Identité des commits que la commande créerait (fusion d'un `pull`) : `GIT_AUTHOR_*` et `GIT_COMMITTER_*` seulement, l'agent refuse le reste. */
+  readonly env?: Record<string, string>;
 }
 
 /** Compte signé d'une opération réseau : id, nom, conversation et sous-agent de l'appel. */
@@ -379,6 +381,7 @@ export async function runNetwork(
       d = await agent.git(cwd, [...args], {
         timeoutS,
         maxOut: o.maxOut ?? 1 << 20,
+        ...(o.env ? { env: o.env } : {}),
         relay: { socket: relay.socket, ticket: relay.ticket, origin: relay.origin },
       });
       refus = [...new Set(refusRelais)];

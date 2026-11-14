@@ -142,6 +142,18 @@ function auteur(uid: number): string {
   return `${nom} <${nom}@elpis>`;
 }
 
+/** Identité des gestes du panneau : le compte, auteur et committer, même dans un dépôt qui n'en a pas (neuf, cloné) ou qui porte celle de l'assistant. */
+function identite(uid: number): Record<string, string> {
+  const nom = resolveUsername(uid) || "user";
+  const email = `${nom}@elpis`;
+  return {
+    GIT_AUTHOR_NAME: nom,
+    GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: nom,
+    GIT_COMMITTER_EMAIL: email,
+  };
+}
+
 /** `_relaye` : refus du relais (403 garde, 400 sinon) ou de l'agent en erreur HTTP. */
 async function relaye<T>(op: () => Promise<T>): Promise<T> {
   try {
@@ -203,6 +215,7 @@ async function git(d: Depot, args: readonly string[], o: { timeoutS?: number; pa
     run(d.agent, d.rel, args, {
       timeoutS: o.timeoutS ?? 30,
       maxOut: reglagesGit.sortie,
+      env: identite(d.uid),
       passive: o.passive ?? false,
     }),
   );
@@ -243,6 +256,7 @@ async function reseau(
       ...(a ? { auth: a } : {}),
       timeoutS: o.timeoutS ?? 60,
       maxOut: reglagesGit.sortie,
+      env: identite(d.uid),
     }),
   );
   if (r.timed_out) throw new HttpError(504, `git ${args[0] ?? ""} : délai dépassé`);

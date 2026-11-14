@@ -119,16 +119,10 @@ describe("useVolet : largeur qui glisse", () => {
     expect([deplie.value, large.value]).toEqual([false, false]);
   });
 
-  // Panneau de 280 px (par défaut) dont l'animation est enregistrée ; `cancel`, `finish` et `currentTime` suivent l'API des animations Web.
+  // Panneau de 280 px (par défaut) dont l'animation est enregistrée ; `cancel`, `finish` et `finished` suivent l'API des animations Web.
   function panneau(largeur = 280): {
     el: HTMLElement;
-    jouees: {
-      images: Keyframe[];
-      options: KeyframeAnimationOptions;
-      annulee: boolean;
-      animation: { currentTime: number };
-      finir(): void;
-    }[];
+    jouees: { images: Keyframe[]; options: KeyframeAnimationOptions; annulee: boolean; finir(): void }[];
   } {
     const el = document.createElement("div");
     el.className = "elpis-slide-panel";
@@ -136,19 +130,29 @@ describe("useVolet : largeur qui glisse", () => {
     const jouees: ReturnType<typeof panneau>["jouees"] = [];
     el.animate = ((images: Keyframe[], options: KeyframeAnimationOptions) => {
       const ecoutes: (() => void)[] = [];
-      const animation = {
-        currentTime: 0,
+      let arriver: () => void = () => undefined;
+      const finished = new Promise<void>((ok) => (arriver = ok));
+      const j = {
+        images,
+        options,
+        annulee: false,
+        finir: () => {
+          ecoutes.forEach((f) => f());
+          arriver();
+        },
+      };
+      jouees.push(j);
+      return {
+        finished,
         cancel: () => (j.annulee = true),
         addEventListener: (_t: string, f: () => void) => ecoutes.push(f),
       };
-      const j = { images, options, annulee: false, animation, finir: () => ecoutes.forEach((f) => f()) };
-      jouees.push(j);
-      return animation;
     }) as unknown as HTMLElement["animate"];
     return { el, jouees };
   }
+  const rien = (): void => undefined;
 
-  it("panneau racine de la transition : sa largeur glisse de 0 à sa valeur, contenu tenu à la largeur finale, puis il reprend sa mise en page", async () => {
+  it("panneau racine de la transition : sa largeur glisse de 0 à sa valeur, sa largeur finale et sa durée posées pour son contenu, puis il reprend sa mise en page", async () => {
     const { c } = await monter();
     const { el, jouees } = panneau();
     etat.ouvert = true;
@@ -156,29 +160,49 @@ describe("useVolet : largeur qui glisse", () => {
     c.onEnter(el);
     expect(jouees).toHaveLength(1);
     expect(jouees[0]?.images.map((i) => i["width"])).toEqual(["0px", "280px"]);
-    expect(el.classList.contains("volet-anime")).toBe(true);
     expect(el.style.getPropertyValue("--volet-largeur")).toBe("280px");
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("260ms");
     jouees[0]?.finir();
-    expect(el.classList.contains("volet-anime")).toBe(false);
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("");
+    expect(jouees[0]?.annulee).toBe(true);
   });
 
-  it("à la sortie : la largeur glisse vers 0 et y reste jusqu'au retrait du panneau ; une racine qui n'est pas un panneau n'est pas animée", async () => {
+  it("à la sortie : durée posée avant les classes de sortie, la largeur glisse vers 0 et y reste jusqu'au retrait ; la sortie finit avec elle", async () => {
     const { c } = await monter();
-    const { el, jouees } = panneau();
+    const { el, jouees } = panneau(830);
+    const fin = vi.fn();
     etat.ouvert = true;
     c.onBeforeEnter();
     etat.ouvert = false;
     c.onBeforeLeave(el);
-    c.onLeave(el);
-    expect(jouees[0]?.images.map((i) => i["width"])).toEqual(["280px", "0px"]);
-    expect(jouees[0]?.options.fill).toBe("forwards");
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("300ms");
+    expect(jouees).toHaveLength(0);
+    c.onLeave(el, fin);
+    expect(jouees[0]?.images.map((i) => i["width"])).toEqual(["830px", "0px"]);
+    expect(jouees[0]?.options).toMatchObject({ duration: 300, fill: "forwards" });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(fin).not.toHaveBeenCalled();
+    jouees[0]?.finir();
+    await nextTick();
+    expect(fin).toHaveBeenCalledTimes(1);
     c.onAfterLeave(el);
     expect(jouees[0]?.annulee).toBe(true);
-    expect(el.classList.contains("volet-anime")).toBe(false);
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("");
+  });
+
+  it("une racine qui n'est pas un panneau (contenu d'un rail) n'est pas animée : sa sortie finit avec sa transition", async () => {
+    const { c } = await monter();
     const contenu = panneau();
     contenu.el.className = "";
+    const fin = vi.fn();
     c.onEnter(contenu.el);
+    c.onBeforeLeave(contenu.el);
+    c.onLeave(contenu.el, fin);
     expect(contenu.jouees).toHaveLength(0);
+    expect(contenu.el.style.getPropertyValue("--volet-duree")).toBe("");
+    expect(fin).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(fin).toHaveBeenCalledTimes(1);
   });
 
   it("un panneau large glisse plus longtemps, jusqu'à une fois et demie la durée des autres", async () => {
@@ -187,7 +211,7 @@ describe("useVolet : largeur qui glisse", () => {
       const { el, jouees } = panneau(largeur);
       c.onEnter(el);
       jouees[0]?.finir();
-      c.onLeave(el);
+      c.onLeave(el, rien);
       return jouees.map((j) => j.options.duration);
     };
     expect(durees(280)).toEqual([260, 200]);
@@ -197,55 +221,96 @@ describe("useVolet : largeur qui glisse", () => {
     expect(durees(1400)).toEqual([390, 300]);
   });
 
-  it("bloc accompagné : sa largeur maximale glisse de la largeur d'avant à celle d'après le volet, à son rythme ; rien si elle n'a pas changé", async () => {
+  it("bloc accompagné : sa largeur maximale glisse de sa largeur d'avant à la règle d'après, au rythme du volet ; rien si la règle n'a pas changé", async () => {
     const { c } = await monter();
     const { el, jouees } = panneau(830);
+    // Colonne de 830 px dont 62 de marges intérieures : conteneur de 768 px.
+    const colonne = document.createElement("div");
+    colonne.style.padding = "0 31px";
+    Object.defineProperty(colonne, "clientWidth", { value: 830 });
     const bloc = document.createElement("div");
-    document.body.appendChild(bloc);
+    colonne.appendChild(bloc);
+    document.body.appendChild(colonne);
+    let largeur = 967;
+    bloc.getBoundingClientRect = () => ({ width: largeur }) as DOMRect;
     bloc.style.maxWidth = "70%";
-    // Volet presque arrivé (lecture de la mise en page finale) : 768 px ; avant : 967 px.
-    bloc.getBoundingClientRect = () =>
-      ({ width: (jouees.at(-1)?.animation.currentTime ?? 0) > 0 ? 768 : 967 }) as DOMRect;
     const glisses: { images: Keyframe[]; options: KeyframeAnimationOptions }[] = [];
     bloc.animate = ((images: Keyframe[], options: KeyframeAnimationOptions) => {
       glisses.push({ images, options });
-      return { cancel: () => undefined };
+      return { cancel: rien };
     }) as unknown as HTMLElement["animate"];
     const portee = effectScope();
     portee.run(() => accompagnerVolets(() => bloc));
 
+    // Ouverture : la règle devient une longueur, départ en pixels.
     etat.ouvert = true;
     bloc.style.maxWidth = "48rem";
     c.onBeforeEnter();
     c.onEnter(el);
     await nextTick();
     expect(glisses).toEqual([
-      { images: [{ maxWidth: "967px" }, { maxWidth: "768px" }], options: { duration: 390, easing: "ease" } },
+      { images: [{ maxWidth: "967px" }, { maxWidth: "48rem" }], options: { duration: 390, easing: "ease" } },
     ]);
-    expect(jouees[0]?.animation.currentTime).toBe(0);
 
+    // Fermeture : la règle redevient une part du conteneur ; départ : cette part (537,6 px sur 768) plus l'écart en pixels.
     jouees[0]?.finir();
+    largeur = 768;
     etat.ouvert = false;
-    c.onLeave(el);
-    await nextTick();
-    expect(glisses).toHaveLength(1);
-
-    portee.stop();
-    etat.ouvert = true;
     bloc.style.maxWidth = "70%";
+    c.onBeforeLeave(el);
+    c.onLeave(el, rien);
+    await nextTick();
+    expect(glisses[1]).toEqual({
+      images: [{ maxWidth: "calc(70% + 230.4px)" }, { maxWidth: "70%" }],
+      options: { duration: 300, easing: "ease" },
+    });
+
+    // Règle inchangée (autre volet), puis bloc désinscrit : rien.
+    c.onAfterLeave(el);
+    etat.ouvert = true;
     c.onEnter(el);
     await nextTick();
-    expect(glisses).toHaveLength(1);
+    portee.stop();
+    etat.ouvert = false;
+    bloc.style.maxWidth = "48rem";
+    c.onLeave(el, rien);
+    await nextTick();
+    expect(glisses).toHaveLength(2);
+    colonne.remove();
+  });
+
+  it("les largeurs relevées au geste ne servent pas à un geste suivant", async () => {
+    const { c } = await monter();
+    const { el } = panneau(830);
+    const bloc = document.createElement("div");
+    document.body.appendChild(bloc);
+    bloc.style.maxWidth = "70%";
+    const glisse = vi.fn(() => ({ cancel: rien }));
+    bloc.animate = glisse as unknown as HTMLElement["animate"];
+    const portee = effectScope();
+    portee.run(() => accompagnerVolets(() => bloc));
+    etat.ouvert = true;
+    await new Promise((r) => setTimeout(r, 5));
+    bloc.style.maxWidth = "48rem";
+    c.onEnter(el);
+    await nextTick();
+    expect(glisse).not.toHaveBeenCalled();
+    portee.stop();
     bloc.remove();
   });
 
-  it("mouvement réduit : aucune largeur animée", async () => {
+  it("mouvement réduit : aucune largeur animée, la sortie finit avec la transition", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce") }));
     const { c } = await monter();
     const { el, jouees } = panneau();
+    const fin = vi.fn();
     c.onEnter(el);
-    c.onLeave(el);
+    c.onBeforeLeave(el);
+    c.onLeave(el, fin);
     expect(jouees).toHaveLength(0);
+    expect(el.style.getPropertyValue("--volet-duree")).toBe("");
+    await new Promise((r) => setTimeout(r, 5));
+    expect(fin).toHaveBeenCalledTimes(1);
   });
 });
 

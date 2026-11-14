@@ -10,7 +10,7 @@ export interface CrochetsVolet {
   onBeforeEnter(): void;
   onEnter(el: Element): void;
   onBeforeLeave(el: Element): void;
-  onLeave(el: Element): void;
+  onLeave(el: Element, fin: () => void): void;
   onAfterLeave(el?: Element): void;
 }
 
@@ -29,7 +29,7 @@ const ALLONGE_MAX = 1.5;
 const glissements = new WeakMap<Element, Animation>();
 
 type Bloc = () => HTMLElement | null | undefined;
-type Depart = readonly [el: HTMLElement, largeur: number, max: string];
+type Depart = readonly [el: HTMLElement, largeur: number, conteneur: number, max: string];
 const blocs = new Set<Bloc>();
 const accompagnements = new WeakMap<HTMLElement, Animation>();
 let departs: Depart[] | null = null;
@@ -40,37 +40,38 @@ export function accompagnerVolets(bloc: Bloc): void {
   if (getCurrentScope()) onScopeDispose(() => blocs.delete(bloc));
 }
 
-// Largeur des blocs accompagnés au moment du geste, avant le rendu ; oubliée après lui si aucun volet n'a glissé.
+// Largeur des blocs accompagnés, de leur conteneur et règle en vigueur au moment du geste, avant le rendu ; oubliées après lui si aucun volet n'a glissé.
 function releverDeparts(): void {
+  departs = null;
   if (!blocs.size || mouvementReduit()) return;
-  departs = [...blocs].flatMap((b) => {
+  const releves = [...blocs].flatMap((b) => {
     const el = b();
-    return affiche(el) ? [[el, el.getBoundingClientRect().width, el.style.maxWidth] as const] : [];
+    if (!affiche(el)) return [];
+    const parent = el.parentElement;
+    const s = parent && getComputedStyle(parent);
+    const conteneur =
+      parent && s ? parent.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) : 0;
+    return [[el, el.getBoundingClientRect().width, conteneur, el.style.maxWidth] as const];
   });
-  void nextTick(() => (departs = null));
+  departs = releves;
+  setTimeout(() => departs === releves && (departs = null), 0);
 }
 
-/** Blocs dont la largeur maximale a changé avec le geste : elle glisse de la largeur d'avant à celle d'après, lue volet presque arrivé, sur la durée et la courbe du volet. */
-function accompagner(volet: Animation, suivis: readonly Depart[], duration: number, easing: string): void {
-  const changes = suivis.filter(([el, , max]) => el.isConnected && el.style.maxWidth !== max);
-  if (!changes.length) return;
-  for (const [el] of changes) accompagnements.get(el)?.cancel();
-  const t = volet.currentTime;
-  volet.currentTime = duration - 0.01;
-  const fins = changes.map(([el]) => el.getBoundingClientRect().width);
-  volet.currentTime = t;
-  changes.forEach(([el, depart], i) =>
-    accompagnements.set(
-      el,
-      el.animate([{ maxWidth: `${depart}px` }, { maxWidth: `${fins[i]}px` }], { duration, easing }),
-    ),
-  );
+/** Blocs dont la règle de largeur maximale a changé avec le geste : elle glisse de leur largeur d'avant à la règle d'après, sur la durée et la courbe du volet. Règle en part du conteneur : le départ est cette part plus l'écart en pixels, qui seul s'efface — la largeur avance droit et suit le conteneur, autres volets compris. */
+function accompagner(suivis: readonly Depart[], duration: number, easing: string): void {
+  for (const [el, largeur, conteneur, max] of suivis) {
+    const fin = el.style.maxWidth;
+    if (!el.isConnected || !fin || fin === max) continue;
+    accompagnements.get(el)?.cancel();
+    const ecart = largeur - (fin.endsWith("%") ? (parseFloat(fin) / 100) * conteneur : 0);
+    const debut = fin.endsWith("%") ? `calc(${fin} + ${Math.round(ecart * 100) / 100}px)` : `${largeur}px`;
+    accompagnements.set(el, el.animate([{ maxWidth: debut }, { maxWidth: fin }], { duration, easing }));
+  }
 }
 
 function finirGlissement(el: Element): void {
   glissements.get(el)?.cancel();
   glissements.delete(el);
-  el.classList.remove("volet-anime");
   if (el instanceof HTMLElement) el.style.removeProperty("--volet-duree");
 }
 
@@ -92,16 +93,15 @@ function dureeGlissement(el: HTMLElement, distance: number, entree: boolean): nu
   return duree;
 }
 
-/** Panneau racine de la transition (MCP, Génération, éditeur) : sa largeur glisse de 0 à sa valeur ou l'inverse, plus longtemps s'il est large ; la colonne du chat suit, son contenu garde sa largeur finale. */
-function glisserLargeur(el: Element, entree: boolean): void {
-  if (!glisse(el)) return;
+/** Panneau racine de la transition (MCP, Génération, éditeur) : sa largeur glisse de 0 à sa valeur ou l'inverse, plus longtemps s'il est large ; la colonne du chat suit, son contenu garde sa largeur finale (`--volet-largeur`). */
+function glisserLargeur(el: Element, entree: boolean): Animation | null {
+  if (!glisse(el)) return null;
   const enCours = glissements.has(el);
   const actuelle = el.getBoundingClientRect().width;
   finirGlissement(el);
   const finale = el.getBoundingClientRect().width;
-  if (!(finale > 0)) return;
+  if (!(finale > 0)) return null;
   el.style.setProperty("--volet-largeur", `${finale}px`);
-  el.classList.add("volet-anime");
   const depart = entree ? (enCours ? actuelle : 0) : actuelle;
   const arrivee = entree ? finale : 0;
   const duration = dureeGlissement(el, Math.abs(arrivee - depart), entree);
@@ -115,10 +115,17 @@ function glisserLargeur(el: Element, entree: boolean): void {
   );
   glissements.set(el, a);
   const suivis = departs;
-  if (suivis?.length)
-    void nextTick(() => glissements.get(el) === a && accompagner(a, suivis, duration, easing));
+  if (suivis?.length) void nextTick(() => glissements.get(el) === a && accompagner(suivis, duration, easing));
   // Entrée finie : le panneau reprend sa mise en page ; la sortie est retirée par `onAfterLeave`.
   if (entree) a.addEventListener("finish", () => glissements.get(el) === a && finirGlissement(el));
+  return a;
+}
+
+// Durée de la transition CSS posée sur un élément, délai compris (ms).
+function dureeTransition(el: Element): number {
+  const s = getComputedStyle(el);
+  const ms = (v: string): number => Math.max(0, ...v.split(",").map((x) => parseFloat(x) * 1000 || 0));
+  return ms(s.transitionDuration) + ms(s.transitionDelay);
 }
 
 // Élément affiché (style seul, sans mise en page) ; vrai là où l'API manque.
@@ -180,8 +187,11 @@ export function useVolet(
         rendre = false;
       }
     },
-    onLeave(el) {
-      glisserLargeur(el, false);
+    onLeave(el, fin) {
+      // La sortie finit avec la largeur (un fondu repris en cours de route finirait avant elle) ; sans glissement, avec la transition de la racine.
+      const a = glisserLargeur(el, false);
+      if (a) void a.finished.then(fin, () => undefined);
+      else setTimeout(fin, dureeTransition(el));
     },
     onAfterLeave(el) {
       if (el) finirGlissement(el);

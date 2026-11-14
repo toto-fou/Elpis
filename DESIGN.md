@@ -182,9 +182,13 @@ De facto scale, to follow so a new layer finds its place:
   to `--volet-duree` on the panel, so its content's transition lasts as long.
   A block whose maximum width changes with a panel (the thread column and the
   composer when the editor opens) registers with `accompagnerVolets`: its
-  maximum width glides from its width before to its width after, on the
-  panel's duration and curve, instead of changing at once and reversing the
-  block's direction for one frame.
+  maximum width glides from its width before to the rule after, on the panel's
+  duration and curve, instead of changing at once and reversing the block's
+  direction for one frame; a rule in percent keeps following its container, so
+  another panel moving at the same time causes no jump at the end. The panel's
+  content is held at its final width by the transition classes
+  (`.elpis-slide-panel:is(.volet-enter-active, .volet-leave-active)`), and a
+  panel's exit ends with its width animation, not with its fade.
 - Menus and small floating surfaces open and close through `<TransitionMenu>`
   (`popover` down from the anchor's top edge, `popover-up` up from its bottom
   edge, corner with `.menu-ancre-gauche` / `.menu-ancre-droite`): opacity, a

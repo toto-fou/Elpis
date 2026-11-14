@@ -35,6 +35,9 @@ try {
         return t ? t.parentElement.innerText : '';
     });
     v.ok('résultats : la conversation cherchée, et elle seule', blocResultats.includes(voyage.titre) && !blocResultats.includes(recettes.titre) && !blocResultats.includes(notes.titre), blocResultats);
+    // Les titres déjà connus s'affichent dès la première touche : la requête, différée, part après la pause de frappe.
+    for (let i = 0; i < 50 && requetes.length === 0; i++) await page.waitForTimeout(100);
+    await page.waitForTimeout(600);
     v.ok('une seule requête pour la frappe (requête différée)', requetes.length === 1, requetes.join(' | '));
     v.ok('la requête porte la saisie complète', requetes.some((u) => decodeURIComponent(u).includes('q=Itali')), requetes.join(' | '));
     await resultats.first().click();

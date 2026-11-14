@@ -4,8 +4,8 @@
 import { demarrerCoreReel, lancerNavigateur, contexteConnecte, attendreMontage, verifications, Client } from '../lib/core-reel.mjs';
 
 const EN_STREAM = 'button[title="Arrêter la génération"]';
-// 2 000 jetons relus du cache sur 5 631 : (2600 − 2000) / 3631 = 17 %, (4200 − 2000) / 3631 = 61 %, cache 36 %.
-const ETAPES = [[2600, 600], [4200, 900], [5500, 900]].map(([processed, attenteMs]) => ({ total: 5631, cache: 2000, processed, time_ms: processed, attenteMs }));
+// 2 000 jetons relus du cache sur 5 631 : (2600 − 2000) / 3631 = 17 %, (4200 − 2000) / 3631 = 61 %, cache 36 %. Dernière mesure redite : le premier jeton la suit sans délai, elle doit rester lisible.
+const ETAPES = [[2600, 600], [4200, 900], [5500, 900], [5500, 500]].map(([processed, attenteMs]) => ({ total: 5631, cache: 2000, processed, time_ms: processed, attenteMs }));
 const texteApp = () => (document.getElementById('app') || {}).textContent || '';
 const v = verifications('prefill-reel');
 const core = await demarrerCoreReel({ tokParS: 40, outilsEnProcessus: true });
@@ -24,7 +24,7 @@ try {
     await page.waitForTimeout(800);
     core.llm.scripter(
         { progression: ETAPES, raisonnement: 'Je cherche dans l\'historique.', appels: [{ nom: 'session_search', args: { query: 'contexte' } }] },
-        { progression: [{ total: 6000, cache: 2000, processed: 2600, time_ms: 100, attenteMs: 900 }], contenu: 'Analyse terminée, REPONSE-PREFILL.' },
+        { progression: [900, 500].map((attenteMs) => ({ total: 6000, cache: 2000, processed: 2600, time_ms: 100, attenteMs })), contenu: 'Analyse terminée, REPONSE-PREFILL.' },
     );
     await page.locator('textarea[placeholder]').last().fill('Analyse ce long contexte');
     await page.locator('button:has(i.ph-paper-plane-right)').last().click();

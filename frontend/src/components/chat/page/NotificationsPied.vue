@@ -2,6 +2,7 @@
 <!-- frontend/src/components/chat/page/NotificationsPied.vue — cloche du pied du volet et son panneau : notifications groupées par date, lu et non lu, suppression, pagination. -->
 <script setup lang="ts">
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const b = domaine(CLE_BARRE);
 </script>
@@ -36,12 +37,12 @@ const b = domaine(CLE_BARRE);
                        panneau hors de l'écran à gauche. Le panneau reste un
                        enfant DOM du wrapper → la fermeture au clic externe
                        (notifDropdownRef.contains) continue de fonctionner. -->
-    <Transition name="popover">
+    <TransitionMenu haut>
       <!-- elpis-notif-pop : marqueur « surface claire de l'app » —
                        les remaps rail de style.css ne doivent pas déteindre ici. -->
       <div
         v-if="b.showNotifPanel"
-        class="elpis-notif-pop fixed bottom-16 left-3 w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
+        class="menu-ancre-gauche elpis-notif-pop fixed bottom-16 left-3 w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
       >
         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <span class="text-sm font-semibold text-slate-800">Notifications</span>
@@ -159,6 +160,6 @@ const b = domaine(CLE_BARRE);
           </button>
         </div>
       </div>
-    </Transition>
+    </TransitionMenu>
   </div>
 </template>

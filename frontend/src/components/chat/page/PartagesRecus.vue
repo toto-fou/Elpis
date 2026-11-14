@@ -2,15 +2,16 @@
 <!-- frontend/src/components/chat/page/PartagesRecus.vue — volet « Partages reçus » ouvert depuis le « + » du composeur : prompts reçus, sélection, suppression. -->
 <script setup lang="ts">
 import { CLE_COMPOSEUR, domaine } from "../../../features/chat/page/domaines";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const comp = domaine(CLE_COMPOSEUR);
 </script>
 
 <template>
-  <Transition name="popover-up">
+  <TransitionMenu haut>
     <div
       v-if="comp.showSharedPrompts"
-      class="absolute bottom-full left-0 mb-3 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-64 overflow-hidden flex flex-col"
+      class="menu-ancre-gauche absolute bottom-full left-0 mb-3 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-64 overflow-hidden flex flex-col"
     >
       <div
         class="p-2.5 border-b border-slate-100 font-bold text-slate-700 bg-slate-50 flex justify-between items-center z-10 shrink-0 text-xs"
@@ -111,5 +112,5 @@ const comp = domaine(CLE_COMPOSEUR);
         </div>
       </div>
     </div>
-  </Transition>
+  </TransitionMenu>
 </template>

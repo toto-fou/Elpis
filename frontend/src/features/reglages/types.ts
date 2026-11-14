@@ -5,6 +5,7 @@ import type * as Vue from "vue";
 import type { Ref } from "vue";
 
 import type { HttpLegacy } from "../../platform/http/legacy";
+import type { ChoixMouvement } from "../../platform/mouvement";
 
 export type VueReglages = Pick<typeof Vue, "computed" | "nextTick" | "ref" | "watch">;
 export type FetchAuth = HttpLegacy["fetchAuth"];
@@ -76,6 +77,7 @@ export interface ReglagesApp {
   thinking_display?: "collapsed" | "expanded" | "hidden";
   footer_metrics?: "full" | "essential" | "hidden";
   thread_density?: "comfortable" | "compact";
+  ui_motion?: ChoixMouvement;
   voice_input_enabled?: boolean;
   voice_reply_enabled?: boolean;
   voice_reply_tools_enabled?: boolean;
@@ -145,7 +147,13 @@ export interface CtxReglages {
   showToast(
     message: string,
     type?: string,
-    options?: { duration?: number; actionLabel?: string; onAction?: () => void },
+    options?: {
+      duration?: number;
+      actionLabel?: string;
+      onAction?: () => void;
+      onExpire?: () => void;
+      cle?: string;
+    },
   ): void;
   fetchAuth: FetchAuth;
   openConfirm(
@@ -167,7 +175,6 @@ export interface CtxReglages {
   autoResize?(): unknown;
   openTemplate?(template: unknown): unknown;
   stopSpeaking?(): unknown;
-  addCodeCopyButtons?(complet: boolean, racine: HTMLElement): unknown;
 }
 
 /** Résultat d'une persistance ciblée : succès ou non, avec rejouer en cas d'échec. */

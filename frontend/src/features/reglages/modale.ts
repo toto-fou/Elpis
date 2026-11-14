@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, estObjet, lireSchema, objet } from "../../utils/lecture-json";
 import { normaliserServeursMcp } from "./mcp";
+import { clesDifferentes } from "./persistance";
 import type { Persistance } from "./persistance";
 import { ANCIENS_ONGLETS, entreeRail } from "./rail";
 import type { CtxReglages, ReglagesApp, RefsReglages, VueReglages } from "./types";
@@ -19,7 +20,6 @@ export interface DependancesModale {
   loadSharedMcpServers(): Promise<void>;
   reinitialiserEpingles(): void;
   loadSavedPrompts(): Promise<void>;
-  loadSharedPrompts(): Promise<void>;
   loadPromptTemplates(): Promise<void>;
   loadArchives(): Promise<void>;
   loadLlmConnectors(): Promise<void>;
@@ -34,6 +34,7 @@ export interface DependancesModale {
   startNewTemplate(): void;
   stopSandboxPolling(): void;
   reinitialisations: readonly (() => void)[];
+  /** États qui ne s'enregistrent pas seuls : la fermeture demande de confirmer leur abandon. */
   etatsSales: readonly { readonly value: boolean }[];
 }
 
@@ -109,59 +110,78 @@ export function creerModale(
     return d;
   }
 
-  async function loadSettingsData(): Promise<void> {
+  // Compte dont le document est en mémoire : après un changement de compte, la fenêtre attend le sien.
+  let compteDocument: string | null = null;
+
+  /** Relit le document ; une clé changée depuis `base` (saisie pendant la lecture) garde sa valeur affichée. Rend le document reçu, ou null. */
+  async function loadSettingsData(
+    base = JSON.stringify(settings.value),
+    modeles = true,
+  ): Promise<string | null> {
     void dep.loadAppSkins();
+    const compte = user.value?.username ?? null;
     try {
       const res = await fetchAuth("/api/settings", {}, true);
-      if (res?.ok) {
-        const brut = objet(await corpsJson(res));
-        dep.reinitialiserEpingles();
-        settings.value = completerDefauts(brut as ReglagesApp);
-        if (settings.value.enable_model_selector) await ctx.loadAvailableModels?.();
-        if (!window.__ADMIN_ONLY_MODE__) void dep.loadSharedMcpServers();
+      if (!res?.ok) return null;
+      const recu = completerDefauts(objet(await corpsJson(res)) as ReglagesApp);
+      compteDocument = compte;
+      const instantane = JSON.stringify(recu);
+      const affiche = settings.value as Record<string, unknown>;
+      for (const k of clesDifferentes(objet(JSON.parse(base)), affiche)) {
+        if (affiche[k] === undefined) delete recu[k];
+        else recu[k] = affiche[k];
       }
+      if (JSON.stringify(recu) !== JSON.stringify(affiche)) {
+        dep.reinitialiserEpingles();
+        settings.value = recu;
+      }
+      // Sélecteur affiché ou non : le premier envoi a besoin du modèle et de ses réglages (ensuite : événements système et sondage).
+      if (modeles) void ctx.loadAvailableModels?.();
+      if (!window.__ADMIN_ONLY_MODE__) void dep.loadSharedMcpServers();
+      return instantane;
     } catch {
-      /* réglages inchangés */
+      return null;
     }
   }
 
-  /** Une table littérale alignée sur les boutons de la barre latérale : chaque onglet relit ses données. */
-  function chargeursOnglet(): Record<string, () => unknown> {
-    return {
-      ai_models: () => dep.loadLlmConnectors(),
-      usage: () => dep.loadUsageData(),
-      memory: () => dep.loadUserMemory(),
-      prompts: () => Promise.all([dep.loadSavedPrompts(), dep.loadPromptTemplates()]),
-      archives: () => dep.loadArchives(),
-      sandbox: () => dep.loadSandboxState(),
-      connectors: () => dep.loadGitConnectors(),
-      secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
-      skills: () => ctx.openSkillsTab?.(),
-    };
+  const chargeursOnglet: Record<string, () => unknown> = {
+    ai_models: () => dep.loadLlmConnectors(),
+    usage: () => dep.loadUsageData(),
+    memory: () => dep.loadUserMemory(),
+    prompts: () => Promise.all([dep.loadSavedPrompts(), dep.loadPromptTemplates()]),
+    archives: () => dep.loadArchives(),
+    sandbox: () => dep.loadSandboxState(),
+    connectors: () => dep.loadGitConnectors(),
+    secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
+    skills: () => ctx.openSkillsTab?.(),
+  };
+
+  /** Relit les données d'un onglet (ouverture, choix dans le rail) ; un échec le laisse avec ses données précédentes. */
+  async function chargerOnglet(id: string): Promise<void> {
+    try {
+      await chargeursOnglet[id]?.();
+    } catch {
+      /* onglet ouvert avec ses données précédentes */
+    }
   }
 
+  /** Montre la fenêtre aussitôt avec le document en mémoire ; document, modèles et onglet se relisent en parallèle, l'instantané suit le document reçu. */
   async function openSettings(): Promise<void> {
-    await loadSettingsData();
-    persistance.snapshot.value = JSON.stringify(settings.value);
+    if (showSettingsModal.value) return chargerOnglet(settingsTab.value);
+    if (compteDocument !== (user.value?.username ?? null)) await loadSettingsData();
+    const base = JSON.stringify(settings.value);
+    persistance.snapshot.value = base;
     dep.cancelMemoryEdit();
     void dep.loadSavedPrompts();
-    void dep.loadSharedPrompts();
     void dep.loadArchives();
-    const rouvert = chargeursOnglet()[settingsTab.value];
-    if (rouvert) {
-      try {
-        await rouvert();
-      } catch {
-        /* au mieux */
-      }
-    }
     showSettingsModal.value = true;
-    try {
-      await nextTick();
-      settingsDialogEl.value?.focus();
-    } catch {
-      /* focus indisponible */
-    }
+    void nextTick(() => settingsDialogEl.value?.focus());
+    if (settings.value.enable_model_selector) void ctx.loadAvailableModels?.();
+    void chargerOnglet(settingsTab.value);
+    const recu = await loadSettingsData(base, false);
+    if (recu === null || !showSettingsModal.value) return;
+    persistance.snapshot.value = recu;
+    if (persistance.settingsDirty.value) void persistance.viderEnAttente();
   }
 
   /** Ouvre sur un onglet précis ; « onglet:vue » cible une section (« appearance:mascotte ») ou une sous-vue (« prompts:templates »). */
@@ -172,29 +192,21 @@ export function creerModale(
       if (!showSettingsModal.value) await ctx.openAgentsPage?.();
       return;
     }
-    await openSettings();
-    if (!tab) return;
+    if (!tab) return openSettings();
     const [brut = tab, sousBrut = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];
     const ancien = ANCIENS_ONGLETS[brut];
     const cible = ancien?.onglet ?? brut;
     const sous = sousBrut || ancien?.section || "";
     settingsTab.value = cible;
     if (sous && entreeRail(cible)?.sections?.some((x) => x.id === sous)) settingsSections.value[cible] = sous;
-    const charger = chargeursOnglet()[cible];
-    if (charger) {
-      try {
-        await charger();
-      } catch {
-        /* onglet ouvert quand même */
-      }
-    }
+    const ouverture = openSettings();
     if (cible === "prompts" && sous === "templates") dep.startNewTemplate();
+    await ouverture;
   }
 
-  /** Seul `true` strict signifie « ne pas recharger » (un événement DOM, truthy, ne le signifie pas). */
+  /** Ferme aussitôt, l'écriture en attente part derrière puis le document est relu ; seul `true` strict saute confirmation et relecture. */
   async function closeSettings(sauterRecharge?: unknown): Promise<void> {
     const saute = sauterRecharge === true;
-    await persistance.viderEnAttente();
     if (!saute && dep.etatsSales.some((e) => e.value)) {
       const ok = await openConfirm(
         "Abandonner les modifications ?",
@@ -215,13 +227,7 @@ export function creerModale(
     } catch {
       /* au mieux */
     }
-    if (!saute) {
-      try {
-        void loadSettingsData();
-      } catch {
-        /* au mieux */
-      }
-    }
+    void persistance.viderEnAttente().then(() => (saute ? null : loadSettingsData()));
   }
 
   async function changeMyPassword(): Promise<void> {
@@ -304,6 +310,7 @@ export function creerModale(
     loadSettingsData,
     openSettings,
     openSettingsTab,
+    chargerOnglet,
     closeSettings,
     changeMyPassword,
     uploadAvatar,

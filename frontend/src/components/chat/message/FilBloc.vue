@@ -18,6 +18,7 @@ import LigneJob from "../outils/LigneJob.vue";
 import LignesAgents from "../outils/LignesAgents.vue";
 import EffetMemoire from "./EffetMemoire.vue";
 import LigneReflexion from "./LigneReflexion.vue";
+import TexteFlux from "../TexteFlux.vue";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const {
@@ -173,6 +174,7 @@ const etapeDetail = (liste: readonly EtapeNumerotee[]): EtapeNumerotee | null =>
         <LigneReflexion
           v-else-if="a.reflexion"
           :texte="a.reflexion.texte"
+          :flux="a.reflexion.cle === 'r:fin' ? entry.msg._flux?.reflexion : null"
           :ms="a.reflexion.ms"
           :vivante="a.reflexion.vivante"
           :ouvert="reflexionOuverte(a.reflexion.cle)"
@@ -181,11 +183,13 @@ const etapeDetail = (liste: readonly EtapeNumerotee[]): EtapeNumerotee | null =>
           @basculer="basculerReflexion(a.reflexion.cle)"
           @repondre="fil.respondNow(entry.idx)"
         />
-        <pre
+        <TexteFlux
           v-if="a.texte && a.reflexion && reflexionOuverte(a.reflexion.cle)"
           class="ml-6 pl-2.5 border-l-2 border-slate-200 text-[11.5px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto m-0 bg-transparent"
           data-pensee
-          >{{ a.reflexion.texte }}</pre>
+          :texte="a.reflexion.texte"
+          :flux="a.reflexion.cle === 'r:fin' ? entry.msg._flux?.reflexion : null"
+        />
 
         <template v-for="b in a.actions" :key="b.cle">
           <div v-if="b.k === 'etapes'" class="flex flex-col gap-1" :data-etapes="b.cle">

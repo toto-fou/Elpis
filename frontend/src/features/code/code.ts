@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/code/code.ts — page « Code » : sessions opencode remontées et pilotables (transcript live par SSE, composer, /model, /session, agents, permissions, questions, appairage, jetons). */
-import { computed, markRaw, nextTick, ref, watch } from "vue";
+import { computed, markRaw, nextTick, ref, toRaw, watch } from "vue";
 import type { Ref } from "vue";
 
 import type { HttpLegacy } from "../../platform/http/legacy";
@@ -102,6 +102,11 @@ const COMMANDES_APP: CommandeCode[] = [
 ];
 
 const SSE_MAX = 30000;
+// Ouverture d'un transcript : derniers messages à la première image, puis un paquet par image vers le haut (comme le fil du chat).
+const PREMIERE_IMAGE = 8;
+const PAS_OUVERTURE = 6;
+// Une réflexion dépliée suit le texte si on la lisait à ce nombre de pixels du bas (comme le fil du chat).
+const BAS_REFLEXION = 4;
 const JSON_ENTETES = { "Content-Type": "application/json" };
 
 const dict = (v: unknown): Dict => (v && typeof v === "object" && !Array.isArray(v) ? (v as Dict) : {});
@@ -119,6 +124,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   const codeAvailable = ref(true);
   const codeConnected = ref(false);
   const codeLoading = ref(false);
+  const codeChargementSession = ref(false);
   const codeSessions = ref<SessionCode[]>([]);
   const codeActiveId = ref("");
   const codeMessages = ref<MessageOpencode[]>([]);
@@ -166,6 +172,15 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   let sseDejaOuvert = false;
   // On ne colle au bas que si l'utilisateur y est déjà (à 120 px près) : il peut relire plus haut pendant le flux.
   let collerAuBas = true;
+  // Premier message monté pendant une ouverture (0 : tout le transcript) ; un retrait pendant l'ouverture ne vide pas la fenêtre.
+  const debutOuverture = ref(0);
+  let imageOuverture: number | null = null;
+  const codeDebutRendu = computed(() =>
+    Math.min(debutOuverture.value, Math.max(0, codeMessages.value.length - PREMIERE_IMAGE)),
+  );
+  const codeMessagesRendus = computed(() =>
+    codeDebutRendu.value > 0 ? codeMessages.value.slice(codeDebutRendu.value) : codeMessages.value,
+  );
 
   const activeSession = computed(() => codeSessions.value.find((s) => s.id === codeActiveId.value) || null);
 
@@ -492,6 +507,26 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     return `il y a ${Math.floor(s / 86400)} j`;
   }
 
+  function arreterOuverture(): void {
+    if (imageOuverture !== null) cancelAnimationFrame(imageOuverture);
+    imageOuverture = null;
+    debutOuverture.value = 0;
+  }
+  function etendreOuverture(): void {
+    debutOuverture.value = Math.max(0, codeDebutRendu.value - PAS_OUVERTURE);
+    imageOuverture = debutOuverture.value > 0 ? requestAnimationFrame(etendreOuverture) : null;
+    defilerBas();
+  }
+  function ouvrirProgressivement(): void {
+    arreterOuverture();
+    const debut = codeMessages.value.length - PREMIERE_IMAGE;
+    if (debut <= 0) return;
+    debutOuverture.value = debut;
+    imageOuverture = requestAnimationFrame(() => {
+      imageOuverture = requestAnimationFrame(etendreOuverture);
+    });
+  }
+
   function defilerBas(force?: boolean): void {
     if (!force && !collerAuBas) return;
     void nextTick(() => {
@@ -549,15 +584,24 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   function brute(p: unknown): PartOpencode {
     return (p && typeof p === "object" ? markRaw(p as PartOpencode) : p) as PartOpencode;
   }
+  /** Relecture : un message identique à sa dernière lecture garde son objet, sa ligne n'est pas re-rendue. */
+  const signatures = new WeakMap<object, string>();
   function mapMessages(raw: unknown): MessageOpencode[] {
+    const avant = new Map(codeMessages.value.map((m) => [m.id, toRaw(m)]));
     return liste<Dict>(raw).map((m) => {
+      const signature = JSON.stringify(m);
       const info = dict(m["info"]);
-      return {
-        id: (info["id"] as string) || "",
+      const id = (info["id"] as string) || "";
+      const ancien = avant.get(id);
+      if (ancien && signatures.get(ancien) === signature) return ancien;
+      const neuf: MessageOpencode = {
+        id,
         role: (info["role"] as string) || "assistant",
         parts: liste(m["parts"]).map(brute),
         info,
       };
+      signatures.set(neuf, signature);
+      return neuf;
     });
   }
 
@@ -595,8 +639,13 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
       if (ks.length !== Object.keys(cur).length || ks.some((k) => cur[k] !== b[k])) codeBusy.value = b;
     }
   }
-  async function loadMessages(sid: string): Promise<void> {
-    codeMessages.value = mapMessages(await api.messages(sid));
+  /** `ouvrir` : transcript monté par la fin, dans la même image que son arrivée. */
+  async function loadMessages(sid: string, ouvrir = false): Promise<void> {
+    const d = await api.messages(sid);
+    // Un échec de relecture garde le transcript affiché.
+    if (d === null || sid !== codeActiveId.value) return;
+    codeMessages.value = mapMessages(d);
+    if (ouvrir) ouvrirProgressivement();
     defilerBas();
   }
   async function loadCommands(): Promise<void> {
@@ -622,36 +671,32 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     }
   }
 
+  /** Retour sur la page : la session ouverte et son transcript restent ; listes relues en parallèle, la session à l'ouverture du flux. */
   async function openCodePage(): Promise<void> {
     currentView.value = "code";
-    codeActiveId.value = "";
-    codeMessages.value = [];
     codeModelOpen.value = false;
     codeSessionOpen.value = false;
-    codePerms.value = [];
-    codeQuestions.value = [];
     codeRenamingId.value = "";
     codeLoading.value = true;
-    await loadHealth();
+    const sid = codeActiveId.value;
+    await Promise.all([
+      loadHealth(),
+      loadConfig(),
+      loadSessions(),
+      loadCommands(),
+      loadModels(),
+      loadAgents(),
+      loadClients(),
+    ]);
     // L'utilisateur a pu quitter la page pendant les await : armer le flux ici le laisserait orphelin.
     if (currentView.value !== "code") {
       codeLoading.value = false;
       return;
     }
+    if (sid && sid === codeActiveId.value && !codeSessions.value.some((s) => s.id === sid)) backToList();
     if (codeAvailable.value) {
-      await Promise.all([
-        loadConfig(),
-        loadSessions(),
-        loadCommands(),
-        loadModels(),
-        loadAgents(),
-        loadClients(),
-      ]);
-      if (currentView.value !== "code") {
-        codeLoading.value = false;
-        return;
-      }
-      sseDejaOuvert = false;
+      // Session gardée : relue une fois le flux ouvert, rien de ce que la CLI émet entre-temps n'est perdu.
+      sseDejaOuvert = !!codeActiveId.value;
       connectStream();
       codeShowConnect.value = !codeSessions.value.length && !codeConnected.value;
       if (!minuterieSante) {
@@ -692,13 +737,14 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   }
 
   function backToList(): void {
+    arreterOuverture();
+    codeChargementSession.value = false;
     codeActiveId.value = "";
     codeMessages.value = [];
     codeModelOpen.value = false;
     codeSessionOpen.value = false;
     codePerms.value = [];
     codeQuestions.value = [];
-    rendu.resetCodeUi();
     void loadSessions();
   }
   function closeCodePage(): void {
@@ -710,18 +756,25 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     disconnectStream();
   }
   async function selectSession(sid: string): Promise<void> {
+    arreterOuverture();
     codeActiveId.value = sid;
+    codeMessages.value = [];
     codeModelOpen.value = false;
     codeSessionOpen.value = false;
     codePerms.value = [];
     codeQuestions.value = [];
-    rendu.resetCodeUi();
     collerAuBas = true;
-    await Promise.all([loadMessages(sid), loadPermissions(sid), loadQuestions(sid)]);
+    codeChargementSession.value = true;
+    try {
+      await Promise.all([loadMessages(sid, true), loadPermissions(sid), loadQuestions(sid)]);
+    } finally {
+      if (sid === codeActiveId.value) codeChargementSession.value = false;
+    }
   }
   async function dismissSession(sid: string): Promise<void> {
     if ((await api.supprimer(sid)) !== null) {
       if (codeActiveId.value === sid) {
+        arreterOuverture();
         codeActiveId.value = "";
         codeMessages.value = [];
       }
@@ -1037,16 +1090,17 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     else {
       m.role = String(info["role"] || m.role);
       m.info = info;
-      m._rev = (m._rev || 0) + 1;
     }
   }
-  function synchroReflexion(): void {
+  /** Réflexions dépliées lues jusqu'au bas avant une rafale : seules celles-là sont recollées en bas après. */
+  function reflexionsEnBas(): Element[] {
+    const pres = transcriptEl.value?.querySelectorAll("details[data-code-think][open] pre") ?? [];
+    return [...pres].filter((p) => p.scrollHeight - p.scrollTop - p.clientHeight <= BAS_REFLEXION);
+  }
+  function synchroReflexion(pres: Element[]): void {
+    if (!pres.length) return;
     requestAnimationFrame(() => {
-      const el = transcriptEl.value;
-      if (!el) return;
-      el.querySelectorAll("details[data-code-think][open] pre").forEach((p) => {
-        p.scrollTop = p.scrollHeight;
-      });
+      for (const p of pres) p.scrollTop = p.scrollHeight;
     });
   }
   function appliquerPart(part: PartOpencode | undefined): boolean {
@@ -1065,8 +1119,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     const i = m.parts.findIndex((p) => p.id === part.id);
     if (i === -1) m.parts.push(brute(part));
     else m.parts.splice(i, 1, brute(part));
-    // Le compteur de révision invalide le v-memo de cette ligne ; les autres ne re-diffent plus à chaque delta.
-    m._rev = (m._rev || 0) + 1;
     return true;
   }
   let tamponParts: Array<PartOpencode | undefined> = [];
@@ -1078,16 +1130,11 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     for (const part of tamponParts) if (part && part.id) derniere.set(part.id, part);
     const buf = tamponParts.filter((part) => !(part && part.id) || derniere.get(part.id) === part);
     tamponParts = [];
+    const enBas = buf.some((part) => part?.type === "reasoning") ? reflexionsEnBas() : [];
     let applique = false;
-    let reflexion = false;
-    for (const part of buf) {
-      if (appliquerPart(part)) {
-        applique = true;
-        if (part?.type === "reasoning") reflexion = true;
-      }
-    }
+    for (const part of buf) if (appliquerPart(part)) applique = true;
     if (!applique) return;
-    if (reflexion) synchroReflexion();
+    synchroReflexion(enBas);
     defilerBas();
   }
   function empilerPart(part: PartOpencode | undefined): void {
@@ -1244,9 +1291,13 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     }
   }
   function resynchroniser(): void {
+    const sid = codeActiveId.value;
     void loadHealth();
     void loadSessions();
-    if (codeActiveId.value) void loadMessages(codeActiveId.value);
+    if (!sid) return;
+    void loadMessages(sid);
+    void loadPermissions(sid);
+    void loadQuestions(sid);
   }
   function planifierReconnexion(): void {
     if (minuterieSse) return;
@@ -1276,6 +1327,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
   /** Purge de déconnexion : coupe le flux et vide tout l'état sensible (sessions, transcript, jeton) pour l'utilisateur suivant. */
   function codeResetOnLogout(): void {
     disconnectStream();
+    arreterOuverture();
     codeSessions.value = [];
     codeMessages.value = [];
     codeActiveId.value = "";
@@ -1300,9 +1352,12 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeAvailable,
     codeConnected,
     codeLoading,
+    codeChargementSession,
     codeSessions,
     codeActiveId,
     codeMessages,
+    codeMessagesRendus,
+    codeDebutRendu,
     codeBusy,
     codeBusyActive,
     codeLiveIdx,
@@ -1322,7 +1377,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeInputRef,
     activeSession,
     codeRemoteCmd,
-    codeModels,
     codeModelsDefault,
     codeModelOpen,
     codeModelIdx,
@@ -1332,21 +1386,15 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeCanDrive,
     codeAgo,
     codeCtx,
-    codeClients,
     codeIdleClients,
-    codeAgents,
-    codeAgentDefault,
-    codeAgentSel,
     codeAgentCur,
     codeAgentShow,
     codeAgentLabel,
-    codeSelectAgent: selectAgent,
     codeAgentDesc,
     codeCycleAgent: cycleAgent,
     codePluginVersion,
     codePerms,
     codeQuestions,
-    codeQPick,
     codeQText,
     codeSessionGroups,
     codeSessionPickList,
@@ -1364,7 +1412,6 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeSetModelIdx: (i: number): void => {
       codeModelIdx.value = i;
     },
-    codeOpenSessionPicker: openSessionPicker,
     codePickSession: pickSession,
     codeSetSessionIdx: (i: number): void => {
       codeSessionIdx.value = i;
@@ -1392,9 +1439,7 @@ export function creerCode(refs: RefsCode, ctx: CtxCode) {
     codeRotateToken: rotateToken,
     codeCreateToken: createToken,
     codeCopy: copyText,
-    codeActiveClient,
     codeNewSession: sendNewSession,
-    codeExit: sendExit,
     codePairCode,
     codePairBusy,
     codeSubmitPairCode: submitPairCode,

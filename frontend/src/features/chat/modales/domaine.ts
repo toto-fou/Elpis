@@ -95,7 +95,6 @@ export interface RacineDivers {
   readonly helpDoc: string;
   readonly isLoadingReadme: boolean;
   readonly readmeContent: string;
-  helpBodyRef: unknown;
   switchHelpDoc(doc: string): unknown;
   imgZoom: string | null;
   showAxModal: boolean;
@@ -241,7 +240,6 @@ const CLES_CHAT: Readonly<Record<Exclude<keyof DomaineModalesChat, keyof Domaine
   helpDoc: true,
   isLoadingReadme: true,
   readmeContent: true,
-  helpBodyRef: true,
   switchHelpDoc: true,
   imgZoom: true,
   showAxModal: true,

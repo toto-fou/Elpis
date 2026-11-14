@@ -4,6 +4,7 @@ import type * as Vue from "vue";
 import type { ComputedRef, Ref } from "vue";
 
 import type { JobsSlash } from "../jobs/jobs.ts";
+import { listeServeur } from "./liste-serveur.ts";
 import type { ResultatCommande, TemplatesChat } from "./templates.ts";
 
 export interface EnvSlash {
@@ -138,8 +139,7 @@ export interface Commande {
   args: string[];
 }
 
-export type VueSlash = Pick<typeof Vue, "ref" | "computed" | "nextTick"> &
-  Partial<Pick<typeof Vue, "onScopeDispose">>;
+export type VueSlash = Pick<typeof Vue, "ref" | "computed" | "nextTick">;
 
 export interface MenuSlash {
   showSlash: ComputedRef<boolean>;
@@ -148,6 +148,11 @@ export interface MenuSlash {
   slashIdx: Ref<number>;
   slashRaw: Ref<ContexteSaisie | null>;
   pinnedSkills: Ref<Skill[]>;
+  /** Skills et prompts du compte, partagés avec le « + » (`null` avant la première lecture). */
+  catalogueSkills: Ref<Skill[] | null>;
+  cataloguePrompts: Ref<PromptSlash[] | null>;
+  /** Lit skills, prompts et gabarits s'ils ont plus de 30 s, ou toujours avec `relire` (ouverture du « + »). */
+  prechargerCatalogue(relire?: boolean): void;
   selectSlash(item: Rangee | null | undefined): Promise<void>;
   selectValue(v: ValeurArgument | null | undefined): Promise<void>;
   selectSkill(skill: Skill | null | undefined): void;
@@ -169,8 +174,6 @@ export interface MenuSlash {
   /** Commande écrite dans l'en-tête : `/rag use` quand le menu liste les valeurs d'une sous-commande. */
   slashHeaderCmd: ComputedRef<string>;
 }
-
-const CACHE_MS = 30000;
 
 /** Onglets réels de la modale Paramètres (identifiants attendus par settingsTab). */
 export const SETTINGS_TABS: readonly ValeurArgument[] = [
@@ -219,7 +222,6 @@ function paquets<T>(src: readonly T[], q: string, texte: (x: T) => string): T[] 
 /** Même contrat que l'ancien `setupChatSlash(vue, refs, ctx)` de chat/_slash.js. */
 export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): MenuSlash {
   const { ref, computed, nextTick } = vue;
-  const onScopeDispose = vue.onScopeDispose ?? ((_fn: () => void): void => undefined);
   const { inputRef, inputMessage, showMentionDropdown } = refs;
   const templates = refs.templates || null;
   const { fetchAuth, showToast } = ctx;
@@ -233,30 +235,6 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   const slashSub = ref<"skills" | "prompts" | null>(null);
   const pinnedSkills = ref<Skill[]>([]);
 
-  const skills = ref<Skill[]>([]);
-  const prompts = ref<PromptSlash[]>([]);
-  let skillsAt = 0;
-  let promptsAt = 0;
-
-  const fenetre = globalThis as {
-    addEventListener?: (type: string, f: () => void) => void;
-    removeEventListener?: (type: string, f: () => void) => void;
-  };
-  const surSkills = (): void => {
-    skillsAt = 0;
-    skills.value = [];
-  };
-  const surPrompts = (): void => {
-    promptsAt = 0;
-    prompts.value = [];
-  };
-  fenetre.addEventListener?.("skills:changed", surSkills);
-  fenetre.addEventListener?.("prompts:changed", surPrompts);
-  onScopeDispose(() => {
-    fenetre.removeEventListener?.("skills:changed", surSkills);
-    fenetre.removeEventListener?.("prompts:changed", surPrompts);
-  });
-
   async function lireJson(url: string): Promise<Record<string, unknown> | null> {
     const res = await fetchAuth(url, {}, true);
     if (!res || !res.ok) return null;
@@ -264,54 +242,34 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     return objet(corps) ? corps : null;
   }
 
-  async function chargerSkills(): Promise<void> {
-    if (Date.now() - skillsAt < CACHE_MS && skills.value.length) return;
-    try {
-      const data = await lireJson("/api/skills");
-      if (data) {
-        skills.value = Array.isArray(data.skills) ? (data.skills as Skill[]) : [];
-        skillsAt = Date.now();
-      }
-    } catch {
-      /* la commande ne marchera juste pas */
-    }
-  }
+  // Une seule liste de skills et de prompts pour le menu « / » et le « + ».
+  const skills = listeServeur<Skill>("skills:changed", async () => {
+    const data = await lireJson("/api/skills");
+    return data ? (Array.isArray(data.skills) ? (data.skills as Skill[]) : []) : null;
+  });
+  // Prompts personnels et reçus en partage : deux routes lues ensemble, une liste.
+  const prompts = listeServeur<PromptSlash>("prompts:changed", async () => {
+    const lus = await Promise.all(
+      ["/api/prompts", "/api/prompts/shared"].map((u) => lireJson(u).catch(() => null)),
+    );
+    if (lus.every((d) => d === null)) return null;
+    return lus.flatMap((data, partage) =>
+      (data && Array.isArray(data.items) ? data.items : [])
+        .filter((p): p is Record<string, unknown> => objet(p) && !!p.content)
+        .map((p) => ({
+          id: partage ? "s" + String(p.id) : (p.id as string),
+          title: String(p.title || ""),
+          content: String(p.content),
+          shared: !!partage,
+          ...(partage ? { from: String(p.from_username || "") } : {}),
+        })),
+    );
+  });
 
-  // Prompts personnels et reçus en partage : deux routes, une liste.
-  async function chargerPrompts(): Promise<void> {
-    if (Date.now() - promptsAt < CACHE_MS && prompts.value.length) return;
-    const out: PromptSlash[] = [];
-    const lire = async (url: string, partage: boolean): Promise<void> => {
-      try {
-        const data = await lireJson(url);
-        const items = data && Array.isArray(data.items) ? data.items : [];
-        for (const p of items) {
-          if (!objet(p) || !p.content) continue;
-          out.push(
-            partage
-              ? {
-                  id: "s" + String(p.id),
-                  title: String(p.title || ""),
-                  content: String(p.content),
-                  shared: true,
-                  from: String(p.from_username || ""),
-                }
-              : {
-                  id: p.id as string,
-                  title: String(p.title || ""),
-                  content: String(p.content),
-                  shared: false,
-                },
-          );
-        }
-      } catch {
-        /* silencieux */
-      }
-    };
-    await lire("/api/prompts", false);
-    await lire("/api/prompts/shared", true);
-    prompts.value = out;
-    promptsAt = Date.now();
+  function prechargerCatalogue(relire?: boolean): void {
+    void skills.charger(relire);
+    void prompts.charger(relire);
+    void templates?.loadTemplates(relire);
   }
 
   const SLASH_CORE: readonly CommandeSlash[] = [
@@ -352,7 +310,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
           name: "nom",
           label: "nom",
           get values(): ValeurArgument[] {
-            const liste = templates ? templates.templatesAll.value : [];
+            const liste = templates?.templatesAll.value ?? [];
             return liste
               .map((t): ValeurArgument => ({ value: t.name, label: t.title || t.name }))
               .concat([{ value: "+", label: "Nouveau gabarit", last: true }]);
@@ -677,9 +635,10 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   );
   const slashSkillList = computed(() => {
     const q = requete.value.trim();
+    const tous = skills.items.value ?? [];
     const liste = !q
-      ? skills.value
-      : skills.value.filter((s) =>
+      ? tous
+      : tous.filter((s) =>
           [s.name, s.description, s.domain, (s.tags || []).join(" ")].join(" ").toLowerCase().includes(q),
         );
     return liste
@@ -691,8 +650,8 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   });
   const slashPromptList = computed(() => {
     const q = requete.value.trim();
-    if (!q) return prompts.value.slice();
-    return prompts.value.filter((p) => (p.title + " " + p.content).toLowerCase().includes(q));
+    const tous = prompts.items.value ?? [];
+    return q ? tous.filter((p) => (p.title + " " + p.content).toLowerCase().includes(q)) : tous;
   });
   interface PositionArgument {
     cmd: CommandeSlash;
@@ -833,8 +792,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (cmd.mode) {
       remplacer(slashRaw.value, "/");
       slashSub.value = cmd.mode;
-      if (cmd.mode === "skills") await chargerSkills();
-      if (cmd.mode === "prompts") await chargerPrompts();
+      void (cmd.mode === "skills" ? skills : prompts).charger();
       void nextTick(rafraichir);
       return;
     }
@@ -949,8 +907,8 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     const c = slashRaw.value;
     if (c === null) return;
     const niveau = slashLevel.value;
-    if (niveau === "skills" || slashSub.value === "skills") void chargerSkills();
-    if (niveau === "prompts" || slashSub.value === "prompts") void chargerPrompts();
+    if (niveau === "skills" || slashSub.value === "skills") void skills.charger();
+    if (niveau === "prompts" || slashSub.value === "prompts") void prompts.charger();
     if (c.head && "jobs".startsWith(String(c.name || "").toLowerCase()) && String(c.name || "").length >= 2)
       ctx.jobs?.actualiser();
     if (c.head && c.name.toLowerCase() === "rag") ctx.rag?.actualiser();
@@ -1042,6 +1000,9 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     slashIdx,
     slashRaw,
     pinnedSkills,
+    catalogueSkills: skills.items,
+    cataloguePrompts: prompts.items,
+    prechargerCatalogue,
     selectSlash,
     selectValue,
     selectSkill,

@@ -24,21 +24,7 @@ function choisir(id: string): void {
   rg.settingsTab = id;
   const section = sectionTrouvee(id, requete.value);
   if (section) rg.settingsSections[id] = section;
-  const charger: Record<string, (() => unknown) | undefined> = {
-    ai_models: () => rg.loadLlmConnectors(),
-    usage: () => rg.loadUsageData(),
-    secrets: () => Promise.all([rg.loadSecrets(), rg.loadConnexions()]),
-    memory: () => rg.loadUserMemory(),
-    prompts: () => {
-      void rg.loadSavedPrompts();
-      void rg.loadPromptTemplates();
-    },
-    skills: () => rg.openSkillsTab(),
-    archives: () => rg.loadArchives && rg.loadArchives(),
-    sandbox: () => rg.loadSandboxState(),
-    connectors: () => rg.loadGitConnectors(),
-  };
-  void charger[id]?.();
+  void rg.chargerOnglet(id);
 }
 
 function choisirDepuisListe(ev: Event): void {

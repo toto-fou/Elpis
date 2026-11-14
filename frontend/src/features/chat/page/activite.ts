@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/page/activite.ts — retour à une ligne du fil : étape `shell_job` d'une tâche de fond, défilement jusqu'à la ligne avec un bref surlignage. */
+import { mouvementReduit } from "../../../platform/mouvement";
 import type { MessageChat } from "../coeur/types";
 
 const messagesChat = (m: readonly unknown[]): readonly MessageChat[] => m as readonly MessageChat[];
@@ -27,7 +28,7 @@ export function allerALEtape(callId: string | null | undefined): boolean {
     [...document.querySelectorAll<HTMLElement>(sel)].find((l) => !l.closest("[hidden]")) ?? null;
   const el = visible(`[data-etape="${id}"]`) ?? visible(`[data-etapes~="${id}"]`);
   if (!el) return false;
-  const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const reduit = mouvementReduit();
   el.scrollIntoView({ block: "center", behavior: reduit ? "auto" : "smooth" });
   if (!reduit && typeof el.animate === "function") {
     el.animate([{ boxShadow: "0 0 0 3px var(--accent-ring)" }, { boxShadow: "0 0 0 0 transparent" }], {

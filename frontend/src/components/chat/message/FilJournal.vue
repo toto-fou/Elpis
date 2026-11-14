@@ -9,6 +9,7 @@ import type { EtapeOutil } from "../../../features/chat/outils/types";
 import { libelleEtape } from "../../../features/chat/outils/verbes";
 
 import ContenuMarkdown from "../ContenuMarkdown.vue";
+import TexteFlux from "../TexteFlux.vue";
 import CarteOutil from "../outils/CarteOutil.vue";
 import LigneJob from "../outils/LigneJob.vue";
 import LignesAgents from "../outils/LignesAgents.vue";
@@ -74,10 +75,12 @@ function puce(s: EtapeOutil): string {
           >
             Répondre maintenant
           </button>
-          <pre
+          <TexteFlux
             v-if="reflexionOuverte(b.cle)"
             class="mt-0.5 text-[11.5px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto m-0 bg-transparent"
-            >{{ b.texte }}</pre>
+            :texte="b.texte"
+            :flux="b.cle === 'r:fin' ? entry.msg._flux?.reflexion : null"
+          />
         </div>
       </div>
 

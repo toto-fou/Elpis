@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/historique/recherche.ts — recherche dans la conversation (surlignage différé) et dans l'historique des chats (requête différée, seule la dernière s'applique). */
+/** frontend/src/features/chat/historique/recherche.ts — recherche dans la conversation (surlignage différé) et dans l'historique des chats (titres du volet filtrés aussitôt, requête différée qui les complète, seule la dernière s'applique). */
 import type * as Vue from "vue";
 import type { Ref } from "vue";
 
@@ -41,6 +41,31 @@ function lireResultats(corps: unknown): ResultatRecherche[] {
   return Array.isArray(items)
     ? items.filter((x): x is ResultatRecherche => !!x && typeof x === "object")
     : [];
+}
+
+type LigneTrouvee = { readonly id?: unknown; readonly title?: unknown };
+
+/** Titre qui contient la saisie, casse ignorée (la recherche du serveur porte sur les titres). */
+export function titreCorrespond(titre: unknown, saisie: string): boolean {
+  const q = saisie.trim().toLocaleLowerCase();
+  const t = String(titre ?? "").toLocaleLowerCase();
+  return !!q && t.includes(q);
+}
+
+/** Résultats affichés : titres du volet d'abord, dans leur ordre, puis ceux que le serveur ajoute à la suite. */
+export function fusionnerResultats<C extends LigneTrouvee, S extends LigneTrouvee>(
+  saisie: string,
+  connus: readonly C[],
+  serveur: readonly S[],
+): (C | S)[] {
+  const out: (C | S)[] = connus.filter((c) => titreCorrespond(c.title, saisie));
+  const vus = new Set(out.map((c) => String(c.id)));
+  for (const r of serveur) {
+    if (vus.has(String(r.id))) continue;
+    vus.add(String(r.id));
+    out.push(r);
+  }
+  return out;
 }
 
 /** Même contrat que l'ancien `setupChatSearch(vue, refs, { fetchAuth })` de chat/_search.js. */
@@ -106,7 +131,7 @@ export function creerRechercheChat(
         if (seq === sequence) chatSearchResults.value = lireResultats(corps);
       }
     } catch {
-      /* recherche non fatale : la liste reste vide */
+      /* recherche non fatale : les résultats affichés restent */
     } finally {
       if (seq === sequence) isSearchingChats.value = false;
     }
@@ -115,16 +140,20 @@ export function creerRechercheChat(
   watch(chatSearch, (val) => {
     if (minuteurRecherche) clearTimeout(minuteurRecherche);
     minuteurRecherche = null;
+    // Chaque frappe périme la requête en vol : sa réponse n'écrit plus rien.
+    const seq = ++sequence;
     if (!val || !String(val).trim()) {
-      sequence++;
       chatSearchResults.value = [];
       isSearchingChats.value = false;
       return;
     }
+    // Réponse précédente gardée pour ce qui correspond encore : rien ne clignote entre deux frappes.
+    const gardes = chatSearchResults.value.filter((r) => titreCorrespond(r.title, String(val)));
+    if (gardes.length !== chatSearchResults.value.length) chatSearchResults.value = gardes;
     isSearchingChats.value = true;
     minuteurRecherche = setTimeout(() => {
       minuteurRecherche = null;
-      void chercher(String(val), ++sequence);
+      void chercher(String(val), seq);
     }, DELAI_RECHERCHE_MS);
   });
 

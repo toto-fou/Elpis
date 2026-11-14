@@ -145,17 +145,12 @@ export interface CartesMemoire {
     msg: { toolSteps?: readonly EtapeEffet[] | null } | null,
     msgIdx?: number | null,
   ): LigneMemoire[];
-  memorySavesFor(
-    msg: { toolSteps?: readonly EtapeEffet[] | null } | null,
-    msgIdx?: number | null,
-  ): LigneMemoire[];
   toolStepsForDisplay<T extends EtapeEffet>(steps: readonly T[] | null | undefined): T[];
   effectIsOpen(line: LigneEffet | null | undefined): boolean;
   effectDetail(line: LigneEffet | null | undefined): DetailEffet | null;
   toggleEffect(line: LigneMemoire | null | undefined): void;
   undoMemoryEffect(line: LigneEffet | null | undefined): Promise<void>;
   manageMemory(): void;
-  effectUiRev: Ref<number>;
 }
 
 const enregistrement = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object";
@@ -170,19 +165,13 @@ async function corps(r: Response): Promise<unknown> {
 
 /** Même contrat que l'ancien `setupChatMemoryCard(vue, refs, ctx)` de chat/_memory_card.js. */
 export function creerCartesMemoire(
-  vue: Pick<typeof Vue, "ref" | "reactive"> | null,
+  vue: Pick<typeof Vue, "reactive"> | null,
   refs: RefsEffets | null,
   ctx: CtxEffets | null,
 ): CartesMemoire {
-  const ref = vue?.ref ?? (<T>(v: T) => ({ value: v }) as Ref<T>);
   const reactive = vue?.reactive ?? (<T extends object>(o: T) => o);
-  const effectUiRev = ref(0);
   const ouverts = reactive<Record<string, boolean>>({});
   const details = reactive<Record<string, DetailEffet>>({});
-  // Les lignes sont mémoïsées par la liste : un compteur dit qu'un détail ou une ouverture a changé.
-  const signaler = (): void => {
-    effectUiRev.value++;
-  };
   const lire = (u: string, o?: Record<string, unknown>): Promise<Response | null> =>
     ctx && typeof ctx.fetchAuth === "function"
       ? ctx.fetchAuth(u, o || {}, true)
@@ -220,7 +209,6 @@ export function creerCartesMemoire(
 
   async function chargerDetail(op: string): Promise<void> {
     details[op] = { state: "loading", data: null, error: "" };
-    signaler();
     try {
       const r = await lire("/api/memory/ops/" + encodeURIComponent(op));
       if (!r) details[op] = { state: "error", data: null, error: "Détail indisponible (réseau)" };
@@ -232,7 +220,6 @@ export function creerCartesMemoire(
     } catch {
       details[op] = { state: "error", data: null, error: "Détail indisponible (réseau)" };
     }
-    signaler();
   }
 
   function toggleEffect(line: LigneMemoire | null | undefined): void {
@@ -240,7 +227,6 @@ export function creerCartesMemoire(
     ouverts[line.key] = !ouverts[line.key];
     const d = line.op ? details[line.op] : null;
     if (ouverts[line.key] && line.op && (!d || d.state === "error")) void chargerDetail(line.op);
-    signaler();
   }
 
   async function undoMemoryEffect(line: LigneEffet | null | undefined): Promise<void> {
@@ -249,7 +235,6 @@ export function creerCartesMemoire(
     const cur: DetailEffet = details[op] || { state: "ok", data: null, error: "" };
     if (cur.undoing) return;
     details[op] = { ...cur, undoing: true, error: "" };
-    signaler();
     try {
       const r = await lire("/api/memory/ops/" + encodeURIComponent(op) + "/undo", {
         method: "POST",
@@ -282,7 +267,6 @@ export function creerCartesMemoire(
     } catch {
       details[op] = { ...cur, undoing: false, error: "Annulation impossible (réseau)" };
     }
-    signaler();
   }
 
   function manageMemory(): void {
@@ -291,13 +275,11 @@ export function creerCartesMemoire(
 
   return {
     effectLinesFor: lignes,
-    memorySavesFor: lignes,
     toolStepsForDisplay,
     effectIsOpen,
     effectDetail,
     toggleEffect,
     undoMemoryEffect,
     manageMemory,
-    effectUiRev,
   };
 }

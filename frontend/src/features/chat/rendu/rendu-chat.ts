@@ -6,11 +6,11 @@ import type { Ref } from "vue";
 import { parsePath } from "../../../utils/utils-purs.ts";
 import { exporterConversation } from "../export.ts";
 import type { FormatExport, MessageExporte } from "../export.ts";
+import { planifierBalayage } from "./coloration.ts";
 import {
   balayerGraphiques,
   clicMarkdown,
   configurerEnrichissement,
-  enrichirBlocs,
   viderGraphiques,
 } from "./enrichissement.ts";
 import type { MoteurMarkdown } from "./markdown.ts";
@@ -36,8 +36,8 @@ export function creerRenduChat(
   refs: RefsRenduChat,
   ctx: CtxRenduChat | null,
 ) {
-  const { ref, nextTick } = vue;
-  const { messages, currentChatId, user, settings, inputRef, chatContainer, currentChatTitle } = refs;
+  const { ref } = vue;
+  const { messages, currentChatId, user, settings, inputRef, currentChatTitle } = refs;
   const lire = ctx?.fetchAuth;
   configurerEnrichissement({
     fetch: async (url) => {
@@ -53,6 +53,13 @@ export function creerRenduChat(
       ...(ctx && typeof ctx.openInEditor === "function" ? { ouvrirDansEditeur: ctx.openInEditor } : {}),
       analyserChemin: parsePath,
     });
+  }
+
+  // Les vues qui posent ce HTML elles-mêmes (modales, routines, skills, éditeur) n'ont pas de composant pour planifier la coloration.
+  function renderMarkdown(texte: string | null | undefined): string {
+    const html = moteur.renderMarkdown(texte);
+    planifierBalayage();
+    return html;
   }
 
   let imageTaille = 0;
@@ -81,27 +88,10 @@ export function creerRenduChat(
     });
   }
 
-  // Portée explicite (aide des réglages) ou conteneur du chat ; les corps possédés par un composant sont sautés.
-  function addCodeCopyButtons(processAll?: boolean, explicitScope?: Element | null): void {
-    void nextTick(() => {
-      let scope: Element | Document;
-      const c = chatContainer.value;
-      if (explicitScope) scope = explicitScope;
-      else if (processAll) scope = c || document;
-      else if (c) {
-        const nodes = c.querySelectorAll("[data-vs-idx]");
-        scope = nodes[nodes.length - 1] ?? c;
-      } else scope = document;
-      enrichirBlocs(scope, true);
-    });
-  }
-
   return {
-    renderMarkdown: moteur.renderMarkdown,
+    renderMarkdown,
     renderMarkdownHighlight: moteur.renderMarkdownHighlight,
-    scanStreamBlocks: moteur.scanStreamBlocks,
     renderStreamingActive: moteur.renderStreamingActive,
-    renderStreamBlock: moteur.renderStreamBlock,
     renderMarkdownLive: moteur.renderMarkdownLive,
     handleMarkdownClick,
     clearMarkdownCache: moteur.clearMarkdownCache,
@@ -110,6 +100,5 @@ export function creerRenduChat(
     autoResize,
     showExportFormatMenu,
     exportChatAs,
-    addCodeCopyButtons,
   };
 }

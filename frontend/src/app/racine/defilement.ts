@@ -3,6 +3,8 @@
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { battementEnCours } from "../../utils/battement";
+
 const LOIN_DU_BAS_PX = 240;
 // 1,5 s couvre le pire défilement programmé observé (révélation Monaco sur un gros fichier).
 const VERROU_MS = 1500;
@@ -26,13 +28,19 @@ export function creerDefilementChat(src: SourceDefilement) {
   function brancher(el: HTMLElement): () => void {
     dernierHaut = el.scrollTop;
     let colle = distance(el) <= 4;
+    let barreTenue = false;
     const surDefilement = (): void => {
       // Position toujours suivie, même verrouillée : le bouton « descendre » et le collage en bas en dépendent.
       const dist = distance(el);
       colle = dist <= 4;
       chatAwayFromBottom.value = dist > LOIN_DU_BAS_PX;
       if (Date.now() < verrouJusqua) {
+        // Barre de défilement tenue et tirée vers le haut : un geste, même pendant le verrou d'un flux.
+        if (barreTenue && el.scrollTop < dernierHaut && dist > 4 && assezHaut())
+          src.isUserScrolling.value = true;
         dernierHaut = el.scrollTop;
+        // Geste de l'utilisateur pendant le verrou : la fenêtre virtuelle suit la vue.
+        if (src.isUserScrolling.value) src.onChatScroll?.();
         return;
       }
       const remonte = el.scrollTop < dernierHaut;
@@ -55,19 +63,31 @@ export function creerDefilementChat(src: SourceDefilement) {
     const surTouche = (e: KeyboardEvent): void => {
       if (e.key === "PageUp" || e.key === "Home" || e.key === "ArrowUp") src.isUserScrolling.value = true;
     };
+    // Un appui dont la cible est le conteneur lui-même est un appui sur sa barre de défilement (ou sa marge).
+    const surAppui = (e: PointerEvent): void => {
+      barreTenue = e.target === el;
+      if (barreTenue) window.addEventListener("pointermove", surMouvement, { passive: true });
+    };
+    const surRelache = (): void => {
+      barreTenue = false;
+      window.removeEventListener("pointermove", surMouvement);
+    };
+    // Relâchement perdu (bouton lâché hors de la fenêtre) : un mouvement sans bouton enfoncé vaut relâchement.
+    const surMouvement = (e: PointerEvent): void => {
+      if (e.buttons === 0) surRelache();
+    };
     el.addEventListener("scroll", surDefilement, { passive: true });
     el.addEventListener("wheel", surMolette, { passive: true });
     el.addEventListener("touchstart", surToucher, { passive: true });
     el.addEventListener("touchmove", surGlisser, { passive: true });
     el.addEventListener("keydown", surTouche);
-    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image.
+    el.addEventListener("pointerdown", surAppui);
+    window.addEventListener("pointerup", surRelache);
+    window.addEventListener("pointercancel", surRelache);
+    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image (pendant le glissé du flux, c'est le battement qui écrit).
     const obs = new ResizeObserver(() => {
-      if (colle && !src.isUserScrolling.value && distance(el) > 4) {
-        const avant = el.style.scrollBehavior;
-        el.style.scrollBehavior = "auto";
-        el.scrollTop = el.scrollHeight;
-        el.style.scrollBehavior = avant;
-      }
+      if (battementEnCours()) return;
+      if (colle && !src.isUserScrolling.value && distance(el) > 4) el.scrollTop = el.scrollHeight;
       chatAwayFromBottom.value = distance(el) > LOIN_DU_BAS_PX;
     });
     obs.observe(el);
@@ -79,6 +99,10 @@ export function creerDefilementChat(src: SourceDefilement) {
       el.removeEventListener("touchstart", surToucher);
       el.removeEventListener("touchmove", surGlisser);
       el.removeEventListener("keydown", surTouche);
+      el.removeEventListener("pointerdown", surAppui);
+      window.removeEventListener("pointerup", surRelache);
+      window.removeEventListener("pointercancel", surRelache);
+      window.removeEventListener("pointermove", surMouvement);
       obs.disconnect();
     };
   }

@@ -5,13 +5,14 @@ import { useTemplateRef } from "vue";
 
 import { suivreLigneActive } from "../../../features/chat/composeur/ligne-active";
 import { CLE_COMPOSEUR, domaine } from "../../../features/chat/page/domaines";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const comp = domaine(CLE_COMPOSEUR);
 suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx, "li[data-slash-row]");
 </script>
 
 <template>
-  <transition name="fade">
+  <TransitionMenu haut>
     <div
       v-if="comp.showSlash"
       :data-slash-level="comp.slashLevel"
@@ -118,5 +119,5 @@ suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx
         </li>
       </ul>
     </div>
-  </transition>
+  </TransitionMenu>
 </template>

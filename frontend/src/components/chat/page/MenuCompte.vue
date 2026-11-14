@@ -6,6 +6,7 @@ import { computed, nextTick, ref, useTemplateRef } from "vue";
 import { libelleRole, positionCompte } from "../../../features/chat/page/compte";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { focusPremiere, naviguerMenu } from "../../../features/chat/page/menu-clavier";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const props = defineProps<{ compact?: boolean }>();
 const b = domaine(CLE_BARRE);
@@ -82,13 +83,13 @@ const ITEM =
     </button>
 
     <div v-if="ouvert" class="fixed inset-0 z-[90]" @click="fermer(false)"></div>
-    <Transition name="popover">
+    <TransitionMenu haut>
       <div
         v-if="ouvert"
         ref="menu"
         role="menu"
         aria-label="Compte"
-        class="elpis-notif-pop fixed w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] p-1.5 space-y-0.5"
+        class="menu-ancre-gauche elpis-notif-pop fixed w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] p-1.5 space-y-0.5"
         :style="position"
         @keydown="surTouche"
       >
@@ -117,6 +118,6 @@ const ITEM =
           <i class="ph ph-sign-out text-slate-500" aria-hidden="true"></i> Se déconnecter
         </button>
       </div>
-    </Transition>
+    </TransitionMenu>
   </div>
 </template>

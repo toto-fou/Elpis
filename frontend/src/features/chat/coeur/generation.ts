@@ -17,6 +17,8 @@ import type { DonneesFlux, MessageChat, Objet } from "./types.ts";
 
 const RETENTATIVES_MAX = 2;
 const RELECTURE_TITRE_MS = 5000;
+// Statut que le serveur envoie dès le début d'un tour : la bulle l'affiche sans attendre cet événement.
+const LIBELLE_ATTENTE = "Réflexion…";
 const REPRISE_CLEAR: Readonly<Objet> = Object.freeze({
   isTruncated: false,
   toolLoopTruncated: false,
@@ -320,6 +322,12 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
 
   // Ne jamais rejouer un tour dont des outils ont tourné, ni un tour image accepté par le serveur.
   function echecReseau(err: unknown, serveurMaitre: boolean, imageGen: Objet | null): void {
+    // Le texte reçu mais pas encore versé reste dans la bulle : réflexion et narration versées, corps ajouté.
+    l.stopThinkFlush();
+    l.stopPreContentFlush();
+    l.stopStreamFlush();
+    const reste = f.streamBuf;
+    f.streamBuf = "";
     const msgs = l.getStreamMsgs();
     const li = l.streamIdx(msgs);
     const assistant = li >= 0 && msgs[li]?.role === "assistant";
@@ -336,6 +344,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     }
     if (assistant)
       l.patch(li, {
+        ...(reste ? { content: (msgs[li]?.content || "") + reste } : null),
         isError: !serveurMaitre,
         errorMessage: serveurMaitre
           ? "Connexion interrompue — la génération se poursuit côté serveur. Cette conversation se rechargera automatiquement à la fin."
@@ -356,24 +365,50 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
 
   /** Remise à zéro des tampons et minuteries d'un nouveau tour affiché. */
   function preparerTour(continuation: boolean): void {
-    l.stopStreamFlush();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.streamBuf = "";
-    f.thinkBuf = "";
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, reflexion: true, narration: true });
     seedLiveCtx();
     if (!continuation) l.closeToolStreamsFor(r.currentChatId.value || f.streamingForChatId || null);
     e.isThinking.value = true;
     e.statusText.value = "";
+  }
+
+  /** Recolle le fil au bas : la suite du tour le suit tant que l'utilisateur ne remonte pas. */
+  function collerAuBas(): void {
     r.isUserScrolling.value = false;
     ctx._lockAutoScroll?.();
+    void nextTick(() => l.scrollToBottom(true));
+  }
+
+  /** Pose la bulle d'attente du nouveau tour à la suite du message envoyé ; rend son index. */
+  function poserBulle(runMsgs: MessageChat[]): number {
+    retirerReprisesPerimees(runMsgs, -1);
+    const req = l.imageGenFor(runMsgs);
+    return (
+      runMsgs.push({
+        ...bulleAssistant(),
+        ...(req
+          ? { _imageTurn: true, _imageProgress: l.imageInitialProgress(req) }
+          : { _statusLine: LIBELLE_ATTENTE }),
+      }) - 1
+    );
+  }
+
+  /** Erreur avant l'envoi de la requête : la bulle d'attente est close en erreur (jamais laissée en cours). */
+  function fermerBulleEnErreur(runMsgs: MessageChat[], idx: number, err: unknown): void {
+    const cur = runMsgs[idx];
+    if (!cur || cur.role !== "assistant" || !cur.isStreaming) return;
+    runMsgs[idx] = Object.assign(
+      {},
+      cur,
+      {
+        isError: true,
+        errorMessage: (err instanceof Error && err.message) || "Erreur réseau",
+        errorKind: "network",
+        _statusLine: "",
+        isStreaming: false,
+      },
+      STREAM_RENDER_CLEAR,
+    );
   }
 
   function charge(sMsgs: MessageChat[], continuation: boolean): { payload: Objet[]; prefill: string | null } {
@@ -482,12 +517,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         break;
       }
     }
-    f.streamBuf = "";
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, narration: true });
     f.streamToolPhase = false;
   }
 
@@ -495,14 +525,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
   function epilogue(run: RunLu, mien: number): void {
     if (mien !== f.activeGen) return;
     if (f.ctxLive) clearLiveCtx();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
+    l.abandonnerFlux({ reflexion: true, narration: true });
     f.pendingAskUser = null;
     // Run détaché suivi sur la conversation affichée : l'état « en cours » reste (bouton Arrêter offert).
     const suivi =
@@ -603,11 +626,17 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     const run: RunLu = { gen: mien, chatId: null, posted: false, detached: false };
     f.currentRun = run;
     f.pendingReattach = null;
+    let bulle = -1;
     try {
       const skills = l.pinnedSkillNames();
       l.clearPinnedSkills();
       const secrets = continuation ? null : l.secretsEnAttente();
       l.resetAskUser();
+      // La bulle et son indicateur d'attente arrivent dans le bloc synchrone du message envoyé : une seule image pour les deux.
+      if (!continuation) {
+        bulle = poserBulle(runMsgs);
+        collerAuBas();
+      }
       if (e.abortController.value) {
         try {
           e.abortController.value.abort();
@@ -634,6 +663,8 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
             { duration: 15000 },
           );
       }
+      // Arrêté pendant la création : l'arrêt a déjà clos la bulle, rien ne part.
+      if (!run.detached && f.currentRun !== run) return;
       run.chatId ||= String(r.currentChatId.value || "__pending_" + Date.now());
       if (!run.detached) f.streamingForChatId = run.chatId;
       if (e.followedRunChatId.value && String(e.followedRunChatId.value) === String(f.streamingForChatId))
@@ -641,16 +672,8 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       // Conversation quittée avant l'envoi : le tour part quand même, l'écran appartient à la suivante.
       const tot = run.detached;
       if (!tot) preparerTour(continuation);
-      if (!continuation) {
-        retirerReprisesPerimees(runMsgs, -1);
-        const req = l.imageGenFor(runMsgs);
-        runMsgs.push({
-          ...bulleAssistant(),
-          ...(req ? { _imageTurn: true, _imageProgress: l.imageInitialProgress(req) } : {}),
-        });
-      }
       if (!tot) {
-        void nextTick(() => l.scrollToBottom(true));
+        if (continuation) collerAuBas();
         f.toolsExecutedThisTurn = false;
         f.streamToolPhase = false;
         l.resetDeltaStatus();
@@ -671,12 +694,14 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
           if (r.user.value) void l.loadChatsList();
         }, RELECTURE_TITRE_MS);
     } catch (err) {
-      // Erreur précoce : le garde anti double envoi est relâché (sauf génération supplantée).
+      // Erreur précoce : le garde anti double envoi est relâché (sauf génération supplantée) et la bulle d'attente est close.
       if (mien === f.activeGen) {
         r.isStreaming.value = false;
         e.isThinking.value = false;
         if (f.ctxLive) clearLiveCtx();
       }
+      if (bulle >= 0 && !run.posted && (run.detached || f.currentRun === run))
+        fermerBulleEnErreur(runMsgs, bulle, err);
       throw err;
     }
   }
@@ -756,18 +781,19 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       return;
     }
     // Stop pendant les outils sans texte : même marqueur que le serveur (la bulle reste alignée sur la base).
+    const contenu = texte || (avecOutils && !reflexion ? "_(génération interrompue)_" : "");
     msgs[li] = Object.assign(
       {},
       cur,
       {
-        content: texte || (avecOutils && !reflexion ? "_(génération interrompue)_" : ""),
+        content: contenu,
         _pendingPreContent: "",
         _pendingToolThinking: "",
         isStreaming: false,
         isTruncated: !reflexion,
         _toolImageProgress: null,
       },
-      STREAM_RENDER_CLEAR,
+      l.figerCorps(cur, contenu),
       PRE_RENDER_CLEAR,
     );
   }
@@ -887,13 +913,16 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     l.stopPreContentFlush();
     l.stopStreamFlush();
     f.streamBuf = "";
+    // La réflexion encore dans le tampon du versement vient d'être versée : elle fait partie du préremplissage.
+    const actuel = msgs[assistantIdx] ?? cur;
+    const pensee = (actuel.thinking || "").trim() || partiel;
     msgs[assistantIdx] = Object.assign(
       {},
-      cur,
+      actuel,
       {
-        _respondNowPrefill: "<think>\n" + partiel + "\n</think>\n\n",
+        _respondNowPrefill: "<think>\n" + pensee + "\n</think>\n\n",
         content: "",
-        thinking: partiel,
+        thinking: pensee,
         thinkingOpen: false,
         isStreaming: true,
         isTruncated: false,

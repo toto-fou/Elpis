@@ -3,6 +3,8 @@
 import type * as Vue from "vue";
 import type { Ref } from "vue";
 
+import { listeServeur } from "./liste-serveur.ts";
+
 export interface VariableTemplate {
   name: string;
   type: string;
@@ -235,8 +237,7 @@ export const elpisTemplates = Object.freeze({
   SYSTEM_NAMES,
 });
 
-export type VueTemplates = Pick<typeof Vue, "ref" | "reactive" | "nextTick"> &
-  Partial<Pick<typeof Vue, "onScopeDispose">>;
+export type VueTemplates = Pick<typeof Vue, "reactive" | "nextTick">;
 
 export interface RefsTemplates {
   inputRef: Ref<HTMLTextAreaElement | null>;
@@ -267,7 +268,8 @@ export interface ResultatCommande {
 }
 
 export interface TemplatesChat {
-  templatesAll: Ref<Template[]>;
+  /** `null` avant la première lecture. */
+  templatesAll: Ref<Template[] | null>;
   loadTemplates(force?: boolean): Promise<Template[]>;
   openTemplate(tpl: Template | null | undefined): Promise<boolean>;
   runTemplateByName(name: string): Promise<ResultatCommande>;
@@ -278,7 +280,6 @@ export interface TemplatesChat {
   templateVarsLabel(tpl: Template | null | undefined): string;
 }
 
-const CACHE_MS = 30000;
 const VIDE = (): SaisieTemplate => ({
   open: false,
   template: null,
@@ -289,42 +290,25 @@ const VIDE = (): SaisieTemplate => ({
 });
 
 interface Fenetre {
-  addEventListener?: (type: string, f: () => void) => void;
-  removeEventListener?: (type: string, f: () => void) => void;
   document?: { querySelector(sel: string): { focus(): void } | null };
   navigator?: { clipboard?: { readText?: () => Promise<string> } };
 }
 
 /** Même contrat que l'ancien `setupChatTemplates(vue, refs, ctx)` de chat/_templates.js. */
 export function creerTemplates(vue: VueTemplates, refs: RefsTemplates, ctx: CtxTemplates): TemplatesChat {
-  const { ref, reactive, nextTick } = vue;
-  const onScopeDispose = vue.onScopeDispose ?? ((_fn: () => void): void => undefined);
+  const { reactive, nextTick } = vue;
   const { inputRef, inputMessage } = refs;
   const fenetre = globalThis as Fenetre;
-  const templatesAll = ref<Template[]>([]);
-  let cacheAt = 0;
-  const surTemplates = (): void => {
-    cacheAt = 0;
-    templatesAll.value = [];
-  };
-  fenetre.addEventListener?.("templates:changed", surTemplates);
-  onScopeDispose(() => fenetre.removeEventListener?.("templates:changed", surTemplates));
-
-  async function loadTemplates(force?: boolean): Promise<Template[]> {
-    if (!force && Date.now() - cacheAt < CACHE_MS && templatesAll.value.length) return templatesAll.value;
-    try {
+  const { items: templatesAll, charger: loadTemplates } = listeServeur<Template>(
+    "templates:changed",
+    async () => {
       const res = await ctx.fetchAuth("/api/prompt-templates", {}, true);
-      if (res && res.ok) {
-        const corps: unknown = await res.json();
-        const items = corps && typeof corps === "object" ? (corps as { items?: unknown }).items : null;
-        templatesAll.value = Array.isArray(items) ? (items as Template[]) : [];
-        cacheAt = Date.now();
-      }
-    } catch {
-      /* la liste reste vide */
-    }
-    return templatesAll.value;
-  }
+      if (!res || !res.ok) return null;
+      const corps: unknown = await res.json();
+      const items = corps && typeof corps === "object" ? (corps as { items?: unknown }).items : null;
+      return Array.isArray(items) ? (items as Template[]) : [];
+    },
+  );
 
   const templateFill = reactive<SaisieTemplate>(VIDE()) as SaisieTemplate;
 

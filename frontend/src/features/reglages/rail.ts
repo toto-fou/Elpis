@@ -34,13 +34,13 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         id: "appearance",
         libelle: "Apparence",
         icone: "ph-palette",
-        mots: "theme sombre clair couleur habillage skin mode",
+        mots: "theme sombre clair couleur habillage skin mode animations mouvement",
         sections: [
           {
             id: "theme",
             libelle: "Thème",
             icone: "ph-palette",
-            mots: "theme sombre clair systeme mode habillage skin palette couleurs",
+            mots: "theme sombre clair systeme mode habillage skin palette couleurs animations mouvement reduit",
             aide: "Mode et habillage de l'application.",
           },
           {

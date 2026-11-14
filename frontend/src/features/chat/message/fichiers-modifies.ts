@@ -310,9 +310,7 @@ export interface CtxFichiers {
 }
 
 export interface CarteFichiers {
-  diffCardState: Record<number, { files: Record<string, EtatFichier> }>;
   resetDiffCardState(): void;
-  diffCardRev: Ref<number>;
   diffFilesFor(msg: MessageFichiers | null | undefined, msgIdx: number): FichierModifie[];
   hasDiffFiles(msg: MessageFichiers | null | undefined): boolean;
   isDiffEditorEnabled(): boolean;
@@ -337,26 +335,23 @@ function telechargerLien(href: string, nom: string): void {
 
 /** Même contrat que l'ancien `setupChatDiffCard(vue, refs, ctx)` de chat/_diff_card.js. */
 export function creerCarteFichiers(
-  vue: Pick<typeof Vue, "ref" | "reactive">,
+  vue: Pick<typeof Vue, "reactive">,
   refs: { settings?: Ref<{ enable_editor?: boolean } | null> },
   ctx: CtxFichiers,
 ): CarteFichiers {
-  const { reactive, ref } = vue;
+  const { reactive } = vue;
   const { fetchAuth, showToast } = ctx;
   // État par message (index dans le chat, purgé au changement de chat).
   const diffCardState = reactive<Record<number, { files: Record<string, EtatFichier> }>>({});
-  const diffCardRev = ref(0);
-  const signaler = (): void => {
-    diffCardRev.value++;
-  };
 
   function resetDiffCardState(): void {
     for (const k of Object.keys(diffCardState)) delete diffCardState[Number(k)];
   }
 
+  // Toujours l'objet réactif, même tout juste créé : une écriture prévient la carte qui le lit.
   function etat(msgIdx: number, path: string): EtatFichier {
-    const ms = (diffCardState[msgIdx] ??= { files: {} });
-    return (ms.files[path] ??= { ...DEFAUTS });
+    const fichiers = (diffCardState[msgIdx] ??= { files: {} }).files;
+    return reactive((fichiers[path] ??= { ...DEFAUTS }));
   }
 
   // Versions de l'historique : immuables, donc mises en cache par empreinte.
@@ -420,13 +415,11 @@ export function creerCarteFichiers(
         fs.additions = f.added as number;
         fs.deletions = f.removed || 0;
         fs.computed = true;
-        signaler();
         return;
       }
       if (f.change === "moved") {
         fs.noStats = true;
         fs.computed = true;
-        signaler();
         return;
       }
       fs.loading = true;
@@ -445,7 +438,6 @@ export function creerCarteFichiers(
       } finally {
         fs.loading = false;
         fs.computed = true;
-        signaler();
       }
     });
   }
@@ -538,7 +530,6 @@ export function creerCarteFichiers(
     const fs = etat(msgIdx, file.path);
     if (fs.open) {
       fs.open = false;
-      signaler();
       return;
     }
     const editeur = isDiffEditorEnabled() && typeof ctx.showToolDiff === "function";
@@ -575,7 +566,6 @@ export function creerCarteFichiers(
     fs.lines = Object.freeze(d.lines);
     fs.truncated = d.truncated;
     fs.open = true;
-    signaler();
   }
 
   function downloadOneFile(path: string): void {
@@ -609,9 +599,7 @@ export function creerCarteFichiers(
   }
 
   return {
-    diffCardState,
     resetDiffCardState,
-    diffCardRev,
     diffFilesFor,
     hasDiffFiles,
     isDiffEditorEnabled,

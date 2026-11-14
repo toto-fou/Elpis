@@ -701,7 +701,7 @@ export function gestesChat() {
       await h.page.locator(".elpis-msg-assistant").last().hover();
     },
     faire: (h) => h.page.locator('.elpis-msg-assistant button[title="Copier la réponse"]').last().click(),
-    vis: () => [...document.querySelectorAll(".elpis-toast")].some((t) => /copi/i.test(t.textContent)),
+    vis: () => !!document.querySelector(".elpis-msg-assistant button[data-copier] i.ph-check"),
   });
   g({
     nom: "Message : éditer (ouvrir)",

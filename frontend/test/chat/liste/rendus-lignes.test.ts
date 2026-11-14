@@ -217,6 +217,27 @@ describe("fil des messages : rendus par ligne", () => {
     expect(rendus["ListeMessages"]).toBeUndefined();
   });
 
+  it("titre d'état de la réflexion : la liste ne se re-rend que quand la bulle de reconnexion paraît ou change", async () => {
+    const { hote, etat, rendus, remettre } = monterFil();
+    await attendre();
+    etat.isThinking = true;
+    etat.statusText = "Réflexion : le pipeline";
+    await nextTick();
+    remettre();
+    for (const titre of ["Réflexion : les étapes", "Réflexion : un exemple", "Génération…"]) {
+      etat.statusText = titre;
+      await nextTick();
+    }
+    expect(rendus).toEqual({});
+    etat.statusText = "Reconnexion au flux…";
+    await nextTick();
+    expect(hote.querySelector(":scope > [role='status']")?.textContent).toContain("Reconnexion au flux…");
+    etat.statusText = "Reconnexion au flux (2)…";
+    await nextTick();
+    expect(hote.querySelector(":scope > [role='status']")?.textContent).toContain("Reconnexion au flux (2)…");
+    expect(rendus["ListeMessages"]).toBe(2);
+  });
+
   it("bulle regroupée : un réveil qui arrive re-rend la ligne de tête qu'il continue, pas les autres", async () => {
     const reveil = { role: "user", origin: "job_wake", content: "réveil" } as MessageAffiche;
     const { messages, rendus, remettre } = monterFil();

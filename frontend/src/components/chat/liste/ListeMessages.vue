@@ -1,11 +1,19 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/liste/ListeMessages.vue — fil des messages : fenêtre virtuelle (cales haute et basse), une ligne par entrée stable (sautée tant que son entrée ne change pas, réveils regroupés compris), bulle de reconnexion, compaction en cours. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import { CLE_LISTE, domaine } from "../../../features/chat/page/domaines";
 import MessageChat from "../message/MessageChat.vue";
 
 const liste = domaine(CLE_LISTE);
 const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string] }>();
+// Texte de la bulle de reconnexion : les autres titres d'état (réflexion, génération) ne re-rendent pas la liste.
+const reconnexion = computed(() =>
+  liste.isThinking && !liste.compressionStatus && liste.statusText?.includes("econnex")
+    ? liste.statusText
+    : "",
+);
 </script>
 
 <template>
@@ -29,18 +37,9 @@ const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string]
     aria-hidden="true"
   ></div>
 
-  <div
-    v-if="
-      liste.isThinking && !liste.compressionStatus && liste.statusText && liste.statusText.includes('econnex')
-    "
-    role="status"
-    aria-live="polite"
-    class="flex items-center gap-2 opacity-70"
-  >
+  <div v-if="reconnexion" role="status" aria-live="polite" class="flex items-center gap-2 opacity-70">
     <i class="ph ph-spinner-gap animate-spin text-slate-400" style="font-size: 11px"></i>
-    <span class="text-[11px] text-slate-400 font-medium">{{
-      liste.statusText || "Génération en cours..."
-    }}</span>
+    <span class="text-[11px] text-slate-400 font-medium">{{ reconnexion }}</span>
   </div>
 
   <transition name="fade">

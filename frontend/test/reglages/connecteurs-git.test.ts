@@ -12,6 +12,7 @@ const CONNECTEUR = {
   owner_user_id: 1,
   provider_type: "github",
   host: "github.com",
+  path: "",
   api_base: "",
   label: "",
   username: "",
@@ -39,12 +40,13 @@ function monter(route: (u: string, o?: RequestInit) => Response) {
 }
 
 describe("setupGitConnecteurs", () => {
-  it("charge connecteurs et types ; l'aide-saisie remplit hôte, API et type détecté", async () => {
+  it("charge comptes et types ; l'aide-saisie remplit la portée (tout l'hôte, avec les niveaux du dépôt), l'API et le type détecté", async () => {
     const { G } = monter((u) =>
       u.endsWith("/parse")
         ? json({
             ok: true,
             host: "gitlab.lan",
+            path: "a/b",
             detected_provider_type: "gitlab",
             api_base: "https://gitlab.lan/api/v4",
             scheme: "https",
@@ -59,18 +61,56 @@ describe("setupGitConnecteurs", () => {
     await G.parseGitRepoUrl();
     expect(G.gitConnForm.value).toMatchObject({
       provider_type: "gitlab",
-      host: "gitlab.lan",
+      portee: "gitlab.lan",
+      niveaux: ["gitlab.lan", "gitlab.lan/a", "gitlab.lan/a/b"],
       api_base: "https://gitlab.lan/api/v4",
     });
+    // Un niveau choisi est gardé quand la même URL est relue ; une URL d'un autre hôte le remplace.
+    G.gitConnForm.value!.portee = "gitlab.lan/a";
+    await G.parseGitRepoUrl();
+    expect(G.gitConnForm.value!.portee).toBe("gitlab.lan/a");
+    G.gitConnForm.value!.portee = "ailleurs.lan/x";
+    await G.parseGitRepoUrl();
+    expect(G.gitConnForm.value!.portee).toBe("gitlab.lan");
+  });
+
+  it("portée : envoyée en hôte et chemin ; une URL collée dans le champ est lue ; une saisie illisible n'est pas envoyée ; l'édition part de la portée du compte", async () => {
+    const { G, vus, toasts } = monter(() => json({ ok: true, id: 9 }));
+    const envoye = (): Record<string, unknown> =>
+      JSON.parse(vus.filter((v) => v[1] === "POST" || v[1] === "PUT").at(-1)![2] as string) as Record<
+        string,
+        unknown
+      >;
+    G.newGitConnector();
+    Object.assign(G.gitConnForm.value!, { portee: " GitHub.com/Acme/API.git ", token: "t" });
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ host: "github.com", path: "acme/api" });
+    G.newGitConnector();
+    Object.assign(G.gitConnForm.value!, { portee: "https://u@Forge.lan:3000/Equipe/", token: "t" });
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ host: "forge.lan:3000", path: "equipe" });
+    G.newGitConnector();
+    Object.assign(G.gitConnForm.value!, { portee: "github.com/a b", token: "t" });
+    const avant = vus.length;
+    await G.saveGitConnector();
+    expect(vus.length).toBe(avant);
+    expect(toasts.at(-1)).toContain("Portée invalide");
+    G.editGitConnector({ ...CONNECTEUR, path: "acme" });
+    expect(G.gitConnForm.value!.portee).toBe("github.com/acme");
+    G.gitConnForm.value!.portee = "github.com";
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ host: "github.com", path: "" });
+    G.editGitConnector({ ...CONNECTEUR, path: null });
+    expect(G.gitConnForm.value!.portee).toBe("github.com");
   });
 
   it("formulaire : hôte et jeton requis à la création ; envoi sans jeton vide en édition", async () => {
     const { G, vus, toasts } = monter(() => json({ ok: true }));
     G.newGitConnector();
     await G.saveGitConnector();
-    G.gitConnForm.value!.host = "h";
+    G.gitConnForm.value!.portee = "h";
     await G.saveGitConnector();
-    expect(toasts).toEqual(["URL du dépôt (ou host) requise", "Token / mot de passe requis"]);
+    expect(toasts).toEqual(["URL du dépôt ou hôte requis", "Jeton ou mot de passe requis"]);
     G.editGitConnector(CONNECTEUR);
     await G.saveGitConnector();
     const put = vus.find((v) => v[1] === "PUT")!;
@@ -96,7 +136,7 @@ describe("setupGitConnecteurs", () => {
   it("refus serveur : détail affiché ; test : résultat par connecteur", async () => {
     const refus = monter(() => json({ detail: "Hôte interdit." }, 422));
     refus.G.newGitConnector();
-    Object.assign(refus.G.gitConnForm.value!, { host: "h", token: "t" });
+    Object.assign(refus.G.gitConnForm.value!, { portee: "h", token: "t" });
     await refus.G.saveGitConnector();
     expect(refus.toasts).toEqual(["Hôte interdit."]);
     expect(refus.G.gitConnBusy.value).toBe(false);

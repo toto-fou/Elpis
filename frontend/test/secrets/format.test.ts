@@ -120,6 +120,9 @@ describe("affichage", () => {
     expect(porteeTexte(secret(1, { kind: "git", scope: { host: "git.example.lan:3000" } }))).toEqual([
       "git.example.lan:3000",
     ]);
+    expect(
+      porteeTexte(secret(1, { kind: "git", scope: { host: "git.example.lan:3000", path: "acme/api" } })),
+    ).toEqual(["git.example.lan:3000/acme/api"]);
     expect(porteeTexte(secret(1, { kind: "llm", scope: { connector_id: 4 } }))).toEqual(["connector_id=4"]);
     expect(porteeTexte(secret(1, { kind: "mcp", scope: { server: "srv-1" } }))).toEqual(["server=srv-1"]);
     expect(porteeTexte(secret(1, { kind: "token", scope: {} }))).toEqual([]);

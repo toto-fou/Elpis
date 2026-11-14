@@ -1186,10 +1186,13 @@ credential is written to the sandbox.
 
 **Clone a repository.** The window lists the repositories of one of your Git accounts (*Mes dépôts*;
 pick the account when you have several) and takes any address. Under the address it says which
-account will be used, the most specific one that covers the repository, or that none applies. With
-no account, or when access is refused, type credentials in place: they authenticate this clone and,
-if it succeeds, are saved as a Git account for the place you choose (the host, the organization or
-the repository). The folder defaults to the repository name.
+account will be used, the most specific one that covers the repository (it says so when that
+account has no token), or that none applies. With no account, or when access is refused, type
+credentials in place: they are sent if the host asks for them and, when the clone then succeeds,
+saved as a Git account for the place you choose (the host, the organization or the repository;
+a place that already has an account says it replaces its token). The window tells you when they
+were not saved. Changing the host of the address, or closing the window, forgets what you typed.
+The folder defaults to the repository name.
 
 ### Snapshots
 

@@ -207,7 +207,7 @@ async function nomLibre(x: Executeur, l: LigneConnecteur, sauf?: string): Promis
   );
 }
 
-/** Refuse (`PorteePrise`) la portée qu'un autre compte git du propriétaire a déjà. */
+/** Refuse (`PorteePrise`) la portée qu'un autre compte git du propriétaire a déjà, casse du chemin ignorée (deux comptes de types différents ne couvrent jamais exactement le même endroit). */
 async function exigerPorteeLibre(
   x: Executeur,
   uid: number,
@@ -216,7 +216,7 @@ async function exigerPorteeLibre(
   sauf = 0,
 ): Promise<void> {
   const pris = await x.get<{ id: number }>(
-    "SELECT id FROM git_connectors WHERE owner_user_id=? AND host=? AND path=? AND id<>?",
+    "SELECT id FROM git_connectors WHERE owner_user_id=? AND host=? AND LOWER(path)=LOWER(?) AND id<>?",
     [uid, hote, chemin, sauf],
   );
   if (pris) throw new PorteePrise(hote, chemin);
@@ -227,6 +227,12 @@ async function secretDe(x: Executeur, l: LigneConnecteur): Promise<LigneSecret |
   if (l.secret_id === null) return null;
   const s = await lireLigne(x, l.owner_user_id, l.secret_id);
   return s !== null && s.kind === "git" ? s : null;
+}
+
+/** Le jeton du compte attend la vérification de l'utilisateur (importé du bac, que l'agent peut écrire) : ni son type ni son API ne sont de confiance. */
+export async function compteAVerifier(x: Executeur, l: LigneConnecteur): Promise<boolean> {
+  const s = await secretDe(x, l);
+  return s !== null && s.state === "unverified";
 }
 
 /** Jeton écrit dans le coffre : secret du compte git mis à jour (valeur, portée sur l'hôte et le chemin, identifiant ; renommé si l'hôte change ; saisi par l'humain, un secret à vérifier devient utilisable), sinon créé et relié ; d'une `source` sans humain, créé à vérifier (`unverified`). */

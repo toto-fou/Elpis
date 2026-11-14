@@ -144,7 +144,9 @@ follow [SemVer](https://semver.org/).
   the folder shows the name it will get. Without an account, or after an access refusal (said
   in plain words above git's message), credentials are typed in place and saved for the host,
   the organization or the repository; before, the window sent you to Settings and lost the
-  address. A successful clone now reports that the credentials were saved.
+  address. Typed credentials are kept only when the host asked for them and the clone succeeded,
+  the window says whether they were saved and when a choice replaces an account's token, and it
+  forgets them when the host of the address changes or when it closes.
 - **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
   *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
   `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).

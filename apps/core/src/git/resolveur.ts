@@ -19,6 +19,7 @@ import type { Acteur } from "../secrets/stockage";
 import {
   cheminDeLUrl,
   cheminPourType,
+  compteAVerifier,
   compteCouvrant,
   createConnector,
   findForHost,
@@ -59,7 +60,7 @@ export function porteeDesSaisis(
   return prefixe(couvrant.path ? couvrant.path.split("/").length : chemin.split("/").length - 1);
 }
 
-/** `save_git_credential` (clone de l'éditeur) : compte git de la portée retenue (`porteeDesSaisis`) rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte, ou quand rien n'est à enregistrer. */
+/** `save_git_credential` (clone de l'éditeur) : compte git de la portée retenue (`porteeDesSaisis`) rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte, quand rien n'est à enregistrer, ou quand le compte de cette portée attend d'être vérifié. */
 export async function saveGitCredential(
   base: Base,
   uid: number,
@@ -79,6 +80,8 @@ export async function saveGitCredential(
   if (chemin === null) return null;
   const existant = comptes.find((c) => c.path === cheminPourType(chemin, c.provider_type));
   if (existant !== undefined) {
+    // Compte importé du bac, à vérifier : son type et son API viennent de l'agent, une saisie au clone ne le valide pas.
+    if (await compteAVerifier(base, existant)) return null;
     await updateConnector(base, uid, existant.id, { token: net, username: utilisateur || null }, acteur);
     return existant.id;
   }

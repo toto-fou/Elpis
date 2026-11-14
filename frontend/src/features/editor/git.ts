@@ -327,7 +327,12 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
         showGitCloneModal.value = false;
         const d = await lireJson(r, schemaGitDepotCree);
         enregistres = !!d && "credentials_saved" in d && d.credentials_saved === true;
-        showToast((d?.message || "Clone terminé !") + (enregistres ? " Identifiants enregistrés." : ""));
+        const suite = enregistres
+          ? " Identifiants enregistrés."
+          : jeton
+            ? " Identifiants non enregistrés."
+            : "";
+        showToast((d?.message || "Clone terminé !") + suite);
         gitCloneForm.value = { url: "", dir: "" };
         gitCloneCreds.value = identifiantsCloneVides();
         await gitLoadRepos();
@@ -464,12 +469,8 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
       } else if (!r) showToast("Session expirée / erreur réseau", "error");
       else {
         const msg = await detail(r, "Erreur push");
-        const bas = msg.toLowerCase();
         // 409 : refus du relais Git (pas une question d'identifiants, les redemander bouclerait).
-        if (
-          r.status !== 409 &&
-          (bas.includes("auth") || bas.includes("credential") || msg.includes("403") || msg.includes("401"))
-        ) {
+        if (refusDAcces(r.status, msg)) {
           pushForceEnAttente = !!force;
           showGitPushAuth.value = true;
           showToast("Authentification requise", "error");

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/ModaleClonage.vue — fenêtre « Cloner un dépôt » : dépôts d'un compte git, adresse, compte qui servira ou identifiants saisis sur place, dossier. -->
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 import {
   accesClone,
@@ -14,23 +14,49 @@ import {
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const champIdentifiant = ref<HTMLInputElement | null>(null);
 const champJeton = ref<HTMLInputElement | null>(null);
 const comptes = computed(() => comptesUtilisables(ed.gitConnectors));
 const acces = computed(() => accesClone(ed.gitCloneForm.url, ed.gitConnectors));
 const portees = computed(() => porteesIdentifiants(acces.value, ed.gitConnectors));
 const dossier = computed(() => dossierDuClone(ed.gitCloneForm.url));
+const hote = computed(() => ("hote" in acces.value ? acces.value.hote : ""));
+/** Des identifiants saisis serviront à la place d'un compte. */
+const saisis = computed(() => ed.gitCloneCreds.ouvert && ed.gitCloneCreds.token.trim() !== "");
+/** Portée où les identifiants seront enregistrés ; `null` : nulle part, ils ne servent qu'à ce clone. */
 const portee = computed({
-  get: () => ed.gitCloneCreds.portee ?? portees.value.defaut,
-  set: (v: string) => {
+  get: () => (portees.value.defaut === null ? null : (ed.gitCloneCreds.portee ?? portees.value.defaut)),
+  set: (v: string | null) => {
     ed.gitCloneCreds.portee = v;
   },
 });
+
+function oublierIdentifiants(): void {
+  Object.assign(ed.gitCloneCreds, { ouvert: false, user: "", token: "", portee: null, refus: false });
+}
+
+// Des identifiants saisis pour un hôte ne partent jamais vers un autre : changer d'hôte les efface, fermer aussi.
+watch(hote, oublierIdentifiants);
+watch(
+  () => ed.showGitCloneModal,
+  (ouverte) => {
+    if (!ouverte) oublierIdentifiants();
+  },
+);
 
 // Une portée choisie ne vaut que pour le dépôt où elle l'a été.
 watch(
   () => portees.value.choix.map((c) => c.valeur).join("\n"),
   () => {
     ed.gitCloneCreds.portee = null;
+  },
+);
+
+// Accès refusé : la saisie s'ouvre, le focus y va.
+watch(
+  () => ed.gitCloneCreds.refus,
+  (refus) => {
+    if (refus) void nextTick(() => champIdentifiant.value?.focus());
   },
 );
 
@@ -48,7 +74,7 @@ watch(
 );
 
 async function cloner(): Promise<void> {
-  if (await ed.gitClone(portee.value)) void ed.loadGitConnectors();
+  if (await ed.gitClone(portee.value ?? undefined)) void ed.loadGitConnectors();
 }
 
 function ouvrirComptes(): void {
@@ -99,7 +125,12 @@ function versJeton(): void {
         <div class="p-4 space-y-3">
           <div v-if="comptes.length" data-mes-depots>
             <div class="flex items-center justify-between gap-2 mb-1">
-              <label for="clone-compte" class="text-xs font-medium text-slate-500 shrink-0">Mes dépôts</label>
+              <component
+                :is="comptes.length > 1 ? 'label' : 'span'"
+                :for="comptes.length > 1 ? 'clone-compte' : undefined"
+                class="text-xs font-medium text-slate-500 shrink-0"
+                >Mes dépôts</component
+              >
               <select
                 v-if="comptes.length > 1"
                 id="clone-compte"
@@ -183,16 +214,25 @@ function versJeton(): void {
               v-model="ed.gitCloneForm.url"
               placeholder="https://github.com/organisation/depot.git"
               autofocus
+              aria-describedby="clone-acces"
               class="set-input font-mono"
               @keydown.enter="cloner"
             />
             <p
+              id="clone-acces"
               class="text-xs text-slate-500 mt-1 leading-snug"
-              role="status"
               data-acces
               :data-etat="acces.etat"
             >
-              <template v-if="acces.etat === 'compte'">
+              <template
+                v-if="
+                  saisis && (acces.etat === 'compte' || acces.etat === 'sans-jeton' || acces.etat === 'aucun')
+                "
+              >
+                <i class="ph ph-key" aria-hidden="true"></i> Identifiants saisis pour
+                <span class="font-mono text-slate-700">{{ acces.hote }}</span>
+              </template>
+              <template v-else-if="acces.etat === 'compte'">
                 <i class="ph ph-key" aria-hidden="true"></i> Compte
                 <span class="font-mono text-slate-700">{{ nomCompte(acces.compte) }}</span>
                 <template v-if="!ed.gitCloneCreds.ouvert">
@@ -207,8 +247,24 @@ function versJeton(): void {
                   </button>
                 </template>
               </template>
+              <template v-else-if="acces.etat === 'sans-jeton'">
+                <span class="text-amber-600"
+                  >Compte <span class="font-mono">{{ nomCompte(acces.compte) }}</span> sans jeton</span
+                ><template v-if="!ed.gitCloneCreds.ouvert">
+                  ·
+                  <button
+                    type="button"
+                    class="text-blue-600 hover:underline font-medium"
+                    data-saisir
+                    @click="ed.gitCloneCreds.ouvert = true"
+                  >
+                    identifiants
+                  </button>
+                </template>
+              </template>
               <template v-else-if="acces.etat === 'aucun'">
-                Aucun compte pour <span class="font-mono text-slate-700">{{ acces.hote }}</span
+                Aucun compte ne s'applique sur
+                <span class="font-mono text-slate-700">{{ acces.hote }}</span
                 ><template v-if="!ed.gitCloneCreds.ouvert">
                   : dépôt public, ou
                   <button
@@ -233,6 +289,7 @@ function versJeton(): void {
                 <label for="clone-identifiant" class="text-xs font-medium text-slate-500">Identifiant</label>
                 <input
                   id="clone-identifiant"
+                  ref="champIdentifiant"
                   v-model="ed.gitCloneCreds.user"
                   autocomplete="off"
                   class="set-input mt-0.5"
@@ -253,17 +310,27 @@ function versJeton(): void {
                 />
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div v-if="portee !== null" class="flex items-center gap-2">
               <label
                 for="clone-portee"
                 class="text-xs font-medium text-slate-500 shrink-0"
-                title="Compte Git créé ou mis à jour avec ces identifiants, si le clone réussit"
+                title="Compte Git créé ou mis à jour avec ces identifiants, si le dépôt les demande et que le clone réussit"
                 >Enregistrer pour</label
               >
               <select id="clone-portee" v-model="portee" class="set-select flex-1 min-w-0 font-mono">
-                <option v-for="p in portees.choix" :key="p.valeur" :value="p.valeur">{{ p.libelle }}</option>
+                <option v-for="p in portees.choix" :key="p.valeur" :value="p.valeur">
+                  {{ p.libelle }}{{ p.remplace ? " — remplace son jeton" : "" }}
+                </option>
               </select>
             </div>
+            <p
+              v-else
+              class="text-xs text-slate-500"
+              title="Adresse de dépôt inhabituelle sur un hôte qui a déjà son compte : rien n'est remplacé."
+              data-non-enregistres
+            >
+              Utilisés pour ce clone seulement.
+            </p>
           </div>
 
           <div>

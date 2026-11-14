@@ -2123,7 +2123,8 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   `''` for the whole host, an organization (`acme`) or a repository (`acme/api`; nested groups
   allowed), `NULL` for an account with no scope (inactive: migration `0030_git_account_scope`
   leaves it so when several accounts shared a host, and gives the host to the most recently
-  used). Unique per `(owner_user_id, host, path)`; the label is free text. A path is plain
+  used). Unique per `(owner_user_id, host, path)`, the path compared without case when an
+  account is created or moved; the label is free text. A path is plain
   segments (`[A-Za-z0-9._~-]`, no `.git`, eight at most; `cheminDepot`,
   `apps/core/src/secrets/portee.ts`), stored in lower case, except for a `generic` account,
   whose server may tell paths apart by case (`cheminPourType`).
@@ -2173,8 +2174,11 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   internal route, origin `editeur`, for the scope chosen in the dialog (`cred_scope`); without
   one: the path-scoped account that covers the repository, the whole host when no account has
   it, otherwise the repository's parent path, never over a whole-host account (an unreadable
-  repository path on a host whose whole-host account exists saves nothing); push and pull
-  never save it).
+  repository path on a host whose whole-host account exists saves nothing, and the editor then
+  sends no scope). They are saved only when the upstream asked for them (401) and the clone
+  succeeded, so a token a public repository never saw is not kept, and never into an account
+  whose token is still `unverified` (imported from the sandbox file: its type and API base come
+  from the agent). Push and pull never save it).
 - Providers: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Each one can open a PR/MR.
 - **Anti-SSRF** (`packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts`)

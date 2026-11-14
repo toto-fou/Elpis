@@ -44,6 +44,8 @@ export class GitResult {
   duration_ms: number;
   /** Requêtes refusées par le relais pendant l'opération (motifs) : un refus de politique, pas un échec d'authentification. */
   refus: string[];
+  /** Des identifiants saisis ont été demandés par l'amont et lui ont été envoyés (une opération réussie les valide). */
+  identifiantsDemandes = false;
 
   constructor(
     r: Partial<ResultatGitAgent> & { returncode: number; stdout: string; stderr: string },
@@ -360,6 +362,7 @@ export async function runNetwork(
   const service = o.pushRefs === undefined ? UPLOAD : RECEIVE;
   let d: ResultatGitAgent | null = null;
   let refus: string[] = [];
+  let demandes = false;
   await avecTicket(
     agent.relayDir,
     {
@@ -372,16 +375,18 @@ export async function runNetwork(
       authOnChallenge: saisis,
       garde: () => garde(o.url, o.uid),
     },
-    async (relay, refusRelais) => {
+    async (relay, refusRelais, defie) => {
       d = await agent.git(cwd, [...args], {
         timeoutS,
         maxOut: o.maxOut ?? 1 << 20,
         relay: { socket: relay.socket, ticket: relay.ticket, origin: relay.origin },
       });
       refus = [...new Set(refusRelais)];
+      demandes = saisis && defie();
     },
   );
   const r = new GitResult(d as unknown as ResultatGitAgent, refus);
+  r.identifiantsDemandes = demandes;
   if (refus.length && !r.ok)
     r.stderr = (rstripPy(r.stderr, "\n") + "\n" + refus.join("\n")).replace(/^\n+/u, "");
   return r;

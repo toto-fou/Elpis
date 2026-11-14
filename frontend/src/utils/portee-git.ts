@@ -68,22 +68,24 @@ export function lirePortee(brut: string): { host: string; path: string } | null 
   return hote && HOTE.test(hote) && chemin !== null ? { host: hote, path: chemin } : null;
 }
 
-/** Hôte (`hôte[:port]`) et chemin du dépôt d'une URL de clonage http(s), lu comme le serveur (barres finales et un `.git` retirés, rien d'autre) ; chemin `null` s'il n'est pas fait de segments simples ou n'en a qu'un ; `null` si ce n'est pas une telle URL. */
+/** Hôte et chemin du dépôt d'une URL de clonage `http(s)://` (schéma en minuscules), lus comme le serveur : hôte tel qu'écrit, port compris, en minuscules ; chemin sans barres finales ni un `.git`, rien d'autre ; chemin `null` s'il n'est pas fait de segments simples ou n'en a qu'un ; `null` si ce n'est pas une telle URL. */
 export function depotDeLUrl(url: string): { host: string; chemin: string | null } | null {
   const t = url.trim();
-  if (!/^https?:\/\//iu.test(t) || !URL.canParse(t)) return null;
-  const u = new URL(t);
-  if (!u.hostname) return null;
+  if (!/^https?:\/\//u.test(t) || !URL.canParse(t)) return null;
   const apresSchema = t.slice(t.indexOf("://") + 3);
-  const barre = apresSchema.indexOf("/");
-  let brut = barre < 0 ? "" : apresSchema.slice(barre + 1);
-  if (brut.includes("?") || brut.includes("#")) return { host: u.host, chemin: null };
+  const barre = apresSchema.search(/[/?#]/u);
+  const autorite = barre < 0 ? apresSchema : apresSchema.slice(0, barre);
+  const host = autorite.slice(autorite.lastIndexOf("@") + 1).toLowerCase();
+  if (!host || !HOTE.test(host)) return null;
+  let brut = barre < 0 || apresSchema[barre] !== "/" ? "" : apresSchema.slice(barre + 1);
+  if (barre >= 0 && (apresSchema[barre] !== "/" || brut.includes("?") || brut.includes("#")))
+    return { host, chemin: null };
   let fin = brut.length;
   while (fin > 0 && brut[fin - 1] === "/") fin--;
   brut = brut.slice(0, fin);
   if (brut.endsWith(".git")) brut = brut.slice(0, -4);
   const chemin = cheminExact(brut);
-  return { host: u.host, chemin: chemin !== null && chemin.includes("/") ? chemin : null };
+  return { host, chemin: chemin !== null && chemin.includes("/") ? chemin : null };
 }
 
 /** Compte le plus précis qui couvre le dépôt sur son hôte : le plus long chemin, comparé selon le type de chaque compte ; un compte sans portée ne sert pas ; un dépôt illisible n'a de compte que si aucun compte de l'hôte n'est borné à un chemin ; `null` si aucun. */

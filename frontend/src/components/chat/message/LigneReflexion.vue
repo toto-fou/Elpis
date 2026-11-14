@@ -1,12 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit. -->
+<!-- frontend/src/components/chat/message/LigneReflexion.vue — réflexion d'un tour à sa place dans le fil : « Réflexion · 3 s », dépliable ; verrouillée par le réglage qui masque le raisonnement ; « Répondre maintenant » pendant qu'elle s'écrit (texte lu sur le porteur, `flux`). -->
 <script setup lang="ts">
-import { onUpdated, useId, useTemplateRef } from "vue";
+import { computed, useId } from "vue";
 
 import { fmtDuree } from "../../../features/chat/outils/format";
 
+import LibelleVivant from "../../communs/LibelleVivant.vue";
+import TexteFlux from "../TexteFlux.vue";
+
+/** Référence du porteur pour la réflexion qui s'écrit. */
+interface TexteVivant {
+  readonly value: string;
+}
+
 const props = defineProps<{
   texte: string;
+  flux?: TexteVivant | null;
   ms: number | null;
   vivante: boolean;
   ouvert: boolean;
@@ -15,12 +24,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ basculer: []; repondre: [] }>();
 const id = useId();
-const pre = useTemplateRef<HTMLPreElement>("pre");
-
-// Ouverte pendant qu'elle s'écrit, elle suit son dernier mot.
-onUpdated(() => {
-  if (props.vivante && pre.value) pre.value.scrollTop = pre.value.scrollHeight;
-});
+const libelle = computed(() =>
+  props.vivante ? "Réflexion…" : props.ms !== null ? `Réflexion · ${fmtDuree(props.ms)}` : "Réflexion",
+);
 </script>
 
 <template>
@@ -37,10 +43,7 @@ onUpdated(() => {
         @click="verrouillee || emit('basculer')"
       >
         <i class="ph ph-brain shrink-0 text-[14px]" aria-hidden="true"></i>
-        <span :class="vivante ? 'mem-wave' : ''"
-          >{{ vivante ? "Réflexion…" : "Réflexion"
-          }}<template v-if="ms !== null && !vivante"> · {{ fmtDuree(ms) }}</template></span
-        >
+        <LibelleVivant :vivant="vivante" :texte="libelle" />
         <i v-if="verrouillee" class="ph ph-lock-simple text-[11px] text-slate-400" aria-hidden="true"></i>
         <i
           v-else
@@ -59,11 +62,12 @@ onUpdated(() => {
         <i class="ph ph-fast-forward text-[11px]" aria-hidden="true"></i> Répondre maintenant
       </button>
     </div>
-    <pre
+    <TexteFlux
       v-if="ouvert && !verrouillee"
       :id="id"
-      ref="pre"
       class="mt-0.5 ml-1.5 pl-3 border-l-2 border-slate-200 text-[12px] text-slate-600 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto custom-scrollbar m-0 bg-transparent"
-      >{{ texte }}</pre>
+      :texte="props.texte"
+      :flux="props.flux"
+    />
   </div>
 </template>

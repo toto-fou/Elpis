@@ -85,4 +85,3 @@ export function creerApiCode(fetchJsonAuth: Fetch) {
     tournerJeton: () => poster(schemaReponseJetonCode, "/api/code/token/rotate"),
   };
 }
-export type ApiCode = ReturnType<typeof creerApiCode>;

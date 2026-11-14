@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/persistance.ts — persistance du document `settings` : instantané « non enregistré », enregistrement complet, écriture ciblée par clés et bascules immédiates. */
+/** frontend/src/features/reglages/persistance.ts — persistance du document `settings` : instantané « non enregistré », enregistrement automatique, écriture ciblée par clés et bascules immédiates. */
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, objet } from "../../utils/lecture-json";
@@ -17,18 +17,14 @@ export function messageErreurReglages(statut: number, corps: unknown): string {
   return d && d.length < 120 ? d : "Paramètres non enregistrés : vérifiez les valeurs puis réessayez.";
 }
 
-export interface LiensPersistance {
-  closeSettings(sauterRecharge?: boolean): Promise<void> | void;
+/** Clés dont la valeur diffère entre deux états du document. */
+export function clesDifferentes(avant: Record<string, unknown>, apres: Record<string, unknown>): string[] {
+  const toutes = new Set([...Object.keys(avant), ...Object.keys(apres)]);
+  return [...toutes].filter((k) => JSON.stringify(avant[k]) !== JSON.stringify(apres[k]));
 }
 
-export function creerPersistance(
-  vue: VueReglages,
-  settings: Ref<ReglagesApp>,
-  ctx: CtxReglages,
-  liens: LiensPersistance,
-) {
+export function creerPersistance(vue: VueReglages, settings: Ref<ReglagesApp>, ctx: CtxReglages) {
   const { computed, ref, watch } = vue;
-  const settingsSaving = ref(false);
   const passwordSaving = ref(false);
   const snapshot = ref("");
   const settingsDirty = computed(() => !!snapshot.value && JSON.stringify(settings.value) !== snapshot.value);
@@ -76,35 +72,61 @@ export function creerPersistance(
     }
   }
 
+  /** Rétablit ces clés à leurs valeurs `avant` et les réécrit (valeurs actuelles reprises si l'écriture échoue). */
+  function annulerVers(keys: readonly string[], avant: Record<string, unknown>): void {
+    const actuelles = valeursInstantane(keys);
+    restaurer(keys, avant);
+    void persistKeys(keys, { rollback: () => restaurer(keys, actuelles), silencieux: true });
+  }
+
+  const modifie = (keys: readonly string[], avant: Record<string, unknown>): boolean =>
+    keys.some((k) => JSON.stringify(avant[k]) !== JSON.stringify(settings.value[k]));
+
   /** Toast de confirmation dont « Annuler » rétablit les valeurs précédentes et les réécrit. */
   function toastAnnulable(message: string, keys: readonly string[], avant: Record<string, unknown>): void {
-    const modifie = keys.some((k) => JSON.stringify(avant[k]) !== JSON.stringify(settings.value[k]));
-    if (!modifie) {
+    if (!modifie(keys, avant)) {
       ctx.showToast(message);
       return;
     }
     ctx.showToast(message, "success", {
       duration: 6000,
       actionLabel: "Annuler",
-      onAction: () => {
-        const actuelles = valeursInstantane(keys);
-        restaurer(keys, avant);
-        void persistKeys(keys, { rollback: () => restaurer(keys, actuelles), silencieux: true });
+      onAction: () => annulerVers(keys, avant),
+    });
+  }
+
+  // Valeurs d'avant la rafale d'enregistrements automatiques, tant que son toast est affiché.
+  let rafale: Record<string, unknown> | null = null;
+
+  /** Un seul toast pour la rafale, mis à jour à chaque écriture ; « Annuler » ramène chaque clé à sa valeur d'avant la rafale. */
+  function toastRafale(keys: readonly string[], avant: Record<string, unknown>): void {
+    const r = (rafale ??= {});
+    for (const k of keys) if (!(k in r)) r[k] = avant[k];
+    const cles = Object.keys(r);
+    const annulable = modifie(cles, r);
+    ctx.showToast("Enregistré", "success", {
+      cle: "reglages-rafale",
+      duration: 6000,
+      actionLabel: annulable ? "Annuler" : undefined,
+      onAction: annulable
+        ? () => {
+            rafale = null;
+            annulerVers(cles, r);
+          }
+        : undefined,
+      onExpire: () => {
+        rafale = null;
       },
     });
   }
 
   /** Clés du document différentes de l'instantané. */
   function clesModifiees(): string[] {
-    let avant: Record<string, unknown> = {};
     try {
-      avant = objet(JSON.parse(snapshot.value || "{}"));
+      return clesDifferentes(objet(JSON.parse(snapshot.value || "{}")), settings.value);
     } catch {
       return [];
     }
-    const apres = settings.value as Record<string, unknown>;
-    const toutes = new Set([...Object.keys(avant), ...Object.keys(apres)]);
-    return [...toutes].filter((k) => JSON.stringify(avant[k]) !== JSON.stringify(apres[k]));
   }
 
   /** Enregistre sur-le-champ les clés modifiées depuis l'instantané (valeur rétablie si l'écriture échoue). */
@@ -113,7 +135,8 @@ export function creerPersistance(
     const keys = clesModifiees();
     if (!keys.length || !snapshot.value) return;
     const avant = valeursInstantane(keys);
-    await persistKeys(keys, { rollback: () => restaurer(keys, avant) });
+    if (await persistKeys(keys, { rollback: () => restaurer(keys, avant), silencieux: true }))
+      toastRafale(keys, avant);
   }
 
   /** Attend l'écriture en cours puis enregistre ce qui est encore en attente (fermeture de la fenêtre). */
@@ -137,36 +160,6 @@ export function creerPersistance(
       },
       { deep: true },
     );
-  }
-
-  async function saveSettings(closeModal = true): Promise<void> {
-    if (closeModal && settingsSaving.value) return;
-    if (closeModal) settingsSaving.value = true;
-    try {
-      const corpsEnvoye = JSON.stringify(settings.value);
-      const res = await ctx.fetchAuth("/api/settings", {
-        method: "PUT",
-        headers: ENTETES_JSON,
-        body: corpsEnvoye,
-      });
-      if (!res) {
-        ctx.showToast("Erreur réseau : paramètres non enregistrés.", "error");
-        return;
-      }
-      if (!res.ok) {
-        ctx.showToast(messageErreurReglages(res.status, await corpsJson(res)), "error");
-        return;
-      }
-      snapshot.value = corpsEnvoye;
-      if (closeModal) {
-        ctx.showToast("Paramètres enregistrés.");
-        void liens.closeSettings(true);
-      }
-    } catch {
-      ctx.showToast("Erreur réseau : paramètres non enregistrés.", "error");
-    } finally {
-      if (closeModal) settingsSaving.value = false;
-    }
   }
 
   /** Écrit seulement les clés données (le serveur fusionne) ; `rollback` est rejoué si le PUT échoue. */
@@ -245,11 +238,9 @@ export function creerPersistance(
   }
 
   return {
-    settingsSaving,
     passwordSaving,
     snapshot,
     settingsDirty,
-    saveSettings,
     viderEnAttente,
     activerEnregistrementAuto,
     persistKeys,

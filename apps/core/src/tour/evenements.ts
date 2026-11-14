@@ -130,11 +130,12 @@ export interface OptionsDrain {
   dormir?: (s: number) => Promise<void>;
 }
 
-/** Draine la file vers le client en agrégeant les jetons consécutifs (`n` = nombre agrégé) ; ping par silence de 20 s ; s'arrête sur la fin du flux ou l'abandon. */
+/** Draine la file vers le client en agrégeant les jetons consécutifs (`n` = nombre agrégé), le premier texte de chaque canal sans attendre la fenêtre ; ping par silence de 20 s ; s'arrête sur la fin du flux ou l'abandon. */
 export async function* drainCoalesced(q: FileEvenements, o: OptionsDrain = {}): AsyncGenerator<Dict> {
   const windowMs = o.windowMs ?? 25.0;
   const idlePingS = o.idlePingS ?? 20.0;
   const dormir = o.dormir ?? ((s: number) => new Promise<void>((ok) => setTimeout(ok, s * 1000)));
+  const textesVus = new Set<unknown>();
   let pending: Dict | null | undefined;
   for (;;) {
     let ev: Dict | null;
@@ -165,7 +166,9 @@ export async function* drainCoalesced(q: FileEvenements, o: OptionsDrain = {}): 
           }
         }
       };
-      if (!prendre() && windowMs > 0) {
+      const premierTexte = cle[0] !== "tool_call_delta" && !textesVus.has(cle[0]);
+      if (premierTexte) textesVus.add(cle[0]);
+      if (!prendre() && windowMs > 0 && !premierTexte) {
         await dormir(windowMs / 1000);
         prendre();
       }

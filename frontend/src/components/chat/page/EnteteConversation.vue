@@ -7,6 +7,7 @@ import { executerConversation } from "../../../features/chat/page/conversation";
 import type { ActionConversation } from "../../../features/chat/page/conversation";
 import { CLE_ENTETE, domaine } from "../../../features/chat/page/domaines";
 import { focusPremiere, naviguerMenu } from "../../../features/chat/page/menu-clavier";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 import MenuConversation from "./MenuConversation.vue";
 
 const ent = domaine(CLE_ENTETE);
@@ -103,18 +104,18 @@ function surTouche(e: KeyboardEvent): void {
             <i class="ph ph-dots-three-outline-vertical text-lg" aria-hidden="true"></i>
           </button>
           <div v-if="ent.showChatMenu" class="fixed inset-0 z-40" @click="fermer(false)"></div>
-          <Transition name="popover">
+          <TransitionMenu>
             <div
               v-if="ent.showChatMenu"
               ref="menu"
               role="menu"
               aria-label="Conversation"
-              class="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
+              class="menu-ancre-droite absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
               @keydown="surTouche"
             >
               <MenuConversation @action="agir" />
             </div>
-          </Transition>
+          </TransitionMenu>
         </div>
       </div>
     </div>

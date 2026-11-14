@@ -9,12 +9,11 @@ import type { CtxReglages, VueReglages } from "./types";
 export type DocAide = "user" | "dev";
 
 export function creerAide(vue: VueReglages, ctx: CtxReglages) {
-  const { nextTick, ref } = vue;
+  const { ref } = vue;
   const showHelpModal = ref(false);
   const readmeContent = ref("");
   const isLoadingReadme = ref(false);
   const helpDoc: Ref<DocAide> = ref("user");
-  const helpBodyRef: Ref<HTMLElement | null> = ref(null);
   let sequence = 0;
 
   async function openHelp(doc?: unknown): Promise<void> {
@@ -38,12 +37,7 @@ export function creerAide(vue: VueReglages, ctx: CtxReglages) {
       if (maSequence !== sequence) return;
       readmeContent.value = "# Erreur réseau lors du chargement de la documentation.";
     } finally {
-      if (maSequence === sequence) {
-        isLoadingReadme.value = false;
-        void nextTick(() => {
-          if (helpBodyRef.value) ctx.addCodeCopyButtons?.(true, helpBodyRef.value);
-        });
-      }
+      if (maSequence === sequence) isLoadingReadme.value = false;
     }
   }
 
@@ -53,5 +47,5 @@ export function creerAide(vue: VueReglages, ctx: CtxReglages) {
     void openHelp(doc);
   }
 
-  return { showHelpModal, readmeContent, isLoadingReadme, helpDoc, helpBodyRef, openHelp, switchHelpDoc };
+  return { showHelpModal, readmeContent, isLoadingReadme, helpDoc, openHelp, switchHelpDoc };
 }

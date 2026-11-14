@@ -16,6 +16,7 @@ import {
 } from "../../../features/chat/jobs/format";
 import type { IssueJob } from "../../../features/chat/jobs/format";
 import type { PorteeJobs } from "../../../features/chat/jobs/jobs";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const props = defineProps<{
   jobs: readonly ResumeJob[];
@@ -103,11 +104,13 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
       ></span>
     </button>
 
-    <Transition name="popover-up">
+    <TransitionMenu haut>
       <div
         v-if="props.ouvert"
         class="absolute bottom-full mb-2 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
-        :class="props.aDroite ? 'right-0 max-w-[calc(100vw-2rem)]' : 'left-0'"
+        :class="
+          props.aDroite ? 'menu-ancre-droite right-0 max-w-[calc(100vw-2rem)]' : 'menu-ancre-gauche left-0'
+        "
         data-jobs-popover
       >
         <div class="px-3 py-2 flex items-center gap-2 border-b border-slate-100 bg-slate-50">
@@ -282,6 +285,6 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
           <span>Ne pas me réveiller dans cette conversation</span>
         </label>
       </div>
-    </Transition>
+    </TransitionMenu>
   </div>
 </template>

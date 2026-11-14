@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/apparence.ts — apparence du compte : skins serveur, mode sombre (système, clair, sombre), classes posées sur le body et nom de marque du rail. */
+/** frontend/src/features/reglages/apparence.ts — apparence du compte : skins serveur, mode sombre (système, clair, sombre), habillage posé sur la page (habillage.ts) et nom de marque du rail. */
 import { PREFIXE_PERSO } from "@elpis/contracts";
 import { getCurrentScope, onScopeDispose } from "vue";
 import type { Ref } from "vue";
 
+import { definirMouvement } from "../../platform/mouvement";
 import { corpsJson, estObjet, liste, objet, texte } from "../../utils/lecture-json";
 import { rethemerVisuels as rethemerRendus } from "../chat/rendu/enrichissement";
+import { lireMemoire, poserHabillage } from "./habillage";
+import type { Habillage, ModeTheme } from "./habillage";
 import type { Persistance } from "./persistance";
 import {
   configurerSkinsPerso,
@@ -41,16 +44,6 @@ export interface SkinApp {
   [cle: string]: unknown;
 }
 
-/** Nom de classe du body pour un id de skin ; un habillage personnel n'expose jamais son id dans la classe. */
-export function classeSkin(id: string): string {
-  return id.startsWith(PREFIXE_PERSO) ? "perso" : id;
-}
-
-export type ModeTheme = "system" | "light" | "dark";
-
-const CLASSE_PALETTE = "elpis-palette-";
-const MOTIF_PALETTE = /^[a-z][a-z0-9_-]{1,31}$/;
-
 const SKINS_REPLI: readonly SkinApp[] = [
   { id: "elpis", label: "Elpis", desc: "", builtin: true, sw: ["#f3efe8", "#fcfbf9", "#b88a3d"] },
   { id: "", label: "Ardoise", desc: "", builtin: true, sw: ["#0f172a", "#f8fafc", "#2563eb"] },
@@ -65,7 +58,7 @@ export function creerApparence(
 ) {
   const { computed, ref, watch } = vue;
   const APP_SKINS: Ref<SkinApp[]> = ref(SKINS_REPLI.map((s) => ({ ...s })));
-  const skinsDefaut = ref("elpis");
+  let skinDefaut = "elpis";
 
   /** Lit `/api/skins` (skins activés) ; faux si l'appel échoue. */
   async function loadAppSkins(): Promise<boolean> {
@@ -75,7 +68,7 @@ export function creerApparence(
       const d = objet(await corpsJson(r));
       const skins = liste(d["skins"]).filter(estObjet);
       if (skins.length) APP_SKINS.value = skins as SkinApp[];
-      if (typeof d["default"] === "string") skinsDefaut.value = d["default"];
+      if (typeof d["default"] === "string") skinDefaut = d["default"];
       return true;
     } catch {
       return false;
@@ -96,37 +89,6 @@ export function creerApparence(
     return marque && parDefaut ? marque : nom;
   });
 
-  function appliquerModeSombre(actif: boolean): void {
-    try {
-      document.body.classList.toggle("elpis-app-dark", actif);
-    } catch {
-      /* DOM indisponible */
-    }
-  }
-  function appliquerSkin(id: string): void {
-    try {
-      const cls = document.body.classList;
-      Array.from(cls).forEach((c) => {
-        if (c.indexOf("elpis-skin-") === 0) cls.remove(c);
-      });
-      if (id) cls.add("elpis-skin-" + classeSkin(id));
-    } catch {
-      /* DOM indisponible */
-    }
-  }
-  /** Classe de palette : la valeur est déjà validée par le serveur contre le manifeste, le motif garde le DOM. */
-  function appliquerPalette(id: string): void {
-    try {
-      const cls = document.body.classList;
-      Array.from(cls).forEach((c) => {
-        if (c.indexOf(CLASSE_PALETTE) === 0) cls.remove(c);
-      });
-      if (MOTIF_PALETTE.test(id)) cls.add(CLASSE_PALETTE + id);
-    } catch {
-      /* DOM indisponible */
-    }
-  }
-
   const prefereSombre = ref(false);
   try {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -143,48 +105,34 @@ export function creerApparence(
   const appDark = computed(() =>
     settings.value.dark_mode_auto ? prefereSombre.value : !!settings.value.dark_mode,
   );
-
-  /** Marqueur `elpis-dark-surface` : mode sombre actif ou skin à base sombre. */
-  function appliquerSurfaceSombre(): void {
-    try {
-      const sk = APP_SKINS.value.find((k) => k.id === (settings.value.skin || ""));
-      document.body.classList.toggle("elpis-dark-surface", appDark.value || !!sk?.darkBase);
-    } catch {
-      /* DOM indisponible */
-    }
-  }
-  /** Re-thème des graphiques et diagrammes déjà rendus, différé d'un tick. */
-  function rethemerVisuels(): void {
-    try {
-      setTimeout(rethemerRendus, 0);
-    } catch {
-      /* hook absent */
-    }
-  }
-  watch(
-    appDark,
-    (actif) => {
-      appliquerModeSombre(actif);
-      appliquerSurfaceSombre();
-      rethemerVisuels();
-    },
-    { immediate: true },
+  const themeMode = computed<ModeTheme>(() =>
+    settings.value.dark_mode_auto ? "system" : settings.value.dark_mode ? "dark" : "light",
   );
+
+  // Base sombre et feuille d'un skin pas encore listé : celles du dernier habillage posé dans ce navigateur.
+  const memoire = lireMemoire();
+  const habillage = computed<Habillage>(() => {
+    const id = settings.value.skin || "";
+    const sk = APP_SKINS.value.find((k) => k.id === id);
+    const connu = memoire?.id === id ? memoire : null;
+    return {
+      id,
+      palette: settings.value.skin_palette || "",
+      mode: themeMode.value,
+      sombre: appDark.value,
+      base: sk ? !!sk.darkBase : !!connu?.b,
+      feuilles: sk ? (!sk.builtin && sk.css_url ? [sk.css_url] : []) : (connu?.f ?? []),
+    };
+  });
   watch(
-    () => settings.value.skin,
-    (id) => {
-      appliquerSkin(id || "");
-      appliquerSurfaceSombre();
-      rethemerVisuels();
-    },
+    () => JSON.stringify(habillage.value),
+    // Graphiques et diagrammes déjà rendus : re-thème après la bascule.
+    () => void poserHabillage(habillage.value).then(() => setTimeout(rethemerRendus, 0)),
     { immediate: true },
   );
 
-  watch(
-    () => settings.value.skin_palette,
-    (id) => appliquerPalette(id || ""),
-    { immediate: true },
-  );
+  // Animations : le choix du compte gouverne la page (feuilles et code), dès la création.
+  watch(() => settings.value.ui_motion, definirMouvement, { immediate: true });
 
   /** Palette affichée : celle du compte si le skin courant la propose, sinon la première. */
   const paletteCourante = computed<PaletteApp | null>(() => {
@@ -197,35 +145,6 @@ export function creerApparence(
     settings.value.skin = id;
     settings.value.skin_palette = "";
   }
-
-  /** Feuille d'un skin importé, liée à la demande et seulement pour le skin actif. */
-  function appliquerCssSkinPlugin(sk: SkinApp): void {
-    try {
-      const url = !sk.builtin && sk.css_url ? sk.css_url : "";
-      let el = document.getElementById("elpis-plugin-skin");
-      if (!url) {
-        el?.remove();
-        return;
-      }
-      if (!el) {
-        el = document.createElement("link");
-        el.id = "elpis-plugin-skin";
-        el.setAttribute("rel", "stylesheet");
-        document.head.appendChild(el);
-      }
-      if (el.getAttribute("href") !== url) el.setAttribute("href", url);
-    } catch {
-      /* DOM indisponible */
-    }
-  }
-  watch(
-    () => skinCourant.value.id + "|" + texte(skinCourant.value.css_url),
-    () => {
-      appliquerCssSkinPlugin(skinCourant.value);
-      appliquerSurfaceSombre();
-    },
-    { immediate: true },
-  );
 
   // Feuille d'éditeur du skin actif, connue seulement quand le skin du compte et la liste le sont.
   if (feuilleEditeur)
@@ -263,7 +182,7 @@ export function creerApparence(
     const actif = settings.value.skin === skin.id;
     if (!(await supprimerSkinPerso(skin.id.slice(PREFIXE_PERSO.length))))
       return ctx.showToast("Suppression impossible", "error");
-    if (actif) await setAppSkin(skinsDefaut.value);
+    if (actif) await setAppSkin(skinDefaut);
     ctx.showToast("Habillage supprimé");
   }
   /** Aperçu d'un habillage enregistré, dans la modale du chat. */
@@ -287,9 +206,6 @@ export function creerApparence(
   if (getCurrentScope() !== undefined)
     onScopeDispose(() => window.removeEventListener(EVT_SKINS_PERSO, surSkinsPerso));
 
-  const themeMode = computed<ModeTheme>(() =>
-    settings.value.dark_mode_auto ? "system" : settings.value.dark_mode ? "dark" : "light",
-  );
   /** Mute seulement : la modale enregistre au clic sur Enregistrer. */
   function applyThemeMode(mode: ModeTheme): void {
     if (mode === "system") {
@@ -327,7 +243,6 @@ export function creerApparence(
 
   return {
     APP_SKINS,
-    skinsDefaut,
     loadAppSkins,
     skinCourant,
     paletteCourante,

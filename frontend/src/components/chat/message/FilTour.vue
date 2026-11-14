@@ -71,6 +71,7 @@ const suiteDetachee = computed(() => {
         v-else-if="b.k === 'reflexion'"
         :class="nouvelAppel(i) ? 'mt-3' : ''"
         :texte="b.texte"
+        :flux="b.cle === 'r:fin' ? entry.msg._flux?.reflexion : null"
         :ms="b.ms"
         :vivante="b.vivante"
         :ouvert="reflexionOuverte(b.cle)"

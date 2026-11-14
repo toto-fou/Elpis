@@ -11,6 +11,7 @@ import {
   mentionIconClass,
 } from "../../../features/chat/composeur/composeur";
 import type { FichierMention } from "../../../features/chat/composeur/composeur";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const props = defineProps<{
   ouvert: boolean;
@@ -28,7 +29,7 @@ suivreLigneActive(liste, () => props.index, "li[data-mention-row]");
 </script>
 
 <template>
-  <transition name="fade">
+  <TransitionMenu haut>
     <div
       v-if="props.ouvert"
       class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden"
@@ -112,5 +113,5 @@ suivreLigneActive(liste, () => props.index, "li[data-mention-row]");
         </li>
       </ul>
     </div>
-  </transition>
+  </TransitionMenu>
 </template>

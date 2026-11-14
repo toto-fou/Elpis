@@ -13,6 +13,7 @@ import { GestionnaireSession } from "../../features/auth/session";
 import { setupChat } from "../../features/chat/coeur/chat";
 import { LOGO_ELPIS } from "../../features/communs/logo";
 import type { AgentsSlash } from "../../features/chat/composeur/slash";
+import { chatEnOuverture, oublierPrecharge, precharger } from "../../features/chat/historique/ouverture";
 import type { CtxChat, MessageChat, RefsRacineChat } from "../../features/chat/coeur/types";
 import { purificateur } from "../../features/chat/rendu/instance";
 import { creerImportSandbox } from "../../features/editor/import-sandbox";
@@ -20,12 +21,13 @@ import { creerApiImages } from "../../features/images/api";
 import { creerImages } from "../../features/images/images";
 import { creerApiSecrets } from "../../features/secrets/api";
 import { setupEchantillonnage } from "../../features/reglages/echantillonnage";
+import { reglagesHabillage } from "../../features/reglages/habillage";
 import { setupReglages } from "../../features/reglages/reglages";
 import { creerVoix } from "../../features/voix/voix";
 import { ClientHttp } from "../../platform/http/client";
 import { journal } from "../../platform/journal";
 import { creerHttpLegacy } from "../../platform/http/legacy";
-import { escapeHtml } from "../../utils/utils-purs";
+import { choixMouvementMemorise } from "../../platform/mouvement";
 import { creerAnnonceur, creerFenetre, creerMenuContextuel, creerToasts } from "./chrome";
 import type { ElementMenu } from "./chrome";
 import { creerClavier } from "./clavier";
@@ -92,29 +94,6 @@ const APP_ICON_PRESETS = [
   "ph-bell",
   "ph-bookmark",
 ] as const;
-
-// La couleur d'un indicateur porte du sens (rose = alerte) : toute la palette des fournisseurs est couverte.
-const COULEURS_KPI: Readonly<Record<string, string>> = {
-  blue: "bg-blue-50 text-blue-600",
-  sky: "bg-sky-50 text-sky-600",
-  cyan: "bg-cyan-50 text-cyan-600",
-  teal: "bg-teal-50 text-teal-600",
-  green: "bg-emerald-50 text-emerald-600",
-  emerald: "bg-emerald-50 text-emerald-600",
-  purple: "bg-violet-50 text-violet-600",
-  violet: "bg-violet-50 text-violet-600",
-  indigo: "bg-indigo-50 text-indigo-600",
-  red: "bg-red-50 text-red-500",
-  rose: "bg-rose-50 text-rose-600",
-  orange: "bg-orange-50 text-orange-500",
-  amber: "bg-amber-50 text-amber-600",
-  yellow: "bg-yellow-50 text-yellow-600",
-  slate: "bg-slate-100 text-slate-600",
-};
-
-export function kpiIconClass(couleur: string | null | undefined): string {
-  return COULEURS_KPI[(couleur || "").toLowerCase()] ?? "bg-slate-100 text-slate-600";
-}
 
 /** Utilisateur connecté tel que la page le lit (compte de la session et champs du serveur). */
 export interface UtilisateurRacine {
@@ -369,9 +348,6 @@ function creerCtx(l: LiensCtx) {
     get selectedModel() {
       return m.chat ? m.chat.selectedModel : null;
     },
-    addCodeCopyButtons(complet: boolean, racine: HTMLElement): unknown {
-      return m.chat ? m.chat.addCodeCopyButtons(complet, racine) : null;
-    },
     checkAuth(): Promise<unknown> {
       return m.auth ? m.auth.checkAuth() : Promise.resolve();
     },
@@ -569,8 +545,6 @@ function creerCtx(l: LiensCtx) {
       const parConnecteur = (m.chat.pickerConnModels.value || {}) as Record<string, unknown[] | undefined>;
       return parConnecteur[String(connecteur)] || [];
     },
-    // Jamais branché : le chat n'expose pas de chargeur des connecteurs (no-op conservé).
-    loadEngines(): void {},
     _lockAutoScroll(): void {
       l.verrouDefilement.appliquer();
     },
@@ -593,7 +567,9 @@ export function creerRacine(options: OptionsRacine = {}) {
     editor_ratio: 50,
     chat_width: 70,
     assistant_name: "Elpis",
-    skin: "elpis",
+    // Apparence du dernier compte de ce navigateur, déjà posée avant le premier rendu : les réglages la confirment.
+    ...reglagesHabillage(),
+    ui_motion: choixMouvementMemorise(),
     system_prompt: "",
     mcp_servers: [],
     sandbox_path_display: "",
@@ -970,16 +946,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     // Capture : avant tout stopPropagation des lignes de l'arbre.
     document.addEventListener("drop", importBac.finDeGlisser, true);
     document.addEventListener("visibilitychange", n.appliquerBadgeTitre);
-    await m.auth?.loadPublicConfig();
-    await m.auth?.checkAuth();
-    if (so.reprendreOAuth()) return;
-    if (!user.value) return;
-    m.chat?.connectSystemEvents();
-    // Console seule : ni boîte de réception, ni notifications, ni reprise (routes absentes du port d'administration).
-    if (consoleSeule) return;
-    m.reglages?.startInboxPolling();
-    void n.loadNotifications();
-    so.restaurerSession();
+    // La connexion qui en découle est appliquée par l'observateur du compte, une seule fois.
+    await m.auth?.checkAuth(m.auth.loadPublicConfig());
   });
 
   onUnmounted(() => {
@@ -1006,11 +974,13 @@ export function creerRacine(options: OptionsRacine = {}) {
     }
   };
 
-  // Connexion : flux système, boîte de réception, notifications, reprise. Déconnexion (volontaire ou subie) : purge complète.
-  watch(user, (val, avant) => {
-    if (val && so.reprendreOAuth()) return;
-    if (val) {
+  // Arrivée d'un compte (pas une relecture du même) : flux système, boîte de réception, notifications, reprise. Départ : purge complète.
+  const compteId = (): number | null => user.value?.id ?? null;
+  watch(compteId, (id, avant) => {
+    if (id !== null && so.reprendreOAuth()) return;
+    if (id !== null) {
       m.chat?.connectSystemEvents();
+      // Console seule : ni boîte de réception, ni notifications, ni reprise (routes absentes du port d'administration).
       if (consoleSeule) return;
       m.reglages?.startInboxPolling();
       void n.loadNotifications();
@@ -1019,8 +989,11 @@ export function creerRacine(options: OptionsRacine = {}) {
     }
     m.reglages?.stopInboxPolling();
     n.viderNotifications();
+    chatEnOuverture.value = null;
+    oublierPrecharge();
     messages.value = [];
     if (m.chat) m.chat.chats.value = [];
+    if (m.routines) m.routines.routines.value = [];
     currentChatId.value = null;
     isAdminView.value = false;
     // Modifications non enregistrées mises de côté avant la purge, restaurables à la reconnexion.
@@ -1074,7 +1047,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     imgZoom.value = null;
     essayer(() => m.admin?.closeTransferModal());
     // Instantané du compte sortant (clé dérivée de l'ancien compte, pas du nouveau `null`).
-    so.purgerSession(avant);
+    so.purgerSession(avant === null ? null : { id: avant });
   });
 
   // Historique de la barre latérale, regroupé par date (le drapeau de renommage suit la projection).
@@ -1132,6 +1105,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...m.studioAuto,
     ...m.editeur,
     ...m.chat,
+    chatEnOuverture,
+    prechargerChat: (id: string): void => precharger(fetchAuth, id, session.generation),
     groupedHistory,
     ...m.auth,
     user,
@@ -1211,10 +1186,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     uploadFilesToSandbox: importBac.uploadFilesToSandbox,
     uploadProgress: importBac.uploadProgress,
     cancelSandboxUpload: importBac.cancelSandboxUpload,
-    kpiIconClass,
     appIconPresets: APP_ICON_PRESETS,
     elpisSanitize: purificateur(),
-    elpisEscape: escapeHtml,
     // Socle de la page (session et client HTTP), lu par les parcours réels.
     sessionPage: session,
     httpPage: http,

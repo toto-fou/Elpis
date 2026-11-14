@@ -240,8 +240,9 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     return { ok: true, silent: true };
   }
 
-  async function copyAssistantMessage(contenu: string | null | undefined): Promise<void> {
-    if (!contenu) return;
+  // Vrai si la copie a réussi : le bouton le confirme sur place ; l'échec reste un toast.
+  async function copyAssistantMessage(contenu: string | null | undefined): Promise<boolean> {
+    if (!contenu) return false;
     const content = restaurerMarqueursTour(contenu);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(content);
@@ -255,9 +256,10 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
         document.execCommand("copy");
         document.body.removeChild(ta);
       }
-      ctx.showToast("Réponse copiée");
+      return true;
     } catch (err) {
       ctx.showToast("Impossible de copier : " + ((err instanceof Error && err.message) || ""), "error");
+      return false;
     }
   }
 
@@ -300,10 +302,11 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     await sendMessage();
   }
 
+  /** Lance l'assistant du formulaire ouvert ; un second appel (double clic sur la fenêtre qui s'estompe) ne relance rien. */
   async function lancerAssistantForm(): Promise<void> {
     const form = e.assistantForm.value;
     const d = ASSISTANTS[form.id];
-    if (!d) return;
+    if (!d || !form.open) return;
     const manque = d.champs.find((c) => c.requis && !(form.valeurs[c.cle] || "").trim());
     if (manque) {
       ctx.showToast(`${manque.libelle} requis`, "error");

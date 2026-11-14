@@ -5,6 +5,7 @@ import { computed } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 
+import LibelleVivant from "../../communs/LibelleVivant.vue";
 import type { LigneEffet } from "../../../features/chat/message/types";
 
 const props = defineProps<{ line: LigneEffet }>();
@@ -26,7 +27,7 @@ const detail = computed(() => fil.effectDetail(props.line));
       @click="fil.toggleEffect(line)"
     >
       <i class="ph ph-brain elpis-effect-ico" aria-hidden="true"></i>
-      <span class="elpis-effect-label" :class="line.running ? 'mem-wave' : ''">{{ line.label }}</span>
+      <LibelleVivant class="elpis-effect-label" :vivant="line.running" :texte="line.label" />
       <span v-if="line.storeLabel" class="elpis-effect-store">· {{ line.storeLabel }}</span>
       <span v-if="line.title" class="elpis-effect-title">{{ line.title }}</span>
       <span v-if="detail?.data?.undone" class="elpis-effect-tag" data-effect-undone>annulé</span>

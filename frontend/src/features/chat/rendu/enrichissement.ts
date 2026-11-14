@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/rendu/enrichissement.ts — passe d'enrichissement des blocs d'un corps Markdown : en-tête et Copier, aperçu HTML, coloration différée, graphiques, Mermaid, SVG ; idempotente (data-cb-done). */
-import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
+/** frontend/src/features/chat/rendu/enrichissement.ts — passe d'enrichissement des corps Markdown : coloration différée, graphiques, Mermaid, SVG, cartes de skin ; idempotente (data-cb-done). */
 import DOMPurify from "dompurify";
 
 import { ensureVendor } from "../../../platform/vendor.ts";
 import { mouvementReduit } from "../../../utils/dom.ts";
-import { ouvrirApercu } from "./apercu.ts";
 import { carteSkin } from "./carte-skin.ts";
+import { planifierColoration } from "./coloration.ts";
 import { ElpisCharts } from "./graphiques.ts";
 import type { OptionBrute } from "./graphiques.ts";
+import { agirSurHabillage, creerBoutonCopier } from "./habillage-code.ts";
 import { ouvrirZoomDiagramme } from "./zoom-diagramme.ts";
 import { ressembleASvg, sanitizeSvg } from "./svg.ts";
 import type { PurifySvg } from "./svg.ts";
@@ -20,7 +20,6 @@ interface Mermaid {
 
 interface GlobalsEnrichissement {
   mermaid?: Mermaid;
-  hljs?: { highlightElement(el: Element): void };
   echarts?: unknown;
 }
 
@@ -345,7 +344,7 @@ function blocCodeDeRepli(pre: HTMLElement, rawText: string, label: string): void
   hdrSpan.className = "text-xs font-bold text-gray-400 font-mono";
   hdrSpan.textContent = label;
   header.appendChild(hdrSpan);
-  const btn = boutonCopier(rawText);
+  const btn = creerBoutonCopier(rawText);
   pre.parentNode?.insertBefore(wrapper, pre);
   const copyHolder = document.createElement("div");
   copyHolder.className = "copy-sticky";
@@ -487,96 +486,12 @@ function blocSvg(pre: HTMLElement, rawText: string): void {
   remplacer(pre, wrapper);
 }
 
-const ICONE_COPIER = '<i class="ph ph-copy"></i><span class="sr-only">Copier</span>';
-
-function boutonApercu(pre: HTMLElement, wrapper: HTMLElement, rawText: string): HTMLButtonElement {
-  const previewBtn = document.createElement("button");
-  const fermer = (): void => {
-    previewBtn.innerHTML = '<i class="ph ph-eye"></i><span>Aperçu</span>';
-    previewBtn.title = "Afficher le rendu de la page";
-  };
-  fermer();
-  let iframe: HTMLIFrameElement | null = null;
-  let annuler: (() => void) | null = null;
-  previewBtn.onclick = () => {
-    annuler?.();
-    annuler = null;
-    if (iframe) {
-      iframe.remove();
-      iframe = null;
-      pre.style.display = "";
-      fermer();
-      return;
-    }
-    const cadre = document.createElement("iframe");
-    cadre.className = "code-preview-frame";
-    annuler = ouvrirApercu(cadre, rawText);
-    iframe = cadre;
-    wrapper.appendChild(cadre);
-    pre.style.display = "none";
-    previewBtn.innerHTML = '<i class="ph ph-code"></i><span>Code</span>';
-    previewBtn.title = "Revenir au code";
-  };
-  return previewBtn;
-}
-
-function boutonCopier(brut: string): HTMLButtonElement {
-  const rawText = restaurerMarqueursTour(brut);
-  const btn = document.createElement("button");
-  btn.className = "copy-btn";
-  btn.title = "Copier";
-  btn.setAttribute("aria-label", "Copier");
-  btn.innerHTML = ICONE_COPIER;
-  btn.onclick = async () => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(rawText);
-      else {
-        const ta = Object.assign(document.createElement("textarea"), { value: rawText });
-        ta.style.cssText = "position:fixed;left:-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      }
-      btn.innerHTML = '<i class="ph ph-check text-green-400"></i><span class="sr-only">Copié</span>';
-      setTimeout(() => {
-        btn.innerHTML = ICONE_COPIER;
-      }, 2000);
-    } catch {
-      /* presse-papiers refusé */
-    }
-  };
-  return btn;
-}
-
-function colorationDifferee(code: HTMLElement | null): void {
-  const w = g();
-  if (!code || w.hljs || code.dataset.hlPending) return;
-  code.dataset.hlPending = "1";
-  ensureVendor("highlight").then(
-    () => {
-      delete code.dataset.hlPending;
-      const hl = g().hljs;
-      if (!code.isConnected || !hl) return;
-      try {
-        hl.highlightElement(code);
-      } catch {
-        /* langue inconnue : le code reste échappé et lisible */
-      }
-    },
-    () => {
-      delete code.dataset.hlPending;
-    },
-  );
-}
-
 function enrichirPre(pre: HTMLElement): void {
   if (pre.hasAttribute("data-cb-done")) return;
   const parent = pre.parentNode as Element | null;
   if (!parent || parent.classList?.contains("code-wrapper")) return;
   pre.setAttribute("data-cb-done", "1");
   const code = pre.querySelector("code");
-  pre.classList.add("custom-style-applied");
   const langClass = code ? Array.from(code.classList).find((c) => c.startsWith("language-")) : "";
   const lang = langClass ? langClass.replace("language-", "").toLowerCase() : "";
   const rawText = (code ? code.textContent : pre.textContent) || "";
@@ -586,26 +501,6 @@ function enrichirPre(pre: HTMLElement): void {
   if (lang === "svg") return blocSvg(pre, rawText);
   if ((lang === "" || lang === "xml" || lang === "html" || lang === "plaintext") && ressembleASvg(rawText))
     return blocSvg(pre, rawText);
-  colorationDifferee(code);
-  const wrapper = document.createElement("div");
-  wrapper.className = "code-wrapper relative group mb-4";
-  const header = document.createElement("div");
-  header.className = "code-header flex justify-between items-center px-3 py-1.5";
-  const hdrLang = document.createElement("span");
-  hdrLang.className = "text-xs font-bold text-gray-400 font-mono";
-  hdrLang.textContent = (lang || "code").toUpperCase();
-  header.appendChild(hdrLang);
-  const actions = document.createElement("div");
-  actions.className = "code-actions";
-  if (lang === "html") actions.appendChild(boutonApercu(pre, wrapper, rawText));
-  actions.appendChild(boutonCopier(rawText));
-  parent.insertBefore(wrapper, pre);
-  const copyHolder = document.createElement("div");
-  copyHolder.className = "copy-sticky";
-  copyHolder.appendChild(actions);
-  wrapper.appendChild(copyHolder);
-  wrapper.appendChild(header);
-  wrapper.appendChild(pre);
 }
 
 function horsComposant(el: Element, scope: Element | Document, exclure: boolean): boolean {
@@ -631,6 +526,14 @@ export function enrichirBlocs(scope: Element | Document, exclureComposants = fal
   const portee = exclureComposants ? retenus : corps;
   if (exclureComposants) for (const b of retenus) referencesEnLigne(b, [b]);
   else referencesEnLigne(scope, portee);
+  planifierColoration(scope);
+}
+
+/** Enrichit un bloc déjà en place d'un corps Markdown (enveloppe d'un bloc figé) : blocs `pre` spéciaux, références `!id` en ligne, coloration ; le corps n'est pas touché. */
+export function enrichirBloc(bloc: Element): void {
+  bloc.querySelectorAll<HTMLElement>("pre").forEach((pre) => enrichirPre(pre));
+  referencesEnLigne(bloc, [bloc]);
+  planifierColoration(bloc);
 }
 
 const enAttente = new Set<() => void>();
@@ -697,8 +600,9 @@ export interface ActionsClicMarkdown {
   analyserChemin?: (texte: string) => { path: string; line?: number | null; col?: number | null } | null;
 }
 
-/** Clic dans un corps Markdown : chemin `fichier:ligne` vers l'éditeur, ancre interne vers son titre. */
+/** Clic dans un corps Markdown : action d'un bloc de code (Copier, Aperçu), chemin `fichier:ligne` vers l'éditeur, ancre interne vers son titre. */
 export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
+  if (agirSurHabillage(event)) return;
   const cible = event.target as Element | null;
   if (!cible || typeof cible.closest !== "function") return;
   const pathCode = cible.closest("code.elpis-path-link");
@@ -715,26 +619,27 @@ export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
   const href = link.getAttribute("href");
   if (!href || !href.startsWith("#") || href.length < 2) return;
   event.preventDefault();
+  const el = cibleAncre(href, cible.closest(".markdown-body") || document);
+  if (el) el.scrollIntoView({ behavior: mouvementReduit() ? "auto" : "smooth", block: "start" });
+}
+
+/** Cible d'une ancre interne `#id` : l'élément d'id `id`, sinon le premier titre de `conteneur` dont le texte donne `id`. */
+export function cibleAncre(href: string, conteneur: ParentNode): Element | null {
   let id = href.substring(1);
   try {
     id = decodeURIComponent(id);
   } catch {
     /* ancre mal encodée : gardée telle quelle */
   }
-  let el: Element | null = document.getElementById(id);
-  if (!el) {
-    const conteneur = cible.closest(".markdown-body") || document;
-    for (const h of conteneur.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
-      const hId = (h.textContent || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^\wÀ-￿\s-]/g, "")
-        .replace(/\s+/g, "-");
-      if (hId === id || hId.includes(id.replace(/[^a-z0-9-]/g, ""))) {
-        el = h;
-        break;
-      }
-    }
+  const el = document.getElementById(id);
+  if (el) return el;
+  for (const h of conteneur.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+    const hId = (h.textContent || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^\wÀ-￿\s-]/g, "")
+      .replace(/\s+/g, "-");
+    if (hId === id || hId.includes(id.replace(/[^a-z0-9-]/g, ""))) return h;
   }
-  if (el) el.scrollIntoView({ behavior: mouvementReduit() ? "auto" : "smooth", block: "start" });
+  return null;
 }

@@ -11,8 +11,6 @@ export interface RacineCode {
   settings: Record<string, unknown>;
   logoApp: string;
   user: { avatar?: string; [cle: string]: unknown } | null;
-  renderMarkdown(source: string): string;
-  renderMarkdownLive(source: string): string;
   showOpenCodeModal: boolean;
 }
 
@@ -25,8 +23,6 @@ const CLES: Readonly<Record<keyof RacineCode | "codeSessions", true>> = {
   settings: true,
   logoApp: true,
   user: true,
-  renderMarkdown: true,
-  renderMarkdownLive: true,
   showOpenCodeModal: true,
   codeSessions: true,
 };

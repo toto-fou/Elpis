@@ -6,6 +6,7 @@ import { computed } from "vue";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 import { preferencesChat } from "../../../features/reglages/affichage-chat";
 
+import LibelleVivant from "../../communs/LibelleVivant.vue";
 import ContenuMarkdown from "../ContenuMarkdown.vue";
 import NarrationVivante from "../NarrationVivante.vue";
 import GroupeOutils from "../outils/GroupeOutils.vue";
@@ -44,14 +45,11 @@ function ouvert(e: Event): boolean {
           :class="pl.running ? 'animate-spin' : ''"
           style="font-size: 11px"
         ></i>
-        <span
+        <LibelleVivant
           class="text-[12.5px] font-medium text-slate-500 truncate max-w-[420px]"
-          :class="pl.running ? 'mem-wave' : ''"
-        >
-          <template v-if="pl.running && pl.label">{{ pl.label }}</template>
-          <template v-else-if="pl.summary">{{ pl.summary }}</template>
-          <template v-else>Travail de l'assistant</template>
-        </span>
+          :vivant="pl.running"
+          :texte="(pl.running && pl.label) || pl.summary || `Travail de l'assistant`"
+        />
         <span v-if="pl.running && pl.label" class="sr-only" role="status" aria-live="polite">{{
           pl.label
         }}</span>

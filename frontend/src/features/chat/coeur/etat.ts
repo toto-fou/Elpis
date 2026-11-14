@@ -102,23 +102,20 @@ export function creerEtatChat() {
   const composeColRef = ref<HTMLElement | null>(null);
   const composerHeight = ref(0);
   let observateur: ResizeObserver | null = null;
-  // Hauteur réelle de la colonne du composeur : la fin du fil et le bouton « bas » s'y calent.
+  // Hauteur réelle de la colonne du composeur, lue par l'observateur après la mise en page (sa première notification suit le montage) : la fin du fil et le bouton « bas » s'y calent.
   watch(composeColRef, (el) => {
     if (observateur) {
       observateur.disconnect();
       observateur = null;
     }
-    if (!el) {
-      composerHeight.value = 0;
+    if (!el || typeof ResizeObserver === "undefined") {
+      composerHeight.value = el?.offsetHeight || 0;
       return;
     }
-    if (typeof ResizeObserver !== "undefined") {
-      observateur = new ResizeObserver(() => {
-        composerHeight.value = el.offsetHeight || 0;
-      });
-      observateur.observe(el);
-    }
-    composerHeight.value = el.offsetHeight || 0;
+    observateur = new ResizeObserver(() => {
+      composerHeight.value = el.offsetHeight || 0;
+    });
+    observateur.observe(el);
   });
   const ctxRealPct = ref(0);
   return {
@@ -213,16 +210,11 @@ export interface RunLu {
   titreAttendu?: boolean;
 }
 
-export type Minuterie = ReturnType<typeof setTimeout>;
-
 /** État interne du flux (hors réactivité) : tampons, minuteries, garde de génération. */
 export interface EtatFlux {
   streamBuf: string;
   thinkBuf: string;
   preContentBuf: string;
-  streamFlushTimer: Minuterie | null;
-  thinkFlushTimer: ReturnType<typeof setInterval> | null;
-  preContentFlushTimer: ReturnType<typeof setInterval> | null;
   toolsExecutedThisTurn: boolean;
   streamToolPhase: boolean;
   ctxLive: CompteurDirect | null;
@@ -230,10 +222,6 @@ export interface EtatFlux {
   lastCtxUsed: number;
   genStartMs: number;
   genTicker: ReturnType<typeof setInterval> | null;
-  scrollPending: boolean;
-  lastContentFlushTs: number;
-  liveRenderTs: { _md: number; _pp: number };
-  liveRenderDirty: { _md: boolean; _pp: boolean };
   streamingForChatId: string | null;
   currentRun: RunLu | null;
   replaying: boolean;
@@ -245,7 +233,6 @@ export interface EtatFlux {
   envoiQuestionnaire: boolean;
   todoTouchedThisTurn: boolean;
   shellPend: Map<string, { chunk: string; seq: number }>;
-  shellFlushTimer: Minuterie | null;
 }
 
 export function creerEtatFlux(): EtatFlux {
@@ -253,9 +240,6 @@ export function creerEtatFlux(): EtatFlux {
     streamBuf: "",
     thinkBuf: "",
     preContentBuf: "",
-    streamFlushTimer: null,
-    thinkFlushTimer: null,
-    preContentFlushTimer: null,
     toolsExecutedThisTurn: false,
     streamToolPhase: false,
     ctxLive: null,
@@ -263,10 +247,6 @@ export function creerEtatFlux(): EtatFlux {
     lastCtxUsed: 0,
     genStartMs: 0,
     genTicker: null,
-    scrollPending: false,
-    lastContentFlushTs: 0,
-    liveRenderTs: { _md: 0, _pp: 0 },
-    liveRenderDirty: { _md: false, _pp: false },
     streamingForChatId: null,
     currentRun: null,
     replaying: false,
@@ -277,7 +257,6 @@ export function creerEtatFlux(): EtatFlux {
     envoiQuestionnaire: false,
     todoTouchedThisTurn: false,
     shellPend: new Map(),
-    shellFlushTimer: null,
   };
 }
 

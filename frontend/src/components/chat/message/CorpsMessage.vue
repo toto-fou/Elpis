@@ -17,6 +17,7 @@ import FilJournal from "./FilJournal.vue";
 import FilTour from "./FilTour.vue";
 import ReflexionMessage from "./ReflexionMessage.vue";
 import TravailAssistant from "./TravailAssistant.vue";
+import LibelleVivant from "../../communs/LibelleVivant.vue";
 import ContenuMarkdown from "../ContenuMarkdown.vue";
 import SousAgents from "../outils/SousAgents.vue";
 import CapturesWeb from "./CapturesWeb.vue";
@@ -126,7 +127,7 @@ function masquerBouton(e: Event): void {
           :class="fil.statusDotClass(phase.kind)"
         ></span>
       </span>
-      <span class="text-[12.5px] font-medium truncate mem-wave">{{ phase.label }}</span>
+      <LibelleVivant class="text-[12.5px] font-medium truncate" :texte="phase.label" />
     </div>
   </template>
 
@@ -291,7 +292,7 @@ function masquerBouton(e: Event): void {
           :class="fil.statusDotClass(phaseFil.kind)"
         ></span>
       </span>
-      <span class="text-[12.5px] font-medium truncate mem-wave">{{ phaseFil.label }}</span>
+      <LibelleVivant class="text-[12.5px] font-medium truncate" :texte="phaseFil.label" />
     </div>
   </template>
 

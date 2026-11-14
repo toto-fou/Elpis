@@ -4,15 +4,16 @@
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
+import { entreesMenu, naviguerMenu } from "../../../features/chat/page/menu-clavier";
 import {
   ecouterFermeture,
-  elementActif,
   focusPerdu,
   pagePlusActive,
   pagesPlus,
   placerPlus,
 } from "../../../features/chat/page/menu-pages-plus";
 import type { PagePlus } from "../../../features/chat/page/menu-pages-plus";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const props = defineProps<{ compact: boolean }>();
 const b = domaine(CLE_BARRE);
@@ -41,11 +42,6 @@ const ouvrirPage: Record<PagePlus["vue"], () => unknown> = {
   code: () => b.openCodePage(),
 };
 
-/** Entrées du sous-menu ouvert. */
-function entrees(): HTMLElement[] {
-  return menu.value ? [...menu.value.querySelectorAll<HTMLElement>('[role="menuitem"]')] : [];
-}
-
 /** Flèche droite ou bas sur le déclencheur : ouvre le sous-menu. */
 function surDeclencheur(e: KeyboardEvent): void {
   if ((e.key !== "ArrowRight" && e.key !== "ArrowDown") || ouvert.value) return;
@@ -55,17 +51,8 @@ function surDeclencheur(e: KeyboardEvent): void {
 
 /** Flèches, Début et Fin entre les pages ; flèche gauche et Tab referment. */
 function surClavier(e: KeyboardEvent): void {
-  const liste = entrees();
-  const i = liste.indexOf(elementActif() as HTMLElement);
-  const aller = (n: number): void => {
-    e.preventDefault();
-    liste[(n + liste.length) % liste.length]?.focus();
-  };
-  if (e.key === "ArrowDown") aller(i + 1);
-  else if (e.key === "ArrowUp") aller(i < 0 ? -1 : i - 1);
-  else if (e.key === "Home") aller(0);
-  else if (e.key === "End") aller(-1);
-  else if (e.key === "ArrowLeft" || e.key === "Tab") {
+  if (menu.value && naviguerMenu(e, menu.value)) return;
+  if (e.key === "ArrowLeft" || e.key === "Tab") {
     if (e.key === "ArrowLeft") e.preventDefault();
     b.menuPagesOuvert = false;
   }
@@ -108,7 +95,8 @@ watch(ouvert, async (o) => {
   placer();
   await nextTick();
   placer();
-  (menu.value?.querySelector<HTMLElement>('[aria-current="page"]') ?? entrees()[0])?.focus();
+  const m = menu.value;
+  (m?.querySelector<HTMLElement>('[aria-current="page"]') ?? (m && entreesMenu(m)[0]))?.focus();
 });
 // Volet replié, déployé ou masqué par le plein écran de l'éditeur : le sous-menu n'a plus d'ancre.
 watch([() => b.showSidebar, () => b.editorFullscreen], () => {
@@ -172,39 +160,42 @@ onBeforeUnmount(() => retirer?.());
     }}</span>
     <i class="ph ph-caret-right text-xs shrink-0 text-slate-400"></i>
   </button>
-  <div
-    v-if="ouvert"
-    :id="idMenu"
-    ref="menu"
-    role="menu"
-    aria-label="Plus"
-    class="elpis-rail-flyout fixed z-[100] w-52 p-1 rounded-xl border shadow-2xl flex flex-col gap-0.5"
-    :style="{ left: position.left + 'px', top: position.top + 'px' }"
-    @keydown="surClavier"
-  >
-    <button
-      v-for="p in pages"
-      :key="p.vue"
-      type="button"
-      role="menuitem"
-      :title="p.titre"
-      :aria-current="p.vue === b.currentView ? 'page' : undefined"
-      class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
-      :class="
-        p.vue === b.currentView
-          ? 'bg-blue-600/20 text-white'
-          : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-      "
-      @click="choisir(p)"
+  <TransitionMenu>
+    <div
+      v-if="ouvert"
+      :id="idMenu"
+      ref="menu"
+      role="menu"
+      aria-label="Plus"
+      class="menu-ancre-gauche elpis-rail-flyout fixed z-[100] w-52 p-1 rounded-xl border shadow-2xl flex flex-col gap-0.5"
+      :style="{ left: position.left + 'px', top: position.top + 'px' }"
+      @keydown="surClavier"
     >
-      <i
-        class="ph text-base shrink-0 transition-colors"
-        :class="[
-          p.icone,
-          p.vue === b.currentView ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200',
-        ]"
-      ></i>
-      <span class="flex-1 truncate">{{ p.libelle }}</span>
-    </button>
-  </div>
+      <button
+        v-for="p in pages"
+        :key="p.vue"
+        type="button"
+        role="menuitem"
+        :title="p.titre"
+        :data-precharge="p.vue"
+        :aria-current="p.vue === b.currentView ? 'page' : undefined"
+        class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
+        :class="
+          p.vue === b.currentView
+            ? 'bg-blue-600/20 text-white'
+            : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+        "
+        @click="choisir(p)"
+      >
+        <i
+          class="ph text-base shrink-0 transition-colors"
+          :class="[
+            p.icone,
+            p.vue === b.currentView ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200',
+          ]"
+        ></i>
+        <span class="flex-1 truncate">{{ p.libelle }}</span>
+      </button>
+    </div>
+  </TransitionMenu>
 </template>

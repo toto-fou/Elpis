@@ -12,6 +12,21 @@ export const LIVE_MARKUP_SUSPECT_RE = new RegExp(
     `|<\\||\\{${B}*"${motifPy("name")}"${B}*:`,
   "u",
 );
+const BLANCS_FIN = new RegExp(`${B}+$`, "u");
+/** Premier caractère d'un contenu qui peut n'être qu'un appel d'outil en texte (clôture, JSON, balise). */
+const DEBUT_PRUDENT = /^[`[{<]/u;
+
+/** Longueur (UTF-16) de `pend` qui peut partir : sauf la queue où un balisage peut encore commencer (premier `<` ou `{` des `LIVE_HOLDBACK_CHARS` derniers points de code, blancs qui le précèdent), les blancs finaux et une demi-paire haute en attente de la sienne ; fenêtre entière si `prudent`. */
+export function partEmettable(pend: string, prudent: boolean): number {
+  const fenetre = prefixePy(pend, Math.max(0, longueurPy(pend) - LIVE_HOLDBACK_CHARS)).length;
+  let cut = fenetre;
+  if (!prudent) {
+    const i = pend.slice(fenetre).search(/[<{]/u);
+    const fin = i < 0 ? pend.length : fenetre + i;
+    cut = fin - (BLANCS_FIN.exec(pend.slice(fenetre, fin))?.[0].length ?? 0);
+  }
+  return cut > 0 && (pend.charCodeAt(cut - 1) & 0xfc00) === 0xd800 ? cut - 1 : cut;
+}
 
 /** `s[n:]` en points de code. */
 function apres(s: string, n: number): string {
@@ -29,13 +44,14 @@ export function liveStreamRest(cleanText: string, rawText: string, nEmitted: num
   return null;
 }
 
-/** Contenu d'UNE itération : `parts` (jamais réaffecté), `n` points de code émis, fenêtre `pend`, portail `gated`. */
+/** Contenu d'UNE itération : `parts` (jamais réaffecté), `n` points de code émis, fenêtre `pend`, portail `gated`, `prudent` fixé au premier caractère visible ou à la première accolade (appel JSON en texte que le portail ne voit pas). */
 export class LiveText {
   readonly onEvent: SurEvenement;
   readonly parts: string[] = [];
   n = 0;
   pend = "";
   gated = false;
+  prudent: boolean | null = null;
 
   constructor(onEvent: SurEvenement) {
     this.onEvent = onEvent;
@@ -52,10 +68,15 @@ export class LiveText {
       chunk = this.pend.slice(0, m.index);
       this.pend = "";
     } else {
-      const cut = longueurPy(this.pend) - LIVE_HOLDBACK_CHARS;
+      if (this.prudent === null) {
+        const debut = lstripPy(this.pend);
+        if (debut) this.prudent = DEBUT_PRUDENT.test(debut);
+      }
+      if (this.prudent === false && this.pend.includes("{")) this.prudent = true;
+      const cut = partEmettable(this.pend, this.prudent ?? false);
       if (cut <= 0) return;
-      chunk = prefixePy(this.pend, cut);
-      this.pend = this.pend.slice(chunk.length);
+      chunk = this.pend.slice(0, cut);
+      this.pend = this.pend.slice(cut);
     }
     if (chunk) {
       this.n += longueurPy(chunk);
@@ -91,6 +112,7 @@ export class LiveText {
     this.n = 0;
     this.pend = "";
     this.gated = false;
+    this.prudent = null;
     if (emis) await emit(this.onEvent, { type: "content_replace", text: "" });
     if (texte) await this.onToken(texte);
   }

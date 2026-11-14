@@ -10,6 +10,8 @@ export interface OptionsToast {
   actionLabel?: string;
   onAction?: () => void;
   onExpire?: () => void;
+  /** Un toast de même clé encore affiché est mis à jour sur place, sa durée relancée. */
+  cle?: string;
 }
 
 export interface Toast {
@@ -19,6 +21,7 @@ export interface Toast {
   actionLabel?: string;
   onAction?: () => void;
   onExpire?: () => void;
+  cle?: string;
   _timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -41,6 +44,11 @@ export interface EtatFenetre {
   inputValue: string;
   placeholder: string;
   requireText?: string;
+  /** Ligne d'information arrivée après l'ouverture (`""` : réservée, encore vide), sous le message. */
+  note?: string;
+  /** La note est attendue : une validation demandée entre-temps est retenue jusqu'à son arrivée. */
+  attente?: boolean;
+  validationRetenue?: boolean;
   choices?: ChoixFenetre[];
   resolve: Resolution | null;
 }
@@ -77,23 +85,45 @@ const MAX_ERREURS_PERSISTANTES = 5;
 
 export function creerToasts() {
   const toasts = ref<Toast[]>([]);
+  // Échéance d'un toast qui court, temps restant d'un toast en pause (survol, focus).
+  const fins = new Map<number, number>();
+  const restes = new Map<number, number>();
 
   /** Deux toasts identiques sans action ne s'empilent pas ; une erreur reste affichée jusqu'à sa fermeture, sauf durée explicite. */
   function showToast(message: string, type?: string, opts: OptionsToast = {}): number {
     const genre = type || "success";
     const persistant = genre === "error" && typeof opts.duration !== "number";
     const duree = typeof opts.duration === "number" ? opts.duration : 4000;
+    const deCle = opts.cle ? toasts.value.find((x) => x.cle === opts.cle) : undefined;
+    if (deCle) {
+      const action = typeof opts.onAction === "function";
+      const actionLabel = action ? opts.actionLabel : undefined;
+      Object.assign(deCle, {
+        message,
+        type: genre,
+        actionLabel,
+        onAction: opts.onAction,
+        onExpire: opts.onExpire,
+      });
+      if (deCle._timer) clearTimeout(deCle._timer);
+      deCle._timer = undefined;
+      // En pause (survol, focus), la durée relancée attend la fin de la pause.
+      if (persistant) restes.delete(deCle.id);
+      else if (restes.has(deCle.id)) restes.set(deCle.id, duree);
+      else armer(deCle, duree);
+      return deCle.id;
+    }
     if (!opts.actionLabel && !opts.onExpire) {
       const meme = toasts.value.find(
         (x) => x.message === message && x.type === genre && !x.actionLabel && !x.onExpire,
       );
       if (meme) {
         if (meme._timer) clearTimeout(meme._timer);
-        meme._timer = persistant
-          ? undefined
-          : setTimeout(() => {
-              toasts.value = toasts.value.filter((x) => x.id !== meme.id);
-            }, duree);
+        meme._timer = undefined;
+        // En pause (survol, focus), la durée relancée attend la fin de la pause.
+        if (persistant) restes.delete(meme.id);
+        else if (restes.has(meme.id)) restes.set(meme.id, duree);
+        else armer(meme, duree);
         return meme.id;
       }
     }
@@ -104,29 +134,44 @@ export function creerToasts() {
       toast.onAction = opts.onAction;
     }
     if (typeof opts.onExpire === "function") toast.onExpire = opts.onExpire;
+    if (opts.cle) toast.cle = opts.cle;
     toasts.value.push(toast);
     if (persistant) {
       const erreurs = toasts.value.filter((x) => x.type === "error" && !x._timer);
       if (erreurs.length > MAX_ERREURS_PERSISTANTES) removeToast(erreurs[0]?.id ?? id);
       return id;
     }
-    toast._timer = setTimeout(() => {
-      const t = toasts.value.find((x) => x.id === id);
-      toasts.value = toasts.value.filter((x) => x.id !== id);
-      if (t?.onExpire) {
-        try {
-          t.onExpire();
-        } catch {
-          /* rappel d'expiration fautif : le toast part quand même */
-        }
-      }
-    }, duree);
+    armer(toast, duree);
     return id;
+  }
+
+  function armer(t: Toast, duree: number): void {
+    fins.set(t.id, Date.now() + duree);
+    t._timer = setTimeout(() => removeToast(t.id, true), duree);
+  }
+
+  /** Toast survolé ou qui a le focus : sa minuterie s'arrête (« Annuler » reste à portée). */
+  function pauseToast(id: number): void {
+    const t = toasts.value.find((x) => x.id === id);
+    if (!t?._timer) return;
+    clearTimeout(t._timer);
+    t._timer = undefined;
+    restes.set(id, (fins.get(id) ?? Date.now() + 4000) - Date.now());
+  }
+
+  /** Fin du survol et du focus : la minuterie repart pour le temps qui restait (1,5 s au moins). */
+  function reprendreToast(id: number): void {
+    const t = toasts.value.find((x) => x.id === id);
+    const reste = restes.get(id);
+    restes.delete(id);
+    if (t && reste !== undefined && !t._timer) armer(t, Math.max(reste, 1500));
   }
 
   function removeToast(id: number, avecExpiration?: boolean): void {
     const t = toasts.value.find((x) => x.id === id);
     if (t?._timer) clearTimeout(t._timer);
+    fins.delete(id);
+    restes.delete(id);
     toasts.value = toasts.value.filter((x) => x.id !== id);
     if (avecExpiration && t?.onExpire) {
       try {
@@ -137,7 +182,7 @@ export function creerToasts() {
     }
   }
 
-  return { toasts, showToast, removeToast };
+  return { toasts, showToast, removeToast, pauseToast, reprendreToast };
 }
 
 /** Région sr-only unique : annonce les événements sans interface dédiée (fin de génération, choix de modèle…). */
@@ -174,14 +219,17 @@ export function creerFenetre() {
     void nextTick(() => focus.value?.focus());
   }
 
+  // `suite` : note arrivée après l'ouverture, sur sa ligne réservée ; une validation demandée avant ne passe que si elle est vide.
   function openConfirm(
     title: string,
     message?: string,
     isDanger?: boolean,
     confirmLabel?: string,
     cancelLabel?: string,
+    suite?: Promise<string>,
   ): Promise<boolean> {
     return new Promise((resolve) => {
+      const fin = (v: unknown): void => resolve(v === true);
       ouvrir(
         {
           title,
@@ -189,10 +237,20 @@ export function creerFenetre() {
           isDanger: !!isDanger,
           confirmLabel: confirmLabel || (isDanger ? "Supprimer" : "Confirmer"),
           cancelLabel: cancelLabel || "Annuler",
-          resolve: (v) => resolve(v === true),
+          resolve: fin,
+          ...(suite ? { note: "", attente: true } : {}),
         },
         modalCancelRef,
       );
+      void suite
+        ?.catch(() => "")
+        .then((t) => {
+          const m = modalState.value;
+          if (!m.isOpen || m.resolve !== fin) return;
+          m.note = t;
+          m.attente = false;
+          if (m.validationRetenue && !t) fermer(true);
+        });
     });
   }
 
@@ -283,6 +341,10 @@ export function creerFenetre() {
     const m = modalState.value;
     if (!m.isOpen || !m.resolve) return;
     if (modalTypedBlocked()) return;
+    if (m.attente) {
+      m.validationRetenue = true;
+      return;
+    }
     fermer(m.type === "prompt" ? m.inputValue || null : true);
   }
 

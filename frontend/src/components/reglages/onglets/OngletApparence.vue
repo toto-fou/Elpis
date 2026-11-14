@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres : thème, éditeur, mascotte. -->
+<!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres : thème, animations, éditeur, mascotte. -->
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 
@@ -7,9 +7,17 @@ import BoutonAssistant from "../../communs/BoutonAssistant.vue";
 import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import { sectionCourante } from "../../../features/reglages/sections";
+import { lireChoixMouvement } from "../../../platform/mouvement";
+import type { ChoixMouvement } from "../../../platform/mouvement";
 
 const rg = domaineReglages();
 const section = computed(() => sectionCourante(rg, "appearance"));
+const mouvement = computed(() => lireChoixMouvement(rg.settings.ui_motion));
+const MOUVEMENTS: readonly { v: ChoixMouvement; l: string }[] = [
+  { v: "system", l: "Système" },
+  { v: "full", l: "Complètes" },
+  { v: "reduced", l: "Réduites" },
+];
 onMounted(() => void rg.chargerSkinsPerso());
 </script>
 
@@ -17,7 +25,10 @@ onMounted(() => void rg.chargerSkinsPerso());
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <h3 class="sr-only">{{ section?.libelle }}</h3>
   <div class="space-y-5 max-w-xl">
-    <div v-if="section?.id === 'theme'" class="bg-slate-50 rounded-xl">
+    <div
+      v-if="section?.id === 'theme'"
+      class="set-colonnes bg-slate-50 rounded-xl divide-y divide-slate-200/70"
+    >
       <div class="set-row">
         <i class="ph ph-moon text-slate-400 text-lg w-5" aria-hidden="true"></i>
         <div class="flex-1 min-w-0">
@@ -43,6 +54,32 @@ onMounted(() => void rg.chargerSkinsPerso());
             class="adm-seg__btn"
             :class="rg.themeMode === m.v ? 'is-active' : ''"
             @click="rg.applyThemeMode(m.v)"
+          >
+            {{ m.l }}
+          </button>
+        </div>
+      </div>
+      <div class="set-row">
+        <i class="ph ph-wave-sine text-slate-400 text-lg w-5" aria-hidden="true"></i>
+        <div class="flex-1 min-w-0">
+          <div
+            id="set-mouvement-lbl"
+            class="text-sm text-slate-800"
+            title="Système suit le réglage « réduire les animations » du poste. Complètes : volets et menus glissent même si le poste demande moins de mouvement. Réduites : fondus courts, sans déplacement."
+          >
+            Animations
+          </div>
+        </div>
+        <div class="adm-seg" role="radiogroup" aria-labelledby="set-mouvement-lbl">
+          <button
+            v-for="m in MOUVEMENTS"
+            :key="m.v"
+            type="button"
+            role="radio"
+            :aria-checked="mouvement === m.v ? 'true' : 'false'"
+            class="adm-seg__btn"
+            :class="mouvement === m.v ? 'is-active' : ''"
+            @click="rg.settings.ui_motion = m.v"
           >
             {{ m.l }}
           </button>
@@ -172,7 +209,7 @@ onMounted(() => void rg.chargerSkinsPerso());
             <span class="text-xs text-slate-500 leading-snug">
               Animer l'accueil.
               <span v-if="rg.mouvementReduit" class="text-slate-400"
-                >Ton système demande moins de mouvement : décoche pour rendre la scène à l'arrêt.</span
+                >Les animations sont réduites : décoche pour rendre la scène à l'arrêt.</span
               >
               <span v-else class="text-slate-400"
                 >La mascotte joue autour du mot ; décoche pour une image fixe.</span

@@ -290,6 +290,7 @@ describe("documents", () => {
     expect(rg.documents.lignes).toHaveLength(500);
     expect(rg.documents.chargement).toBe(true);
     expect(rg.documents.squelettes).toBe(6);
+    expect(rg.documents.virtualise).toBe(true);
     attentes.shift()?.();
     await vider();
     await ouverture;

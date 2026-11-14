@@ -78,7 +78,10 @@ export function creerDocuments(base: BaseRag) {
     for (const i of ordre.value) if (correspondEtat(liste[i]!, etat)) sortie.push(liste[i]!);
     return sortie;
   });
-  const virtualise = computed(() => lignes.value.length > SEUIL_VIRTUALISATION);
+  // Le total annoncé compte pendant un chargement : la première page d'une grande collection ne dessine que sa fenêtre.
+  const virtualise = computed(
+    () => Math.max(lignes.value.length, chargement.value ? total.value : 0) > SEUIL_VIRTUALISATION,
+  );
   /** Lignes squelettes pendant un chargement : la suite attendue (total annoncé, sinon le compte de la collection), six au plus. */
   const squelettes = computed(() => {
     if (!chargement.value) return 0;

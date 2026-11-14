@@ -325,7 +325,10 @@ describe("tableau des documents", () => {
     );
     const m = await monter({ api: api({ documents }) });
     await m.attendre();
-    expect(m.qa("[data-rag-doc]")).toHaveLength(500);
+    // 1 000 documents annoncés : la première page ne dessine que la fenêtre visible.
+    expect(m.rg.documents.lignes).toHaveLength(500);
+    expect(m.qa("[data-rag-doc]").length).toBeGreaterThan(0);
+    expect(m.qa("[data-rag-doc]").length).toBeLessThan(50);
     expect(m.qa("[data-rag-squelette]")).toHaveLength(6);
     expect(m.q(".rag-table")?.getAttribute("aria-busy")).toBe("true");
     expect(m.q(".rag-empty-docs")).toBeNull();

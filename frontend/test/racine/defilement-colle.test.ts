@@ -49,10 +49,15 @@ async function monter(hauteur: number) {
   const el = conteneur(hauteur);
   const isUserScrolling = ref(false);
   const elRef = ref<unknown>(null);
-  const api = creerDefilementChat({ conteneur: () => elRef.value as HTMLElement | null, isUserScrolling });
+  const suivis = { n: 0 };
+  const api = creerDefilementChat({
+    conteneur: () => elRef.value as HTMLElement | null,
+    isUserScrolling,
+    onChatScroll: () => suivis.n++,
+  });
   elRef.value = el;
   await nextTick();
-  return { el, cible: elRef.value, isUserScrolling, verrouiller: api.verrouillerDefilementAuto };
+  return { el, cible: elRef.value, isUserScrolling, verrouiller: api.verrouillerDefilementAuto, suivis };
 }
 
 afterEach(() => {
@@ -97,6 +102,18 @@ describe("fil collé en bas", () => {
     el.appuyer({});
     el.defiler(2100);
     expect(isUserScrolling.value).toBe(false);
+  });
+
+  it("geste de l'utilisateur pendant le verrou : la fenêtre virtuelle suit ; un défilement programmé ne la relance pas", async () => {
+    const { el, isUserScrolling, verrouiller, suivis } = await monter(3000);
+    el.defiler(2400);
+    verrouiller();
+    const avant = suivis.n;
+    el.defiler(2300);
+    expect(suivis.n).toBe(avant);
+    isUserScrolling.value = true;
+    el.defiler(2000);
+    expect(suivis.n).toBe(avant + 1);
   });
 
   it("relâchement perdu : un mouvement du pointeur sans bouton enfoncé rend la barre", async () => {

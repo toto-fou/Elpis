@@ -39,6 +39,8 @@ export function creerDefilementChat(src: SourceDefilement) {
         if (barreTenue && el.scrollTop < dernierHaut && dist > 4 && assezHaut())
           src.isUserScrolling.value = true;
         dernierHaut = el.scrollTop;
+        // Geste de l'utilisateur pendant le verrou : la fenêtre virtuelle suit la vue.
+        if (src.isUserScrolling.value) src.onChatScroll?.();
         return;
       }
       const remonte = el.scrollTop < dernierHaut;

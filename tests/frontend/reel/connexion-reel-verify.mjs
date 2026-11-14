@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/connexion-reel-verify.mjs — connexion contre le core TS réel : refus d'un mauvais mot de passe, connexion, liste des chats, déconnexion */
+/** tests/frontend/reel/connexion-reel-verify.mjs — connexion contre le core TS réel : refus d'un mauvais mot de passe, connexion, liste des chats, liste des modèles lue sans geste, déconnexion */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CHROMIUM=/opt/pw-browsers/chromium] node tests/frontend/reel/connexion-reel-verify.mjs
 import { demarrerCoreReel, lancerNavigateur, attendreMontage, verifications } from '../lib/core-reel.mjs';
 import { brancherReleveCsp } from '../lib/releve-csp.mjs';
@@ -13,6 +13,9 @@ try {
     const page = await ctx.newPage();
     const erreurs = [];
     page.on('pageerror', (e) => erreurs.push(String(e.message || e)));
+    const modeles = [];
+    page.on('request', (r) => { if (new URL(r.url()).pathname === '/api/llm/models') modeles.push(r.url()); });
+    const lues = async (n) => { for (let i = 0; i < 50 && modeles.length < n; i++) await page.waitForTimeout(100); return modeles.length >= n; };
     await page.goto(core.urlMain + '/');
     await attendreMontage(page);
     const identifiant = page.locator('#login-identifiant');
@@ -35,6 +38,13 @@ try {
     v.ok('chats de la fixture listés dans la barre latérale', await titre.isVisible());
     const me = await page.evaluate(async () => (await fetch('/api/me-lite')).json());
     v.ok('session ouverte au nom du compte', me.logged_in === true && me.username === 'alice', JSON.stringify(me));
+
+    // Le premier envoi a besoin du modèle et de ses réglages : la liste est lue à l'arrivée du compte, sans geste.
+    v.ok('liste des modèles lue à la connexion, sans geste', await lues(1), String(modeles.length));
+    const avant = modeles.length;
+    await page.reload();
+    await attendreMontage(page);
+    v.ok('liste des modèles relue au rechargement de la page, session ouverte', await lues(avant + 1), String(modeles.length - avant));
 
     await page.evaluate(async () => { await fetch('/api/logout-lite', { method: 'POST' }); });
     await page.reload();

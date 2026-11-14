@@ -105,6 +105,22 @@ describe("variantes en mémoire", () => {
     await petite.obtenir(f, st(5600, 2), "br");
     expect(await petite.obtenir(f, st(5600, 2), "gzip")).not.toBe(a);
   });
+
+  it("requêtes simultanées à froid : une seule compression ; un échec n'est pas gardé", async () => {
+    const f = join(dossier, "simultanee.css");
+    writeFileSync(f, "c{margin:0}\n".repeat(2000));
+    const v = new VariantesEnMemoire();
+    const lot = await Promise.all(
+      Array.from({ length: 12 }, () => v.obtenir(f, { mtimeMs: 3, size: 24000 }, "br")),
+    );
+    expect(lot.every((c) => c === lot[0])).toBe(true);
+    const absent = join(dossier, "absent.css");
+    await expect(v.obtenir(absent, { mtimeMs: 4, size: 10 }, "gzip")).rejects.toThrow();
+    writeFileSync(absent, "d{}\n".repeat(500));
+    expect(gunzipSync(await v.obtenir(absent, { mtimeMs: 4, size: 10 }, "gzip")).toString()).toBe(
+      "d{}\n".repeat(500),
+    );
+  });
 });
 
 describe("JSON compressé à la volée", () => {

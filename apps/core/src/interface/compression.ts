@@ -43,9 +43,15 @@ export function encodageAccepte(entete: string | string[] | undefined): Encodage
   return gz > 0 ? "gzip" : null;
 }
 
-/** Variantes compressées par fichier, encodage et version (date, taille) ; les moins récemment servies sortent au-delà du plafond. */
+interface Variante {
+  version: string;
+  corps: Promise<Buffer>;
+  octets: number;
+}
+
+/** Variantes compressées par fichier, encodage et version (date, taille), une seule compression même pour des requêtes simultanées ; les moins récemment servies sortent au-delà du plafond. */
 export class VariantesEnMemoire {
-  private readonly entrees = new Map<string, { version: string; corps: Buffer }>();
+  private readonly entrees = new Map<string, Variante>();
   private octets = 0;
   private readonly plafond: number;
 
@@ -53,7 +59,7 @@ export class VariantesEnMemoire {
     this.plafond = plafond;
   }
 
-  async obtenir(chemin: string, st: Pick<Stats, "mtimeMs" | "size">, encodage: Encodage): Promise<Buffer> {
+  obtenir(chemin: string, st: Pick<Stats, "mtimeMs" | "size">, encodage: Encodage): Promise<Buffer> {
     const cle = `${encodage}:${chemin}`;
     const version = `${st.mtimeMs}:${st.size}`;
     const deja = this.entrees.get(cle);
@@ -62,22 +68,35 @@ export class VariantesEnMemoire {
       this.entrees.set(cle, deja);
       return deja.corps;
     }
-    const corps = await compresser(await readFile(chemin), encodage, false);
     this.retirer(cle);
-    this.entrees.set(cle, { version, corps });
-    this.octets += corps.length;
-    for (const ancienne of this.entrees.keys()) {
-      if (this.octets <= this.plafond) break;
-      this.retirer(ancienne);
-    }
-    return corps;
+    const v: Variante = {
+      version,
+      octets: 0,
+      corps: readFile(chemin).then((o) => compresser(o, encodage, false)),
+    };
+    this.entrees.set(cle, v);
+    void v.corps.then(
+      (corps) => {
+        if (this.entrees.get(cle) !== v) return;
+        v.octets = corps.length;
+        this.octets += corps.length;
+        for (const ancienne of this.entrees.keys()) {
+          if (this.octets <= this.plafond) break;
+          this.retirer(ancienne);
+        }
+      },
+      () => {
+        if (this.entrees.get(cle) === v) this.entrees.delete(cle);
+      },
+    );
+    return v.corps;
   }
 
   private retirer(cle: string): void {
     const e = this.entrees.get(cle);
     if (e === undefined) return;
     this.entrees.delete(cle);
-    this.octets -= e.corps.length;
+    this.octets -= e.octets;
   }
 }
 

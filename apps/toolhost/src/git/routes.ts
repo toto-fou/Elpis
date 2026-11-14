@@ -621,6 +621,7 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
             .length)
       )
         throw new HttpError(409, `Le dossier '${dir}' existe déjà et n'est pas vide`);
+      let valides: boolean;
       try {
         const r = await reseau(ctx, racine, ["clone", "--progress", "--", url, rel], {
           url,
@@ -628,6 +629,7 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
           timeoutS: 120,
         });
         if (r.returncode !== 0) throw new HttpError(400, prefixePy(sortieOu(r), 500));
+        valides = r.identifiantsDemandes;
       } catch (e) {
         if (e instanceof HttpError) {
           try {
@@ -639,8 +641,9 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
         }
         throw e;
       }
+      // Seuls des identifiants que l'amont a demandés (et acceptés : le clone a réussi) sont enregistrés ; un dépôt public ne les a jamais vus.
       let enregistre = false;
-      if (texteNu(getPy(data, "cred_token"))) {
+      if (valides && texteNu(getPy(data, "cred_token"))) {
         try {
           enregistre = await ctx.rappel.enregistrerIdentifiantGit(
             { user_id: uid, username: q.identite?.username ?? "" },
@@ -648,6 +651,7 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
             texteNu(getPy(data, "cred_user")),
             texteNu(getPy(data, "cred_token")),
             texteNu(getPy(data, "provider_type")),
+            typeof getPy(data, "cred_scope") === "string" ? texteNu(getPy(data, "cred_scope")) : null,
           );
         } catch {
           enregistre = false;

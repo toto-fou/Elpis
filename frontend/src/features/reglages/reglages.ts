@@ -49,7 +49,8 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   const agents = creerAgents(vue, settings, ctx, persistance);
 
   const connexions = setupConnexions(ctx, http);
-  const git = setupGitConnecteurs(ctx, http);
+  // Un compte git porte un secret du coffre, et réciproquement : chaque liste suit les changements de l'autre.
+  const git = setupGitConnecteurs(ctx, http, () => void secrets.charger());
   const llm = setupLlmConnecteurs(ctx, http);
   const utilisation = setupUtilisation(http);
   const secrets = creerGestionSecrets({
@@ -57,7 +58,10 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     portee: "compte",
     toast: ctx.showToast,
     ouvrir: (cible) => ouvrirGestionnaireSecret(cible),
-    notifier: () => window.dispatchEvent(new CustomEvent("secrets:changed")),
+    notifier: () => {
+      window.dispatchEvent(new CustomEvent("secrets:changed"));
+      void git.loadGitConnectors();
+    },
     demanderAbandon: () =>
       ctx.openConfirm("Abandonner la saisie ?", "La saisie de ce secret sera perdue.", true, "Abandonner"),
   });
@@ -107,7 +111,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   });
   liens.closeSettings = (sauter) => modale.closeSettings(sauter);
 
-  /** Secret de connecteur : son onglet (Comptes Git, Modèles IA), ou le gestionnaire MCP à la place des Paramètres. */
+  /** Secret de connecteur : son onglet ou sa section (`onglet:section` : Comptes Git, Modèles IA), ou le gestionnaire MCP à la place des Paramètres. */
   function ouvrirGestionnaireSecret(cible: string): void {
     if (cible === "mcp") {
       void modale.closeSettings().then(() => {
@@ -115,8 +119,10 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
       });
       return;
     }
-    modale.settingsTab.value = cible;
-    if (cible === "connectors") void git.loadGitConnectors();
+    const [onglet = cible, section = ""] = cible.split(":");
+    modale.settingsTab.value = onglet;
+    if (section) modale.settingsSections.value[onglet] = section;
+    if (cible === "secrets:git") void git.loadGitConnectors();
     if (cible === "ai_models") void llm.loadLlmConnectors();
   }
 

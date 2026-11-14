@@ -3,7 +3,12 @@
 import type { Base, Executeur } from "./base";
 
 /** Registre des migrations TS, dans l'ordre, numérotées à la suite des migrations Python : une base neuve les reçoit toutes tamponnées, quel que soit le process qui la crée. */
-export const MIGRATIONS_TS: readonly string[] = ["0027_vault_git", "0028_vault_llm_images", "0029_vault_mcp"];
+export const MIGRATIONS_TS: readonly string[] = [
+  "0027_vault_git",
+  "0028_vault_llm_images",
+  "0029_vault_mcp",
+  "0030_git_account_scope",
+];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */
 export interface NotesMigration {

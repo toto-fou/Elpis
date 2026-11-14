@@ -161,8 +161,8 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         id: "secrets",
         libelle: "Secrets",
         icone: "ph-vault",
-        mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login jeton mcp openapi opencode connexions",
-        ancien: "Jetons d'accès Connexions",
+        mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login jeton mcp openapi opencode connexions git github gitlab gitea bitbucket depot",
+        ancien: "Jetons d'accès Connexions Connecteurs Comptes Git",
         sections: [
           {
             id: "web",
@@ -172,6 +172,13 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
             aide: "Identifiants et jetons que l'agent utilise sur les sites, chiffrés dans le coffre : il n'en voit jamais la valeur.",
           },
           {
+            id: "git",
+            libelle: "Comptes Git",
+            icone: "ph-git-fork",
+            mots: "git github gitlab gitea bitbucket depot clone push pull pr connecteurs comptes",
+            aide: "Vos jetons Git (GitHub, GitLab, Bitbucket, Gitea) pour le clone, le push et les PR, chiffrés dans le coffre : l'agent n'en voit jamais la valeur.",
+          },
+          {
             id: "jetons",
             libelle: "Jetons MCP",
             icone: "ph-key",
@@ -179,13 +186,6 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
             aide: "Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode).",
           },
         ],
-      },
-      {
-        id: "connectors",
-        libelle: "Comptes Git",
-        icone: "ph-git-fork",
-        mots: "token jeton git github gitea connecteurs depot",
-        ancien: "Connecteurs",
       },
     ],
   },
@@ -214,6 +214,7 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
 /** Anciens identifiants d'onglet, avec l'onglet et la section où ils mènent désormais. */
 export const ANCIENS_ONGLETS: Readonly<Record<string, { onglet: string; section: string }>> = {
   connexions: { onglet: "secrets", section: "jetons" },
+  connectors: { onglet: "secrets", section: "git" },
 };
 
 export function sansAccent(texte: string): string {

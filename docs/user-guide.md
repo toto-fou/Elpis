@@ -505,7 +505,7 @@ tools; under each group of the Permissions tab, a line says what the selected op
 request) is visible outside your machine: no agent calls it. The `pr` agent
 prepares the branch and the commit, then hands back the exact call; the assistant
 runs it, in the chat, where you see it. No agent, and not the assistant either, ever
-receives a Git token: you add it yourself in Settings → Git accounts.
+receives a Git token: you add it yourself in Settings → Secrets → Git accounts.
 
 **Several agents at once.** The agents that a single message launches start together,
 within the limit set by the administrator. The harness does not order them: the
@@ -1386,11 +1386,24 @@ write a correct skill the first time.
 
 ## Git accounts
 
-Settings → **Git accounts**: register your access to code hosts (GitHub,
-GitLab, Bitbucket cloud or server, Gitea, or a generic service).
+Settings → **Secrets** → **Git accounts**: register your access to code hosts (GitHub,
+GitLab, Bitbucket cloud or server, Gitea / Forgejo, or any other Git server).
 
-- Just paste a repository URL: the service and host are detected.
-- **Test connection** validates the token and lists the accessible repositories.
+- **URL**: paste the URL of your Git server, of an organization or of a repository; the type of
+  server is detected.
+- **Utiliser ce compte pour** says where the account is used: the whole server (`github.com`), an
+  organization (`github.com/acme`) or one repository (`github.com/acme/api`). The URL offers the
+  levels it contains, the whole server by default. Several accounts can share a host; for a repository, the most specific one that covers
+  it is used, so a personal token for the host and a token limited to an organization or a
+  repository work side by side. Two accounts cannot apply to exactly the same place.
+- Narrowing where an account applies keeps its token; widening or moving it asks for the token
+  again.
+- Case is ignored in the path, except for the type *Autre serveur Git*, where it is kept as typed. On
+  Bitbucket Server the path starts with `scm/`, as in the clone address (`bb.example/scm/proj`).
+- An account marked *inactif* (two accounts shared a host before this version) is not used
+  until you edit it and choose what it is used for.
+- **Tester** validates the token; the editor's *Ajouter un dépôt* window lists the repositories of the
+  account, within what it applies to.
 - The token is stored **encrypted in the server's secrets vault** — never written
   to your sandbox, never sent back to your browser, never shown to the assistant.
   Leave the field empty when editing an account to keep the current token.

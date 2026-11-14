@@ -371,6 +371,7 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
               texteDe(c["token"]),
               stripPy(texteDe(c["provider_type"])),
               { userId: uid, username, ip: null },
+              typeof c["scope"] === "string" ? c["scope"] : null,
             );
           } catch (e) {
             const nom = e instanceof Error ? e.name : typeof e;

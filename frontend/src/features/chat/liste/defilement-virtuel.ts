@@ -197,6 +197,16 @@ export function creerDefilementVirtuel(
     repos = null;
   }
 
+  /** La fenêtre posée est peinte d'abord, sa marge vient au repos qui suit. */
+  function reposApresImage(): void {
+    annulerRepos();
+    const id = requestAnimationFrame(() => {
+      repos = null;
+      planifierRepos();
+    });
+    repos = () => cancelAnimationFrame(id);
+  }
+
   function onChatScroll(): void {
     if (raf) return;
     raf = requestAnimationFrame(() => {
@@ -269,22 +279,18 @@ export function creerDefilementVirtuel(
     annulerRepos();
     ouverture.value = total > PREMIERE_IMAGE && total <= SEUIL_VIRTUEL;
     poser(Math.max(0, total - PREMIERE_IMAGE), total, total);
-    if (total <= PREMIERE_IMAGE) return;
-    const id = requestAnimationFrame(() => {
-      repos = null;
-      planifierRepos();
-    });
-    repos = () => cancelAnimationFrame(id);
+    if (total > PREMIERE_IMAGE) reposApresImage();
   }
 
   /** Queue visible pendant le flux : seuls les messages ajoutés sont montés (au plus QUEUE) ; garde rapide, appel à chaque flush. */
   function _vsEnsureTail(): void {
     const total = messages.value.length;
     if (total <= SEUIL_VIRTUEL && !ouverture.value) return;
-    const s =
-      fin.value > total - PREMIERE_IMAGE ? Math.max(debut.value, total - QUEUE) : total - PREMIERE_IMAGE;
+    const loin = fin.value <= total - PREMIERE_IMAGE;
+    const s = loin ? total - PREMIERE_IMAGE : Math.max(debut.value, total - QUEUE);
     if (debut.value === tete(s) && fin.value === total) return;
     poser(s, total, total);
+    if (loin) reposApresImage();
   }
 
   function flasher(idx: number): void {

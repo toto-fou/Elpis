@@ -304,7 +304,7 @@ it("flux après l'ouverture : seul le message ajouté est monté, la queue ne d�
   }
 });
 
-it("retour en bas depuis le haut d'un long fil : les derniers messages seuls dans l'image", async () => {
+it("retour en bas depuis le haut d'un long fil : les derniers messages seuls dans l'image, la marge au repos après elle", async () => {
   const v = monter(100);
   v.refs.isUserScrolling.value = true;
   await v.defiler(0);
@@ -312,6 +312,9 @@ it("retour en bas depuis le haut d'un long fil : les derniers messages seuls dan
   v.api._vsEnsureTail();
   assert.deepStrictEqual(v.indices(), [92, 93, 94, 95, 96, 97, 98, 99]);
   assert.equal(v.api.vsBotPad.value, 0);
+  assert.equal(fileRepos.size, 0, "rien au repos avant l'image");
+  await vider();
+  assert.equal(v.indices()[0], PREMIER_EN_BAS - TAMPON, "la marge au-dessus de la vue est montée au repos");
 });
 
 it("ouverture : un saut vers un message la termine d'un coup", () => {

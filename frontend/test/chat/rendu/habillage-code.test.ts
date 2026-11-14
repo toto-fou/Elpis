@@ -219,6 +219,14 @@ describe("balisage forgé par le modèle : aucune commande ne fonctionne", () =>
     expect(hote.querySelectorAll("[" + ATTRIBUT_ACTION + "]").length).toBe(1);
   });
 
+  it("le texte d'un bloc est lu sans ses balises de coloration : un SVG coloré reste une image, un XML coloré est habillé", () => {
+    const colore = (texte: string): string =>
+      `<pre><code class="hljs language-xml"><span class="hljs-tag">${texte}</span></code></pre>`;
+    const svg = colore("&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot;&gt;&lt;/svg&gt;");
+    expect(habillerBlocsCode(svg)).toBe(svg);
+    expect(habillerBlocsCode(colore("&lt;note&gt;à faire&lt;/note&gt;"))).toContain("code-wrapper");
+  });
+
   it("l'habillage ne s'applique qu'au HTML déjà produit : du HTML brut non purifié n'est jamais habillé en dehors du moteur", () => {
     const brut = habillerBlocsCode('<pre><code class="language-py">a</code></pre>');
     expect(brut).toContain(ATTRIBUT_ACTION);

@@ -42,6 +42,20 @@ function decoder(s: string): string {
   return s.replace(/&(lt|gt|quot|amp|#39|#x27);/g, (_, e: string) => ENTITES[e] ?? "");
 }
 
+/** Texte d'un HTML de bloc de code : tout ce qui va d'un « < » au « > » suivant est retiré, une balise non fermée avec sa suite ; aucun « < » ne reste. */
+function sansBalises(html: string): string {
+  let texte = "";
+  let debut = 0;
+  for (;;) {
+    const ouvre = html.indexOf("<", debut);
+    if (ouvre < 0) return texte + html.slice(debut);
+    texte += html.slice(debut, ouvre);
+    const ferme = html.indexOf(">", ouvre + 1);
+    if (ferme < 0) return texte;
+    debut = ferme + 1;
+  }
+}
+
 /** Langue (en minuscules) lue dans l'attribut `class` d'un `code` : première classe `language-…`. */
 export function langueDeClasses(classes: string): string {
   for (const c of decoder(classes).split(/\s+/))
@@ -77,7 +91,7 @@ export function habillerBlocsCode(html: string): string {
   if (!html.includes("<pre>")) return html;
   return html.replace(BLOC_PUR, (tout, classes: string, corps: string) => {
     const lang = langueDeClasses(classes);
-    if (!estBlocOrdinaire(lang, () => decoder(corps.replace(/<[^>]*>/g, "")))) return tout;
+    if (!estBlocOrdinaire(lang, () => decoder(sansBalises(corps)))) return tout;
     return habillerBloc(lang, classes, corps);
   });
 }

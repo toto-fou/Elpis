@@ -354,9 +354,10 @@ export function creerCarteFichiers(
     for (const k of Object.keys(diffCardState)) delete diffCardState[Number(k)];
   }
 
+  // Toujours l'objet réactif, même tout juste créé : une écriture prévient la carte qui le lit.
   function etat(msgIdx: number, path: string): EtatFichier {
-    const ms = (diffCardState[msgIdx] ??= { files: {} });
-    return (ms.files[path] ??= { ...DEFAUTS });
+    const fichiers = (diffCardState[msgIdx] ??= { files: {} }).files;
+    return reactive((fichiers[path] ??= { ...DEFAUTS }));
   }
 
   // Versions de l'historique : immuables, donc mises en cache par empreinte.

@@ -125,7 +125,6 @@ const SURFACE_RACINE = [
   "showEditor",
   "showEditorMore",
   "showGitCloneModal",
-  "showGitInitModal",
   "showGitMergeModal",
   "showGitPushAuth",
   "showGitRemoteModal",

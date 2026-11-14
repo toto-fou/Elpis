@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre de clonage de l'éditeur (liste d'un compte ou adresse, récapitulatif, compte qui servira, identifiants saisis sur place et leur portée). */
+/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre « Ajouter un dépôt » de l'éditeur (liste d'un compte ou URL, récapitulatif, compte qui servira, identifiants saisis sur place et leur portée, dépôt neuf initialisé). */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CAPTURES=dossier] node tests/frontend/reel/comptes-git-reel-verify.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +12,7 @@ const core = await demarrerCoreReel();
 const nav = await lancerNavigateur();
 const CAPTURES = process.env.ELPIS_CAPTURES || '';
 const clones = [];
+const inits = [];
 let refuser = true;
 
 const DEPOTS = [
@@ -31,6 +32,10 @@ async function simuler(page) {
         if (p === '/api/sandbox/check-mtimes') return json(bac.etats());
         if (p === '/api/sandbox/git/repos') return json({ repos: [] });
         if (p === '/api/sandbox/git/status') return json({ is_repo: false });
+        if (p === '/api/sandbox/git/init') {
+            inits.push(JSON.parse(req.postData() || '{}'));
+            return json({ ok: true, repo: 'mon-projet', message: 'Dépôt initialisé' });
+        }
         if (p === '/api/sandbox/git/clone') {
             clones.push(JSON.parse(req.postData() || '{}'));
             // Ce que dit git dans le bac devant un dépôt qui demande des identifiants : il ne peut pas les demander.
@@ -75,31 +80,37 @@ try {
     await dialogue.locator('[data-sous-menu] [data-section="git"]').click();
     const git = dialogue.locator('[data-onglet-git]');
     await git.waitFor({ timeout: 10000 }).catch(() => {});
-    v.ok('partie Comptes Git affichée, vide', (await git.textContent() || '').includes('Aucun compte Git'));
+    v.ok('partie Comptes Git affichée, vide, avec la règle des comptes multiples',
+        (await git.textContent() || '').includes('Aucun compte Git') && ((await git.locator('[data-regle]').textContent()) || '').includes('le plus précis est pris'));
 
     const ajouter = async ({ url, niveau, jeton, libelle }) => {
         await git.getByRole('button', { name: 'Ajouter un compte' }).click();
-        const champUrl = git.locator('input[placeholder*="repo.git"]');
+        const champUrl = git.locator('[data-url]');
         await champUrl.fill(url);
+        // Les niveaux sont proposés dès la saisie ; le serveur reconnaît ensuite le type et l'API.
+        const aussitot = await git.locator('[data-niveau]').count();
         const analyse = page.waitForResponse((r) => r.url().endsWith('/api/git/connectors/parse'), { timeout: 10000 }).catch(() => null);
         await champUrl.blur();
         await analyse;
-        await git.locator('[data-niveau]').first().waitFor({ timeout: 10000 }).catch(() => {});
-        const niveaux = await git.locator('[data-niveau]').evaluateAll((l) => l.map((e) => e.textContent.trim()));
-        if (niveau) await git.locator('[data-niveau]', { hasText: new RegExp(`^\\s*${niveau.replaceAll('.', '\\.')}\\s*$`) }).click();
-        await git.locator('input[type="password"]').fill(jeton);
-        if (libelle) await git.locator('input[placeholder^="Label"]').fill(libelle);
-        const portee = await git.locator('[data-portee]').inputValue();
+        const niveaux = await git.locator('[data-niveau] .font-mono').evaluateAll((l) => l.map((e) => e.textContent.trim()));
+        if (niveau) await git.locator('[data-niveau]', { has: page.locator('.font-mono', { hasText: new RegExp(`^${niveau.replaceAll('.', '\\.')}$`) }) }).click();
+        await git.locator('#git-jeton').fill(jeton);
+        if (libelle) await git.locator('#git-nom').fill(libelle);
+        const portee = ((await git.locator('[data-niveau][aria-checked="true"] .font-mono').textContent()) || '').trim();
+        const libelles = await git.locator('label, #git-portee-lbl').evaluateAll((l) => l.map((e) => e.textContent.trim()));
         const rep = page.waitForResponse((r) => r.url().endsWith('/api/git/connectors') && r.request().method() === 'POST', { timeout: 10000 }).catch(() => null);
         await git.getByRole('button', { name: 'Ajouter', exact: true }).click();
         const r = await rep;
-        return { niveaux, portee, statut: r ? r.status() : 0 };
+        return { niveaux, portee, aussitot, libelles, statut: r ? r.status() : 0 };
     };
 
     const hote = await ajouter({ url: 'https://github.com/Acme/API.git', jeton: 'jeton-perso', libelle: 'perso' });
-    v.ok('URL collée : trois niveaux proposés, tout l\'hôte par défaut',
-        JSON.stringify(hote.niveaux) === '["github.com","github.com/acme","github.com/acme/api"]' && hote.portee === 'github.com' && hote.statut === 200,
+    v.ok('URL collée : trois niveaux proposés aussitôt, tout le serveur par défaut',
+        JSON.stringify(hote.niveaux) === '["github.com","github.com/acme","github.com/acme/api"]' && hote.aussitot === 3 && hote.portee === 'github.com' && hote.statut === 200,
         JSON.stringify(hote));
+    v.ok('formulaire : des libellés qui disent ce qu\'ils sont',
+        JSON.stringify(hote.libelles) === '["URL","Utiliser ce compte pour","Type de serveur","Identifiant","Jeton d\'accès","Nom du compte (facultatif)"]',
+        JSON.stringify(hote.libelles));
     await capture(page, '1-comptes-git-liste');
     const org = await ajouter({ url: 'https://github.com/Acme/API.git', niveau: 'github.com/acme', jeton: 'jeton-robot', libelle: 'robot' });
     v.ok('second compte du même hôte, pour l\'organisation', org.portee === 'github.com/acme' && org.statut === 200, JSON.stringify(org));
@@ -124,16 +135,18 @@ try {
     await page.locator('button[title*="Sandbox"]:visible').first().click();
     await page.evaluate(() => { const r = window.__racine(); r.gitOpenTab(); r.loadGitConnectors(); });
     // Le nom accessible du bouton porte le glyphe de son icône : il est cherché par son texte.
-    await page.locator('button').filter({ hasText: /^\s*Cloner\s*$/ }).first().click();
+    await page.locator('[data-ajouter-depot]').click();
     const clone = page.locator('[data-modale-clonage]');
     await clone.waitFor({ timeout: 10000 }).catch(() => {});
-    v.ok('fenêtre de clonage ouverte', await clone.isVisible());
+    v.ok('un seul bouton « Ajouter un dépôt » : la fenêtre s\'ouvre avec ses trois façons',
+        (await clone.isVisible()) &&
+        JSON.stringify(await clone.locator('[role=tab]').evaluateAll((l) => l.map((e) => e.textContent.trim()))) === '["Mes dépôts","Depuis une URL","Nouveau dépôt"]');
     await clone.locator('[data-depot]').first().waitFor({ timeout: 10000 }).catch(() => {});
     const texte = async (s) => ((await clone.locator(s).textContent()) || '').replace(/\s+/g, ' ').trim();
     const haut = async () => Math.round((await clone.boundingBox())?.y ?? -1);
-    v.ok('« Mes dépôts » d\'abord : un choix de compte, les dépôts listés sans geste, pas de champ d\'adresse',
+    v.ok('« Mes dépôts » d\'abord : un choix de compte libellé, les dépôts listés sans geste, pas de champ d\'URL',
         (await clone.locator('[data-source="depots"]').getAttribute('aria-selected')) === 'true' &&
-        (await clone.locator('#clone-compte option').count()) === 2 && (await clone.locator('[data-depot]').count()) === 2 &&
+        (await clone.locator('#clone-compte option').count()) === 2 && (await texte('label[for=clone-compte]')) === 'Compte' && (await clone.locator('[data-depot]').count()) === 2 &&
         (await clone.locator('#clone-url').count()) === 0);
     v.ok('rien de choisi : le récapitulatif le dit, « Cloner » n\'est pas offert',
         (await texte('[data-depot-lu]')) === 'Choisissez un dépôt dans la liste' && (await clone.locator('[data-cloner]').isDisabled()));
@@ -142,22 +155,22 @@ try {
     await clone.locator('[data-depot]').first().click();
     v.ok('dépôt choisi : lu dans le récapitulatif, compte le plus précis annoncé, dossier proposé',
         (await texte('[data-depot-lu]')) === 'acme/api sur github.com' &&
-        (await texte('[data-acces]')).includes('Compte github.com/acme · robot') &&
+        (await texte('[data-acces]')).includes('Compte github.com/acme · robot (le plus précis pour cette URL)') &&
         (await clone.locator('#clone-dossier').getAttribute('placeholder')) === 'api',
         await texte('[data-acces]'));
     await capture(page, '3-clonage-liste');
     const avant = await haut();
-    await clone.locator('[data-source="adresse"]').click();
-    v.ok('onglet « Adresse » : le champ porte l\'adresse du dépôt choisi, la fenêtre ne bouge pas',
+    await clone.locator('[data-source="url"]').click();
+    v.ok('onglet « Depuis une URL » : le champ porte l\'URL du dépôt choisi, la fenêtre ne bouge pas',
         (await clone.locator('#clone-url').inputValue()) === 'https://github.com/acme/api.git' &&
         (await clone.locator('[data-mes-depots]').count()) === 0 && (await haut()) === avant,
         `${avant} → ${await haut()}`);
     await clone.locator('#clone-url').fill('git@github.com:acme/api.git');
-    v.ok('adresse SSH : refusée avec la raison, « Cloner » n\'est pas offert',
-        (await texte('[data-aide]')).includes('Adresse SSH non prise en charge') && (await clone.locator('[data-cloner]').isDisabled()));
+    v.ok('URL SSH : refusée avec la raison, « Cloner » n\'est pas offert',
+        (await texte('[data-aide]')).includes('URL SSH non prise en charge') && (await clone.locator('[data-cloner]').isDisabled()));
     await clone.locator('#clone-url').fill('https://github.com/autre/depot.git');
     v.ok('autre organisation : le compte de tout l\'hôte', (await texte('[data-acces]')).includes('Compte github.com · perso'));
-    await capture(page, '3-clonage-adresse');
+    await capture(page, '3-clonage-url');
     await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
     v.ok('hôte sans compte : dit, avec la saisie d\'identifiants proposée',
         (await clone.locator('[data-acces]').getAttribute('data-etat')) === 'aucun' && (await clone.locator('[data-saisir]').count()) === 1);
@@ -180,7 +193,7 @@ try {
     v.ok('changer d\'hôte oublie les identifiants saisis',
         (await clone.locator('[data-identifiants]').count()) === 0 &&
         ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com/acme · robot'));
-    await clone.locator('[data-source="adresse"]').click();
+    await clone.locator('[data-source="url"]').click();
     await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
     await clone.locator('[data-saisir]').click();
     v.ok('la saisie rouverte est vide', (await clone.locator('#clone-jeton').inputValue()) === '' && (await clone.locator('#clone-identifiant').inputValue()) === '');
@@ -194,6 +207,20 @@ try {
     v.ok('clone relancé avec les identifiants et la portée choisie ; fenêtre fermée',
         !(await clone.isVisible()) && dernier.cred_user === 'bob' && dernier.cred_token === 'jeton-forge' && dernier.cred_scope === 'equipe' && clones[0].cred_token === undefined,
         JSON.stringify({ ...dernier, cred_token: dernier.cred_token ? '…' : undefined }));
+    // Dépôt neuf : même fenêtre, onglet « Nouveau dépôt ».
+    await page.locator('[data-ajouter-depot]').click();
+    await clone.waitFor({ timeout: 10000 }).catch(() => {});
+    await clone.locator('[data-source="nouveau"]').click();
+    v.ok('« Nouveau dépôt » : dossier, auteur et e-mail sur place, « Initialiser » à la place de « Cloner »',
+        (await clone.locator('[data-recap]').count()) === 0 && (await texte('[data-cloner]')) === 'Initialiser' && !(await clone.locator('[data-cloner]').isDisabled()) &&
+        JSON.stringify(await clone.locator('[data-nouveau] label').evaluateAll((l) => l.map((e) => e.textContent.trim()))) === '["Dossier","Auteur","E-mail"]');
+    await clone.locator('#init-dossier').fill('mon-projet');
+    await clone.locator('#init-auteur').fill('Alice');
+    await capture(page, '5-nouveau-depot');
+    await clone.locator('#init-auteur').press('Enter');
+    await clone.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+    v.ok('dépôt initialisé avec le dossier et l\'auteur saisis ; fenêtre fermée',
+        !(await clone.isVisible()) && inits.length === 1 && inits[0].dir === 'mon-projet' && inits[0].user_name === 'Alice', JSON.stringify(inits));
     v.ok('aucune erreur de page', erreurs.length === 0, erreurs.join(' | '));
 } finally {
     await nav.close();

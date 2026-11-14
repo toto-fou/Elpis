@@ -353,6 +353,7 @@ describe("fenêtre montée", () => {
       gitError: ref(""),
       gitLoading: ref(false),
       gitConnectors: ref(comptes),
+      gitInitForm: ref({ user_name: "", user_email: "", dir: "" }),
     };
     const racine = proxyRefs({
       ...etat,
@@ -368,6 +369,7 @@ describe("fenêtre montée", () => {
       }),
       loadGitConnectors: vi.fn(),
       openSettingsTab: vi.fn(),
+      gitInit: vi.fn(),
     });
     const hote = document.createElement("div");
     document.body.appendChild(hote);
@@ -384,7 +386,7 @@ describe("fenêtre montée", () => {
     const q = <T extends Element = HTMLElement>(s: string): T | null => document.querySelector<T>(s);
     const saisir = async (s: string, valeur: string): Promise<void> => {
       if (q(s) === null && s === "#clone-url") {
-        q<HTMLButtonElement>('[data-source="adresse"]')!.click();
+        q<HTMLButtonElement>('[data-source="url"]')!.click();
         await nextTick();
       }
       const champ = q<HTMLInputElement>(s)!;
@@ -416,8 +418,11 @@ describe("fenêtre montée", () => {
     await nextTick();
     expect(aucun.chargements).toEqual([]);
     expect(aucun.q("[data-mes-depots]")).toBeNull();
-    // Sans compte utilisable : ni onglets ni liste, l'adresse seule.
-    expect(aucun.q("[role=tablist]")).toBeNull();
+    // Sans compte utilisable : pas de liste, l'URL d'abord, le dépôt neuf à côté.
+    expect([...document.querySelectorAll("[role=tab]")].map((o) => o.textContent?.trim())).toEqual([
+      "Depuis une URL",
+      "Nouveau dépôt",
+    ]);
     expect(aucun.q("#clone-url")).not.toBeNull();
   });
 
@@ -437,10 +442,10 @@ describe("fenêtre montée", () => {
     v.etat.gitCloneReposError.value = "Aucun dépôt accessible";
     await nextTick();
     expect(v.q("[data-liste-vide]")?.textContent).toContain("Aucun dépôt accessible");
-    v.q<HTMLButtonElement>("[data-vers-adresse]")!.click();
+    v.q<HTMLButtonElement>("[data-vers-url]")!.click();
     await nextTick();
     await nextTick();
-    expect(onglet("adresse").getAttribute("aria-selected")).toBe("true");
+    expect(onglet("url").getAttribute("aria-selected")).toBe("true");
     expect(v.q("[data-mes-depots]")).toBeNull();
     expect(document.activeElement?.id).toBe("clone-url");
     expect(v.q<HTMLInputElement>("#clone-url")?.placeholder).toBe(
@@ -462,7 +467,7 @@ describe("fenêtre montée", () => {
     expect(v.q("[data-depot-lu]")?.textContent?.replace(/\s+/gu, " ").trim()).toBe(
       "acme/site sur github.com",
     );
-    onglet("adresse").click();
+    onglet("url").click();
     await nextTick();
     expect(v.q<HTMLInputElement>("#clone-url")?.value).toBe("https://github.com/acme/site.git");
   });
@@ -486,19 +491,58 @@ describe("fenêtre montée", () => {
     saisie.etat.gitConnectors.value = [PERSO];
     await nextTick();
     await nextTick();
-    expect(saisie.q('[data-source="adresse"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(saisie.q('[data-source="url"]')?.getAttribute("aria-selected")).toBe("true");
     expect(saisie.q<HTMLInputElement>("#clone-url")?.value).toBe("https://forge.lan/a/b.git");
     app?.unmount();
     document.body.innerHTML = "";
     const generique = monter([compte(6, "git.lan", "", { provider_type: "generic", label: "interne" })]);
     await nextTick();
     expect(generique.chargements).toEqual([]);
-    expect(generique.q("[role=tablist]")).toBeNull();
+    expect(generique.q('[data-source="depots"]')).toBeNull();
     expect(generique.q<HTMLInputElement>("#clone-url")?.placeholder).toBe(
       "https://git.lan/organisation/depot.git",
     );
     await generique.saisir("#clone-url", "https://git.lan/equipe/outil.git");
     expect(generique.q("[data-acces]")?.textContent).toContain("Compte git.lan · interne");
+  });
+
+  it("« Nouveau dépôt » : dossier, auteur et e-mail sur place, « Initialiser » offert sans URL et à la place de « Cloner » ; plusieurs comptes du même serveur : la ligne d'accès dit que le plus précis est pris", async () => {
+    const v = monter([PERSO, ROBOT]);
+    await nextTick();
+    expect([...document.querySelectorAll("[role=tab]")].map((o) => o.textContent?.trim())).toEqual([
+      "Mes dépôts",
+      "Depuis une URL",
+      "Nouveau dépôt",
+    ]);
+    expect(v.q("label[for=clone-compte]")?.textContent).toBe("Compte");
+    const bouton = () => v.q<HTMLButtonElement>("[data-cloner]")!;
+    expect(bouton().textContent?.trim()).toBe("Cloner");
+    expect(bouton().disabled).toBe(true);
+    v.q<HTMLButtonElement>('[data-source="nouveau"]')!.click();
+    await nextTick();
+    await nextTick();
+    expect(document.activeElement?.id).toBe("init-dossier");
+    expect(v.q("[data-recap]")).toBeNull();
+    expect(bouton().textContent?.trim()).toBe("Initialiser");
+    expect(bouton().disabled).toBe(false);
+    await v.saisir("#init-dossier", "mon-projet");
+    await v.saisir("#init-auteur", "Alice");
+    expect(v.etat.gitInitForm.value).toEqual({ user_name: "Alice", user_email: "", dir: "mon-projet" });
+    bouton().click();
+    await nextTick();
+    expect(v.racine.gitInit).toHaveBeenCalledTimes(1);
+    expect(v.clones).toEqual([]);
+    // Flèche droite depuis le dernier onglet : retour au premier.
+    v.q("[role=tablist]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await nextTick();
+    expect(v.q('[data-source="depots"]')?.getAttribute("aria-selected")).toBe("true");
+    await v.saisir("#clone-url", "https://github.com/acme/api.git");
+    expect(v.q("[data-acces]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "Compte github.com/acme · robot (le plus précis pour cette URL)",
+    );
+    // Un seul compte sur le serveur : rien à préciser.
+    await v.saisir("#clone-url", "https://forge.lan/a/b.git");
+    expect(v.q("[data-plus-precis]")).toBeNull();
   });
 
   it("réouverture : la liste des dépôts attend la fin de l'animation d'ouverture, le focus revient au filtre", async () => {
@@ -527,26 +571,26 @@ describe("fenêtre montée", () => {
     expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
     expect(bouton().disabled).toBe(true);
     await v.saisir("#clone-url", "");
-    expect(lu()).toBe("Saisissez son adresse");
-    expect(v.q("[data-aide]")?.textContent).toContain("Adresse http(s) que la forge propose");
+    expect(lu()).toBe("Collez son URL");
+    expect(v.q("[data-aide]")?.textContent).toContain("URL de clonage en http(s)");
     await v.saisir("#clone-url", "https://github.com/");
-    expect(lu()).toBe("Adresse incomplète");
+    expect(lu()).toBe("URL incomplète");
     expect(bouton().disabled).toBe(true);
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
-    expect(lu()).toBe("Adresse non acceptée");
-    expect(v.q("[data-aide]")?.textContent).toContain("Adresse SSH non prise en charge");
+    expect(lu()).toBe("URL non acceptée");
+    expect(v.q("[data-aide]")?.textContent).toContain("URL SSH non prise en charge");
     expect(bouton().disabled).toBe(true);
     v.q<HTMLInputElement>("#clone-url")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await nextTick();
     expect(v.clones).toEqual([]);
     await v.saisir("#clone-url", "ftp://github.com/acme/api.git");
     expect(v.q("[data-aide]")?.textContent?.replace(/\s+/gu, " ")).toContain(
-      "Adresse non reconnue. Exemple : https://github.com/organisation/depot.git",
+      "URL non reconnue. Exemple : https://github.com/organisation/depot.git",
     );
     // Identifiants ou requête dans l'adresse : le serveur la refuserait, aucun compte n'est annoncé.
     await v.saisir("#clone-url", "https://bob:jeton@github.com/acme/api.git");
-    expect(lu()).toBe("Adresse non acceptée");
-    expect(v.q("[data-aide]")?.textContent).toContain("Identifiants dans l'adresse refusés");
+    expect(lu()).toBe("URL non acceptée");
+    expect(v.q("[data-aide]")?.textContent).toContain("Identifiants dans l'URL refusés");
     expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
     expect(bouton().disabled).toBe(true);
     await v.saisir("#clone-url", "https://github.com/acme/api.git?x=1");

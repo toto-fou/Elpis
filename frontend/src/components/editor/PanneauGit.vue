@@ -17,19 +17,15 @@ const ed = domaineEditeur();
       <i class="ph ph-git-branch text-3xl text-slate-600"></i>
       <p class="text-xs text-slate-500">Aucun dépôt Git</p>
       <button
-        class="w-full py-1.5 text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition flex items-center justify-center gap-1.5"
-        @click="ed.showGitInitModal = true"
-      >
-        <i class="ph ph-plus text-xs"></i> Initialiser
-      </button>
-      <button
+        title="Cloner un dépôt existant ou en initialiser un nouveau"
         class="w-full py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition flex items-center justify-center gap-1.5"
+        data-ajouter-depot
         @click="
           ed.gitOpenCloneModal();
           ed.loadGitConnectors();
         "
       >
-        <i class="ph ph-download-simple text-xs"></i> Cloner
+        <i class="ph ph-plus text-xs"></i> Ajouter un dépôt
       </button>
 
       <button
@@ -91,16 +87,7 @@ const ed = domaineEditeur();
                   ed.loadGitConnectors();
                 "
               >
-                <i class="ph ph-download-simple text-xs"></i> Cloner...
-              </button>
-              <button
-                class="w-full text-left px-3 py-1.5 text-xs text-orange-400 hover:bg-white/5 flex items-center gap-2"
-                @click="
-                  ed.showGitRepoMenu = false;
-                  ed.showGitInitModal = true;
-                "
-              >
-                <i class="ph ph-plus text-xs"></i> Initialiser...
+                <i class="ph ph-plus text-xs"></i> Ajouter un dépôt...
               </button>
             </div>
           </TransitionMenu>

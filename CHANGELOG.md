@@ -15,7 +15,7 @@ follow [SemVer](https://semver.org/).
   path is part of the vault scope of the token: narrowing keeps the token, widening asks
   for it again. Before, the account of a host was the one used last. On upgrade, when
   several accounts share a host, the most recently used keeps the host and the others are
-  marked *sans portée* until they are given a path (migration `0030_git_account_scope`).
+  marked *inactif* until they are given a path (migration `0030_git_account_scope`).
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
   to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
@@ -143,15 +143,17 @@ follow [SemVer](https://semver.org/).
   (long lists fold after three), the identifier is no longer cut, and last use and number of uses
   share one column. `tls` is only mentioned when it is `insecure`. Text is larger and long hosts
   break at their dots.
-- **Clone window of the editor.** Redone around one question at a time. The repository is named
-  either in *Mes dépôts* (the repositories of a Git account, listed as soon as the window opens;
-  the account is chosen only when there are several) or under *Adresse* (one field, with an
-  example on your own forge; an SSH address is refused with the reason). Below, three lines say
-  what will happen: the repository as it was read, the account that will authenticate the clone
-  or that none applies, and the folder it will get. *Cloner* is offered once a repository is
-  read. The window opens smoothly: no blur behind it (nor behind the other Git windows), it is
-  anchored at the top so that it never jumps when its content changes, and the list keeps its
-  place while loading. Without an account, or after an access refusal (said
+- **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
+  *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
+  repositories of a Git account, listed as soon as the window opens; the account is chosen when
+  there are several), *Depuis une URL* (one field, with an example on your own server; an SSH URL,
+  credentials in the URL, a query or a malformed host are refused with the reason) and *Nouveau
+  dépôt* (folder, and optionally the author name and e-mail of its commits). For a clone, three
+  lines say what will happen: the repository as it was read, the account that will authenticate
+  it (with the reason when several accounts exist on that server) or that none applies, and the
+  folder. *Cloner* is offered once a repository is read. The window opens smoothly: no blur behind
+  it (nor behind the other Git windows), it is anchored at the top so that it never jumps when
+  its content changes, and the list keeps its place while loading. Without an account, or after an access refusal (said
   in plain words above git's message), credentials are typed in place and saved for the host,
   the organization or the repository; before, the window sent you to Settings and lost the
   address. Typed credentials are kept only when the host asked for them and the clone succeeded,
@@ -161,6 +163,10 @@ follow [SemVer](https://semver.org/).
 - **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
   *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
   `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).
+  The form names things for what they are: one **URL** field (of the server, an organization or a
+  repository) offers at once what the account can be used for, the whole server by default; the
+  type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
+  taken when several fit. An account without a scope is marked *inactif*.
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's

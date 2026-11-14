@@ -1132,17 +1132,22 @@ Un panneau Git complet, sur les dépôts de votre sandbox :
 L'authentification passe par vos [comptes Git](#comptes-git) : aucun
 identifiant n'est écrit dans la sandbox.
 
-**Cloner un dépôt.** La fenêtre liste les dépôts d'un de vos comptes Git (*Mes dépôts* ; choisissez le
-compte si vous en avez plusieurs) et accepte n'importe quelle adresse. Sous l'adresse, elle dit quel
-compte servira, le plus précis qui couvre le dépôt (elle le dit quand ce compte n'a pas de jeton,
-ou porte un jeton importé encore à vérifier), ou qu'aucun ne s'applique. En `http://`, un compte
+**Ajouter un dépôt.** Un seul bouton, *Ajouter un dépôt*, ouvre une fenêtre à trois façons : *Mes
+dépôts* (les dépôts d'un de vos comptes Git ; choisissez le compte si vous en avez plusieurs),
+*Depuis une URL* (n'importe quelle URL de clonage en http(s) ; une URL SSH est refusée avec la
+raison) et *Nouveau dépôt* (un dépôt vide initialisé dans un dossier de votre espace de travail,
+avec, si vous le voulez, le nom et l'e-mail d'auteur de ses commits). Pour un clone, trois lignes
+disent ce qui sera fait : le dépôt tel qu'il a été lu, le compte qui servira, et le dossier. Ce
+compte est le plus précis qui couvre le dépôt ; la fenêtre le dit quand ce serveur a plusieurs
+comptes, quand le compte n'a pas de jeton ou porte un jeton importé encore à vérifier, ou quand
+aucun ne convient. En `http://`, un compte
 ne sert que pour un hôte du réseau local (ou si son API est elle-même en http) ; ce qui part alors,
 ou les identifiants que vous saisissez, est signalé comme envoyé en clair. Un dépôt à la racine d'un hôte
 (`https://git.exemple/projet.git`, un seul segment) n'est servi par aucun compte. Sans compte, ou si l'accès est refusé, saisissez des identifiants sur
 place : ils sont envoyés si l'hôte les demande et, quand le clone réussit alors, enregistrés comme
 compte Git pour l'endroit que vous choisissez (l'hôte, l'organisation ou le dépôt ; un endroit qui
 a déjà son compte dit qu'il met ce compte à jour). La fenêtre vous dit quand ils n'ont pas été
-enregistrés. Changer l'hôte ou le schéma de l'adresse, ou fermer la fenêtre, oublie ce que vous
+enregistrés. Changer l'hôte ou le schéma de l'URL, ou fermer la fenêtre, oublie ce que vous
 avez saisi.
 Le dossier prend par défaut le nom du dépôt.
 
@@ -1346,18 +1351,19 @@ Un bouton **Assistant** ouvre une conversation pré-configurée pour vous aider 
 Paramètres → **Secrets** → **Comptes Git** : enregistrez vos accès aux forges (GitHub,
 GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
 
-- Collez simplement l'URL d'un dépôt : le service et l'hôte sont détectés.
-- **S'applique à** dit où le compte sert : tout un hôte (`github.com`), une organisation
-  (`github.com/acme`) ou un seul dépôt (`github.com/acme/api`). L'URL collée propose les trois
-  niveaux. Plusieurs comptes peuvent partager un hôte ; pour un dépôt, c'est le plus précis qui le
+- **URL** : collez l'URL de votre serveur Git, d'une organisation ou d'un dépôt ; le type de
+  serveur est reconnu.
+- **Utiliser ce compte pour** dit où le compte sert : tout le serveur (`github.com`), une
+  organisation (`github.com/acme`) ou un seul dépôt (`github.com/acme/api`). L'URL propose les
+  niveaux qu'elle contient, tout le serveur d'office. Plusieurs comptes peuvent partager un hôte ; pour un dépôt, c'est le plus précis qui le
   couvre qui sert : un jeton personnel pour l'hôte et un jeton limité à une organisation ou à un
   dépôt cohabitent. Deux comptes ne peuvent pas s'appliquer exactement au même endroit.
 - Réduire ce à quoi un compte s'applique garde son jeton ; l'élargir ou le déplacer le redemande.
 - La casse du chemin est ignorée, sauf pour un service *generic*, où elle est gardée telle que
   saisie. Sur Bitbucket Server, le chemin commence par `scm/`, comme dans l'adresse de clonage
   (`bb.example/scm/proj`).
-- Un compte marqué *sans portée* (deux comptes partageaient un hôte avant cette version) ne sert
-  pas tant que vous n'avez pas dit à quoi il s'applique.
+- Un compte marqué *inactif* (deux comptes partageaient un hôte avant cette version) ne sert
+  pas tant que vous ne l'avez pas modifié pour choisir à quoi il sert.
 - **Tester** valide le jeton ; la fenêtre de clonage de l'éditeur liste les dépôts du compte, dans
   la limite de ce à quoi il s'applique.
 - Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais

@@ -191,13 +191,7 @@ const demandes = computed<Record<Rare, boolean>>(() => ({
   console: !!r.isAdminView,
   reglages: !!r.showSettingsModal,
   mcp: !!r.showMcpManagerModal,
-  git: !!(
-    r.showGitCloneModal ||
-    r.showGitInitModal ||
-    r.showGitRemoteModal ||
-    r.showGitPushAuth ||
-    r.showGitMergeModal
-  ),
+  git: !!(r.showGitCloneModal || r.showGitRemoteModal || r.showGitPushAuth || r.showGitMergeModal),
   routines: r.currentView === "routines",
   agents: r.currentView === "agents",
   rag: r.currentView === "rag",

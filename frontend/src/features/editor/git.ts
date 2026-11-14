@@ -131,7 +131,6 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   const showGitBranchMenu = ref(false);
   const showGitRemoteModal = ref(false);
   const gitRemoteForm = ref({ url: "" });
-  const showGitInitModal = ref(false);
   const gitInitForm = ref({ user_name: "", user_email: "", dir: "" });
   const showGitMoreMenu = ref(false);
   const gitError = ref("");
@@ -301,7 +300,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
       const r = await poster("/api/sandbox/git/init", gitInitForm.value);
       if (r && r.ok) {
         showToast("Dépôt Git initialisé");
-        showGitInitModal.value = false;
+        showGitCloneModal.value = false;
         await apresCreation(r);
       } else await montrerErreur(r, "Erreur");
     });
@@ -967,7 +966,6 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
     gitFilteredCloneRepos,
     showGitRemoteModal,
     gitRemoteForm,
-    showGitInitModal,
     gitInitForm,
     showGitMoreMenu,
     showGitRepoMenu,

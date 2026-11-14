@@ -1184,17 +1184,21 @@ A complete Git panel, on the repositories in your sandbox:
 Authentication goes through your [Git accounts](#git-accounts): no
 credential is written to the sandbox.
 
-**Clone a repository.** The window lists the repositories of one of your Git accounts (*Mes dépôts*;
-pick the account when you have several) and takes any address. Under the address it says which
-account will be used, the most specific one that covers the repository (it says so when that
-account has no token or holds an imported token still to verify), or that none applies. Over
+**Add a repository.** One button, *Ajouter un dépôt*, opens a window with three ways: *Mes dépôts*
+(the repositories of one of your Git accounts; pick the account when you have several), *Depuis une
+URL* (any http(s) clone URL; an SSH URL is refused with the reason) and *Nouveau dépôt* (an empty
+repository initialized in a folder of your workspace, with an optional author name and e-mail for
+its commits). For a clone, three lines say what will happen: the repository as it was read, the
+account that will be used, and the folder. The account is the most specific one that covers the
+repository; the window says so when several accounts exist on that server, when the account has
+no token or holds an imported token still to verify, or when none applies. Over
 `http://` an account is only used for a host of the local network (or when its API is itself in
 http); what is then sent, or the credentials you type, is flagged as sent in clear. A repository at the root of a host
 (`https://git.example/project.git`, a single path segment) is not served by any account. With no account, or when access is refused, type
 credentials in place: they are sent if the host asks for them and, when the clone then succeeds,
 saved as a Git account for the place you choose (the host, the organization or the repository;
 a place that already has an account says it updates that account). The window tells you when they
-were not saved. Changing the host or the scheme of the address, or closing the window, forgets
+were not saved. Changing the host or the scheme of the URL, or closing the window, forgets
 what you typed.
 The folder defaults to the repository name.
 
@@ -1398,18 +1402,19 @@ write a correct skill the first time.
 Settings → **Secrets** → **Git accounts**: register your access to code hosts (GitHub,
 GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 
-- Just paste a repository URL: the service and host are detected.
-- **Applies to** says where the account is used: a whole host (`github.com`), an organization
-  (`github.com/acme`) or one repository (`github.com/acme/api`). The pasted URL offers the three
-  levels. Several accounts can share a host; for a repository, the most specific one that covers
+- **URL**: paste the URL of your Git server, of an organization or of a repository; the type of
+  server is detected.
+- **Utiliser ce compte pour** says where the account is used: the whole server (`github.com`), an
+  organization (`github.com/acme`) or one repository (`github.com/acme/api`). The URL offers the
+  levels it contains, the whole server by default. Several accounts can share a host; for a repository, the most specific one that covers
   it is used, so a personal token for the host and a token limited to an organization or a
   repository work side by side. Two accounts cannot apply to exactly the same place.
 - Narrowing where an account applies keeps its token; widening or moving it asks for the token
   again.
 - Case is ignored in the path, except for a *generic* service, where it is kept as typed. On
   Bitbucket Server the path starts with `scm/`, as in the clone address (`bb.example/scm/proj`).
-- An account marked *sans portée* (two accounts shared a host before this version) is not used
-  until you say what it applies to.
+- An account marked *inactif* (two accounts shared a host before this version) is not used
+  until you edit it and choose what it is used for.
 - **Test connection** validates the token; the editor's clone window lists the repositories of the
   account, within what it applies to.
 - The token is stored **encrypted in the server's secrets vault** — never written

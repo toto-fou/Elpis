@@ -1052,7 +1052,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     gitPickRepo: git.gitPickRepo,
     showGitRemoteModal: git.showGitRemoteModal,
     gitRemoteForm: git.gitRemoteForm,
-    showGitInitModal: git.showGitInitModal,
     gitInitForm: git.gitInitForm,
     showGitMoreMenu: git.showGitMoreMenu,
     showGitMergeModal: git.showGitMergeModal,

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/editor/ModaleClonage.vue — fenêtre « Cloner un dépôt » : dépôt désigné dans la liste d'un compte git ou par son adresse, puis ce qui sera fait (dépôt lu, compte qui servira ou identifiants saisis sur place, dossier). -->
+<!-- frontend/src/components/editor/ModaleClonage.vue — fenêtre « Ajouter un dépôt » : dépôt cloné depuis la liste d'un compte git ou depuis son URL (dépôt lu, compte qui servira ou identifiants saisis sur place, dossier), ou dépôt neuf initialisé. -->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 
@@ -15,16 +15,18 @@ import {
 } from "../../features/editor/clonage";
 import { domaineEditeur } from "../../features/editor/domaine";
 
-type Source = "depots" | "adresse";
-const SOURCES: ReadonlyArray<{ v: Source; l: string }> = [
-  { v: "depots", l: "Mes dépôts" },
-  { v: "adresse", l: "Adresse" },
-];
+type Source = "depots" | "url" | "nouveau";
+const LIBELLES: Record<Source, string> = {
+  depots: "Mes dépôts",
+  url: "Depuis une URL",
+  nouveau: "Nouveau dépôt",
+};
 
 const ed = domaineEditeur();
 const onglets = ref<HTMLElement | null>(null);
 const champFiltre = ref<HTMLInputElement | null>(null);
 const champAdresse = ref<HTMLInputElement | null>(null);
+const champNouveau = ref<HTMLInputElement | null>(null);
 const champIdentifiant = ref<HTMLInputElement | null>(null);
 const champJeton = ref<HTMLInputElement | null>(null);
 /** Comptes dont les dépôts peuvent être listés. */
@@ -32,10 +34,17 @@ const comptes = computed(() => comptesListables(ed.gitConnectors));
 const choisie = ref<Source | null>(null);
 /** Fenêtre entrée : la liste des dépôts ne se dessine pas pendant l'animation d'ouverture. */
 const entree = ref(ed.showGitCloneModal);
-/** Façon de désigner le dépôt : la liste d'un compte tant qu'il y en a un, sinon son adresse. */
-const source = computed<Source>(() => (comptes.value.length ? (choisie.value ?? "depots") : "adresse"));
+/** Façons d'ajouter un dépôt : la liste d'un compte s'il y en a un, une URL, un dépôt neuf. */
+const sources = computed<Source[]>(() =>
+  comptes.value.length ? ["depots", "url", "nouveau"] : ["url", "nouveau"],
+);
+/** Façon affichée : celle choisie, sinon la première offerte. */
+const source = computed<Source>(() => {
+  const s = choisie.value ?? sources.value[0] ?? "url";
+  return sources.value.includes(s) ? s : "url";
+});
 const lecture = computed(() => lectureAdresse(ed.gitCloneForm.url));
-/** Adresse que le serveur n'accepterait pas : dite, avec la raison sous le champ. */
+/** URL que le serveur n'accepterait pas : dite, avec la raison sous le champ. */
 const refusee = computed(() => ["ssh", "identifiants", "invalide"].includes(lecture.value.etat));
 const exemple = computed(() => exempleAdresse(ed.gitConnectors));
 const acces = computed(() => accesClone(ed.gitCloneForm.url, ed.gitConnectors));
@@ -43,6 +52,13 @@ const portees = computed(() => porteesIdentifiants(acces.value, ed.gitConnectors
 const dossier = computed(() => dossierDuClone(ed.gitCloneForm.url));
 /** Schéma et hôte de l'adresse : ce vers quoi des identifiants saisis partiraient. */
 const origine = computed(() => ("origine" in acces.value ? acces.value.origine : ""));
+/** Plusieurs comptes sur le serveur du dépôt : la fenêtre dit pourquoi celui-ci est pris. */
+const plusieurs = computed(() => {
+  const a = acces.value;
+  return (
+    "hote" in a && (ed.gitConnectors ?? []).filter((c) => c.path !== null && c.host === a.hote).length > 1
+  );
+});
 /** Des identifiants saisis serviront à la place d'un compte. */
 const saisis = computed(() => ed.gitCloneCreds.ouvert && ed.gitCloneCreds.token.trim() !== "");
 /** Portée où les identifiants seront enregistrés ; `null` : nulle part, ils ne servent qu'à ce clone. */
@@ -57,9 +73,10 @@ function oublierIdentifiants(): void {
   Object.assign(ed.gitCloneCreds, { ouvert: false, user: "", token: "", portee: null, refus: false });
 }
 
-/** Le focus va au champ de la source affichée. */
+/** Le focus va au champ de la façon affichée. */
 function viser(): void {
-  void nextTick(() => (source.value === "depots" ? champFiltre : champAdresse).value?.focus());
+  const champs = { depots: champFiltre, url: champAdresse, nouveau: champNouveau };
+  void nextTick(() => champs[source.value].value?.focus());
 }
 
 function choisirSource(s: Source): void {
@@ -67,9 +84,10 @@ function choisirSource(s: Source): void {
   viser();
 }
 
-/** Flèches sur les onglets : l'autre source, le focus reste sur l'onglet. */
-function autreSource(): void {
-  choisie.value = source.value === "depots" ? "adresse" : "depots";
+/** Flèches sur les onglets : la façon voisine, le focus reste sur l'onglet. */
+function sourceVoisine(pas: number): void {
+  const l = sources.value;
+  choisie.value = l[(l.indexOf(source.value) + pas + l.length) % l.length] ?? "url";
   void nextTick(() => onglets.value?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
 }
 
@@ -88,12 +106,12 @@ watch(
   { immediate: true },
 );
 
-// Comptes arrivés après l'ouverture : leur liste prend la place, sauf si une adresse est déjà en cours de saisie.
+// Comptes arrivés après l'ouverture : leur liste prend la place, sauf si une URL est déjà en cours de saisie.
 watch(
   () => comptes.value.length > 0,
   (arrives) => {
     if (!arrives || !ed.showGitCloneModal || choisie.value !== null) return;
-    if (ed.gitCloneForm.url.trim()) choisie.value = "adresse";
+    if (ed.gitCloneForm.url.trim()) choisie.value = "url";
     else viser();
   },
 );
@@ -132,6 +150,12 @@ async function cloner(): Promise<void> {
   if (await ed.gitClone(portee.value ?? undefined)) void ed.loadGitConnectors();
 }
 
+/** Bouton du bas : initialise le dépôt neuf, ou clone le dépôt lu. */
+function valider(): void {
+  if (source.value === "nouveau") void ed.gitInit();
+  else void cloner();
+}
+
 function ouvrirComptes(): void {
   ed.showGitCloneModal = false;
   void ed.openSettingsTab("secrets:git");
@@ -156,7 +180,7 @@ function versJeton(): void {
         class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-lg overflow-hidden"
         role="dialog"
         aria-modal="true"
-        aria-label="Cloner un dépôt Git"
+        aria-label="Ajouter un dépôt Git"
         tabindex="-1"
         data-a11y-modal
         data-modale-clonage
@@ -165,9 +189,9 @@ function versJeton(): void {
           <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
             <span
               class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-blue-500 shrink-0"
-              ><i class="ph ph-download-simple text-base" aria-hidden="true"></i
+              ><i class="ph ph-git-branch text-base" aria-hidden="true"></i
             ></span>
-            Cloner un dépôt
+            Ajouter un dépôt
           </h2>
           <button
             aria-label="Fermer"
@@ -178,48 +202,30 @@ function versJeton(): void {
           </button>
         </div>
         <div class="p-4 space-y-3">
-          <div v-if="comptes.length" class="elpis-clone-source flex items-center justify-between gap-3">
-            <div
-              ref="onglets"
-              class="adm-seg adm-seg--sm shrink-0"
-              role="tablist"
-              aria-label="Désigner le dépôt"
-              @keydown.left.prevent="autreSource"
-              @keydown.right.prevent="autreSource"
+          <div
+            ref="onglets"
+            class="adm-seg adm-seg--sm"
+            role="tablist"
+            aria-label="Façon d'ajouter le dépôt"
+            @keydown.left.prevent="sourceVoisine(-1)"
+            @keydown.right.prevent="sourceVoisine(1)"
+          >
+            <button
+              v-for="s in sources"
+              :id="'clone-onglet-' + s"
+              :key="s"
+              type="button"
+              role="tab"
+              :aria-selected="source === s ? 'true' : 'false'"
+              :aria-controls="'clone-volet-' + s"
+              :tabindex="source === s ? 0 : -1"
+              class="adm-seg__btn"
+              :class="source === s ? 'is-active' : ''"
+              :data-source="s"
+              @click="choisirSource(s)"
             >
-              <button
-                v-for="s in SOURCES"
-                :id="'clone-onglet-' + s.v"
-                :key="s.v"
-                type="button"
-                role="tab"
-                :aria-selected="source === s.v ? 'true' : 'false'"
-                :aria-controls="'clone-volet-' + s.v"
-                :tabindex="source === s.v ? 0 : -1"
-                class="adm-seg__btn"
-                :class="source === s.v ? 'is-active' : ''"
-                :data-source="s.v"
-                @click="choisirSource(s.v)"
-              >
-                {{ s.l }}
-              </button>
-            </div>
-            <template v-if="source === 'depots'">
-              <select
-                v-if="comptes.length > 1"
-                id="clone-compte"
-                v-model="ed.gitCloneConnectorId"
-                class="set-select min-w-0 font-mono"
-                aria-label="Compte Git dont les dépôts sont listés"
-                title="Compte Git dont les dépôts sont listés"
-                @change="ed.gitLoadConnectorRepos(ed.gitCloneConnectorId)"
-              >
-                <option v-for="c in comptes" :key="c.id" :value="String(c.id)">{{ nomCompte(c) }}</option>
-              </select>
-              <span v-else class="text-xs font-mono text-slate-600 truncate" data-compte-seul>{{
-                comptes[0] ? nomCompte(comptes[0]) : ""
-              }}</span>
-            </template>
+              {{ LIBELLES[s] }}
+            </button>
           </div>
 
           <div
@@ -229,6 +235,27 @@ function versJeton(): void {
             aria-labelledby="clone-onglet-depots"
             data-mes-depots
           >
+            <div class="elpis-clone-compte flex items-center gap-2 mb-1.5 text-xs">
+              <component
+                :is="comptes.length > 1 ? 'label' : 'span'"
+                :for="comptes.length > 1 ? 'clone-compte' : undefined"
+                class="font-medium text-slate-500 shrink-0"
+                >Compte</component
+              >
+              <select
+                v-if="comptes.length > 1"
+                id="clone-compte"
+                v-model="ed.gitCloneConnectorId"
+                class="set-select flex-1 min-w-0 font-mono"
+                title="Compte Git dont les dépôts sont listés"
+                @change="ed.gitLoadConnectorRepos(ed.gitCloneConnectorId)"
+              >
+                <option v-for="c in comptes" :key="c.id" :value="String(c.id)">{{ nomCompte(c) }}</option>
+              </select>
+              <span v-else class="font-mono text-slate-700 truncate" data-compte-seul>{{
+                comptes[0] ? nomCompte(comptes[0]) : ""
+              }}</span>
+            </div>
             <div class="relative mb-1.5">
               <i
                 class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"
@@ -268,10 +295,10 @@ function versJeton(): void {
                   v-if="ed.gitCloneReposError || ed.gitCloneRepos.length"
                   type="button"
                   class="text-blue-600 hover:underline font-medium"
-                  data-vers-adresse
-                  @click="choisirSource('adresse')"
+                  data-vers-url
+                  @click="choisirSource('url')"
                 >
-                  Saisir son adresse
+                  Coller son URL
                 </button>
               </div>
               <template v-else>
@@ -308,15 +335,13 @@ function versJeton(): void {
           </div>
 
           <div
-            v-else
-            id="clone-volet-adresse"
-            :role="comptes.length ? 'tabpanel' : undefined"
-            :aria-labelledby="comptes.length ? 'clone-onglet-adresse' : undefined"
-            data-par-adresse
+            v-else-if="source === 'url'"
+            id="clone-volet-url"
+            role="tabpanel"
+            aria-labelledby="clone-onglet-url"
+            data-par-url
           >
-            <label for="clone-url" class="text-xs font-medium text-slate-500 block mb-1"
-              >Adresse du dépôt</label
-            >
+            <label for="clone-url" class="text-xs font-medium text-slate-500 block mb-1">URL du dépôt</label>
             <input
               id="clone-url"
               ref="champAdresse"
@@ -336,29 +361,78 @@ function versJeton(): void {
               data-aide
             >
               <template v-if="lecture.etat === 'ssh'"
-                >Adresse SSH non prise en charge : collez l'adresse HTTPS du dépôt.</template
+                >URL SSH non prise en charge : collez l'URL HTTPS du dépôt.</template
               >
               <template v-else-if="lecture.etat === 'identifiants'"
-                >Identifiants dans l'adresse refusés : retirez-les, ils se saisissent plus bas.</template
+                >Identifiants dans l'URL refusés : retirez-les, ils se saisissent plus bas.</template
               >
               <template v-else-if="lecture.etat === 'invalide'"
-                >Adresse non reconnue. Exemple : <span class="font-mono">{{ exemple }}</span></template
+                >URL non reconnue. Exemple : <span class="font-mono">{{ exemple }}</span></template
               >
-              <template v-else>Adresse http(s) que la forge propose pour cloner le dépôt.</template>
+              <template v-else>URL de clonage en http(s), telle que l'affiche votre serveur Git.</template>
             </p>
           </div>
 
-          <div class="elpis-clone-recap border-t border-slate-100 pt-3 text-xs" data-recap>
+          <div
+            v-else
+            id="clone-volet-nouveau"
+            class="elpis-clone-recap text-xs"
+            role="tabpanel"
+            aria-labelledby="clone-onglet-nouveau"
+            data-nouveau
+          >
+            <label for="init-dossier" class="font-medium text-slate-500">Dossier</label>
+            <div class="min-w-0">
+              <input
+                id="init-dossier"
+                ref="champNouveau"
+                v-model="ed.gitInitForm.dir"
+                placeholder="mon-projet"
+                autocomplete="off"
+                aria-describedby="init-aide"
+                class="set-input font-mono"
+                @keydown.enter="valider"
+              />
+              <p id="init-aide" class="text-slate-500 mt-1 leading-snug">
+                Dépôt vide créé dans ce dossier de votre espace de travail ; sans nom : à sa racine.
+              </p>
+            </div>
+            <label for="init-auteur" class="font-medium text-slate-500">Auteur</label>
+            <input
+              id="init-auteur"
+              v-model="ed.gitInitForm.user_name"
+              placeholder="Votre nom (facultatif)"
+              title="Nom inscrit sur vos commits dans ce dépôt"
+              class="set-input"
+              @keydown.enter="valider"
+            />
+            <label for="init-email" class="font-medium text-slate-500">E-mail</label>
+            <input
+              id="init-email"
+              v-model="ed.gitInitForm.user_email"
+              placeholder="vous@exemple.lan (facultatif)"
+              title="E-mail inscrit sur vos commits dans ce dépôt"
+              autocomplete="off"
+              class="set-input font-mono"
+              @keydown.enter="valider"
+            />
+          </div>
+
+          <div
+            v-if="source !== 'nouveau'"
+            class="elpis-clone-recap border-t border-slate-100 pt-3 text-xs"
+            data-recap
+          >
             <span class="font-medium text-slate-500">Dépôt</span>
             <p class="min-w-0 text-slate-500" data-depot-lu :data-etat="lecture.etat">
               <template v-if="lecture.etat === 'lue'">
                 <span class="font-mono font-medium text-slate-800">{{ lecture.depot }}</span> sur
                 <span class="font-mono text-slate-700">{{ lecture.hote }}</span>
               </template>
-              <span v-else-if="refusee" class="text-amber-600">Adresse non acceptée</span>
-              <template v-else-if="lecture.etat === 'incomplete'">Adresse incomplète</template>
+              <span v-else-if="refusee" class="text-amber-600">URL non acceptée</span>
+              <template v-else-if="lecture.etat === 'incomplete'">URL incomplète</template>
               <template v-else>{{
-                source === "depots" ? "Choisissez un dépôt dans la liste" : "Saisissez son adresse"
+                source === "depots" ? "Choisissez un dépôt dans la liste" : "Collez son URL"
               }}</template>
             </p>
 
@@ -378,6 +452,7 @@ function versJeton(): void {
               <template v-else-if="acces.etat === 'compte'">
                 <i class="ph ph-key" aria-hidden="true"></i> Compte
                 <span class="font-mono text-slate-700">{{ nomCompte(acces.compte) }}</span>
+                <span v-if="plusieurs" data-plus-precis> (le plus précis pour cette URL)</span>
                 <template v-if="!ed.gitCloneCreds.ouvert">
                   ·
                   <button
@@ -523,21 +598,34 @@ function versJeton(): void {
           </div>
 
           <button
-            :disabled="lecture.etat !== 'lue' || ed.gitLoading"
+            :disabled="ed.gitLoading || (source !== 'nouveau' && lecture.etat !== 'lue')"
             class="w-full py-2.5 text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
             :class="
               ed.gitLoading
                 ? 'bg-blue-600/70 text-white cursor-wait'
-                : lecture.etat !== 'lue'
+                : source !== 'nouveau' && lecture.etat !== 'lue'
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-500 text-white'
             "
             data-cloner
-            @click="cloner"
+            @click="valider"
           >
             <i v-if="ed.gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i
-            ><i v-else class="ph ph-download-simple" aria-hidden="true"></i>
-            {{ ed.gitLoading ? "Clonage…" : "Cloner" }}
+            ><i
+              v-else
+              class="ph"
+              :class="source === 'nouveau' ? 'ph-plus' : 'ph-download-simple'"
+              aria-hidden="true"
+            ></i>
+            {{
+              source === "nouveau"
+                ? ed.gitLoading
+                  ? "Initialisation…"
+                  : "Initialiser"
+                : ed.gitLoading
+                  ? "Clonage…"
+                  : "Cloner"
+            }}
           </button>
 
           <button

@@ -43,11 +43,12 @@
     --radius-xl: calc(var(--radius) + 4px);
 
     /* Mouvement — durées et courbes des transitions nommées et des volets coulissants. */
-    --duree-courte:  150ms;                  /* menus, détail d'outil */
-    --duree:         200ms;                  /* fenêtres, toasts, fondus, barre de chargement */
+    --duree-courte:  150ms;                  /* sortie des menus, détail d'outil */
+    --duree:         200ms;                  /* entrée des menus, fenêtres, toasts, fondus, barre de chargement */
     --duree-longue:  260ms;                  /* volets coulissants */
+    --duree-image:   16ms;                   /* une image à 60 Hz : avance des menus, visibles dès leur première image */
     --courbe-fondu:  ease-out;               /* opacité et petits décalages */
-    --courbe-entree: cubic-bezier(0.2, 0.8, 0.2, 1);   /* fenêtres, toasts, barre d'enregistrement */
+    --courbe-entree: cubic-bezier(0.2, 0.8, 0.2, 1);   /* entrée des menus, fenêtres, toasts, barre d'enregistrement */
     --courbe-volet:  cubic-bezier(0.4, 0, 0.2, 1);     /* volets coulissants */
 
     /* Fond de page */
@@ -1176,56 +1177,56 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     }
 }
 
-/* ─── Transition « popover » réutilisable (menus / dropdowns / panneaux) ───
-   Entrée ET sortie animées (fondu + légère descente), symétrique. GPU-only
-   (opacity + transform). Cible 150 ms ease-out : assez rapide pour ne pas
-   retarder l'utilisateur en tâche, assez présent pour supprimer le « pop »
-   sec. À wrapper autour d'un <Transition name="popover"> sur un menu à
-   root unique. Neutralisée sous prefers-reduced-motion (liste plus bas). */
+/* ─── Menus flottants : transitions « popover » et « popover-up » (<TransitionMenu>) ───
+   Menus déroulants et contextuels, listes de choix, sous-menus, palettes et petits flottants.
+   « popover » s'ouvre vers le bas depuis le bord haut de son ancre, « popover-up » (menu posé
+   au-dessus de son bouton) vers le haut depuis le bord bas ; `.menu-ancre-gauche` ou
+   `.menu-ancre-droite` place l'origine au coin de l'ancre. Entrée : fondu, glissement de
+   `--menu-glisse` et échelle `--menu-echelle`, décélérés ; @starting-style la fait partir
+   dès la première image du menu (Vue n'ôte `-enter-from` que deux images plus tard). Sortie
+   plus brève : son état final est posé dès `-leave-active` (départ à la première image) et le
+   menu qui part ne prend plus ni clic ni focus. Les deux partent avec une image d'avance
+   (`--duree-image`) : sans elle, la première image d'une transition jouée par le compositeur
+   montre encore l'état de départ. Opacité et transform seulement ; un skin règle durées,
+   courbes, glissement et échelle en surchargeant ces variables sur ces classes. */
+:is(.popover-enter-active, .popover-leave-active, .popover-up-enter-active, .popover-up-leave-active) {
+    --menu-glisse: 6px;
+    --menu-echelle: 0.97;
+}
 .popover-enter-active,
-.popover-leave-active {
+.popover-up-enter-active {
+    transition: opacity var(--duree) var(--courbe-entree), transform var(--duree) var(--courbe-entree);
+    transition-delay: calc(-1 * var(--duree-image));
+}
+.popover-leave-active,
+.popover-up-leave-active {
     transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
-    transform-origin: top;
+    transition-delay: calc(-1 * var(--duree-image));
+    opacity: 0;
+}
+.popover-enter-active, .popover-leave-active { transform-origin: var(--menu-origine, center) top; }
+.popover-up-enter-active, .popover-up-leave-active { transform-origin: var(--menu-origine, center) bottom; }
+.menu-ancre-gauche { --menu-origine: left; }
+.menu-ancre-droite { --menu-origine: right; }
+@starting-style {
+    .popover-enter-active,
+    .popover-up-enter-active { opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+        .popover-enter-active { transform: translateY(calc(-1 * var(--menu-glisse))) scale(var(--menu-echelle)); }
+        .popover-up-enter-active { transform: translateY(var(--menu-glisse)) scale(var(--menu-echelle)); }
+    }
+    .popover-leave-active { transform: translateY(calc(-1 * var(--menu-glisse))) scale(var(--menu-echelle)); }
+    .popover-up-leave-active { transform: translateY(var(--menu-glisse)) scale(var(--menu-echelle)); }
 }
 /* Un menu ou une fenêtre qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
-   continue d'intercepter le clic suivant pendant 150 ms — et l'utilisateur
-   qui referme un menu pour cliquer derrière retombe dessus. */
+   continue d'intercepter le clic suivant — et l'utilisateur qui referme un menu pour
+   cliquer derrière retombe dessus. */
 .popover-leave-active,
 .popover-up-leave-active,
 .modal-leave-active {
     pointer-events: none;
-}
-.popover-enter-from,
-.popover-leave-to {
-    opacity: 0;
-}
-@media (prefers-reduced-motion: no-preference) {
-    .popover-enter-from,
-    .popover-leave-to {
-        transform: translateY(-4px);
-    }
-}
-
-/* ─── Variante « popover-up » : menus ANCRÉS PAR LE BAS ────────────────────
-   Les menus du composeur (« + », RAG, partages, tâches) sont posés en
-   `bottom-full` : ils poussent vers le haut depuis leur bouton. Leur faire
-   jouer `popover`, qui descend de −4 px avec l'origine en haut, les fait
-   entrer À CONTRESENS de l'ouverture — le mouvement contredit la géométrie.
-   Mêmes durée et courbe, sens inversé et origine en bas. */
-.popover-up-enter-active,
-.popover-up-leave-active {
-    transition: opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu);
-    transform-origin: bottom;
-}
-.popover-up-enter-from,
-.popover-up-leave-to {
-    opacity: 0;
-}
-@media (prefers-reduced-motion: no-preference) {
-    .popover-up-enter-from,
-    .popover-up-leave-to {
-        transform: translateY(4px);
-    }
 }
 
 /* ─── Transition « model-load » : la barre de chargement rend sa place ─────
@@ -1299,13 +1300,13 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
         transition-duration: 150ms !important;
     }
     /* Transitions Vue nommées : fondu d'opacité seul, à la durée de leur jeton si elle est plus courte que 150 ms. */
-    .popover-enter-active, .popover-leave-active,
-    .popover-up-enter-active, .popover-up-leave-active,
+    .popover-leave-active, .popover-up-leave-active,
     .tool-detail-enter-active,
     .volet-enter-active, .volet-leave-active {
         transition-property: opacity !important;
         transition-duration: min(var(--duree-courte), 150ms) !important;
     }
+    .popover-enter-active, .popover-up-enter-active,
     .modal-enter-active, .modal-leave-active,
     .modal-enter-active > *, .modal-leave-active > *,
     .toast-enter-active, .toast-leave-active,
@@ -3147,6 +3148,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     position: absolute;
     top: 100%;
     right: 0;
+    --menu-origine: right;
     margin-top: 0.25rem;
     z-index: 50;
     background: var(--surface);
@@ -4542,7 +4544,7 @@ mark.elpis-search-hit {
     display: inline-block; flex: none; border: 1.5px solid currentColor; border-radius: 2px;
 }
 .elpis-img-pop {
-    position: absolute; left: 0; bottom: calc(100% + 0.5rem); z-index: 100;
+    position: absolute; left: 0; bottom: calc(100% + 0.5rem); z-index: 100; --menu-origine: left;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); padding: 0.5rem;
 }

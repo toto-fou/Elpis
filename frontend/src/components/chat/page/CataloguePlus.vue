@@ -12,6 +12,7 @@ import {
   naviguerMenu,
 } from "../../../features/chat/page/menu-clavier";
 import type { GabaritCatalogue, PromptCatalogue, SkillCatalogue } from "../../../features/chat/page/types";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 import PartagesRecus from "./PartagesRecus.vue";
 
 type SousMenu = "skills" | "prompts" | "gabarits";
@@ -175,13 +176,13 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
       >
     </button>
 
-    <Transition name="popover-up">
+    <TransitionMenu haut>
       <div
         v-if="comp.showComposerPlus && !comp.showSharedPrompts"
         ref="menu"
         role="menu"
         aria-label="Plus d'actions"
-        class="absolute bottom-full left-0 mb-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
+        class="menu-ancre-gauche absolute bottom-full left-0 mb-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
         @keydown="surToucheMenu"
       >
         <button type="button" role="menuitem" :class="ITEM" @click.stop="joindre">
@@ -215,72 +216,74 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
             <kbd :class="RACCOURCI">{{ it.commande }}</kbd>
             <i class="ph ph-caret-right text-[11px] text-slate-500" aria-hidden="true"></i>
           </button>
-          <div
-            v-if="sous === it.id"
-            :ref="(el) => (sousMenu.el = el as HTMLDivElement | null)"
-            role="menu"
-            :aria-label="it.libelle"
-            class="absolute left-full bottom-0 ml-1 w-60 max-w-[70vw] max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[60] p-1.5 space-y-0.5"
-            :data-sous-menu="it.id"
-            @keydown="surToucheSous"
-          >
-            <template v-if="!connu[it.id]">
-              <span class="sr-only" role="status">Chargement…</span>
-              <div v-for="l in SQUELETTE" :key="l" class="px-3 py-2" aria-hidden="true">
-                <span class="block h-3 rounded bg-slate-100" :class="l"></span>
-              </div>
-            </template>
-            <template v-else-if="it.id === 'skills'">
-              <button
-                v-for="s in skills"
-                :key="s.name"
-                type="button"
-                role="menuitemcheckbox"
-                :aria-checked="epingles.has(s.name) ? 'true' : 'false'"
-                :title="s.description"
-                :class="ITEM"
-                @click.stop="basculerSkill(s)"
-              >
-                <span
-                  class="w-4 h-4 rounded border flex items-center justify-center shrink-0"
-                  :class="epingles.has(s.name) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'"
-                  aria-hidden="true"
+          <TransitionMenu haut>
+            <div
+              v-if="sous === it.id"
+              :ref="(el) => (sousMenu.el = el as HTMLDivElement | null)"
+              role="menu"
+              :aria-label="it.libelle"
+              class="menu-ancre-gauche absolute left-full bottom-0 ml-1 w-60 max-w-[70vw] max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[60] p-1.5 space-y-0.5"
+              :data-sous-menu="it.id"
+              @keydown="surToucheSous"
+            >
+              <template v-if="!connu[it.id]">
+                <span class="sr-only" role="status">Chargement…</span>
+                <div v-for="l in SQUELETTE" :key="l" class="px-3 py-2" aria-hidden="true">
+                  <span class="block h-3 rounded bg-slate-100" :class="l"></span>
+                </div>
+              </template>
+              <template v-else-if="it.id === 'skills'">
+                <button
+                  v-for="s in skills"
+                  :key="s.name"
+                  type="button"
+                  role="menuitemcheckbox"
+                  :aria-checked="epingles.has(s.name) ? 'true' : 'false'"
+                  :title="s.description"
+                  :class="ITEM"
+                  @click.stop="basculerSkill(s)"
                 >
-                  <i v-if="epingles.has(s.name)" class="ph ph-check text-white text-[10px]"></i>
-                </span>
-                <span class="font-mono text-xs truncate">{{ s.name }}</span>
-              </button>
-              <div v-if="!skills.length" class="px-3 py-2 text-xs text-slate-500">Aucun skill</div>
-            </template>
-            <template v-else-if="it.id === 'prompts'">
-              <button
-                v-for="pr in prompts"
-                :key="pr.id"
-                type="button"
-                role="menuitem"
-                :title="pr.content"
-                :class="ITEM"
-                @click.stop="insererPrompt(pr)"
-              >
-                <span class="truncate">{{ pr.title || pr.content }}</span>
-              </button>
-              <div v-if="!prompts.length" class="px-3 py-2 text-xs text-slate-500">Aucun prompt</div>
-            </template>
-            <template v-else>
-              <button
-                v-for="g in gabarits"
-                :key="g.name"
-                type="button"
-                role="menuitem"
-                :title="g.name"
-                :class="ITEM"
-                @click.stop="insererGabarit(g)"
-              >
-                <span class="truncate">{{ g.title || g.name }}</span>
-              </button>
-              <div v-if="!gabarits.length" class="px-3 py-2 text-xs text-slate-500">Aucun gabarit</div>
-            </template>
-          </div>
+                  <span
+                    class="w-4 h-4 rounded border flex items-center justify-center shrink-0"
+                    :class="epingles.has(s.name) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'"
+                    aria-hidden="true"
+                  >
+                    <i v-if="epingles.has(s.name)" class="ph ph-check text-white text-[10px]"></i>
+                  </span>
+                  <span class="font-mono text-xs truncate">{{ s.name }}</span>
+                </button>
+                <div v-if="!skills.length" class="px-3 py-2 text-xs text-slate-500">Aucun skill</div>
+              </template>
+              <template v-else-if="it.id === 'prompts'">
+                <button
+                  v-for="pr in prompts"
+                  :key="pr.id"
+                  type="button"
+                  role="menuitem"
+                  :title="pr.content"
+                  :class="ITEM"
+                  @click.stop="insererPrompt(pr)"
+                >
+                  <span class="truncate">{{ pr.title || pr.content }}</span>
+                </button>
+                <div v-if="!prompts.length" class="px-3 py-2 text-xs text-slate-500">Aucun prompt</div>
+              </template>
+              <template v-else>
+                <button
+                  v-for="g in gabarits"
+                  :key="g.name"
+                  type="button"
+                  role="menuitem"
+                  :title="g.name"
+                  :class="ITEM"
+                  @click.stop="insererGabarit(g)"
+                >
+                  <span class="truncate">{{ g.title || g.name }}</span>
+                </button>
+                <div v-if="!gabarits.length" class="px-3 py-2 text-xs text-slate-500">Aucun gabarit</div>
+              </template>
+            </div>
+          </TransitionMenu>
         </div>
 
         <div class="h-px bg-slate-100 my-1" role="separator"></div>
@@ -323,7 +326,7 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
           <kbd :class="RACCOURCI">/compact</kbd>
         </button>
       </div>
-    </Transition>
+    </TransitionMenu>
 
     <PartagesRecus />
   </div>

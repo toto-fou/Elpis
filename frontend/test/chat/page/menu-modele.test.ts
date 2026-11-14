@@ -321,7 +321,7 @@ describe("menu du modèle", () => {
     menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await nextTick();
     await nextTick();
-    expect(hote.querySelector("[data-menu-actions]")).toBeNull();
+    expect(hote.querySelector("[data-menu-actions]:not([inert])")).toBeNull();
     expect(document.activeElement).toBe(ancre);
     ancre?.click();
     await nextTick();
@@ -395,7 +395,7 @@ describe("menu du modèle", () => {
     expect(appelsDe("pickReasoningEffort")).toEqual([["high"]]);
     await nextTick();
     await nextTick();
-    expect(hote.querySelector('[aria-label="Effort de réflexion"]')).toBeNull();
+    expect(hote.querySelector('[aria-label="Effort de réflexion"]:not([inert])')).toBeNull();
     expect(document.activeElement).toBe(ligne);
     ligne.dispatchEvent(new MouseEvent("click", { detail: 1, bubbles: true }));
     await nextTick();
@@ -403,7 +403,7 @@ describe("menu du modèle", () => {
     expect(document.activeElement).toBe(ligne);
     ligne.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await nextTick();
-    expect(hote.querySelector('[aria-label="Effort de réflexion"]')).toBeNull();
+    expect(hote.querySelector('[aria-label="Effort de réflexion"]:not([inert])')).toBeNull();
     expect(hote.querySelector('[role="listbox"]')).not.toBeNull();
   });
 

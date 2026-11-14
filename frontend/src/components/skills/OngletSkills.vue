@@ -4,6 +4,7 @@
 import { computed, watch } from "vue";
 
 import BoutonAssistant from "../communs/BoutonAssistant.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import { domaineReglages } from "../../features/reglages/domaine";
 import { sectionCourante } from "../../features/reglages/sections";
 import { PORTEES_DE_PARTIE, partieDePortee } from "../../features/skills/arbre";
@@ -138,12 +139,12 @@ function poserDeclencheur(el: unknown): void {
               class="fixed inset-0 z-40"
               @click="ks.closeSkillImportMenu"
             ></div>
-            <Transition name="popover">
+            <TransitionMenu>
               <div
                 v-if="ks.showSkillImportMenu"
                 role="menu"
                 aria-label="Sources d'import"
-                class="absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl py-1"
+                class="menu-ancre-droite absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl py-1"
               >
                 <label
                   role="menuitem"
@@ -212,7 +213,7 @@ function poserDeclencheur(el: unknown): void {
                   />
                 </label>
               </div>
-            </Transition>
+            </TransitionMenu>
           </div>
           <button title="Rafraîchir" class="skl-btn skl-btn--ghost skl-btn--icon" @click="ks.loadAllSkills()">
             <i class="ph ph-arrow-clockwise" :class="ks.skillsLoading && 'animate-spin'"></i>

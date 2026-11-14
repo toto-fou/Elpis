@@ -100,23 +100,29 @@ const MOTS_ANIMATION = new Set([
   "reverse",
 ]);
 
-const ENTREE_MARKUP = (() => {
-  const noms = new Set<string>();
+const SFC = (() => {
+  const sources: { chemin: string; source: string }[] = [];
   const parcourir = (dossier: string): void => {
     for (const e of readdirSync(dossier, { withFileTypes: true })) {
       const chemin = join(dossier, e.name);
       if (e.isDirectory()) parcourir(chemin);
-      else if (e.name.endsWith(".vue")) {
-        for (const m of readFileSync(chemin, "utf8").matchAll(
-          /<transition(?:-?group)?\b[^>]*?\bname="([\w-]+)"/gi,
-        ))
-          noms.add(m[1] ?? "");
-      }
+      else if (e.name.endsWith(".vue")) sources.push({ chemin, source: readFileSync(chemin, "utf8") });
     }
   };
   parcourir(join(FRONT, "src"));
-  return [...noms].sort();
+  return sources;
 })();
+
+// Noms des transitions du markup : `name="x"`, ou chaque nom littéral d'une liaison `:name="haut ? 'x' : 'y'"`.
+const ENTREE_MARKUP = [
+  ...new Set(
+    SFC.flatMap(({ source }) =>
+      [...source.matchAll(/<transition(?:-?group)?\b[^>]*?(?<![\w-])(:?)name="([^"]+)"/gi)].flatMap((m) =>
+        m[1] ? [...(m[2] ?? "").matchAll(/'([\w-]+)'/g)].map((x) => x[1] ?? "") : [m[2] ?? ""],
+      ),
+    ),
+  ),
+].sort();
 
 describe("mouvement réduit", () => {
   it("le test voit les règles de mouvement réduit et les transitions du markup", () => {
@@ -286,6 +292,95 @@ describe("transitions nommées : jetons et mise en page", () => {
     );
     expect(glissements).toHaveLength(1);
     expect(glissements[0]?.contexte.some((c) => glisse.test(c))).toBe(true);
+  });
+
+  describe("menus flottants : « popover » et « popover-up »", () => {
+    const NOMS = ["popover", "popover-up"] as const;
+    const glisse = /prefers-reduced-motion:\s*no-preference/;
+    const regles = (selecteur: string): typeof REGLES =>
+      REGLES.filter(
+        (r) => r.f === "css/style.css" && r.selecteur.split(",").some((s) => s.trim() === selecteur),
+      );
+    const valeurs = (liste: typeof REGLES, propriete: RegExp): string[] =>
+      liste.flatMap((r) => declarations(r.corps, propriete));
+
+    it.each(NOMS)(
+      "%s : entrée décélérée sur --duree, sortie plus brève sur --duree-courte, origine au bord de l'ancre",
+      (nom) => {
+        const hors = (selecteur: string) => regles(selecteur).filter((r) => r.contexte.length === 0);
+        expect(valeurs(hors(`.${nom}-enter-active`), /^transition$/)).toEqual([
+          "opacity var(--duree) var(--courbe-entree), transform var(--duree) var(--courbe-entree)",
+        ]);
+        expect(valeurs(hors(`.${nom}-leave-active`), /^transition$/)).toEqual([
+          "opacity var(--duree-courte) var(--courbe-fondu), transform var(--duree-courte) var(--courbe-fondu)",
+        ]);
+        expect(valeurs(hors(`.${nom}-enter-active`), /^transform-origin$/)).toEqual([
+          `var(--menu-origine, center) ${nom === "popover" ? "top" : "bottom"}`,
+        ]);
+        // Une image d'avance dans les deux sens : le menu bouge dès sa première image.
+        for (const sens of ["enter", "leave"])
+          expect(valeurs(hors(`.${nom}-${sens}-active`), /^transition-delay$/), sens).toEqual([
+            "calc(-1 * var(--duree-image))",
+          ]);
+      },
+    );
+
+    it.each(NOMS)(
+      "%s : départ à la première image dans les deux sens, glissement hors mouvement réduit seulement",
+      (nom) => {
+        const depart = regles(`.${nom}-enter-active`).filter((r) => r.contexte.includes("@starting-style"));
+        expect(
+          valeurs(
+            depart.filter((r) => r.contexte.length === 1),
+            /^opacity$/,
+          ),
+        ).toEqual(["0"]);
+        const sortie = regles(`.${nom}-leave-active`);
+        expect(
+          valeurs(
+            sortie.filter((r) => r.contexte.length === 0),
+            /^opacity$/,
+          ),
+        ).toEqual(["0"]);
+        for (const liste of [depart, sortie]) {
+          const glissements = liste.filter((r) => declarations(r.corps, /^transform$/).length);
+          expect(glissements, nom).toHaveLength(1);
+          expect(
+            glissements[0]?.contexte.some((c) => glisse.test(c)),
+            nom,
+          ).toBe(true);
+        }
+      },
+    );
+
+    it.each(NOMS)("%s : en mouvement réduit, fondu à la durée de son jeton plafonnée à 150 ms", (nom) => {
+      const duree = (selecteur: string): string[] =>
+        valeurs(
+          REDUIT.filter((r) => r.selecteur.split(",").some((s) => s.trim() === selecteur)),
+          /^transition-duration$/,
+        );
+      expect(duree(`.${nom}-enter-active`)).toEqual(["min(var(--duree), 150ms)"]);
+      expect(duree(`.${nom}-leave-active`)).toEqual(["min(var(--duree-courte), 150ms)"]);
+    });
+
+    it("aucune feuille ne pose d'état sur -enter-from (il retarderait l'entrée de deux images) ; les skins ne règlent que des variables", () => {
+      expect(REGLES.filter((r) => /\.popover(-up)?-enter-from\b/.test(r.selecteur))).toEqual([]);
+      const skins = REGLES.filter(
+        (r) => r.f.startsWith("css/skins/") && /\.popover(-up)?-(enter|leave)/.test(r.selecteur),
+      );
+      expect(skins.length).toBeGreaterThanOrEqual(2);
+      for (const r of skins)
+        for (const m of r.corps.matchAll(/(?:^|;)\s*([a-z-]+)\s*:/g))
+          expect(m[1], `${r.f} ${r.selecteur}`).toMatch(/^--/);
+    });
+
+    it("les menus passent par <TransitionMenu>, qui rend le menu sortant inerte", () => {
+      const directs = SFC.filter(
+        ({ chemin, source }) =>
+          !chemin.endsWith("TransitionMenu.vue") && /<transition\b[^>]*\bname="popover(-up)?"/i.test(source),
+      ).map(({ chemin }) => chemin);
+      expect(directs).toEqual([]);
+    });
   });
 
   it("le détail d'un outil n'anime aucune propriété de mise en page", () => {

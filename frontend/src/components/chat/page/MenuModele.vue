@@ -17,6 +17,7 @@ import type { ActionModele, LigneModele } from "../../../features/chat/page/menu
 import { libelleEffort } from "../../../features/chat/page/puces";
 import { clesModifiees } from "../../../features/reglages/echantillonnage";
 import { fmtTokenCount } from "../../../utils/utils-purs";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 // `etroit` : rangée du composeur sous 420 px, nom plus court.
 const props = defineProps<{ etroit?: boolean }>();
@@ -293,13 +294,13 @@ const ITEM =
       ></i>
     </button>
 
-    <Transition name="popover-up">
+    <TransitionMenu haut>
       <div
         v-if="mod.showModelManager"
         ref="pop"
         role="dialog"
         aria-label="Modèle"
-        class="absolute bottom-full right-0 mb-2 w-[330px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 z-[200] flex flex-col"
+        class="menu-ancre-droite absolute bottom-full right-0 mb-2 w-[330px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 z-[200] flex flex-col"
         @click.stop="surClic"
         @keydown="surTouchePop"
       >
@@ -448,31 +449,33 @@ const ITEM =
           </div>
         </div>
 
-        <div
-          v-if="actions"
-          ref="menuActions"
-          role="menu"
-          :aria-label="`Actions : ${actions.ligne.nom}`"
-          class="absolute right-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-10"
-          :style="{ top: actions.haut + 'px' }"
-          data-menu-actions
-          data-sous-menu-modele
-          @keydown="surToucheActions"
-        >
-          <button
-            v-for="a in actions.ligne.actions"
-            :key="a.id"
-            type="button"
-            role="menuitem"
-            :aria-disabled="a.id !== 'fiche' && mod.isLoadingModel ? 'true' : undefined"
-            :class="ITEM"
-            :data-action-modele="a.id"
-            @click="agir(actions.ligne, a)"
+        <TransitionMenu>
+          <div
+            v-if="actions"
+            ref="menuActions"
+            role="menu"
+            :aria-label="`Actions : ${actions.ligne.nom}`"
+            class="menu-ancre-droite absolute right-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-10"
+            :style="{ top: actions.haut + 'px' }"
+            data-menu-actions
+            data-sous-menu-modele
+            @keydown="surToucheActions"
           >
-            <i class="ph text-sm text-slate-500" :class="a.icone" aria-hidden="true"></i>
-            {{ a.libelle }}
-          </button>
-        </div>
+            <button
+              v-for="a in actions.ligne.actions"
+              :key="a.id"
+              type="button"
+              role="menuitem"
+              :aria-disabled="a.id !== 'fiche' && mod.isLoadingModel ? 'true' : undefined"
+              :class="ITEM"
+              :data-action-modele="a.id"
+              @click="agir(actions.ligne, a)"
+            >
+              <i class="ph text-sm text-slate-500" :class="a.icone" aria-hidden="true"></i>
+              {{ a.libelle }}
+            </button>
+          </div>
+        </TransitionMenu>
 
         <div class="border-t border-slate-100 p-1">
           <div v-if="mod.reasoningEffortValues.length" class="relative" data-effort-menu>
@@ -490,50 +493,52 @@ const ITEM =
               <span class="text-slate-500" data-effort-courant>{{ effortCourant }}</span>
               <i class="ph ph-caret-right text-[11px] text-slate-400" aria-hidden="true"></i>
             </button>
-            <div
-              v-if="effortOuvert"
-              ref="menuEffort"
-              role="menu"
-              aria-label="Effort de réflexion"
-              class="absolute right-1 bottom-full mb-1 sm:right-full sm:bottom-0 sm:mb-0 sm:mr-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-10"
-              data-sous-menu-modele
-              @keydown="surToucheEffort"
-            >
-              <div class="px-2.5 pt-1 pb-1 text-xs font-semibold text-slate-500" aria-hidden="true">
-                Effort de réflexion
+            <TransitionMenu haut>
+              <div
+                v-if="effortOuvert"
+                ref="menuEffort"
+                role="menu"
+                aria-label="Effort de réflexion"
+                class="menu-ancre-droite absolute right-1 bottom-full mb-1 sm:right-full sm:bottom-0 sm:mb-0 sm:mr-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-10"
+                data-sous-menu-modele
+                @keydown="surToucheEffort"
+              >
+                <div class="px-2.5 pt-1 pb-1 text-xs font-semibold text-slate-500" aria-hidden="true">
+                  Effort de réflexion
+                </div>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  :aria-checked="!mod.samplingOverride.reasoning_effort ? 'true' : 'false'"
+                  :class="ITEM"
+                  @click="choisirEffort(null)"
+                >
+                  <i
+                    class="ph ph-check text-sm"
+                    :class="!mod.samplingOverride.reasoning_effort ? 'text-blue-600' : 'invisible'"
+                    aria-hidden="true"
+                  ></i>
+                  Auto
+                </button>
+                <button
+                  v-for="v in mod.reasoningEffortValues"
+                  :key="v"
+                  type="button"
+                  role="menuitemradio"
+                  :title="v"
+                  :aria-checked="mod.samplingOverride.reasoning_effort === v ? 'true' : 'false'"
+                  :class="ITEM"
+                  @click="choisirEffort(v)"
+                >
+                  <i
+                    class="ph ph-check text-sm"
+                    :class="mod.samplingOverride.reasoning_effort === v ? 'text-blue-600' : 'invisible'"
+                    aria-hidden="true"
+                  ></i>
+                  {{ libelleEffort(v) }}
+                </button>
               </div>
-              <button
-                type="button"
-                role="menuitemradio"
-                :aria-checked="!mod.samplingOverride.reasoning_effort ? 'true' : 'false'"
-                :class="ITEM"
-                @click="choisirEffort(null)"
-              >
-                <i
-                  class="ph ph-check text-sm"
-                  :class="!mod.samplingOverride.reasoning_effort ? 'text-blue-600' : 'invisible'"
-                  aria-hidden="true"
-                ></i>
-                Auto
-              </button>
-              <button
-                v-for="v in mod.reasoningEffortValues"
-                :key="v"
-                type="button"
-                role="menuitemradio"
-                :title="v"
-                :aria-checked="mod.samplingOverride.reasoning_effort === v ? 'true' : 'false'"
-                :class="ITEM"
-                @click="choisirEffort(v)"
-              >
-                <i
-                  class="ph ph-check text-sm"
-                  :class="mod.samplingOverride.reasoning_effort === v ? 'text-blue-600' : 'invisible'"
-                  aria-hidden="true"
-                ></i>
-                {{ libelleEffort(v) }}
-              </button>
-            </div>
+            </TransitionMenu>
           </div>
           <button type="button" :class="LIGNE" data-reglages-generation @click="ouvrirReglages">
             <i class="ph ph-sliders-horizontal text-sm text-slate-500" aria-hidden="true"></i>
@@ -574,6 +579,6 @@ const ITEM =
           </button>
         </div>
       </div>
-    </Transition>
+    </TransitionMenu>
   </div>
 </template>

@@ -5,6 +5,7 @@ import { computed } from "vue";
 
 import MenuActions from "./MenuActions.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 const duSkin = computed(() => ed.interfaceEditeur === "skin");
@@ -36,12 +37,12 @@ const duSkin = computed(() => ed.interfaceEditeur === "skin");
         ></i>
       </button>
       <div v-if="ed.showEditorMore" class="fixed inset-0 z-40" @click="ed.showEditorMore = false"></div>
-      <Transition name="popover">
+      <TransitionMenu>
         <div
           v-if="ed.showEditorMore"
           role="menu"
           aria-label="Actions de l'éditeur"
-          class="absolute right-0 top-full mt-1 w-60 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
+          class="menu-ancre-droite absolute right-0 top-full mt-1 w-60 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
         >
           <button
             v-if="ed.editorMode === 'code' && (ed.isCurrentFileMd || ed.isCurrentFileSvg)"
@@ -276,13 +277,14 @@ const duSkin = computed(() => ed.interfaceEditeur === "skin");
             <span class="flex-1">Éditeur du skin</span>
           </button>
         </div>
-      </Transition>
+      </TransitionMenu>
     </template>
 
-    <template v-if="ed.showSnapshotPanel">
-      <div class="fixed inset-0 z-30" @click="ed.showSnapshotPanel = false"></div>
+    <div v-if="ed.showSnapshotPanel" class="fixed inset-0 z-30" @click="ed.showSnapshotPanel = false"></div>
+    <TransitionMenu>
       <div
-        class="absolute right-0 top-full mt-1 w-80 bg-[#252526] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden elpis-ed-instantanes"
+        v-if="ed.showSnapshotPanel"
+        class="menu-ancre-droite absolute right-0 top-full mt-1 w-80 bg-[#252526] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden elpis-ed-instantanes"
       >
         <div class="px-3 pt-3 pb-2 border-b border-white/5">
           <div class="flex items-center justify-between mb-1">
@@ -422,6 +424,6 @@ const duSkin = computed(() => ed.interfaceEditeur === "skin");
         </div>
         <div v-else class="px-3 py-4 text-center text-slate-600 text-xs">Aucune snapshot pour le moment</div>
       </div>
-    </template>
+    </TransitionMenu>
   </div>
 </template>

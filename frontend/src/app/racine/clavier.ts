@@ -282,7 +282,7 @@ export function creerClavier(s: EtatClavier) {
     // Sous-menu ouvert dans le menu du modèle (actions « ⋯ », effort) : le menu le ferme seul, focus rendu à sa ligne.
     if (
       c?.showModelManager.value &&
-      document.querySelector("[data-sous-menu-modele]") &&
+      document.querySelector("[data-sous-menu-modele]:not([inert])") &&
       document.activeElement?.closest("[data-model-manager]")
     )
       return true;

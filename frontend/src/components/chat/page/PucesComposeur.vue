@@ -6,6 +6,7 @@ import { computed } from "vue";
 import { CLE_MODELES, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
 import { compteTaches, puceContexte } from "../../../features/chat/page/puces";
 import { preferencesChat } from "../../../features/reglages/affichage-chat";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 import BarreImage from "./BarreImage.vue";
 import ContexteJetons from "./ContexteJetons.vue";
 import JaugeContexte from "./JaugeContexte.vue";
@@ -71,10 +72,10 @@ const PUCE =
           aria-hidden="true"
         ></span>
       </button>
-      <Transition name="popover-up">
+      <TransitionMenu haut>
         <div
           v-if="p.todoPanelOpen"
-          class="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
+          class="menu-ancre-gauche absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
         >
           <div class="px-3 py-2 flex items-center gap-2 border-b border-slate-100 bg-slate-50">
             <span class="text-xs font-semibold text-slate-800">Tâches de la session</span>
@@ -114,7 +115,7 @@ const PUCE =
             </li>
           </ul>
         </div>
-      </Transition>
+      </TransitionMenu>
     </div>
 
     <BarreImage />

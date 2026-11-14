@@ -94,7 +94,7 @@ describe("catalogue du « + »", () => {
     sous.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     await nextTick();
     await nextTick();
-    expect(hote.querySelector('[data-sous-menu="skills"]')).toBeNull();
+    expect(hote.querySelector('[data-sous-menu="skills"]:not([inert])')).toBeNull();
     expect(document.activeElement).toBe(skills);
   });
 

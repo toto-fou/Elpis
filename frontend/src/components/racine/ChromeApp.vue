@@ -10,6 +10,7 @@ import type { ActionConversation } from "../../features/chat/page/conversation";
 import { CLE_ENTETE } from "../../features/chat/page/domaines";
 import AnnonceurA11y from "../AnnonceurA11y.vue";
 import MenuConversation from "../chat/page/MenuConversation.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const c = domaineRacine(CLE_CHROME);
 const multi = (item: unknown): number => c.explorerMultiCount?.(item) ?? 0;
@@ -229,13 +230,13 @@ function agirConversation(action: ActionConversation): void {
 
   <!-- Menu contextuel (chats, fichiers, dossiers, fond de l'explorateur) : role=menu, focus sur la première entrée,
        flèches haut/bas ; Échap passe par la cascade globale. -->
-  <Transition name="popover">
+  <TransitionMenu>
     <div
       v-show="c.contextMenu.isOpen"
       id="custom-context-menu"
       role="menu"
       aria-label="Actions"
-      class="fixed z-[8000] bg-white border border-slate-200 shadow-xl rounded-xl py-1 min-w-[180px]"
+      class="menu-ancre-gauche fixed z-[8000] bg-white border border-slate-200 shadow-xl rounded-xl py-1 min-w-[180px]"
       :style="{ top: c.contextMenu.y + 'px', left: c.contextMenu.x + 'px' }"
       @keydown="c.onContextMenuKeydown"
     >
@@ -357,5 +358,5 @@ function agirConversation(action: ActionConversation): void {
         </template>
       </div>
     </div>
-  </Transition>
+  </TransitionMenu>
 </template>

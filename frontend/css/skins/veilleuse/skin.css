@@ -800,18 +800,10 @@ body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-curr
 /* Étiquettes de la console (« Défaut »…) : l'accent prévu pour le texte, lisible en petite taille. */
 body.elpis-skin-veilleuse .adm-tag:not(.adm-tag--soft) { color: var(--accent-text); }
 
-/* ── Mouvement : les menus s'allument doucement, comme sous la lampe ; opacité et position seulement ── */
-body.elpis-skin-veilleuse :is(.popover-enter-active, .popover-up-enter-active) {
-    --duree-courte: 200ms;
-    --courbe-fondu: var(--courbe-entree);
-}
+/* ── Mouvement : les menus s'allument doucement (entrée commune) et s'éteignent comme une lampe qu'on baisse ; opacité et position seulement ── */
 body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) {
     --duree-courte: 140ms;
     --courbe-fondu: ease-in;
-}
-@media (prefers-reduced-motion: no-preference) {
-    body.elpis-skin-veilleuse .popover-enter-from { transform: translateY(-6px) scale(0.98); }
-    body.elpis-skin-veilleuse .popover-up-enter-from { transform: translateY(6px) scale(0.98); }
 }
 body.elpis-skin-veilleuse :is(.modal-enter-active, .modal-leave-active) > * {
     transition: opacity var(--duree) var(--courbe-fondu), transform var(--duree-longue) var(--courbe-entree);

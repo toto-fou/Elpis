@@ -92,6 +92,16 @@ const SIMPLE = /^[\p{L}\p{M}\p{N} ,.;:!?'"’«»()%+=/-]*$/u;
 const DEBUT_LIGNE = /^[ \t]*(?:>[ \t]?)*(?:(?:[-+*]|\d{1,9}[.)])[ \t]+)?/;
 const LETTRE = /\p{L}/u;
 const AMORCE_LIEN = /www|https?:|ftp:|:\/\//i;
+const DEFINITION_LIEN = /^ {0,3}\[[^\]]+\]:/m;
+
+/** Paragraphe en cours : le texte après la dernière ligne blanche. */
+function paragraphe(t: string): string {
+  for (let i = t.lastIndexOf("\n"); i > 0; i = t.lastIndexOf("\n", i - 1)) {
+    const debut = t.lastIndexOf("\n", i - 1) + 1;
+    if (!t.slice(debut, i).trim()) return t.slice(i + 1);
+  }
+  return t;
+}
 
 /** HTML du bloc actif quand `texte` prolonge `base` (le texte dont `html` est le rendu) par des caractères simples sur une ligne déjà visible : l'ajout est inséré avant le curseur, sans analyse ni purification ; `null` s'il faut un rendu. */
 export function prolongerActif(html: string, base: string, texte: string): string | null {
@@ -101,6 +111,9 @@ export function prolongerActif(html: string, base: string, texte: string): strin
   const ligne = base.slice(base.lastIndexOf("\n") + 1);
   const corps = ligne.slice(DEBUT_LIGNE.exec(ligne)?.[0].length ?? 0);
   if (!LETTRE.test(corps) || !SIMPLE.test(corps) || AMORCE_LIEN.test(ligne + ajout)) return null;
+  // Une définition de lien dans le paragraphe peut prendre la ligne en cours pour son titre.
+  const para = base.indexOf("]:") === -1 ? "" : paragraphe(base);
+  if (para && DEFINITION_LIEN.test(para)) return null;
   const k = html.indexOf(CARET);
   if (k <= 0 || k !== html.lastIndexOf(CARET) || html.charCodeAt(k - 1) === 62 || html.includes("<pre"))
     return null;

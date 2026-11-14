@@ -55,6 +55,23 @@ describe("prolongerActif", () => {
     expect(rapides).toBeGreaterThan(1000);
   }, 120000);
 
+  it("textes choisis : définition de lien et son titre, tableau, bloc HTML, citation, guillemets, blancs, setext, numéros, liens", () => {
+    const CAS: Record<string, string> = {
+      tableSansBarre: "| a |\n|---|\n| b |\nsuite de ligne de table",
+      defLienTitre: 'Voir [x].\n\n[x]: /url\n"un titre complet"',
+      defLienTitreSeul: "[x]: /url\n'un titre qui s'écrit'",
+      blocHtmlP: "<p>\nTexte dans un bloc HTML qui grandit",
+      citationListe: "> - un élément de liste citée qui grandit encore",
+      attributQuote: 'Texte avec guillemets " onmouseover=alert(1) x=" et apostrophes',
+      blancsFin: "Un mot   puis d'autres mots   encore",
+      titreSetext: "Titre long\npuis du texte",
+      numeroPuisTexte: "Liste :\n10) dix éléments ici",
+      lienAuto: "Voir le site exemple point org/chemin puis www exemple",
+    };
+    for (const [nom, texte] of Object.entries(CAS))
+      for (const pas of [1, 3]) expect(diffuser(texte, pas).ecarts, nom + " / " + pas).toEqual([]);
+  });
+
   it("insère avant le curseur pour une prose simple, refuse ce qui peut changer le rendu", () => {
     const html = "<p>Bonjour le" + CARET + "</p>";
     expect(prolongerActif(html, "Bonjour le", "Bonjour le monde, ça va ?")).toBe(

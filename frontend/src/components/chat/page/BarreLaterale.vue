@@ -1,13 +1,12 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/BarreLaterale.vue — barre latérale : rail réduit et vue déployée (marque, nouveau chat, pages, recherche et historique groupé, sélection multiple, notifications, compte). -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
-import type { ComponentPublicInstance } from "vue";
+import { computed, ref } from "vue";
 
 import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { useVolet } from "../../../features/communs/volet";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
-import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
+import { vFondu } from "../../../features/chat/page/fondu-defilement";
 import { appuiLigne, oublierPrecharge } from "../../../features/chat/historique/ouverture";
 import { fusionnerResultats } from "../../../features/chat/historique/recherche";
 import LigneHistorique from "./LigneHistorique.vue";
@@ -22,13 +21,6 @@ const { deplie, crochets } = useVolet(
   () => b.showSidebar,
   () => rail.value,
 );
-let detacherFondu: (() => void) | null = null;
-// L'historique peut être recréé (rail replié puis déployé) : le fondu suit l'élément monté.
-function brancherFondu(el: Element | ComponentPublicInstance | null): void {
-  detacherFondu?.();
-  detacherFondu = el instanceof HTMLElement ? fonduDefilement(el) : null;
-}
-onBeforeUnmount(() => brancherFondu(null));
 
 // Recherche : les titres du volet répondent dès la première touche, le serveur complète.
 const resultats = computed(() =>
@@ -416,7 +408,7 @@ const courante = (id: string): boolean =>
                    `chat-history-scroll` = masque dégradé haut/bas (fondu de
                    scroll) ; les classes fade-top/fade-bottom sont posées par
                    features/chat/page/fondu-defilement.ts selon la position. -->
-        <div :ref="brancherFondu" class="chat-history-scroll flex-1 overflow-y-auto px-2 pt-1 pb-2 min-h-0">
+        <div v-fondu class="chat-history-scroll flex-1 overflow-y-auto px-2 pt-1 pb-2 min-h-0">
           <div v-if="b.chatSearch" class="mb-2 space-y-px">
             <div class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-1.5 pb-1.5">
               Résultats

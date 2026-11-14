@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/page/fondu-defilement.ts — fondu haut/bas d'une liste qui défile : classes fade-top et fade-bottom selon la position (masque dégradé de style.css). */
+import type { ObjectDirective } from "vue";
 
 /** Branche le fondu sur `el` (défilement, taille, contenu) ; rend la fonction qui le détache. */
 export function fonduDefilement(el: HTMLElement): () => void {
@@ -9,7 +10,7 @@ export function fonduDefilement(el: HTMLElement): () => void {
     el.classList.toggle("fade-top", el.scrollTop > 6);
     el.classList.toggle("fade-bottom", el.scrollTop + el.clientHeight < el.scrollHeight - 6);
   };
-  // Une mise à jour par image au plus pendant le défilement.
+  // Une lecture par image au plus, jamais pendant un rendu : la position est lue à l'image suivante.
   const planifier = (): void => {
     image ??= requestAnimationFrame(appliquer);
   };
@@ -18,7 +19,7 @@ export function fonduDefilement(el: HTMLElement): () => void {
   taille?.observe(el);
   const contenu = typeof MutationObserver !== "undefined" ? new MutationObserver(planifier) : null;
   contenu?.observe(el, { childList: true, subtree: true });
-  appliquer();
+  planifier();
   return () => {
     el.removeEventListener("scroll", planifier);
     taille?.disconnect();
@@ -27,3 +28,16 @@ export function fonduDefilement(el: HTMLElement): () => void {
     image = null;
   };
 }
+
+const detacheurs = new WeakMap<HTMLElement, () => void>();
+
+/** `v-fondu` : fondu branché une fois au montage de l'élément et détaché à son démontage, jamais rebranché par un nouveau rendu. */
+export const vFondu: ObjectDirective<HTMLElement> = {
+  mounted(el) {
+    detacheurs.set(el, fonduDefilement(el));
+  },
+  beforeUnmount(el) {
+    detacheurs.get(el)?.();
+    detacheurs.delete(el);
+  },
+};

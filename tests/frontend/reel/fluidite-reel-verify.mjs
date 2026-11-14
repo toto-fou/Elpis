@@ -102,7 +102,7 @@ try {
             await page.waitForTimeout(350);
         }
 
-        // ── Volets coulissants : largeur posée d'un coup, contenu glissé en opacité et position ──
+        // ── Volets coulissants : la largeur du volet glisse (le chat et la barre de saisie suivent), son contenu en opacité et position ──
         for (const [volet, cle] of [['volet latéral', 'showSidebar'], ['volet Génération', 'showSamplingPanel']]) {
             await page.evaluate(ENREGISTRER);
             for (let i = 0; i < 2; i += 1) {
@@ -110,8 +110,9 @@ try {
                 await page.waitForTimeout(450);
             }
             const vus = await page.evaluate(RELEVER);
-            const hors = vus.filter((x) => /^(width|height|min-|max-|flex|padding|margin|inset|left|right|top|bottom|gap)/.test(x.split('@')[0]));
-            v.ok(`${nom} : ${volet} ouvert puis fermé, contenu glissé, aucune propriété de mise en page animée`, vus.some((x) => x.startsWith('transform@')) && hors.length === 0, (hors.length ? hors : vus).slice(0, 4).join(' ; ') || 'aucune animation');
+            const largeur = vus.filter((x) => /^(width|min-width)@[^ ]*elpis-slide-panel/.test(x));
+            const hors = vus.filter((x) => /^(width|height|min-|max-|flex|padding|margin|inset|left|right|top|bottom|gap)/.test(x.split('@')[0]) && !largeur.includes(x));
+            v.ok(`${nom} : ${volet} ouvert puis fermé, largeur du volet et contenu glissés, aucune autre propriété de mise en page animée`, vus.some((x) => x.startsWith('transform@')) && largeur.length > 0 && hors.length === 0, (hors.length ? hors : vus).slice(0, 4).join(' ; ') || 'aucune animation');
         }
 
         // ── Redimensionnement ──

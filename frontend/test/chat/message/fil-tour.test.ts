@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/chat/message/fil-tour.test.ts — fil chronologique du tour : ordre d'arrivée, texte qui ne bouge pas, étapes groupées en ligne riche numérotée sur le tour, verbes, arrêt, déroulé Classique intacte. */
-import { createApp, h, reactive } from "vue";
-import type { App } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { createApp, h, nextTick, reactive } from "vue";
+import type { App, ComponentPublicInstance } from "vue";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import CorpsMessage from "../../../src/components/chat/message/CorpsMessage.vue";
 import { chronologieTour, textesDuTour } from "../../../src/features/chat/message/chronologie";
@@ -20,6 +20,7 @@ afterEach(() => {
   app = null;
   appels.length = 0;
   document.body.innerHTML = "";
+  vi.useRealTimers();
 });
 
 function contexte(): ContexteMessage {
@@ -55,12 +56,21 @@ function contexte(): ContexteMessage {
   }) as unknown as ContexteMessage;
 }
 
+/** Rendus du fil chronologique (`FilTour`) depuis le montage. */
+const rendusTour = { n: 0 };
+
 function monter(msg: MessageAffiche, classique = false): HTMLElement {
   const hote = document.createElement("div");
   document.body.appendChild(hote);
   app = createApp({ render: () => h(CorpsMessage, { entry: { idx: 1, msg }, pied: false }) });
   app.provide(CLE_PREFERENCES_CHAT, prefsDeroule(classique ? "classic" : "timeline"));
   app.provide(CLE_FIL, contexte());
+  rendusTour.n = 0;
+  app.mixin({
+    updated(this: ComponentPublicInstance) {
+      if (this.$options.__name === "FilTour") rendusTour.n++;
+    },
+  });
   app.mount(hote);
   return hote;
 }
@@ -290,6 +300,40 @@ describe("FilTour", () => {
     expect(ligne?.textContent).toContain("revue");
     ligne?.click();
     expect(appels).toContainEqual(["openTaskModal", { idx: 1, msg: expect.anything() }, 0]);
+  });
+
+  it("horloge : une seconde tant qu'une durée vit (étape en cours), aucune pendant la réponse qui s'écrit", async () => {
+    vi.useFakeTimers();
+    monter({
+      role: "assistant",
+      isStreaming: true,
+      content: "La réponse s'écrit.",
+      thinking: "hmm",
+      _thinkingStartedAt: Date.now() - 4000,
+      _thinkingEndedAt: Date.now() - 1000,
+      toolSteps: [lit("a", 1, 0)],
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(rendusTour.n).toBe(0);
+    app?.unmount();
+    const etape = monter({
+      role: "assistant",
+      isStreaming: true,
+      toolSteps: [
+        {
+          name: "execute_shell",
+          status: "running",
+          args: { command: "npm test" },
+          startedAt: Date.now() - 2000,
+          seg: 0,
+        },
+      ],
+    });
+    expect(etape.querySelector("[data-ligne-etapes]")?.textContent).toContain("2 s");
+    await vi.advanceTimersByTimeAsync(3000);
+    await nextTick();
+    expect(rendusTour.n).toBe(3);
+    expect(etape.querySelector("[data-ligne-etapes]")?.textContent).toContain("5 s");
   });
 
   it("outil MCP tiers : son nom, faute de verbe", () => {

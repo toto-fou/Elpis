@@ -37,11 +37,19 @@ export function utiliserTour(entree: () => EntreeMessage) {
   const page = inject(CLE_PAGE, null);
   const msg = () => entree().msg;
 
-  // Horloge des étapes vivantes : une seconde, seulement pendant le flux.
+  // Horloge des durées vivantes (étape, agent, réflexion en cours) : une seconde, seulement tant qu'il y en a une.
   const maintenant = ref(Date.now());
   let minuterie: ReturnType<typeof globalThis.setInterval> | null = null;
   watch(
-    () => !!msg().isStreaming,
+    () => {
+      const m = msg();
+      if (!m.isStreaming) return false;
+      if (m._thinkingStartedAt && !m._thinkingEndedAt && typeof m._thinkingMs !== "number") return true;
+      return (
+        (m.toolSteps ?? []).some((s) => s.status === "running") ||
+        (m.taskRuns ?? []).some((r) => r.state === "running")
+      );
+    },
     (vivant) => {
       if (minuterie) globalThis.clearInterval(minuterie);
       minuterie = vivant ? globalThis.setInterval(() => (maintenant.value = Date.now()), 1000) : null;

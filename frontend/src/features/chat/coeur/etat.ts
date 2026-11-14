@@ -102,23 +102,20 @@ export function creerEtatChat() {
   const composeColRef = ref<HTMLElement | null>(null);
   const composerHeight = ref(0);
   let observateur: ResizeObserver | null = null;
-  // Hauteur réelle de la colonne du composeur : la fin du fil et le bouton « bas » s'y calent.
+  // Hauteur réelle de la colonne du composeur, lue par l'observateur après la mise en page (sa première notification suit le montage) : la fin du fil et le bouton « bas » s'y calent.
   watch(composeColRef, (el) => {
     if (observateur) {
       observateur.disconnect();
       observateur = null;
     }
-    if (!el) {
-      composerHeight.value = 0;
+    if (!el || typeof ResizeObserver === "undefined") {
+      composerHeight.value = el?.offsetHeight || 0;
       return;
     }
-    if (typeof ResizeObserver !== "undefined") {
-      observateur = new ResizeObserver(() => {
-        composerHeight.value = el.offsetHeight || 0;
-      });
-      observateur.observe(el);
-    }
-    composerHeight.value = el.offsetHeight || 0;
+    observateur = new ResizeObserver(() => {
+      composerHeight.value = el.offsetHeight || 0;
+    });
+    observateur.observe(el);
   });
   const ctxRealPct = ref(0);
   return {

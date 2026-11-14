@@ -218,7 +218,7 @@ try {
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     ok('options : Échap referme le menu', !(await page.locator('.adm-dash__menu').count()));
     await dots.click(); await page.waitForTimeout(150);
-    await page.locator('h1').click(); await page.waitForTimeout(150);
+    await page.locator('h1').click(); await page.locator('.adm-dash__menu').waitFor({ state: 'detached', timeout: 2000 }).catch(() => {});
     ok('options : clic dehors referme le menu', !(await page.locator('.adm-dash__menu').count()));
 
     // ── Supervision › Activité : deux onglets, Exécutions (arrivée) et Appels d'outils ──

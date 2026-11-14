@@ -206,11 +206,12 @@ describe("page Code : message en cours rendu par blocs", () => {
     expect(c!.textContent).toContain("Retour");
   });
 
-  it("message fini : rendu complet en cache, ni re-rendu ni reconstruit quand sa ligne change", async () => {
+  it("message déjà fini à sa lecture : rendu complet en cache, sans composant, ni re-rendu ni reconstruit quand sa ligne change", async () => {
     const final = "## Titre\n\n- a\n- b\n\n```js\nx\n```";
     const { ligne, corps } = monter([message("a1", [texte("t1", final)], true)]);
     const [c] = corps();
     expect(c!.hasAttribute("aria-busy")).toBe(false);
+    expect(c!.hasAttribute("data-elpis-enrichi")).toBe(false);
     expect(c!.innerHTML).toBe(moteurMarkdown().renderMarkdown(final));
     const h2 = c!.querySelector("h2");
     ligne().parts.push(markRaw({ id: "o1", type: "tool", tool: "bash", state: { status: "completed" } }));
@@ -259,23 +260,28 @@ describe("page Code : message en cours rendu par blocs", () => {
     }
   });
 
-  it("un bloc de code reste du code quel que soit son langage, pendant le flux et après la fin", async () => {
+  it("un bloc de code reste du code quel que soit son langage : message suivi en flux comme message déjà fini", async () => {
     const SPECIAUX =
       'Fichier :\n\n```elpis-skin\n{"nom": "mon-skin"}\n```\n\nIcône :\n\n```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```chart-ref\n0123456789ab\n```\n\nCommit `!0123456789ab` et !0123456789ab poussés.\n';
-    const { ligne, corps } = monter([message("a1", [texte("t1", SPECIAUX.slice(0, 40))])]);
+    const { ligne, corps } = monter([
+      message("a1", [texte("t1", SPECIAUX.slice(0, 40))]),
+      message("a2", [texte("t2", SPECIAUX)], true),
+    ]);
     ligne().parts.splice(0, 1, texte("t1", SPECIAUX));
     await nextTick();
     ligne().info = { ...ligne().info, time: { created: 1, completed: 2 } };
     await nextTick();
     await new Promise((r) => setTimeout(r, 300));
-    const c = corps()[0]!;
-    expect(c.hasAttribute("aria-busy")).toBe(false);
-    expect(c.querySelectorAll("pre code").length).toBe(4);
-    expect(c.textContent).toContain('{"nom": "mon-skin"}');
-    expect(c.textContent).toContain("<rect width=");
-    expect(c.textContent).toContain("graph TD; A-->B");
-    expect(c.textContent).toContain("!0123456789ab poussés");
-    expect(c.querySelector("svg, .svg-render, .chart-ref-holder, [data-renvoi-graphique]")).toBeNull();
+    expect(corps().length).toBe(2);
+    for (const c of corps()) {
+      expect(c.hasAttribute("aria-busy")).toBe(false);
+      expect(c.querySelectorAll("pre code").length).toBe(4);
+      expect(c.textContent).toContain('{"nom": "mon-skin"}');
+      expect(c.textContent).toContain("<rect width=");
+      expect(c.textContent).toContain("graph TD; A-->B");
+      expect(c.textContent).toContain("!0123456789ab poussés");
+      expect(c.querySelector("svg, .svg-render, .chart-ref-holder, [data-renvoi-graphique]")).toBeNull();
+    }
   });
 
   it("aucune charge XSS n'atteint le DOM : blocs figés, bloc actif et fin du message", async () => {

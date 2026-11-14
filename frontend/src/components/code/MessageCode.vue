@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/code/MessageCode.vue — une ligne du transcript opencode (note de commande ou message et ses parts) ; ses détails dépliés lui sont propres, une bascule ne re-rend qu'elle ; ses parts texte sont des corps Markdown du chat, rendus par blocs pendant le flux. -->
+<!-- frontend/src/components/code/MessageCode.vue — une ligne du transcript opencode (note de commande ou message et ses parts) ; ses détails dépliés lui sont propres, une bascule ne re-rend qu'elle ; ses parts texte en flux sont des corps Markdown du chat rendus par blocs, celles d'un message déjà fini un rendu complet en cache. -->
 <script setup lang="ts">
 import { reactive } from "vue";
 
+import { planifierBalayage } from "../../features/chat/rendu/coloration";
 import type { EtatFlux } from "../../features/chat/rendu/flux-blocs";
 import { moteurMarkdown } from "../../features/chat/rendu/instance";
 import { domaineCode } from "../../features/code/domaine";
@@ -39,6 +40,12 @@ function corpsDe(id: string, texte: string, vivant: boolean): MessageMarkdown {
   return neuf;
 }
 
+/** Part d'un message déjà fini à sa lecture : rendu complet en cache, colorée au repos. */
+function htmlFini(texte: string): string {
+  planifierBalayage();
+  return moteur.renderMarkdown(texte);
+}
+
 function basculer(id: string): void {
   ouverts[id] = !ouverts[id];
 }
@@ -51,6 +58,7 @@ function surReflexion(id: string, enCours: boolean, ev: Event): void {
 }
 </script>
 
+<!-- eslint-disable vue/no-v-html -- Markdown du transcript rendu par le moteur du chat (purifié par DOMPurify). -->
 <template>
   <div class="flex gap-3" :class="m.role === 'user' ? 'flex-row-reverse' : ''">
     <!-- Trace de commande (« ce qui a été fait » : /cmd, /undo…) — pill centrée persistante, posée par l'app à l'envoi -->
@@ -140,13 +148,19 @@ function surReflexion(id: string, enCours: boolean, ev: Event): void {
             <i v-if="m.pending" class="ph ph-clock mr-1.5 opacity-80"></i>{{ item.text }}
           </div>
 
-          <!-- Texte assistant : corps Markdown du chat (blocs figés gardés pendant le flux, même purification) ; un bloc de code reste du code, coloré -->
+          <!-- Texte assistant en flux, ou vu en flux : corps Markdown du chat (blocs figés gardés, même purification) ; un bloc de code reste du code, coloré -->
           <ContenuMarkdown
-            v-else-if="item.kind === 'text' && !item.heavy"
+            v-else-if="item.kind === 'text' && !item.heavy && (item.live || corps.has(item.id))"
             class="w-full text-left"
             coloration-seule
             :msg="corpsDe(item.id, item.text, !!item.live)"
           />
+          <!-- Texte d'un message déjà fini à sa lecture : rendu complet en cache, sans composant par part -->
+          <div
+            v-else-if="item.kind === 'text' && !item.heavy"
+            class="w-full text-left markdown-body"
+            v-html="htmlFini(item.text)"
+          ></div>
           <div
             v-else-if="item.kind === 'text'"
             class="w-full text-sm whitespace-pre-wrap break-words text-left text-slate-800"

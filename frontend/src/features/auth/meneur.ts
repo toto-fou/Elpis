@@ -17,7 +17,7 @@ export interface OptionsMeneur {
   minuterie(fn: () => void, ms: number): () => void;
   intervalle(fn: () => void, ms: number): () => void;
   maintenant(): number;
-  /** Première candidature : ouvrir le flux sans attendre l'élection (aucun événement manqué), ses événements appliqués ici sans relais. */
+  /** Première candidature restée sans réponse `AVANCE_MS` : ouvrir le flux sans attendre la fin de l'élection, ses événements appliqués ici sans relais. */
   devancer(): void;
   /** Devenu meneur : garder le flux ouvert d'avance, sinon l'ouvrir ; `rattrapage` : le rouvrir et resynchroniser (un autre flux était suivi). */
   prendre(rattrapage: boolean): void;
@@ -30,6 +30,8 @@ export interface OptionsMeneur {
 
 /** Attente d'une réponse d'un meneur avant de prendre le rôle. */
 export const ATTENTE_MS = 250;
+/** Attente avant d'ouvrir le flux d'avance : un meneur en place ou un meilleur candidat répond d'ordinaire plus vite. */
+export const AVANCE_MS = 50;
 /** Battement du meneur ; un suiveur sans signe depuis `SILENCE_MS` se porte candidat (un meneur vivant lui répond). */
 export const BATTEMENT_MS = 5000;
 export const SILENCE_MS = 15000;
@@ -73,7 +75,8 @@ export function creerMeneur(o: OptionsMeneur) {
   let aRattraper = o.rattrapage;
   // Instant où l'onglet a cédé le rôle : un relais antérieur est couvert par son propre flux ou par la resynchronisation.
   let cede = 0;
-  // Flux ouvert d'avance par la première candidature, et déjà ouvert côté serveur.
+  // Flux ouvert d'avance par la première candidature (prévu, ouvert par l'onglet, ouvert côté serveur).
+  let annulerAvance: (() => void) | null = null;
   let avance = false;
   let avanceOuverte = false;
   let annulerAttente: (() => void) | null = null;
@@ -101,7 +104,22 @@ export function creerMeneur(o: OptionsMeneur) {
     attendre(prendreRole, ATTENTE_MS);
   }
 
+  /** Flux d'avance abandonné : annulé s'il n'est pas parti ; déjà ouvert, ce qu'il a lu ne se rejoue pas par le relais et une resynchronisation couvre ce qu'il a manqué. */
+  function lacherAvance(): void {
+    annulerAvance?.();
+    annulerAvance = null;
+    if (!avance) return;
+    if (avanceOuverte) {
+      cede = o.maintenant() + 1;
+      aRattraper = true;
+    }
+    avance = avanceOuverte = false;
+    o.lacher();
+  }
+
   function prendreRole(): void {
+    annulerAvance?.();
+    annulerAvance = null;
     role = "meneur";
     epoque = Math.max(epoque, mien.e);
     chef = null;
@@ -118,15 +136,7 @@ export function creerMeneur(o: OptionsMeneur) {
   /** Suit le meneur `m` ; resynchronise si le flux suivi a changé. */
   function suivre(m: Signe & { readonly o: number }): void {
     attendre(null);
-    if (avance) {
-      // Flux d'avance fermé : ce qu'il a lu (retard d'un meneur occupé, relayé d'un bloc) ne se rejoue pas par le relais ; meneur sans flux encore : resynchroniser au sien.
-      if (avanceOuverte) {
-        cede = o.maintenant() + 1;
-        aRattraper ||= m.o === 0;
-      }
-      avance = avanceOuverte = false;
-      o.lacher();
-    }
+    lacherAvance();
     role = "suiveur";
     chef = { e: m.e, de: m.de };
     dernierSigne = o.maintenant();
@@ -165,9 +175,13 @@ export function creerMeneur(o: OptionsMeneur) {
         else if (role !== "candidat") return;
         else if (!meilleur(m, mien)) poster("candidat");
         else {
-          // Candidature meilleure : attendre son annonce, se représenter si elle ne vient pas.
+          // Candidature meilleure : attendre son annonce ; si elle ne vient pas, se représenter et resynchroniser (aucun flux entre-temps).
           role = "suiveur";
-          attendre(candidater, ATTENTE_MS * 4);
+          lacherAvance();
+          attendre(() => {
+            aRattraper = true;
+            candidater();
+          }, ATTENTE_MS * 4);
         }
         return;
       case "fin":
@@ -199,10 +213,12 @@ export function creerMeneur(o: OptionsMeneur) {
   const arreterVeille = o.intervalle(veiller, BATTEMENT_MS);
   o.canal.onmessage = surMessage;
   candidater();
-  if (!o.rattrapage) {
-    avance = true;
-    o.devancer();
-  }
+  if (!o.rattrapage)
+    annulerAvance = o.minuterie(() => {
+      annulerAvance = null;
+      avance = true;
+      o.devancer();
+    }, AVANCE_MS);
 
   return {
     get estMeneur(): boolean {
@@ -226,6 +242,8 @@ export function creerMeneur(o: OptionsMeneur) {
     /** Départ de l'onglet ; `fin` : sa session est terminée, les autres la vérifient. */
     quitter(fin: boolean): void {
       if (role === "parti") return;
+      annulerAvance?.();
+      annulerAvance = null;
       if (role === "meneur") poster("depart");
       if (fin) poster("fin");
       role = "parti";

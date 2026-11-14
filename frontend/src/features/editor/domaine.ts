@@ -35,8 +35,7 @@ export interface RacineEditeur {
   handleExplorerDrop(ev: DragEvent): unknown;
   cancelSandboxUpload(): unknown;
   openContextMenu(ev: MouseEvent | KeyboardEvent, type: string, item: unknown): void;
-  openSettings(): unknown;
-  settingsTab: string;
+  openSettingsTab(onglet: string): unknown;
   renderMarkdown(source: string): string;
   gitConnectors: ConnecteurGit[];
   loadGitConnectors(): unknown;
@@ -58,8 +57,7 @@ const CLES: Readonly<Record<keyof RacineEditeur | "showEditor", true>> = {
   handleExplorerDrop: true,
   cancelSandboxUpload: true,
   openContextMenu: true,
-  openSettings: true,
-  settingsTab: true,
+  openSettingsTab: true,
   renderMarkdown: true,
   gitConnectors: true,
   loadGitConnectors: true,

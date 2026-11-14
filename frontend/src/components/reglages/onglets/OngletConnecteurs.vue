@@ -1,21 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — onglet « connectors » des Paramètres. -->
+<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes par hôte, jeton en écriture seule. -->
 <script setup lang="ts">
-import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
-const titre = "Comptes Git";
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
-  <div class="space-y-5 max-w-xl">
-    <AideOnglet :titre="titre"
-      >Vos jetons Git (GitHub, GitLab, Bitbucket, Gitea), pour le push/pull et les PR
-      authentifiés.</AideOnglet
-    >
-
+  <div class="space-y-5 max-w-xl" data-onglet-git>
     <div v-if="rg.gitConnectors.length" class="space-y-2">
       <div v-for="c in rg.gitConnectors" :key="c.id" class="border border-slate-200 rounded-xl p-3.5">
         <div class="flex items-center gap-3">
@@ -56,7 +49,7 @@ const titre = "Comptes Git";
           </button>
           <button
             title="Modifier"
-            aria-label="Modifier le connecteur"
+            aria-label="Modifier le compte"
             class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"
             @click="rg.editGitConnector(c)"
           >
@@ -64,7 +57,7 @@ const titre = "Comptes Git";
           </button>
           <button
             title="Supprimer"
-            aria-label="Supprimer le connecteur"
+            aria-label="Supprimer le compte"
             class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"
             @click="rg.deleteGitConnector(c)"
           >
@@ -79,13 +72,11 @@ const titre = "Comptes Git";
         </p>
       </div>
     </div>
-    <p v-else-if="!rg.gitConnForm" class="text-sm text-slate-500 py-4 text-center">
-      Aucun connecteur configuré.
-    </p>
+    <p v-else-if="!rg.gitConnForm" class="text-sm text-slate-500 py-4 text-center">Aucun compte Git.</p>
 
     <div v-if="rg.gitConnForm" class="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-2.5">
       <div class="text-sm font-medium text-slate-700">
-        {{ rg.gitConnForm.id ? "Modifier le connecteur" : "Nouveau connecteur" }}
+        {{ rg.gitConnForm.id ? "Modifier le compte" : "Nouveau compte" }}
       </div>
 
       <div>
@@ -109,7 +100,7 @@ const titre = "Comptes Git";
           @blur="rg.parseGitRepoUrl()"
         />
         <p v-if="rg.gitConnForm.host" class="text-xs text-slate-500 mt-1">
-          Host détecté : <span class="font-mono text-slate-600">{{ rg.gitConnForm.host }}</span>
+          Hôte détecté : <span class="font-mono text-slate-600">{{ rg.gitConnForm.host }}</span>
         </p>
       </div>
 
@@ -188,7 +179,7 @@ const titre = "Comptes Git";
       class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
       @click="rg.newGitConnector()"
     >
-      <i class="ph ph-plus"></i> Ajouter un connecteur
+      <i class="ph ph-plus"></i> Ajouter un compte
     </button>
   </div>
 </template>

@@ -505,7 +505,7 @@ tools; under each group of the Permissions tab, a line says what the selected op
 request) is visible outside your machine: no agent calls it. The `pr` agent
 prepares the branch and the commit, then hands back the exact call; the assistant
 runs it, in the chat, where you see it. No agent, and not the assistant either, ever
-receives a Git token: you add it yourself in Settings → Git accounts.
+receives a Git token: you add it yourself in Settings → Secrets → Git accounts.
 
 **Several agents at once.** The agents that a single message launches start together,
 within the limit set by the administrator. The harness does not order them: the
@@ -1381,7 +1381,7 @@ write a correct skill the first time.
 
 ## Git accounts
 
-Settings → **Git accounts**: register your access to code hosts (GitHub,
+Settings → **Secrets** → **Git accounts**: register your access to code hosts (GitHub,
 GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 
 - Just paste a repository URL: the service and host are detected.
@@ -1489,8 +1489,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | **Skills** | *Global*: the instance library and its drafts. *Personal*: your own procedures |
 | **Archives** | Your archived conversations: restore or delete |
 | **Sandbox** | Container state, network profile, restart, emptying the working folder |
-| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets) |
-| **Git accounts** | Your access to Git hosts |
+| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets). *Git accounts*: your access to Git hosts; see [Git accounts](#git-accounts) |
 
 Tabs with a lot of content are split into parts, in a strip at the top of the content; the modal returns to the last part
 you opened, and the rail search leads to the right one.

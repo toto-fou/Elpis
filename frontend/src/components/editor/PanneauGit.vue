@@ -33,15 +33,11 @@ const ed = domaineEditeur();
       </button>
 
       <button
-        title="Tokens d'accès GitHub / GitLab / Gitea / Bitbucket — appliqués automatiquement au clone/push"
+        title="Jetons GitHub, GitLab, Gitea, Bitbucket : appliqués au clone et au push"
         class="w-full py-1.5 text-[11px] text-slate-400 hover:text-blue-400 transition flex items-center justify-center gap-1.5"
-        @click="
-          ed.openSettings();
-          ed.settingsTab = 'connectors';
-          ed.loadGitConnectors();
-        "
+        @click="ed.openSettingsTab('secrets:git')"
       >
-        <i class="ph ph-key text-xs"></i> Connecteurs Git<span
+        <i class="ph ph-key text-xs"></i> Comptes Git<span
           v-if="ed.gitConnectors && ed.gitConnectors.length"
           class="text-slate-500"
         >

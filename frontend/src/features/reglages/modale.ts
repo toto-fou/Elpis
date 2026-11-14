@@ -151,8 +151,7 @@ export function creerModale(
     prompts: () => Promise.all([dep.loadSavedPrompts(), dep.loadPromptTemplates()]),
     archives: () => dep.loadArchives(),
     sandbox: () => dep.loadSandboxState(),
-    connectors: () => dep.loadGitConnectors(),
-    secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
+    secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions(), dep.loadGitConnectors()]),
     skills: () => ctx.openSkillsTab?.(),
   };
 

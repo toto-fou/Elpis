@@ -2116,7 +2116,7 @@ there is no read-modify-write race. `sandbox_mode` and
 `discard`, `commit`, `stash`, `merge`, `merge-abort`, `merge-resolve`, `rebase`,
 `remote`, `config`, `revert-last`, `restore-commit` (POST).
 
-**Connectors** (`/api/git/connectors`, Settings › Git accounts): CRUD, `POST /parse` (detect the
+**Connectors** (`/api/git/connectors`, Settings › Secrets › Git accounts): CRUD, `POST /parse` (detect the
 service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
 
 - **Host-only** store, keyed by `(owner_user_id, host[, label])` → self-hosted +
@@ -2149,8 +2149,8 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   imported once per account, for a host already registered by the account or by an administrator:
   its tokens become `git` secrets in state `unverified` with `meta.source` `sandbox-file`, which
   never resolve until the user verifies them in Settings › Secrets or types the token in
-  Settings › Git accounts.
-- No tool receives a credential: a token is entered by the user, in Settings › Git accounts or in
+  Settings › Secrets › Git accounts.
+- No tool receives a credential: a token is entered by the user, in Settings › Secrets › Git accounts or in
   the editor's clone and push/pull dialogs (a token typed at clone time is saved through the
   internal route, origin `editeur`; push and pull never save it).
 - Providers: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
@@ -2885,7 +2885,7 @@ by command: querying (`git_query`, `git_inspect`), writing
 (`git_write`, `git_rf`), workflow (`git_start_work` → `git_commit` →
 `git_submit` / `git_abandon`), and `git_clone`. No git tool takes a credential: clone, push, pull
 and `git_submit` use the token of the account's Git account for the exact host, and when one is
-missing the error tells the model to ask the user to add it in Settings › Git accounts.
+missing the error tells the model to ask the user to add it in Settings › Secrets › Git accounts.
 
 `git_submit` opens the PR/MR via the provider resolved from the Git connector. It
 is never offered to a subagent (`OUTILS_JAMAIS_SOUS_AGENT`): the `pr` agent

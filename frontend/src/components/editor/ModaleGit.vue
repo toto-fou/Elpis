@@ -139,9 +139,7 @@ function champSuivant(e: KeyboardEvent): void {
                 class="text-blue-600 hover:underline cursor-pointer font-medium"
                 @click="
                   ed.showGitCloneModal = false;
-                  ed.openSettings();
-                  ed.settingsTab = 'connectors';
-                  ed.loadGitConnectors();
+                  ed.openSettingsTab('secrets:git');
                 "
                 >Gérer</a
               >
@@ -152,9 +150,7 @@ function champSuivant(e: KeyboardEvent): void {
                 class="text-blue-600 hover:underline cursor-pointer font-medium"
                 @click="
                   ed.showGitCloneModal = false;
-                  ed.openSettings();
-                  ed.settingsTab = 'connectors';
-                  ed.loadGitConnectors();
+                  ed.openSettingsTab('secrets:git');
                 "
                 >Ajoutez un connecteur Git</a
               ><span class="text-slate-500"> pour vous authentifier.</span>

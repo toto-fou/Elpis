@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/connecteurs-git.ts — Paramètres › Connecteurs Git : accès par hôte du compte (`/api/git/connectors*`), jeton en écriture seule. */
+/** frontend/src/features/reglages/connecteurs-git.ts — Paramètres › Secrets › Comptes Git : accès par hôte du compte (`/api/git/connectors*`), jeton en écriture seule. */
 import {
   schemaReponseAnalyseUrlGit,
   schemaReponseConnecteursGit,
@@ -130,7 +130,7 @@ export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, h
       if (r.type === "ok") {
         gitConnForm.value = null;
         await loadGitConnectors();
-        toast(edition ? "Connecteur mis à jour" : "Connecteur ajouté", "success");
+        toast(edition ? "Compte mis à jour" : "Compte ajouté", "success");
       } else {
         const detail =
           r.type === "requete" || r.type === "refus" || r.type === "serveur" || r.type === "conflit"
@@ -145,7 +145,7 @@ export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, h
 
   async function deleteGitConnector(c: ConnecteurGit): Promise<void> {
     const ok = await ctx?.openConfirm?.(
-      "Supprimer le connecteur ?",
+      "Supprimer le compte ?",
       c.provider_type + " · " + c.host + (c.label ? " · " + c.label : ""),
       true,
     );
@@ -153,7 +153,7 @@ export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, h
     const r = await http.requete(`/api/git/connectors/${c.id}`, { method: "DELETE" });
     if (r.type === "ok") {
       await loadGitConnectors();
-      toast("Connecteur supprimé", "success");
+      toast("Compte supprimé", "success");
     }
   }
 

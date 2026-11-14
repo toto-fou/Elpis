@@ -30,7 +30,7 @@ export interface DroitsSecret {
 }
 
 const GERE_COMPTE: Readonly<Partial<Record<GenreSecret, Gestionnaire>>> = {
-  git: { cible: "connectors", libelle: "Comptes Git" },
+  git: { cible: "secrets:git", libelle: "Comptes Git" },
   llm: { cible: "ai_models", libelle: "Modèles IA" },
   mcp: { cible: "mcp", libelle: "Serveurs MCP" },
 };

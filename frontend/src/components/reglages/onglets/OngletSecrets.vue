@@ -21,8 +21,8 @@ fournirSecrets(g);
     <FormulaireSecret v-if="g.creation" mode="creation" />
     <TableSecrets />
     <p class="text-xs text-slate-500" data-secrets-ailleurs>
-      Les clés des modèles IA, des serveurs MCP et des comptes Git se gèrent dans leurs menus ; un jeton Git
-      importé reste ici jusqu'à sa vérification.
+      Les clés des modèles IA et des serveurs MCP se gèrent dans leurs menus ; un jeton Git importé reste ici
+      jusqu'à sa vérification.
     </p>
   </div>
 </template>

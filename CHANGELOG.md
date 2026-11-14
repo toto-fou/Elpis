@@ -130,6 +130,9 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
+  *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
+  `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's

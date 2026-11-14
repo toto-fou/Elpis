@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/platform/repos.ts — travaux reportés au repos du navigateur : tâche unique au premier repos, ou file de tranches lancées une à une après plusieurs secondes sans geste ni flux. */
+/** frontend/src/platform/repos.ts — travaux reportés au repos du navigateur : tâche unique au premier repos, ou file de tranches lancées une à une après plusieurs secondes sans geste ni flux (jamais dans la foulée d'une réponse). */
 
 /** Calme exigé avant chaque tranche de fond : ni touche, ni appui, ni molette. */
 export const CALME_MS = 5000;
@@ -45,14 +45,20 @@ export function auReposProlonge(...tranches: Tranche[]): void {
   programmer(CALME_MS);
 }
 
+/** Vrai si une tranche peut partir : ni geste ni flux depuis `CALME_MS` (un flux en cours vaut un geste, le calme repart de sa fin). */
+function calme(): boolean {
+  if (occupe()) activite();
+  return performance.now() - derniereActivite >= CALME_MS;
+}
+
 function programmer(delai: number): void {
   if (programmee || !file.length) return;
   programmee = true;
   setTimeout(() => {
-    const reste = CALME_MS - (performance.now() - derniereActivite);
-    if (reste > 0 || occupe()) {
+    if (!calme()) {
       programmee = false;
-      programmer(Math.max(reste, 1000));
+      // Pendant un flux, relu chaque seconde : sa fin est connue à la seconde près.
+      programmer(occupe() ? 1000 : Math.max(CALME_MS - (performance.now() - derniereActivite), 1000));
       return;
     }
     auRepos(() => void executer(), CALME_MS);
@@ -62,7 +68,7 @@ function programmer(delai: number): void {
 // Une tranche par rappel : un geste ou un flux survenu entre-temps la renvoie au prochain calme.
 async function executer(): Promise<void> {
   programmee = false;
-  if (performance.now() - derniereActivite < CALME_MS || occupe()) {
+  if (!calme()) {
     programmer(1000);
     return;
   }

@@ -45,7 +45,7 @@ describe("repos prolongé", () => {
     expect(faites).toEqual([1]);
   });
 
-  it("rien pendant un flux ; la tranche suivante attend la fin de la précédente", async () => {
+  it("rien pendant un flux ni dans sa foulée : le calme repart de la fin du flux ; la tranche suivante attend la fin de la précédente", async () => {
     const { auReposProlonge, definirOccupation, CALME_MS } = await charger();
     let flux = true;
     definirOccupation(() => flux);
@@ -62,7 +62,9 @@ describe("repos prolongé", () => {
     await vi.advanceTimersByTimeAsync(CALME_MS * 3);
     expect(faites).toEqual([]);
     flux = false;
-    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(CALME_MS - 1500);
+    expect(faites).toEqual([]);
+    await vi.advanceTimersByTimeAsync(2600);
     expect(faites).toEqual(["longue"]);
     await vi.advanceTimersByTimeAsync(CALME_MS);
     expect(faites).toEqual(["longue"]);

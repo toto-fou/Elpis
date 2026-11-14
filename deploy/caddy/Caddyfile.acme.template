@@ -8,18 +8,43 @@
 #
 #  Mêmes ports que Caddyfile.template (config.json › security.https) :
 #  443 = application, 8443 = administration (l'extracteur du RAG reste local).
+#  Même compression que Caddyfile.template (voir son en-tête).
 # =====================================================================
 {
 	__EMAIL_LINE__
 }
 
+(compression) {
+	@compressible {
+		method GET
+		header Sec-Fetch-Site same-origin
+		not header Accept *text/event-stream*
+	}
+	encode @compressible zstd gzip {
+		match {
+			status 200
+			header Content-Type application/json*
+			header Content-Type text/css*
+			header Content-Type text/html*
+			header Content-Type text/plain*
+			header Content-Type text/markdown*
+			header Content-Type text/csv*
+			header Content-Type text/javascript*
+			header Content-Type application/javascript*
+			header Content-Type image/svg+xml*
+		}
+	}
+}
+
 __DOMAIN__ {
+	import compression
 	reverse_proxy 127.0.0.1:8001 {
 		flush_interval -1
 	}
 }
 
 __DOMAIN__:8443 {
+	import compression
 	reverse_proxy 127.0.0.1:8002 {
 		flush_interval -1
 	}

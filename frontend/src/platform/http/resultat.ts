@@ -27,17 +27,9 @@ export type ApiResult<T> =
   | { readonly type: "reseau"; readonly raison: string }
   | { readonly type: "perime" };
 
-export type TypeApiResult = ApiResult<unknown>["type"];
-
 /** Échec dont l'issue côté serveur est inconnue : une mutation ne doit jamais être rejouée automatiquement. */
 export function estAmbigu(r: ApiResult<unknown>): boolean {
   return r.type === "reseau" || r.type === "serveur" || r.type === "annulation" || r.type === "perime";
-}
-
-export function estOk<T>(
-  r: ApiResult<T>,
-): r is { readonly type: "ok"; readonly statut: number; readonly valeur: T } {
-  return r.type === "ok";
 }
 
 /** Adaptateur pour les appelants historiques : la valeur, ou `null` pour toute autre issue. */

@@ -8,29 +8,42 @@
     <title>Elpis — Administration</title>
     <link rel="icon" type="image/png" sizes="32x32" href="static/elpis-32.png">
     <link rel="apple-touch-icon" href="static/elpis-256.png">
+    <!-- Police des icônes préchargée à l'URL que style.css demande : le « ./ » la soustrait à la réécriture des `?v=` vendor du core. -->
+    <link rel="preload" href="./static/vendor/src/regular/Phosphor.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Entrées Vite (frontend/src/entries/, balises écrites par apps/core/src/interface/pages.ts) : le diagnostic de
          démarrage, puis la console. -->
     <!-- @entree diagnostic -->
     <!-- @entree admin -->
     <link rel="stylesheet" href="static/vendor/src/regular/style.css">
     <link rel="stylesheet" href="static/css/style.css?v=1783300021">
-    <!-- Habillages : la console suit celui du compte ; après style.css (features/reglages/apparence.ts). -->
-    <link rel="stylesheet" href="static/css/skins/llamacpp/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/emeraude/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/pingouins/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/elpis/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/alize/polices.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/alize/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/kiki/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/veilleuse/polices.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/veilleuse/skin.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/terminal/polices.css?v=1783300021">
-    <link rel="stylesheet" href="static/css/skins/terminal/skin.css?v=1783300021">
+    <!-- Habillages intégrés : modèle inerte, après style.css (égalités de spécificité sur les jetons). Le script
+         @habillage qui le suit (apps/core/src/interface/pages.ts, autorisé par son empreinte dans la CSP) y prend, avant
+         le premier rendu, les feuilles et la police du dernier habillage de ce navigateur ; features/reglages/habillage.ts
+         celles d'un autre, chargées avant la bascule. -->
+    <template id="elpis-habillages">
+        <link rel="stylesheet" href="static/css/skins/llamacpp/skin.css?v=1783300021" data-habillage="llamacpp">
+        <link rel="stylesheet" href="static/css/skins/emeraude/skin.css?v=1783300021" data-habillage="emeraude">
+        <link rel="stylesheet" href="static/css/skins/pingouins/skin.css?v=1783300021" data-habillage="pingouins">
+        <link rel="stylesheet" href="static/css/skins/elpis/skin.css?v=1783300021" data-habillage="elpis">
+        <link rel="preload" href="static/css/skins/alize/polices/figtree-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin data-habillage="alize">
+        <link rel="stylesheet" href="static/css/skins/alize/polices.css?v=1783300021" data-habillage="alize">
+        <link rel="stylesheet" href="static/css/skins/alize/skin.css?v=1783300021" data-habillage="alize">
+        <link rel="stylesheet" href="static/css/skins/kiki/skin.css?v=1783300021" data-habillage="kiki">
+        <link rel="preload" href="static/css/skins/veilleuse/polices/instrument-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin data-habillage="veilleuse">
+        <link rel="stylesheet" href="static/css/skins/veilleuse/polices.css?v=1783300021" data-habillage="veilleuse">
+        <link rel="stylesheet" href="static/css/skins/veilleuse/skin.css?v=1783300021" data-habillage="veilleuse">
+        <link rel="preload" href="static/css/skins/terminal/polices/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin data-habillage="terminal">
+        <link rel="stylesheet" href="static/css/skins/terminal/polices.css?v=1783300021" data-habillage="terminal">
+        <link rel="stylesheet" href="static/css/skins/terminal/skin.css?v=1783300021" data-habillage="terminal">
+    </template>
+    <!-- @habillage -->
     <!-- Aperçu du mot animé (carte « Écran d'accueil ») et vignettes des mascottes proposées. -->
     <link rel="stylesheet" href="static/assets/mascotte/accueil.css?v=1783300021">
     <link rel="stylesheet" href="static/assets/mascotte/socle-mascottes.css?v=1783300021">
     <!-- Feuille Tailwind précompilée : en fin de <head> (voir index.html). -->
     <link rel="stylesheet" href="static/css/style.tailwind.css?v=1783300021">
+    <!-- Feuille d'un skin importé ou personnel du dernier habillage : en fin de tête, après Tailwind (@habillage). -->
+    <!-- @habillage -->
 </head>
 <!-- Fond et texte : jetons de la règle body de style.css. -->
 <body class="h-full antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">

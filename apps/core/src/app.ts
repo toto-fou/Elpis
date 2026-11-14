@@ -5,6 +5,7 @@ import type { Extension } from "@elpis/http";
 import type { FastifyInstance } from "fastify";
 
 import { famillesParDefaut } from "./familles";
+import { installerCompressionJson } from "./interface/compression";
 import type { Journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { verificationDuMode } from "./routes";
@@ -26,10 +27,11 @@ export interface OptionsApp {
   avantRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
 
-/** Connexions gardées 120 s comme Gunicorn ; une route de la console ne se monte jamais dans main. */
+/** Connexions gardées 120 s comme Gunicorn ; une route de la console ne se monte jamais dans main ; gros JSON compressés. */
 export async function creerApp(options: OptionsApp): Promise<FastifyInstance> {
   return creerAppHttp({
     ...options,
+    extensions: [...(options.extensions ?? []), installerCompressionJson],
     famillesParDefaut: () => famillesParDefaut(options.mode),
     verifierRoute: verificationDuMode(options.mode),
   });

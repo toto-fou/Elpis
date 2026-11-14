@@ -155,11 +155,12 @@ De facto scale, to follow so a new layer finds its place:
 ## Motion
 
 - Durations and curves are tokens in `:root` of `style.css`, never literals in
-  a named transition: `--duree-courte` (150 ms: menus, tool detail),
-  `--duree` (200 ms: dialogs, toasts, fades), `--duree-longue` (260 ms: sliding
-  panels); `--courbe-fondu` (`ease-out`: opacity and small offsets),
-  `--courbe-entree` (dialogs, toasts, the save bar), `--courbe-volet`
-  (sliding panels).
+  a named transition: `--duree-courte` (150 ms: menu exits, tool detail),
+  `--duree` (200 ms: menu entries, dialogs, toasts, fades), `--duree-longue`
+  (260 ms: sliding panels), `--duree-image` (16 ms, one frame: head start of
+  menus); `--courbe-fondu` (`ease-out`: opacity and small offsets),
+  `--courbe-entree` (menu entries, dialogs, toasts, the save bar),
+  `--courbe-volet` (sliding panels).
 - Animate `opacity` and `transform`, never layout properties, with one
   exception: the width of a sliding panel.
 - Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
@@ -174,9 +175,18 @@ De facto scale, to follow so a new layer finds its place:
   right) and leaves the same way. The rails get their width from a CSS
   transition; a panel that is itself the transition root is driven by
   `features/communs/volet.ts`, which also hands the focus over.
-- A skin sets the duration and curve of menus and dialogs (`popover`, `modal`)
-  by overriding these variables on the transition classes (Terminal: shorter,
-  linear), never properties other than `opacity` and `transform`; a large decoration
+- Menus and small floating surfaces open and close through `<TransitionMenu>`
+  (`popover` down from the anchor's top edge, `popover-up` up from its bottom
+  edge, corner with `.menu-ancre-gauche` / `.menu-ancre-droite`): opacity, a
+  6 px slide (`--menu-glisse`) and a 0.97 scale (`--menu-echelle`), in over
+  `--duree` with `--courbe-entree`, out over `--duree-courte`. Both start one
+  frame ahead (`--duree-image`; entry from `@starting-style`, never
+  `-enter-from`) so the first frame after the gesture already moves; the leaving
+  menu is `inert`, drops its focus and lets clicks through.
+- A skin sets the duration, curve, slide and scale of menus and dialogs
+  (`popover`, `modal`) by overriding these variables on the transition classes
+  (Terminal: shorter, linear, no scale), never properties other than `opacity`
+  and `transform`; a large decoration
   (light, gradient) has a fixed size and is placed with `transform`, so a resize
   does not repaint it.
 - `prefers-reduced-motion: reduce` removes movement, not fades (dedicated

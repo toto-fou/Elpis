@@ -1401,7 +1401,7 @@ try {
         .skins.filter((s) => s.enabled_by_default !== false).length;
     ok(`apparence : ${nActifs} thèmes proposés`, (await menu.locator('.adm-swatch').count()) === nActifs);
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(150);
+    await menu.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
     ok('apparence : Échap referme le menu', !(await menu.isVisible().catch(() => false)));
 
     // ─────────────────────────────────────────────────────────────────

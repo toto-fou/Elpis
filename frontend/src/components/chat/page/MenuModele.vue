@@ -179,7 +179,12 @@ function ouvrirActions(l: LigneModele, ancre: HTMLElement, clavier: boolean): vo
   effortOuvert.value = false;
   ancreActions = ancre;
   const cadre = pop.value?.getBoundingClientRect();
-  actions.value = { ligne: l, haut: cadre ? ancre.getBoundingClientRect().bottom - cadre.top + 2 : 0 };
+  // Menu encore en train d'entrer (échelle) : la mesure est ramenée à sa taille finale.
+  const echelle = (cadre && pop.value?.offsetHeight ? cadre.height / pop.value.offsetHeight : 1) || 1;
+  actions.value = {
+    ligne: l,
+    haut: cadre ? (ancre.getBoundingClientRect().bottom - cadre.top) / echelle + 2 : 0,
+  };
   void nextTick(() => focusPremiere(menuActions.value));
 }
 

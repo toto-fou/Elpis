@@ -5,6 +5,7 @@ import { defineAsyncComponent } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { formateurDate } from "../../features/admin/horodatage";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import BarreLateraleConsole from "./BarreLateraleConsole.vue";
 import EnteteConsole from "./EnteteConsole.vue";
 import PageApercu from "./PageApercu.vue";
@@ -182,42 +183,44 @@ const heure = formateurDate({ timeStyle: "short" });
             ></i>
             {{ adm.isSavingAdminPage ? "Enregistrement…" : "Enregistrer" }}
           </button>
-          <div
-            v-if="adm.adminChangesOpen"
-            id="adm-changes"
-            class="adm-changes"
-            role="dialog"
-            aria-label="Détail des modifications"
-          >
-            <ul>
-              <li v-for="c in adm.adminPageChanges" :key="c.store + ':' + c.path" class="adm-changes__row">
-                <span class="adm-changes__lbl"
-                  >{{ adm.adminChangeLabel(c)
-                  }}<i
-                    v-if="adm.adminChangeNeedsRestart(c)"
-                    class="ph ph-arrow-clockwise adm-changes__restart"
-                    title="Pris en compte au redémarrage"
-                    aria-label="Pris en compte au redémarrage"
-                  ></i
-                ></span>
-                <span v-if="adm.adminChangeSecret(c)" class="adm-changes__vals">clé modifiée</span>
-                <span v-else-if="c.store !== 'prompt'" class="adm-changes__vals">
-                  <s>{{ adm.adminChangeValue(c.before) }}</s> → <b>{{ adm.adminChangeValue(c.after) }}</b>
-                </span>
-                <span v-else class="adm-changes__vals">texte modifié</span>
-                <button
-                  v-if="adm.adminChangeRevertable(c)"
-                  type="button"
-                  class="adm-btn adm-btn--icon"
-                  :title="'Rétablir ' + adm.adminChangeLabel(c)"
-                  :aria-label="'Rétablir ' + adm.adminChangeLabel(c)"
-                  @click="adm.revertAdminChange(c)"
-                >
-                  <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
-                </button>
-              </li>
-            </ul>
-          </div>
+          <TransitionMenu haut>
+            <div
+              v-if="adm.adminChangesOpen"
+              id="adm-changes"
+              class="adm-changes menu-ancre-gauche"
+              role="dialog"
+              aria-label="Détail des modifications"
+            >
+              <ul>
+                <li v-for="c in adm.adminPageChanges" :key="c.store + ':' + c.path" class="adm-changes__row">
+                  <span class="adm-changes__lbl"
+                    >{{ adm.adminChangeLabel(c)
+                    }}<i
+                      v-if="adm.adminChangeNeedsRestart(c)"
+                      class="ph ph-arrow-clockwise adm-changes__restart"
+                      title="Pris en compte au redémarrage"
+                      aria-label="Pris en compte au redémarrage"
+                    ></i
+                  ></span>
+                  <span v-if="adm.adminChangeSecret(c)" class="adm-changes__vals">clé modifiée</span>
+                  <span v-else-if="c.store !== 'prompt'" class="adm-changes__vals">
+                    <s>{{ adm.adminChangeValue(c.before) }}</s> → <b>{{ adm.adminChangeValue(c.after) }}</b>
+                  </span>
+                  <span v-else class="adm-changes__vals">texte modifié</span>
+                  <button
+                    v-if="adm.adminChangeRevertable(c)"
+                    type="button"
+                    class="adm-btn adm-btn--icon"
+                    :title="'Rétablir ' + adm.adminChangeLabel(c)"
+                    :aria-label="'Rétablir ' + adm.adminChangeLabel(c)"
+                    @click="adm.revertAdminChange(c)"
+                  >
+                    <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </TransitionMenu>
         </div>
       </div>
     </transition>

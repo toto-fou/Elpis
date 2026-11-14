@@ -371,6 +371,11 @@ describe("menu du modèle", () => {
     onGlobalKeydown(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(showModelManager.value).toBe(false);
     showModelManager.value = true;
+    document.querySelector("[data-sous-menu-modele]")?.setAttribute("inert", "");
+    (document.getElementById("d") as HTMLElement).focus();
+    onGlobalKeydown(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(showModelManager.value).toBe(false);
+    showModelManager.value = true;
     document.querySelector("[data-sous-menu-modele]")?.remove();
     (document.getElementById("d") as HTMLElement).focus();
     onGlobalKeydown(new KeyboardEvent("keydown", { key: "Escape" }));

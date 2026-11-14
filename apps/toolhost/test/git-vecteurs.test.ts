@@ -205,8 +205,9 @@ describe("routes Git rejouées (vecteurs Python)", () => {
       },
       rappel: {
         ...RAPPEL_ABSENT,
+        // Écart voulu (portée par chemin) : la portée choisie au clone suit en dernier argument, absente du Python ; sans elle (`null`), le relevé est le sien.
         enregistrerIdentifiantGit: async (compte, ...a: unknown[]) => {
-          appels.push(["enregistrer", [compte.user_id, ...a]]);
+          appels.push(["enregistrer", [compte.user_id, ...(a.at(-1) === null ? a.slice(0, -1) : a)]]);
           return sc.enregistre ?? true;
         },
       },

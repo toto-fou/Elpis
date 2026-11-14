@@ -9,7 +9,7 @@ import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { vFondu } from "../../../features/chat/page/fondu-defilement";
 import { appuiLigne, oublierPrecharge } from "../../../features/chat/historique/ouverture";
 import { fusionnerResultats } from "../../../features/chat/historique/recherche";
-import LigneHistorique from "./LigneHistorique.vue";
+import ListeHistorique from "./ListeHistorique.vue";
 import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
 import NotificationsPied from "./NotificationsPied.vue";
@@ -31,14 +31,6 @@ const resultats = computed(() =>
         b.chatSearchResults,
       )
     : [],
-);
-
-// Historique à plat (titre de tranche puis ses conversations) : une conversation garde sa clé en changeant de tranche.
-const lignes = computed(() =>
-  b.groupedHistory.flatMap((g) => [
-    { cle: "tranche-" + g.key, label: g.label, chat: null },
-    ...g.items.map((chat) => ({ cle: chat.id, label: "", chat })),
-  ]),
 );
 
 // Résultat marqué : la conversation en cours d'ouverture, sinon l'affichée.
@@ -451,19 +443,8 @@ const courante = (id: string): boolean =>
               </p>
             </div>
 
-            <!-- Historique groupé par date (titre de tranche puis lignes) : une ligne archivée ou supprimée s'efface,
-               les suivantes remontent (.elpis-ligne-*, style.css) ; chaque ligne se rend seule (LigneHistorique). -->
-            <TransitionGroup name="elpis-ligne" tag="div" class="relative flex flex-col space-y-px">
-              <template v-for="l in lignes" :key="l.cle">
-                <LigneHistorique v-if="l.chat" :chat="l.chat" />
-                <div
-                  v-else
-                  class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-4 pb-1.5 first:pt-1.5"
-                >
-                  {{ l.label }}
-                </div>
-              </template>
-            </TransitionGroup>
+            <!-- Historique groupé par date (titre de tranche puis lignes). -->
+            <ListeHistorique />
           </div>
         </div>
 

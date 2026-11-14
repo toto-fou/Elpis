@@ -1187,8 +1187,9 @@ credential is written to the sandbox.
 **Clone a repository.** The window lists the repositories of one of your Git accounts (*Mes dépôts*;
 pick the account when you have several) and takes any address. Under the address it says which
 account will be used, the most specific one that covers the repository (it says so when that
-account has no token or holds an imported token still to verify), or that none applies; an
-`http://` address is flagged as sent in clear. A repository at the root of a host
+account has no token or holds an imported token still to verify), or that none applies. Over
+`http://` an account is only used for a host of the local network (or when its API is itself in
+http); what is then sent, or the credentials you type, is flagged as sent in clear. A repository at the root of a host
 (`https://git.example/project.git`, a single path segment) is not served by any account. With no account, or when access is refused, type
 credentials in place: they are sent if the host asks for them and, when the clone then succeeds,
 saved as a Git account for the place you choose (the host, the organization or the repository;
@@ -1540,8 +1541,8 @@ Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
 Settings › **Secrets** lists the vault of your account in one table of four columns. `name`
 carries the type and the version (`v2` after one rotation) under it, and `tls insecure` when the
 certificate is not checked; `scope` shows every site in full, one per line (beyond four, the first
-three and a link to unfold the rest); then `user` and `usage` (last use, number of uses; the exact
-date is in the tooltip). In a narrow window `user` and the last use show under the name. An
+three and a button to unfold the rest); then `user` and `dernier usage` (last use in words, number
+of uses; the exact date is in the tooltip). In a narrow window `user` and the last use show under the name. An
 imported secret is marked
 `unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
 it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no

@@ -5176,8 +5176,8 @@ th[aria-sort] .sup-tri .ph { opacity: 1; color: var(--accent-text); }
 .jnl-ecrivains td, .jnl-ecrivains th { padding-inline: 1.25rem; }
 @media (max-width: 640px) { .sup-champs--page { grid-template-columns: minmax(0, 1fr); gap: 0.125rem; } .sup-champs--page dd { margin-bottom: 0.5rem; } }
 
-/* Coffre « Secrets » (Paramètres › Secrets, console › Secrets) : table dense à colonnes fixes, valeur complète
-   en infobulle ; sous 36rem de large, user, tls, dernier usage et usages passent dans l'infobulle du nom. */
+/* Coffre « Secrets » (Paramètres › Secrets, console › Secrets) : table à quatre colonnes fixes, noms, sites et
+   identifiants écrits en entier ; sous 36rem de large, user et dernier usage passent sous le nom. */
 .elpis-secrets { container-type: inline-size; }
 .adm-card.elpis-secrets-carte { overflow: visible; }
 .elpis-secrets__table { table-layout: fixed; font-size: 0.75rem; }
@@ -5185,9 +5185,11 @@ th[aria-sort] .sup-tri .ph { opacity: 1; color: var(--accent-text); }
 .elpis-secrets__table td { padding: 0.5rem 0.375rem; vertical-align: top; white-space: normal; }
 .elpis-secrets__table th { font-size: 0.6875rem; line-height: 1.1; vertical-align: bottom; }
 .elpis-secrets__c-name { width: 27%; }
-.elpis-secrets__c-user { width: 21%; }
-.elpis-secrets__c-usage { width: 4.5rem; }
+.elpis-secrets__c-user { width: 20%; }
+.elpis-secrets__c-usage { width: 5.5rem; }
 .elpis-secrets__table th.elpis-secrets__menu { width: 2rem; }
+.elpis-secrets__table th.elpis-secrets__menu,
+.elpis-secrets__table td.elpis-secrets__menu { padding-inline: 0.125rem; }
 .elpis-secrets__table td.elpis-secrets__menu { overflow: visible; padding-block: 0.25rem; }
 .elpis-secrets__details { display: none; }
 @container (max-width: 36rem) {

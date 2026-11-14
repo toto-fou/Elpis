@@ -290,7 +290,11 @@ function versJeton(): void {
               <span v-else-if="acces.etat === 'invalide'" class="text-amber-600"
                 >Adresse http(s) attendue</span
               >
-              <span v-if="connu && 'clair' in acces && acces.clair" class="text-amber-600" data-clair>
+              <span
+                v-if="connu && 'clair' in acces && acces.clair && (saisis || acces.etat === 'compte')"
+                class="text-amber-600"
+                data-clair
+              >
                 · http : envoi en clair</span
               >
             </p>

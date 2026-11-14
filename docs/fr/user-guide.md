@@ -1135,8 +1135,9 @@ identifiant n'est écrit dans la sandbox.
 **Cloner un dépôt.** La fenêtre liste les dépôts d'un de vos comptes Git (*Mes dépôts* ; choisissez le
 compte si vous en avez plusieurs) et accepte n'importe quelle adresse. Sous l'adresse, elle dit quel
 compte servira, le plus précis qui couvre le dépôt (elle le dit quand ce compte n'a pas de jeton,
-ou porte un jeton importé encore à vérifier), ou qu'aucun ne s'applique ; une adresse `http://`
-est signalée comme envoyée en clair. Un dépôt à la racine d'un hôte
+ou porte un jeton importé encore à vérifier), ou qu'aucun ne s'applique. En `http://`, un compte
+ne sert que pour un hôte du réseau local (ou si son API est elle-même en http) ; ce qui part alors,
+ou les identifiants que vous saisissez, est signalé comme envoyé en clair. Un dépôt à la racine d'un hôte
 (`https://git.exemple/projet.git`, un seul segment) n'est servi par aucun compte. Sans compte, ou si l'accès est refusé, saisissez des identifiants sur
 place : ils sont envoyés si l'hôte les demande et, quand le clone réussit alors, enregistrés comme
 compte Git pour l'endroit que vous choisissez (l'hôte, l'organisation ou le dépôt ; un endroit qui

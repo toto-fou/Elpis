@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name (type, version, états), scope (un site par ligne, entier), user, usage ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
+<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name (type, version, états), scope (un site par ligne, entier), user, dernier usage ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
 <script setup lang="ts">
 import type { Secret } from "@elpis/contracts";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -26,11 +26,19 @@ const infoUsage = (s: Secret): string =>
 const infoNom = (s: Secret): string =>
   `${s.name}\nuser=${s.username ?? "—"} · tls=${s.policy.tls} · version ${s.version}\n${s.use_count} usages · dernier : ${infoUsage(s)}`;
 const usages = (s: Secret): string => `${s.use_count} usage${s.use_count > 1 ? "s" : ""}`;
+/** Dernier usage en clair : « il y a 2 min », « à l'instant », « jamais ». */
+function quand(s: Secret): string {
+  if (!s.last_used_at) return "jamais";
+  const duree = usage(s);
+  return duree.startsWith("<") ? "à l'instant" : `il y a ${duree}`;
+}
+/** La liste de sites se replie : plus de sites que la ligne n'en montre d'emblée. */
+const repliable = (s: Secret): boolean => porteeTexte(s).length > SITES_VISIBLES + 1;
 
 /** Sites affichés d'une ligne : tous s'ils tiennent ou si elle est dépliée, sinon les premiers. */
 function sitesMontres(s: Secret): string[] {
   const tous = porteeTexte(s);
-  return deplies.value.has(s.id) || tous.length <= SITES_VISIBLES + 1 ? tous : tous.slice(0, SITES_VISIBLES);
+  return deplies.value.has(s.id) || !repliable(s) ? tous : tous.slice(0, SITES_VISIBLES);
 }
 const sitesCaches = (s: Secret): number => porteeTexte(s).length - sitesMontres(s).length;
 
@@ -167,7 +175,7 @@ watch(
             class="elpis-secrets__c-usage elpis-secrets__opt"
             title="Dernier usage, nombre d'usages"
           >
-            usage
+            dernier usage
           </th>
           <th scope="col" class="elpis-secrets__menu"><span class="sr-only">Actions</span></th>
         </tr>
@@ -200,12 +208,13 @@ watch(
                 >
               </div>
               <div class="elpis-secrets__details font-mono">
-                user={{ s.username ?? "—" }} · {{ usage(s) }}
+                user={{ s.username ?? "—" }} · {{ s.last_used_at ? `utilisé ${quand(s)}` : "jamais utilisé" }}
               </div>
             </td>
             <td class="font-mono">
               <ul
                 v-if="porteeTexte(s).length"
+                :id="`secret-sites-${s.id}`"
                 class="elpis-secrets__sites"
                 :aria-label="`Sites de ${s.name}`"
               >
@@ -218,10 +227,16 @@ watch(
               </ul>
               <span v-else class="adm-muted">—</span>
               <button
-                v-if="sitesCaches(s) > 0 || deplies.has(s.id)"
+                v-if="repliable(s)"
                 type="button"
                 class="elpis-secrets__plus"
                 :aria-expanded="deplies.has(s.id) ? 'true' : 'false'"
+                :aria-controls="`secret-sites-${s.id}`"
+                :aria-label="
+                  deplies.has(s.id)
+                    ? `Réduire les sites de ${s.name}`
+                    : `Sites de ${s.name} : ${sitesCaches(s)} autres`
+                "
                 data-plus-sites
                 @click="basculerSites(s.id)"
               >
@@ -234,7 +249,7 @@ watch(
               >
             </td>
             <td class="elpis-secrets__opt elpis-secrets__usage" :title="infoUsage(s)">
-              <span data-dernier>{{ usage(s) }}</span>
+              <span data-dernier>{{ quand(s) }}</span>
               <span v-if="s.use_count" class="elpis-secrets__compte" data-usages>{{ usages(s) }}</span>
             </td>
             <td class="elpis-secrets__menu">

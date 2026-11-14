@@ -91,8 +91,8 @@ export function depotDeLUrl(url: string): DepotUrl | null {
   while (fin > 0 && brut[fin - 1] === "/") fin--;
   brut = brut.slice(0, fin);
   if (brut.endsWith(".git")) brut = brut.slice(0, -4);
-  // Le serveur ne cherche un compte que pour `propriétaire/dépôt` : un dépôt à la racine de l'hôte n'en reçoit aucun.
-  const servi = brut.split("/").filter(Boolean).length >= 2;
+  // Le serveur ne cherche un compte que pour `propriétaire/dépôt`, et lit l'hôte après un `@` du chemin : ni un dépôt à la racine de l'hôte, ni un tel chemin n'en reçoivent.
+  const servi = brut.split("/").filter(Boolean).length >= 2 && !brut.includes("@");
   if (barre >= 0 && apresSchema[barre] !== "/") return { schema, host, chemin: null, servi: false };
   if (brut.includes("?") || brut.includes("#")) return { schema, host, chemin: null, servi };
   const chemin = cheminExact(brut);
@@ -128,4 +128,35 @@ export function porteeDesSaisis(
   if (couvrant === null) return "";
   const segments = chemin.split("/");
   return segments.slice(0, couvrant.path ? couvrant.path.split("/").length : segments.length - 1).join("/");
+}
+
+const SUFFIXES_INTERNES = [".local", ".internal", ".lan", ".home", ".corp", ".intranet"];
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u;
+
+/** Hôte du réseau local, comme le serveur le juge (`hostIsPrivate`) : `localhost`, suffixe interne, ou adresse IP qui n'est pas publique ; port et crochets IPv6 retirés. */
+export function hotePrive(hote: string): boolean {
+  const brut = hote.trim().toLowerCase();
+  const h = brut.startsWith("[")
+    ? brut.slice(1, brut.includes("]") ? brut.indexOf("]") : undefined)
+    : (brut.split(":")[0] ?? "");
+  if (!h) return false;
+  if (h === "localhost" || SUFFIXES_INTERNES.some((s) => h.endsWith(s))) return true;
+  const v4 = IPV4.exec(h);
+  if (v4) {
+    const [a = 0, b = 0, c = 0] = v4.slice(1).map(Number);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113)
+    );
+  }
+  return h.includes(":") && (h === "::1" || h === "::" || /^f[cd]/u.test(h) || /^fe[89ab]/u.test(h));
 }

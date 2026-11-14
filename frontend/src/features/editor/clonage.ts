@@ -5,6 +5,7 @@ import {
   cibleCompte,
   compteCouvrant,
   depotDeLUrl,
+  hotePrive,
   niveauxPortee,
   porteeDesSaisis,
 } from "../../utils/portee-git";
@@ -15,6 +16,7 @@ export interface CompteClone {
   readonly host: string;
   readonly path: string | null;
   readonly provider_type?: string | undefined;
+  readonly api_base?: string | undefined;
   readonly label?: string | undefined;
   readonly has_token?: boolean | undefined;
   readonly to_verify?: boolean | undefined;
@@ -63,7 +65,10 @@ export function accesClone(url: string, comptes: readonly CompteClone[] | null |
   };
   // Dépôt à la racine de l'hôte : le serveur ne lui cherche aucun compte.
   const compte = depot.servi ? compteCouvrant(comptesBornes(comptes), depot.host, depot.chemin) : null;
-  if (compte === null) return { etat: "aucun", ...commun };
+  // En http, le serveur ne laisse partir un jeton enregistré que vers un hôte du réseau local, ou si l'API du compte est elle-même en http.
+  const clairRefuse =
+    commun.clair && !hotePrive(depot.host) && !(compte?.api_base ?? "").startsWith("http://");
+  if (compte === null || clairRefuse) return { etat: "aucun", ...commun };
   const etat = compte.to_verify ? "a-verifier" : compte.has_token === false ? "sans-jeton" : "compte";
   return { etat, ...commun, compte };
 }
@@ -103,8 +108,11 @@ export function porteesIdentifiants(
     };
   });
   const defaut = porteeDesSaisis(bornes, acces.hote, acces.chemin);
-  // Portée d'office qui tomberait sur un compte à vérifier : rien ne serait enregistré.
-  return { choix, defaut: choix.some((c) => c.valeur === defaut && c.fermee) ? null : defaut };
+  // Portée d'office fermée (compte à vérifier) : la plus proche ouverte, plus précise d'abord.
+  const rang = choix.findIndex((c) => c.valeur === defaut);
+  if (defaut === null || rang < 0 || !choix[rang]?.fermee) return { choix, defaut };
+  const ouverte = [...choix.slice(rang + 1), ...choix.slice(0, rang).reverse()].find((c) => !c.fermee);
+  return { choix, defaut: ouverte?.valeur ?? null };
 }
 
 /** Compte dont les dépôts sont proposés à l'ouverture : le seul utilisable, sinon le dernier utilisé ; `null` sans compte. */

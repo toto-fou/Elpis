@@ -377,7 +377,10 @@ export async function updateConnector(
     }
     const jeton = champs.token || "";
     if (sets.length === 0 && !jeton) return false;
-    const porteeChange = apres.path !== null && (apres.host !== avant.host || apres.path !== avant.path);
+    // Le type décide de la casse du chemin : le changer peut faire couvrir à ce compte l'endroit d'un autre.
+    const porteeChange =
+      apres.path !== null &&
+      (apres.host !== avant.host || apres.path !== avant.path || apres.provider_type !== avant.provider_type);
     if (porteeChange)
       await exigerPorteeLibre(base, uid, apres.host, apres.path as string, apres.provider_type, cid);
     const secret = await secretDe(base, avant);

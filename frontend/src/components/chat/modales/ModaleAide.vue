@@ -1,12 +1,34 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/ModaleAide.vue — documentation intégrée (guide utilisateur ou développeur) rendue en Markdown purifié. -->
+<!-- frontend/src/components/chat/modales/ModaleAide.vue — documentation intégrée (guide utilisateur ou développeur) rendue en Markdown purifié, par morceaux (features/reglages/aide-rendu.ts). -->
 <script setup lang="ts">
+import { onBeforeUnmount, ref, watch } from "vue";
+
 import { domaineModales } from "../../../features/chat/modales/domaine";
+import { monterGuide } from "../../../features/reglages/aide-rendu";
+import type { GuideMonte } from "../../../features/reglages/aide-rendu";
 
 const m = domaineModales();
-</script>
+const defilement = ref<HTMLElement | null>(null);
+const corps = ref<HTMLElement | null>(null);
+let guide: GuideMonte | null = null;
 
-<!-- eslint-disable vue/no-v-html -- HTML produit par le moteur Markdown : purifié (crochet de marked) ou échappé. -->
+// Guide posé hors du gabarit, par morceaux, à l'ouverture et à chaque nouveau texte.
+watch(
+  [corps, () => m.readmeContent],
+  ([el, texte]) => {
+    guide?.detacher();
+    guide = el && defilement.value && texte ? monterGuide(el, defilement.value, texte) : null;
+  },
+  { flush: "post" },
+);
+onBeforeUnmount(() => guide?.detacher());
+
+// Lien vers un titre : la suite du guide est posée avant que le clic cherche sa cible.
+function clic(ev: MouseEvent): void {
+  if (ev.target instanceof Element && ev.target.closest('a[href^="#"]')) guide?.terminer();
+  m.handleMarkdownClick(ev);
+}
+</script>
 
 <template>
   <Transition name="modal">
@@ -74,10 +96,7 @@ const m = domaineModales();
             </button>
           </div>
         </div>
-        <div
-          :ref="(el) => (m.helpBodyRef = el)"
-          class="flex-1 overflow-y-auto p-6 md:p-10 bg-white custom-scrollbar relative"
-        >
+        <div ref="defilement" class="flex-1 overflow-y-auto p-6 md:p-10 bg-white custom-scrollbar relative">
           <div
             v-if="m.isLoadingReadme"
             class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 text-slate-400"
@@ -85,11 +104,7 @@ const m = domaineModales();
             <i class="ph ph-spinner-gap animate-spin text-4xl mb-3"></i>
             <p class="font-medium text-sm">Chargement...</p>
           </div>
-          <div
-            class="markdown-body max-w-4xl mx-auto"
-            @click="m.handleMarkdownClick"
-            v-html="m.renderMarkdown(m.readmeContent)"
-          ></div>
+          <div ref="corps" class="markdown-body max-w-4xl mx-auto" @click="clic"></div>
         </div>
       </div>
     </div>

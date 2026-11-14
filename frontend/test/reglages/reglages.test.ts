@@ -106,7 +106,6 @@ const CLES_ANCIENNE_SURFACE = [
   "readmeContent",
   "isLoadingReadme",
   "helpDoc",
-  "helpBodyRef",
   "switchHelpDoc",
   "pinnedServers",
   "agentMcpChoices",

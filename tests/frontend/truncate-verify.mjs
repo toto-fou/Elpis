@@ -55,8 +55,10 @@ try {
 
     // ── Skin émeraude : l'ACCENT du bouton devient vert (#10a37f) ──
     // Preuve de skin-awareness : .bg-blue-600 est recoloré par le skin.
-    await page.evaluate(() => document.body.classList.add('elpis-skin-emeraude'));
-    await page.waitForTimeout(300);
+    // Par l'application : seule la feuille du skin choisi est chargée, la classe du <body> ne suffit plus.
+    await page.evaluate(() => { window.__racine().settings.skin = 'emeraude'; });
+    await page.waitForFunction(() => document.body.classList.contains('elpis-skin-emeraude'), null, { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(400);
     const skinBtnBg = await contBtn.evaluate(el => getComputedStyle(el).backgroundColor);
     ok('bouton d\'action recoloré par le skin émeraude (vert, plus bleu)',
        !near(rgb(skinBtnBg), [37, 99, 235]) && rgb(skinBtnBg)[1] > rgb(skinBtnBg)[2]);

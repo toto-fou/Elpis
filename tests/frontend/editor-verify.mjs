@@ -117,7 +117,8 @@ try {
        && /Snapshots/.test(itemLabels) && /Vue scindée/.test(itemLabels));
     await page.screenshot({ path: path.join(SHOTS, 'ed5-plus-menu.png') });
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(150);
+    // Mouvement réduit : la sortie garde un fondu de 150 ms.
+    await page.waitForTimeout(400);
     ok('menu « + » fermé par Échap',
        (await page.locator('[role="menu"][aria-label="Actions de l\'éditeur"]').count()) === 0);
     // L'entrée Snapshots ouvre le panneau (resté ancré à la barre).

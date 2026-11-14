@@ -303,6 +303,8 @@ try {
     ok('perso — modale d\'aperçu : deux iframes isolées', cadres.length === 2 && cadres.every((c) => c === 'allow-scripts'), cadres.join(','));
     await page.screenshot({ path: `${SHOTS}/perso-apercu.png`, fullPage: false });
     await page.keyboard.press('Escape');
+    // Mouvement réduit : la sortie garde un fondu de 150 ms.
+    await page.waitForTimeout(400);
     ok('perso — Échap ferme l\'aperçu', (await page.$('[role="dialog"][aria-label^="Aperçu de l"]')) === null);
     // Import (simulé côté mock) puis application : même événement que la carte du chat après un clic « Importer et appliquer ».
     await page.evaluate(async () => {

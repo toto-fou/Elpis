@@ -1144,7 +1144,7 @@ try {
        (await page.locator('#adm-changes .adm-changes__restart').count()) === 1);
     await page.locator('.adm-savebar button:has-text("Voir")').click();
     await page.locator('.adm-savebar button:has-text("Annuler")').click();
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);
     ok('entretien : Annuler rétablit la page', await pageClean());
     await goPage('Système', 'Données');
     ok('données : titre', (await headTitle()) === 'Données');
@@ -1326,7 +1326,8 @@ try {
     await page.waitForTimeout(100);
     ok('ctrl+k : flèches — la sélection suit', (await page.locator('.adm-palette__item.is-active').count()) === 1);
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(150);
+    // Mouvement réduit : la sortie garde un fondu de 150 ms.
+    await page.waitForTimeout(400);
     ok('ctrl+k : Échap referme', !(await pal.count()));
     // Action : « Tester toutes les connexions » relance la tournée de la Vue d'ensemble.
     const ovs0 = await page.evaluate(() => fetch('/__overview_stats').then(r => r.json()));

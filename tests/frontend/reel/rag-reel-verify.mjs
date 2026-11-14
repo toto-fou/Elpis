@@ -486,6 +486,8 @@ try {
     await attendreMontage(page);
     await ouvrirRag(page);
     await lignesDoc.first().waitFor();
+    // La première page s'affiche tout de suite, le reste arrive derrière : le total est attendu avant d'être lu.
+    await jusqua(async () => (await page.locator('.rag-table').getAttribute('aria-rowcount')) === '1201', 15000);
     const rendues = await lignesDoc.count();
     v.ok('1200 documents : seule la fenêtre visible est dessinée', rendues > 5 && rendues < 80 && (await page.locator('.rag-table').getAttribute('aria-rowcount')) === '1201', `${rendues} lignes`);
     await page.locator('.rag-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });

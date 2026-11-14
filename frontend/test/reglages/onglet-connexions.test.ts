@@ -142,6 +142,28 @@ describe("Remote", () => {
     expect(v.q("[data-jeton-montre]")?.textContent).toContain("/remote pcr_tout_neuf");
   });
 
+  it("« Tout révoquer » : offert à partir de deux postes, une confirmation, chaque jeton Remote révoqué, aucun jeton d'outils touché", async () => {
+    const seul = await monter("opencode");
+    expect(seul.q("[data-tout-revoquer]")).toBeNull();
+    app?.unmount();
+    document.body.innerHTML = "";
+    const v = await monter(
+      "opencode",
+      liste([...JETONS, jeton(7, "opencode", "OpenCode · portable (installation)")]),
+    );
+    v.q<HTMLButtonElement>("[data-tout-revoquer]")!.click();
+    await vi.waitFor(() => expect(v.vus.filter((x) => x[1] === "DELETE")).toHaveLength(2));
+    expect(v.confirmations.at(-1)).toBe("Les 2 postes reliés seront déconnectés immédiatement.");
+    expect(v.vus.filter((x) => x[1] === "DELETE").map((x) => x[0])).toEqual([
+      "/api/tokens/2",
+      "/api/tokens/7",
+    ]);
+    app?.unmount();
+    document.body.innerHTML = "";
+    const outils = await monter("tools");
+    expect(outils.q("[data-tout-revoquer]")).toBeNull();
+  });
+
   it("révoquer un jeton : la confirmation dit que le poste sera déconnecté ; aucun poste : dit ; Remote désactivé : création fermée, les jetons restants restent révocables", async () => {
     const v = await monter("opencode");
     v.q<HTMLButtonElement>('[data-jeton] button[aria-label="Révoquer le jeton"]')!.click();

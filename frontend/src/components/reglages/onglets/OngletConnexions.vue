@@ -156,6 +156,17 @@ const creable = computed(() =>
           <i class="ph ph-trash" aria-hidden="true"></i>
         </button>
       </div>
+      <div v-if="remote && jetons.length > 1" class="flex justify-end">
+        <button
+          type="button"
+          :disabled="rg.cnxState.busy"
+          class="text-xs text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
+          data-tout-revoquer
+          @click="rg.cnxRevokeAll(genre)"
+        >
+          Tout révoquer
+        </button>
+      </div>
     </div>
     <p v-else-if="!formulaire" class="text-sm text-slate-500 py-4 text-center">
       {{ remote ? "Aucun poste relié." : "Aucun jeton." }}

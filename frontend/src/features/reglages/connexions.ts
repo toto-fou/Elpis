@@ -238,6 +238,34 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
     await loadConnexions();
   }
 
+  /** Révoque tous les jetons d'un genre (Remote : tous les postes reliés d'un coup) ; dit quand certains ont résisté. */
+  async function cnxRevokeAll(genre: GenreJeton): Promise<void> {
+    const cibles = cnxState.value.tokens.filter((t) => t.kind === genre);
+    if (!cibles.length || cnxState.value.busy) return;
+    const msg =
+      genre === "opencode"
+        ? "Les " + cibles.length + " postes reliés seront déconnectés immédiatement."
+        : "Les clients de ces " + cibles.length + " jetons perdront l'accès immédiatement.";
+    if (
+      ctx?.openConfirm &&
+      !(await ctx.openConfirm("Révoquer tous les jetons ?", msg, true, "Tout révoquer"))
+    )
+      return;
+    set({ busy: true });
+    try {
+      let refus = 0;
+      for (const t of cibles) {
+        const r = await http.requete("/api/tokens/" + encodeURIComponent(String(t.id)), { method: "DELETE" });
+        if (r.type !== "ok") refus++;
+      }
+      if (cnxState.value.reveal?.item.kind === genre) set({ reveal: null });
+      if (refus) toast("Révocation incomplète : " + refus + " jeton(s) restent actifs.", "error");
+      await loadConnexions();
+    } finally {
+      set({ busy: false });
+    }
+  }
+
   const cnxShowConfig = (item: Jeton): void =>
     set({ reveal: { token: "", item }, form: null, tab: ongletDe(item) });
   const cnxCloseReveal = (): void => set({ reveal: null });
@@ -296,6 +324,7 @@ export function setupConnexions(ctx: CtxConnexions | null | undefined, http: Cli
     cnxCreate,
     cnxRegenerate,
     cnxRevoke,
+    cnxRevokeAll,
     cnxShowConfig,
     cnxCloseReveal,
     cnxBlocks,

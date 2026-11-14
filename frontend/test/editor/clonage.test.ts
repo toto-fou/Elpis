@@ -86,7 +86,7 @@ describe("ce que dit l'adresse", () => {
     });
     const local = compte(10, "forge.lan:3000", "");
     expect(accesClone("http://forge.lan:3000/a/b", [local])).toMatchObject({ etat: "compte", clair: true });
-    expect(accesClone("http://192.168.1.20/a/b", [compte(11, "192.168.1.20", "")])).toMatchObject({
+    expect(accesClone("http://192.168.50.20/a/b", [compte(11, "192.168.50.20", "")])).toMatchObject({
       etat: "compte",
     });
     const enHttp = compte(12, "git.exemple.org", "", { api_base: "http://git.exemple.org/api/v1" });
@@ -173,8 +173,8 @@ describe("ce que dit l'adresse", () => {
     expect(exempleAdresse(TOUS)).toBe("https://github.com/acme/depot.git");
     expect(exempleAdresse([PERSO, generique])).toBe("https://git.lan/organisation/depot.git");
     expect(
-      exempleAdresse([compte(5, "192.168.1.10:3000", "", { api_base: "http://192.168.1.10:3000/api/v1" })]),
-    ).toBe("http://192.168.1.10:3000/organisation/depot.git");
+      exempleAdresse([compte(5, "192.168.50.10:3000", "", { api_base: "http://192.168.50.10:3000/api/v1" })]),
+    ).toBe("http://192.168.50.10:3000/organisation/depot.git");
   });
 
   it("dossier créé : dernier segment sans `.git` ; portées des identifiants : de l'hôte au dépôt, celle d'un compte existant signalée, proposée comme le serveur ; rien d'office pour une adresse illisible sur un hôte déjà pris", () => {

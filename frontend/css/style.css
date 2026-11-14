@@ -1132,6 +1132,8 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     aside.elpis-slide-panel { transition: width var(--duree-longue) var(--courbe-volet); }
     .elpis-slide-panel:is(.volet-enter-active, .volet-leave-active) { overflow: hidden; }
     .elpis-slide-panel:is(.volet-enter-active, .volet-leave-active) > * { min-width: var(--volet-largeur); }
+    /* Fermé alors qu'il couvrait la page (éditeur en plein écran) : il se rétracte au-dessus du chat, qui a déjà sa place derrière lui. */
+    .elpis-slide-panel[data-volet-couvrant] { position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; }
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────

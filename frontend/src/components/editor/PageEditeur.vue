@@ -18,7 +18,12 @@ import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
 // Le diviseur reste jusqu'à la fin de la sortie du volet : la colonne du chat n'est remise en page qu'une fois.
-const volet = useVolet(() => ed.showEditor && !!ed.settings.enable_editor);
+const racine = ref<HTMLElement | null>(null);
+const volet = useVolet(
+  () => ed.showEditor && !!ed.settings.enable_editor,
+  undefined,
+  () => racine.value,
+);
 const { deplie } = volet;
 const crochets = {
   ...volet.crochets,
@@ -29,7 +34,6 @@ const crochets = {
   },
 };
 const duSkin = computed(() => ed.interfaceEditeur === "skin");
-const racine = ref<HTMLElement | null>(null);
 const etroit = ref(false);
 let arreterSuivi: (() => void) | null = null;
 onMounted(() => {

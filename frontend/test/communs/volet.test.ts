@@ -39,13 +39,14 @@ interface Monte {
   large: { value: boolean };
   c: CrochetsVolet;
 }
-async function monter(repli?: HTMLElement): Promise<Monte> {
+async function monter(repli?: HTMLElement, panneauSuivi?: HTMLElement): Promise<Monte> {
   let sortie: Monte | null = null;
   app = createApp({
     setup() {
       const { deplie, large, crochets } = useVolet(
         () => etat.ouvert,
         () => repli,
+        () => panneauSuivi,
       );
       sortie = { deplie, large, c: crochets };
       return () => null;
@@ -190,12 +191,12 @@ describe("useVolet : largeur qui glisse", () => {
     expect(el.style.getPropertyValue("--volet-duree")).toBe("");
   });
 
-  it("fermé alors qu'il était plus large au geste (éditeur en plein écran) : la sortie part de cette largeur", async () => {
-    const { c } = await monter();
-    let largeur = 830;
+  it("fermé alors qu'il couvrait la page au geste (éditeur en plein écran) : la sortie part de cette largeur, hors du flux, contenu tenu à cette largeur", async () => {
+    let largeur = 660;
     const { el, jouees } = panneau();
     el.getBoundingClientRect = () => ({ width: largeur }) as DOMRect;
     document.body.appendChild(el);
+    const { c } = await monter(undefined, el);
     etat.ouvert = true;
     c.onBeforeEnter();
     c.onEnter(el);
@@ -203,11 +204,28 @@ describe("useVolet : largeur qui glisse", () => {
     // Plein écran au moment du geste ; le rendu qui suit le ramène à sa largeur de panneau.
     largeur = 1920;
     etat.ouvert = false;
-    largeur = 830;
+    largeur = 660;
     c.onBeforeLeave(el);
+    // 300 ms pour 1920 px ; 240 ms si la sortie était partie de 660 px.
     expect(el.style.getPropertyValue("--volet-duree")).toBe("300ms");
     c.onLeave(el, rien);
     expect(jouees[1]?.images.map((i) => i["width"])).toEqual(["1920px", "0px"]);
+    expect(jouees[1]?.options.duration).toBe(300);
+    expect(el.dataset["voletCouvrant"]).toBe("");
+    expect(el.style.getPropertyValue("--volet-largeur")).toBe("1920px");
+    c.onAfterLeave(el);
+    expect(el.dataset["voletCouvrant"]).toBeUndefined();
+
+    // Fermeture ordinaire ensuite : depuis sa largeur de panneau, dans le flux.
+    etat.ouvert = true;
+    c.onEnter(el);
+    jouees[2]?.finir();
+    etat.ouvert = false;
+    c.onBeforeLeave(el);
+    c.onLeave(el, rien);
+    expect(jouees[3]?.images.map((i) => i["width"])).toEqual(["660px", "0px"]);
+    expect(jouees[3]?.options.duration).toBe(240);
+    expect(el.dataset["voletCouvrant"]).toBeUndefined();
     el.remove();
   });
 

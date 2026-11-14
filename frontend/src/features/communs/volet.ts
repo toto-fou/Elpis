@@ -72,7 +72,9 @@ function accompagner(suivis: readonly Depart[], duration: number, easing: string
 function finirGlissement(el: Element): void {
   glissements.get(el)?.cancel();
   glissements.delete(el);
-  if (el instanceof HTMLElement) el.style.removeProperty("--volet-duree");
+  if (!(el instanceof HTMLElement)) return;
+  el.style.removeProperty("--volet-duree");
+  delete el.dataset["voletCouvrant"];
 }
 
 // Panneau racine de la transition dont la largeur glisse : pas un rail, pas en mouvement réduit.
@@ -101,9 +103,10 @@ function glisserLargeur(el: Element, entree: boolean, auGeste = 0): Animation | 
   finirGlissement(el);
   const finale = el.getBoundingClientRect().width;
   if (!(finale > 0)) return null;
-  el.style.setProperty("--volet-largeur", `${finale}px`);
-  // Sortie : depuis la largeur vue au geste si le rendu l'a réduite d'un coup (éditeur fermé en plein écran).
+  // Sortie : depuis la largeur vue au geste si le rendu l'a réduite d'un coup (éditeur fermé en plein écran) ; il couvrait la page, il se rétracte hors du flux, au-dessus du chat déjà à sa place.
   const depart = entree ? (enCours ? actuelle : 0) : Math.max(actuelle, auGeste);
+  if (!entree && auGeste > finale + 1) el.dataset["voletCouvrant"] = "";
+  el.style.setProperty("--volet-largeur", `${Math.max(finale, depart)}px`);
   const arrivee = entree ? finale : 0;
   const duration = dureeGlissement(el, Math.abs(arrivee - depart), entree);
   const easing = courbeVolet();
@@ -147,10 +150,12 @@ function actif(): HTMLElement | null {
  * `ouvert` : état demandé ; `deplie` reste vrai jusqu'à la fin de la sortie du contenu (le rail réduit ne revient qu'ensuite).
  * `large` : largeur du volet, qui suit le geste tout de suite (sa transition la fait glisser) ; en mouvement réduit elle suit `deplie`.
  * `repli` : partie affichée volet replié (rail réduit), qui reçoit le focus quand son déclencheur a disparu.
+ * `panneau` : panneau qui peut être plus large au geste qu'après le rendu (éditeur en plein écran) ; sa sortie part de cette largeur.
  */
 export function useVolet(
   ouvert: () => boolean,
   repli?: () => Element | null | undefined,
+  panneau?: () => Element | null | undefined,
 ): { deplie: Ref<boolean>; large: Ref<boolean>; crochets: CrochetsVolet } {
   const deplie = ref(ouvert());
   const large = ref(deplie.value);
@@ -158,14 +163,14 @@ export function useVolet(
   let declencheur: HTMLElement | null = null;
   let quitte: HTMLElement | null = null;
   let rendre = false;
-  let panneau: Element | null = null;
   let auGeste = 0;
   // Lu au geste, avant le rendu : la largeur est juste dès la première image et l'élément actif est encore celui de l'utilisateur.
   watch(
     ouvert,
     (v) => {
       releverDeparts();
-      auGeste = !v && panneau?.isConnected ? panneau.getBoundingClientRect().width : 0;
+      const p = v ? null : panneau?.();
+      auGeste = p && glisse(p) ? p.getBoundingClientRect().width : 0;
       if (v) declencheur = actif();
       else quitte = actif();
       if (v || !montre) deplie.value = v;
@@ -178,7 +183,6 @@ export function useVolet(
       montre = true;
     },
     onEnter(el) {
-      panneau = el;
       glisserLargeur(el, true);
       if (declencheur && !el.contains(declencheur) && !affiche(declencheur))
         focaliser(el.querySelector(SELECTEUR_FOCUSABLES));

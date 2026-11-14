@@ -284,7 +284,8 @@ try {
     v.ok('« › » : la source suivante, le document et la bande changent', texte(await viewer.locator('.rag-viewer__name').textContent()) === 'procedure-vpn-ipsec-sites.docx');
     await viewer.locator('[data-rag-mode="page"]').click();
     if (sofficeOk) {
-        await page.locator('[data-rag-page] img').waitFor({ timeout: 90000 });
+        // La page précédente reste affichée, atténuée, pendant le rendu : on attend celle du Word.
+        await page.locator('[data-rag-page]:not(.is-attente) img').waitFor({ timeout: 90000 });
         v.ok('Word : la page est rendue par LibreOffice, passage situé par sa localisation', (await viewer.locator('.rag-paper__hl:not(.is-soft)').count()) >= 1 || (await viewer.locator('.rag-viewer__note').count()) >= 1, texte(await viewer.textContent()).slice(0, 200));
     } else v.ok('Word : LibreOffice absent, rendu non vérifié', true);
     await capture('visionneuse-docx-elpis-clair');

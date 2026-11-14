@@ -259,6 +259,25 @@ describe("page Code : message en cours rendu par blocs", () => {
     }
   });
 
+  it("un bloc de code reste du code quel que soit son langage, pendant le flux et après la fin", async () => {
+    const SPECIAUX =
+      'Fichier :\n\n```elpis-skin\n{"nom": "mon-skin"}\n```\n\nIcône :\n\n```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```chart-ref\n0123456789ab\n```\n\nCommit `!0123456789ab` et !0123456789ab poussés.\n';
+    const { ligne, corps } = monter([message("a1", [texte("t1", SPECIAUX.slice(0, 40))])]);
+    ligne().parts.splice(0, 1, texte("t1", SPECIAUX));
+    await nextTick();
+    ligne().info = { ...ligne().info, time: { created: 1, completed: 2 } };
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 300));
+    const c = corps()[0]!;
+    expect(c.hasAttribute("aria-busy")).toBe(false);
+    expect(c.querySelectorAll("pre code").length).toBe(4);
+    expect(c.textContent).toContain('{"nom": "mon-skin"}');
+    expect(c.textContent).toContain("<rect width=");
+    expect(c.textContent).toContain("graph TD; A-->B");
+    expect(c.textContent).toContain("!0123456789ab poussés");
+    expect(c.querySelector("svg, .svg-render, .chart-ref-holder, [data-renvoi-graphique]")).toBeNull();
+  });
+
   it("aucune charge XSS n'atteint le DOM : blocs figés, bloc actif et fin du message", async () => {
     const charge =
       'x <img src=x onerror="alert(1)"> <svg onload="alert(1)"><script>alert(1)</script></svg> [a](javascript:alert(1))';

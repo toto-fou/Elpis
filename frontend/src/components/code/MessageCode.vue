@@ -140,11 +140,11 @@ function surReflexion(id: string, enCours: boolean, ev: Event): void {
             <i v-if="m.pending" class="ph ph-clock mr-1.5 opacity-80"></i>{{ item.text }}
           </div>
 
-          <!-- Texte assistant : corps Markdown du chat (blocs figés gardés pendant le flux, même purification) ; ni graphique ni habillage du chat -->
+          <!-- Texte assistant : corps Markdown du chat (blocs figés gardés pendant le flux, même purification) ; un bloc de code reste du code, coloré -->
           <ContenuMarkdown
             v-else-if="item.kind === 'text' && !item.heavy"
             class="w-full text-left"
-            data-sans-graphiques
+            coloration-seule
             :msg="corpsDe(item.id, item.text, !!item.live)"
           />
           <div

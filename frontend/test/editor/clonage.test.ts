@@ -8,6 +8,7 @@ import ModaleClonage from "../../src/components/editor/ModaleClonage.vue";
 import {
   accesClone,
   comptePropose,
+  comptesListables,
   comptesUtilisables,
   dossierDuClone,
   exempleAdresse,
@@ -116,35 +117,61 @@ describe("ce que dit l'adresse", () => {
     expect(nomCompte(compte(9, "h", ""))).toBe("h");
   });
 
-  it("adresse lue : hôte et dépôt d'une adresse http(s) ; SSH et autres schémas refusés ; en cours de saisie : incomplète, sans reproche ; exemple du champ sur l'hôte du compte proposé", () => {
+  it("adresse lue comme le serveur l'acceptera : hôte et dépôt d'une adresse http(s) ; SSH, identifiants, autre schéma, « ? », « # », hôte ou chemin mal formés refusés ; en cours de saisie : incomplète, sans reproche", () => {
     expect(lectureAdresse("  ")).toEqual({ etat: "vide" });
     expect(lectureAdresse(" https://Forge.lan:3000/equipe/outil.git/ ")).toEqual({
       etat: "lue",
       hote: "forge.lan:3000",
       depot: "equipe/outil",
     });
-    expect(lectureAdresse("HTTP://u:p@forge.lan/a/b/c?x=1")).toEqual({
+    expect(lectureAdresse("HTTPS://forge.lan/a/b/c")).toEqual({
       etat: "lue",
       hote: "forge.lan",
       depot: "a/b/c",
     });
     expect(lectureAdresse("https://forge.lan/seul")).toMatchObject({ etat: "lue", depot: "seul" });
+    expect(lectureAdresse("http://[::1]:3000/a/b.git")).toMatchObject({ etat: "lue", hote: "[::1]:3000" });
     for (const ssh of ["git@github.com:acme/api.git", "ssh://git@forge.lan:2222/acme/api.git"])
       expect(lectureAdresse(ssh), ssh).toEqual({ etat: "ssh" });
-    for (const autre of ["git://forge.lan/a/b.git", "forge.lan/a/b", "/chemin/local", "acme/api"])
-      expect(lectureAdresse(autre), autre).toEqual({ etat: "invalide" });
-    for (const debut of [
-      "h",
-      "http",
-      "https:/",
-      "https://",
-      "https://forge.lan",
-      "https://forge.lan/",
-      "https://?x",
+    for (const avec of [
+      "https://u:p@forge.lan/a/b.git",
+      "https://jeton@forge.lan/a/b",
+      "https://@forge.lan/a/b",
     ])
+      expect(lectureAdresse(avec), avec).toEqual({ etat: "identifiants" });
+    for (const autre of [
+      "git://forge.lan/a/b.git",
+      "forge.lan/a/b",
+      "/chemin/local",
+      "acme/api",
+      "https://forge.lan/a/b.git?x=1",
+      "https://forge.lan/a/b#frag",
+      "https://?x",
+      "https:///a/b",
+      "https://for ge.lan/a/b",
+      "https://forge.lan:99999/a/b",
+      "https://forge.lan\\x/a/b",
+      "https://forge.lan/a b/c",
+      "https://forge.lan/./a",
+      "https://forge.lan/a/%2e%2e/b",
+      "https://forge.lan/a/b.git\\",
+    ])
+      expect(lectureAdresse(autre), autre).toEqual({ etat: "invalide" });
+    for (const debut of ["h", "http", "https:/", "https://", "https://forge.lan", "https://forge.lan/"])
       expect(lectureAdresse(debut), debut).toEqual({ etat: "incomplete" });
+    // Une adresse lue l'est aussi pour chercher son compte, au schéma en majuscules près.
+    for (const lue of ["https://forge.lan/a/b.git", "http://[::1]:3000/a/b", "https://forge.lan/seul"])
+      expect(accesClone(lue, TOUS).etat, lue).not.toBe("invalide");
+  });
+
+  it("comptes dont les dépôts sont proposés : ceux qui savent les lister, pas un compte « generic » ; exemple du champ : sur l'hôte du dernier compte utilisé, même « generic »", () => {
+    const generique = compte(6, "git.lan", "", { provider_type: "generic", last_used: 500 });
+    expect(comptesListables([...TOUS, generique]).map((c) => c.id)).toEqual([1, 2]);
+    expect(comptePropose([generique])).toBeNull();
+    expect(comptePropose([PERSO, generique])?.id).toBe(1);
     expect(exempleAdresse([])).toBe("https://forge.exemple/organisation/depot.git");
     expect(exempleAdresse(TOUS)).toBe("https://github.com/acme/depot.git");
+    expect(exempleAdresse([PERSO, generique])).toBe("https://git.lan/organisation/depot.git");
     expect(
       exempleAdresse([compte(5, "192.168.1.10:3000", "", { api_base: "http://192.168.1.10:3000/api/v1" })]),
     ).toBe("http://192.168.1.10:3000/organisation/depot.git");
@@ -440,6 +467,40 @@ describe("fenêtre montée", () => {
     expect(v.q<HTMLInputElement>("#clone-url")?.value).toBe("https://github.com/acme/site.git");
   });
 
+  it("comptes arrivés après l'ouverture : leur liste prend la place et le focus, sauf si une adresse est déjà saisie ; compte « generic » seul : l'adresse, sans onglets ni liste demandée", async () => {
+    const v = monter([]);
+    await nextTick();
+    await nextTick();
+    expect(document.activeElement?.id).toBe("clone-url");
+    v.etat.gitConnectors.value = [PERSO];
+    await nextTick();
+    await nextTick();
+    expect(v.q('[data-source="depots"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(v.q("#clone-url")).toBeNull();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Filtrer mes dépôts");
+    expect(v.chargements).toEqual(["1"]);
+    app?.unmount();
+    document.body.innerHTML = "";
+    const saisie = monter([]);
+    await saisie.saisir("#clone-url", "https://forge.lan/a/b.git");
+    saisie.etat.gitConnectors.value = [PERSO];
+    await nextTick();
+    await nextTick();
+    expect(saisie.q('[data-source="adresse"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(saisie.q<HTMLInputElement>("#clone-url")?.value).toBe("https://forge.lan/a/b.git");
+    app?.unmount();
+    document.body.innerHTML = "";
+    const generique = monter([compte(6, "git.lan", "", { provider_type: "generic", label: "interne" })]);
+    await nextTick();
+    expect(generique.chargements).toEqual([]);
+    expect(generique.q("[role=tablist]")).toBeNull();
+    expect(generique.q<HTMLInputElement>("#clone-url")?.placeholder).toBe(
+      "https://git.lan/organisation/depot.git",
+    );
+    await generique.saisir("#clone-url", "https://git.lan/equipe/outil.git");
+    expect(generique.q("[data-acces]")?.textContent).toContain("Compte git.lan · interne");
+  });
+
   it("réouverture : la liste des dépôts attend la fin de l'animation d'ouverture, le focus revient au filtre", async () => {
     const v = monter([PERSO]);
     v.etat.gitFilteredCloneRepos.value = [
@@ -472,14 +533,36 @@ describe("fenêtre montée", () => {
     expect(lu()).toBe("Adresse incomplète");
     expect(bouton().disabled).toBe(true);
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
-    expect(lu()).toBe("Adresse non reconnue");
+    expect(lu()).toBe("Adresse non acceptée");
     expect(v.q("[data-aide]")?.textContent).toContain("Adresse SSH non prise en charge");
     expect(bouton().disabled).toBe(true);
     v.q<HTMLInputElement>("#clone-url")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await nextTick();
     expect(v.clones).toEqual([]);
     await v.saisir("#clone-url", "ftp://github.com/acme/api.git");
-    expect(v.q("[data-aide]")?.textContent).toContain("elle commence par https:// ou http://");
+    expect(v.q("[data-aide]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "Adresse non reconnue. Exemple : https://github.com/organisation/depot.git",
+    );
+    // Identifiants ou requête dans l'adresse : le serveur la refuserait, aucun compte n'est annoncé.
+    await v.saisir("#clone-url", "https://bob:jeton@github.com/acme/api.git");
+    expect(lu()).toBe("Adresse non acceptée");
+    expect(v.q("[data-aide]")?.textContent).toContain("Identifiants dans l'adresse refusés");
+    expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
+    expect(bouton().disabled).toBe(true);
+    await v.saisir("#clone-url", "https://github.com/acme/api.git?x=1");
+    expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
+    expect(bouton().disabled).toBe(true);
+    // Schéma en majuscules : cloné par le serveur, mais aucun compte n'est annoncé ni promis.
+    await v.saisir("#clone-url", "HTTPS://github.com/acme/api.git");
+    expect(lu()).toBe("acme/api sur github.com");
+    expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
+    expect(bouton().disabled).toBe(false);
+    v.etat.gitError.value = REFUS_GIT;
+    Object.assign(v.etat.gitCloneCreds.value, { ouvert: true, refus: true });
+    await nextTick();
+    expect(v.q("[data-erreur]")?.textContent).not.toContain("saisissez des identifiants");
+    expect(v.q("[data-identifiants]")).toBeNull();
+    v.etat.gitError.value = "";
     await v.saisir("#clone-url", "https://github.com/acme/api.git");
     expect(lu()).toBe("acme/api sur github.com");
     expect(v.q("[data-acces]")?.textContent).toContain("Compte github.com · perso");

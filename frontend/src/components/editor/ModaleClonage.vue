@@ -6,7 +6,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import {
   accesClone,
   comptePropose,
-  comptesUtilisables,
+  comptesListables,
   dossierDuClone,
   exempleAdresse,
   lectureAdresse,
@@ -27,13 +27,16 @@ const champFiltre = ref<HTMLInputElement | null>(null);
 const champAdresse = ref<HTMLInputElement | null>(null);
 const champIdentifiant = ref<HTMLInputElement | null>(null);
 const champJeton = ref<HTMLInputElement | null>(null);
-const comptes = computed(() => comptesUtilisables(ed.gitConnectors));
+/** Comptes dont les dépôts peuvent être listés. */
+const comptes = computed(() => comptesListables(ed.gitConnectors));
 const choisie = ref<Source | null>(null);
 /** Fenêtre entrée : la liste des dépôts ne se dessine pas pendant l'animation d'ouverture. */
 const entree = ref(ed.showGitCloneModal);
 /** Façon de désigner le dépôt : la liste d'un compte tant qu'il y en a un, sinon son adresse. */
 const source = computed<Source>(() => (comptes.value.length ? (choisie.value ?? "depots") : "adresse"));
 const lecture = computed(() => lectureAdresse(ed.gitCloneForm.url));
+/** Adresse que le serveur n'accepterait pas : dite, avec la raison sous le champ. */
+const refusee = computed(() => ["ssh", "identifiants", "invalide"].includes(lecture.value.etat));
 const exemple = computed(() => exempleAdresse(ed.gitConnectors));
 const acces = computed(() => accesClone(ed.gitCloneForm.url, ed.gitConnectors));
 const portees = computed(() => porteesIdentifiants(acces.value, ed.gitConnectors));
@@ -75,11 +78,24 @@ watch(origine, oublierIdentifiants);
 watch(
   () => ed.showGitCloneModal,
   (ouverte, avant) => {
-    if (ouverte) return choisirSource(comptes.value.length ? "depots" : "adresse");
+    if (ouverte) {
+      choisie.value = null;
+      return viser();
+    }
     entree.value = false;
     if (avant) oublierIdentifiants();
   },
   { immediate: true },
+);
+
+// Comptes arrivés après l'ouverture : leur liste prend la place, sauf si une adresse est déjà en cours de saisie.
+watch(
+  () => comptes.value.length > 0,
+  (arrives) => {
+    if (!arrives || !ed.showGitCloneModal || choisie.value !== null) return;
+    if (ed.gitCloneForm.url.trim()) choisie.value = "adresse";
+    else viser();
+  },
 );
 
 // Une portée choisie ne vaut que pour le dépôt où elle l'a été.
@@ -308,24 +324,25 @@ function versJeton(): void {
               :placeholder="exemple"
               autocomplete="off"
               spellcheck="false"
-              aria-describedby="clone-aide"
+              aria-describedby="clone-aide clone-acces"
               class="set-input font-mono"
               @keydown.enter="cloner"
             />
             <p
               id="clone-aide"
               class="text-xs mt-1 leading-snug"
-              :class="
-                lecture.etat === 'ssh' || lecture.etat === 'invalide' ? 'text-amber-600' : 'text-slate-500'
-              "
+              :class="refusee ? 'text-amber-600' : 'text-slate-500'"
               aria-live="polite"
               data-aide
             >
               <template v-if="lecture.etat === 'ssh'"
                 >Adresse SSH non prise en charge : collez l'adresse HTTPS du dépôt.</template
               >
+              <template v-else-if="lecture.etat === 'identifiants'"
+                >Identifiants dans l'adresse refusés : retirez-les, ils se saisissent plus bas.</template
+              >
               <template v-else-if="lecture.etat === 'invalide'"
-                >Adresse non reconnue : elle commence par https:// ou http://.</template
+                >Adresse non reconnue. Exemple : <span class="font-mono">{{ exemple }}</span></template
               >
               <template v-else>Adresse http(s) que la forge propose pour cloner le dépôt.</template>
             </p>
@@ -338,9 +355,7 @@ function versJeton(): void {
                 <span class="font-mono font-medium text-slate-800">{{ lecture.depot }}</span> sur
                 <span class="font-mono text-slate-700">{{ lecture.hote }}</span>
               </template>
-              <span v-else-if="lecture.etat === 'ssh' || lecture.etat === 'invalide'" class="text-amber-600"
-                >Adresse non reconnue</span
-              >
+              <span v-else-if="refusee" class="text-amber-600">Adresse non acceptée</span>
               <template v-else-if="lecture.etat === 'incomplete'">Adresse incomplète</template>
               <template v-else>{{
                 source === "depots" ? "Choisissez un dépôt dans la liste" : "Saisissez son adresse"
@@ -355,7 +370,7 @@ function versJeton(): void {
               data-acces
               :data-etat="acces.etat"
             >
-              <template v-if="lecture.etat !== 'lue'">—</template>
+              <template v-if="lecture.etat !== 'lue' || !('hote' in acces)">—</template>
               <template v-else-if="saisis && 'hote' in acces">
                 <i class="ph ph-key" aria-hidden="true"></i> Identifiants saisis pour
                 <span class="font-mono text-slate-700">{{ acces.hote }}</span>
@@ -501,7 +516,7 @@ function versJeton(): void {
             role="alert"
             data-erreur
           >
-            <p v-if="ed.gitCloneCreds.refus" class="font-medium">
+            <p v-if="ed.gitCloneCreds.refus && portees.choix.length" class="font-medium">
               Accès refusé : saisissez des identifiants.
             </p>
             <p class="font-mono break-all">{{ ed.gitError }}</p>

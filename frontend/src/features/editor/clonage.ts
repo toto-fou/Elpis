@@ -53,6 +53,11 @@ export function comptesUtilisables<C extends CompteClone>(comptes: readonly C[] 
   return comptesBornes(comptes).filter((c) => c.has_token !== false);
 }
 
+/** Comptes dont la fenêtre propose les dépôts : utilisables, et d'un type qui sait les lister (`generic` n'a pas d'API). */
+export function comptesListables<C extends CompteClone>(comptes: readonly C[] | null | undefined): C[] {
+  return comptesUtilisables(comptes).filter((c) => c.provider_type !== "generic");
+}
+
 export function accesClone(url: string, comptes: readonly CompteClone[] | null | undefined): AccesClone {
   if (!url.trim()) return { etat: "vide" };
   const depot = depotDeLUrl(url);
@@ -78,9 +83,12 @@ export function nomCompte(c: CompteClone): string {
   return cibleCompte(c) + (c.label ? ` · ${c.label}` : "");
 }
 
-/** Ce que la fenêtre lit de l'adresse saisie : rien, une adresse SSH (jamais clonée : seul http(s) est joint), autre chose qu'une adresse http(s), une adresse encore sans hôte ou sans dépôt, ou l'hôte et le dépôt. */
+/** Segments qu'aucune adresse de dépôt ne porte (le serveur les refuse) : `.`, `..` et leurs formes encodées. */
+const SEGMENT_REFUSE = /(^|\/)(\.|\.\.|%2e|%2e%2e|\.%2e|%2e\.)(\/|$)/iu;
+
+/** Ce que la fenêtre lit de l'adresse saisie, comme le serveur l'acceptera ou non : rien, une adresse SSH (seul http(s) est joint), des identifiants dans l'adresse, une adresse qu'il refuse (autre schéma, hôte ou port mal formé, `?`, `#`, segment `.` ou espace dans le chemin), une adresse encore sans hôte ou sans dépôt, ou l'hôte et le dépôt. */
 export type LectureAdresse =
-  | { readonly etat: "vide" | "ssh" | "invalide" | "incomplete" }
+  | { readonly etat: "vide" | "ssh" | "identifiants" | "invalide" | "incomplete" }
   | { readonly etat: "lue"; readonly hote: string; readonly depot: string };
 
 export function lectureAdresse(url: string): LectureAdresse {
@@ -91,21 +99,27 @@ export function lectureAdresse(url: string): LectureAdresse {
     const debut = t.toLowerCase();
     return { etat: "https://".startsWith(debut) || "http://".startsWith(debut) ? "incomplete" : "invalide" };
   }
+  const schema = t.slice(0, t.indexOf("://")).toLowerCase();
   const apres = t.slice(t.indexOf("://") + 3);
   const barre = apres.search(/[/?#]/u);
   const autorite = barre < 0 ? apres : apres.slice(0, barre);
-  const hote = autorite.slice(autorite.lastIndexOf("@") + 1).toLowerCase();
-  const chemin = barre < 0 || apres[barre] !== "/" ? "" : apres.slice(barre + 1);
-  const depot = chemin
-    .replace(/[?#].*$/u, "")
+  const suite = barre < 0 ? "" : apres.slice(barre);
+  if (autorite.includes("@")) return { etat: "identifiants" };
+  if (!autorite) return { etat: suite ? "invalide" : "incomplete" };
+  // Hôte et port lus comme pour chercher le compte (le schéma seul peut être en majuscules).
+  if (depotDeLUrl(`${schema}://${apres}`) === null || /[?#]/u.test(suite)) return { etat: "invalide" };
+  const depot = suite
+    .slice(1)
     .replace(/\/+$/u, "")
     .replace(/\.git$/u, "");
-  return hote && depot ? { etat: "lue", hote, depot } : { etat: "incomplete" };
+  if (!depot) return { etat: "incomplete" };
+  if (SEGMENT_REFUSE.test(depot) || /[\\\0\r\n\t ]/u.test(depot)) return { etat: "invalide" };
+  return { etat: "lue", hote: autorite.toLowerCase(), depot };
 }
 
-/** Adresse d'exemple du champ : sur l'hôte du compte proposé, dans son organisation s'il en a une ; sans compte, une forge fictive. */
+/** Adresse d'exemple du champ : sur l'hôte du dernier compte utilisé, dans son organisation s'il en a une ; sans compte, une forge fictive. */
 export function exempleAdresse(comptes: readonly CompteClone[] | null | undefined): string {
-  const c = comptePropose(comptes);
+  const c = dernierUtilise(comptesUtilisables(comptes));
   if (c === null) return "https://forge.exemple/organisation/depot.git";
   const schema = (c.api_base ?? "").startsWith("http://") ? "http" : "https";
   return `${schema}://${c.host}/${c.path ? c.path.split("/")[0] : "organisation"}/depot.git`;
@@ -148,11 +162,15 @@ export function porteesIdentifiants(
   return { choix, defaut: ouverte?.valeur ?? null };
 }
 
-/** Compte dont les dépôts sont proposés à l'ouverture : le seul utilisable, sinon le dernier utilisé ; `null` sans compte. */
-export function comptePropose<C extends CompteClone>(comptes: readonly C[] | null | undefined): C | null {
-  const utilisables = comptesUtilisables(comptes);
+/** Dernier utilisé d'une liste de comptes ; `null` si elle est vide. */
+function dernierUtilise<C extends CompteClone>(comptes: readonly C[]): C | null {
   const usage = (c: CompteClone): number => (typeof c.last_used === "number" ? c.last_used : 0);
-  return utilisables.reduce<C | null>((a, c) => (a === null || usage(c) > usage(a) ? c : a), null);
+  return comptes.reduce<C | null>((a, c) => (a === null || usage(c) > usage(a) ? c : a), null);
+}
+
+/** Compte dont les dépôts sont proposés à l'ouverture : le seul qui sait les lister, sinon le dernier utilisé ; `null` sans un tel compte. */
+export function comptePropose<C extends CompteClone>(comptes: readonly C[] | null | undefined): C | null {
+  return dernierUtilise(comptesListables(comptes));
 }
 
 /** Ce que git ou une forge écrit quand des identifiants manquent ou sont refusés (dans le bac, git ne peut pas les demander : « could not read Username »). */

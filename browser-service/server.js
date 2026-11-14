@@ -298,11 +298,11 @@ const SCREENSHOT_REAPER_INTERVAL_MS = 10 * 60 * 1000;  // run every 10 min
 const MAX_SHOTS_PER_SESSION    = parseInt(process.env.PW_MAX_SHOTS_PER_SESSION || '300', 10);
 const MAX_SHOTS_MB_PER_SESSION = parseInt(process.env.PW_MAX_SHOTS_MB_PER_SESSION || '200', 10);
 
-// Matches step_<sid>_<n>.png, live_<sid>.png, smart_<sid>.png, view_<sid>.png,
-// shot_<sid>_<ts>.png, fail_<sid8>_<ts>.png. fail_ uses the first 8 chars of
-// the sid so we accept that too.
+// Matches step_<sid>_<n>.jpg (.png before 2026-11), vision_<sid>_<n>.jpg, smart_<sid>.png, view_<sid>.png,
+// shot_<sid>_<ts>.png, fail_<sid8>_<ts>.png, and live_<sid>.png left by older versions. fail_ uses the
+// first 8 chars of the sid so we accept that too.
 // Session id is 8-64 chars of [A-Za-z0-9-].
-const SCREENSHOT_SID_RE = /^(?:step|live|smart|view|shot|fail)_([A-Za-z0-9-]{8,64})(?:_\d+)?\.png$/;
+const SCREENSHOT_SID_RE = /^(?:step|vision|live|smart|view|shot|fail)_([A-Za-z0-9-]{8,64})(?:_\d+)?\.(?:png|jpg)$/;
 
 function reapScreenshots() {
     let files;
@@ -1604,23 +1604,63 @@ const CONNEXION_EN_COURS = Object.freeze({
     code: 'secret_login_busy', retryable: true,
 });
 
-// ── Screenshot write for a specific step number (file I/O only) ; aucune pendant une connexion.
-async function liveSnapshotForStep(page, sid, n) {
-    if (!page || !sid || !n || sessions.get(sid)?._connexionEnCours) return null;
-    const liveName = `live_${sid}.png`;
-    const stepName = `step_${sid}_${n}.png`;
-    const livePath = path.join(SCREENSHOT_DIR, liveName);
-    const stepPath = path.join(SCREENSHOT_DIR, stepName);
+// ── Captures à la demande : en-têtes de l'hôte d'outils (réglage du compte, vision du modèle), jamais le corps de la requête.
+const capturesDemandees = (req) => req.get('x-elpis-captures') === '1';
+const visionDemandee = (req) => req.get('x-elpis-vision') === '1';
+// JPEG q70 par Chromium (CDP) : 2 à 3 fois plus rapide qu'un PNG par page.screenshot (banc du 12/11) ; largeur de la vision.
+const QUALITE_JPEG = 70;
+const LARGEUR_VISION = 1024;
+const _cdpDesPages = new WeakMap();
+
+// Session CDP d'une page, ouverte à sa première capture et gardée avec elle.
+function cdpDe(page) {
+    let c = _cdpDesPages.get(page);
+    if (!c) {
+        c = page.context().newCDPSession(page);
+        _cdpDesPages.set(page, c);
+    }
+    return c;
+}
+
+// Fenêtre visible en JPEG ; `largeur` : réduite par Chromium à cette largeur (cadre de la page défilée), sans réduction en deçà.
+async function captureJpeg(page, { largeur = 0, delaiMs = 3000 } = {}) {
+    const capturer = async () => {
+        const cdp = await cdpDe(page);
+        const opts = { format: 'jpeg', quality: QUALITE_JPEG };
+        if (largeur) {
+            const v = (await cdp.send('Page.getLayoutMetrics')).cssVisualViewport;
+            if (v.clientWidth > largeur)
+                opts.clip = { x: v.pageX, y: v.pageY, width: v.clientWidth, height: v.clientHeight, scale: largeur / v.clientWidth };
+        }
+        return Buffer.from((await cdp.send('Page.captureScreenshot', opts)).data, 'base64');
+    };
+    let minuterie;
+    const delai = new Promise((_, rejeter) => { minuterie = setTimeout(() => rejeter(new Error(`capture timeout (${delaiMs} ms)`)), delaiMs); });
     try {
-        await page.screenshot({ path: livePath, fullPage: false, timeout: 3000 });
-        try { fs.copyFileSync(livePath, stepPath); } catch (e) {}
-        return stepName;
+        return await Promise.race([capturer(), delai]);
     } catch (e) {
+        const c = _cdpDesPages.get(page);
+        _cdpDesPages.delete(page);
+        c?.then((session) => session.detach()).catch(() => {});
+        throw e;
+    } finally {
+        clearTimeout(minuterie);
+    }
+}
+
+// Capture écrite sous `nom` dans le dossier des captures ; aucune pendant une connexion par secret.
+async function ecrireCapture(page, sid, nom, options) {
+    if (!page || !sid || sessions.get(sid)?._connexionEnCours) return null;
+    try {
+        await fs.promises.writeFile(path.join(SCREENSHOT_DIR, nom), await captureJpeg(page, options));
+        return nom;
+    } catch (e) {
+        console.warn(`[captures] ${nom}: ${e.message}`);
         return null;
     }
 }
 
-// ── Cleanup all step_<sid>_*.png and friends for a given session ────
+// ── Cleanup all step_<sid>_* and friends for a given session ────
 function cleanupSessionScreenshots(sid) {
     if (!sid) return;
     try {
@@ -1629,7 +1669,7 @@ function cleanupSessionScreenshots(sid) {
         for (const f of files) {
             // exact-match files we own for this session
             if (f === `live_${sid}.png` || f === `smart_${sid}.png` || f === `view_${sid}.png`
-                || f.startsWith(`step_${sid}_`) || f.startsWith(`shot_${sid}_`)
+                || f.startsWith(`step_${sid}_`) || f.startsWith(`vision_${sid}_`) || f.startsWith(`shot_${sid}_`)
                 || f.startsWith(`fail_${sid8}_`)) {
                 try { fs.unlinkSync(path.join(SCREENSHOT_DIR, f)); } catch (e) {}
             }
@@ -1637,15 +1677,7 @@ function cleanupSessionScreenshots(sid) {
     } catch (e) {}
 }
 
-// ── Auto-snapshot middleware (SYNC wrap of res.json, SAFE).
-// Incrémente le compteur de session et injecte `screenshot_step` dans
-// le payload JSON de la réponse SYNCHRONIQUEMENT (aucun await).
-// Le fichier est écrit en fire-and-forget via setImmediate après la réponse.
-// → Pas de blocage, pas de Promise retournée, comportement identique à res.json normal.
-// NB mutex (AUDIT 2026-06) : ce screenshot différé s'exécute APRÈS le release
-// du verrou de session (post-finish) — choix assumé : page.screenshot est
-// sérialisé par le protocole Playwright lui-même, et verrouiller l'après-
-// réponse retarderait la requête suivante pour un simple PNG best-effort.
+// Chaque réponse réussie compte un pas (repère de since_step) ; captures demandées : `screenshot_step` et step_<sid>_<n>.jpg écrit après la réponse, hors verrou.
 function autoSnapshot(req, res, next) {
     const origJson = res.json.bind(res);
     res.json = function(payload) {
@@ -1657,19 +1689,11 @@ function autoSnapshot(req, res, next) {
                 payload && typeof payload === 'object' && !Array.isArray(payload)) {
                 s.screenshotCounter = (s.screenshotCounter || 0) + 1;
                 const n = s.screenshotCounter;
-                payload.screenshot_step = n;
-                console.log(`[autoSnapshot] sid=${req.sessionId.substring(0,8)} step=${n} → step_${req.sessionId}_${n}.png`);
-                // Fire-and-forget : écriture après envoi de la réponse HTTP
-                setImmediate(() => {
-                    liveSnapshotForStep(page, req.sessionId, n)
-                        .then(name => {
-                            if (name) console.log(`[autoSnapshot] WROTE ${name}`);
-                            else console.warn(`[autoSnapshot] FAILED to write step ${n} for sid=${req.sessionId.substring(0,8)}`);
-                        })
-                        .catch(e => console.error(`[autoSnapshot] ERROR writing step ${n}:`, e.message));
-                });
-            } else if (ok) {
-                console.log(`[autoSnapshot] SKIP sid=${req.sessionId ? req.sessionId.substring(0,8) : '?'} (s=${!!s} page=${!!page} payload=${typeof payload})`);
+                if (capturesDemandees(req)) {
+                    payload.screenshot_step = n;
+                    const nom = `step_${req.sessionId}_${n}.jpg`;
+                    setImmediate(() => { void ecrireCapture(page, req.sessionId, nom); });
+                }
             }
         } catch (e) {
             console.error(`[autoSnapshot] EXCEPTION:`, e.message);
@@ -4352,13 +4376,19 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 added_or_changed: filteredInteractives.length,
             };
         }
+        // Vision du modèle demandée par l'hôte d'outils : une capture réduite à 1024 px, prise avant la réponse ; le core la relit par son nom.
+        const vision = visionDemandee(req)
+            ? await ecrireCapture(page, req.sessionId, `vision_${req.sessionId}_${upcomingStep}.jpg`, { largeur: LARGEUR_VISION })
+            : null;
 
         res.json({
             ...data,
             interactives: filteredInteractives,
             diff: diffMeta,
+            step: upcomingStep,
             level, viewport_only: viewportOnly, max_items: maxItems,
             screenshot: skipScreenshot ? null : `smart_${sid}.png`,
+            ...(vision ? { vision_screenshot: vision } : {}),
             // Répétitions compactées en « (×N) » (audit tools web 2026-09-05).
             console_errors: compactConsole((req.session.consoleLogs || [])
                 .filter(e => e.doc === documentSansFragment(page.url())).map(e => e.line), 5),
@@ -6063,6 +6093,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             indexed: mode === 'indexed' ? indexedText : undefined,
             screenshot,
             diff,
+            step: upcomingStep,
             count: items.length,
             candidates_total: data.candidates_total,
             omitted: data.omitted,

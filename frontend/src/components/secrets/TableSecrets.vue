@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name, type, scope, user, tls, version, dernier usage, usages ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
+<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name (type, version, états), scope (un site par ligne, entier), user, usage ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
 <script setup lang="ts">
 import type { Secret } from "@elpis/contracts";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -13,15 +13,41 @@ import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const g = domaineSecrets();
 const racine = ref<HTMLElement | null>(null);
-const COLONNES = 9;
+const COLONNES = 5;
+/** Sites montrés d'emblée ; au-delà, la ligne se déplie. */
+const SITES_VISIBLES = 3;
 const dateCourte = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
+const deplies = ref<ReadonlySet<number>>(new Set());
 
 const usage = (s: Secret): string => dernierUsage(s.last_used_at, maintenantServeurS());
 const infoUsage = (s: Secret): string =>
   s.last_used_at ? dateCourte.format(s.last_used_at * 1000) : "jamais utilisé";
-/** Infobulle du nom : les colonnes masquées quand la table est étroite. */
+/** Infobulle du nom : tout ce que la ligne résume. */
 const infoNom = (s: Secret): string =>
-  `${s.name}\nuser=${s.username ?? "—"} · tls=${s.policy.tls}\n${s.use_count} usages · dernier : ${infoUsage(s)}`;
+  `${s.name}\nuser=${s.username ?? "—"} · tls=${s.policy.tls} · version ${s.version}\n${s.use_count} usages · dernier : ${infoUsage(s)}`;
+const usages = (s: Secret): string => `${s.use_count} usage${s.use_count > 1 ? "s" : ""}`;
+
+/** Sites affichés d'une ligne : tous s'ils tiennent ou si elle est dépliée, sinon les premiers. */
+function sitesMontres(s: Secret): string[] {
+  const tous = porteeTexte(s);
+  return deplies.value.has(s.id) || tous.length <= SITES_VISIBLES + 1 ? tous : tous.slice(0, SITES_VISIBLES);
+}
+const sitesCaches = (s: Secret): number => porteeTexte(s).length - sitesMontres(s).length;
+
+function basculerSites(id: number): void {
+  const suite = new Set(deplies.value);
+  if (!suite.delete(id)) suite.add(id);
+  deplies.value = suite;
+}
+
+/** Morceaux d'un hôte ou d'un identifiant entre lesquels une ligne peut se couper : après un point, une arobase ou une barre, avant un port. */
+const morceaux = (texte: string): string[] => texte.split(/(?<=[.@/])|(?=:)/u);
+
+/** Schéma d'un site (`https://`) et le reste : l'hôte se lit d'abord. */
+function partiesSite(site: string): [string, string] {
+  const i = site.indexOf("://");
+  return i < 0 ? ["", site] : [site.slice(0, i + 3), site.slice(i + 3)];
+}
 
 // Clic hors du menu ouvert et de son bouton : menu refermé (la confirmation armée avec lui).
 function dehors(e: Event): void {
@@ -119,6 +145,7 @@ watch(
 </script>
 
 <template>
+  <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div ref="racine" class="elpis-secrets" tabindex="-1" :data-secrets-portee="g.portee">
     <p :id="idAnnonce" class="sr-only" role="status">{{ annonce }}</p>
     <p v-if="g.erreurListe" role="alert" class="elpis-secrets__refus">{{ g.erreurListe }}</p>
@@ -133,15 +160,15 @@ watch(
       <thead>
         <tr>
           <th scope="col" class="elpis-secrets__c-name">name</th>
-          <th scope="col" class="elpis-secrets__c-type">type</th>
           <th scope="col">scope</th>
           <th scope="col" class="elpis-secrets__c-user elpis-secrets__opt">user</th>
-          <th scope="col" class="elpis-secrets__c-tls elpis-secrets__opt">tls</th>
-          <th scope="col" class="elpis-secrets__c-version elpis-secrets__num" title="+1 à chaque rotation">
-            version
+          <th
+            scope="col"
+            class="elpis-secrets__c-usage elpis-secrets__opt"
+            title="Dernier usage, nombre d'usages"
+          >
+            usage
           </th>
-          <th scope="col" class="elpis-secrets__c-usage elpis-secrets__opt">dernier usage</th>
-          <th scope="col" class="elpis-secrets__c-usages elpis-secrets__num elpis-secrets__opt">usages</th>
           <th scope="col" class="elpis-secrets__menu"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -149,8 +176,16 @@ watch(
         <template v-for="s in g.secrets" :key="s.id">
           <tr :data-secret="s.name" :data-secret-id="s.id" :class="{ 'is-sel': g.panneau?.id === s.id }">
             <td :title="infoNom(s)">
-              <div class="elpis-secrets__cellnom">
-                <span class="elpis-secrets__nom font-mono">{{ s.name }}</span>
+              <div class="elpis-secrets__nom font-mono">{{ s.name }}</div>
+              <div class="elpis-secrets__meta">
+                <span class="font-mono" data-type>{{ s.kind }}</span>
+                <span class="font-mono" title="+1 à chaque rotation" data-version>v{{ s.version }}</span>
+                <span
+                  v-if="s.policy.tls === 'insecure'"
+                  class="elpis-secrets__etat font-mono"
+                  title="Certificat TLS non vérifié pour ce secret"
+                  >tls insecure</span
+                >
                 <span
                   v-if="s.state === 'unverified'"
                   class="elpis-secrets__etat font-mono"
@@ -163,34 +198,45 @@ watch(
                   title="Chiffré par une autre clé que la clé courante : rotation, ou ./elpis vault rekey"
                   >⚠ kid</span
                 >
-                <span class="elpis-secrets__details font-mono"
-                  >user={{ s.username ?? "—" }} · tls={{ s.policy.tls }}</span
-                >
+              </div>
+              <div class="elpis-secrets__details font-mono">
+                user={{ s.username ?? "—" }} · {{ usage(s) }}
               </div>
             </td>
-            <td class="font-mono">{{ s.kind }}</td>
             <td class="font-mono">
               <ul
                 v-if="porteeTexte(s).length"
                 class="elpis-secrets__sites"
                 :aria-label="`Sites de ${s.name}`"
               >
-                <li v-for="o in porteeTexte(s)" :key="o" class="elpis-secrets__site" :title="o">{{ o }}</li>
+                <li v-for="o in sitesMontres(s)" :key="o" class="elpis-secrets__site">
+                  <span class="elpis-secrets__schema">{{ partiesSite(o)[0] }}</span
+                  ><template v-for="(m, n) in morceaux(partiesSite(o)[1])" :key="n"
+                    ><wbr v-if="n" />{{ m }}</template
+                  >
+                </li>
               </ul>
               <span v-else class="adm-muted">—</span>
+              <button
+                v-if="sitesCaches(s) > 0 || deplies.has(s.id)"
+                type="button"
+                class="elpis-secrets__plus"
+                :aria-expanded="deplies.has(s.id) ? 'true' : 'false'"
+                data-plus-sites
+                @click="basculerSites(s.id)"
+              >
+                {{ deplies.has(s.id) ? "réduire" : `+ ${sitesCaches(s)} autres` }}
+              </button>
             </td>
-            <td class="font-mono elpis-secrets__opt" :title="s.username ?? undefined">
-              {{ s.username ?? "—" }}
+            <td class="font-mono elpis-secrets__opt elpis-secrets__user">
+              <template v-for="(m, n) in morceaux(s.username ?? '—')" :key="n"
+                ><wbr v-if="n" />{{ m }}</template
+              >
             </td>
-            <td
-              class="font-mono elpis-secrets__opt"
-              :class="{ 'elpis-secrets__insecure': s.policy.tls === 'insecure' }"
-            >
-              {{ s.policy.tls }}
+            <td class="elpis-secrets__opt elpis-secrets__usage" :title="infoUsage(s)">
+              <span data-dernier>{{ usage(s) }}</span>
+              <span v-if="s.use_count" class="elpis-secrets__compte" data-usages>{{ usages(s) }}</span>
             </td>
-            <td class="elpis-secrets__num">{{ s.version }}</td>
-            <td class="elpis-secrets__opt" :title="infoUsage(s)">{{ usage(s) }}</td>
-            <td class="elpis-secrets__num elpis-secrets__opt">{{ s.use_count }}</td>
             <td class="elpis-secrets__menu">
               <div class="relative">
                 <button

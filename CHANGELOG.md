@@ -138,6 +138,11 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Secrets table easier to read.** Four columns instead of nine: the name is shown in full with its
+  type, version and states under it, each site of the scope is written in full on its own line
+  (long lists fold after three), the identifier is no longer cut, and last use and number of uses
+  share one column. `tls` is only mentioned when it is `insecure`. Text is larger and long hosts
+  break at their dots.
 - **Clone window of the editor.** Wider and reordered: the repositories of a Git account are
   listed as soon as it opens (the account is chosen only when there are several), the line
   under the address says which account will authenticate the clone or that none applies, and

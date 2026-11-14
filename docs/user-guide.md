@@ -1534,9 +1534,12 @@ Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
 
 ### Secrets
 
-Settings › **Secrets** lists the vault of your account in one table: `name`, `type`, `scope`,
-`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user` and `tls` show
-under the name and the usage columns move to its tooltip). An imported secret is marked
+Settings › **Secrets** lists the vault of your account in one table of four columns. `name`
+carries the type and the version (`v2` after one rotation) under it, and `tls insecure` when the
+certificate is not checked; `scope` shows every site in full, one per line (beyond four, the first
+three and a link to unfold the rest); then `user` and `usage` (last use, number of uses; the exact
+date is in the tooltip). In a narrow window `user` and the last use show under the name. An
+imported secret is marked
 `unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
 it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no
 API returns them, and the model never reads them. The value fields are masked, cannot be copied

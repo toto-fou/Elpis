@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/sous-agents-reel-verify.mjs — sous-agents contre le core TS réel : console › Sandbox › Sous-agents (imposer la lecture seule d'explore, enregistrée dans config.json, relue), Paramètres › Agents (case d'explore cochée et grisée, case d'implement écrite dans custom_agents), cartes de runs persistés : bloc `budget_exhausted` (badge, 95/100 appels, détails dépliables : fichiers sûrs, candidats, avertissements de budget) et bloc `partial` arrêté sur budget, run réel de deux sous-agents lancés ensemble (web refusé avant lancement : sa ligne se ferme « indisponible » avec la cause ; explore sur sa propre ligne, bloc rendu par le core, lecture seule imposée), sans violation CSP */
+/** tests/frontend/reel/sous-agents-reel-verify.mjs — sous-agents contre le core TS réel : console › Sandbox › Sous-agents (imposer la lecture seule d'explore, enregistrée dans config.json, relue), page Agents du menu Plus (case Modifier d'explore sous cadenas, fiche d'explore grisée « Imposé », lecture seule d'implement écrite dans custom_agents), cartes de runs persistés : bloc `budget_exhausted` (badge, 95 appels, détails dépliables : fichiers, autre agent en même temps, avertissements de budget) et bloc `partial` arrêté sur budget, run réel de deux sous-agents lancés ensemble (web refusé avant lancement : sa ligne se ferme « indisponible » ; explore sur sa propre ligne, bloc rendu par le core, lecture seule), sans violation CSP */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CHROMIUM=/opt/pw-browsers/chromium] node tests/frontend/reel/sous-agents-reel-verify.mjs
 import fs from 'node:fs';
 import path from 'node:path';
-import { demarrerCoreReel, lancerNavigateur, contexteConnecte, attendreMontage, verifications, apparait, Client } from '../lib/core-reel.mjs';
+import { demarrerCoreReel, lancerNavigateur, contexteConnecte, attendreMontage, verifications, apparait, disparait, Client } from '../lib/core-reel.mjs';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const v = verifications('sous-agents-reel');
@@ -11,17 +11,17 @@ const core = await demarrerCoreReel({ tokParS: 200, outilsEnProcessus: true });
 // Déroulé « Classique » du fil : ces vérifications visent ce déroulé (fil chronologique : fil-reel-verify.mjs).
 for (const compte of Object.values(core.comptes)) { const c = new Client(core.urlMain); await c.req('POST', '/api/login-lite', compte); await c.req('PUT', '/api/settings', { chat_workflow: 'classic' }); }
 const nav = await lancerNavigateur();
+// Bloc du harnais actuel (packages/contracts/src/evenements.ts) : budget d'appels, source de la lecture seule et fichiers « candidats » retirés, `concurrent` signale un autre agent du compte.
 const BILAN = {
-    status: 'budget_exhausted', tool_calls: 95, tool_calls_total: 95, tool_budget: 100, iterations: 95, resumed: false, budget_reset: false, duration_s: 72,
-    files_changed: [{ path: 'src/route.ts', change: 'modified', added: 12, removed: 3 }, { path: 'src/route.test.ts', change: 'created', added: 40 }],
-    files_changed_candidates: [{ path: '/work/calls.log', change: 'modified', added: 3 }], files_changed_attribution: 'uncertain', overlapped_with: ['t2-0a1b2c'],
+    status: 'budget_exhausted', tool_calls: 95, tool_calls_total: 95, iterations: 95, resumed: false, duration_s: 72,
+    files_changed: [{ path: 'src/route.ts', change: 'modified', added: 12, removed: 3 }, { path: 'src/route.test.ts', change: 'created', added: 40 }], concurrent: true,
     budget_warnings: [{ at: 50, text: 'Tool-iteration budget: 50/100 used, 50 left.' }, { at: 95, text: 'Tool-iteration budget: 95/100 used — only 5 left. Wrap up.' }],
     git: { branch: 'feat/route', commits: ['a1b2c3d Route'] }, errors: 1,
-    read_only: false, read_only_source: null, remaining_work: 'Écrire les tests de la route.', report_chars: 900,
+    read_only: false, remaining_work: 'Écrire les tests de la route.', report_chars: 900,
 };
 const BILAN_ARRET = {
-    ...BILAN, status: 'partial', stop_reason: 'budget_wrap_up', tool_calls: 8, tool_calls_total: 8, tool_budget: 10, files_changed: [], files_changed_candidates: undefined,
-    files_changed_attribution: undefined, git: { commits: [] }, budget_warnings: [{ at: 8, text: 'Tool-iteration budget: 8/10 used — only 2 left. Wrap up.' }],
+    ...BILAN, status: 'partial', stop_reason: 'budget_wrap_up', tool_calls: 8, tool_calls_total: 8, files_changed: [], concurrent: undefined,
+    git: { commits: [] }, budget_warnings: [{ at: 8, text: 'Tool-iteration budget: 8/10 used — only 2 left. Wrap up.' }],
 };
 try {
     const admin = new Client(core.urlAdmin);
@@ -34,7 +34,7 @@ try {
     const surveiller = async (p) => {
         p.on('pageerror', (e) => erreurs.push(String(e.message || e)));
         await p.exposeBinding('__violationCsp', (_s, d) => violations.push(d));
-        await p.addInitScript(() => document.addEventListener('securitypolicyviolation', (e) => window.__violationCsp(`${e.effectiveDirective} ${e.blockedURI}`)));
+        await p.addInitScript(() => document.addEventListener('securitypolicyviolation', (e) => window.__violationCsp(`${e.effectiveDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}:${e.columnNumber}`)));
     };
 
     // ── Console › Sandbox › Sous-agents : imposer la lecture seule d'explore ──
@@ -52,9 +52,10 @@ try {
     };
     const coche = (id) => pa.locator('#' + id).isChecked().catch(() => null);
     await ouvrirConsole();
-    v.ok('console : page « Sous-agents », six types, explore en lecture seule par défaut, rien d\'imposé, 3 simultanés', await pa.locator('[data-agent-type]').count() === 6
-        && await coche('ag-ro-defaut-explore') === true && await coche('ag-ro-impose-explore') === false && await coche('ag-ro-defaut-implement') === false
-        && await pa.locator('#ag-parallele').inputValue().catch(() => '') === '3');
+    // Le réglage « sous-agents simultanés » (agents.max_parallel) a été retiré du produit : le plafond par compte est sur la carte du moteur.
+    const types = await pa.locator('#sandbox-agents-ro [data-agent-type]').evaluateAll((l) => l.map((e) => e.getAttribute('data-agent-type')));
+    v.ok('console : carte « Lecture seule », six types, explore en lecture seule par défaut, rien d\'imposé', types.join() === 'explore,implement,verify,web,pr,custom'
+        && await coche('ag-ro-defaut-explore') === true && await coche('ag-ro-impose-explore') === false && await coche('ag-ro-defaut-implement') === false, types.join());
     await pa.locator('#ag-ro-impose-explore').locator('xpath=ancestor::label').click();
     await pause(200);
     v.ok('édition : barre « 1 modification »', (await pa.locator('.adm-savebar__count').innerText().catch(() => '')).trim() === '1 modification');
@@ -66,40 +67,55 @@ try {
     await ouvrirConsole();
     v.ok('rechargement de la console : « Imposer » relu coché pour explore', await coche('ag-ro-impose-explore') === true && await coche('ag-ro-impose-implement') === false);
 
-    // ── Paramètres › Agents : case imposée, case libre écrite dans custom_agents ──
+    // ── Page Agents (menu Plus) : lecture seule imposée sur explore, choix libre d'implement écrit dans custom_agents ──
     const ctx = await contexteConnecte(nav, core.urlMain, core.comptes.user);
     const page = await ctx.newPage();
     await surveiller(page);
-    const modale = page.locator('div[aria-label="Paramètres"]');
+    const agents = page.locator('[role="region"][aria-label="Gestion des agents"]');
+    const fiche = agents.locator('[data-agent-fiche]');
+    const ouvrirDroits = async (nom) => {
+        await agents.locator(`[data-agent-open="${nom}"]`).click();
+        await fiche.waitFor({ timeout: 5000 }).catch(() => {});
+        await agents.locator('[data-agent-onglet="droits"]').click();
+        await apparait(agents.locator('[data-agent-ro="rw"]'));
+    };
     await page.goto(core.urlMain + '/');
     await attendreMontage(page);
-    await page.locator('button[title="Paramètres"]:visible').first().click();
-    await modale.locator('aside button:has-text("Agents")').first().click();
-    await apparait(modale.locator('[data-agent-row="explore"]'));
-    v.ok('bande : puce « Lecture seule » d\'explore, infobulle « imposé par l\'administrateur » et Modifier retiré', ((await modale.locator('[data-agent-row="explore"] [data-capacite="lecture_seule"]').getAttribute('title')) || '').includes('imposé par l\'administrateur')
-        && ((await modale.locator('[data-agent-row="explore"] [data-capacite="lecture_seule"]').getAttribute('title')) || '').includes('Modifier'));
-    await modale.locator('[data-agent-edit="explore"]').click();
-    const roExplore = modale.locator('[data-agent-ro="rw"]');
-    await apparait(roExplore);
-    v.ok('Paramètres › Agents : explore en lecture seule, segments grisés, « Imposé par l\'administrateur »', await roExplore.isDisabled() && await modale.locator('[data-agent-ro="ro"]').isDisabled()
-        && (await modale.locator('[data-agent-ro="ro"]').getAttribute('aria-pressed')) === 'true'
-        && (await modale.locator('[data-agent-ro-impose]').getAttribute('title')) === 'Imposé par l\'administrateur');
-    v.ok('infobulle : ce que retire la lecture seule', /Lecture seule retire aussi Terminal et les commits/.test((await modale.locator('[data-agent-editor] [data-agent-fichiers]').evaluate((g) => document.getElementById(g.getAttribute('aria-labelledby'))?.title || '').catch(() => ''))));
-    await modale.locator('[data-agent-edit="implement"]').click();
-    const roImpl = modale.locator('[data-agent-ro="ro"]');
-    await apparait(roImpl);
-    v.ok('implement : lecture et écriture, modifiable, défaut de l\'administrateur', !(await roImpl.isDisabled()) && (await modale.locator('[data-agent-ro="rw"]').getAttribute('aria-pressed')) === 'true'
-        && /Défaut de l'administrateur : lecture et écriture/.test(await modale.locator('[data-agent-editor] [data-agent-fichiers]').evaluate((g) => document.getElementById(g.getAttribute('aria-labelledby'))?.title || '')));
-    await roImpl.click();
+    await page.locator('aside.elpis-slide-panel button[data-menu-plus]:visible').first().click();
+    await page.locator('[role="menu"][aria-label="Plus"] [role="menuitem"][data-precharge="agents"]:visible').click();
+    // La bande d'une carte ne dit plus qui impose la lecture seule (features/agents/page.ts) : l'origine se lit dans l'onglet Droits de la fiche.
+    const modifierExplore = agents.locator('[data-agent-card="explore"] [data-capacite="modifier"]');
+    await apparait(modifierExplore);
+    v.ok('carte explore : case Modifier sous cadenas « Lecture seule : Modifier retiré »', (await modifierExplore.getAttribute('data-etat')) === 'verrou'
+        && (await modifierExplore.getAttribute('title')) === 'Lecture seule : Modifier retiré');
+    await ouvrirDroits('explore');
+    const rw = agents.locator('[data-agent-ro="rw"]');
+    const ro = agents.locator('[data-agent-ro="ro"]');
+    v.ok('fiche explore › Droits : lecture seule retenue, choix grisés, « Imposé par l\'administrateur »', await rw.isDisabled() && await ro.isDisabled()
+        && (await ro.getAttribute('aria-pressed')) === 'true'
+        && (await agents.locator('[data-agent-ro-impose]').getAttribute('title').catch(() => '')) === 'Imposé par l\'administrateur');
+    v.ok('effet écrit sous le choix : ce que retire la lecture seule', /rien n'est modifié, et le Terminal est retiré/.test(await agents.locator('[data-agent-ro-effet]').innerText().catch(() => '')));
+    await agents.locator('[data-agents-retour]').click();
+    await disparait(fiche);
+    await ouvrirDroits('implement');
+    const libreAvant = !(await ro.isDisabled()) && (await rw.getAttribute('aria-pressed')) === 'true' && await agents.locator('[data-agent-ro-impose]').count() === 0;
+    await ro.click();
+    v.ok('implement : écriture retenue et modifiable ; lecture seule choisie, « Défaut » rappelle le défaut de l\'administrateur (écriture)', libreAvant
+        && (await ro.getAttribute('aria-pressed')) === 'true'
+        && (await agents.locator('[data-agent-ro-defaut]').getAttribute('title').catch(() => '')) === 'Revenir au défaut de l\'administrateur : écriture');
     const put = page.waitForResponse((r) => r.url().endsWith('/api/settings') && r.request().method() === 'PUT', { timeout: 10000 }).catch(() => null);
-    await modale.locator('[data-agent-save]').click();
+    await agents.locator('[data-agent-save]').click();
     const pr = await put;
+    await disparait(fiche);
     const stocke = ((await api.req('GET', '/api/settings')).custom_agents || []).find((a) => a.name === 'implement');
-    v.ok('implement en lecture seule, Enregistrer : PUT custom_agents accepté, read_only relu du core, Terminal barré', !!pr && pr.ok() && stocke?.read_only === true
-        && ((await modale.locator('[data-agent-row="implement"] [data-capacite="lecture_seule"]').getAttribute('title')) || '').includes('Terminal'), JSON.stringify(stocke));
+    const terminalImpl = agents.locator('[data-agent-card="implement"] [data-capacite="terminal"]');
+    await apparait(terminalImpl);
+    v.ok('implement en lecture seule, Enregistrer : PUT custom_agents accepté, read_only relu du core, Terminal barré sur la carte', !!pr && pr.ok() && stocke?.read_only === true
+        && (await terminalImpl.getAttribute('data-etat')) === 'non' && (await terminalImpl.getAttribute('title')) === 'Terminal : retiré par la lecture seule', JSON.stringify(stocke));
     const modeles = await api.req('GET', '/api/settings/agent-templates');
     v.ok('core : read_only_policy et modèle explore imposé', modeles.read_only_policy?.forced?.explore === true && modeles.templates.find((t) => t.name === 'explore')?.read_only_forced === true);
     await page.keyboard.press('Escape');
+    await disparait(agents);
 
     // ── Carte d'un run persisté avec le bloc du harnais ──
     const { id } = await api.req('POST', '/api/saved/chats/new', {});
@@ -114,25 +130,25 @@ try {
         ],
     });
     const relu = (await api.req('GET', `/api/saved/chats/${id}`)).messages?.[1]?.task_runs?.[0]?.harness;
-    v.ok('core : bloc du harnais gardé dans task_runs[] persisté (candidats et avertissements compris)', relu?.status === 'budget_exhausted' && relu.tool_calls === 95
-        && relu.files_changed_candidates?.length === 1 && relu.budget_warnings?.length === 2, JSON.stringify(relu));
+    v.ok('core : bloc du harnais gardé dans task_runs[] persisté (autre agent et avertissements compris)', relu?.status === 'budget_exhausted' && relu.tool_calls === 95
+        && relu.concurrent === true && relu.budget_warnings?.length === 2, JSON.stringify(relu));
     await page.reload();
     await attendreMontage(page);
     await page.locator('[data-chat-row]', { hasText: 'Bilan sous-agent' }).first().click();
     const ligne = page.locator('.task-runs .task-run').first();
     await apparait(ligne);
-    v.ok('carte : badge « budget épuisé » et « 95/100 appels »', (await page.locator('[data-task-status]').first().innerText().catch(() => '')) === 'budget épuisé'
-        && (await page.locator('[data-task-calls]').first().innerText().catch(() => '')) === '95/100 appels', await ligne.innerText().catch(() => ''));
+    v.ok('carte : badge « budget épuisé » et « 95 appels »', (await page.locator('[data-task-status]').first().innerText().catch(() => '')) === 'budget épuisé'
+        && (await page.locator('[data-task-calls]').first().innerText().catch(() => '')) === '95 appels', await ligne.innerText().catch(() => ''));
     v.ok('carte : durée et reste à faire', (await page.locator('[data-task-duration]').first().innerText()).includes('1 min 12 s') && (await page.locator('[data-task-reste]').first().innerText()).includes('Écrire les tests'));
     const plus = page.locator('[data-task-more]').first();
-    v.ok('détails : bouton « 2 fichiers · 1 incertain · 1 commit » replié', (await plus.innerText()).includes('2 fichiers · 1 incertain · 1 commit') && await plus.getAttribute('aria-expanded') === 'false');
+    v.ok('détails : bouton « 2 fichiers · 1 commit » replié', (await plus.innerText()).includes('2 fichiers · 1 commit') && await plus.getAttribute('aria-expanded') === 'false', await plus.innerText());
     await plus.focus();
     await page.keyboard.press('Enter');
     await pause(200);
     const details = page.locator('.task-run-details').first();
-    v.ok('détails dépliés au clavier : fichiers sûrs, puis « peut-être modifiés par un autre agent », commit', await plus.getAttribute('aria-expanded') === 'true' && await details.locator('[data-task-bilan-file]').count() === 2
-        && await details.locator('[data-task-bilan-candidat]').count() === 1 && (await details.innerText()).includes('Peut-être modifiés par un autre agent (1)')
-        && await details.locator('[data-task-bilan-incertain]').isVisible() && (await details.locator('[data-task-bilan-commit]').innerText()).includes('a1b2c3d'));
+    v.ok('détails dépliés au clavier : fichiers, note « un autre agent du compte tournait en même temps », commit', await plus.getAttribute('aria-expanded') === 'true' && await details.locator('[data-task-bilan-file]').count() === 2
+        && await details.locator('[data-task-bilan-concurrent]').isVisible() && (await details.innerText()).includes('Un autre agent du compte tournait en même temps')
+        && (await details.locator('[data-task-bilan-commit]').innerText()).includes('a1b2c3d'));
     v.ok('détails : avertissements de budget listés', await details.locator('[data-task-bilan-avertissement]').count() === 2
         && (await details.locator('[data-task-bilan-avertissement]').nth(1).innerText()).includes('après 95 appels'));
     const lignesPersistees = page.locator('.task-runs').first().locator(':scope > div');
@@ -142,8 +158,9 @@ try {
         && await lignesPersistees.nth(0).locator('[data-task-arret]').count() === 0, await ligneArret.innerText().catch(() => ''));
     await page.locator('.task-run-eye').first().click();
     const deroule = page.locator('[data-modale-agent] [data-task-harness]');
-    v.ok('déroulé : bloc « Bilan » avec le badge et le reste à faire', await apparait(deroule) && (await deroule.innerText()).includes('budget épuisé') && (await deroule.innerText()).includes('Écrire les tests'));
+    v.ok('fenêtre de l\'agent : bloc « Bilan » avec le badge et le reste à faire', await apparait(deroule) && (await deroule.innerText()).includes('budget épuisé') && (await deroule.innerText()).includes('Écrire les tests'));
     await page.keyboard.press('Escape');
+    await disparait(page.locator('[data-modale-agent]'));
 
     // ── Run réel : web (refusé avant lancement, navigateur non servi) et explore lancés ensemble, chacun sur sa ligne ──
     await api.req('PUT', '/api/settings', { agents_enabled: true });
@@ -169,18 +186,19 @@ try {
     const ligneWeb = lignesReel.nth(0);
     const ligneExplore = lignesReel.nth(1);
     const statutReel = ligneExplore.locator('[data-task-status]');
-    const libelles = ['terminé', 'partiel', 'bloqué', 'budget épuisé', 'délai dépassé', 'indisponible', 'erreur', 'annulé'];
+    const libelles = ['terminé', 'partiel', 'bloqué', 'statut inconnu', 'budget épuisé', 'délai dépassé', 'indisponible', 'erreur', 'annulé'];
     v.ok('run réel : deux lignes, chacune sous le titre de son appel', await apparait(statutReel, 20000) && await lignesReel.count() === 2
         && (await ligneWeb.locator('.task-run-title').innerText()).trim() === 'web — chercher la doc'
         && (await ligneExplore.locator('.task-run-title').innerText()).trim() === 'explore — trouver parse_date', await page.locator('.task-runs').last().innerText().catch(() => ''));
-    v.ok('run réel : explore, badge de statut du core et appels sur le budget, sur SA ligne', libelles.includes(await statutReel.innerText())
-        && /^\d+\/\d+ appels$/.test(await ligneExplore.locator('[data-task-calls]').innerText()));
-    v.ok('run réel : explore en lecture seule imposée par l\'administrateur', (await ligneExplore.locator('[data-task-ro]').getAttribute('title').catch(() => '')) === 'Lecture seule : imposée par l\'administrateur');
+    // Le budget d'appels n'est plus dans le bloc du harnais (tool_budget retiré) : la ligne compte les appels seuls.
+    v.ok('run réel : explore, badge de statut du core et appels, sur SA ligne', libelles.includes(await statutReel.innerText())
+        && /^\d+ appels$/.test(await ligneExplore.locator('[data-task-calls]').innerText()), await ligneExplore.innerText().catch(() => ''));
+    // L'origine de la lecture seule n'est plus dans le bloc (read_only_source retiré) : la ligne dit « lecture seule » sans sa source.
+    v.ok('run réel : explore en lecture seule', await ligneExplore.locator('[data-task-ro]').isVisible().catch(() => false)
+        && (await ligneExplore.locator('[data-task-ro]').getAttribute('title').catch(() => '')) === 'Lecture seule');
     v.ok('refus avant lancement : la ligne web se ferme « indisponible » (ni « En attente » ni bouton d\'arrêt)', (await ligneWeb.locator('[data-task-status]').innerText().catch(() => '')) === 'indisponible'
-        && !(await ligneWeb.innerText()).includes('En attente') && await ligneWeb.locator('.task-run-cancel').count() === 0);
-    await ligneWeb.locator('[data-task-more]').click();
-    await pause(150);
-    v.ok('refus avant lancement : la cause s\'affiche dans les détails', (await ligneWeb.locator('.task-run-details').innerText().catch(() => '')).includes('not served'), await ligneWeb.innerText().catch(() => ''));
+        && !(await ligneWeb.innerText()).includes('En attente') && await ligneWeb.locator('.task-run-cancel').count() === 0, await ligneWeb.innerText().catch(() => ''));
+    // La cause du refus n'est plus dans les détails de la ligne (champ `reason` retiré du bloc du harnais et de DetailsSousAgent.vue) : seul le modèle la reçoit.
     v.ok('aucune violation CSP', violations.length === 0, violations.join(' | '));
     v.ok('aucune erreur JS', erreurs.length === 0, erreurs.join(' | '));
 } catch (e) {

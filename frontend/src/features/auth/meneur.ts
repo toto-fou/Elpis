@@ -17,7 +17,9 @@ export interface OptionsMeneur {
   minuterie(fn: () => void, ms: number): () => void;
   intervalle(fn: () => void, ms: number): () => void;
   maintenant(): number;
-  /** Devenu meneur : ouvrir le flux ; `rattrapage` : resynchroniser à son ouverture (un autre flux était suivi). */
+  /** Première candidature : ouvrir le flux sans attendre l'élection (aucun événement manqué), ses événements appliqués ici sans relais. */
+  devancer(): void;
+  /** Devenu meneur : garder le flux ouvert d'avance, sinon l'ouvrir ; `rattrapage` : le rouvrir et resynchroniser (un autre flux était suivi). */
   prendre(rattrapage: boolean): void;
   lacher(): void;
   recevoir(texte: string): void;
@@ -71,6 +73,9 @@ export function creerMeneur(o: OptionsMeneur) {
   let aRattraper = o.rattrapage;
   // Instant où l'onglet a cédé le rôle : un relais antérieur est couvert par son propre flux ou par la resynchronisation.
   let cede = 0;
+  // Flux ouvert d'avance par la première candidature, et déjà ouvert côté serveur.
+  let avance = false;
+  let avanceOuverte = false;
   let annulerAttente: (() => void) | null = null;
 
   const poster = (t: "candidat" | "meneur" | "depart" | "fin"): void =>
@@ -100,9 +105,12 @@ export function creerMeneur(o: OptionsMeneur) {
     role = "meneur";
     epoque = Math.max(epoque, mien.e);
     chef = null;
-    ouvertures = 0;
     const rattrapage = aRattraper || fluxVu !== null;
     aRattraper = false;
+    // Flux d'avance déjà ouvert et gardé : annoncé avec le rôle.
+    ouvertures = avanceOuverte && !rattrapage ? 1 : 0;
+    if (ouvertures) fluxVu = `${o.id}:1`;
+    avance = avanceOuverte = false;
     poster("meneur");
     o.prendre(rattrapage);
   }
@@ -110,6 +118,15 @@ export function creerMeneur(o: OptionsMeneur) {
   /** Suit le meneur `m` ; resynchronise si le flux suivi a changé. */
   function suivre(m: Signe & { readonly o: number }): void {
     attendre(null);
+    if (avance) {
+      // Flux d'avance fermé : ce qu'il a lu (retard d'un meneur occupé, relayé d'un bloc) ne se rejoue pas par le relais ; meneur sans flux encore : resynchroniser au sien.
+      if (avanceOuverte) {
+        cede = o.maintenant() + 1;
+        aRattraper ||= m.o === 0;
+      }
+      avance = avanceOuverte = false;
+      o.lacher();
+    }
     role = "suiveur";
     chef = { e: m.e, de: m.de };
     dernierSigne = o.maintenant();
@@ -182,6 +199,10 @@ export function creerMeneur(o: OptionsMeneur) {
   const arreterVeille = o.intervalle(veiller, BATTEMENT_MS);
   o.canal.onmessage = surMessage;
   candidater();
+  if (!o.rattrapage) {
+    avance = true;
+    o.devancer();
+  }
 
   return {
     get estMeneur(): boolean {
@@ -189,7 +210,10 @@ export function creerMeneur(o: OptionsMeneur) {
     },
     /** Flux du meneur ouvert (ou rouvert) : annoncé, les suiveurs comparent au flux qu'ils suivaient. */
     fluxOuvert(): void {
-      if (role !== "meneur") return;
+      if (role !== "meneur") {
+        avanceOuverte = avance;
+        return;
+      }
       ouvertures += 1;
       fluxVu = `${o.id}:${ouvertures}`;
       poster("meneur");

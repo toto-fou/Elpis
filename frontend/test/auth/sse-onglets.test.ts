@@ -19,11 +19,13 @@ class FausseSource implements SourceEvenements {
   onerror: ((e: Event) => void) | null = null;
   onmessage: ((e: MessageEvent<string>) => void) | null = null;
   ferme = false;
+  aOuvert = false;
   close(): void {
     this.ferme = true;
     this.readyState = 2;
   }
   ouvrir(): void {
+    this.aOuvert = true;
     this.readyState = 1;
     this.onopen?.(new Event("open"));
   }
@@ -149,6 +151,9 @@ function onglet(nav: Navigateur, compte: Compte = COMPTE_A, canal = true): Ongle
 
 const ouvertes = (ongs: readonly Onglet[]): FausseSource[] =>
   ongs.flatMap((o) => o.sources).filter((s) => !s.ferme);
+/** Flux qui ont servi : ouverts côté serveur ou encore en place (un flux d'avance fermé avant d'ouvrir n'en est pas un). */
+const servis = (ongs: readonly Onglet[]): FausseSource[] =>
+  ongs.flatMap((o) => o.sources).filter((s) => s.aOuvert || !s.ferme);
 const seule = (ongs: readonly Onglet[]): FausseSource => {
   const s = ouvertes(ongs);
   expect(s).toHaveLength(1);
@@ -184,17 +189,87 @@ afterEach(() => {
 });
 
 describe("élection", () => {
-  it("onglet seul : meneur après l'attente, un flux, aucune resynchronisation", () => {
+  it("onglet seul : flux ouvert dès la connexion et gardé à la prise du rôle, un événement d'avant l'élection est appliqué", () => {
     const nav = new Navigateur();
     const a = onglet(nav);
     connecter(a);
-    expect(a.sources).toHaveLength(0);
+    const s = seule([a]);
+    s.ouvrir();
+    s.envoyer(CHANGEMENT);
+    expect(a.rappels.onModelChanged).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(ATTENTE_MS);
-    seule([a]).ouvrir();
     connecter(a);
     vi.advanceTimersByTime(60_000);
-    expect(a.sources).toHaveLength(1);
+    expect(a.sources).toEqual([s]);
+    expect(s.ferme).toBe(false);
     expect(a.rappels.onReconnect).not.toHaveBeenCalled();
+    // Un onglet ouvert ensuite suit ce flux, déjà annoncé : ni flux à lui, ni resynchronisation.
+    const b = onglet(nav);
+    connecter(b);
+    vi.advanceTimersByTime(ATTENTE_MS);
+    s.envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(1);
+    expect(b.rappels.onModelChanged).toHaveBeenCalledTimes(1);
+    expect(b.rappels.onReconnect).not.toHaveBeenCalled();
+    expect(servis([a, b])).toEqual([s]);
+  });
+
+  it("meneur occupé à l'arrivée d'un onglet : le flux d'avance sert en attendant ; à sa réponse il est fermé et rien n'est appliqué deux fois", () => {
+    const nav = new Navigateur();
+    const a = onglet(nav);
+    connecter(a);
+    const sa = seule([a]);
+    sa.ouvrir();
+    vi.advanceTimersByTime(ATTENTE_MS);
+    a.fige = true;
+    const b = onglet(nav);
+    connecter(b);
+    const sb = b.sources[0]!;
+    sb.ouvrir();
+    sb.envoyer(CHANGEMENT);
+    expect(b.rappels.onModelChanged).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(60);
+    // Le meneur reprend la main : il répond à la candidature et relaie son retard d'un bloc.
+    degeler(a);
+    sa.envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(1);
+    expect(sb.ferme).toBe(true);
+    expect(b.rappels.onModelChanged).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(5);
+    sa.envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(1);
+    expect(b.rappels.onModelChanged).toHaveBeenCalledTimes(2);
+    expect(a.rappels.onModelChanged).toHaveBeenCalledTimes(2);
+    expect(b.rappels.onReconnect).not.toHaveBeenCalled();
+    expect(ouvertes([a, b])).toEqual([sa]);
+  });
+
+  it("deux onglets ouverts ensemble, le flux du perdant ouvert avant celui du meneur : fermé à l'annonce, resynchronisé au flux du meneur", () => {
+    const nav = new Navigateur();
+    const a = onglet(nav);
+    const b = onglet(nav);
+    // À époque égale, le plus petit identifiant l'emporte : `a`.
+    const alea = vi.spyOn(Math, "random");
+    alea.mockReturnValueOnce(0.1);
+    connecter(a);
+    alea.mockReturnValueOnce(0.9);
+    connecter(b);
+    alea.mockRestore();
+    b.sources[0]!.ouvrir();
+    b.sources[0]!.envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(ATTENTE_MS * 2);
+    expect(b.sources[0]!.ferme).toBe(true);
+    expect(b.rappels.onReconnect).not.toHaveBeenCalled();
+    const s = seule([a, b]);
+    expect(s).toBe(a.sources[0]);
+    s.ouvrir();
+    vi.advanceTimersByTime(1);
+    expect(b.rappels.onReconnect).toHaveBeenCalledTimes(1);
+    expect(a.rappels.onReconnect).not.toHaveBeenCalled();
+    s.envoyer(CHANGEMENT);
+    vi.advanceTimersByTime(1);
+    expect(a.rappels.onModelChanged).toHaveBeenCalledTimes(1);
+    expect(b.rappels.onModelChanged).toHaveBeenCalledTimes(2);
   });
 
   it("huit onglets ouverts ensemble : un seul flux ; tous cachés, chaque événement arrive une fois dans chacun", () => {
@@ -215,7 +290,7 @@ describe("élection", () => {
       expect(o.rappels.onReconnect).not.toHaveBeenCalled();
     }
     vi.advanceTimersByTime(5 * 60_000);
-    expect(ongs.flatMap((o) => o.sources)).toHaveLength(1);
+    expect(servis(ongs)).toHaveLength(1);
   });
 
   it("onglets ouverts l'un après l'autre : suiveurs du meneur en place, sans flux ni resynchronisation", () => {
@@ -228,7 +303,7 @@ describe("élection", () => {
     const c = onglet(nav);
     connecter(b, c);
     vi.advanceTimersByTime(ATTENTE_MS * 4);
-    expect(b.sources.length + c.sources.length).toBe(0);
+    expect(servis([b, c])).toHaveLength(0);
     seule([a, b, c]).envoyer(CHANGEMENT);
     vi.advanceTimersByTime(1);
     for (const o of [a, b, c]) {
@@ -347,7 +422,7 @@ describe("session et comptes", () => {
     ongs[0]!.session.fermer("deconnexion");
     await vi.advanceTimersByTimeAsync(ATTENTE_MS * 8);
     for (const o of ongs.slice(1)) expect(o.ctx.handleSessionExpired).toHaveBeenCalledTimes(1);
-    expect(ongs.flatMap((o) => o.sources)).toHaveLength(1);
+    expect(servis(ongs)).toHaveLength(1);
     expect(ouvertes(ongs)).toHaveLength(0);
   });
 
@@ -418,7 +493,7 @@ describe("session et comptes", () => {
     vi.advanceTimersByTime(60_000);
     for (const o of ongs) expect(o.ctx.handleSessionExpired).toHaveBeenCalledTimes(1);
     expect(ouvertes(ongs)).toHaveLength(0);
-    expect(ongs.flatMap((o) => o.sources)).toHaveLength(1);
+    expect(servis(ongs)).toHaveLength(1);
   });
 
   it("worker_recycling : non relayé ; le meneur se rebranche, chaque onglet resynchronisé une fois", () => {
@@ -434,7 +509,7 @@ describe("session et comptes", () => {
     m.sources[1]!.ouvrir();
     vi.advanceTimersByTime(1);
     for (const o of ongs) expect(o.rappels.onReconnect).toHaveBeenCalledTimes(1);
-    expect(ongs.flatMap((o) => o.sources)).toHaveLength(2);
+    expect(servis(ongs)).toHaveLength(2);
   });
 
   it("deux comptes : un flux chacun, rien de relayé d'un compte à l'autre", () => {

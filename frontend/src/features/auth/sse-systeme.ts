@@ -166,7 +166,10 @@ export function setupChatSystemSSE(
       minuterie: (fn, ms) => p.minuterie(fn, ms),
       intervalle: (fn, ms) => p.intervalle(fn, ms),
       maintenant: () => Date.now(),
+      devancer: ouvrirFlux,
       prendre(r) {
+        // Flux ouvert d'avance (ou en reconnexion) : gardé tel quel.
+        if (!r && (source || annulerReconnexion)) return;
         fermerFlux();
         rattrapage = r;
         ouvrirFlux();

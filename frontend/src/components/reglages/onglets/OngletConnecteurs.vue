@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes pour un hôte, une organisation ou un dépôt, jeton en écriture seule. -->
+<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes désignés par l'URL d'un serveur, d'une organisation ou d'un dépôt, jeton en écriture seule. -->
 <script setup lang="ts">
+import { nomTypeGit } from "../../../features/reglages/connecteurs-git";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import { cibleCompte } from "../../../utils/portee-git";
 
@@ -10,6 +11,10 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl" data-onglet-git>
+    <p class="text-xs text-slate-500 leading-snug" data-regle>
+      Un compte sert pour les dépôts dont l'URL commence par la sienne. Si plusieurs conviennent, le plus
+      précis est pris.
+    </p>
     <div v-if="rg.gitConnectors.length" class="space-y-2">
       <div v-for="c in rg.gitConnectors" :key="c.id" class="border border-slate-200 rounded-xl p-3.5">
         <div class="flex items-center gap-3">
@@ -21,9 +26,9 @@ const rg = domaineReglages();
               <span
                 v-if="c.path === null"
                 class="ml-1.5 text-xs font-normal text-amber-600"
-                title="Ce compte ne sert à aucun dépôt : indiquez à quoi il s'applique."
+                title="Ce compte ne sert à aucun dépôt : modifiez-le pour choisir à quoi il sert."
                 data-sans-portee
-                >sans portée</span
+                >inactif</span
               >
               <span
                 v-if="c.to_verify"
@@ -34,7 +39,7 @@ const rg = domaineReglages();
               >
             </div>
             <div class="text-xs text-slate-500">
-              {{ c.provider_type }}<span v-if="c.username"> · {{ c.username }}</span>
+              {{ nomTypeGit(c.provider_type) }}<span v-if="c.username"> · {{ c.username }}</span>
             </div>
           </div>
           <span
@@ -96,112 +101,120 @@ const rg = domaineReglages();
       </div>
 
       <div>
-        <label class="text-xs font-medium text-slate-500">Service</label>
-        <select
-          v-model="rg.gitConnForm.provider_type"
-          class="set-select w-full mt-0.5"
-          @change="rg.parseGitRepoUrl()"
-        >
-          <option v-for="t in rg.gitConnTypes" :key="t" :value="t">{{ t }}</option>
-        </select>
-      </div>
-
-      <div v-if="!rg.gitConnForm.id">
-        <label class="text-xs font-medium text-slate-500">URL du dépôt à cloner</label>
+        <label for="git-url" class="text-xs font-medium text-slate-500">URL</label>
         <input
+          id="git-url"
           v-model="rg.gitConnForm.repo_url"
-          placeholder="https://git.example.lan/team/repo.git"
-          class="set-input mt-0.5"
+          placeholder="https://git.example.lan/equipe/depot.git"
+          autocomplete="off"
+          spellcheck="false"
+          aria-describedby="git-url-aide"
+          class="set-input mt-0.5 font-mono"
+          data-url
+          @input="rg.readGitConnUrl()"
           @change="rg.parseGitRepoUrl()"
-          @blur="rg.parseGitRepoUrl()"
         />
+        <p id="git-url-aide" class="text-xs text-slate-500 mt-1 leading-snug">
+          URL de votre serveur Git, d'une organisation ou d'un dépôt.
+        </p>
       </div>
 
-      <div>
-        <label for="git-portee" class="text-xs font-medium text-slate-500">S'applique à</label>
-        <input
-          id="git-portee"
-          v-model="rg.gitConnForm.portee"
-          :placeholder="
-            rg.gitConnForm.hote
-              ? rg.gitConnForm.hote + ' ou ' + rg.gitConnForm.hote + '/organisation'
-              : 'git.example.lan ou git.example.lan/organisation'
-          "
-          title="Tout l'hôte, une organisation ou un dépôt : le compte le plus précis sert."
-          class="set-input mt-0.5 font-mono"
-          data-portee
-        />
-        <div
-          v-if="rg.gitConnForm.niveaux.length > 1"
-          class="flex flex-wrap gap-1.5 mt-1.5"
-          role="group"
-          aria-label="Portées proposées"
-        >
+      <div v-if="rg.gitConnForm.niveaux.length">
+        <div id="git-portee-lbl" class="text-xs font-medium text-slate-500">Utiliser ce compte pour</div>
+        <div class="flex flex-wrap gap-1.5 mt-1" role="radiogroup" aria-labelledby="git-portee-lbl">
           <button
-            v-for="n in rg.gitConnForm.niveaux"
+            v-for="(n, i) in rg.gitConnForm.niveaux"
             :key="n"
             type="button"
-            class="px-2 py-0.5 text-xs rounded-md border font-mono transition-colors"
+            role="radio"
+            class="px-2 py-0.5 text-xs rounded-md border transition-colors"
             :class="
               rg.gitConnForm.portee === n
                 ? 'border-blue-300 bg-blue-50 text-blue-700'
                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
             "
-            :aria-pressed="rg.gitConnForm.portee === n ? 'true' : 'false'"
+            :aria-checked="rg.gitConnForm.portee === n ? 'true' : 'false'"
             data-niveau
             @click="rg.gitConnForm.portee = n"
           >
-            {{ n }}
+            <span class="font-mono">{{ n }}</span
+            ><template v-if="i === 0"> · tout le serveur</template>
           </button>
         </div>
       </div>
 
+      <div>
+        <label for="git-type" class="text-xs font-medium text-slate-500">Type de serveur</label>
+        <select
+          id="git-type"
+          v-model="rg.gitConnForm.provider_type"
+          class="set-select w-full mt-0.5"
+          @change="
+            rg.readGitConnUrl();
+            rg.parseGitRepoUrl();
+          "
+        >
+          <option v-for="t in rg.gitConnTypes" :key="t" :value="t">{{ nomTypeGit(t) }}</option>
+        </select>
+      </div>
+
       <div class="grid grid-cols-2 gap-2.5">
         <div>
-          <label class="text-xs font-medium text-slate-500">Login</label>
-          <input v-model="rg.gitConnForm.username" placeholder="utilisateur" class="set-input mt-0.5" />
+          <label for="git-identifiant" class="text-xs font-medium text-slate-500">Identifiant</label>
+          <input
+            id="git-identifiant"
+            v-model="rg.gitConnForm.username"
+            placeholder="utilisateur"
+            autocomplete="off"
+            class="set-input mt-0.5"
+          />
         </div>
         <div>
-          <label class="text-xs font-medium text-slate-500">{{
-            rg.gitConnForm.provider_type === "github" ? "Token (PAT)" : "Mot de passe / token"
+          <label for="git-jeton" class="text-xs font-medium text-slate-500">{{
+            rg.gitConnForm.provider_type === "github" ? "Jeton d'accès" : "Jeton ou mot de passe"
           }}</label>
           <input
+            id="git-jeton"
             v-model="rg.gitConnForm.token"
             type="password"
+            autocomplete="off"
             :placeholder="
-              rg.gitConnForm.id
-                ? 'vide = inchangé'
-                : rg.gitConnForm.provider_type === 'github'
-                  ? 'ghp_…'
-                  : 'mot de passe ou token'
+              rg.gitConnForm.id ? 'vide : inchangé' : rg.gitConnForm.provider_type === 'github' ? 'ghp_…' : ''
             "
             class="set-input mt-0.5"
           />
         </div>
       </div>
-      <input
-        v-model="rg.gitConnForm.label"
-        placeholder="Label (optionnel, ex. perso ou ci-bot)"
-        class="set-input"
-      />
+      <div>
+        <label for="git-nom" class="text-xs font-medium text-slate-500">Nom du compte (facultatif)</label>
+        <input
+          id="git-nom"
+          v-model="rg.gitConnForm.label"
+          placeholder="perso, robot…"
+          class="set-input mt-0.5"
+        />
+      </div>
 
       <button
         type="button"
         class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
         @click="rg.gitConnAdvanced = !rg.gitConnAdvanced"
       >
-        <i class="ph" :class="rg.gitConnAdvanced ? 'ph-minus' : 'ph-plus'"></i> Paramètres avancés
+        <i class="ph" :class="rg.gitConnAdvanced ? 'ph-minus' : 'ph-plus'"></i> Avancé
       </button>
       <div v-if="rg.gitConnAdvanced" class="space-y-2.5 pt-2 border-t border-blue-100">
         <div>
-          <label class="text-xs font-medium text-slate-500" title="Adresse de l'API de la forge (PR, test)"
-            >API</label
-          >
+          <label for="git-api" class="text-xs font-medium text-slate-500">URL de l'API</label>
           <input
+            id="git-api"
             v-model="rg.gitConnForm.api_base"
-            placeholder="http://git.example.lan:3000/api/v1 (Gitea/GitLab HTTP)"
-            class="set-input mt-0.5"
+            placeholder="http://git.example.lan:3000/api/v1"
+            aria-describedby="git-api-aide"
+            class="set-input mt-0.5 font-mono"
           />
+          <p id="git-api-aide" class="text-xs text-slate-500 mt-1 leading-snug">
+            Sert à lister vos dépôts et à tester le compte ; vide : déduite de l'URL.
+          </p>
         </div>
       </div>
       <div class="flex items-center gap-2 pt-1">

@@ -11,21 +11,36 @@ import type { Ref } from "vue";
 
 import type { ClientHttp } from "../../platform/http/client";
 import { valeurOuNull } from "../../platform/http/resultat";
-import { cibleCompte, lirePortee, niveauxPortee } from "../../utils/portee-git";
+import { cheminPourType, cibleCompte, lirePortee, niveauxPortee } from "../../utils/portee-git";
 
 export type { ConnecteurGit };
+
+/** Nom affiché d'un type de serveur Git. */
+const NOMS_TYPES: Readonly<Record<string, string>> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  "bitbucket-cloud": "Bitbucket Cloud",
+  "bitbucket-server": "Bitbucket Server",
+  gitea: "Gitea / Forgejo",
+  generic: "Autre serveur Git",
+};
+
+export function nomTypeGit(type: string): string {
+  return NOMS_TYPES[type] ?? type;
+}
 
 export interface FormulaireGit {
   id?: ConnecteurGit["id"];
   provider_type: string;
+  /** Champ « URL » : URL du serveur, d'une organisation ou d'un dépôt (sans schéma pour un compte modifié). */
   repo_url: string;
-  /** « S'applique à » : `hôte`, `hôte/organisation` ou `hôte/organisation/dépôt` ; vide pour un compte sans portée. */
+  /** « Utiliser ce compte pour » : `hôte`, `hôte/organisation` ou `hôte/organisation/dépôt` ; vide pour un compte sans portée. */
   portee: string;
   /** Portée à l'ouverture d'une modification : inchangée, ni l'hôte ni le chemin ne partent ; `null` : création. */
   depart: string | null;
-  /** Hôte du compte modifié (indice de saisie d'un compte sans portée). */
+  /** Hôte du compte modifié. */
   hote: string;
-  /** Portées proposées d'après l'URL collée, de tout l'hôte au dépôt. */
+  /** Portées proposées d'après l'URL, de tout le serveur au dépôt. */
   niveaux: string[];
   api_base: string;
   label: string;
@@ -82,16 +97,39 @@ export function setupGitConnecteurs(
     gitConnAdvanced.value = false;
   }
 
+  /** Portées qu'une URL permet, de tout le serveur au dépôt, dans la casse du type de serveur ; aucune si elle ne se lit pas. */
+  function niveauxDeLUrl(url: string, type: string): string[] {
+    const lu = lirePortee(url);
+    if (!lu) return [];
+    return niveauxPortee(cheminPourType(lu.path, type) || null).map((n) =>
+      cibleCompte({ host: lu.host, path: n }),
+    );
+  }
+
+  /** URL en cours de saisie : ses portées sont proposées ; celle choisie reste si l'URL la permet encore, sinon tout le serveur. */
+  function readGitConnUrl(): void {
+    const f = gitConnForm.value;
+    if (!f) return;
+    const rang = f.niveaux.indexOf(f.portee);
+    f.niveaux = niveauxDeLUrl(f.repo_url, f.provider_type);
+    // Même niveau gardé quand seule la casse change (autre type de serveur), sinon tout le serveur.
+    if (!f.niveaux.includes(f.portee))
+      f.portee =
+        f.niveaux.find((n, i) => i === rang && n.toLowerCase() === f.portee.toLowerCase()) ??
+        f.niveaux[0] ??
+        "";
+  }
+
   function editGitConnector(c: ConnecteurGit): void {
     const portee = c.path === null ? "" : cibleCompte(c);
     gitConnForm.value = {
       id: c.id,
       provider_type: c.provider_type,
-      repo_url: "",
+      repo_url: portee || c.host,
       portee,
       depart: portee,
       hote: c.host,
-      niveaux: [],
+      niveaux: niveauxDeLUrl(portee || c.host, c.provider_type),
       api_base: c.api_base || "",
       label: c.label || "",
       username: c.username || "",
@@ -104,10 +142,11 @@ export function setupGitConnecteurs(
     gitConnForm.value = null;
   };
 
+  /** Création : le serveur reconnaît le type et l'API d'après l'URL (et lit les formes que la saisie locale ne lit pas, SSH comprise) ; un compte modifié garde les siens. */
   async function parseGitRepoUrl(): Promise<void> {
     const f = gitConnForm.value;
     const url = (f?.repo_url || "").trim();
-    if (!f || !url) return;
+    if (!f || !url || f.id) return;
     const d = valeurOuNull(
       await http.requete("/api/git/connectors/parse", json("POST", { url, provider_type: f.provider_type }), {
         schema: schemaReponseAnalyseUrlGit,
@@ -117,9 +156,12 @@ export function setupGitConnecteurs(
     if (d.detected_provider_type && d.detected_provider_type !== "generic")
       f.provider_type = d.detected_provider_type;
     if (d.host) {
-      const garde = lirePortee(f.portee);
+      // Niveau choisi pendant l'analyse : gardé à son rang si seule la casse change, sinon tout le serveur.
+      const rang = f.niveaux.indexOf(f.portee);
+      const choisi = f.portee.toLowerCase();
       f.niveaux = niveauxPortee(d.path || null).map((n) => cibleCompte({ host: d.host, path: n }));
-      if (garde?.host !== d.host || !f.niveaux.includes(f.portee)) f.portee = d.host;
+      if (!f.niveaux.includes(f.portee))
+        f.portee = f.niveaux.find((n, i) => i === rang && n.toLowerCase() === choisi) ?? d.host;
     }
     if (d.api_base) f.api_base = d.api_base;
   }
@@ -132,14 +174,11 @@ export function setupGitConnecteurs(
     const inchangee = edition && (f.portee || "").trim() === (f.depart ?? "");
     let portee: { host: string; path: string } | null = null;
     if (!inchangee) {
-      const saisie = (f.portee || "").trim() || (f.repo_url || "").trim();
-      if (!saisie) {
-        toast("URL du dépôt ou hôte requis", "error");
-        return;
-      }
-      portee = (f.portee || "").trim() ? lirePortee(f.portee) : { host: saisie, path: "" };
+      // Enregistrement sans que le champ ait été relu (saisie puis clic immédiat).
+      if (!(f.portee || "").trim()) readGitConnUrl();
+      portee = lirePortee(f.portee || "");
       if (portee === null) {
-        toast("Portée invalide : hôte, hôte/organisation ou hôte/organisation/dépôt", "error");
+        toast((f.repo_url || "").trim() ? "URL non reconnue" : "URL requise", "error");
         return;
       }
     }
@@ -229,5 +268,6 @@ export function setupGitConnecteurs(
     deleteGitConnector,
     testGitConnector,
     parseGitRepoUrl,
+    readGitConnUrl,
   };
 }

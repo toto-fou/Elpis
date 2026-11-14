@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/connecteurs-git.ts — Paramètres › Secrets › Comptes Git : accès par hôte du compte (`/api/git/connectors*`), jeton en écriture seule. */
+/** frontend/src/features/reglages/connecteurs-git.ts — Paramètres › Secrets › Comptes Git : comptes du compte (`/api/git/connectors*`), chacun pour un hôte, une organisation ou un dépôt, jeton en écriture seule. */
 import {
   schemaReponseAnalyseUrlGit,
   schemaReponseConnecteursGit,
@@ -11,6 +11,7 @@ import type { Ref } from "vue";
 
 import type { ClientHttp } from "../../platform/http/client";
 import { valeurOuNull } from "../../platform/http/resultat";
+import { cibleCompte, lirePortee, niveauxPortee } from "./portee-git";
 
 export type { ConnecteurGit };
 
@@ -18,7 +19,10 @@ export interface FormulaireGit {
   id?: ConnecteurGit["id"];
   provider_type: string;
   repo_url: string;
-  host: string;
+  /** « S'applique à » : `hôte`, `hôte/organisation` ou `hôte/organisation/dépôt`. */
+  portee: string;
+  /** Portées proposées d'après l'URL collée, de tout l'hôte au dépôt. */
+  niveaux: string[];
   api_base: string;
   label: string;
   username: string;
@@ -62,7 +66,8 @@ export function setupGitConnecteurs(
     gitConnForm.value = {
       provider_type: "github",
       repo_url: "",
-      host: "",
+      portee: "",
+      niveaux: [],
       api_base: "",
       label: "",
       username: "",
@@ -76,7 +81,8 @@ export function setupGitConnecteurs(
       id: c.id,
       provider_type: c.provider_type,
       repo_url: "",
-      host: c.host,
+      portee: cibleCompte(c),
+      niveaux: [],
       api_base: c.api_base || "",
       label: c.label || "",
       username: c.username || "",
@@ -101,20 +107,29 @@ export function setupGitConnecteurs(
     if (!d?.ok) return;
     if (d.detected_provider_type && d.detected_provider_type !== "generic")
       f.provider_type = d.detected_provider_type;
-    if (d.host) f.host = d.host;
+    if (d.host) {
+      const garde = lirePortee(f.portee);
+      f.niveaux = niveauxPortee(d.path || null).map((n) => cibleCompte({ host: d.host, path: n }));
+      if (garde?.host !== d.host || !f.niveaux.includes(f.portee)) f.portee = d.host;
+    }
     if (d.api_base) f.api_base = d.api_base;
   }
 
   async function saveGitConnector(): Promise<void> {
     const f = gitConnForm.value;
     if (!f) return;
-    const host = (f.host || "").trim() || (f.repo_url || "").trim();
-    if (!host) {
-      toast("URL du dépôt (ou host) requise", "error");
+    const saisie = (f.portee || "").trim() || (f.repo_url || "").trim();
+    if (!saisie) {
+      toast("URL du dépôt ou hôte requis", "error");
+      return;
+    }
+    const portee = (f.portee || "").trim() ? lirePortee(f.portee) : { host: saisie, path: "" };
+    if (portee === null) {
+      toast("Portée invalide : hôte, hôte/organisation ou hôte/organisation/dépôt", "error");
       return;
     }
     if (!f.id && !(f.token || "").trim()) {
-      toast("Token / mot de passe requis", "error");
+      toast("Jeton ou mot de passe requis", "error");
       return;
     }
     gitConnBusy.value = true;
@@ -122,7 +137,8 @@ export function setupGitConnecteurs(
       const edition = !!f.id;
       const corps: Record<string, string> = {
         provider_type: f.provider_type,
-        host,
+        host: portee.host,
+        path: portee.path,
         api_base: (f.api_base || "").trim(),
         label: (f.label || "").trim(),
         username: (f.username || "").trim(),
@@ -152,7 +168,7 @@ export function setupGitConnecteurs(
   async function deleteGitConnector(c: ConnecteurGit): Promise<void> {
     const ok = await ctx?.openConfirm?.(
       "Supprimer le compte ?",
-      c.provider_type + " · " + c.host + (c.label ? " · " + c.label : ""),
+      c.provider_type + " · " + cibleCompte(c) + (c.label ? " · " + c.label : ""),
       true,
     );
     if (!ok) return;

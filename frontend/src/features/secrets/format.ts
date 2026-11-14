@@ -102,11 +102,12 @@ export function messageSecret(code: string | null, detail: string | null): strin
   return nom ? `${nom} : ${texte}` : capitale(texte);
 }
 
-/** Portée lisible : origines, hôte, connecteur ou serveur ; vide pour un jeton. */
+/** Portée lisible : origines, hôte (avec son chemin d'organisation ou de dépôt), connecteur ou serveur ; vide pour un jeton. */
 export function porteeTexte(s: Pick<Secret, "scope">): string[] {
   const p = s.scope as Record<string, unknown>;
   if (Array.isArray(p["origins"])) return p["origins"].filter((o): o is string => typeof o === "string");
-  if (typeof p["host"] === "string") return [p["host"]];
+  if (typeof p["host"] === "string")
+    return [typeof p["path"] === "string" && p["path"] ? `${p["host"]}/${p["path"]}` : p["host"]];
   if (typeof p["connector_id"] === "number") return [`connector_id=${p["connector_id"]}`];
   if (typeof p["server"] === "string") return [`server=${p["server"]}`];
   return [];

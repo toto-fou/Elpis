@@ -8,6 +8,14 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Git accounts for an organization or a repository.** An account now says what it applies
+  to: a whole host, an organization (`github.com/acme`) or one repository
+  (`github.com/acme/api`). Several accounts can share a host and the most specific one that
+  covers a repository is used, so a fine-grained token works next to a personal one. The
+  path is part of the vault scope of the token: narrowing keeps the token, widening asks
+  for it again. Before, the account of a host was the one used last. On upgrade, when
+  several accounts share a host, the most recently used keeps the host and the others are
+  marked *sans portée* until they are given a path (migration `0030_git_account_scope`).
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
   to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is

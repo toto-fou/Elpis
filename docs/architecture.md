@@ -2119,21 +2119,35 @@ there is no read-modify-write race. `sandbox_mode` and
 **Connectors** (`/api/git/connectors`, Settings › Secrets › Git accounts): CRUD, `POST /parse` (detect the
 service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
 
-- **Host-only** store, keyed by `(owner_user_id, host[, label])` → self-hosted +
-  multi-account.
+- An account applies to a **host**, optionally narrowed to a **path** (`git_connectors.path`):
+  `''` for the whole host, an organization (`acme`) or a repository (`acme/api`; nested groups
+  allowed), `NULL` for an account with no scope (inactive: migration `0030_git_account_scope`
+  leaves it so when several accounts shared a host, and gives the host to the most recently
+  used). Unique per `(owner_user_id, host, path)`; the label is free text. A path is plain
+  lower-case segments (`[a-z0-9._~-]`, no `.git`, eight at most; `cheminDepot`,
+  `apps/core/src/secrets/portee.ts`).
+- **Resolution** (`compteDuDepot`): among the accounts of the exact host of the remote, the one
+  with the longest path that covers the repository path on a segment boundary; none covers it:
+  no credential. A repository path that is not plain segments (query, percent-encoding, dot
+  segments) is only covered by a whole-host account.
 - The token lives in the [secrets vault](#secrets-vault): one `git` secret per connector, scope
-  `{"host": "<host[:port]>"}`, named `git-<host>-<label>` (slug, suffixed when taken), linked by
+  `{"host": "<host[:port]>"}` or `{"host": …, "path": "<path>"}`, named
+  `git-<host>-<path>-<label>` (slug, suffixed when taken), linked by
   `git_connectors.secret_id`; `token_enc` stays empty and `token_scheme` is `vault`. The `token`
   field of `POST`/`PUT` is write-only (empty = unchanged); changing the host, the provider type or
   the API base so that the effective API (`getProvider(type).apiBase(host, api_base)`) changes,
   without a new token, clears the token (its secret, or a plain `token_enc` not migrated yet): a
-  token never follows an account to another host or API. Deleting the connector deletes its
-  secret. `has_token` is true only when the secret is a `git` secret for that host, active (not
-  `unverified`) and decryptable with the current key.
+  token never follows an account to another host or API. Narrowing the path keeps the token;
+  a path that the old one does not cover is a wider scope for the vault, refused without the
+  token (`secret_value_required`, 400 on these routes). Deleting the connector deletes its
+  secret. `has_token` is true only when the secret is a `git` secret for that host and path,
+  active (not `unverified`) and decryptable with the current key.
 - The token is **never** returned by the listing. It is read only through `lireSecretPourUsage`
   (`resolveGitCredential` and `jetonDuConnecteur`, `apps/core/src/git/connecteurs.ts`), which checks
   kind, state, scope and policy, counts the use and writes `vault.secret.used` (a refusal,
-  `vault.secret.refused`): connection test, repository list, PR opening, and
+  `vault.secret.refused`); the target is `<host>/<repository path>`, so the vault itself refuses
+  a repository outside the secret's path even if the connector row says otherwise: connection
+  test, repository list (limited to the account's path), PR opening, and
   `GET /api/internal/git/credential` for the tool host, which takes the account from the signed
   identity (`X-Elpis-Identity`), never from the query. The tool host signs, with the account, the
   conversation (`chat_id`) and the sub-agent of the tool call taken from its `_meta`; the core
@@ -2152,7 +2166,10 @@ service from a URL), `POST /{id}/test`, `GET /{id}/repos`.
   Settings › Secrets › Git accounts.
 - No tool receives a credential: a token is entered by the user, in Settings › Secrets › Git accounts or in
   the editor's clone and push/pull dialogs (a token typed at clone time is saved through the
-  internal route, origin `editeur`; push and pull never save it).
+  internal route, origin `editeur`, for the scope chosen in the dialog (`cred_scope`); without
+  one: the path-scoped account that covers the repository, the whole host when no account has
+  it, otherwise the repository's parent path, never over a whole-host account; push and pull
+  never save it).
 - Providers: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Each one can open a PR/MR.
 - **Anti-SSRF** (`packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts`)
@@ -3726,7 +3743,8 @@ image engine key (instance `token` `image-engine`) belong to their connector: `D
 secret. The rotation routes refuse an `mcp` secret too (its value is the server's JSON).
 
 **Git accounts.** Each Git connector keeps its token in a `git` secret of its owner (scope: the
-connector's host), linked by `git_connectors.secret_id`; see
+connector's host, and its organization or repository path when it has one), linked by
+`git_connectors.secret_id`; see
 [Sandbox Git and Git connectors](#sandbox-git-and-git-connectors). Git secrets are created with
 `{"subagents": true, "routines": true}`, as connectors were usable by both before the vault; they
 are listed by `/api/secrets` like the others.

@@ -20,8 +20,11 @@ export interface ProgressionImport {
 
 export interface ConnecteurGit {
   id: string | number;
-  host?: string;
+  host: string;
+  /** `""` : tout l'hôte ; chemin d'une organisation ou d'un dépôt ; `null` : sans portée (inactif). */
+  path: string | null;
   label?: string;
+  has_token?: boolean;
   [cle: string]: unknown;
 }
 

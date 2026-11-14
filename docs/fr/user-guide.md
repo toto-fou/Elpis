@@ -1333,7 +1333,16 @@ Paramètres → **Secrets** → **Comptes Git** : enregistrez vos accès aux for
 GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
 
 - Collez simplement l'URL d'un dépôt : le service et l'hôte sont détectés.
-- **Tester** valide le jeton et liste les dépôts accessibles.
+- **S'applique à** dit où le compte sert : tout un hôte (`github.com`), une organisation
+  (`github.com/acme`) ou un seul dépôt (`github.com/acme/api`). L'URL collée propose les trois
+  niveaux. Plusieurs comptes peuvent partager un hôte ; pour un dépôt, c'est le plus précis qui le
+  couvre qui sert : un jeton personnel pour l'hôte et un jeton limité à une organisation ou à un
+  dépôt cohabitent. Deux comptes ne peuvent pas s'appliquer exactement au même endroit.
+- Réduire ce à quoi un compte s'applique garde son jeton ; l'élargir ou le déplacer le redemande.
+- Un compte marqué *sans portée* (deux comptes partageaient un hôte avant cette version) ne sert
+  pas tant que vous n'avez pas dit à quoi il s'applique.
+- **Tester** valide le jeton ; la fenêtre de clonage de l'éditeur liste les dépôts du compte, dans
+  la limite de ce à quoi il s'applique.
 - Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais
   écrit dans votre sandbox, jamais renvoyé à votre navigateur, jamais montré à
   l'assistant. Laissez le champ vide en modifiant un compte pour garder le

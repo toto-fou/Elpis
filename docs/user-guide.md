@@ -1385,7 +1385,17 @@ Settings → **Secrets** → **Git accounts**: register your access to code host
 GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 
 - Just paste a repository URL: the service and host are detected.
-- **Test connection** validates the token and lists the accessible repositories.
+- **Applies to** says where the account is used: a whole host (`github.com`), an organization
+  (`github.com/acme`) or one repository (`github.com/acme/api`). The pasted URL offers the three
+  levels. Several accounts can share a host; for a repository, the most specific one that covers
+  it is used, so a personal token for the host and a token limited to an organization or a
+  repository work side by side. Two accounts cannot apply to exactly the same place.
+- Narrowing where an account applies keeps its token; widening or moving it asks for the token
+  again.
+- An account marked *sans portée* (two accounts shared a host before this version) is not used
+  until you say what it applies to.
+- **Test connection** validates the token; the editor's clone window lists the repositories of the
+  account, within what it applies to.
 - The token is stored **encrypted in the server's secrets vault** — never written
   to your sandbox, never sent back to your browser, never shown to the assistant.
   Leave the field empty when editing an account to keep the current token.

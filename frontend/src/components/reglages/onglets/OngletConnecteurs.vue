@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes par hôte, jeton en écriture seule. -->
+<!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes pour un hôte, une organisation ou un dépôt, jeton en écriture seule. -->
 <script setup lang="ts">
 import { domaineReglages } from "../../../features/reglages/domaine";
+import { cibleCompte } from "../../../features/reglages/portee-git";
 
 const rg = domaineReglages();
 </script>
@@ -14,8 +15,16 @@ const rg = domaineReglages();
         <div class="flex items-center gap-3">
           <i class="ph ph-git-branch text-lg text-slate-400 shrink-0"></i>
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-slate-800 truncate">
-              {{ c.host }}<span v-if="c.label" class="text-slate-500 font-normal"> · {{ c.label }}</span>
+            <div class="text-sm font-medium text-slate-800 truncate" data-portee-compte>
+              {{ cibleCompte(c)
+              }}<span v-if="c.label" class="text-slate-500 font-normal"> · {{ c.label }}</span>
+              <span
+                v-if="c.path === null"
+                class="ml-1.5 text-xs font-normal text-amber-600"
+                title="Ce compte ne sert à aucun dépôt : indiquez à quoi il s'applique."
+                data-sans-portee
+                >sans portée</span
+              >
             </div>
             <div class="text-xs text-slate-500">
               {{ c.provider_type }}<span v-if="c.username"> · {{ c.username }}</span>
@@ -99,9 +108,41 @@ const rg = domaineReglages();
           @change="rg.parseGitRepoUrl()"
           @blur="rg.parseGitRepoUrl()"
         />
-        <p v-if="rg.gitConnForm.host" class="text-xs text-slate-500 mt-1">
-          Hôte détecté : <span class="font-mono text-slate-600">{{ rg.gitConnForm.host }}</span>
-        </p>
+      </div>
+
+      <div>
+        <label for="git-portee" class="text-xs font-medium text-slate-500">S'applique à</label>
+        <input
+          id="git-portee"
+          v-model="rg.gitConnForm.portee"
+          placeholder="git.example.lan ou git.example.lan/organisation"
+          title="Tout l'hôte, une organisation ou un dépôt : le compte le plus précis sert."
+          class="set-input mt-0.5 font-mono"
+          data-portee
+        />
+        <div
+          v-if="rg.gitConnForm.niveaux.length > 1"
+          class="flex flex-wrap gap-1.5 mt-1.5"
+          role="group"
+          aria-label="Portées proposées"
+        >
+          <button
+            v-for="n in rg.gitConnForm.niveaux"
+            :key="n"
+            type="button"
+            class="px-2 py-0.5 text-xs rounded-md border font-mono transition-colors"
+            :class="
+              rg.gitConnForm.portee === n
+                ? 'border-blue-300 bg-blue-50 text-blue-700'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            "
+            :aria-pressed="rg.gitConnForm.portee === n ? 'true' : 'false'"
+            data-niveau
+            @click="rg.gitConnForm.portee = n"
+          >
+            {{ n }}
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-2.5">
@@ -142,15 +183,9 @@ const rg = domaineReglages();
       </button>
       <div v-if="rg.gitConnAdvanced" class="space-y-2.5 pt-2 border-t border-blue-100">
         <div>
-          <label class="text-xs font-medium text-slate-500">host (override)</label>
-          <input
-            v-model="rg.gitConnForm.host"
-            placeholder="git.example.lan:3000 (host:port, sans http://)"
-            class="set-input mt-0.5"
-          />
-        </div>
-        <div>
-          <label class="text-xs font-medium text-slate-500">api_base (PR / test)</label>
+          <label class="text-xs font-medium text-slate-500" title="Adresse de l'API de la forge (PR, test)"
+            >API</label
+          >
           <input
             v-model="rg.gitConnForm.api_base"
             placeholder="http://git.example.lan:3000/api/v1 (Gitea/GitLab HTTP)"

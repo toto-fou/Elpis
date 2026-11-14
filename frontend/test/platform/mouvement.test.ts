@@ -147,8 +147,10 @@ describe("mémoire du navigateur", () => {
 });
 
 describe("feuilles de style", () => {
-  it("« système », ou un choix d'accord avec le poste : aucune requête média n'est touchée", () => {
+  it("« système », ou un choix d'accord avec le poste : aucune requête média touchée, aucune veille posée", () => {
     poserFeuille();
+    const veilles = vi.spyOn(MutationObserver.prototype, "observe");
+    const ecoutes = vi.spyOn(document, "addEventListener");
     for (const [reduit, choix] of [
       [true, "system"],
       [false, "system"],
@@ -159,6 +161,25 @@ describe("feuilles de style", () => {
       definirMouvement(choix);
       expect(medias()).toEqual(ORIGINE);
     }
+    expect(veilles).not.toHaveBeenCalled();
+    expect(ecoutes).not.toHaveBeenCalled();
+  });
+
+  it("la veille des feuilles à venir n'existe que pendant l'inversion", () => {
+    poste(true);
+    poserFeuille();
+    const veilles = vi.spyOn(MutationObserver.prototype, "observe");
+    const fins = vi.spyOn(MutationObserver.prototype, "disconnect");
+    const ecoutes = vi.spyOn(document, "addEventListener");
+    const retraits = vi.spyOn(document, "removeEventListener");
+    definirMouvement("full");
+    definirMouvement("full");
+    expect(veilles).toHaveBeenCalledTimes(1);
+    expect(ecoutes.mock.calls.map(([type]) => type)).toEqual(["load"]);
+    definirMouvement("reduced");
+    expect(fins).toHaveBeenCalledTimes(1);
+    expect(retraits.mock.calls.map(([type]) => type)).toEqual(["load"]);
+    expect(medias()).toEqual(ORIGINE);
   });
 
   it("« complètes » sur un poste qui réduit, « réduites » sur un poste qui ne réduit pas : requêtes inversées, les autres intactes", () => {

@@ -204,7 +204,10 @@ De facto scale, to follow so a new layer finds its place:
   workstation, `platform/mouvement.ts` inverts that media feature in every
   loaded sheet (skins included) and restores it otherwise, so a sheet needs
   nothing more than the two media blocks above. Code never reads the media
-  query itself: it calls `mouvementReduit()`.
+  query itself: it calls `mouvementReduit()`. Limits: a motion rule added with
+  `insertRule`, or a `<style>` outside `<head>`, is not seen (none exists); the
+  code editor's own animations (search panel, folding icons) keep following the
+  workstation.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.
 

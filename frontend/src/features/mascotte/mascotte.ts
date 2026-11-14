@@ -374,12 +374,9 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
     }
   });
 
-  watch(
-    () => [(settings.value || {}).welcome_mascot_anime, mouvementReduit.value],
-    () => {
-      if (accueilHote.value) void monterScene(false);
-    },
-  );
+  watch([() => (settings.value || {}).welcome_mascot_anime, mouvementReduit], () => {
+    if (accueilHote.value) void monterScene(false);
+  });
 
   watch(
     () => {

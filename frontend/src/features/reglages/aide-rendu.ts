@@ -24,14 +24,27 @@ const FERMETURE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
 const TITRE = /^#{1,6}(?:[ \t]|$)/;
 const ELEMENT_LISTE = /^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)/;
 const DEFINITION_LIEN = /^ {0,3}\[[^\]\n]+\]:/m;
+const BALISE_EN_TETE = /^ {0,3}<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)/;
+const BALISES_VIDES = new Set(
+  "area base br col embed hr img input link meta param source track wbr".split(" "),
+);
 
-/** Découpe aux seules frontières qui ne changent pas le rendu (hors bloc de code, une ligne sans retrait ni puce après une ligne vide, ou un titre) ; un texte à liens de référence reste entier. */
+// Balises `nom` ouvertes moins fermées sur la ligne (une balise vide ou auto-fermée ne compte pas).
+function profondeur(ligne: string, nom: string): number {
+  const ouvertes = ligne.match(new RegExp("<" + nom + "(?=[\\s>])[^>]*(?<!/)>", "gi"))?.length ?? 0;
+  return ouvertes - (ligne.match(new RegExp("</" + nom + "\\s*>", "gi"))?.length ?? 0);
+}
+
+/** Découpe aux seules frontières qui ne changent pas le rendu (hors bloc de code, commentaire ou élément HTML ouvert : une ligne sans retrait ni puce après une ligne vide, ou un titre) ; un texte à liens de référence reste entier. */
 export function decouperGuide(texte: string, taille = TAILLE_MORCEAU, premier = TAILLE_PREMIER): string[] {
   const src = texte.replace(/\r\n?/g, "\n");
   if (DEFINITION_LIEN.test(src)) return [src];
   const morceaux: string[] = [];
   let debut = 0;
   let fence = "";
+  let commentaire = false;
+  let balise = "";
+  let ouvertes = 0;
   let vide = false;
   for (let i = 0; i < src.length;) {
     const nl = src.indexOf("\n", i);
@@ -40,6 +53,10 @@ export function decouperGuide(texte: string, taille = TAILLE_MORCEAU, premier = 
     if (fence) {
       const f = FERMETURE.exec(ligne)?.[1];
       if (f && f[0] === fence[0] && f.length >= fence.length) fence = "";
+    } else if (commentaire) commentaire = !ligne.includes("-->");
+    else if (balise) {
+      ouvertes += profondeur(ligne, balise);
+      if (ouvertes <= 0) balise = "";
     } else {
       const coupe = /^\S/.test(ligne) && !ELEMENT_LISTE.test(ligne) && (vide || TITRE.test(ligne));
       if (coupe && i - debut >= (morceaux.length ? taille : premier)) {
@@ -47,8 +64,15 @@ export function decouperGuide(texte: string, taille = TAILLE_MORCEAU, premier = 
         debut = i;
       }
       fence = OUVERTURE.exec(ligne)?.[1] ?? "";
-      vide = !ligne.trim();
+      const debutCommentaire = /^ {0,3}<!--/.exec(ligne);
+      commentaire = !!debutCommentaire && !ligne.includes("-->", debutCommentaire[0].length);
+      const nom = BALISE_EN_TETE.exec(ligne)?.[1]?.toLowerCase();
+      if (nom && !BALISES_VIDES.has(nom)) {
+        ouvertes = profondeur(ligne, nom);
+        if (ouvertes > 0) balise = nom;
+      }
     }
+    vide = !ligne.trim();
     i = fin + 1;
   }
   morceaux.push(src.slice(debut));

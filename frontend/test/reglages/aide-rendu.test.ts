@@ -113,6 +113,28 @@ describe("découpe du guide", () => {
     expect(decouperGuide("A\n\n```x``` y\n\n# T\n", 1, 1)).toEqual(["A\n\n", "```x``` y\n\n", "# T\n"]);
   });
 
+  it("ne coupe ni dans un commentaire ni dans un élément HTML ouverts sur plusieurs paragraphes", () => {
+    const long = "Long paragraphe " + "y".repeat(2100) + "\n";
+    for (const bloc of [
+      "<details>\n<summary>Voir</summary>\n\nTexte replié\n\n</details>\n",
+      "<!--\nnote interne\n\nNe pas publier\n\n-->\n",
+      "<div>\n<div>Dedans</div>\n\nToujours dedans\n\n</div>\n",
+    ]) {
+      const texte = long + bloc + "\nFin\n";
+      expect(decouperGuide(texte, 2000).filter((m) => m.includes(bloc)).length, bloc).toBe(1);
+      const { corps } = poser(texte);
+      toutPoser(guides[guides.length - 1]!);
+      expect(deballe(corps)).toBe(normalise(moteurMarkdown().renderMarkdown(texte)));
+    }
+    expect(decouperGuide('A\n\n<a id="x"></a>\n\nB\n\n<br>\n\nC\n', 1, 1)).toEqual([
+      "A\n\n",
+      '<a id="x"></a>\n\n',
+      "B\n\n",
+      "<br>\n\n",
+      "C\n",
+    ]);
+  });
+
   it("un texte à liens de référence reste entier", () => {
     const texte = "# A\n\nVoir [la suite][s].\n\n## B\n\n[s]: https://exemple.org\n";
     expect(decouperGuide(texte, 1, 1)).toEqual([texte]);

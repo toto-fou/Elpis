@@ -45,15 +45,14 @@ try {
     await autre.waitForFunction(() => document.body.innerText.includes('OCCUPE-LE-CRENEAU'), null, { timeout: 15000 }).catch(() => {});
     await ouvrir(page, b);
     await envoyer(page, 'Je passe après.');
+    // Le bandeau « n requête(s) en cours » a été retiré du produit : le tour en attente se reconnaît à son bouton Arrêter.
     const bandeau = page.locator('#app [role="status"]:has-text("requête(s) en cours")');
-    await bandeau.first().waitFor({ timeout: 15000 }).catch(() => {});
-    v.ok('tour en attente : bandeau de file affiché', await bandeau.count() >= 1);
-    v.ok('tour en attente : bouton Arrêter présent', await page.locator(EN_STREAM).count() === 1);
+    await page.locator(EN_STREAM).first().waitFor({ timeout: 15000 }).catch(() => {});
+    v.ok('tour en attente : bouton Arrêter présent, aucun bandeau de file', await page.locator(EN_STREAM).count() === 1 && await bandeau.count() === 0);
     const copiesAvant = await page.locator(COPIER).count();
     await page.locator(EN_STREAM).first().click();
     await page.waitForSelector(EN_STREAM, { state: 'detached', timeout: 10000 }).catch(() => {});
     await pause(900);
-    v.ok('après Stop : bandeau de file retiré', await bandeau.count() === 0);
     v.ok('après Stop : composeur rendu, plus de bouton Arrêter', await page.locator(ENVOYER).count() >= 1 && await page.locator(EN_STREAM).count() === 0);
     v.ok('après Stop : aucune ligne « en cours » résiduelle', !(await page.evaluate(() => document.body.innerText)).includes('Génération en cours'));
     v.ok('après Stop : annulation envoyée au core', annulations.length >= 1);

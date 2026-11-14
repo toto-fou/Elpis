@@ -71,8 +71,8 @@ try {
     const interrupteur = panneau.getByRole('switch', { name: 'Raisonnement conservé' });
     v.ok('« Raisonnement conservé » affiché, actif par défaut, sans bandeau « non chargé »', await bascule.count() === 1 && /Activé · la réflexion déjà produite est rendue au modèle/.test(textePanneau)
         && await interrupteur.isChecked().catch(() => false) && !/Modèle non chargé/.test(textePanneau), `${await bascule.count()} ${textePanneau.slice(0, 300)}`);
-    v.ok('panneau : sections Réponse, Réflexion, Outils et Avancé, portée « Pour ce chat »', /Pour ce chat · Faux Modele/.test(textePanneau)
-        && (await panneau.locator('section h4').allTextContents()).join('|') === 'Réponse|Réflexion|Outils' && /Avancé/.test(textePanneau), textePanneau.slice(0, 200));
+    v.ok('panneau : sections Contexte, Sortie, Réflexion, Outils et Avancé, portée « Vos réglages »', /Vos réglages · Faux Modele/.test(textePanneau)
+        && (await panneau.locator('section h4').allTextContents()).join('|') === 'Contexte|Sortie|Réflexion|Outils' && /Avancé/.test(textePanneau), `${(await panneau.locator('section h4').allTextContents()).join('|')} ${textePanneau.slice(0, 120)}`);
     const t2 = await envoyer('tour par défaut');
     v.ok('défaut : preserve_reasoning jamais envoyé (prompt historique intact)', (t2.corps.sampling_override || {}).preserve_reasoning === undefined);
     await bascule.click();

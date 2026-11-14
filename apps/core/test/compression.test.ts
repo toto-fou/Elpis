@@ -184,7 +184,7 @@ describe("JSON compressé à la volée", () => {
 
 describe("HTTP direct, sans Fetch Metadata (installation par défaut sur le réseau local)", () => {
   const LAN = { host: "lan.test:8001", referer: "http://lan.test:8001/", "accept-encoding": "gzip, deflate" };
-  const depuis = (headers: Record<string, string>, remoteAddress = "192.168.1.20") =>
+  const depuis = (headers: Record<string, string>, remoteAddress = "192.168.50.20") =>
     app.inject({ method: "GET", url: "/gros", headers, remoteAddress });
 
   it("Referer d'une de nos pages, connexion en clair sans mandataire : compressé", async () => {
@@ -240,7 +240,7 @@ describe("HTTP direct, sans Fetch Metadata (installation par défaut sur le rés
       restaurer();
     }
     const avant = process.env["ACCESS_LOG_TRUSTED_PROXIES"];
-    process.env["ACCESS_LOG_TRUSTED_PROXIES"] = "192.168.1.0/24";
+    process.env["ACCESS_LOG_TRUSTED_PROXIES"] = "192.168.50.0/24";
     const derriere = await appTest({
       familles: [
         {
@@ -262,7 +262,7 @@ describe("HTTP direct, sans Fetch Metadata (installation par défaut sur le rés
         method: "GET",
         url: "/gros",
         headers: LAN,
-        remoteAddress: "192.168.1.20",
+        remoteAddress: "192.168.50.20",
       });
       expect(r.headers["content-encoding"]).toBeUndefined();
     } finally {

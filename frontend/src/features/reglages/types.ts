@@ -173,7 +173,6 @@ export interface CtxReglages {
   autoResize?(): unknown;
   openTemplate?(template: unknown): unknown;
   stopSpeaking?(): unknown;
-  addCodeCopyButtons?(complet: boolean, racine: HTMLElement): unknown;
 }
 
 /** Résultat d'une persistance ciblée : succès ou non, avec rejouer en cas d'échec. */

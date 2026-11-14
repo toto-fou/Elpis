@@ -347,9 +347,6 @@ function creerCtx(l: LiensCtx) {
     get selectedModel() {
       return m.chat ? m.chat.selectedModel : null;
     },
-    addCodeCopyButtons(complet: boolean, racine: HTMLElement): unknown {
-      return m.chat ? m.chat.addCodeCopyButtons(complet, racine) : null;
-    },
     checkAuth(): Promise<unknown> {
       return m.auth ? m.auth.checkAuth() : Promise.resolve();
     },

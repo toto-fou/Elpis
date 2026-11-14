@@ -62,6 +62,7 @@ import { emit } from "./evenements";
 import { executeToolBatch } from "./execution-outils";
 import type { RappelsOutil } from "./execution-outils";
 import { executionEnCours, metriqueOutil, portJobsBoucle, portVisionBureau, tokenHex } from "./ports";
+import type { PortVisionBureau } from "./ports";
 import type { LoopDeps, RunContext, RunRecord } from "./run";
 import type { LiveText } from "./texte-direct";
 
@@ -552,6 +553,22 @@ async function ensureLocalAsset(
   }
 }
 
+/** Capture de la vision rendue par `pw_page inspect`, rapatriée par le relais et gardée pour l'image du tour ; sans elle, aucune image (jamais une périmée). */
+async function suivreVisionPw(
+  port: PortVisionBureau,
+  userId: number | null,
+  chatKey: string,
+  args: unknown,
+  resultat: string,
+): Promise<void> {
+  port.clearLastScreenshotFor(chatKey);
+  const nom = port.extractPwVisionCapture("pw_page", args, resultat);
+  if (nom === null) return;
+  const chemin = path.join(process.env["PW_SCREENS_DIR"] || "/tmp/pw_screens", nom);
+  if (await ensureLocalAsset(userId, chemin, `/api/playwright/screenshot/${nom}`))
+    await port.trackLastScreenshotForVision(chatKey, chemin);
+}
+
 async function prefetchDesktopFrame(
   userId: number | null,
   toolName: string,
@@ -569,7 +586,7 @@ async function prefetchDesktopFrame(
   await ensureLocalAsset(userId, port.desktopFramePath(strPy(tok)), `/api/desktop/frame/${strPy(tok)}`);
 }
 
-/** `_meta` d'un appel d'outil LOCAL (identité hors des arguments) ; `null` pour un serveur externe. */
+/** `_meta` d'un appel d'outil LOCAL (identité hors des arguments, captures demandées au navigateur) ; `null` pour un serveur externe. */
 export function buildCallMeta(o: {
   isLocal: boolean;
   username: string;
@@ -579,12 +596,16 @@ export function buildCallMeta(o: {
   runLogTok: string;
   userId?: number | null;
   subagent?: SousAgent | null;
+  webCaptures?: boolean;
+  vision?: boolean;
 }): Dict | null {
   if (!o.isLocal) return null;
   const meta: Dict = { username: o.username };
   if (o.userId) meta["user_id"] = strPy(Math.trunc(o.userId));
   if (o.chatId) meta["chat_id"] = strPy(o.chatId);
   if (o.liveShell) meta["live_shell"] = "1";
+  if (o.webCaptures) meta["web_captures"] = "1";
+  if (o.vision) meta["vision"] = "1";
   meta["call_id"] = strPy(o.callId);
   meta["log_token"] = `${o.runLogTok}:${strPy(o.callId)}`;
   if (o.subagent) meta["subagent"] = sousAgentEnDict(o.subagent);
@@ -822,6 +843,8 @@ export async function openNativeRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        webCaptures: ctx.c.webCaptures ?? false,
+        vision: NATIF.vision && ctx.c.modelHasVision,
       }),
       args_error: argsError,
     });
@@ -992,6 +1015,8 @@ export function openTextRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        webCaptures: ctx.c.webCaptures ?? false,
+        vision: TEXTE.vision && ctx.c.modelHasVision,
       }),
     });
   });
@@ -1149,13 +1174,6 @@ export async function runToolBatch(
       evt["screenshot_url"] = ss.url;
       evt["screenshot_step"] = ss.step;
       evt["screenshot_session"] = ss.session_id;
-      if (channel.vision && ctx.c.modelHasVision && port) {
-        const dossier = process.env["PW_SCREENS_DIR"] || "/tmp/pw_screens";
-        const png = path.join(dossier, `step_${strPy(ss.session_id)}_${strPy(ss.step)}.png`);
-        const relais = `/api/playwright/screenshot/step_${strPy(ss.session_id)}_${strPy(ss.step)}.png`;
-        if (await garde(ensureLocalAsset(ctx.c.userId, png, relais)))
-          await garde(port.trackLastScreenshotForVision(chatKey, png));
-      }
     }
     await garde(prefetchDesktopFrame(ctx.c.userId, toolName, resultat));
     const af = await populateDesktopFrame(
@@ -1213,6 +1231,8 @@ export async function runToolBatch(
       (toolName === "pw_page" && estDict(finalArgs) && port?.pwVerbOf("pw_page", finalArgs) === "inspect") ||
       toolName === "desktop_observe";
     if (ctx.c.modelHasVision && inspect && port) {
+      if (toolName === "pw_page")
+        await garde(suivreVisionPw(port, ctx.c.userId, chatKey, finalArgs, resultat));
       const img = port.getLastScreenshotB64(chatKey);
       if (img) {
         const defaut =

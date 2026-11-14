@@ -158,6 +158,8 @@ export interface OptionsRun {
   compressionPrevState?: Dict | null;
   denyToolNames?: Iterable<string> | null;
   liveShell?: boolean;
+  /** Captures d'étape du navigateur demandées à l'hôte d'outils (réglage du compte). */
+  webCaptures?: boolean;
   compressionEnabled?: boolean | null;
   compactionThreshold?: CompactionThreshold | null;
   compactionMaxRounds?: number | null;
@@ -425,6 +427,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     compactionMaxRounds: o.compactionMaxRounds ?? null,
     priority: o.priority ?? "high",
     liveShell: o.liveShell ?? false,
+    webCaptures: o.webCaptures ?? false,
     subagent: o.subagent ?? null,
     conclure: o.canal?.conclure ?? null,
     wrapupSuffix: o.wrapupSuffix ?? null,

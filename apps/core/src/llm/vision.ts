@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 
 import { strPy } from "@elpis/commun";
+import { dimensionsImage } from "@elpis/images";
 
 import { journal } from "../journal";
 import { estDict } from "../python";
@@ -130,13 +131,19 @@ export async function downscaleScreenshot(png: Uint8Array): Promise<Uint8Array |
   }
 }
 
+/** Capture prête pour le modèle : un JPEG déjà réduit (vision du navigateur, par Chromium) passe tel quel, le reste est réduit. */
+async function pourLaVision(octets: Uint8Array): Promise<Uint8Array | null> {
+  const taille = dimensionsImage(octets, ["JPEG"]);
+  return taille !== null && taille[0] <= VISION_MAX_WIDTH ? octets : downscaleScreenshot(octets);
+}
+
 export const MAX_TRACKED = 32;
 
 /** Garde la dernière capture d'un chat pour le prochain tour vision (LRU de 32). */
 export async function trackLastScreenshotForVision(chatKey: string, pngPath: string): Promise<void> {
   try {
     const brut = await readFile(pngPath);
-    const reduite = await downscaleScreenshot(brut);
+    const reduite = await pourLaVision(brut);
     if (reduite && reduite.length > 0) {
       LAST_SCREENSHOT.delete(chatKey);
       LAST_SCREENSHOT.set(chatKey, reduite);

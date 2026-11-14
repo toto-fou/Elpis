@@ -178,6 +178,8 @@ export interface ChampsRun {
   compactionMaxRounds: number | null;
   priority: string;
   liveShell: boolean;
+  /** Captures d'étape du navigateur demandées à l'hôte d'outils (`_meta.web_captures`) ; absent : aucune. */
+  webCaptures?: boolean;
   /** Périmètre du sous-agent qui fait ce run, `null` pour un tour de premier niveau. */
   subagent?: SousAgent | null;
   /** Conclusion demandée par le parent (`task_send` wrap_up) : coupe aussi l'appel d'outil en cours de l'enfant. */

@@ -100,6 +100,8 @@ export interface TurnPlan {
   readonly agentsOn: boolean;
   readonly memoryOn: boolean;
   readonly liveShellOn: boolean;
+  /** « Captures d'étape du navigateur » du compte (absent : éteint) : une capture après chaque action pw_*. */
+  readonly webCapturesOn: boolean;
   readonly denyTools: ReadonlySet<string> | null;
   readonly planMode: boolean;
   readonly uiToolCats: string[];
@@ -426,6 +428,7 @@ export async function prepareTurn(
     agentsOn = hasActiveAgents(Array.isArray(agents) ? agents : []);
   }
   const liveShellOn = veritePy(getOu(settings, "live_shell_enabled", true));
+  const webCapturesOn = veritePy(getOu(settings, "web_step_screenshots", false));
   const compressionOn = compactionActive(settings);
   const compactionThreshold = resolveThreshold(settings);
   const compactionMaxRounds = resolveMaxRounds(settings);
@@ -695,6 +698,7 @@ export async function prepareTurn(
     agentsOn,
     memoryOn,
     liveShellOn,
+    webCapturesOn,
     denyTools,
     planMode,
     uiToolCats,

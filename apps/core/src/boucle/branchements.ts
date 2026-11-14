@@ -2,7 +2,12 @@
 /** apps/core/src/boucle/branchements.ts — ports de la boucle posés au démarrage : file LLM unique (tours, sous-agents, images), prompt d'image, prompts de capacité, captures et trames, todos du chat. */
 import { getUser } from "@elpis/auth";
 import type { Executeur } from "@elpis/db";
-import { extractPwScreenshotUrl, pwVerbOf, trackPwSessionOwnership } from "@elpis/navigateur";
+import {
+  extractPwScreenshotUrl,
+  extractPwVisionCapture,
+  pwVerbOf,
+  trackPwSessionOwnership,
+} from "@elpis/navigateur";
 
 import { desktopFramePath, extractDesktopFrame, registerDesktopFrameOwner } from "../bureau";
 import { getChatTodos } from "../chats/stockage";
@@ -35,6 +40,7 @@ export const visionDuProcess: PortVisionBureau = {
     const ss = extractPwScreenshotUrl(toolName, toolArgs, resultStr);
     return ss === null ? null : { url: String(ss["url"]), step: ss["step"], session_id: ss["session_id"] };
   },
+  extractPwVisionCapture,
   pwVerbOf,
   trackPwSessionOwnership,
   getLastScreenshotB64,

@@ -706,6 +706,7 @@ export async function* runTurn(
               memoryEnabled: plan.memoryOn,
               compressionPrevState: comprPrevState,
               liveShell: plan.liveShellOn,
+              webCaptures: plan.webCapturesOn,
               compressionEnabled: plan.compressionOn,
               compactionThreshold: plan.compactionThreshold,
               compactionMaxRounds: plan.compactionMaxRounds,

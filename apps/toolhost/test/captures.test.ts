@@ -1,26 +1,33 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/captures.test.ts — capture Playwright servie par l'hôte : nom, propriétaire, essais, suppression après service, erreurs du service. */
+/** apps/toolhost/test/captures.test.ts — capture Playwright servie par l'hôte depuis le service du bac du compte (socket) : nom, propriétaire, essais, erreurs du service. */
 import { chmodSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { creerFamilleCaptures, sessionDeLaCapture } from "../src/captures";
 import { creerAppToolhost } from "../src/app";
+import { injectionsNavigateurBac } from "../src/mcp/browser/bac";
 import { configTest, dossierTemporaire, entetes, journalMuet } from "./aides";
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 describe("noms de capture", () => {
-  it("motifs du Python : étape, capture, vue ; 400 pour le reste", () => {
+  it("motifs : étape JPEG (PNG de l'historique), vision JPEG, capture, vue ; 400 pour le reste", () => {
     expect(sessionDeLaCapture("shot_sessAAAA1111_12.png")).toBe("sessAAAA1111");
     expect(sessionDeLaCapture("step_sess-BBB-2222_0.png")).toBe("sess-BBB-2222");
+    expect(sessionDeLaCapture("step_sess-BBB-2222_7.jpg")).toBe("sess-BBB-2222");
+    expect(sessionDeLaCapture("vision_sessAAAA1111_3.jpg")).toBe("sessAAAA1111");
     expect(sessionDeLaCapture("view_sessCCCC3333.png")).toBe("sessCCCC3333");
     for (const [nom, detail] of [
-      ["shot_sessAAAA1111_1.jpg", "Invalid filename"],
+      ["shot_sessAAAA1111_1.gif", "Invalid filename"],
+      ["shot_sessAAAA1111_1.jpg", "Invalid screenshot filename pattern"],
+      ["vision_sessAAAA1111_1.png", "Invalid screenshot filename pattern"],
+      ["vision_sessAAAA1111.jpg", "Invalid screenshot filename pattern"],
+      ["step_sessAAAA1111_1.JPG", "Invalid screenshot filename pattern"],
+      ["view_sessCCCC3333.jpg", "Invalid screenshot filename pattern"],
       ["..shot_sessAAAA1111_1.png", "Invalid filename"],
       ["a/shot_sessAAAA1111_1.png", "Invalid filename"],
       ["shot_court_1.png", "Invalid screenshot filename pattern"],
@@ -33,8 +40,9 @@ describe("noms de capture", () => {
 
 describe("GET /api/playwright/screenshot/{filename}", () => {
   let service: Server;
-  let base = "";
+  let socket = "";
   const recu: string[] = [];
+  const comptes: string[] = [];
   let proprietaires = "";
   let fermerDossier = (): void => undefined;
   const attentes: number[] = [];
@@ -58,29 +66,31 @@ describe("GET /api/playwright/screenshot/{filename}", () => {
       rep.writeHead(200, { "content-type": "image/png" }).end(PNG);
       return;
     });
-    await new Promise<void>((fin) => service.listen(0, "127.0.0.1", fin));
-    base = `http://127.0.0.1:${(service.address() as AddressInfo).port}`;
     [proprietaires, fermerDossier] = dossierTemporaire("elpis-pw-proprietaires-");
+    socket = path.join(proprietaires, "browser.sock");
+    await new Promise<void>((fin) => service.listen(socket, fin));
     chmodSync(proprietaires, 0o700);
     writeFileSync(path.join(proprietaires, "sessAAAA1111.owner"), "hugo");
     writeFileSync(path.join(proprietaires, "sessBBBB2222.owner"), "alice");
     vi.stubEnv("PW_OWNERS_DIR", proprietaires);
   });
   afterAll(async () => {
+    injectionsNavigateurBac.service = null;
     vi.unstubAllEnvs();
-    fermerDossier();
     await new Promise<void>((fin) => service.close(() => fin()));
+    fermerDossier();
   });
 
-  async function app(playwrightApi = base): ReturnType<typeof creerAppToolhost> {
+  /** Hôte dont le service du bac de chaque compte est le faux service (ou un socket absent). */
+  async function app(absent = false): ReturnType<typeof creerAppToolhost> {
+    injectionsNavigateurBac.service = (compte) => {
+      comptes.push(compte);
+      return { socket: absent ? `${socket}.absent` : socket, jeton: "" };
+    };
     return creerAppToolhost({
       tc: configTest(),
       familles: [
-        creerFamilleCaptures({
-          journal: journalMuet,
-          playwrightApi,
-          attendre: async (ms) => void attentes.push(ms),
-        }),
+        creerFamilleCaptures({ journal: journalMuet, attendre: async (ms) => void attentes.push(ms) }),
       ],
       journal: journalMuet,
     });
@@ -89,6 +99,7 @@ describe("GET /api/playwright/screenshot/{filename}", () => {
   it("capture de son compte : PNG sans cache, relisible (le ménage reste au service)", async () => {
     const a = await app();
     recu.length = 0;
+    comptes.length = 0;
     const r = await a.inject({
       url: "/api/playwright/screenshot/shot_sessAAAA1111_1.png",
       headers: entetes(),
@@ -108,6 +119,32 @@ describe("GET /api/playwright/screenshot/{filename}", () => {
     expect(recu).toEqual([
       "GET /screenshots/shot_sessAAAA1111_1.png",
       "GET /screenshots/shot_sessAAAA1111_1.png",
+    ]);
+    expect(comptes).toEqual(["hugo", "hugo"]);
+    await a.close();
+  });
+
+  it("étape et vision en JPEG servies en image/jpeg ; vision d'une session d'un autre compte : 403", async () => {
+    const a = await app();
+    recu.length = 0;
+    const etape = await a.inject({
+      url: "/api/playwright/screenshot/step_sessAAAA1111_4.jpg",
+      headers: entetes(),
+    });
+    const vision = await a.inject({
+      url: "/api/playwright/screenshot/vision_sessAAAA1111_5.jpg",
+      headers: entetes(),
+    });
+    const autre = await a.inject({
+      url: "/api/playwright/screenshot/vision_sessBBBB2222_5.jpg",
+      headers: entetes(),
+    });
+    expect([etape.statusCode, etape.headers["content-type"]]).toEqual([200, "image/jpeg"]);
+    expect([vision.statusCode, vision.headers["content-type"]]).toEqual([200, "image/jpeg"]);
+    expect(autre.statusCode).toBe(403);
+    expect(recu).toEqual([
+      "GET /screenshots/step_sessAAAA1111_4.jpg",
+      "GET /screenshots/vision_sessAAAA1111_5.jpg",
     ]);
     await a.close();
   });
@@ -151,8 +188,8 @@ describe("GET /api/playwright/screenshot/{filename}", () => {
     await a.close();
   });
 
-  it("service navigateur absent : 503 avec le message d'httpx", async () => {
-    const a = await app("http://127.0.0.1:1");
+  it("service navigateur du bac arrêté : 503 avec le message d'httpx", async () => {
+    const a = await app(true);
     const r = await a.inject({
       url: "/api/playwright/screenshot/shot_sessAAAA1111_1.png",
       headers: entetes(),

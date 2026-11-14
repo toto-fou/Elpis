@@ -158,6 +158,8 @@ export interface OptionsRun {
   compressionPrevState?: Dict | null;
   denyToolNames?: Iterable<string> | null;
   liveShell?: boolean;
+  /** Captures d'étape du navigateur demandées à l'hôte d'outils (réglage du compte). */
+  webCaptures?: boolean;
   compressionEnabled?: boolean | null;
   compactionThreshold?: CompactionThreshold | null;
   compactionMaxRounds?: number | null;
@@ -425,6 +427,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     compactionMaxRounds: o.compactionMaxRounds ?? null,
     priority: o.priority ?? "high",
     liveShell: o.liveShell ?? false,
+    webCaptures: o.webCaptures ?? false,
     subagent: o.subagent ?? null,
     conclure: o.canal?.conclure ?? null,
     wrapupSuffix: o.wrapupSuffix ?? null,
@@ -555,13 +558,20 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
         iterThinking,
       });
     } else {
-      const reply = classifyTextReply(ctx, live, iterClean, iteration);
+      const reply = await classifyTextReply(ctx, live, iterClean, iteration);
       const rawText = reply.rawText;
       iterClean = reply.iterClean;
       const legacy = reply.calls;
-      if (finish === "length" && legacy) {
+      if (finish === "length" && (legacy || reply.appelOuvert)) {
         await live.flush();
-        if (await trunc.cut(TEXTE.name, ctx, rec, workingMessages, { usage, iterClean, iteration }))
+        if (
+          await trunc.cut(TEXTE.name, ctx, rec, workingMessages, {
+            usage,
+            iterClean,
+            iteration,
+            citationPossible: reply.appelOuvert,
+          })
+        )
           forcedStop = true;
         hardIter += 1;
         continue;

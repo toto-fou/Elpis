@@ -2,9 +2,14 @@
 /** apps/core/test/boucle/dispatch-outils.test.ts — appels d'outils : préparation des lots et enrichissements (vecteurs Python), exécution série/parallèle, annulation, post-traitement. */
 import "../moteur-environnement";
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { pyJsonDumps } from "@elpis/commun";
+import { extractPwScreenshotUrl, extractPwVisionCapture, pwVerbOf } from "@elpis/navigateur";
 import type { SousAgent } from "@elpis/securite";
 
 import * as D from "../../src/boucle/dispatch-outils";
@@ -81,6 +86,7 @@ afterEach(() => {
   installerTokenHex(null);
   installerVisionBureau(null);
   installerJobsBoucle(null);
+  vi.unstubAllEnvs();
 });
 
 describe("fonctions pures du dispatch (vecteurs Python)", () => {
@@ -615,6 +621,7 @@ describe("lot complet et relances", () => {
         ordre.push(`proprietaire ${tok} ${u}`);
       },
       extractPwScreenshotUrl: () => null,
+      extractPwVisionCapture: () => null,
       pwVerbOf: () => "",
       trackPwSessionOwnership: async () => undefined,
       getLastScreenshotB64: () => null,
@@ -644,6 +651,126 @@ describe("lot complet et relances", () => {
     expect(ordre).toEqual(["tool_call", "proprietaire tok12345 alice", "annotation_frame", "tool_result"]);
   });
 
+  it("captures du navigateur : _meta web_captures et vision (canal natif, modèle à vision) ; aucune sur le canal texte", async () => {
+    const cfg = new Map([["pw_act", { command: "DEFAULT_LOCAL_PYTHON" }]]);
+    const appel = { id: "c1", function: { name: "pw_act", arguments: "{}" } };
+    const meta = async (champs: Partial<ChampsRun>): Promise<unknown> =>
+      (
+        await D.openNativeRound(contexte({ toolCfgMap: cfg, ...champs }), new RunRecord(), [], {
+          live: new LiveText(null),
+          msg: {},
+          toolCalls: [appel],
+          iterClean: "",
+          iteration: 0,
+        })
+      )[0]!["meta"];
+    expect(await meta({ webCaptures: true, modelHasVision: true })).toMatchObject({
+      web_captures: "1",
+      vision: "1",
+    });
+    const sans = (await meta({})) as Dict;
+    expect([sans["web_captures"], sans["vision"]]).toEqual([undefined, undefined]);
+    const texte = D.openTextRound(
+      contexte({ toolCfgMap: cfg, webCaptures: true, modelHasVision: true }),
+      new RunRecord(),
+      [],
+      { rawText: "", calls: [["pw_act", {}]], finish: "stop", iteration: 0 },
+    )[0]!["meta"] as Dict;
+    expect([texte["web_captures"], texte["vision"]]).toEqual(["1", undefined]);
+  });
+
+  it("vision : plus aucun rapatriement après chaque action ; à pw_page inspect, la seule capture de la vision, injectée ; capture explicite montrée, sans image pour le modèle", async () => {
+    const dossier = mkdtempSync(path.join(tmpdir(), "elpis-pw-screens-"));
+    vi.stubEnv("PW_SCREENS_DIR", dossier);
+    writeFileSync(path.join(dossier, "vision_sessAAAA1111_4.jpg"), "jpeg");
+    writeFileSync(path.join(dossier, "step_sessAAAA1111_3.jpg"), "jpeg");
+    const suivies: string[] = [];
+    let derniere: string | null = "data:image/jpeg;base64,perimee";
+    installerVisionBureau({
+      extractDesktopFrame: () => null,
+      desktopFramePath: (tok) => tok,
+      registerDesktopFrameOwner: () => undefined,
+      extractPwScreenshotUrl: (n, a, r) => {
+        const ss = extractPwScreenshotUrl(n, a, r, 1);
+        return ss === null
+          ? null
+          : { url: String(ss["url"]), step: ss["step"], session_id: ss["session_id"] };
+      },
+      extractPwVisionCapture,
+      pwVerbOf,
+      trackPwSessionOwnership: async () => undefined,
+      getLastScreenshotB64: () => derniere,
+      trackLastScreenshotForVision: async (_cle, chemin) => {
+        suivies.push(path.basename(chemin));
+        derniere = "data:image/jpeg;base64,anBlZw==";
+      },
+      clearLastScreenshotFor: () => {
+        derniere = null;
+      },
+      modelSupportsVision: async () => true,
+    });
+    const resultats: Record<string, string> = {
+      pw_act: '{"ok": true, "screenshot_step": 3}',
+      pw_page: '{"ok": true, "step": 4, "vision_screenshot": "vision_sessAAAA1111_4.jpg"}',
+    };
+    const evenements: Dict[] = [];
+    const ctx = contexte({
+      modelHasVision: true,
+      onEvent: (e) => void evenements.push(e),
+      builtinHandlers: new Map<string, (a: Dict) => unknown>(
+        Object.keys(resultats).map((n) => [n, () => resultats[n]]),
+      ),
+    });
+    const lot = async (nom: string, args: Dict): Promise<Dict[]> => {
+      const wm: Dict[] = [];
+      const rec = new RunRecord();
+      const prepared = await D.openNativeRound(ctx, rec, wm, {
+        live: new LiveText(null),
+        msg: {},
+        toolCalls: [{ id: `c-${nom}`, function: { name: nom, arguments: JSON.stringify(args) } }],
+        iterClean: "",
+        iteration: 0,
+      });
+      await D.runToolBatch(D.NATIF, ctx, rec, deps(), wm, prepared, {
+        iteration: 0,
+        cycle: new D.CycleGuard(),
+      });
+      return wm;
+    };
+    try {
+      const apresAction = await lot("pw_act", {
+        session_id: "sessAAAA1111",
+        action: "click",
+        target: "css=#a",
+      });
+      expect(suivies).toEqual([]);
+      expect(apresAction.map((m) => m["role"])).toEqual(["assistant", "tool"]);
+      const resultat = evenements.find((e) => e["type"] === "tool_result")!;
+      expect(resultat["screenshot_url"]).toBe("/api/playwright/screenshot/step_sessAAAA1111_3.jpg?t=1000");
+      const apresInspect = await lot("pw_page", { session_id: "sessAAAA1111", action: "inspect" });
+      expect(suivies).toEqual(["vision_sessAAAA1111_4.jpg"]);
+      const image = apresInspect[apresInspect.length - 1]!;
+      expect(image["role"]).toBe("user");
+      expect(JSON.stringify(image["content"])).toContain("data:image/jpeg;base64,anBlZw==");
+      resultats["pw_page"] = '{"ok": true, "step": 5}';
+      const sansCapture = await lot("pw_page", { session_id: "sessAAAA1111", action: "inspect" });
+      expect(suivies).toEqual(["vision_sessAAAA1111_4.jpg"]);
+      expect(sansCapture.map((m) => m["role"])).toEqual(["assistant", "tool"]);
+      resultats["pw_page"] =
+        '{"ok": true, "action": "screenshot", "screenshot": "shot_sessAAAA1111_6.png", "screenshot_url": "/api/playwright/screenshot/shot_sessAAAA1111_6.png"}';
+      const explicite = await lot("pw_page", { session_id: "sessAAAA1111", action: "screenshot" });
+      expect(explicite.map((m) => m["role"])).toEqual(["assistant", "tool"]);
+      expect(suivies).toEqual(["vision_sessAAAA1111_4.jpg"]);
+      expect(evenements.filter((e) => e["type"] === "tool_result").at(-1)).toMatchObject({
+        screenshot_url: "/api/playwright/screenshot/shot_sessAAAA1111_6.png?t=1000",
+        screenshot_step: 6,
+        screenshot_session: "sessAAAA1111",
+      });
+    } finally {
+      rmSync(dossier, { recursive: true, force: true });
+    }
+  });
+
   it("annulation avant le lot : instantané puis annulation", async () => {
     const evenements: Dict[] = [];
     const rec = new RunRecord();
@@ -658,7 +785,12 @@ describe("lot complet et relances", () => {
   it("relances bornées : appel illisible, outil inconnu, appel perdu dans le raisonnement", async () => {
     const ctx = contexte({ builtinHandlers: new Map([["lire", () => "ok"]]) });
     const live = new LiveText(null);
-    const illisible = D.classifyTextReply(ctx, live, '<tool_call>{"name": "lire", oops}</tool_call>', 1);
+    const illisible = await D.classifyTextReply(
+      ctx,
+      live,
+      '<tool_call>{"name": "lire", oops}</tool_call>',
+      1,
+    );
     const wm: Dict[] = [];
     const rec = new RunRecord();
     let [relance, n] = await D.relaunchUnparsedCall(rec, wm, illisible, {
@@ -670,7 +802,7 @@ describe("lot complet et relances", () => {
     expect([relance, n]).toEqual([true, 1]);
     expect(String(wm[wm.length - 1]!["content"])).toContain("could not be parsed");
     live.parts.push('{"name": "inconnu", "arguments": {}}');
-    const inconnu = D.classifyTextReply(ctx, live, '{"name": "inconnu", "arguments": {}}', 2);
+    const inconnu = await D.classifyTextReply(ctx, live, '{"name": "inconnu", "arguments": {}}', 2);
     expect([inconnu.rawText, inconnu.unknownNames, live.parts]).toEqual(["", ["inconnu"], []]);
     [relance, n] = await D.relaunchUnparsedCall(rec, wm, inconnu, {
       live,
@@ -679,7 +811,7 @@ describe("lot complet et relances", () => {
       malformedRetry: n,
     });
     expect([relance, n]).toEqual([true, 2]);
-    const perdu = D.classifyTextReply(ctx, live, "", 3);
+    const perdu = await D.classifyTextReply(ctx, live, "", 3);
     [relance, n] = await D.relaunchUnparsedCall(rec, wm, perdu, {
       live,
       iterThinking: "</parameter></function>",

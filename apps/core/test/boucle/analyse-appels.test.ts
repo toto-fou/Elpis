@@ -61,12 +61,13 @@ describe("analyse des appels écrits en texte", () => {
     expect(A.recoverToolCallsFromReasoning(null, CONNUS)).toEqual([]);
   });
 
-  it("prose : mots JSON, emoji et appel nu lus comme avant le saut rapide", () => {
+  it("prose : mots JSON, emoji et objet appelant restent du texte, début d'appel cassé sans diagnostic", () => {
     const t =
       'Il vaut null, true ou false (NaN, Infinity, -Infinity) 😀 untrue nullx {"name":"lire","arguments":{"p":1}} fin';
-    expect(A.extractToolCalls(t)).toEqual([["lire", { p: 1 }]]);
+    expect(A.extractToolCalls(t)).toBeNull();
+    expect(A.LAST_PARSE_DIAGNOSTIC).toBe("");
     expect(A.extractToolCalls(`${"texte libre 😀 ".repeat(4000)}{"name": "lire"`)).toBeNull();
-    expect(A.LAST_PARSE_DIAGNOSTIC).toContain("could not be parsed");
+    expect(A.LAST_PARSE_DIAGNOSTIC).toBe("");
   });
 
   it("le diagnostic est remis à zéro à chaque appel", () => {

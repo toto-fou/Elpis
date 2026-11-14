@@ -3,8 +3,9 @@
 import { readFileSync } from "node:fs";
 
 import type { Dict } from "@elpis/commun";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
+import { SessionCalcul } from "../src/fichiers/calcul-execution";
 import { ErreurCodec } from "../src/mcp/fs/codecs";
 import {
   appliquerEdition,
@@ -49,9 +50,12 @@ const V = JSON.parse(readFileSync(new URL("./vecteurs/fs-edition.json", import.m
   regex_sure: { motif: string; erreur: string | null }[];
 };
 
-function sortieTs(texte: string, edit: Dict): Sortie {
+const fil = new SessionCalcul();
+afterAll(() => fil.fermer());
+
+async function sortieTs(texte: string, edit: Dict): Promise<Sortie> {
   try {
-    return { ok: appliquerEdition(texte, edit) };
+    return { ok: await appliquerEdition(texte, edit, fil) };
   } catch (e) {
     if (estValueError(e)) return { valueerror: e.message, err: errEdition(e) };
     if (e instanceof ErreurRe) return { erreur: e.name, message: e.message };
@@ -69,8 +73,8 @@ function enPoints(texte: string, i: number): number {
 describe("_apply_one_edit (vecteurs)", () => {
   it.each(V.editions.map((c, i) => [i, JSON.stringify(c.edit).slice(0, 80), c] as const))(
     "%i %s",
-    (_i, _n, c) => {
-      expect(sortieTs(c.texte, c.edit)).toEqual(c.sortie);
+    async (_i, _n, c) => {
+      expect(await sortieTs(c.texte, c.edit)).toEqual(c.sortie);
     },
   );
 });

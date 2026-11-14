@@ -226,7 +226,7 @@ export async function trackPwSessionOwnership(
   }
 }
 
-/** Capture injectée par le service (`screenshot_step`) dans le résultat d'un outil `pw_*` → URL de la capture, sinon `null`. */
+/** Capture d'un outil `pw_*` → URL : l'explicite de sa session (`screenshot` : shot_<sid>_<pas>.png, montrée quel que soit le réglage), sinon celle d'étape (`screenshot_step`) ; `null` sans capture. */
 export function extractPwScreenshotUrl(
   outil: unknown,
   args: unknown,
@@ -244,13 +244,43 @@ export function extractPwScreenshotUrl(
     return null;
   }
   if (!estDict(data)) return null;
+  const nom = lire(data, "screenshot");
+  const explicite =
+    typeof nom === "string" && nom.startsWith(`shot_${sid}_`) ? nom.slice(sid.length + 6) : "";
+  if (/^[1-9][0-9]{0,8}\.png$/u.test(explicite))
+    return {
+      url: `/api/playwright/screenshot/${nom as string}?t=${Math.trunc(maintenant * 1000)}`,
+      step: Number(explicite.slice(0, -4)),
+      session_id: sid,
+    };
   const pas = lire(data, "screenshot_step");
   const entier =
     typeof pas === "boolean" || typeof pas === "bigint" || (typeof pas === "number" && Number.isInteger(pas));
   if (!entier || Number(pas) <= 0) return null;
   return {
-    url: `/api/playwright/screenshot/step_${sid}_${strPy(pas)}.png?t=${Math.trunc(maintenant * 1000)}`,
+    url: `/api/playwright/screenshot/step_${sid}_${strPy(pas)}.jpg?t=${Math.trunc(maintenant * 1000)}`,
     step: pas,
     session_id: sid,
   };
+}
+
+/** Capture de la vision (`vision_screenshot`) rendue par `pw_page inspect` pour sa propre session → nom du fichier, sinon `null`. */
+export function extractPwVisionCapture(outil: unknown, args: unknown, resultat: unknown): string | null {
+  if (outil !== "pw_page" || pwVerbOf("pw_page", args) !== "inspect" || !estDict(args)) return null;
+  const sid = ouPy(lire(args, "session_id") ?? null, lire(args, "sid") ?? null);
+  if (typeof sid !== "string" || !SID_CAPTURE.test(sid)) return null;
+  if (typeof resultat !== "string" || !resultat.includes('"vision_screenshot"')) return null;
+  let data: unknown;
+  try {
+    data = pyJsonLoads(resultat);
+  } catch {
+    return null;
+  }
+  const nom = estDict(data) ? lire(data, "vision_screenshot") : null;
+  const prefixe = `vision_${sid}_`;
+  return typeof nom === "string" &&
+    nom.startsWith(prefixe) &&
+    /^[0-9]+\.jpg$/u.test(nom.slice(prefixe.length))
+    ? nom
+    : null;
 }

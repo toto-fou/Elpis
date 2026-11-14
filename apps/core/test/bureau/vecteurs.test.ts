@@ -504,15 +504,15 @@ describe("session bureau", () => {
 });
 
 describe("rejeu : fonctions pures", () => {
-  it("délais, comparaisons de texte, modes, comptes, requêtes d'attente", () => {
+  it("délais, comparaisons de texte, modes, comptes, requêtes d'attente", async () => {
     for (const c of liste<{ entree: unknown; valeur: number }>(rej["timeouts"]))
       expect(clampTimeout(c.entree), String(c.entree)).toBe(c.valeur);
     for (const c of liste<Attendu & { h: unknown; n: unknown; cmp: unknown }>(rej["comparaisons"]))
-      rejouer(() => textCmp(c.h, c.n, c.cmp), c, JSON.stringify(c));
+      await rejouerAsync(() => textCmp(c.h, c.n, c.cmp), c, JSON.stringify(c));
     for (const c of liste<{ attente: string; valeur: string }>(rej["modes"]))
       expect(expectCmp(pyJsonLoads(c.attente)), c.attente).toBe(c.valeur);
     for (const c of liste<{ v: unknown; n: unknown; cmp: unknown; valeur: boolean }>(rej["valeurs"]))
-      expect(valueMatches(c.v, c.n, c.cmp), JSON.stringify(c)).toBe(c.valeur);
+      expect(await valueMatches(c.v, c.n, c.cmp), JSON.stringify(c)).toBe(c.valeur);
     for (const c of liste<{ cnt: number; op: unknown; n: number; valeur: boolean }>(rej["comptes"]))
       expect(countOk(c.cnt, c.op, c.n), JSON.stringify(c)).toBe(c.valeur);
     for (const c of liste<{ attente: string; valeur: string }>(rej["requetes"]))

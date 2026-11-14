@@ -996,6 +996,60 @@ describe("progression et journaux d'un outil", () => {
   });
 });
 
+describe("captures du navigateur", () => {
+  it("capture explicite : vignette montrée et téléchargée ; un outil pw_* suivant sans capture ne la laisse pas en attente", async () => {
+    const r = refs([
+      { role: "user", content: "Q" },
+      { role: "assistant", content: "", isStreaming: true },
+    ]);
+    r.isStreaming.value = true;
+    const lues: string[] = [];
+    const c = {
+      ...ctx(),
+      fetchAuth: async (u: string) => {
+        lues.push(u);
+        return new Response("{}", { status: 404 });
+      },
+    } as unknown as CtxChat;
+    const { api, scope } = monter(r, c);
+    const url = "/api/playwright/screenshot/shot_sessAAAA1111_6.png?t=1000";
+    const caps = () => r.messages.value[1]?.webScreenshots ?? [];
+    const args = { session_id: "sessAAAA1111", action: "screenshot" };
+    await api.handleStreamEvent({ type: "tool_call", name: "pw_page", call_id: "s", args });
+    await api.handleStreamEvent({
+      type: "tool_result",
+      name: "pw_page",
+      call_id: "s",
+      result: "{}",
+      duration_ms: 5,
+      screenshot_url: url,
+      screenshot_step: 6,
+      screenshot_session: "sessAAAA1111",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(caps().map((s) => [s.serverUrl, s.step, s.tool, s.sid])).toEqual([
+      [url, 6, "pw_page", "sessAAAA1111"],
+    ]);
+    expect(lues).toEqual([url]);
+    await api.handleStreamEvent({
+      type: "tool_call",
+      name: "pw_act",
+      call_id: "a",
+      args: { ...args, action: "click" },
+    });
+    expect(caps().at(-1)?.pending).toBe(true);
+    await api.handleStreamEvent({
+      type: "tool_result",
+      name: "pw_act",
+      call_id: "a",
+      result: "{}",
+      duration_ms: 5,
+    });
+    expect(caps().map((s) => [s.serverUrl, s.pending])).toEqual([[url, false]]);
+    scope.stop();
+  });
+});
+
 // Flux NDJSON piloté par le test : chaque événement part à la demande.
 function fluxPilote(): {
   reponse: (signal: AbortSignal) => Response;

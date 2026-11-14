@@ -6,6 +6,8 @@ import { errPw } from "@elpis/navigateur";
 import { getAccessToken } from "@elpis/outils-mcp";
 import { current } from "@elpis/securite";
 
+import type { IdentifiantsRelais } from "@elpis/navigateur";
+
 import type { AppelSigne, ReponseCoffre, SecretApplicable, SecretResolu } from "../../rappel";
 
 /** Ce que les outils pw_* demandent au core (`ClientRappel`). */
@@ -56,8 +58,6 @@ const CONSEILS_CONNEXION: Readonly<Record<string, string>> = {
     "Let pw_login detect the fields, or pass username_target, password_target and submit_target as semantic targets (label=..., placeholder=..., role=...|name=...) or refs from pw_find, each matching one visible field; the password field must be an <input type=password> that keeps the focus while it is typed into.",
   secret_login_failed:
     "Look at the page (pw_page action='inspect'). If the site refused the login, tell the user: the secret may be wrong or expired (they can update it in Settings › Secrets). Do not retry in a loop.",
-  secret_recording_active:
-    "A trace stops with pw_session(action='trace_export', session_id=...): export it, then call pw_login again. A HAR records until its session is closed: open the login page in a session started without record_har (pw_session(action='start', url=..., secret=...)) and log in there.",
 };
 
 /** Refus `secret_*` rendu au modèle. */
@@ -138,14 +138,17 @@ export async function applicables(
   return lue(await port.secretsApplicables(appel, { origin: origine, name: nom }));
 }
 
-/** Valeur d'un secret pour `origine` (par son nom, sinon le seul qui la couvre) : SECRET, passé au service navigateur et oublié. */
-export async function resoudre(
+/** Résolution différée pour le relais du bac : enveloppe de l'appel saisie maintenant, valeur demandée au core (et journalisée par lui) au premier besoin du relais ; `null` hors de l'application. */
+export function resolutionDifferee(
   port: PortSecrets | null,
   usage: "web-login" | "http-auth",
   origine: string,
-  nom: string | null,
-): Promise<{ valeur: SecretResolu } | { refus: Dict }> {
+  nom: string,
+): (() => Promise<IdentifiantsRelais | null>) | null {
   const appel = appelSigne();
-  if (port === null || !port.actif || appel === null) return { refus: HORS_APPLICATION };
-  return lue(await port.resoudreSecret(appel, { usage, origin: origine, name: nom }));
+  if (port === null || !port.actif || appel === null) return null;
+  return async () => {
+    const r = await port.resoudreSecret(appel, { usage, origin: origine, name: nom });
+    return r !== null && r.ok ? { username: r.valeur.username ?? "", secret: r.valeur.secret } : null;
+  };
 }

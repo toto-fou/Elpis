@@ -26,13 +26,13 @@ describe("contrats REST : configuration (core réel)", () => {
     expect(
       await core.appeler("PUT", "/api/config", {
         cookie,
-        corps: { config: { app: { max_recent_chats: 7 } } },
+        corps: { config: { app_info: { name: "Elpis de Zoé" } } },
       }),
     ).toMatchObject({ ok: true });
     expect(
       schemaReponseConfigCompte.parse(await core.appeler("GET", "/api/config", { cookie })).config,
     ).toEqual({
-      app: { max_recent_chats: 7 },
+      app_info: { name: "Elpis de Zoé" },
     });
     await core.appeler("PUT", "/api/config", { cookie, corps: { config: [] } });
     await core.appeler("GET", "/api/config");

@@ -3,6 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { connect } from "node:net";
+import { runInNewContext } from "node:vm";
 
 import {
   adresseIpOuNul,
@@ -79,6 +80,10 @@ export const TOOL_QUEUE_WAIT_S = 120.0;
 const LIST_TOOLS_MAX_PAGES = 50;
 const LIST_TOOLS_MAX = 2000;
 const DELAI_FIN_SESSION_MS = 5_000;
+/** Au-delà, schéma de sortie jamais compilé : la compilation native d'une regex, que le délai n'interrompt pas, dépasse la seconde sur un motif de plus de 20 Kio. */
+const SCHEMA_SORTIE_MAX = 16 * 1024;
+const DELAI_COMPILATION_SORTIE_MS = 1_000;
+const DELAI_VALIDATION_SORTIE_MS = 250;
 
 /** Refus explicite d'un transport que le core ne joint plus (stdio des comptes, MCP en processus de l'ancien core). */
 export class TransportNonPrisEnCharge extends Error {
@@ -390,11 +395,26 @@ const ResultatAppelPermissif = CallToolResultSchema.extend({
   structuredContent: z.record(z.string(), z.unknown()).nullish(),
 });
 
-/** Validateur de sortie d'un outil, compilé au premier appel : schéma, texte (clé de réutilisation), validateur ou erreur de schéma. */
+/** Validateur de sortie d'un outil, compilé au premier appel : schéma, texte (clé de réutilisation, `null` hors bornes), validateur (`null` : sortie non validée). */
 interface Sortie {
   schema: Dict;
-  texte: string;
-  compile?: { valider: ReturnType<typeof compilerSchema> } | { erreur: string };
+  texte: string | null;
+  valider?: ReturnType<typeof compilerSchema>;
+}
+
+/** Clé de réutilisation d'un schéma de sortie ; `null` : trop gros, ou trop profond pour `JSON.stringify`. */
+function texteSortie(schema: Dict): string | null {
+  try {
+    const texte = JSON.stringify(schema);
+    return texte.length > SCHEMA_SORTIE_MAX ? null : texte;
+  } catch {
+    return null;
+  }
+}
+
+/** Code synchrone piloté par un serveur distant, interrompu au-delà de `ms` (exécution de regex comprise). */
+function sousDelai<T>(f: () => T, ms: number): T {
+  return runInNewContext("f()", { f }, { timeout: ms }) as T;
 }
 
 interface Transport {
@@ -498,7 +518,7 @@ abstract class ClientMcpReseau implements ClientMcp {
         this.sorties.delete(nom);
         continue;
       }
-      const texte = JSON.stringify(schema);
+      const texte = texteSortie(schema);
       if (this.sorties.get(nom)?.texte !== texte) this.sorties.set(nom, { schema, texte });
     }
     return liste;
@@ -535,23 +555,27 @@ abstract class ClientMcpReseau implements ClientMcp {
     }
   }
 
-  /** `_validate_tool_result` du SDK Python : contenu structuré exigé, validé par le brouillon de `$schema` ; schéma invalide signalé à l'appel. */
+  /** `_validate_tool_result` du SDK Python : contenu structuré exigé, validé par le brouillon de `$schema` ; schéma hors bornes, non compilable ou trop lent : outil servi sans validation. */
   private validerSortie(nom: string, resultat: Dict): void {
     const sortie = this.sorties.get(nom);
     if (sortie === undefined) return;
     const contenu = resultat["structuredContent"];
     if (contenu === undefined || contenu === null)
       throw new Error(`Tool ${nom} has an output schema but did not return structured content`);
-    if (sortie.compile === undefined) {
-      try {
-        sortie.compile = { valider: compilerSchema(sortie.schema) };
-      } catch (e) {
-        sortie.compile = { erreur: messageDe(e) };
-      }
+    if (sortie.valider === null) return;
+    let erreur: ReturnType<typeof meilleureErreur>;
+    try {
+      if (sortie.texte === null) throw new Error("schéma trop gros ou trop profond");
+      const valider = (sortie.valider ??= sousDelai(
+        () => compilerSchema(sortie.schema),
+        DELAI_COMPILATION_SORTIE_MS,
+      ));
+      erreur = sousDelai(() => meilleureErreur(valider, sortie.schema, contenu), DELAI_VALIDATION_SORTIE_MS);
+    } catch (e) {
+      sortie.valider = null;
+      log.warn(`[MCP] sortie de l'outil ${prefixePy(nom, 64)} non validée : ${prefixePy(messageDe(e), 300)}`);
+      return;
     }
-    if ("erreur" in sortie.compile)
-      throw new Error(`Invalid schema for tool ${nom}: ${sortie.compile.erreur}`);
-    const erreur = meilleureErreur(sortie.compile.valider, sortie.schema, contenu);
     if (erreur !== null)
       throw new Error(`Invalid structured content returned by tool ${nom}: ${erreur.message}`);
   }

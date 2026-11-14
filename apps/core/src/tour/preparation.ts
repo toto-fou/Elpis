@@ -2,7 +2,6 @@
 /** apps/core/src/tour/preparation.ts — préparation d'un tour : payload client → plan (cible, serveurs MCP résolus côté serveur, interrupteurs du compte, historique, titre, secrets attachés avant le flux), ressources et base de l'enregistrement optimiste (chatbot_app/turn/preparation.py). */
 import { getUserSettings, getUsernameById, ligneUtilisateur } from "@elpis/auth";
 import {
-  BLANC_PY,
   estDict,
   FlottantPy,
   getOu,
@@ -70,6 +69,7 @@ import {
   recentUserText,
 } from "./historique";
 import { preparerAnnonceEnfants } from "./enfants-interrompus";
+import { retirerFichiersJoints } from "./fichiers-joints";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -100,6 +100,8 @@ export interface TurnPlan {
   readonly agentsOn: boolean;
   readonly memoryOn: boolean;
   readonly liveShellOn: boolean;
+  /** « Captures d'étape du navigateur » du compte (absent : éteint) : une capture après chaque action pw_*. */
+  readonly webCapturesOn: boolean;
   readonly denyTools: ReadonlySet<string> | null;
   readonly planMode: boolean;
   readonly uiToolCats: string[];
@@ -212,11 +214,6 @@ const EN_MONTHS = [
   "November",
   "December",
 ];
-const B = BLANC_PY;
-const FICHIER_JOINT = new RegExp(
-  `---${B}*FILE:${B}*[^\\n]+?${B}*---[\\s\\S]*?---${B}*END FILE${B}*---${B}*`,
-  "gu",
-);
 const egal0 = (v: unknown): boolean =>
   v === null || v === undefined || v === "" || v === "0" || v === false || (nombre(v) ?? 1) === 0;
 const nombre = (v: unknown): number | null =>
@@ -431,6 +428,7 @@ export async function prepareTurn(
     agentsOn = hasActiveAgents(Array.isArray(agents) ? agents : []);
   }
   const liveShellOn = veritePy(getOu(settings, "live_shell_enabled", true));
+  const webCapturesOn = veritePy(getOu(settings, "web_step_screenshots", false));
   const compressionOn = compactionActive(settings);
   const compactionThreshold = resolveThreshold(settings);
   const compactionMaxRounds = resolveMaxRounds(settings);
@@ -638,7 +636,7 @@ export async function prepareTurn(
   else {
     const premiere = msgs.find((x) => x["role"] === "user");
     if (premiere) {
-      titleContent = stripPy(msgText(premiere["content"]).replace(FICHIER_JOINT, ""));
+      titleContent = stripPy(retirerFichiersJoints(msgText(premiere["content"])));
       const nouveau = prefixePy(titleContent || "Nouveau chat", 28);
       if (nouveau !== title) titleWasGenerated = true;
       title = nouveau;
@@ -700,6 +698,7 @@ export async function prepareTurn(
     agentsOn,
     memoryOn,
     liveShellOn,
+    webCapturesOn,
     denyTools,
     planMode,
     uiToolCats,

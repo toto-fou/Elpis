@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/src/client.ts — client du service navigateur (port des fonctions de llm_core/tools/firefox_tools.py) : propriétaire imposé à chaque requête, enveloppes d'erreur, rognage des résultats, DSL des cibles. */
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
-import { request } from "undici";
-
 import {
   clesOrdonnees,
   estDict,
@@ -22,12 +17,11 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config } from "@elpis/config";
 import { clipText, err } from "@elpis/outils-mcp";
 
+import { requeteService } from "./mode";
+import type { ServiceNavigateur } from "./mode";
 import { getPwSessionOwner, pwVerbOf } from "./session";
-import { browserUrlBlockReason, refusMessageAnglais } from "./url";
-import type { OptionsGardeNavigateur } from "./url";
 
 /** Couples méthode/chemin appelés par les outils `pw_*` (extraits du source Python par le générateur de vecteurs). */
 export const POINTS_D_ENTREE: readonly (readonly [string, string])[] = [
@@ -207,22 +201,6 @@ export function rappelOnglet(c: Dict, message: string): Dict {
   };
 }
 
-/** `_refus_url` : enveloppe `url_blocked` avec le message du service si la garde refuse l'adresse, sinon `null` (garde en échec : le service tranche). */
-export async function refusUrl(url: unknown, options: OptionsGardeNavigateur = {}): Promise<Dict | null> {
-  const texte = veritePy(url) ? strPy(url) : "";
-  let motif: string | null;
-  try {
-    motif = await browserUrlBlockReason(texte, options);
-  } catch {
-    return null;
-  }
-  if (!motif) return null;
-  return errPw("url_blocked", "", {
-    message: refusMessageAnglais(texte, motif),
-    fix: "pick an http(s) address of a site outside the machine hosting Elpis",
-  });
-}
-
 /** `_refus_session_d_autrui` : une session inconnue ou d'un autre compte est refusée (le service revérifie le propriétaire). */
 export async function refusSessionDAutrui(sessionId: unknown, username: string): Promise<Dict | null> {
   if (!veritePy(sessionId)) return null;
@@ -262,51 +240,32 @@ export function encoderParams(params: Dict | null): string {
   return paires.join("&");
 }
 
-let jetonLu = { t: 0, jeton: "" };
-
-/** Jeton du service navigateur : `BROWSER_SERVICE_TOKEN`, sinon `BROWSER_SERVICE_TOKEN_FILE` ou `user_db/.browser_service_token` (relu au plus toutes les 5 s). */
-export function jetonServiceNavigateur(maintenant = Date.now()): string {
-  const direct = (process.env["BROWSER_SERVICE_TOKEN"] ?? "").trim();
-  if (direct) return direct;
-  if (maintenant - jetonLu.t < 5000) return jetonLu.jeton;
-  const fichier =
-    (process.env["BROWSER_SERVICE_TOKEN_FILE"] ?? "").trim() ||
-    path.join(config.PROJECT_ROOT, "user_db", ".browser_service_token");
-  let jeton: string;
-  try {
-    jeton = (readFileSync(fichier, "utf8").split("\n")[0] ?? "").trim();
-  } catch {
-    jeton = "";
-  }
-  jetonLu = { t: maintenant, jeton };
-  return jeton;
-}
-
-/** En-têtes d'appel du service navigateur : `authorization` quand un jeton est configuré. */
-export function enTetesServiceNavigateur(autres: Record<string, string> = {}): Record<string, string> {
-  const jeton = jetonServiceNavigateur();
-  return jeton ? { ...autres, authorization: `Bearer ${jeton}` } : { ...autres };
-}
-
-/** Adresse du service navigateur : `PLAYWRIGHT_API_URL`, `http://localhost:3000` par défaut (client, AX et nettoyage du core). */
-export function urlServiceNavigateur(): string {
-  return process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000";
-}
-
 export interface OptionsClientNavigateur {
   /** Propriétaire transmis à chaque requête (`pw_owner` du compte) ; obligatoire. */
   owner: string;
-  /** `PLAYWRIGHT_API_URL`, `http://localhost:3000` par défaut. */
-  base?: string;
   /** `PLAYWRIGHT_TIMEOUT` en secondes, 10 par défaut. */
   delaiS?: number;
+  /** Service du bac du compte rendu par `serviceNavigateur`, joint par son socket. */
+  service: ServiceNavigateur;
+  /** Captures d'étape demandées au service (réglage du compte, `_meta.web_captures`). */
+  captures?: boolean;
+  /** Vision du modèle du tour (`_meta.vision`) : capture réduite demandée aux requêtes qui la réclament. */
+  vision?: boolean;
 }
 
 export interface OptionsRequete {
   json?: unknown;
   params?: Dict | null;
   timeout?: number | null;
+  /** Requête annexe d'un outil (page jointe, URL courante) : jamais de capture d'étape. */
+  annexe?: boolean;
+  /** Requête qui réclame la capture de la vision (`pw_page inspect`). */
+  vision?: boolean;
 }
+
+/** En-têtes de captures de l'hôte d'outils vers le service : seule source de ses captures d'étape et de vision. */
+const ENTETE_CAPTURES = "x-elpis-captures";
+const ENTETE_VISION = "x-elpis-vision";
 
 export type Echec = { genre: "connexion" | "delai" | "autre"; message: string };
 
@@ -334,14 +293,27 @@ export function classerErreur(e: unknown): Echec {
 /** Client d'un appel d'outil : le propriétaire est fixé à la construction et ajouté à chaque requête. */
 export class ClientNavigateur {
   readonly owner: string;
-  readonly base: string;
   readonly delaiS: number;
+  /** Service du bac du compte. */
+  readonly service: ServiceNavigateur;
+  readonly captures: boolean;
+  readonly vision: boolean;
 
   constructor(o: OptionsClientNavigateur) {
     if (!o.owner) throw new Error("client du service navigateur sans propriétaire");
     this.owner = o.owner;
-    this.base = o.base ?? urlServiceNavigateur();
+    this.service = o.service;
     this.delaiS = o.delaiS ?? intPy(process.env["PLAYWRIGHT_TIMEOUT"] ?? "10");
+    this.captures = o.captures === true;
+    this.vision = o.vision === true;
+  }
+
+  /** En-têtes d'une requête : JSON, captures d'étape (sauf requête annexe), vision (requête qui la réclame). */
+  private entetes(o: OptionsRequete, json: boolean): Record<string, string> {
+    const e: Record<string, string> = json ? { "content-type": "application/json" } : {};
+    if (this.captures && o.annexe !== true) e[ENTETE_CAPTURES] = "1";
+    if (this.vision && o.vision === true) e[ENTETE_VISION] = "1";
+    return e;
   }
 
   /** Une requête au service : statut et texte, ou l'échec classé comme requests (connexion, délai, autre). */
@@ -352,11 +324,11 @@ export class ClientNavigateur {
   ): Promise<{ statut: number; texte: string } | Echec> {
     const t = o.timeout ?? this.delaiS;
     const [corps, params] = avecProprietaire(this.owner, o.json ?? null, o.params ?? null, methode);
-    let url: string;
+    let chemin: string;
     let charge: string | undefined;
     try {
       const query = methode === "GET" ? encoderParams(params) : "";
-      url = `${this.base}${endpoint}${query ? `?${query}` : ""}`;
+      chemin = `${endpoint}${query ? `?${query}` : ""}`;
       if (methode !== "GET" && corps !== null) charge = pyJsonDumps(corps, { allowNan: false });
     } catch (e) {
       return { genre: "autre", message: e instanceof Error ? e.message : String(e) };
@@ -367,14 +339,13 @@ export class ClientNavigateur {
         message: `Attempted to set connect timeout to ${t}, but the timeout cannot be set to a value less than or equal to 0.`,
       };
     try {
-      const r = await request(url, {
-        method: methode === "GET" ? "GET" : "POST",
-        headers: enTetesServiceNavigateur(charge === undefined ? {} : { "content-type": "application/json" }),
-        body: charge,
-        headersTimeout: t * 1000,
-        bodyTimeout: t * 1000,
+      const r = await requeteService(this.service, chemin, {
+        methode: methode === "GET" ? "GET" : "POST",
+        entetes: this.entetes(o, charge !== undefined),
+        ...(charge === undefined ? {} : { corps: charge }),
+        delaiMs: t * 1000,
       });
-      return { statut: r.statusCode, texte: await r.body.text() };
+      return { statut: r.statut, texte: r.corps.toString("utf8") };
     } catch (e) {
       return classerErreur(e);
     }
@@ -385,7 +356,11 @@ export class ClientNavigateur {
     const t = o.timeout ?? this.delaiS;
     const r = await this.envoyer(methode, endpoint, o);
     if ("genre" in r) {
-      if (r.genre === "connexion") return errPw("Playwright server not running", "start it: node server.js");
+      if (r.genre === "connexion")
+        return errPw("browser_service_unreachable", "", {
+          message: "The browser service of your sandbox did not answer.",
+          fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
+        });
       if (r.genre === "delai")
         return errPw(`Timeout (${t}s)`, "the page may be slow or stuck; retry or simplify the action");
       return errPw(r.message, "", { code: "browser_error" });
@@ -449,6 +424,7 @@ export class ClientNavigateur {
             max_items: clampItems(maxItems, 25),
             skip_screenshot: "true",
           },
+          annexe: true,
         });
         if (estDict(snap) && !veritePy(snap["error"])) result = { ...result, page_after: snap };
       } catch {
@@ -463,6 +439,7 @@ export class ClientNavigateur {
     try {
       const r = await this.req("GET", "/smart_inspect", {
         params: { session_id: sessionId, skip_screenshot: "true", level: "lite" },
+        annexe: true,
       });
       if (estDict(r)) return veritePy(r["url"]) ? (r["url"] as string) : "";
     } catch {

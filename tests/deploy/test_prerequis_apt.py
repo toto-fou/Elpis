@@ -15,7 +15,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 FICHIER = REPO / "deploy/prerequis-apt.txt"
-GROUPES = ["socle", "sandbox", "apercus-office", "navigateur", "https", "postgresql-local", "sauvegarde-distante",
+GROUPES = ["socle", "sandbox", "apercus-office", "https", "postgresql-local", "sauvegarde-distante",
            "construction-hote"]
 COMMANDE = "sudo apt install --no-install-recommends"
 
@@ -153,8 +153,10 @@ def test_fichier_lisible():
     assert ["docker.io", "docker-ce"] in groupes["sandbox"]
     # Debian 12 et Ubuntu 24.04 : client Docker dans docker.io, bibliothèques sans t64 sur Debian 12.
     assert ["docker-cli", "docker-ce-cli", "docker.io"] in groupes["sandbox"]
-    assert ["libasound2t64", "libasound2"] in groupes["navigateur"]
-    assert not [ligne for ligne in groupes["navigateur"] if ligne[0].endswith("t64") and len(ligne) == 1]
+    assert not [ligne for lignes in groupes.values() for ligne in lignes if ligne[0].endswith("t64") and len(ligne) == 1]
+    # Chromium ne tourne que dans la sandbox, dont l'image porte ses bibliothèques : aucune sur l'hôte.
+    tous = {a for lignes in groupes.values() for ligne in lignes for a in ligne}
+    assert not {"libnss3", "libgbm1", "libasound2t64", "libasound2", "libxkbcommon0"} & tous
 
 
 def test_bibliotheque_lit_les_groupes_et_les_roles(faux_bin):
@@ -178,8 +180,8 @@ def test_paquets_absents_detectes(faux_bin, installes, manquants):
 
 
 def test_paquet_commun_a_deux_groupes_demande_une_fois(faux_bin):
-    r = _bash(faux_bin, "prerequis_manquants apercus-office navigateur", "")
-    assert r.stdout.splitlines().count("fonts-liberation") == 1, r.stdout
+    r = _bash(faux_bin, "prerequis_manquants socle construction-hote", "")
+    assert r.stdout.splitlines().count("python3") == 1, r.stdout
 
 
 def test_commande_et_libelles(faux_bin):
@@ -246,13 +248,12 @@ def test_installe_le_socle_puis_les_groupes_choisis(depot, faux_bin, tmp_path):
     assert "Paquets système installés (groupes socle sandbox construction-hote)." in sortie
 
 
-def test_debian_12_installe_les_noms_de_ses_depots(depot, faux_bin, tmp_path):
-    dispo = " ".join(_tous("socle", "navigateur", "construction-hote").split()).replace("t64", "") + " docker.io xz-utils"
+def test_debian_12_installe_les_noms_de_ses_depots_et_rien_pour_le_navigateur(depot, faux_bin, tmp_path):
+    dispo = " ".join(_tous("socle", "construction-hote").split()) + " docker.io xz-utils"
     _install(depot, faux_bin, _tous("socle"), "--sandbox", "build", "--no-office", "--with-browser", debian="12",
              FAUX_SUDO="0", FAUX_APT_DISPO=dispo, PYTHON_BIN="false")
     (paquets,) = _installs(tmp_path)
-    assert "libasound2" in paquets and "libglib2.0-0" in paquets and not [p for p in paquets if p.endswith("t64")]
-    assert paquets.count("docker.io") == 1 and "docker-cli" not in paquets
+    assert paquets == ["docker.io", "xz-utils", "build-essential"], paquets
 
 
 def test_ubuntu_24_04_et_paquet_absent_des_depots(depot, faux_bin, tmp_path):
@@ -418,10 +419,10 @@ def test_reinstallation_garde_la_sandbox_en_place(depot, faux_bin, tmp_path, doc
 
 
 def test_install_verifie_les_groupes_des_composants_choisis(depot, faux_bin):
-    r = _install(depot, faux_bin, _tous("socle", "navigateur", "construction-hote"), "--dry-run", "--sandbox", "build",
-                 "--no-office", "--no-apt")
+    r = _install(depot, faux_bin, _tous("socle", "construction-hote"), "--dry-run", "--sandbox", "build",
+                 "--no-office", "--with-browser", "--no-apt")
     assert r.returncode == 1, r.stderr
-    assert re.search(r"prérequis apt\s+: vérifiés seulement, --no-apt \(socle sandbox navigateur construction-hote\)",
+    assert re.search(r"prérequis apt\s+: vérifiés seulement, --no-apt \(socle sandbox construction-hote\)",
                      r.stdout), r.stdout
     assert "docker.io (ou docker-ce)\n    docker-cli (ou docker-ce-cli ou docker.io)\n    xz-utils" in r.stderr
     assert f"{COMMANDE} docker.io docker-cli xz-utils" in r.stderr
@@ -430,7 +431,7 @@ def test_install_verifie_les_groupes_des_composants_choisis(depot, faux_bin):
 
 def test_install_sur_un_systeme_inconnu_ne_pose_que_le_socle(depot, faux_bin):
     r = _install(depot, faux_bin, _tous("socle"), "--dry-run", "--sandbox", "build", "--with-office", debian="11")
-    assert ("seul le socle est installé ; installez l'équivalent des groupes sandbox apercus-office navigateur "
+    assert ("seul le socle est installé ; installez l'équivalent des groupes sandbox apercus-office "
             "construction-hote") in r.stderr
     assert "Paquets système manquants" not in r.stderr and "paquets apt (groupes socle) : tous présents" in r.stdout
     r = _install(depot, faux_bin, _tous("socle"), "--dry-run", "--sandbox", "build", debian="12")
@@ -470,11 +471,11 @@ def _doctor(racine: Path, faux_bin: Path, installes: str, debian: str = "13") ->
 
 
 def test_doctor_signale_les_paquets_absents(racine, faux_bin):
-    code, lignes = _doctor(racine, faux_bin, _tous("socle", "sandbox", "navigateur").replace("curl ", ""))
+    code, lignes = _doctor(racine, faux_bin, _tous("socle", "sandbox").replace("curl ", ""))
     sortie = "\n".join(lignes.values())
     assert set(lignes) == set(GROUPES), sortie
     assert lignes["socle"].endswith(f"paquets apt (socle) : NON (manquants : curl ; {COMMANDE} curl)")
-    assert "NON" not in lignes["sandbox"] and "NON" not in lignes["navigateur"]
+    assert "NON" not in lignes["sandbox"]
     assert lignes["sauvegarde-distante"].endswith(
         f"paquets apt (sauvegarde-distante) : NON (manquants : openssh-client, rsync ; {COMMANDE} openssh-client rsync)")
     assert lignes["https"].endswith(f"paquets apt (https, facultatif) : absents : caddy ({COMMANDE} caddy)")
@@ -482,8 +483,8 @@ def test_doctor_signale_les_paquets_absents(racine, faux_bin):
 
 
 def test_doctor_verifie_tout_sur_debian_12_le_socle_seul_ailleurs(racine, faux_bin):
-    _, lignes = _doctor(racine, faux_bin, _tous("socle", "navigateur").replace("t64", ""), debian="12")
-    assert lignes["navigateur"].endswith("paquets apt (navigateur)"), lignes["navigateur"]
+    _, lignes = _doctor(racine, faux_bin, _tous("socle", "sandbox"), debian="12")
+    assert lignes["sandbox"].endswith("paquets apt (sandbox)"), lignes["sandbox"]
     assert "noms de Debian" not in "\n".join(lignes.values())
     _, lignes = _doctor(racine, faux_bin, _tous("socle"), debian="11")
     assert lignes["socle"].endswith("paquets apt (socle)")

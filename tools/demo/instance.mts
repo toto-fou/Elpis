@@ -137,7 +137,6 @@ function environnement(service: "main" | "toolhost"): NodeJS.ProcessEnv {
     ELPIS_HTTPS_MODE: "off",
     APP_SANDBOX_DIR: path.join(RACINE, "user_sandboxes"),
     CHART_CACHE_DIR: path.join(RACINE, "user_db", "run", "charts"),
-    PLAYWRIGHT_API_URL: "http://127.0.0.1:1",
   };
   if (service === "toolhost")
     return {

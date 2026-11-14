@@ -21,6 +21,7 @@ import {
   profilReseauDepuis,
   reglagesBac,
   reglagesMontages,
+  reglagesNavigateurBac,
   resolveNetworkProfileIdReglages,
   RUN_SPEC,
   sandboxAdminConfigDepuis,
@@ -107,11 +108,14 @@ const muet = (): void => undefined;
 
 beforeAll(() => {
   reglagesMontages.agentDir = V.agent;
+  // Vecteurs du Python, sans navigateur : aucun montage du navigateur de la machine qui lance les essais.
+  reglagesNavigateurBac.playwright = "/nonexistent/ms-playwright";
   vi.stubEnv("SANDBOX_READINESS_CACHE", "0");
 });
 
 afterAll(() => {
   reglagesMontages.agentDir = null;
+  reglagesNavigateurBac.playwright = null;
   vi.unstubAllEnvs();
 });
 

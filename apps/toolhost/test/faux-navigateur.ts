@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/faux-navigateur.ts — service navigateur factice (server.js) : réponses déterministes par route et par page courante, requêtes reçues relevées telles quelles. */
+/** apps/toolhost/test/faux-navigateur.ts — service navigateur factice (server.js) sur un socket unix, comme celui d'un bac : réponses déterministes par route et par page courante, requêtes reçues relevées telles quelles. */
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { setTimeout as dormir } from "node:timers/promises";
 
 import type { Dict } from "@elpis/commun";
+import type { ServiceNavigateur } from "@elpis/navigateur";
+
+import { injectionsNavigateurBac } from "../src/mcp/browser/bac";
 
 export interface RequeteNavigateur {
   readonly methode: string;
@@ -21,15 +26,19 @@ export type Reponse = [number, Dict | string];
 
 export class FauxNavigateur {
   readonly vues: RequeteNavigateur[] = [];
+  /** En-têtes de captures reçus, par requête : chemin, `x-elpis-captures`, `x-elpis-vision`. */
+  readonly captures: [string, string | null, string | null][] = [];
   /** Réponses imposées aux prochaines requêtes d'une route (`POST /wait_for_dynamic`), dans l'ordre. */
   readonly imposees = new Map<string, Reponse[]>();
   private courante = "";
   private attentes = 0;
 
   private readonly serveur: Server;
+  private readonly dossier: string;
 
-  private constructor(serveur: Server) {
+  private constructor(serveur: Server, dossier: string) {
     this.serveur = serveur;
+    this.dossier = dossier;
   }
 
   static async demarrer(): Promise<FauxNavigateur> {
@@ -38,6 +47,12 @@ export class FauxNavigateur {
       const morceaux: Buffer[] = [];
       req.on("data", (m: Buffer) => morceaux.push(m));
       req.on("end", () => {
+        const entete = (nom: string): string | null => (req.headers[nom] as string | undefined) ?? null;
+        (faux as FauxNavigateur).captures.push([
+          (req.url ?? "/").split("?")[0] ?? "/",
+          entete("x-elpis-captures"),
+          entete("x-elpis-vision"),
+        ]);
         void (faux as FauxNavigateur)
           .servir(req.method ?? "GET", req.url ?? "/", Buffer.concat(morceaux).toString())
           .then(([statut, corps]) => {
@@ -49,18 +64,38 @@ export class FauxNavigateur {
           });
       });
     });
-    faux = new FauxNavigateur(serveur);
-    await new Promise<void>((fin) => serveur.listen(0, "127.0.0.1", () => fin()));
+    const dossier = mkdtempSync(path.join(tmpdir(), "elpis-faux-nav-"));
+    faux = new FauxNavigateur(serveur, dossier);
+    await new Promise<void>((fin) => serveur.listen(path.join(dossier, "browser.sock"), () => fin()));
     return faux;
   }
 
-  get url(): string {
-    return `http://127.0.0.1:${(this.serveur.address() as AddressInfo).port}`;
+  /** Service du bac tel que le résolveur le rend (sans jeton). */
+  get service(): ServiceNavigateur {
+    return { socket: path.join(this.dossier, "browser.sock"), jeton: "" };
+  }
+
+  /** Service d'un bac dont le socket n'existe pas (service arrêté). */
+  get absent(): ServiceNavigateur {
+    return { socket: path.join(this.dossier, "absent.sock"), jeton: "" };
+  }
+
+  /** Hôte d'outils branché sur ce service comme sur celui du bac de chaque compte (ni bac ni relais démarrés), toute destination admise. */
+  brancher(): void {
+    injectionsNavigateurBac.service = () => this.service;
+    injectionsNavigateurBac.juge = () => async () => ({ ok: true, adresse: "" });
+  }
+
+  /** Hôte d'outils rendu à ses bacs. */
+  static debrancher(): void {
+    injectionsNavigateurBac.service = null;
+    injectionsNavigateurBac.juge = null;
   }
 
   /** Page courante et requêtes relevées remises à zéro (un passage par service comparé). */
   reinitialiser(): void {
     this.vues.length = 0;
+    this.captures.length = 0;
     this.imposees.clear();
     this.courante = "";
     this.attentes = 0;
@@ -69,6 +104,7 @@ export class FauxNavigateur {
   async arreter(): Promise<void> {
     this.serveur.closeAllConnections();
     await new Promise<void>((fin) => this.serveur.close(() => fin()));
+    rmSync(this.dossier, { recursive: true, force: true });
   }
 
   private async servir(methode: string, brut: string, texte: string): Promise<Reponse> {

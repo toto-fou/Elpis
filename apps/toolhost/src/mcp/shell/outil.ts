@@ -235,6 +235,7 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
     const sb = await a.racine(username);
     if (typeof args.command !== "string" || !stripPy(args.command))
       return errShell("empty_command", "Provide a command to run.");
+    const cmdEcho = args.command.toWellFormed(); // lone surrogates would make the result unencodable
     if (longueurPy(args.command) > MAX_COMMANDE)
       return errShell(
         `command too long (${longueurPy(args.command)} characters, max ${MAX_COMMANDE})`,
@@ -368,8 +369,8 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
       });
     } catch (e) {
       await wc?.fin();
-      if (ctx.signal?.aborted) return { ...enveloppeAnnulee("execute_shell"), cmd: args.command };
-      return errShell(`executor unavailable: ${strErreurAnglais(e)}`, REDEMARRER, { cmd: args.command });
+      if (ctx.signal?.aborted) return { ...enveloppeAnnulee("execute_shell"), cmd: cmdEcho };
+      return errShell(`executor unavailable: ${strErreurAnglais(e)}`, REDEMARRER, { cmd: cmdEcho });
     }
     if (args.background) {
       const lignes = splitlinesPy(stripPy(veritePy(result["stdout"]) ? strPy(result["stdout"]) : ""));
@@ -390,7 +391,7 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
         ok: true,
         background: true,
         pid,
-        cmd: args.command,
+        cmd: cmdEcho,
         log: journalFond,
         hint:
           `Detached process (pid ${pid}). Its output goes to ${journalFond}: read it with read_file or ` +
@@ -405,7 +406,7 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
       await wc.fin();
       wc.attacher(result);
     }
-    result["cmd"] = args.command;
+    result["cmd"] = cmdEcho;
     const reduit = veritePy(result["apercu"]);
     delete result["apercu"];
     let autoSauve = false;

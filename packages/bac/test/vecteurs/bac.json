@@ -42,7 +42,7 @@
     "/tmp"
   ],
   "run_spec": "6",
-  "default_image": "elpis/sandbox:1.7.0",
+  "default_image": "elpis/sandbox:1.8.0",
   "run_args": [
     {
       "executors": {},
@@ -53,7 +53,7 @@
       "chemin": "/sb/alice/work",
       "conteneur": "elpis-sb-alice",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -126,7 +126,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -140,7 +140,7 @@
       "chemin": "/sb/JeanDupont/work",
       "conteneur": "elpis-sb-JeanDupont",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -213,7 +213,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -272,7 +272,7 @@
       "chemin": "/sb/bob/work",
       "conteneur": "elpis-sb-bob",
       "profil_effectif": "open",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -343,7 +343,7 @@
         "elpis.spec=6",
         "--label",
         "elpis.agent=120fce89f7f6",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -402,7 +402,7 @@
       "chemin": "/s b/carol/work",
       "conteneur": "elpis-sb-carol",
       "profil_effectif": "lan",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -477,7 +477,7 @@
         "NET_ADMIN",
         "-e",
         "ELPIS_ALLOWLIST=10.0.0.0/24",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -544,7 +544,7 @@
       "chemin": "/sb/dave/work",
       "conteneur": "elpis-sb-dave",
       "profil_effectif": "web",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -631,7 +631,7 @@
         "10.168.1.1",
         "--dns",
         "1.2.3.4",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -690,7 +690,7 @@
       "chemin": "/sb/dave/work",
       "conteneur": "elpis-sb-dave",
       "profil_effectif": "web",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -773,7 +773,7 @@
         "10.168.1.1",
         "--dns",
         "1.2.3.4",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -832,7 +832,7 @@
       "chemin": "/sb/eve/work",
       "conteneur": "elpis-sb-eve",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -905,7 +905,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -932,7 +932,7 @@
       "chemin": "/sb/frank/work",
       "conteneur": "elpis-sb-frank",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1010,7 +1010,7 @@
         "--cap-add",
         "SYS_PTRACE",
         "5",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1028,7 +1028,7 @@
       "chemin": "/sb/guest/work",
       "conteneur": "elpis-sb-guest",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1101,7 +1101,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1120,7 +1120,7 @@
       "chemin": "/sb/t/work",
       "conteneur": "elpis-sb-t",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1193,7 +1193,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1211,7 +1211,7 @@
       "chemin": "/sb/x/work",
       "conteneur": "elpis-sb-x",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1284,7 +1284,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1302,7 +1302,7 @@
       "chemin": "/sb/y/work",
       "conteneur": "elpis-sb-y",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1375,7 +1375,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1393,7 +1393,7 @@
       "chemin": "/sb/z/work",
       "conteneur": "elpis-sb-z",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1466,7 +1466,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1570,7 +1570,7 @@
       "chemin": "/sb/v/work",
       "conteneur": "elpis-sb-v",
       "profil_effectif": "isolated",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1643,7 +1643,7 @@
         "elpis.agent=120fce89f7f6",
         "--network",
         "none",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1668,7 +1668,7 @@
       "chemin": "/sb/u/work",
       "conteneur": "elpis-sb-u",
       "profil_effectif": "dnsseul",
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "argv": [
         "run",
         "-d",
@@ -1747,7 +1747,7 @@
         "ELPIS_DNS=9.9.9.9",
         "--dns",
         "9.9.9.9",
-        "elpis/sandbox:1.7.0",
+        "elpis/sandbox:1.8.0",
         "sleep",
         "infinity"
       ]
@@ -1851,31 +1851,31 @@
   "images": [
     {
       "valeur": null,
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "  ",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
-      "valeur": "elpis/sandbox:1.7.0",
-      "image": "elpis/sandbox:1.7.0"
+      "valeur": "elpis/sandbox:1.8.0",
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "elpis/sandbox:1.6.0",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": " elpis/sandbox ",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "elpis/sandbox@sha256:ab",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "autre/image:1",
@@ -1891,7 +1891,7 @@
     },
     {
       "valeur": "elpis/sandbox:",
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": "localhost:5000/x",
@@ -1903,7 +1903,7 @@
     },
     {
       "valeur": 0,
-      "image": "elpis/sandbox:1.7.0"
+      "image": "elpis/sandbox:1.8.0"
     },
     {
       "valeur": 5,
@@ -1926,12 +1926,12 @@
   ],
   "archives": [
     {
-      "image": "elpis/sandbox:1.7.0",
+      "image": "elpis/sandbox:1.8.0",
       "chemins": [
-        "{racine}/sandbox_images/elpis-sandbox-1.7.0.tar.gz",
-        "{racine}/sandbox_images/elpis-sandbox-1.7.0.tar",
-        "{racine}/deploy/docker/sandbox/elpis-sandbox-1.7.0.tar.gz",
-        "{racine}/deploy/docker/sandbox/elpis-sandbox-1.7.0.tar"
+        "{racine}/sandbox_images/elpis-sandbox-1.8.0.tar.gz",
+        "{racine}/sandbox_images/elpis-sandbox-1.8.0.tar",
+        "{racine}/deploy/docker/sandbox/elpis-sandbox-1.8.0.tar.gz",
+        "{racine}/deploy/docker/sandbox/elpis-sandbox-1.8.0.tar"
       ]
     },
     {
@@ -2853,7 +2853,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -2876,7 +2876,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -3623,7 +3623,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6' rc=0",
+      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3638,7 +3638,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -3671,7 +3671,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.7.0' rc=0",
+      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3686,7 +3686,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0\n"
         }
       ],
       "processus": null,
@@ -3719,7 +3719,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.7.0|autre' rc=0",
+      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|autre' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3734,7 +3734,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|autre\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|autre\n"
         }
       ],
       "processus": null,
@@ -3767,7 +3767,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.7.0|<no value>' rc=0",
+      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|<no value>' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3782,7 +3782,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|<no value>\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|<no value>\n"
         }
       ],
       "processus": null,
@@ -4339,7 +4339,7 @@
       }
     },
     {
-      "nom": "config web 'c9b70535cd34|6|elpis/sandbox:1.7.0|120fce89f7f6'",
+      "nom": "config web 'c9b70535cd34|6|elpis/sandbox:1.8.0|120fce89f7f6'",
       "methode": "_config_matches",
       "executors": {
         "network_profiles": [
@@ -4398,7 +4398,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "c9b70535cd34|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "c9b70535cd34|6|elpis/sandbox:1.8.0|120fce89f7f6"
         }
       ],
       "processus": null,
@@ -4547,7 +4547,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4568,7 +4568,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -4653,7 +4653,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4674,7 +4674,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -4759,7 +4759,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4780,7 +4780,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -4809,7 +4809,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -4884,7 +4884,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -4914,7 +4914,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -4957,7 +4957,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4978,7 +4978,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5063,7 +5063,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5084,7 +5084,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5113,7 +5113,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -5188,7 +5188,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -5218,7 +5218,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -5261,7 +5261,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5282,7 +5282,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5311,7 +5311,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -5386,7 +5386,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -5416,7 +5416,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -5480,7 +5480,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5502,7 +5502,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -5522,7 +5522,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -5597,7 +5597,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -5627,7 +5627,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -5670,7 +5670,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5691,7 +5691,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5720,7 +5720,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -5795,7 +5795,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -5825,7 +5825,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -5868,7 +5868,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -5896,7 +5896,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -5937,7 +5937,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -6012,7 +6012,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -6042,7 +6042,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -6101,7 +6101,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -6130,7 +6130,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -6205,7 +6205,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -6235,7 +6235,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -6292,7 +6292,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -6314,12 +6314,12 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
           "<charger>",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           true
         ],
         [
@@ -6345,7 +6345,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -6354,7 +6354,7 @@
         "montage": false,
         "config": false,
         "droits": false,
-        "reportee": "image elpis/sandbox:1.7.0 absente : le conteneur de la sandbox date d'une version pr\u00e9c\u00e9dente et ne peut pas encore \u00eatre recr\u00e9\u00e9 (fichiers, \u00e9diteur et git indisponibles). Construisez l'image (./install.sh --sandbox build) ou chargez son archive (deploy/docker/sandbox/load_image.sh), puis relancez.",
+        "reportee": "image elpis/sandbox:1.8.0 absente : le conteneur de la sandbox date d'une version pr\u00e9c\u00e9dente et ne peut pas encore \u00eatre recr\u00e9\u00e9 (fichiers, \u00e9diteur et git indisponibles). Construisez l'image (./install.sh --sandbox build) ou chargez son archive (deploy/docker/sandbox/load_image.sh), puis relancez.",
         "reessai": true,
         "privdrop": null,
         "marqueur": null,
@@ -6393,7 +6393,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -6425,7 +6425,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -6500,7 +6500,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -6543,7 +6543,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -6592,7 +6592,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -6624,7 +6624,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -6699,7 +6699,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -6743,7 +6743,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -6816,7 +6816,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -6891,7 +6891,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -6978,7 +6978,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -7053,7 +7053,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -7154,7 +7154,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -7229,7 +7229,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -7307,7 +7307,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -7339,12 +7339,12 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
           "<charger>",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           true
         ],
         [
@@ -7419,7 +7419,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -7462,7 +7462,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -7535,12 +7535,12 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
           "<charger>",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           true
         ]
       ],
@@ -7549,7 +7549,7 @@
       "stdin": null,
       "resultat": {
         "erreur": "ExecError",
-        "message": "Le chargement de l'image 'elpis/sandbox:1.7.0' est toujours en cours (Chargement de l'image (612 MB)\u2026). R\u00e9essayez dans quelques instants.",
+        "message": "Le chargement de l'image 'elpis/sandbox:1.8.0' est toujours en cours (Chargement de l'image (612 MB)\u2026). R\u00e9essayez dans quelques instants.",
         "logs": null
       },
       "etat": {
@@ -7620,12 +7620,12 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
           "<charger>",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           true
         ]
       ],
@@ -7634,7 +7634,7 @@
       "stdin": null,
       "resultat": {
         "erreur": "ExecError",
-        "message": "Image 'elpis/sandbox:1.7.0' indisponible. archive introuvable",
+        "message": "Image 'elpis/sandbox:1.8.0' indisponible. archive introuvable",
         "logs": null
       },
       "etat": {
@@ -7705,12 +7705,12 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
           "<charger>",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           true
         ]
       ],
@@ -7719,7 +7719,7 @@
       "stdin": null,
       "resultat": {
         "erreur": "ExecError",
-        "message": "Image 'elpis/sandbox:1.7.0' indisponible. archive introuvable",
+        "message": "Image 'elpis/sandbox:1.8.0' indisponible. archive introuvable",
         "logs": null
       },
       "etat": {
@@ -7751,7 +7751,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -7763,7 +7763,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -7813,7 +7813,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -7847,7 +7847,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -7866,7 +7866,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -7959,7 +7959,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -7993,7 +7993,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -8012,7 +8012,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -8048,7 +8048,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -8069,7 +8069,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -8117,7 +8117,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -8151,7 +8151,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -8163,7 +8163,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -8221,7 +8221,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -8257,7 +8257,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -8269,7 +8269,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -8319,7 +8319,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -8416,7 +8416,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -8448,7 +8448,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -8535,7 +8535,7 @@
           "10.168.1.1",
           "--dns",
           "1.2.3.4",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -8578,7 +8578,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -8705,7 +8705,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         }
       ],
       "processus": null,
@@ -8743,7 +8743,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -8818,7 +8818,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -8861,7 +8861,7 @@
           "running": true,
           "container_id": "abc123",
           "container_name": "elpis-sb-alice",
-          "image": "elpis/sandbox:1.7.0",
+          "image": "elpis/sandbox:1.8.0",
           "started_at": "2026-10-10T00:00:00Z",
           "error": null
         }
@@ -8895,7 +8895,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -8907,7 +8907,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -9015,7 +9015,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -9027,7 +9027,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -9122,7 +9122,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -9134,7 +9134,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -9283,7 +9283,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -9358,7 +9358,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60
@@ -9695,7 +9695,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -9707,7 +9707,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -9852,7 +9852,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -9864,7 +9864,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -10005,7 +10005,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -10017,7 +10017,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -10170,7 +10170,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -10182,7 +10182,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10316,7 +10316,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -10328,7 +10328,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10464,7 +10464,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -10476,7 +10476,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10613,7 +10613,7 @@
             "container",
             "inspect"
           ],
-          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.7.0|2026-10-10T00:00:00Z\n"
+          "out": "abc123|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n"
         },
         {
           "motif": [
@@ -10625,7 +10625,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.7.0|120fce89f7f6\n"
+          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10804,7 +10804,7 @@
         [
           "image",
           "inspect",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           10
         ],
         [
@@ -10879,7 +10879,7 @@
           "elpis.agent=120fce89f7f6",
           "--network",
           "none",
-          "elpis/sandbox:1.7.0",
+          "elpis/sandbox:1.8.0",
           "sleep",
           "infinity",
           60

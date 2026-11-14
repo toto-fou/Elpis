@@ -104,12 +104,7 @@ function monter(
   const hote = document.createElement("div");
   document.body.appendChild(hote);
   app = createApp({ render: () => h(CorpsMessage, { entry: { idx: 1, msg }, pied: true }) });
-  app.provide(
-    CLE_PREFERENCES_CHAT,
-    prefsDeroule(o.classique ? "classic" : "timeline", {
-      captures: o.settings?.["hide_web_screenshots"] !== true,
-    }),
-  );
+  app.provide(CLE_PREFERENCES_CHAT, prefsDeroule(o.classique ? "classic" : "timeline"));
   app.provide(CLE_FIL, contexte(o.settings));
   app.mount(hote);
   return hote;
@@ -192,11 +187,16 @@ describe("captures dans le fil", () => {
     expect(hote2.querySelector("[data-apercu-direct]")).toBeNull();
   });
 
-  it("« Masquer les captures web » : ni appareil photo, ni aperçu, ni « captures » au pied", () => {
-    const hote = monter(message(), { settings: { hide_web_screenshots: true } });
+  it("captures d'étape éteintes (tour sans capture) : ni appareil photo, ni aperçu, ni « captures » au pied", () => {
+    const hote = monter(message({ webScreenshots: [] }));
     expect(hote.querySelector("[data-voir-capture]")).toBeNull();
     expect(hote.querySelector("[data-voir-captures]")).toBeNull();
     expect(hote.querySelector("img")).toBeNull();
+  });
+
+  it("captures déjà prises (historique) : toujours montrées, l'ancien « Masquer les captures web » sans effet", () => {
+    const hote = monter(message(), { settings: { hide_web_screenshots: true } });
+    expect(hote.querySelectorAll("[data-voir-capture]")).toHaveLength(2);
   });
 
   it("déroulé Classique : le carrousel reste, sans les boutons du fil chronologique", () => {

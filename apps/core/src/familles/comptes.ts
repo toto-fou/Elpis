@@ -12,6 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { setTimeout as attendre } from "node:timers/promises";
 
 import {
   createUser,
@@ -19,7 +20,6 @@ import {
   estLocalDirect,
   exigerUtilisateur,
   getAllUsers,
-  getUser,
   getUserGroups,
   getUsernameById,
   getUsersLite,
@@ -58,6 +58,7 @@ import {
   textePy,
   validerMotDePasse,
 } from "../comptes/aides";
+import { DebitConnexion } from "../comptes/debit-connexion";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
@@ -94,6 +95,7 @@ const SANS_CACHE = { "cache-control": "no-cache" };
 const ROLES: Readonly<Record<number, string>> = { 0: "user", 1: "admin", 2: "moderator" };
 /** Corps de `login-lite` : identifiant et mot de passe, lus avant toute session (Python sans limite). */
 const CORPS_CONNEXION_MAX = 64 * 1024;
+const REFUS_DEBIT_CONNEXION = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const REFUS_AVATAR_ASSISTANT =
   "L'avatar de l'assistant est le logo de l'application, réglé par l'administrateur dans la console.";
 
@@ -249,6 +251,7 @@ async function enregistrerAvatar(
 
 export function creerFamilleComptes(dep: DependancesComptes): Famille {
   const base = dep.auth.base;
+  const debitConnexion = new DebitConnexion();
   return {
     nom: "comptes",
     routes: [
@@ -313,44 +316,61 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const brut = getPy(data, "password", null);
           const motDePasse: unknown = veritePy(brut) ? brut : "";
           if (!username || !veritePy(motDePasse)) throw new HttpError(400, "username/password required");
+          const secret = textePy(motDePasse);
           const ip = adresseClient(req, dep);
           const ua = entete(req, "user-agent") ?? null;
-          let uid = (await getUser(base, username))
-            ? await verifyUser(base, username, textePy(motDePasse))
-            : null;
-          if (uid !== null) {
-            const verifie = uid;
-            await sansEchec(() => rehacherSiAncien(base, verifie, textePy(motDePasse)));
+          const arrivee = maintenant(dep);
+          const attente = debitConnexion.attenteS(username, ip, arrivee);
+          if (attente > 0)
+            throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
+          const essai = debitConnexion.prendre(username, ip, arrivee);
+          let uid: number | null;
+          try {
+            uid = await verifyUser(base, username, secret);
+            if (uid !== null) {
+              const verifie = uid;
+              await sansEchec(() => rehacherSiAncien(base, verifie, secret));
+            }
+            if (uid === null) {
+              uid = await sousVerrouAmorcage(async () => {
+                const comptes = await getAllUsers(base);
+                const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
+                const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
+                if (amorcage && mode) {
+                  const cree = await createUser(base, username, secret, {
+                    isAdmin: 1,
+                    mustChangePwd: mode === "file" ? 1 : 0,
+                  });
+                  await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
+                  auditEvent({
+                    userId: cree,
+                    username,
+                    action: "auth.bootstrap",
+                    ip,
+                    details: { mode, target_user_id: cree, must_change: mode === "file" },
+                  });
+                  return cree;
+                }
+                const raison = amorcage
+                  ? "bootstrap_locked"
+                  : comptes.length === 0 && username.toLowerCase() !== "admin"
+                    ? "bootstrap_denied"
+                    : "bad_password";
+                await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
+                return null;
+              });
+            }
+          } catch (e) {
+            debitConnexion.annulation(essai, maintenant(dep));
+            throw e;
           }
           if (uid === null) {
-            uid = await sousVerrouAmorcage(async () => {
-              const comptes = await getAllUsers(base);
-              const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
-              const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
-              if (amorcage && mode) {
-                const cree = await createUser(base, username, textePy(motDePasse), {
-                  isAdmin: 1,
-                  mustChangePwd: mode === "file" ? 1 : 0,
-                });
-                await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
-                auditEvent({
-                  userId: cree,
-                  username,
-                  action: "auth.bootstrap",
-                  ip,
-                  details: { mode, target_user_id: cree, must_change: mode === "file" },
-                });
-                return cree;
-              }
-              const raison = amorcage
-                ? "bootstrap_locked"
-                : comptes.length === 0 && username.toLowerCase() !== "admin"
-                  ? "bootstrap_denied"
-                  : "bad_password";
-              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
-              throw new HttpError(401, "invalid credentials");
-            });
+            if (essai.epuise)
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
+            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+            throw new HttpError(401, "invalid credentials");
           }
+          debitConnexion.reussite(essai, maintenant(dep));
           const ligne = await ligneUtilisateur(base, uid);
           const t = maintenant(dep);
           req.session.vider();

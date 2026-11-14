@@ -48,7 +48,7 @@ function monter(reglages: Record<string, unknown>, fournir = true): () => Prefer
 }
 
 describe("lirePreferencesChat", () => {
-  it("par défaut : déroulé classique, contexte en jetons, réflexions repliées, métriques complètes, confortable, captures", () => {
+  it("par défaut : déroulé classique, contexte en jetons, réflexions repliées, métriques complètes, confortable", () => {
     for (const s of [undefined, null, "x", 3, {}])
       expect(lirePreferencesChat(s)).toEqual({
         deroule: "classic",
@@ -56,7 +56,6 @@ describe("lirePreferencesChat", () => {
         reflexions: "collapsed",
         metriques: "full",
         densite: "comfortable",
-        captures: true,
       });
   });
 
@@ -93,9 +92,8 @@ describe("lirePreferencesChat", () => {
     );
   });
 
-  it("captures web : masquées seulement par le booléen vrai", () => {
-    expect(lirePreferencesChat({ hide_web_screenshots: true }).captures).toBe(false);
-    expect(lirePreferencesChat({ hide_web_screenshots: "true" }).captures).toBe(true);
+  it("l'ancienne clé « Masquer les captures web » n'a plus d'effet sur l'affichage", () => {
+    expect(lirePreferencesChat({ hide_web_screenshots: true })).toEqual(PREFERENCES_PAR_DEFAUT);
   });
 });
 

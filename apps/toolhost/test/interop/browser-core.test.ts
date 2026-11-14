@@ -38,7 +38,7 @@ describe("core TS → hôte TS : famille browser native, mémoire AX dans la bas
   beforeAll(async () => {
     dossier = realpathSync(mkdtempSync(path.join(tmpdir(), "elpis-browser-core-")));
     faux = await FauxNavigateur.demarrer();
-    vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+    faux.brancher();
     vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
     restaurer.push(surchargerConfig({ DB_BACKEND: "sqlite", DB_PATH: path.join(dossier, "toolhost.db") }));
     invalidateConfigCache();
@@ -66,6 +66,7 @@ describe("core TS → hôte TS : famille browser native, mémoire AX dans la bas
   }, 60_000);
 
   afterAll(async () => {
+    FauxNavigateur.debrancher();
     const fermetures = [
       async () => {
         await pool.closeAll();

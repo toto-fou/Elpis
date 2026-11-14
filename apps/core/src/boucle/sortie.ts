@@ -134,7 +134,7 @@ function mesurerRaisonnement(ctx: RunContext, rec: RunRecord, texte: string): Pr
   );
 }
 
-/** Réponse finale (aucun appel d'outil) : contenu et raisonnement nettoyés, réponse piégée promue, queue émise, métriques et usage. */
+/** Réponse finale (aucun appel d'outil) : balisage cité dans la prose gardé tel quel, réponse sans prose remplacée, réponse piégée promue, queue émise, métriques et usage. */
 export async function finishOk(
   ctx: RunContext,
   rec: RunRecord,
@@ -176,12 +176,13 @@ export async function finishOk(
     finalClean = stClean || finalClean || o.rawText || "";
   } else finalClean = finalClean || o.rawText || "";
   const avantNettoyage = finalClean;
-  finalClean = stripToolCallMarkup(finalClean);
-  if (finalClean !== avantNettoyage) noterObservation(currentEngine(), "outils_en_texte");
-  if (finalClean !== avantNettoyage)
+  const sansBalisage = stripToolCallMarkup(finalClean);
+  if (sansBalisage !== avantNettoyage) noterObservation(currentEngine(), "outils_en_texte");
+  if (sansBalisage !== avantNettoyage)
     log.warn(
-      `[run_chat_multi_mcp] markup d'appel d'outil nettoyé du flux final (iter ${o.iteration}, model=${modeleDe(ctx)}) — le modèle a émis un tool call en TEXTE non capté par le canal natif. Vérifier que llama-server tourne avec --jinja + un chat template tool-aware.`,
+      `[run_chat_multi_mcp] markup d'appel d'outil dans la réponse finale, non exécuté (iter ${o.iteration}, model=${modeleDe(ctx)}) — le modèle l'a cité ou a émis un tool call en TEXTE non capté par le canal natif. Vérifier que llama-server tourne avec --jinja + un chat template tool-aware.`,
     );
+  finalClean = sansBalisage ? stripPy(avantNettoyage) : sansBalisage;
   let allThinkingText = rec.allThinking.join("\n\n");
   let truncatedInThink = false;
   if (!stripPy(finalClean || "") && stripPy(o.iterThinking || "")) {

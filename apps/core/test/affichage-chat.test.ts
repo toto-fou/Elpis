@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/affichage-chat.test.ts — préférences d'affichage du chat (déroulé, contexte, réflexions, métriques, densité) et `hide_web_screenshots` : liste blanche, valeurs fermées, absentes par défaut, hors console. */
+/** apps/core/test/affichage-chat.test.ts — préférences d'affichage du chat (déroulé, contexte, réflexions, métriques, densité) et `web_step_screenshots` : liste blanche, valeurs fermées, absentes par défaut, hors console. */
 import { createUser, getUserSettings } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
@@ -69,15 +69,21 @@ describe("préférences d'affichage du chat", () => {
   });
 });
 
-describe("préférence hide_web_screenshots", () => {
-  it("booléen strict du compte, absent par défaut, hors console", async () => {
-    expect(USER_SETTINGS_ALLOWED.has("hide_web_screenshots")).toBe(true);
-    expect(ADMIN_PORT_SETTINGS.has("hide_web_screenshots")).toBe(false);
-    expect(await getUserSettings(t.base, alice)).not.toHaveProperty("hide_web_screenshots");
-    await ecrireReglages(t.base, alice, { hide_web_screenshots: "oui" }, "main", journalMuet);
-    expect((await getUserSettings(t.base, alice))["hide_web_screenshots"]).toBe(true);
-    await ecrireReglages(t.base, alice, { hide_web_screenshots: 0 }, "main", journalMuet);
-    expect((await getUserSettings(t.base, alice))["hide_web_screenshots"]).toBe(false);
+describe("préférence web_step_screenshots (captures d'étape du navigateur)", () => {
+  it("booléen strict du compte, absent par défaut (éteint), hors console", async () => {
+    expect(USER_SETTINGS_ALLOWED.has("web_step_screenshots")).toBe(true);
+    expect(ADMIN_PORT_SETTINGS.has("web_step_screenshots")).toBe(false);
+    expect(await getUserSettings(t.base, alice)).not.toHaveProperty("web_step_screenshots");
+    await ecrireReglages(t.base, alice, { web_step_screenshots: "oui" }, "main", journalMuet);
+    expect((await getUserSettings(t.base, alice))["web_step_screenshots"]).toBe(true);
+    await ecrireReglages(t.base, alice, { web_step_screenshots: 0 }, "main", journalMuet);
+    expect((await getUserSettings(t.base, alice))["web_step_screenshots"]).toBe(false);
+  });
+
+  it("l'ancienne clé hide_web_screenshots n'est plus écrite", async () => {
+    expect(USER_SETTINGS_ALLOWED.has("hide_web_screenshots")).toBe(false);
+    await ecrireReglages(t.base, bob, { hide_web_screenshots: true }, "main", journalMuet);
+    expect(await getUserSettings(t.base, bob)).not.toHaveProperty("hide_web_screenshots");
   });
 });
 

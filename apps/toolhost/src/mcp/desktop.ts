@@ -7,6 +7,7 @@ import {
   installerAncres,
   installerComptesBureau,
   installerPrimitivesBureau,
+  installerRechercheRegex,
   installerSocleBureau,
   outilDesktopExpose,
   outilsDesktopExposes,
@@ -23,6 +24,7 @@ import type { ContexteAppel, DefinitionOutil, Golden, ParametrePython } from "@e
 import goldenBrut from "@elpis/outils-mcp/goldens/desktop-brut.json" with { type: "json" };
 import goldenDesktop from "@elpis/outils-mcp/goldens/desktop.json" with { type: "json" };
 
+import { avecFilCalcul } from "../fichiers/calcul-execution";
 import type { Journal } from "../journal";
 import type { ClientRappel, CompteSigne } from "../rappel";
 import type { FabriqueNative } from "./natives";
@@ -119,6 +121,7 @@ export function brancherBureau(rappel: ClientRappel, journal: Journal): void {
     },
   });
   installerPrimitivesBureau(PRIMITIVES_AGENT);
+  installerRechercheRegex((motif, texte) => avecFilCalcul((fil) => fil.present(motif, texte)));
   installerComptesBureau({
     estAdmin: async (nom) => (await rappel.identityForUsername(nom))?.is_admin === true,
   });

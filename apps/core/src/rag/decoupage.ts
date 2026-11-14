@@ -16,10 +16,11 @@ import type {
   ParamsDecoupageRag,
   PassageListeRag,
 } from "@elpis/contracts";
+import { DelaiDepasse, VerrouAsyncio } from "@elpis/mcp";
 import type { ClientQdrant } from "@elpis/rag";
 import {
   CARACTERES_PAR_JETON_DEFAUT,
-  decouperAvecRedecoupes,
+  decouperHorsBoucle,
   empreinteParams,
   ErreurRag,
   estimerJetons,
@@ -38,7 +39,7 @@ import { nomQdrantCollectionRag } from "./travaux";
 import type { LigneCollectionRag, LigneDocumentRag } from "./travaux";
 
 const VERSION_FICHIER = 1;
-/** Durée au-delà de laquelle un aperçu n'entame plus de redécoupe. */
+/** Limite du calcul d'un aperçu, et de l'attente de son tour. */
 export const DELAI_APERCU_MS = 10_000;
 
 /** Découpage propre à un document tel qu'il est gardé : empreinte de la source pour laquelle les redécoupes valent. */
@@ -303,22 +304,52 @@ export interface ApercuDecoupageRag {
   avertissements: string[];
 }
 
-/** Aperçu sur les blocs d'un extrait : regex stricte, redécoupes bornées dans le temps, 2 000 passages rendus au plus. */
-export function apercuDecoupageRag(
+const verrousApercu = new Map<number, VerrouAsyncio>();
+
+/** Un aperçu à la fois par compte, chacun attendant son tour : les threads de découpage d'une rafale de requêtes restent bornés. */
+export async function avecPlaceApercuRag<T>(
+  uid: number,
+  signal: AbortSignal,
+  f: () => Promise<T>,
+  attenteMs: number = DELAI_APERCU_MS,
+): Promise<T> {
+  let verrou = verrousApercu.get(uid);
+  if (verrou === undefined) verrousApercu.set(uid, (verrou = new VerrouAsyncio()));
+  try {
+    return await verrou.avec(f, { signal, delaiMs: attenteMs });
+  } catch (e) {
+    if (e instanceof DelaiDepasse)
+      throw new ErreurRouteRag(
+        429,
+        "trop_de_requetes",
+        "Un autre aperçu est encore en cours : réessayez dans quelques secondes.",
+      );
+    if (signal.aborted && !(e instanceof ErreurRouteRag))
+      throw new ErreurRouteRag(400, "decoupage_trop_long", "Aperçu abandonné.");
+    throw e;
+  }
+}
+
+/** Aperçu sur les blocs d'un extrait : regex stricte, calcul borné dans le temps, 2 000 passages rendus au plus. */
+export async function apercuDecoupageRag(
   blocs: readonly Bloc[],
   coll: DecoupageRag,
   ext: string,
   demande: DecoupageDocumentRag,
-): ApercuDecoupageRag {
+  signal?: AbortSignal,
+): Promise<ApercuDecoupageRag> {
   const choix = choixDecoupageRag(coll, ext, demande);
   let r;
   try {
-    r = decouperAvecRedecoupes(blocs, choix.params, choix.redecoupes, {
+    r = await decouperHorsBoucle(blocs, choix.params, choix.redecoupes, {
       regexStricte: true,
-      echeance: Date.now() + DELAI_APERCU_MS,
+      delaiMs: DELAI_APERCU_MS,
+      signal,
     });
   } catch (e) {
     if (!(e instanceof ErreurRag)) throw e;
+    if (e.code === "fil_decoupage")
+      throw new ErreurRouteRag(503, "decoupage_trop_long", "Aperçu indisponible pour le moment : réessayez.");
     if (e.code === "regex_invalide")
       throw new ErreurRouteRag(
         400,

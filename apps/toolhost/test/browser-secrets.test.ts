@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/browser-secrets.test.ts — outils pw_* et coffre : pw_session sans identifiants (schéma), session ordinaire ouverte pour un secret attaché qui couvre l'origine (TLS de sa politique, http-auth résolu et passé au service sans HAR ni trace, web-login sans valeur, ambiguïté, refus nommés), pw_login (pré-contrôle, résolution sur l'origine du frame, /login, jamais de valeur rendue), refus `secret_*` du coffre et de la connexion réécrits pour le modèle, autres erreurs du service rendues telles quelles, enveloppe signée avec la conversation, client externe sans secret. */
+/** apps/toolhost/test/browser-secrets.test.ts — outils pw_* et coffre : pw_session sans identifiants (schéma), session ordinaire ouverte pour un secret attaché qui couvre l'origine (TLS de sa politique, secret lié au relais du bac, http-auth par la clé de la session sans HAR ni trace, web-login sans valeur, ambiguïté, refus nommés), pw_login (pré-contrôle, substitut armé au relais, /login, jamais de valeur ni de résolution avant le relais), refus `secret_*` du coffre et de la connexion réécrits pour le modèle, autres erreurs du service rendues telles quelles, enveloppe signée avec la conversation, client externe sans secret. */
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -8,6 +8,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import type { Dict } from "@elpis/commun";
+import { chargerAutorite, RelaisNavigateur } from "@elpis/navigateur";
+import type { Autorite } from "@elpis/navigateur";
 import { ouvrirEnMemoire, ServeurOutils } from "@elpis/outils-mcp";
 import type { ConnexionEnMemoire, JetonAcces } from "@elpis/outils-mcp";
 import { IDENTITY_HEADER, verify } from "@elpis/securite";
@@ -16,12 +18,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import { ClientBrut } from "../../../packages/outils-mcp/test/aides";
 import { familleBrowser } from "../src/mcp/browser";
+import { arreterNavigateursBac, poserRelaisPourTests } from "../src/mcp/browser/bac";
 import { oublierTout } from "../src/mcp/browser/liaisons";
 import { ClientRappel } from "../src/rappel";
 import { journalMuet, SVC } from "./aides";
 import { FauxNavigateur, SESSION, SITE } from "./faux-navigateur";
 
 const VALEUR = "Mdp-Du-Coffre-Secret-42";
+const SUBSTITUT = /^Ep\.[0-9a-f]{16}-X$/u;
 const dossier = mkdtempSync(path.join(tmpdir(), "elpis-browser-secrets-"));
 const DE_CONFIANCE: JetonAcces = {
   token: "",
@@ -94,20 +98,33 @@ class FauxCore {
 
 let navigateur: FauxNavigateur;
 let core: FauxCore;
+let autorite: Autorite;
+/** Relais des secrets du bac d'alice (sans trafic : ses liaisons et ses fenêtres seulement). */
+let relais: RelaisNavigateur;
 const ouvertes: ConnexionEnMemoire[] = [];
 
 beforeAll(async () => {
   navigateur = await FauxNavigateur.demarrer();
   core = await FauxCore.demarrer();
+  autorite = chargerAutorite(path.join(dossier, "ca"));
 });
 
 beforeEach(() => {
-  vi.stubEnv("PLAYWRIGHT_API_URL", navigateur.url);
+  navigateur.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
+  relais = new RelaisNavigateur({
+    socket: path.join(dossier, "relais.sock"),
+    jeton: "j",
+    juger: async () => ({ ok: false, motif: "non" }),
+    autorite,
+  });
+  poserRelaisPourTests("alice", relais, Date.now());
 });
 
 afterEach(async () => {
   oublierTout();
+  await arreterNavigateursBac();
+  FauxNavigateur.debrancher();
   for (const c of ouvertes.splice(0)) await c.fermer();
   vi.unstubAllEnvs();
   navigateur.reinitialiser();
@@ -189,14 +206,10 @@ describe("pw_session : session ouverte pour un secret attaché", () => {
     });
   });
 
-  it("http-auth : valeur résolue pour l'origine et passée au service avec credentials_origin, jamais rendue au modèle", async () => {
+  it("http-auth : secret lié au relais du bac avec la clé de la session ; aucune valeur résolue ni passée au service, rien rendu au modèle", async () => {
     core.repondre("/api/internal/secrets/match", [
       200,
       { secrets: [applicable("proxy", "http-auth", "insecure")] },
-    ]);
-    core.repondre("/api/internal/secrets/resolve", [
-      200,
-      { name: "proxy", username: "svc", secret: VALEUR, tls: "insecure", version: 1 },
     ]);
     navigateur.imposees.set("POST /start", [
       [200, { status: "started", session_id: SESSION, url: `${SITE}/`, tls: "insecure" }],
@@ -207,21 +220,20 @@ describe("pw_session : session ouverte pour un secret attaché", () => {
       { action: "start", url: `${SITE}/`, secret: "proxy" },
       { ...META, chat_id: "c1#task-t1", subagent: { type: "web", id: "t1" } },
     );
-    expect(texte(r)).not.toContain(VALEUR);
     expect(resultat(r)).toMatchObject({ session_id: SESSION, secret: "proxy" });
-    expect(corpsRecus("POST /start")[0]).toMatchObject({
+    const corps = corpsRecus("POST /start")[0] as Dict;
+    expect(corps).toMatchObject({
       url: `${SITE}/`,
       tls: "insecure",
-      credentials_origin: SITE,
-      username: "svc",
-      password: VALEUR,
+      relay_binding: { key: expect.stringMatching(/^[0-9a-f]{48}$/u), origins: [SITE] },
     });
-    expect(corpsRecus("POST /start")[0]).not.toHaveProperty("secure");
+    for (const k of ["secure", "credentials_origin", "username", "password"])
+      expect(corps).not.toHaveProperty(k);
+    expect(relais.ids()).toEqual([expect.stringMatching(/^http-auth-[0-9a-f]{16}$/u)]);
     expect(core.vues.map((v) => [v.chemin, v.corps])).toEqual([
       ["/api/internal/secrets/match", { origin: SITE, name: "proxy" }],
-      ["/api/internal/secrets/resolve", { usage: "http-auth", origin: SITE, name: "proxy" }],
     ]);
-    expect(core.vues[1]?.identite).toMatchObject({
+    expect(core.vues[0]?.identite).toMatchObject({
       chat_id: "c1#task-t1",
       subagent: { type: "web", id: "t1" },
     });
@@ -257,6 +269,8 @@ describe("pw_session : session ouverte pour un secret attaché", () => {
     expect(corpsRecus("POST /start")[0]).toMatchObject({ tls: "strict" });
     expect(corpsRecus("POST /start")[0]).not.toHaveProperty("secure");
     expect(corpsRecus("POST /start")[0]).not.toHaveProperty("password");
+    expect(corpsRecus("POST /start")[0]).not.toHaveProperty("relay_binding");
+    expect(relais.ids()).toEqual([expect.stringMatching(/^web-login-[0-9a-f]{16}$/u)]);
     expect(core.vues.map((v) => v.chemin)).toEqual(["/api/internal/secrets/match"]);
     const deux = await b.appeler("pw_session", { action: "start", url: `${SITE}/login` }, META);
     expect(deux["isError"]).toBe(true);
@@ -317,7 +331,7 @@ describe("pw_login", () => {
     core.vues.length = 0;
   }
 
-  it("pré-contrôle sans valeur, résolution sur l'origine du frame, /login avec les valeurs ; rien de la valeur ne revient", async () => {
+  it("pré-contrôle sans valeur, /login avec un substitut armé au relais, sans résolution par le core (le relais la demande au besoin) ; rien de la valeur ne revient", async () => {
     const b = await client();
     await session(b);
     navigateur.imposees.set("POST /login_precheck", [[200, PRE]]);
@@ -334,10 +348,6 @@ describe("pw_login", () => {
       ],
     ]);
     core.repondre("/api/internal/secrets/match", [200, { secrets: [applicable("intranet")] }]);
-    core.repondre("/api/internal/secrets/resolve", [
-      200,
-      { name: "intranet", username: "admin", secret: VALEUR, tls: "strict", version: 3 },
-    ]);
     const r = await b.appeler(
       "pw_login",
       {
@@ -363,82 +373,75 @@ describe("pw_login", () => {
     expect(corpsRecus("POST /login")[0]).toMatchObject({
       secret_origin: SITE,
       username_value: "admin",
-      password_value: VALEUR,
+      password_value: expect.stringMatching(SUBSTITUT),
       username_target: { by_label: "Email" },
     });
     expect(core.vues.map((v) => [v.chemin, v.corps])).toEqual([
       ["/api/internal/secrets/match", { origin: SITE, name: "intranet" }],
-      ["/api/internal/secrets/resolve", { usage: "web-login", origin: SITE, name: "intranet" }],
+    ]);
+    expect(relais.ids()).toEqual([
+      expect.stringMatching(/^web-login-[0-9a-f]{16}$/u),
+      expect.stringMatching(/^login-[0-9a-f]{16}$/u),
     ]);
     const ordre = navigateur.vues.map((v) => v.chemin).filter((c) => c.startsWith("/login"));
     expect(ordre).toEqual(["/login_precheck", "/login"]);
   });
 
-  it("étape mot de passe seule : l'identifiant n'est pas envoyé ; échec du service rendu avec son code, sans valeur", async () => {
+  it("identifiant seul : son échec rendu avec le code du service ; mot de passe jamais substitué par le relais : secret_not_substituted, avec l'issue", async () => {
     const b = await client();
     await session(b);
     navigateur.imposees.set("POST /login_precheck", [
+      [200, { ...PRE, fields: ["username"], detected: ["username"] }],
       [200, { ...PRE, fields: ["password"], detected: ["password"] }],
     ]);
-    navigateur.imposees.set("POST /login", [
-      [
-        422,
-        {
-          ok: false,
-          outcome: "login_form_shown_again",
-          code: "secret_login_failed",
-          error:
-            "The login did not succeed: the login form came back after submission (credentials refused?). The fields were cleared.",
-          page_message: "Mot de passe incorrect",
-        },
-      ],
-    ]);
-    core.repondre("/api/internal/secrets/match", [200, { secrets: [applicable("intranet")] }]);
-    core.repondre("/api/internal/secrets/resolve", [
-      200,
-      { name: "intranet", username: "admin", secret: VALEUR, tls: "strict", version: 3 },
-    ]);
+    const echec: [number, Dict] = [
+      422,
+      {
+        ok: false,
+        outcome: "login_form_shown_again",
+        code: "secret_login_failed",
+        error:
+          "The login did not succeed: the login form came back after submission (credentials refused?). The fields were cleared.",
+        page_message: "Mot de passe incorrect",
+      },
+    ];
+    navigateur.imposees.set("POST /login", [echec, echec]);
+    const vu: [number, Dict] = [200, { secrets: [applicable("intranet")] }];
+    core.repondre("/api/internal/secrets/match", vu, vu);
+    const identifiant = await b.appeler("pw_login", { session_id: SESSION }, META);
+    expect(erreur(identifiant)).toMatchObject({
+      error: "secret_login_failed",
+      page_message: "Mot de passe incorrect",
+    });
+    expect(String(erreur(identifiant)["fix"])).toContain("Do not retry in a loop");
     const r = await b.appeler("pw_login", { session_id: SESSION }, META);
     expect(r["isError"]).toBe(true);
-    expect(texte(r)).toContain("secret_login_failed");
-    expect(texte(r)).toContain("Mot de passe incorrect");
+    expect(erreur(r)).toMatchObject({ error: "secret_not_substituted", outcome: "login_form_shown_again" });
+    expect(String(erreur(r)["message"])).toContain("never sent the typed password");
     expect(texte(r)).not.toContain(VALEUR);
-    expect(corpsRecus("POST /login")[0]).toMatchObject({ username_value: "", password_value: VALEUR });
+    expect(corpsRecus("POST /login").map((c) => [c["username_value"], c["password_value"]])).toEqual([
+      ["admin", ""],
+      ["", expect.stringMatching(SUBSTITUT)],
+    ]);
     expect(core.vues.map((v) => v.corps)).toEqual([
       { origin: SITE, name: "intranet" },
-      { usage: "web-login", origin: SITE, name: "intranet" },
+      { origin: SITE, name: "intranet" },
     ]);
   });
 
-  it("enregistrement actif (409 secret_recording_active) : correctif des outils, le coffre n'est pas interrogé ; refus du coffre rendu tel quel", async () => {
+  it("refus du coffre au choix du secret (hors de portée) : rendu tel quel, rien saisi", async () => {
     const b = await client();
     await session(b);
-    navigateur.imposees.set("POST /login_precheck", [
-      [
-        409,
-        {
-          error: "A trace recording is active on this session: it would keep the typed value.",
-          code: "secret_recording_active",
-          fix: "Export the trace first (/trace_export, which stops it), then log in.",
-        },
-      ],
-      [200, PRE],
-    ]);
-    const r = await b.appeler("pw_login", { session_id: SESSION, secret: "intranet" }, META);
-    expect(erreur(r)).toMatchObject({
-      error: "secret_recording_active",
-      message: "A trace recording is active on this session: it would keep the typed value.",
-    });
-    expect(String(erreur(r)["fix"])).toContain("pw_session(action='trace_export'");
-    expect(String(erreur(r)["fix"])).toContain("without record_har");
-    expect(core.vues).toEqual([]);
-    core.repondre("/api/internal/secrets/match", [200, { secrets: [applicable("intranet")] }]);
-    core.repondre("/api/internal/secrets/resolve", [
+    navigateur.imposees.set("POST /login_precheck", [[200, PRE]]);
+    core.repondre("/api/internal/secrets/match", [
       422,
       { detail: "Secret 'intranet' does not apply to http://93.184.216.34.", code: "secret_scope_mismatch" },
     ]);
     const refus = await b.appeler("pw_login", { session_id: SESSION, secret: "intranet" }, META);
-    expect(texte(refus)).toContain("secret_scope_mismatch");
+    expect(erreur(refus)).toMatchObject({
+      error: "secret_scope_mismatch",
+      message: "Secret 'intranet' does not apply to http://93.184.216.34.",
+    });
     expect(corpsRecus("POST /login")).toEqual([]);
   });
 
@@ -499,14 +502,14 @@ describe("refus `secret_*` réécrits pour le modèle", () => {
           code: "secret_scope_mismatch",
         },
       ],
-      [200, { ok: true, frame_origin: SITE, fields: ["password"], detected: ["password"], targets: {} }],
+      [200, { ok: true, frame_origin: SITE, fields: ["username"], detected: ["username"], targets: {} }],
       [200, { ok: true, frame_origin: SITE, fields: ["password"], detected: ["password"], targets: {} }],
     ]);
     navigateur.imposees.set("POST /login", [
       [
         400,
         {
-          error: "The password field lost the focus while typing: it was cleared.",
+          error: "The user name field lost the focus while typing: it was cleared.",
           code: "secret_target_required",
         },
       ],
@@ -520,8 +523,6 @@ describe("refus `secret_*` réécrits pour le modèle", () => {
         },
       ],
     ]);
-    const cle = { name: "intranet", username: "admin", secret: VALEUR, tls: "strict", version: 1 };
-    core.repondre("/api/internal/secrets/resolve", [200, cle], [200, cle]);
     const vu: [number, Dict] = [200, { secrets: [applicable("intranet")] }];
     core.repondre("/api/internal/secrets/match", vu, vu);
     const cadre = await b.appeler("pw_login", { session_id: SESSION }, META);
@@ -580,10 +581,6 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     detected: ["password"],
     targets: {},
   };
-  const resolu = (name: string, tls = "strict"): [number, Dict] => [
-    200,
-    { name, username: "admin", secret: VALEUR, tls, version: 1 },
-  ];
 
   it("pw_login : session non liée refusée avant tout appel ; TLS vérifié dans une session ouverte sans : refus sans résolution ; secret à TLS souple, de la session ou d'autres origines : admis", async () => {
     const b = await client();
@@ -604,12 +601,6 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
       ],
       [200, { secrets: [applicable("meme", "web-login", "insecure")] }],
     );
-    core.repondre(
-      "/api/internal/secrets/resolve",
-      resolu("proxy", "insecure"),
-      resolu("large", "insecure"),
-      resolu("meme", "insecure"),
-    );
     await b.appeler("pw_session", { action: "start", url: `${SITE}/`, secret: "proxy" }, META);
     navigateur.imposees.set("POST /login_precheck", [
       [200, PRE],
@@ -629,9 +620,7 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     expect(core.vues.map((v) => v.chemin)).toEqual([
       "/api/internal/secrets/match",
       "/api/internal/secrets/match",
-      "/api/internal/secrets/resolve",
       "/api/internal/secrets/match",
-      "/api/internal/secrets/resolve",
     ]);
     expect(corpsRecus("POST /login")).toHaveLength(2);
   });
@@ -664,7 +653,6 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     const b = await client();
     const proxy: [number, Dict] = [200, { secrets: [applicable("proxy", "http-auth")] }];
     core.repondre("/api/internal/secrets/match", proxy, proxy, proxy);
-    core.repondre("/api/internal/secrets/resolve", resolu("proxy"), resolu("proxy"));
     await b.appeler("pw_session", { action: "start", url: `${SITE}/a` }, META);
     const encore = resultat(await b.appeler("pw_session", { action: "start", url: `${SITE}/b` }, META));
     expect(encore).toMatchObject({ session_id: SESSION, reused: true, tls: "strict", secret: "proxy" });
@@ -678,7 +666,7 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     ]);
     await b.appeler("pw_session", { action: "start", url: `${SITE}/c` }, META);
     expect(corpsRecus("POST /start")).toHaveLength(2);
-    expect(core.vues.filter((v) => v.chemin.endsWith("/resolve"))).toHaveLength(2);
+    expect(core.vues.filter((v) => v.chemin.endsWith("/resolve"))).toEqual([]);
     core.repondre("/api/internal/secrets/match", [
       200,
       { secrets: [applicable("anonyme", "http-auth", "strict", { username: null })] },
@@ -689,6 +677,30 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     expect(String(erreur(sans)["message"])).toContain("has no user name");
     expect(core.vues.map((v) => v.chemin)).toEqual(["/api/internal/secrets/match"]);
     expect(corpsRecus("POST /start")).toHaveLength(2);
+  });
+
+  it("start à nouveau pour un secret déjà ouvert avec record_har, trace ou émulation : refus explicite, rien d'ouvert ; http-auth : le refus documenté", async () => {
+    const b = await client();
+    const intranet: [number, Dict] = [200, { secrets: [applicable("intranet", "web-login")] }];
+    core.repondre("/api/internal/secrets/match", intranet, intranet, intranet);
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/login` }, META);
+    const r = await b.appeler(
+      "pw_session",
+      { action: "start", url: `${SITE}/b`, trace: true, device: "iPhone 13" },
+      META,
+    );
+    expect(erreur(r)).toMatchObject({ error: "session_options_need_new_session" });
+    expect(String(erreur(r)["message"])).toContain("trace, device");
+    expect(String(erreur(r)["fix"])).toContain("pw_session action='stop'");
+    expect(corpsRecus("POST /action")).toEqual([]);
+    const sans = resultat(await b.appeler("pw_session", { action: "start", url: `${SITE}/b` }, META));
+    expect(sans).toMatchObject({ reused: true });
+    const proxy: [number, Dict] = [200, { secrets: [applicable("proxy", "http-auth")] }];
+    core.repondre("/api/internal/secrets/match", proxy);
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/a` }, META);
+    core.repondre("/api/internal/secrets/match", proxy);
+    const har = await b.appeler("pw_session", { action: "start", url: `${SITE}/a`, record_har: true }, META);
+    expect(erreur(har)).toMatchObject({ error: "recording_with_credentials" });
   });
 
   it("session fermée sur un déclencheur (409 secret_session_closed) : le core détache le secret, erreur en clair, liaison oubliée", async () => {

@@ -160,7 +160,7 @@ describe("HTTP streamable", () => {
     );
   });
 
-  it("sortie structurée : brouillon pris dans $schema (draft-07), draft-04 non validé, schéma invalide signalé à l'appel", async () => {
+  it("sortie structurée : brouillon pris dans $schema (draft-07), draft-04 non validé, schéma invalide : outil servi sans validation", async () => {
     const c = http(`${srv.base}/mcp`);
     await c.connecter(signalLibre());
     await c.listerOutils(signalLibre());
@@ -175,9 +175,9 @@ describe("HTTP streamable", () => {
         structuredContent: { n: "pas validé" },
       },
     );
-    await expect(c.appelerOutil("schema_casse", { n: 1 }, { signal: signalLibre() })).rejects.toThrow(
-      /^Invalid schema for tool schema_casse: /,
-    );
+    expect(await c.appelerOutil("schema_casse", { n: 1 }, { signal: signalLibre() })).toMatchObject({
+      structuredContent: { n: 1 },
+    });
   });
 
   it("fermeture : la session est terminée côté serveur (DELETE)", async () => {

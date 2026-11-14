@@ -241,7 +241,7 @@ load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https
 svc_available() {{ :; }}
 svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }}
 core_cmd() {{ [ "$*" = "config DB_PATH" ] && echo /srv/donnees/app.db; }}
-SERVICES=(qdrant rag toolhost main admin browser); VAULT_KEY_SYS=/etc/elpis/vault.key
+SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key
 """
     sortie = depot.parent / "unites"
     sortie.mkdir(exist_ok=True)
@@ -252,7 +252,7 @@ SERVICES=(qdrant rag toolhost main admin browser); VAULT_KEY_SYS=/etc/elpis/vaul
 
 def test_unites_sans_la_cle_hors_de_main_et_admin(depot):
     u = _unites(depot)
-    for s in ("qdrant", "rag", "toolhost", "browser"):
+    for s in ("qdrant", "rag", "toolhost"):
         texte = u[f"elpis-{s}.service"]
         assert "UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH" in texte, s
         assert "InaccessiblePaths=-/etc/elpis/vault.key" in texte, s
@@ -273,13 +273,13 @@ systemd_active() {{ return 1; }}; load_runtime() {{ :; }}; need_core() {{ :; }};
 svc_available() {{ :; }}; pid_of() {{ return 1; }}; tourner_journal() {{ :; }}; attendre() {{ :; }}
 attendre_sante() {{ :; }}; cmd_status() {{ :; }}; _https_enabled() {{ return 1; }}; svc_port() {{ echo 1; }}
 svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_LANCEUR=(); SPEC_ENV=(A=1); SPEC_CMD=(sh {ecrire} "{vu}/$1"); }}
-SERVICES=(toolhost main browser); BIND_DEFAULT=127.0.0.1; MAIN_PORT=1; ADMIN_PORT=2
+SERVICES=(toolhost main rag); BIND_DEFAULT=127.0.0.1; MAIN_PORT=1; ADMIN_PORT=2
 mkdir -p "$ROOT/deploy/node" && : > "$ROOT/deploy/node/relance.sh"
 """
     r = _bash(depot, _fonctions("cmd_start"), talons + "cmd_start; wait", ELPIS_VAULT_KEY="cle-de-test")
     assert r.returncode == 0, r.stderr
     assert {f.name: f.read_text(encoding="utf-8") for f in vu.iterdir()} == {
-        "toolhost": "absente", "browser": "absente", "main": "cle-de-test"}
+        "toolhost": "absente", "rag": "absente", "main": "cle-de-test"}
 
 
 def test_doctor_session_sans_le_groupe_de_la_cle(depot, tmp_path):

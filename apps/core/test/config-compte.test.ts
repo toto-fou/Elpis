@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/config-compte.test.ts — `/api/config` rejoué contre le routeur Python (vecteurs) ; blanchiment des secrets, uid de session, portes de session réelles. */
+/** apps/core/test/config-compte.test.ts — `/api/config` rejoué contre le routeur Python (vecteurs) ; sections rendues, uid de session, portes de session réelles. */
 import {
   existsSync,
   mkdtempSync,
@@ -22,7 +22,7 @@ import type { BaseDeTest } from "@elpis/db/test";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { creerFamilleConfig, redactSecrets, sessionUidAny, uidDeSession } from "../src/familles/config";
+import { creerFamilleConfig, sessionUidAny, uidDeSession } from "../src/familles/config";
 import { appTest } from "./aides";
 
 const TEXTE = readFileSync(new URL("./vecteurs/config-compte.json", import.meta.url), "utf-8");
@@ -32,34 +32,29 @@ const V = JSON.parse(TEXTE) as {
   sessions: Record<string, unknown>[];
   etapes: [string, string | null, unknown?][];
   ids: Record<string, number>;
-  redactions: string[];
   uids: { uid: number | null; controle: number[] }[];
   reponses: ({ statut: number; corps: string; cache: string | null } | null)[];
   fichiers: Record<string, string>;
 };
-/** Écart voulu : `mcp.server_cmd` (elpis-tools) n'est plus dans la configuration par défaut, ni rendu ni recopié. */
-function sansServerCmd(texte: string | undefined): string | undefined {
-  return texte
-    ?.replaceAll('"server_cmd":"server/local_mcp_server.py",', "")
-    .replaceAll('"server_cmd": "server/local_mcp_server.py",\n    ', "");
+const ETAPE_NAN = 13;
+const ETAPE_LECTURE_DE_BOB = 3;
+const ETAPE_SURROGATE = 17;
+const ETAPE_PUT_VIDE = 18;
+/** Écarts voulus : seules les sections publiques sont écrites et rendues, donc ni le NaN (étape 13) ni la demi-paire (étape 17) n'atteignent le fichier. */
+function reponseAttendue(
+  i: number,
+): { statut: number; corps: string; cache: string | null } | null | undefined {
+  const j = i === ETAPE_NAN ? ETAPE_LECTURE_DE_BOB : i === ETAPE_SURROGATE ? ETAPE_PUT_VIDE : i;
+  const a = V.reponses[j];
+  return a && { ...a, corps: a.corps.replace(/"config":\{.*\}\}$/su, '"config":{}}') };
 }
 
 const PY = pyJsonLoads(TEXTE) as {
-  redactions_entrees: unknown[];
   etapes: [string, string | null, unknown?][];
 };
-const ENTREES = PY.redactions_entrees;
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 
-describe("blanchiment des secrets et uid de session (vecteurs)", () => {
-  it("`_redact_secrets` : mêmes sorties, source jamais modifiée", () => {
-    for (const [i, cfg] of ENTREES.entries()) {
-      const avant = pyJsonDumps(cfg, { ensureAscii: false });
-      expect(pyJsonDumps(redactSecrets(cfg), { ensureAscii: false }), `cas ${i}`).toBe(V.redactions[i]);
-      expect(pyJsonDumps(cfg, { ensureAscii: false }), `cas ${i}`).toBe(avant);
-    }
-  });
-
+describe("uid de session (vecteurs)", () => {
   it("clés `user_id`, `uid`, `user` et `int()` de Python ; portes de validité appelées avec le même uid", () => {
     for (const [i, s] of V.sessions.entries()) {
       const uid = uidDeSession((cle) => s[cle]);
@@ -123,9 +118,9 @@ describe.each(MOTEURS)("/api/config (%s)", (moteur) => {
         headers: entetes,
         payload: charge,
       });
-      const attendu = V.reponses[i];
+      const attendu = reponseAttendue(i);
       expect(r.statusCode, `étape ${i}`).toBe(attendu?.statut);
-      expect(r.body.replaceAll(dossier, "<R>"), `étape ${i}`).toBe(sansServerCmd(attendu?.corps));
+      expect(r.body.replaceAll(dossier, "<R>"), `étape ${i}`).toBe(attendu?.corps);
       if (r.statusCode === 200 && methode === "GET")
         expect(r.headers["cache-control"], `étape ${i}`).toBe(attendu?.cache);
     }
@@ -135,12 +130,10 @@ describe.each(MOTEURS)("/api/config (%s)", (moteur) => {
         .sort()
         .map((f) => [f, readFileSync(join(dossierConfigs, f), "utf-8")]),
     );
-    expect(fichiers).toEqual(
-      Object.fromEntries(Object.entries(V.fichiers).map(([f, texte]) => [f, sansServerCmd(texte)])),
-    );
+    expect(fichiers).toEqual(Object.fromEntries(Object.keys(V.fichiers).map((f) => [f, "{}"])));
   });
 
-  it("metrics.scrape_token n'est ni recopié dans le fichier du compte ni rendu, même déjà présent dans ce fichier", async () => {
+  it("metrics.scrape_token n'est ni recopié dans le fichier du compte ni rendu, même présent dans un ancien fichier", async () => {
     const instance = join(dossier, "config.json");
     const uid = Object.values(V.ids)[0] ?? 0;
     const fichier = join(dossier, "user_db", "configs", `${uid}.json`);
@@ -156,7 +149,7 @@ describe.each(MOTEURS)("/api/config (%s)", (moteur) => {
       writeFileSync(fichier, JSON.stringify({ metrics: { scrape_token: "jeton-prometheus", x: 1 } }));
       const corps = await lire();
       expect(corps).not.toContain("jeton-prometheus");
-      expect(pyJsonLoads(corps)).toMatchObject({ config: { metrics: { scrape_token: "", x: 1 } } });
+      expect(pyJsonLoads(corps)).toMatchObject({ config: {} });
     } finally {
       writeFileSync(instance, sauvegarde);
       if (avant === null) rmSync(fichier, { force: true });

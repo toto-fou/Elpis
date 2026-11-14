@@ -16,7 +16,8 @@ export type CodeErreurRag =
   | "delai"
   | "parametres"
   | "trop_de_passages"
-  | "regex_invalide";
+  | "regex_invalide"
+  | "fil_decoupage";
 
 export class ErreurRag extends Error {
   override name = "ErreurRag";

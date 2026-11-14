@@ -41,7 +41,7 @@ export async function arreterWorkerOffice(): Promise<void> {
 }
 
 function scriptRendu(): string {
-  return path.join(racineDepot(), "office", "elpis_office", "echarts_ssr.cjs");
+  return path.join(racineDepot(), "office", "elpis_office", "echarts_ssr.mts");
 }
 
 /** Paramètres `Annotated[Any, …]` du Python : facultatifs à `None` par défaut, tels que le golden les fige. */

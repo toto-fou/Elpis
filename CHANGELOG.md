@@ -16,6 +16,37 @@ follow [SemVer](https://semver.org/).
   for it again. Before, the account of a host was the one used last. On upgrade, when
   several accounts share a host, the most recently used keeps the host and the others are
   marked *inactif* until they are given a path (migration `0030_git_account_scope`).
+- **Browser step screenshots on demand.** New account setting *Captures d'étape du navigateur*
+  (Settings › Chat, `web_step_screenshots`), off by default for every account, existing ones
+  included. The browser service takes a step screenshot only when the tool host asks for it
+  (`_meta.web_captures` from the core, header `x-elpis-captures`): one per tool call, a
+  `pw_chain` included, never for a tool's auxiliary requests (`page_after`, the URL read for AX
+  memory), in JPEG q70 through CDP (`step_<sid>_<n>.jpg`, 2 to 3 times faster than the former
+  PNG); the `live_<sid>.png` copy is gone. Off, there is no step screenshot and no
+  `screenshot_step` (explicit screenshots still show, see Changed). Screenshots already taken stay
+  visible in the history (`.png` still served).
+
+- **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
+  started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;
+  service, Node runtime and Chromium headless shell mounted read-only; Unix socket and
+  per-sandbox token; idle stop after `browser.sandbox_idle_minutes`). Sites served inside the
+  sandbox are reachable at `http://localhost:<port>`, downloads land in `/work/downloads`,
+  recorder scripts in `/work/recordings`, HAR/trace/video files in `/work/.elpis-browser`. All
+  other traffic goes through a per-account **secret relay** on the host, which applies the
+  sandbox network profile and the browser policy, terminates TLS only for the origins of a secret
+  in use (instance CA, `user_db/browser-relay-ca`), replaces the one-time placeholder typed by
+  `pw_login` with the value only in requests to the secret's origins during the login, answers
+  Basic and Digest challenges itself and scrubs the value from responses: vault values never
+  enter the sandbox. The relay treats the sandbox as hostile: only the service code is mounted,
+  no host-side write follows a link planted in `/run/elpis`, coverage is decided on the checked
+  destination (IP or trailing-dot names included), one submission per login window, HTTP
+  authentication only for the session that asked (binding key, expiry), every common encoding
+  scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with
+  Happy Eyeballs connections, and a 365-day relay CA renewed automatically. When the sandbox
+  cannot serve, the tools answer `browser_sandbox_unavailable` with the cause and its fix (Docker
+  missing or stopped, image missing, browser not installed). `./elpis doctor` and
+  `./elpis logs browser <account>` cover it.
+
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
   to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
@@ -49,8 +80,9 @@ follow [SemVer](https://semver.org/).
   is applied at once, and that session refuses HAR and trace); it is an ordinary session where
   every tool works. The new `pw_login` (`session_id`, optional `secret`, `username_target`,
   `password_target`, `submit_target`, `wait_for`) logs in without the model ever receiving the
-  value: the fields are checked first, the core resolves the secret for the frame's origin, then
-  the browser service runs the protected login step. `pw_login` only runs in a session opened for
+  value: the fields are checked first, then the browser service of the sandbox runs the protected
+  login step with a one-time placeholder that the relay replaces with the value, resolved by the
+  core for the frame's origin. `pw_login` only runs in a session opened for
   a secret (`secret_session_required`) and refuses a secret with verified TLS in a session opened
   without; sub-agents cannot drive such a session when the secret's policy excludes them; starting
   again for the same secret reuses it. The model may type credentials it already knows, like any
@@ -80,17 +112,17 @@ follow [SemVer](https://semver.org/).
   ordinary one (eval, mocks, recorder, exports and captures work before and after). `POST /start`
   with `tls` keeps that TLS policy for the session's lifetime (certificates verified unless
   `tls: "insecure"`; plain `http://` origins work), gives it a new context and never reuses it for
-  another start; HTTP credentials are bound to `credentials_origin` and refuse HAR and trace. New
-  `POST /login_precheck` and `POST /login` type a username and password into fields that are
-  targeted or detected (`autocomplete`, the single visible password field), checked against the
-  secret's origin. `/login` is one exclusive request: refused while a HAR or a trace records,
-  mocks suspended, service workers of the origin removed and blocked, other tabs paused, the login
-  page reloaded from the network so that no earlier script receives the value, a network guard
-  while the value is typed and sent, an outcome check, and the documents that received the secret
-  replaced by new tabs afterwards; the network log keeps no body during the login and drops the
-  request that carried the password. Stable error codes: `secret_login_busy`,
-  `secret_recording_active`, `secret_scope_mismatch`, `secret_target_required`,
-  `secret_login_failed`.
+  another start; an `http-auth` secret only reaches the relay (`relay_binding`), and HAR and trace
+  are refused for such a session. New `POST /login_precheck` and `POST /login` type a username
+  and the relay's one-time placeholder into fields that are targeted or detected
+  (`autocomplete`, the single visible password field), checked against the secret's origin.
+  `/login` is one exclusive request: mocks suspended, service workers of the origin removed and
+  blocked, the login page reloaded from the network so that no earlier script sees the typed
+  placeholder, a network guard while it is typed and sent, an outcome check, and the documents
+  that received it replaced by new tabs afterwards; the network log keeps no body during the
+  login and drops the request that carried it. Stable error codes: `secret_login_busy`,
+  `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
+  `secret_not_substituted`.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and
@@ -177,6 +209,50 @@ follow [SemVer](https://semver.org/).
   repository) offers at once what the account can be used for, the whole server by default; the
   type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
   taken when several fit. An account without a scope is marked *inactif*.
+- **Explicit browser screenshots always shown in the chat.** A screenshot the agent asks for
+  (`pw_page screenshot`, of the viewport, the full page or one element, and the annotated
+  `pw_observe som`) now shows in the chat like a step screenshot (thumbnail, viewer, history),
+  whatever the step screenshot setting. The service names it after the step of its reply
+  (`shot_<sid>_<n>.png`, `som` included instead of the overwritten `view_<sid>.png`) and takes no
+  step screenshot on top of it; the core reads it from the result of its own session. Vision is
+  unchanged (image to the model only at `pw_page inspect`). A browser tool that brings no
+  screenshot no longer leaves the last thumbnail waiting.
+- **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
+  the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
+  shared state in an explicit service context instead of module globals), bundled by esbuild into
+  `browser-service/dist/main.mjs` (`npm run build:browser`, part of `npm run build`; Express is
+  bundled, Playwright stays in `browser-service/node_modules`). HTTP API, model-facing texts and
+  behaviour are unchanged. Each sandbox mounts that bundle instead of the `*.js` files (sandboxes
+  are recreated once at their next use, `/work` kept); `./install.sh` builds it, the offline
+  package ships it (`browser/dist`), `./elpis upgrade` rebuilds it and `./elpis doctor` checks it
+  matches the sources (`browser-service/dist/empreinte.mjs`, which never loads the service). `npm
+  run typecheck` and `npm run lint` cover it; CI installs its dependencies first (`npm ci --prefix
+  browser-service`). Its tests are TypeScript too, still run by `node --test` (type stripping).
+- **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
+  downscales a screenshot after every browser action. `pw_page inspect` asks the service
+  (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken
+  before the reply (`vision_screenshot`); the core fetches it once through the relay and injects it
+  as before, without a second downscale. No capture, no image: never a stale one.
+- **« Masquer les captures web » retired.** It only hid thumbnails; the step screenshot setting
+  replaces it and the stored `hide_web_screenshots` is ignored. `pw_page inspect` and `pw_observe`
+  return `step` for `since_step` (`screenshot_step` now comes only with a step screenshot).
+- **Browser refusal messages in English.** An address refused by the browser policy (scheme,
+  malformed address, destination) is reported to the model in English, like the relay's reasons.
+- **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision
+  and the AX session URL use the browser service of the account's sandbox only; it needs Docker,
+  the sandbox image 1.8.0 and the browser files (`./install.sh --with-browser`). A sub-agent
+  session counts within its account's quota (3 per owner, 4 for the account and its sub-agents);
+  at start, main closes the orphaned sub-agent sessions through each sandbox's service. Sandbox
+  containers get the browser mounts and are recreated once on their next use. **After updating,
+  run `sudo ./elpis service install` once**: it removes the old `elpis-browser` unit, which would
+  otherwise keep restarting. What the central service left (`user_db/browser/`, folders in
+  `browser-service/`, `user_db/.browser_service_token`, the packages of the former `navigateur`
+  apt group) is left as it is and no longer used.
+- **Sandbox image 1.8.0.** `elpis/sandbox:1.8.0` is 1.7.0 plus the NSS tools of the browser
+  relay; `build_offline.sh` builds both layers and exports `elpis-sandbox-1.8.0.tar.gz`.
+  Containers are recreated on it at their next use (`/work` is kept).
+- **One output size policy for pw_page eval, extract and text.** Every browser tool result stays under the client's budget (~24,000 characters); eval, extract and text now cap what they return at 20,000 characters themselves and say what they left out (`truncated`, `omitted`, a `hint`), instead of the generic clip that cut every string to 2,000 characters (a 60,000-character eval result came back as 2,000 although ~50 KB was documented) or turned a large list into an unreadable `partial` repr. A long eval string is cut, a list or object keeps its first items or keys. extract pages its rows (`max=`, default 50, up to 500; new `offset=`; `total_rows`, `next_offset`) and returns the cell text only, the buttons and links of a row in `_actions`; `level="full"` adds the colors. text comes in parts with `offset=`/`next_offset`. The tool host no longer re-cuts eval (`PLAYWRIGHT_EVAL_MAX_CHARS` is gone; the service reads `PW_OUTPUT_MAX_CHARS`).
+
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's
@@ -204,19 +280,11 @@ follow [SemVer](https://semver.org/).
   shared); the policy fields of these secrets are not used.
 - **Browser service: the Chromium headless shell and nothing else.** A new installation
   downloads only the Chromium headless shell and ffmpeg (`playwright install --only-shell
-  chromium`): about 290 MB on disk instead of 710 MB with the full Chromium. The `navigateur`
-  apt group (`deploy/prerequis-apt.txt`) keeps what the headless shell loads and the fonts of
-  Playwright's list (Latin, CJK, Thai, emoji), 28 lines instead of 32 (no more Xvfb, X server,
-  CUPS, Cairo or Pango): on a minimal Debian 12 that is 50 packages and 37 MB to download
-  instead of 112 and 100 MB; on Debian 13, 68 packages and 87 MB instead of 114 and 100 MB
-  (its `libgbm1` pulls Mesa and LLVM). The offline package carries the same builds
-  (`browser/`: about 120 MB instead of 305 MB); `browser-service/fetch_offline_deps.sh`
-  without `--no-apt` vendors this group with its dependencies missing from a minimal Debian;
-  `install_offline.sh` installs the packages the machine lacks and those they pin to an exact
-  version, stops before changing anything if that would downgrade or break an installed
-  package, and fails if `dpkg --audit` finds a package left unconfigured (bundle built on
-  another point release). **Existing installations keep their packages and browsers**: nothing
-  is removed.
+  chromium`): about 290 MB on disk instead of 710 MB with the full Chromium. They run only in
+  the sandboxes, whose image carries their libraries and fonts: the host needs no browser apt
+  package. The offline package carries the same builds (`browser/`: about 120 MB instead of
+  305 MB) and the sandbox image 1.8.0; `install_offline.sh` only unpacks them.
+  **Existing installations keep their packages and browsers**: nothing is removed.
 - **Git account tokens move to the secrets vault.** The token of each Git account
   (Settings › Git accounts) is now a `git` secret of its owner, scoped to the account's host,
   instead of a plain column: the form's token field is write-only (empty keeps the current
@@ -386,6 +454,19 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **The central browser service.** No browser service runs on the host any more: port 3000,
+  the `browser` service of `./elpis` and its `elpis-browser` unit, `browser.mode` and
+  `browser.sandbox_users` (ignored if left in `config.json`, with one line in the tool host's
+  log), `PLAYWRIGHT_API_URL`, `FIREFOX_SERVICE_PORT`/`HOST`, the browser token file
+  (`user_db/.browser_service_token`, `BROWSER_SERVICE_TOKEN_FILE`), `BROWSER_DATA_DIR`,
+  `BROWSER_URL_ALLOWLIST` (the relay reads `browser.url_allowlist`), `BROWSER_MAX_SESSIONS`,
+  `BROWSER_MAX_CHILD_SESSIONS` and `browser_saturated`, `playwright_api_url` of `toolhost.json`,
+  and the `navigateur` apt group with the `.deb` packages and host test run of the offline
+  browser bundle (`fetch_offline_deps.sh --no-apt`). The service no longer listens on TCP, reads
+  `config.json` or checks addresses itself (the relay judges them), and the guards that only the
+  central service needed are gone with it (POST replay at login, HTTP credentials on `/start`,
+  paused tabs and WebSocket guard during a login, states saved before 0.0.1). `./elpis doctor`
+  checks only the sandbox side.
 - **`username` and `password` of `pw_session`, and the browser's own login memory.** HTTP
   authentication comes only from an attached `http-auth` secret. On a login form with no attached
   secret, the model may still type credentials it already knows (given in the chat, or shown on
@@ -442,13 +523,31 @@ follow [SemVer](https://semver.org/).
   startup are removed. An installation still on 0.1.0 goes through
   0.1.2 first.
 - **`./elpis browser`.** Browser states saved before 0.0.1 no longer
-  attach to an account: they are never reloaded, the service reports them
-  at startup, and they are deleted by hand.
+  attach to an account: they are never reloaded, and they are deleted by hand.
 - **`python -m shared_infra.db`**, replaced by `./elpis db`, and
   `docs/ecarts-python.md` (differences from the Python 0.0.1 version).
 
 ### Fixed
 
+- **Recorder and clicks by selector.** While pw_recorder was recording, a click resolved by a
+  fallback selector on the page itself (not in a frame) answered an error after the click had
+  happened, and the gesture was not recorded: the frames path was looked up on the page as if it
+  were an element (found by the TypeScript migration). It is now recorded without a frames path.
+- **pw_act and pw_visual small gaps.** `select` on a `<select multiple>` could choose one option only (`"A,C"` gave `option_not_found`): a comma-separated `option_label`/`value` (a list in pw_chain) now selects every option named, and the recorder replays them all. A download started by a click or a key is reported in the gesture's result (`downloads: [{file, path, size}]`, saved under `downloads/<account>/`). pw_act takes `position` ({x, y} from the target's top-left corner) to click, double-click, right-click or hover one point of a canvas or a map. pw_visual takes `mask` (CSS selectors painted over in both the capture and the baseline, `masked`, `mask_not_found`) and answers `element_not_found` after 5 s when its `selector` matches nothing, instead of waiting 30 s.
+- **Browser sessions closed silently at the session limit.** Opening sessions beyond the limit (3 per owner, 4 for an account and its sub-agents) closed the oldest ones without a word, the main working session and a session opened for a secret included, and `pw_session list` only showed the global maximum (10). A session that is busy (a request running or waiting) or opened for a vault secret is now never closed; an isolated session gives way before the main one; the start result names the closed sessions (`evicted_sessions`, with the reason) and adds a warning; when no session can give way the start is refused (`browser_quota` with `protected_sessions` and a fix). `list` gives `max_per_owner`, `max_per_group` and `effective_max` next to `max`, and marks isolated and secret sessions.
+- **pw_recorder exports.** A fill or click inside an iframe was exported on the page (it could not replay); the recorder now notes the frames of each gesture and replays it in its frame (`frameLocator` chain in Playwright, the frame's document body in Cypress, `>>>` in Robot). `pick` on a dropdown (custom list, autocomplete, native select) was not recorded at all; it is now exported as its real steps (open and click the option, type and choose, or select). Uploads were a JSON comment: they are exported as `setInputFiles`, `selectFile` or `Upload File By Selector` with the file names, which dump lists in its notes. The Robot export opened a new tab for every `goto`: only the first one is `New Page`, the next ones are `Go To`. Options, menu items and tabs are recorded by role and name.
+- **pw_mock regular expressions and validation.** A pattern was never matched as a regular expression (the tool did not pass `is_regex`), an invalid pattern was silently used as a substring and a status of 999 was served. `pw_mock add` now takes `is_regex=true` (raw pattern, or `/…/flags`), refuses an invalid field with `invalid_mock`, the field and a fix (pattern, status outside 100–599, `delay_ms` outside 0–60000, `times` 0, unknown method, non-text body or headers), warns when a substring pattern looks like a regular expression, and states the precedence in its results and description: when several mocks match, the first added (still active) wins.
+- **pw_page eval wrapping and endless promises.** A script without `return` was wrapped as an expression, so `throw …` or `const x = 1; throw …` failed with `SyntaxError: Unexpected token` instead of the real error; a script is now compiled as an expression when it is one and as an async function body otherwise (an expression holding a nested `return`, such as a `map` callback, now returns its value). A promise that never settles is abandoned after 8 s (`eval_timeout`, `PW_EVAL_TIMEOUT_MS`): the service answers itself, so the session is free for the next calls even when the client does not hang up.
+- **pw_page inspect accuracy.** An accessible name longer than 120 characters came back empty: names are now cut at 80 characters with "…", and such a name passed back as `name=` matches as a prefix. Each listed element (interactives, shadow hosts, form fields, alerts, tables) gets a selector that matches it alone, the same rule as pw_observe, instead of `button` or `button:has-text("Edit")` shared by several. Tables are listed at every level (up to 10), a table without `<th>` too (headers from its first row, `header_source`). On a tall page the elements left over after `max_items` are still sorted out, so `omitted.offscreen` counts them instead of `over_max` (pw_observe too). After a gesture with `|nth=K`, `resolved_selector` ends with `.nth(K)` instead of `.first()`, and a warning gives the number of elements the target matched.
+- **pw_page text with a target.** The text of every open shadow root of the page was appended to the target's text (`[shadow div] …` unrelated to it); only the shadow roots inside the target (the target itself included) are appended now.
+- **pw_act false successes by the fallback ladder.** A click on a button in a closed shadow root, on a button not created yet, or on a button permanently covered by a transparent layer reported success while nothing happened: the text fallback matched `<html>` through the source of a `<script>`, a raw text became a CSS selector, and the forced click landed on the layer. The ladder now acts only on a real, visible element (text matched in rendered text, innermost element, iframes included), checks the point it clicks before a forced or coordinate click, and otherwise answers `element_not_found` (with suggestions), `click_intercepted` (with `covering_element`, nothing clicked) or the gesture's own timeout; a disabled element is no longer force-clicked, and the script fallbacks of fill and check act on real fields only. A success by the ladder names the element it acted on (`resolved_element`); `pw_chain` steps on a raw selector follow the same rules.
+- **pw_page inspect console errors.** `console_errors` accumulated errors from earlier pages and missed an uncaught error thrown in an `onload` handler; uncaught page errors are now captured too, each entry is tagged with its document URL, and inspect returns only the current document's entries.
+- **pw_session start with options on a reused session.** `record_har`, `trace`, `record_video` and emulation options were silently ignored when the account's session (or the secret's) was reused; start now refuses them with `session_options_need_new_session` and says to use `isolated=true` or stop the session first (an `http-auth` secret keeps its `recording_with_credentials` refusal, now also on reuse).
+- **pw_a11y contrast.** Light grey text on white was not flagged: the check only looked at a few tags. It now covers every visible text element (up to 500), uses the WCAG 2.x ratio (4.5:1, 3:1 for large text) with the background resolved through the ancestors, and skips image or gradient backgrounds with a note.
+- **pw_visual default threshold.** The default (1 % of pixels) passed a real change on a small page; without `threshold` the comparison now passes only when at most 0.1 % and at most 200 pixels changed, an explicit `threshold` keeps its meaning, and the result reports `diff_pixels` (and `max_diff_pixels` for the default rule).
+- **pw_mock list counts served responses.** `used` stayed 0 for a mock without a `times` limit; every request a mock fulfilled is now counted, per mock.
+- **pw_recorder gestures by `ref`.** A click or fill done with `ref=` was recorded as `page.locator('')`; the recorder now reads a stable selector (test id, role + name, label, placeholder, text, CSS) from the referenced element at action time, in every export format.
+- **`execute_shell` with a lone UTF-16 surrogate.** The echoed command is sanitized (U+FFFD) so the result stays encodable; the database init now calls `annoncerTravail` just before real schema or migration work; `docs/operations.md` names the apt group `socle` like `deploy/prerequis-apt.txt`.
 - **Browser screenshots shown in the chat again with a vision model.** The tool host deleted a
   capture as soon as it had served it once: the core fetched it first to show it to the model, so
   the chat then got a 404. Captures now stay until the browser service's own sweep removes them
@@ -536,6 +635,80 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
+  a regular expression ran it on the core's event loop, with a 2-second limit per run but none
+  per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a
+  regex now runs in its own worker thread, killed after 60 seconds for the document; a pattern
+  that hits its per-run limit fails the document (`chunking_timeout`) instead of silently falling
+  back to size chunking. Previews use the same thread, one at a time per account (`429` while
+  another one runs). Other chunking methods stay in place and give the same passages. The core
+  bundle gains `decoupage-fil.mjs`, checked by the installer and the release script.
+- **MCP: output schemas cannot hang the core.** The `outputSchema` of a remote MCP tool was
+  compiled and run by ajv on the core's event loop with no bound, so a hostile server could hold
+  the core at 100 % CPU with a pattern such as `^(a+)+$`, a chain of `$ref` or a deeply nested
+  schema. Compilation is now limited to 1 second and each validation to 250 ms, and a schema
+  over 16 KiB or too deep to serialise is never compiled; in all those cases, and for a schema
+  that does not compile, the tool is served without output validation (logged) instead of
+  failing.
+- **Tool regular expressions run off the tool host's event loop.** A pattern given by the model
+  to `read_file` (`grep`), `edit_file` (`regex`, `anchor_re`, `multi`), `git_write` (`replace`
+  with `regex`) or `desktop_wait(match=true)` ran on the tool host's main thread, so a pattern with
+  nested repetition such as `(a|a)*$` could hold every user's tools at 100 % CPU. These searches
+  now run in the per-request worker thread, killed after 10 seconds (120 seconds of searching per
+  tool call at most); the model gets `regex_timeout` with advice to simplify the pattern, and the
+  file is left untouched. When the worker cannot start, a pattern is refused (`regex_unavailable`)
+  rather than run on the main thread. Desktop patterns longer than 2,000 characters fall back to
+  a plain substring match.
+- **Images: PNG decompression bombs bounded.** A small PNG could expand without limit when its
+  compressed metadata (`zTXt`, `iTXt`, `iCCP`) or its interlaced image data were inflated. The
+  metadata is now inflated within 1 MiB per text chunk, 16 MiB per ICC profile and 64 MiB in all
+  (a chunk over its ceiling is ignored and the image still opens); interlaced data is bounded by
+  the size its dimensions allow, and a PNG with a second `IHDR` or over the pixel ceiling is
+  refused before decoding.
+- **Voice: text bounded before cleaning.** The text sent to speech synthesis went through its
+  cleaning regular expressions at full length, and three of them backtracked on long runs of
+  blank lines or spaces. Only the first 8,000 characters (twice the `tts.max_chars` ceiling) are
+  now cleaned, and those patterns no longer backtrack.
+- **Chat title: attached file blocks removed in linear time.** The regular expression that
+  removed `--- FILE: … --- END FILE ---` blocks from the first message before deriving the chat
+  title could take quadratic time on a crafted message and hold the core; a linear scan gives
+  the same result.
+- **MCP relay: linear checks on unauthenticated input.** The `Origin` header and the `family`
+  path segment were trimmed with regular expressions that backtrack on long runs of slashes,
+  before any authentication; they are now trimmed by linear scans, and an `Origin` longer than
+  2,048 characters is refused at once.
+- **Routines: webhook and chained context as untrusted data.** The body of a webhook delivery
+  and the summary of an upstream routine were appended to the routine's prompt under a plain
+  heading, as if the user had written them. They now reach the model in a `<routine_event>` block
+  announced as untrusted data, never instructions, where every `<` of the sender becomes `&lt;`,
+  so the block cannot be closed or a harness tag forged from outside.
+- **Tool calls written as text: only a reply that is nothing but the call runs.** When the engine
+  gives no native `tool_calls`, any JSON object with a `name` found in the reply, or a
+  `<tool_call>` tag quoted in a sentence, used to run as a tool call, so a model quoting a web
+  page, a file or a tool result could be led to run a tool. A text reply now runs as a call only
+  when it holds nothing else (`<tool_call>` / `<function=…>` markup, or bare JSON outside a code
+  block); JSON or tags inside prose are shown as written. The markup that ends a text still counts
+  in two cases: an SGLang engine that reports no tool-call parser, and the reasoning of an empty
+  reply. A reply cut by the length limit inside an open call tag gets the compact retry, with a
+  note that it may only have been a quotation, and nothing runs.
+- **Login: failed attempts throttled.** `POST /api/login-lite` counts attempts per (username,
+  client address), 8 refilled one every 5 minutes, and per client address, 50 refilled one every
+  15 seconds, before any password hashing. Repeated failures are answered more slowly (up to
+  2 s), then with `429` and `Retry-After`; a successful login resets the (username, address) pair,
+  an attempt that fails on a server error is not counted, and no account is locked for other
+  addresses. Reaching the limit writes one `auth.login.denied` line with `reason: rate_limited`.
+  The counters live in the memory of each process.
+- **Login: no timing difference for unknown usernames.** A refused login now costs one current
+  password hash (600,000 PBKDF2 iterations) whether the username exists or not, and an account
+  still on the old 150,000-iteration hash is topped up to the same cost, so the response time no
+  longer tells which usernames exist. A password that is not valid Unicode is refused without
+  being compared.
+- **Account config: public sections only.** `GET /api/config` gave each account a copy of the
+  whole instance `config.json` with a fixed list of secrets blanked, so any other sensitive value
+  (desktop agent addresses and tokens, internal URLs, a future secret key) reached every session.
+  The account view and its file `user_db/configs/{user_id}.json` now hold only the sections that
+  `/api/public-config` already serves (`welcome`, `app_info`, `login_page`); any other key is
+  neither returned nor written by `PUT /api/config`.
 - **Secrets resolve only for a signed conversation.** `POST /api/internal/secrets/resolve`
   ignores a conversation that the tool host did not sign: the conversation must be a chat of the
   account, or one of its running routine runs, and the secret must be attached to it; sub-agents

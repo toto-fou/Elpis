@@ -19,6 +19,7 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { remplacerBase } from "../../../core/src/base";
+import { injectionsNavigateurBac } from "../../src/mcp/browser/bac";
 import { BacTest, PYTHON } from "@elpis/fichiers/test";
 import { configTest, hoteTest, SVC } from "../aides";
 import type { HoteTest } from "../aides";
@@ -40,6 +41,7 @@ describe.skipIf(!PYTHON)("core TS → hôte TS : aperçus, captures et trames", 
   let t: BaseDeTest;
   let app: FastifyInstance;
   let amont: Server;
+  let navigateur: Server;
   let restaurer: () => void;
   let core = "";
   let cookie = "";
@@ -50,15 +52,20 @@ describe.skipIf(!PYTHON)("core TS → hôte TS : aperçus, captures et trames", 
   beforeAll(async () => {
     dossier = realpathSync(mkdtempSync(path.join(tmpdir(), "elpis-core-apercu-")));
     amont = createServer((req, rep) => {
-      if (req.method === "DELETE") return void rep.writeHead(200).end("{}");
-      if ((req.url ?? "").startsWith("/screenshots/"))
-        return void rep.writeHead(200, { "content-type": "image/png" }).end(PNG);
       rep
         .writeHead(200, { "content-type": "text/plain", "set-cookie": "vol=1" })
         .end(`amont ${req.url ?? ""}`);
     });
     await new Promise<void>((fin) => amont.listen(0, "127.0.0.1", fin));
     portAmont = (amont.address() as AddressInfo).port;
+    // Service navigateur du bac d'alice (socket) : ses captures.
+    navigateur = createServer((req, rep) => {
+      if ((req.url ?? "").startsWith("/screenshots/"))
+        return void rep.writeHead(200, { "content-type": "image/png" }).end(PNG);
+      rep.writeHead(404).end();
+    });
+    await new Promise<void>((fin) => navigateur.listen(path.join(dossier, "browser.sock"), fin));
+    injectionsNavigateurBac.service = () => ({ socket: path.join(dossier, "browser.sock"), jeton: "" });
     const proprietaires = path.join(dossier, "pw-owners");
     const trames = path.join(dossier, "trames");
     mkdirSync(proprietaires, { mode: 0o700 });
@@ -67,7 +74,6 @@ describe.skipIf(!PYTHON)("core TS → hôte TS : aperçus, captures et trames", 
     writeFileSync(path.join(proprietaires, "sessAAAA1111.owner"), "alice");
     writeFileSync(path.join(trames, "frame_trameALIC0001.owner"), "alice");
     writeFileSync(path.join(trames, "frame_trameALIC0001.png"), PNG);
-    vi.stubEnv("PLAYWRIGHT_API_URL", `http://127.0.0.1:${portAmont}`);
     vi.stubEnv("PW_OWNERS_DIR", proprietaires);
     vi.stubEnv("DESKTOP_SCREENS_DIR", trames);
     vi.stubEnv("APP_FILE_HISTORY_DIR", path.join(dossier, "fh"));
@@ -138,6 +144,8 @@ describe.skipIf(!PYTHON)("core TS → hôte TS : aperçus, captures et trames", 
     } finally {
       await bac?.arreter();
       await new Promise<void>((fin) => (amont ? amont.close(() => fin()) : fin()));
+      await new Promise<void>((fin) => (navigateur ? navigateur.close(() => fin()) : fin()));
+      injectionsNavigateurBac.service = null;
       vi.unstubAllEnvs();
       remplacerBase(undefined);
       oublierManifeste();

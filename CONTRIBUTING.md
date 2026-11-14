@@ -45,9 +45,10 @@ tests. Before opening one, run:
 
 ```bash
 npm ci
+npm ci --prefix browser-service   # the browser service's own dependencies
 npm run typecheck   # tsc and vue-tsc
 npm run lint        # ESLint
-npm run build       # core, tool host and frontend
+npm run build       # core, tool host, browser service and frontend
 ```
 
 Then run the tests of the areas you touched: how to run each suite
@@ -58,7 +59,7 @@ the commands above on Node 24.
 - Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`.
 - Formatting: `npm run format` (Prettier).
 - After adding Tailwind utility classes:
-  `node tools/generate_tailwind_css.mjs`.
+  `node tools/generate_tailwind_css.mts`.
 - One pull request = one topic; describe the before/after behavior and what
   you tried by hand.
 - No new dependency under a strong copyleft license (GPL/AGPL) in the

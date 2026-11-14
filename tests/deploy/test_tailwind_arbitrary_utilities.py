@@ -5,7 +5,7 @@ arbitraire écrits dans le markup.
 Pourquoi ce test existe
 =======================
 Le front ne charge plus le compilateur Tailwind dans le navigateur : la feuille
-est produite une fois par ``tools/generate_tailwind_css.mjs``, qui extrait les
+est produite une fois par ``tools/generate_tailwind_css.mts``, qui extrait les
 classes STATIQUEMENT des sources. Une classe que l'extraction rate n'existe
 donc nulle part — et, contrairement au CDN qu'elle remplace, plus rien ne la
 rattrape à l'exécution. Elle ne casse rien bruyamment : elle ne fait juste
@@ -28,7 +28,7 @@ elle compare les états qu'elle parvient à ouvrir, et un toast ou un menu ferm�
 n'y figure pas. Ce test-ci ne dépend d'aucun état : il confronte le texte des
 sources à celui de la feuille produite.
 
-En cas d'échec : ``node tools/generate_tailwind_css.mjs``.
+En cas d'échec : ``node tools/generate_tailwind_css.mts``.
 """
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def classes_compilees() -> set[str]:
 
 
 def test_la_feuille_precompilee_existe():
-    assert FEUILLE.is_file(), f"{FEUILLE} manquant — lancer generate_tailwind_css.mjs"
+    assert FEUILLE.is_file(), f"{FEUILLE} manquant — lancer generate_tailwind_css.mts"
     assert FEUILLE.stat().st_size > 20_000
 
 
@@ -123,7 +123,7 @@ def test_chaque_utilitaire_arbitraire_est_compile(classes_compilees):
         pytest.fail(
             f"{len(manquants)} utilitaire(s) écrit(s) dans le markup mais absent(s) "
             f"de la feuille précompilée — donc SANS EFFET dans le navigateur :\n"
-            f"{detail}\n\nRégénérer : node tools/generate_tailwind_css.mjs"
+            f"{detail}\n\nRégénérer : node tools/generate_tailwind_css.mts"
         )
 
 

@@ -20,7 +20,7 @@ chemin classique étaient rejoués par Python jusqu'à B1-36 et **ne sont pas re
 - `flux_route_*` dont le moteur est `classique` ou `panne` (ce dernier remplace
   aussi `llama_chat_stream_tokens`) : tous sauf les `flux_route_outils*`.
 
-`migration-kit/goldens_check.mjs` les reconnaît à leurs entrées, les liste
+`migration-kit/goldens_check.mts` les reconnaît à leurs entrées, les liste
 (`chemin_classique_e23`) et les retire des comptes d'événements et de types figés.
 Avec `--rejeux <rapport JSON de vitest>` (lancé par `npm run verifier`), il prouve
 que chaque autre golden est cité par un test de rejeu TS passé (les contrôles de

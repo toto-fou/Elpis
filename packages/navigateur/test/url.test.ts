@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/test/url.test.ts — garde des destinations du navigateur : vecteurs Python (résolveur, hôte et liste blanche fixés), écarts E40, interfaces de l'hôte. */
+/** packages/navigateur/test/url.test.ts — politique du navigateur jugée par le relais d'un bac au profil ouvert : adresses réservées, machine d'Elpis et ses réseaux de conteneurs, liste blanche du réseau local relue à chaud, interfaces de l'hôte. */
 import { existsSync, readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 
 import { adresseIpOuNul, reseauPy } from "@elpis/commun";
 import type { AdresseIp, Reseau } from "@elpis/commun";
 import type * as Config from "@elpis/config";
-import { urlNonAmbigue } from "@elpis/securite";
 import { describe, expect, it, vi } from "vitest";
 
-import { browserUrlBlockReason, hostAddresses, refusMessage } from "../src/url";
+import { hostAddresses, jugeRelaisBac } from "../src/url";
 import type { HoteNavigateur } from "../src/url";
 
 const vive = vi.hoisted(() => ({ valeur: [] as unknown }));
@@ -19,76 +18,73 @@ vi.mock("@elpis/config", async (original) => ({
     chemin === "browser.url_allowlist" ? vive.valeur : defaut,
 }));
 
-const v = JSON.parse(readFileSync(new URL("./vecteurs/navigateur_url.json", import.meta.url), "utf-8")) as {
-  table: Record<string, string[]>;
-  hote: { adresses: string[]; reseaux: string[] };
-  listes: unknown[];
-  cas: { url: string | null; liste: number; motif: string | null }[];
-  messages: { url: string | null; motif: string; valeur: string }[];
-};
-
-const AMBIGUE = "adresse ambiguë : le navigateur n'y lirait pas le même hôte ou le même port";
-// URL que le Python laisse passer mais que WHATWG lit autrement : refusées (E40) ; `10.1` (10.0.0.1 pour WHATWG) est déjà refusée par les listes 1 et 2.
-const ECARTS_E40 = [
-  "http://[v1.x]/",
-  "http://1.2.3.4.5/",
-  "http://example.com\\@intranet.lan/",
-  "http://exa mple.com/",
-  "http://ex%61mple.com/",
-];
-const ECARTS_PAR_LISTE: readonly (readonly string[])[] = [
-  ["http://10.1/", ...ECARTS_E40],
-  ECARTS_E40,
-  ECARTS_E40,
-];
-
 const hote: HoteNavigateur = {
-  adresses: v.hote.adresses.map((a) => adresseIpOuNul(a)).filter((a): a is AdresseIp => a !== null),
-  reseaux: v.hote.reseaux.map((r) => reseauPy(r)).filter((r): r is Reseau => r !== null),
+  adresses: ["192.168.1.5", "2001:db8::5"]
+    .map((a) => adresseIpOuNul(a))
+    .filter((a): a is AdresseIp => a !== null),
+  reseaux: ["172.17.0.0/16"].map((r) => reseauPy(r)).filter((r): r is Reseau => r !== null),
+};
+const TABLE: Record<string, string[]> = {
+  "example.org": ["93.184.216.34"],
+  "lan.example": ["10.0.0.7"],
+  "intranet.lan": ["10.0.0.8"],
+  "piege.example": ["93.184.216.34", "127.0.0.1"],
 };
 const resoudre = async (nom: string): Promise<string[]> => {
-  const adresses = Object.hasOwn(v.table, nom) ? v.table[nom] : undefined;
+  const adresses = TABLE[nom];
   if (adresses === undefined) throw new Error(`getaddrinfo ENOTFOUND ${nom}`);
   return adresses;
 };
-
-describe("vecteurs Python de browser_url_block_reason", () => {
-  it.each(v.listes.map((l, i) => [i, JSON.stringify(l)] as const))(
-    "liste blanche n°%i (%s) : même motif que le Python, refus E40 en plus",
-    async (i) => {
-      const ecarts: string[] = [];
-      for (const c of v.cas.filter((x) => x.liste === i)) {
-        const motif = await browserUrlBlockReason(c.url, { allowlist: v.listes[i], hote, resoudre });
-        if (c.motif === null && motif !== null) {
-          expect(motif, String(c.url)).toBe(AMBIGUE);
-          expect(urlNonAmbigue(String(c.url).trim()), String(c.url)).toBe(false);
-          ecarts.push(String(c.url));
-        } else expect(motif, String(c.url)).toBe(c.motif);
-      }
-      expect(ecarts.sort()).toEqual([...(ECARTS_PAR_LISTE[i] ?? [])].sort());
-    },
-  );
-
-  it("refus_message : URL tronquée à 200 points de code", () => {
-    for (const c of v.messages) expect(refusMessage(c.url, c.motif)).toBe(c.valeur);
-  });
+const ouvert = (): { id: string; mode: string; ips: never[]; domains: never[]; ports: never[] } => ({
+  id: "web",
+  mode: "bridge",
+  ips: [],
+  domains: [],
+  ports: [],
 });
+const motif = async (nom: string, allowlist: unknown = []): Promise<string | null> => {
+  const v = await jugeRelaisBac(ouvert, { allowlist, hote, resoudre })(nom, 443);
+  return v.ok ? null : v.motif;
+};
 
-describe("liste blanche relue à chaud", () => {
-  it("sans liste passée : browser.url_allowlist lue à chaque appel ; une valeur non itérable lève comme list()", async () => {
+describe("politique du navigateur (relais d'un bac au profil ouvert)", () => {
+  it("boucle locale, lien-local, non spécifiée, multidiffusion et réservées : refusées, en anglais", async () => {
+    for (const ip of ["127.0.0.1", "::1", "169.254.169.254", "0.0.0.0", "224.0.0.1", "240.0.0.1", "fe80::1"])
+      expect(await motif(ip), ip).toMatch(/^address reserved to the host or its local network \(/u);
+    expect(await motif("piege.example")).toBe(
+      "address reserved to the host or its local network (127.0.0.1)",
+    );
+    expect(await motif("introuvable.example")).toBe("name not found (introuvable.example)");
+  });
+
+  it("adresses de la machine d'Elpis et réseaux de ses conteneurs : refusés", async () => {
+    expect(await motif("192.168.1.5")).toBe("address of the machine hosting Elpis (192.168.1.5)");
+    expect(await motif("2001:db8::5")).toBe("address of the machine hosting Elpis (2001:db8::5)");
+    expect(await motif("172.17.0.3")).toBe("internal network of the machine hosting Elpis (172.17.0.3)");
+  });
+
+  it("réseau local permis sans liste blanche ; avec elle, par nom exact, suffixe ou réseau seulement", async () => {
+    expect(await motif("lan.example")).toBeNull();
+    expect(await motif("example.org", ["intranet.lan"])).toBeNull();
+    expect(await motif("lan.example", ["intranet.lan"])).toBe(
+      "local network host not in the allowlist (lan.example)",
+    );
+    expect(await motif("intranet.lan", ["intranet.lan"])).toBeNull();
+    expect(await motif("intranet.lan", "*.lan")).toBeNull();
+    expect(await motif("lan.example", "10.0.0.0/24, autre.lan")).toBeNull();
+    expect(await motif("10.0.0.9", ["10.0.0.9"])).toBeNull();
+  });
+
+  it("sans liste passée : browser.url_allowlist relue à chaque verdict", async () => {
+    const juge = (): ReturnType<typeof jugeRelaisBac> => jugeRelaisBac(ouvert, { hote, resoudre });
     vive.valeur = [];
-    expect(await browserUrlBlockReason("http://lan.example/", { hote, resoudre })).toBeNull();
+    expect(await juge()("lan.example", 443)).toMatchObject({ ok: true, adresse: "10.0.0.7" });
     vive.valeur = "intranet.lan";
-    expect(await browserUrlBlockReason("http://lan.example/", { hote, resoudre })).toBe(
-      "hôte du réseau local absent de la liste autorisée (lan.example)",
-    );
-    expect(
-      await browserUrlBlockReason("http://intranet.lan/", { allowlist: null, hote, resoudre }),
-    ).toBeNull();
-    vive.valeur = 5;
-    await expect(browserUrlBlockReason("http://lan.example/", { hote, resoudre })).rejects.toThrow(
-      "'int' object is not iterable",
-    );
+    expect(await juge()("lan.example", 443)).toEqual({
+      ok: false,
+      motif: "local network host not in the allowlist (lan.example)",
+    });
+    expect(await juge()("intranet.lan", 443)).toMatchObject({ ok: true });
     vive.valeur = [];
   });
 });

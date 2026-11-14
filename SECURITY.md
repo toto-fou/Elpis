@@ -71,9 +71,11 @@ run Elpis on a dedicated machine or VM. Details below.
   the administrator, and revoked along with the account's sessions. The relay
   never passes the client's token to the tool service (signed
   delegation) and refuses undeclared browser origins.
-- Driven browser: it runs on the host; its destinations are filtered
-  by a local relay (no loopback, no link-local, no addresses of
-  the host or its containers) and its sessions are kept per account.
+- Driven browser: it runs inside each account's sandbox; its traffic
+  leaves through the account's relay on the host, which applies the
+  sandbox network profile and refuses loopback, link-local and the
+  addresses of the host or its containers; vault secrets never enter
+  the sandbox (the relay substitutes them for the secret's own origins).
 
 **Out of scope**
 

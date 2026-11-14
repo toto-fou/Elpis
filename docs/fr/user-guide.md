@@ -1233,6 +1233,10 @@ agent mène, même si les sous-agents sont activés pour vos conversations.
   les cas ». Les chaînes sont bornées en profondeur pour éviter les boucles.
 - **Manuel** — bouton ▶ à tout moment.
 
+Le contenu d'un événement webhook et le résumé d'une routine amont sont remis au
+modèle comme une donnée non fiable, jamais comme une consigne : c'est le prompt
+de la routine qui dit quoi en faire.
+
 ### Suivre les exécutions
 
 Chaque routine a son **journal** : statut (succès, échec, ignorée, annulée),
@@ -1458,7 +1462,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | Onglet | Ce qu'on y règle |
 |---|---|
 | **Profil** | Vos informations, photo (recadrée avant l'envoi : glisser, zoom, Ajuster, Remplir, quart de tour), changement de mot de passe |
-| **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures web. *Voix* : dictée et réponse vocale |
+| **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures d'étape du navigateur (éteintes par défaut). *Voix* : dictée et réponse vocale |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
 | **Apparence** | *Thème* : mode sombre, habillage (ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile). *Éditeur* : selon le skin ou classique, thème sombre. *Mascotte* : logo ou mascotte à l'accueil ; voir ci-dessous. Le nom et l'avatar de l'assistant sont ceux de l'application, choisis par l'administrateur |

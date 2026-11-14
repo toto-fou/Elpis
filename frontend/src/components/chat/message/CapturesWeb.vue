@@ -1,18 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/CapturesWeb.vue — carrousel des captures du navigateur d'un message (déroulé classique) : vignette, agrandie, navigation ; caché par « Masquer les captures web ». -->
+<!-- frontend/src/components/chat/message/CapturesWeb.vue — carrousel des captures du navigateur d'un message (déroulé classique) : vignette, agrandie, navigation ; captures demandées par l'agent, et d'étape si « Captures d'étape du navigateur » est allumé. -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
-import { preferencesChat } from "../../../features/reglages/affichage-chat";
 
 import type { CaptureWeb, EntreeMessage } from "../../../features/chat/message/types";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
-const pref = preferencesChat();
 
-const captures = computed(() => (pref.captures ? (props.entry.msg.webScreenshots ?? []) : []));
+const captures = computed(() => props.entry.msg.webScreenshots ?? []);
 const courant = computed(() => props.entry.msg.webScreenshotIdx ?? captures.value.length - 1);
 const capture = computed(() => captures.value[courant.value]);
 const expirees = ref<ReadonlySet<string>>(new Set());

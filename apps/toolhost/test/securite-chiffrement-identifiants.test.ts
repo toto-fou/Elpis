@@ -35,7 +35,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   configurerChiffrement({ cleEnv: "cle-de-test", fichierCle: FICHIER });
   cheminBase = path.join(dossier, `ax-${++numero}.db`);
@@ -57,6 +57,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });

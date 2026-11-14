@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/onglet-chat-affichage.test.ts — groupe « Affichage » de Paramètres › Chat : une liste déroulante nommée par réglage, valeurs normalisées, un choix écrit sa clé, aide du déroulé reliée, ancien interrupteur du raisonnement retiré. */
+/** frontend/test/reglages/onglet-chat-affichage.test.ts — groupe « Affichage » de Paramètres › Chat : une liste déroulante nommée par réglage, valeurs normalisées, un choix écrit sa clé, aide du déroulé reliée, ancien interrupteur du raisonnement retiré, interrupteur des captures d'étape du navigateur. */
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
@@ -74,9 +74,17 @@ describe("Paramètres › Chat › Affichage", () => {
     expect(liste("context_display").hasAttribute("aria-describedby")).toBe(false);
   });
 
-  it("l'interrupteur « Masquer le raisonnement » a disparu, « Masquer les captures web » reste", () => {
-    const { hote } = monter({});
+  it("l'interrupteur « Masquer le raisonnement » a disparu ; « Captures d'étape du navigateur » remplace « Masquer les captures web », éteint par défaut", async () => {
+    const { hote, settings } = monter({});
     expect(hote.textContent).not.toContain("Masquer le raisonnement");
-    expect(hote.textContent).toContain("Masquer les captures web");
+    expect(hote.textContent).not.toContain("Masquer les captures web");
+    expect(hote.textContent).toContain("Captures d'étape du navigateur");
+    const interrupteur = [...hote.querySelectorAll("label")]
+      .find((l) => l.textContent?.includes("Captures d'étape du navigateur"))
+      ?.querySelector("input") as HTMLInputElement;
+    expect(interrupteur.checked).toBe(false);
+    interrupteur.click();
+    await nextTick();
+    expect(settings).toMatchObject({ web_step_screenshots: true });
   });
 });

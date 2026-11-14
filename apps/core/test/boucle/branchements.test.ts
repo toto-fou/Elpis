@@ -171,8 +171,15 @@ describe("brancherBoucle", () => {
       '{"ok": true, "screenshot_step": 3}',
     );
     expect(ss).toMatchObject({ step: 3, session_id: "sess-0001" });
-    expect(ss?.url).toMatch(/^\/api\/playwright\/screenshot\/step_sess-0001_3\.png\?t=\d+$/);
+    expect(ss?.url).toMatch(/^\/api\/playwright\/screenshot\/step_sess-0001_3\.jpg\?t=\d+$/);
     expect(visionDuProcess.extractPwScreenshotUrl("read_file", {}, "{}")).toBeNull();
+    expect(
+      visionDuProcess.extractPwVisionCapture(
+        "pw_page",
+        { session_id: "sess-0001", action: "inspect" },
+        '{"ok": true, "vision_screenshot": "vision_sess-0001_4.jpg"}',
+      ),
+    ).toBe("vision_sess-0001_4.jpg");
   });
 
   it("todos du chat : compte résolu une fois (cache), chat inconnu vide, compte inconnu null", async () => {

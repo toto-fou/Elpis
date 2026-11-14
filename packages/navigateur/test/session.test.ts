@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import {
   extractPwScreenshotUrl,
+  extractPwVisionCapture,
   getPwSessionOwner,
   proprietaire,
   PW_VERB_ALIASES,
@@ -88,6 +89,74 @@ describe("vecteurs Python de _pw_session", () => {
         JSON.stringify(c),
       ).toEqual(c.valeur);
     }
+  });
+
+  it("capture de la vision : seulement celle de pw_page inspect, de sa propre session, nom strict", () => {
+    const args = { session_id: "sessAAAA1111", action: "inspect" };
+    const res = (nom: unknown): string => JSON.stringify({ ok: true, step: 4, vision_screenshot: nom });
+    expect(extractPwVisionCapture("pw_page", args, res("vision_sessAAAA1111_4.jpg"))).toBe(
+      "vision_sessAAAA1111_4.jpg",
+    );
+    expect(
+      extractPwVisionCapture(
+        "pw_page",
+        { sid: "sessAAAA1111", op: "inspect" },
+        res("vision_sessAAAA1111_4.jpg"),
+      ),
+    ).toBe("vision_sessAAAA1111_4.jpg");
+    for (const [outil, a, r] of [
+      ["pw_page", args, res("vision_sessBBBB2222_4.jpg")],
+      ["pw_page", args, res("vision_sessAAAA1111_4.png")],
+      ["pw_page", args, res("vision_sessAAAA1111_4.jpg/../x")],
+      ["pw_page", args, res("../vision_sessAAAA1111_4.jpg")],
+      ["pw_page", args, res(4)],
+      ["pw_page", args, JSON.stringify({ ok: true, step: 4 })],
+      ["pw_page", { ...args, action: "screenshot" }, res("vision_sessAAAA1111_4.jpg")],
+      ["pw_act", args, res("vision_sessAAAA1111_4.jpg")],
+      ["pw_page", { session_id: "../x", action: "inspect" }, res("vision_../x_4.jpg")],
+      ["pw_page", args, "pas du json vision_screenshot"],
+    ] as const)
+      expect(extractPwVisionCapture(outil, a, r), JSON.stringify([outil, a, r])).toBeNull();
+  });
+
+  it("capture explicite (pw_page screenshot, pw_observe som) : montrée sans capture d'étape, de sa propre session, nom strict", () => {
+    const args = { session_id: "sessAAAA1111", action: "screenshot" };
+    const res = (nom: unknown, extra: object = {}): string =>
+      JSON.stringify({
+        ok: true,
+        screenshot: nom,
+        screenshot_url: `/api/playwright/screenshot/${String(nom)}`,
+        ...extra,
+      });
+    const attendu = (pas: number, nom = `shot_sessAAAA1111_${pas}.png`) => ({
+      url: `/api/playwright/screenshot/${nom}?t=1700000000123`,
+      step: pas,
+      session_id: "sessAAAA1111",
+    });
+    const lire = (outil: string, a: object, r: string) =>
+      extractPwScreenshotUrl(outil, a, r, 1_700_000_000.123);
+    expect(lire("pw_page", args, res("shot_sessAAAA1111_7.png"))).toEqual(attendu(7));
+    expect(lire("pw_observe", { sid: "sessAAAA1111", mode: "som" }, res("shot_sessAAAA1111_12.png"))).toEqual(
+      attendu(12),
+    );
+    // Préférée à une capture d'étape du même résultat.
+    expect(lire("pw_page", args, res("shot_sessAAAA1111_7.png", { screenshot_step: 7 }))).toEqual(attendu(7));
+    for (const nom of [
+      "shot_sessBBBB2222_7.png",
+      "shot_sessAAAA1111_7.jpg",
+      "shot_sessAAAA1111_0.png",
+      "shot_sessAAAA1111_1731500000000.png",
+      "shot_sessAAAA1111_7.png/../x",
+      "../shot_sessAAAA1111_7.png",
+      "shot_sessAAAA1111_x.png",
+      "smart_sessAAAA1111.png",
+      "view_sessAAAA1111.png",
+      7,
+      null,
+    ])
+      expect(lire("pw_page", args, res(nom)), JSON.stringify(nom)).toBeNull();
+    expect(lire("desktop_act", args, res("shot_sessAAAA1111_7.png"))).toBeNull();
+    expect(lire("pw_page", { session_id: "../x", action: "screenshot" }, res("shot_../x_7.png"))).toBeNull();
   });
 
   it("chemins des fichiers compagnons : aucune traversée", () => {

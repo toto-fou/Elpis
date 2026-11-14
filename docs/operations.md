@@ -46,7 +46,7 @@ mounted ISO image). Node.js is not listed: it ships with Elpis. The commands,
 for a manual installation (`--no-apt`), with Debian 13 names:
 
 ```bash
-# base: Python and its venv, downloads, certificates, git updates, bubblewrap jail
+# socle: Python and its venv, downloads, certificates, git updates, bubblewrap jail
 sudo apt install --no-install-recommends python3 python3-venv git curl \
     ca-certificates openssl bubblewrap
 # sandbox: Docker for the users' sandbox (terminal, code execution)
@@ -56,14 +56,6 @@ sudo apt install --no-install-recommends \
     libreoffice-writer-nogui libreoffice-calc-nogui libreoffice-impress-nogui \
     fonts-dejavu fonts-liberation fonts-crosextra-carlito \
     fonts-crosextra-caladea
-# navigateur: libraries and fonts of the Chromium headless shell for the browser service
-sudo apt install --no-install-recommends libglib2.0-0t64 libnss3 libnspr4 \
-    libdbus-1-3 libudev1 libexpat1 libatk1.0-0t64 libatk-bridge2.0-0t64 \
-    libatspi2.0-0t64 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
-    libxfixes3 libxrandr2 libxkbcommon0 libgbm1 libasound2t64 \
-    fontconfig-config fonts-liberation fonts-noto-color-emoji fonts-unifont \
-    xfonts-scalable fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
-    fonts-freefont-ttf
 # https: Caddy front end (local certificate or Let's Encrypt)
 sudo apt install --no-install-recommends caddy
 # postgresql-local: PostgreSQL server on this machine (--db postgres-local)
@@ -81,11 +73,9 @@ Debian 12, without the `t64` suffix); Caddy comes from main on Debian 12 and
 handle only the base: install the equivalent of the file, then run
 `./install.sh --skip-system`.
 
-The `navigateur` group holds what the Chromium headless shell loads (the
-browser service runs nothing else) and the fonts of Playwright's list for
-Chromium (Latin, Chinese, Japanese, Korean, Thai, emoji), so that screenshots
-read by a vision model show every script: no X server, no Xvfb. An
-installation made before keeps the packages of the former, longer list:
+The browser needs no apt package on the host: the Chromium headless shell only
+runs inside the sandboxes, whose image carries its libraries and fonts. An
+installation made before keeps the packages of the former `navigateur` group:
 nothing is removed.
 
 `./install.sh --dry-run` prints what the installation would do on this
@@ -130,7 +120,8 @@ the core:
   files) is pinned too: another runtime is refused at installation and
   reported by `./elpis doctor`;
 - `core/`: the bundle built with this same Node for this architecture
-  (`main.mjs`, `exploitation.mjs`, the image thread `pixels.mjs` and its
+  (`main.mjs`, `exploitation.mjs`, the RAG chunking thread
+  `decoupage-fil.mjs`, the image thread `pixels.mjs` and its
   libwebp WebAssembly codecs in `webp/`), then started once on a temporary
   database (native module loaded, `/api/health`, clean shutdown) before
   entering the package.
@@ -384,10 +375,14 @@ version:
 - Without a `security.listen` setting (configuration from before this
   setting), the application stays open to the network, as before;
   `./elpis configure --listen local` restricts it to this machine.
-- Browser states saved before 0.0.1 (`browser-service/cookies/state_<id>.json`)
-  belong to no account: they are never reloaded and never purged (they keep
-  session cookies). The browser service reports them at startup; delete them by
-  hand (`rm browser-service/cookies/state_<id>.json`).
+- The browser only runs in the sandboxes now. What the former central browser
+  service left (its data in `user_db/browser/` or in folders of
+  `browser-service/` such as `cookies/`, the token
+  `user_db/.browser_service_token`, the packages of the former `navigateur` apt
+  group) is no longer used and stays in place: delete it by hand if you wish
+  (saved states keep session cookies). Run `sudo ./elpis service install` once
+  after the upgrade: it removes the old `elpis-browser` unit, which would
+  otherwise keep restarting (the service no longer starts outside a sandbox).
 
 ## Rolling back
 
@@ -823,6 +818,49 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 - the key in use, as the core sees it: a warning for the fallback `user_db/.vault.key`, for a key
   that cannot be read or is invalid, for secrets encrypted with another key
   (`./elpis vault rekey`), and for secrets left without any key (restore it).
+
+## Browser in the sandbox
+
+The browser runs only inside each account's sandbox (see `docs/configuration.md`, "Controlled
+browser"); there is no browser service on the host. It needs:
+
+1. Docker and the image `elpis/sandbox:1.8.0`: `./install.sh --sandbox build` (or
+   `deploy/docker/sandbox/build_offline.sh`, which builds 1.7.0 then the browser layer of
+   `deploy/docker/sandbox-browser/`); offline, `deploy/docker/sandbox/load_image.sh
+   elpis-sandbox-1.8.0.tar.gz`. Existing containers are recreated on it at their next use
+   (`/work` is kept), and once more when the browser is installed after them (its mounts).
+2. The browser installed (`./install.sh --with-browser`): the service bundle
+   (`browser-service/dist/main.mjs`, built by the installer from `browser-service/src`, shipped
+   prebuilt in the offline package; `./elpis upgrade` rebuilds it), its `node_modules`
+   (Playwright), the Node runtime and the Playwright cache (Chromium headless shell), mounted
+   read-only in the sandboxes and readable by the sandbox UID 10001 (nothing else of
+   `browser-service/` is mounted; `chmod o+rx browser-service/node_modules browser-service/dist`
+   if they were created 0700). `./elpis doctor` checks that the bundle matches the sources.
+3. Preferably two CPUs per sandbox (`"executors": {"limits": {"cpu_quota_pct": 200}}`):
+   Chromium shares the sandbox's CPU quota, and at the default 100 % a step screenshot (off by
+   default, turned on per account in Settings › Chat) of a heavy page can miss its 3 s delay
+   (none at 200 %; `./elpis doctor` warns).
+
+Without one of them the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its
+fix. `browser.mode` and `browser.sandbox_users` from earlier versions are ignored.
+
+**Relay CA.** `user_db/browser-relay-ca/` (or `ELPIS_BROWSER_CA_DIR`): `ca.key` (ECDSA P-256,
+0600, never copied into a sandbox) and `ca.crt` (365 days). Only the certificate goes to the
+sandboxes (`/run/elpis/browser-ca.crt`, imported into the NSS database of each service). Back
+the folder up with `user_db`. Rotation is automatic: when less than 30 days remain, the tool host
+creates a new CA at its next use, recreates the relays and each sandbox service is restarted at
+its account's next `pw_*` call with the new certificate. To rotate at once (suspected leak): stop
+the tool host, delete the folder, start the tool host.
+
+**Doctor.** `./elpis doctor` checks Docker and the sandbox image (the browser needs both), the
+browser files, the CA (and its 0600 key), the Chromium headless shell, that the mounted files are
+readable by the sandbox UID, the CPU quota, and, for each running sandbox service (reached without
+following links), that the relay socket of its account is listening.
+
+**Logs.** `./elpis logs browser <account> [-f]` (the account is required) shows the service log of that account's sandbox
+(`/work/.elpis-browser/service.log`, rotated at 5 MB), without control characters (the sandbox
+writes it). Relay refusals and upstream failures are in
+the tool host log (`[relay <account>]`).
 
 ## Recovering from an incident
 

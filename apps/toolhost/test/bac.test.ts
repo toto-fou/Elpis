@@ -140,7 +140,7 @@ describe("/api/sandbox/me", () => {
       user_mode: "docker",
       effective_mode: "docker",
       force_admin: false,
-      image: "elpis/sandbox:1.7.0",
+      image: "elpis/sandbox:1.8.0",
       limits: { memory_mb: 2048, cpu_quota_pct: 100, pids_max: 512, timeout_s: 600 },
       idle_kill_hours: 24,
       image_status: { status: "not_checked", image: null, archive_path: null, progress_msg: "" },
@@ -155,7 +155,7 @@ describe("/api/sandbox/me", () => {
       running: true,
       container_id: "0123456789ab",
       container_name: "elpis-sb-hugo",
-      image: "elpis/sandbox:1.7.0",
+      image: "elpis/sandbox:1.8.0",
       started_at: "2026-10-10T00:00:00Z",
     });
     expect(c1.stats).toEqual({ cpu: "0.50%", mem: "12MiB / 2GiB", mem_pct: "0.59%", pids: "4" });
@@ -238,7 +238,7 @@ describe("/api/sandbox/me", () => {
       bootstrap: {
         image_status: {
           status: "loaded",
-          image: "elpis/sandbox:1.7.0",
+          image: "elpis/sandbox:1.8.0",
           archive_path: null,
           progress_msg: "Image déjà présente",
         },

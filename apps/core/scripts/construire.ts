@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/scripts/construire.ts — bundle de production du core (dist/main.mjs, dist/exploitation.mjs, thread dist/pixels.mjs et ses codecs WebAssembly), module natif par cible, licences des paquets livrés. */
+/** apps/core/scripts/construire.ts — bundle de production du core (dist/main.mjs, dist/exploitation.mjs, threads dist/pixels.mjs avec ses codecs WebAssembly et dist/decoupage-fil.mjs), module natif par cible, licences des paquets livrés. */
 import { createHash } from "node:crypto";
 import {
   cpSync,
@@ -421,6 +421,7 @@ export async function construire(
         main: path.join(CORE, "src", "main.ts"),
         exploitation: path.join(CORE, "src", "exploitation.ts"),
         pixels: path.join(RACINE, "packages", "images", "src", "pixels.ts"),
+        "decoupage-fil": path.join(RACINE, "packages", "rag", "src", "decoupage-fil.ts"),
       },
       outdir: provisoire,
       outExtension: { ".js": ".mjs" },

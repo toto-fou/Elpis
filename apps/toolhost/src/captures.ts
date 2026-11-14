@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : PNG du service navigateur, à son seul propriétaire. */
+/** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : JPEG et PNG du service navigateur du bac du compte, à son seul propriétaire. */
 import { HttpError, lowerPy } from "@elpis/commun";
 import { entrees, py } from "@elpis/http";
-import { enTetesServiceNavigateur, getPwSessionOwner } from "@elpis/navigateur";
+import { getPwSessionOwner, requeteService } from "@elpis/navigateur";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { request } from "undici";
 
 import type { Famille } from "./app";
 import type { Journal } from "./journal";
+import { serviceLu } from "./mcp/browser/bac";
 
 export const CHEMIN_CAPTURE = "/api/playwright/screenshot/:filename";
-const MOTIF_ETAPE = /^(?:step|shot)_([A-Za-z0-9-]{8,64})_[0-9]+\.png$/u;
-const MOTIF_AUTRE = /^(?:live|smart|view)_([A-Za-z0-9-]{8,64})\.png$/u;
+// Étapes en JPEG (PNG avant 2026-11, toujours relues dans l'historique), vision en JPEG, le reste en PNG.
+const MOTIFS = [
+  /^step_([A-Za-z0-9-]{8,64})_[0-9]+\.(?:jpg|png)$/u,
+  /^vision_([A-Za-z0-9-]{8,64})_[0-9]+\.jpg$/u,
+  /^shot_([A-Za-z0-9-]{8,64})_[0-9]+\.png$/u,
+  /^(?:live|smart|view)_([A-Za-z0-9-]{8,64})\.png$/u,
+] as const;
 const SANS_CACHE = { "cache-control": "no-store, no-cache, must-revalidate", pragma: "no-cache" } as const;
 const ESSAIS = 4;
 // Codes d'une connexion impossible (`httpx.ConnectError` : « All connection attempts failed »).
@@ -19,8 +24,6 @@ const CONNEXION = /^(E(?!RR_)[A-Z_]+|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET)$/u;
 
 export interface ContexteCaptures {
   readonly journal: Journal;
-  /** `PLAYWRIGHT_API_URL` lu au démarrage, comme le module Python à l'import. */
-  readonly playwrightApi?: string;
   /** Attente entre deux essais (tests). */
   readonly attendre?: (ms: number) => Promise<void>;
 }
@@ -34,11 +37,11 @@ function messageTransport(e: unknown): string {
 /** Nom de capture accepté et identifiant de session qu'il porte ; 400 sinon (même contrôle que le Python). */
 export function sessionDeLaCapture(filename: string): string {
   const sur = filename.slice(filename.lastIndexOf("/") + 1);
-  if (sur !== filename || sur.includes("..") || !lowerPy(sur).endsWith(".png"))
+  if (sur !== filename || sur.includes("..") || !/\.(?:png|jpg)$/u.test(lowerPy(sur)))
     throw new HttpError(400, "Invalid filename");
-  const m = MOTIF_ETAPE.exec(sur) ?? MOTIF_AUTRE.exec(sur);
-  if (!m?.[1]) throw new HttpError(400, "Invalid screenshot filename pattern");
-  return m[1];
+  const sid = MOTIFS.map((motif) => motif.exec(sur)?.[1]).find((s) => s !== undefined);
+  if (!sid) throw new HttpError(400, "Invalid screenshot filename pattern");
+  return sid;
 }
 
 async function servirCapture(
@@ -62,29 +65,27 @@ async function servirCapture(
     );
     throw new HttpError(403, "Access denied: not your session");
   }
-  const url = `${ctx.playwrightApi ?? process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000"}/screenshots/${filename}`;
   const attendre = ctx.attendre ?? ((ms: number) => new Promise<void>((fin) => setTimeout(fin, ms)));
+  // La capture est lue au service du bac du compte, par son socket.
+  const service = serviceLu(proprietaire);
   try {
     for (let essai = 0; essai < ESSAIS; essai++) {
-      const r = await request(url, {
-        headers: enTetesServiceNavigateur(),
-        headersTimeout: 5000,
-        bodyTimeout: 5000,
-      });
-      if (r.statusCode === 200) {
-        const octets = Buffer.from(await r.body.arrayBuffer());
-        return rep.code(200).headers(SANS_CACHE).type("image/png").send(octets);
-      }
-      await r.body.dump();
-      if (r.statusCode !== 404) {
-        ctx.journal.warn(`[pw_screenshot] PLAYWRIGHT_ERROR: ${filename} → ${r.statusCode}`);
-        throw new HttpError(502, `Playwright returned ${r.statusCode}`);
+      const r = await requeteService(service, `/screenshots/${filename}`, { delaiMs: 5000 });
+      if (r.statut === 200)
+        return rep
+          .code(200)
+          .headers(SANS_CACHE)
+          .type(filename.endsWith(".jpg") ? "image/jpeg" : "image/png")
+          .send(r.corps);
+      if (r.statut !== 404) {
+        ctx.journal.warn(`[pw_screenshot] PLAYWRIGHT_ERROR: ${filename} → ${r.statut}`);
+        throw new HttpError(502, `Playwright returned ${r.statut}`);
       }
       await attendre(300 * (essai + 1));
     }
   } catch (e) {
     if (e instanceof HttpError) throw e;
-    ctx.journal.error(`[pw_screenshot] PLAYWRIGHT_DOWN: ${url} (${messageTransport(e)})`);
+    ctx.journal.error(`[pw_screenshot] PLAYWRIGHT_DOWN: ${proprietaire} (${messageTransport(e)})`);
     throw new HttpError(503, `Playwright unreachable: ${messageTransport(e)}`);
   }
   ctx.journal.warn(

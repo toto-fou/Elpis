@@ -3,7 +3,7 @@
 import { ErreurLecturePy, pyJsonDumps, pyJsonLoads, stripPy } from "@elpis/commun";
 import { groupConcat } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
-import { hachageAJour, hashPassword, tokenHex, verifyPassword } from "@elpis/securite";
+import { completerCoutRefus, hachageAJour, hashPassword, tokenHex, verifyPassword } from "@elpis/securite";
 
 import type { LigneUtilisateur } from "./session";
 
@@ -97,12 +97,18 @@ export async function createUser(
   });
 }
 
+/** Tout refus coûte un hachage courant, que le nom existe ou non ; un texte non encodable n'est comparé à rien. */
 export async function verifyUser(x: Executeur, username: string, password: string): Promise<number | null> {
+  if (!password.isWellFormed()) return null;
   const ligne = await getUser(x, username);
-  if (!ligne) return null;
-  return (await verifyPassword(password, String(ligne.pass_salt), String(ligne.pass_hash)))
-    ? Number(ligne.id)
-    : null;
+  if (!ligne) {
+    await completerCoutRefus(password, null);
+    return null;
+  }
+  const stocke = String(ligne.pass_hash);
+  if (await verifyPassword(password, String(ligne.pass_salt), stocke)) return Number(ligne.id);
+  await completerCoutRefus(password, stocke);
+  return null;
 }
 
 /** Rehache au format courant un mot de passe vérifié ; sans effet si la ligne a changé entre-temps. */

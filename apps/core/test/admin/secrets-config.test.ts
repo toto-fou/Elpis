@@ -22,7 +22,7 @@ import { CHEMINS_SECRETS_CONFIG } from "@elpis/contracts";
 import { dig, MASQUE_SECRET, plant, SECRETS_MASQUES } from "../../src/admin/config";
 import { creerFamilleAdminConfig } from "../../src/familles/admin-config";
 import { creerFamilleAdminIntegrations } from "../../src/familles/admin-integrations";
-import { creerFamilleConfig, SECRET_PATHS } from "../../src/familles/config";
+import { creerFamilleConfig } from "../../src/familles/config";
 import { configVoix } from "../../src/voix/config";
 import { appTest, journalMuet } from "../aides";
 
@@ -213,16 +213,11 @@ describe("secrets de config.json", () => {
     expect(r.statusCode).toBe(200);
     for (const [chemin, valeur] of Object.entries(VALEURS)) expect(r.body, chemin).not.toContain(valeur);
     expect(r.body).not.toContain("jeton-prometheus-secret");
-    expect((r.json() as { config: Dict }).config["rag"]).toMatchObject({
-      embed: { model: "m1", api_key: "" },
-    });
+    expect((r.json() as { config: Dict }).config["rag"]).toBeUndefined();
   });
 
-  it("la liste des secrets masqués à la console et celle blanchie pour les comptes disent la même chose", () => {
+  it("la liste des secrets masqués à la console est celle des contrats", () => {
     const masques = SECRETS_MASQUES.map((c) => c.join(".")).sort();
-    // Hors du masque : le jeton de scrape, que sa page montre à l'administrateur.
-    const blanchis = SECRET_PATHS.filter((p) => p !== "metrics.scrape_token").sort();
-    expect(masques).toEqual(blanchis);
     expect([...CHEMINS_SECRETS_CONFIG].sort()).toEqual(masques);
   });
 

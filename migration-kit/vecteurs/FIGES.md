@@ -21,6 +21,9 @@ reportés depuis dans les JSON, chacun signalé dans le message de son commit :
 | `apps/core/test/vecteurs/tour-image.json` | scénario `plafond_du_compte` retiré : plus de plafond de conversations par compte (`too_many_runs`), remplacé par `llm.max_requests_per_user` où le surplus attend |
 | `packages/config/test/vecteurs/reglages.json` | `retired_backend_message` : la documentation citée est `docs/operations.md`, « Upgrading » (documentation passée en anglais) |
 | `packages/contracts/test/vecteurs/emetteurs.json` | relevé `title` ajouté (`apps/core/src/tour/execution.ts`) : titre du modèle posé et diffusé dès son arrivée, plus seulement dans le `final` |
+| `apps/core/test/vecteurs/boucle-analyse.json` | `extraction`, `reprise`, `reprise_connus` : du JSON ou des balises dans la prose ne sont plus des appels (réponse entière, ou balisage final du raisonnement), clôture de code comprise |
+| `tests/goldens/boucle_a1_appel_texte_malforme.json` | relance d'un appel illisible : consigne au modèle complétée (« and nothing else in your reply »), une réponse avec autre chose que l'appel n'est plus exécutée |
+| `tests/goldens/boucle_troncature_texte.json` | relance compacte d'une phrase suivie d'une balise ouverte : consigne complétée (« This may be a false alarm… ») car le texte coupé peut être une citation ; `tool_input_tokens` 807 → 808 en découle ; événements, réponse finale et ordre des messages inchangés |
 
 Les autres écarts sont déclarés dans les tests qui relisent les vecteurs, sans toucher aux JSON :
 `apps/core/test/aides.ts` (`effacementUnifie`, cookie effacé), `apps/core/test/llm/fournisseurs/ecart-anthropic.ts`

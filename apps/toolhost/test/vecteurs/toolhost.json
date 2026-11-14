@@ -29,7 +29,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": []
@@ -97,7 +96,6 @@
           "sandbox_dir": "{tmp}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "https://elpis.example.lan",
-          "playwright_api_url": "http://127.0.0.1:3000",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -182,7 +180,6 @@
           "sandbox_dir": "{tmp}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "http://core:8001",
-          "playwright_api_url": "http://pw",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": [
@@ -228,7 +225,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": [
@@ -274,7 +270,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": [
@@ -320,7 +315,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": [
@@ -366,7 +360,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": [
@@ -415,7 +408,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": [
@@ -461,7 +453,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -509,7 +500,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -560,7 +550,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": [
@@ -609,7 +598,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": [
@@ -657,7 +645,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -705,7 +692,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -753,7 +739,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -801,7 +786,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -849,7 +833,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -900,7 +883,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -944,7 +926,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": [
@@ -993,7 +974,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1027,7 +1007,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1073,7 +1052,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1119,7 +1097,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1165,7 +1142,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1211,7 +1187,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1259,7 +1234,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1312,7 +1286,6 @@
           "sandbox_dir": "/srv/sb/x",
           "db_path": "{tmp}/maison",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1361,7 +1334,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1413,7 +1385,6 @@
           "sandbox_dir": "{racine}/rel/sb",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": []
@@ -1468,7 +1439,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "defaults",
           "path": "",
           "warnings": []
@@ -1520,7 +1490,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/conf/hote.json",
           "warnings": []
@@ -1572,7 +1541,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []
@@ -1618,7 +1586,6 @@
           "sandbox_dir": "{racine}/user_sandboxes",
           "db_path": "{racine}/user_db/toolhost.db",
           "app_url": "12",
-          "playwright_api_url": "",
           "source": "file",
           "path": "{racine}/toolhost.json",
           "warnings": []

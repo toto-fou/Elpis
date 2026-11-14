@@ -260,8 +260,8 @@ function estErreurSyntaxe(e: unknown): boolean {
   return typeof e === "object" && e !== null && (e as { name?: unknown }).name === "SyntaxError";
 }
 
-/** Débuts des correspondances d'un motif (indicateurs `gmu` puis `gm`), dans un contexte à délai : `null` si motif invalide, trop long ou trop lent. */
-export function debutsRegex(motif: string, texte: string): number[] | null {
+/** Débuts des correspondances d'un motif (indicateurs `gmu` puis `gm`), dans un contexte à délai : `null` si motif invalide, trop long ou trop lent ; avec `lenteFatale`, trop lent lève `delai`. */
+export function debutsRegex(motif: string, texte: string, lenteFatale = false): number[] | null {
   if (motif === "" || motif.length > MOTIF_LONGUEUR_MAX) return null;
   for (const indicateurs of ["gmu", "gm"]) {
     try {
@@ -281,6 +281,8 @@ export function debutsRegex(motif: string, texte: string): number[] | null {
       return Array.from(contexte.sortie);
     } catch (e) {
       if (estErreurSyntaxe(e)) continue;
+      if (lenteFatale && (e as { code?: unknown } | null)?.code === "ERR_SCRIPT_EXECUTION_TIMEOUT")
+        throw new ErreurRag("delai", "expression régulière trop lente");
       return null;
     }
   }

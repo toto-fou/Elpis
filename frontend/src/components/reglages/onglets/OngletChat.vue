@@ -181,13 +181,15 @@ function choisir(r: ReglageAffichage, valeur: string): void {
         <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
           <i class="ph ph-browser text-slate-400 text-lg w-5"></i>
           <div class="flex-1 min-w-0">
-            <div class="text-sm text-slate-800">Masquer les captures web</div>
+            <div class="text-sm text-slate-800">Captures d'étape du navigateur</div>
             <div class="text-xs text-slate-500">
-              Cache les captures d'écran du navigateur dans les réponses. L'outil continue de les prendre.
+              Une capture après chaque action du navigateur, affichée dans la conversation. Désactivé par
+              défaut pour épargner le processeur de la sandbox ; les captures demandées par l'agent sont
+              toujours affichées.
             </div>
           </div>
           <div class="relative inline-flex items-center shrink-0">
-            <input v-model="rg.settings.hide_web_screenshots" type="checkbox" class="sr-only peer" />
+            <input v-model="rg.settings.web_step_screenshots" type="checkbox" class="sr-only peer" />
             <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
           </div>
         </label>

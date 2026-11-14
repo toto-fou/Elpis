@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/test/client.test.ts — client du service navigateur : vecteurs Python (fonctions pures, points d'entrée), transport contre un faux service, propriétaire imposé. */
+/** packages/navigateur/test/client.test.ts — client du service navigateur : vecteurs Python (fonctions pures, points d'entrée), transport contre un faux service sur un socket unix, propriétaire imposé. */
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -31,14 +30,11 @@ import {
   POINTS_D_ENTREE,
   pwVerb,
   refusSessionDAutrui,
-  refusUrl,
   screenshotResult,
-  urlServiceNavigateur,
   waitPayload,
 } from "../src/client";
 import type { Locateur } from "../src/client";
 import { registerPwSessionOwner, unregisterPwSessionOwner } from "../src/session";
-import { refusMessageAnglais } from "../src/url";
 
 interface Appel {
   m: string;
@@ -248,11 +244,21 @@ const SCRIPT_TS: Record<string, [number, string, string, number]> = {
   ],
 };
 
+/** Service absent : enveloppe du TS (écart voulu : le service est celui du bac, relancé au prochain outil). */
+const SERVICE_ABSENT = {
+  ok: false,
+  error: "browser_service_unreachable",
+  message: "The browser service of your sandbox did not answer.",
+  fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
+};
+
 describe("transport contre un faux service navigateur", () => {
   let serveur: Server;
-  let base = "";
-  let ferme = "";
+  const dossier = mkdtempSync(join(tmpdir(), "elpis-pw-socket-"));
+  const socket = join(dossier, "browser.sock");
+  const ferme = join(dossier, "absent.sock");
   let recu: Recu[] = [];
+  let captures: [string, string | null, string | null][] = [];
 
   beforeAll(async () => {
     serveur = createServer((req, rep) => {
@@ -261,6 +267,8 @@ describe("transport contre un faux service navigateur", () => {
       req.on("end", () => {
         const u = new URL(req.url ?? "/", "http://x");
         const corps = Buffer.concat(morceaux).toString("utf-8");
+        const entete = (nom: string): string | null => (req.headers[nom] as string | undefined) ?? null;
+        captures.push([u.pathname, entete("x-elpis-captures"), entete("x-elpis-vision")]);
         recu.push({
           methode: req.method ?? "",
           chemin: u.pathname,
@@ -277,20 +285,20 @@ describe("transport contre un faux service navigateur", () => {
         }, delai * 1000);
       });
     });
-    await new Promise<void>((fin) => serveur.listen(0, "127.0.0.1", fin));
-    base = `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`;
-    const sonde = createServer();
-    await new Promise<void>((fin) => sonde.listen(0, "127.0.0.1", fin));
-    ferme = `http://127.0.0.1:${(sonde.address() as AddressInfo).port}`;
-    await new Promise<void>((fin) => sonde.close(() => fin()));
+    await new Promise<void>((fin) => serveur.listen(socket, fin));
   });
   afterAll(async () => {
     serveur.closeAllConnections();
     await new Promise<void>((fin) => serveur.close(() => fin()));
+    rmSync(dossier, { recursive: true, force: true });
   });
 
+  const service = (absent = false): { socket: string; jeton: string } => ({
+    socket: absent ? ferme : socket,
+    jeton: "",
+  });
   const client = (a: Appel): ClientNavigateur =>
-    new ClientNavigateur({ owner: "alice", base: a.ferme ? ferme : base, delaiS: v.timeout });
+    new ClientNavigateur({ owner: "alice", service: service(a.ferme), delaiS: v.timeout });
 
   it("req : mêmes résultats et mêmes requêtes reçues que _req (propriétaire imposé)", async () => {
     for (const c of v.transport.req) {
@@ -300,7 +308,7 @@ describe("transport contre un faux service navigateur", () => {
         params: c.appel.params,
         timeout: c.appel.timeout,
       });
-      expect(r, JSON.stringify(c.appel)).toEqual(versTs(c.resultat));
+      expect(r, JSON.stringify(c.appel)).toEqual(c.appel.ferme ? SERVICE_ABSENT : versTs(c.resultat));
       const attendu = c.recu.map((x) =>
         typeof x.json === "object" && x.json !== null
           ? { ...x, json: { ...(x.json as Dict), owner: "alice" } }
@@ -324,7 +332,7 @@ describe("transport contre un faux service navigateur", () => {
   }, 30_000);
 
   it("finishAct joint l'instantané léger ; axGetCurrentUrl lit l'URL ; un service absent ne casse rien", async () => {
-    const c = new ClientNavigateur({ owner: "alice", base });
+    const c = new ClientNavigateur({ owner: "alice", service: service() });
     recu = [];
     expect(await c.finishAct({ ok: true }, "s1", true, 500)).toEqual({
       ok: true,
@@ -340,13 +348,36 @@ describe("transport contre un faux service navigateur", () => {
     ]);
     expect(await c.finishAct({ error: "x" }, "s1", true)).toEqual({ error: "x" });
     expect(await c.axGetCurrentUrl("s1")).toBe("http://a/");
-    const absent = new ClientNavigateur({ owner: "alice", base: ferme });
+    const absent = new ClientNavigateur({ owner: "alice", service: service(true) });
     expect(await absent.finishAct({ ok: true }, "s1", true)).toEqual({ ok: true });
     expect(await absent.axGetCurrentUrl("s1")).toBe("");
   });
 
+  it("captures : en-tête sur chaque requête de l'outil sauf les annexes (page jointe, URL courante) ; vision sur la seule requête qui la réclame", async () => {
+    const c = new ClientNavigateur({ owner: "alice", service: service(), captures: true, vision: true });
+    captures = [];
+    await c.req("POST", "/ok", { json: { session_id: "s1" } });
+    await c.req("GET", "/smart_inspect", { params: { session_id: "s1" }, vision: true });
+    await c.finishAct({ ok: true }, "s1", true);
+    await c.axGetCurrentUrl("s1");
+    expect(captures).toEqual([
+      ["/ok", "1", null],
+      ["/smart_inspect", "1", "1"],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", null, null],
+    ]);
+    const sans = new ClientNavigateur({ owner: "alice", service: service() });
+    captures = [];
+    await sans.req("GET", "/smart_inspect", { params: { session_id: "s1" }, vision: true });
+    await sans.req("POST", "/ok", { json: { session_id: "s1" } });
+    expect(captures).toEqual([
+      ["/smart_inspect", null, null],
+      ["/ok", null, null],
+    ]);
+  });
+
   it("relecture : paramètre illisible et délai nul rendent une enveloppe ; erreurs DNS et TLS rangées « service absent »", async () => {
-    const c = new ClientNavigateur({ owner: "alice", base });
+    const c = new ClientNavigateur({ owner: "alice", service: service() });
     const illisible = (await c.req("GET", "/ok", { params: { filter: "\ud800" } })) as Dict;
     expect(illisible["ok"]).toBe(false);
     expect((await c.reqStatus("GET", "/ok", { params: { filter: "\ud800" } }))[0]).toBe(-1);
@@ -371,7 +402,7 @@ describe("transport contre un faux service navigateur", () => {
   });
 
   it("code stable du service rendu à tout statut (écart : Python ne le lisait qu'en 404) ; sans code, code fixe sans donnée (écart) ; onglet actif rappelé (tab_hint)", async () => {
-    const c = new ClientNavigateur({ owner: "alice", base });
+    const c = new ClientNavigateur({ owner: "alice", service: service() });
     expect(await c.req("POST", "/nav-code", { json: { session_id: "s1" } })).toEqual({
       ok: false,
       error: "navigation_failed",
@@ -394,35 +425,11 @@ describe("transport contre un faux service navigateur", () => {
   });
 
   it("aucun client sans propriétaire", () => {
-    expect(() => new ClientNavigateur({ owner: "" })).toThrow("sans propriétaire");
+    expect(() => new ClientNavigateur({ owner: "", service: service() })).toThrow("sans propriétaire");
   });
 });
 
 describe("refus anticipés", () => {
-  it("URL refusée : enveloppe url_blocked avec le message du service ; garde en échec : null (le service tranche)", async () => {
-    const hote = { adresses: [], reseaux: [] };
-    expect(await refusUrl("http://127.0.0.1/", { allowlist: [], hote })).toEqual({
-      ok: false,
-      error: "url_blocked",
-      message:
-        "Address refused by the browser policy: address reserved to the host or its local network (blocked_ip (127.0.0.1)). URL: http://127.0.0.1/. The browser can only reach http/https sites outside the machine hosting Elpis.",
-      fix: "pick an http(s) address of a site outside the machine hosting Elpis",
-    });
-    expect(
-      await refusUrl("https://example.com/", {
-        allowlist: [],
-        hote,
-        resoudre: async () => ["93.184.216.34"],
-      }),
-    ).toBeNull();
-    expect(
-      await refusUrl("https://example.com/", { allowlist: 5, hote, resoudre: async () => ["10.0.0.1"] }),
-    ).toBeNull();
-    expect((await refusUrl(null, { allowlist: [], hote }))?.["message"]).toBe(
-      refusMessageAnglais("", "adresse vide"),
-    );
-  });
-
   it("session d'un autre compte ou inconnue : refusée ; la sienne : acceptée ; sans identifiant : rien", async () => {
     const dossier = mkdtempSync(join(tmpdir(), "elpis-pw-client-"));
     const avant = process.env["PW_OWNERS_DIR"];
@@ -445,20 +452,5 @@ describe("refus anticipés", () => {
     });
     expect(await refusSessionDAutrui("", "alice")).toBeNull();
     await unregisterPwSessionOwner("sessAAAA1111");
-  });
-});
-
-describe("adresse du service navigateur", () => {
-  it("PLAYWRIGHT_API_URL, sinon http://localhost:3000 ; le client la reprend", () => {
-    const avant = process.env["PLAYWRIGHT_API_URL"];
-    onTestFinished(() => {
-      if (avant === undefined) delete process.env["PLAYWRIGHT_API_URL"];
-      else process.env["PLAYWRIGHT_API_URL"] = avant;
-    });
-    delete process.env["PLAYWRIGHT_API_URL"];
-    expect(urlServiceNavigateur()).toBe("http://localhost:3000");
-    process.env["PLAYWRIGHT_API_URL"] = "http://127.0.0.1:3999";
-    expect(urlServiceNavigateur()).toBe("http://127.0.0.1:3999");
-    expect(new ClientNavigateur({ owner: "alice" }).base).toBe("http://127.0.0.1:3999");
   });
 });

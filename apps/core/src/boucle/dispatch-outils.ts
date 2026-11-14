@@ -39,7 +39,7 @@ import {
 } from "../contexte/elagage";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
-import { noterObservation } from "../llm/sonde-moteur";
+import { noterObservation, outilsEnTexteDeclares } from "../llm/sonde-moteur";
 import { journal } from "../journal";
 import type { ContexteParent, OutilIntegre } from "../outils/catalogue";
 import { categorize, isHidden } from "../outils/categories";
@@ -62,6 +62,7 @@ import { emit } from "./evenements";
 import { executeToolBatch } from "./execution-outils";
 import type { RappelsOutil } from "./execution-outils";
 import { executionEnCours, metriqueOutil, portJobsBoucle, portVisionBureau, tokenHex } from "./ports";
+import type { PortVisionBureau } from "./ports";
 import type { LoopDeps, RunContext, RunRecord } from "./run";
 import type { LiveText } from "./texte-direct";
 
@@ -552,6 +553,22 @@ async function ensureLocalAsset(
   }
 }
 
+/** Capture de la vision rendue par `pw_page inspect`, rapatriée par le relais et gardée pour l'image du tour ; sans elle, aucune image (jamais une périmée). */
+async function suivreVisionPw(
+  port: PortVisionBureau,
+  userId: number | null,
+  chatKey: string,
+  args: unknown,
+  resultat: string,
+): Promise<void> {
+  port.clearLastScreenshotFor(chatKey);
+  const nom = port.extractPwVisionCapture("pw_page", args, resultat);
+  if (nom === null) return;
+  const chemin = path.join(process.env["PW_SCREENS_DIR"] || "/tmp/pw_screens", nom);
+  if (await ensureLocalAsset(userId, chemin, `/api/playwright/screenshot/${nom}`))
+    await port.trackLastScreenshotForVision(chatKey, chemin);
+}
+
 async function prefetchDesktopFrame(
   userId: number | null,
   toolName: string,
@@ -569,7 +586,7 @@ async function prefetchDesktopFrame(
   await ensureLocalAsset(userId, port.desktopFramePath(strPy(tok)), `/api/desktop/frame/${strPy(tok)}`);
 }
 
-/** `_meta` d'un appel d'outil LOCAL (identité hors des arguments) ; `null` pour un serveur externe. */
+/** `_meta` d'un appel d'outil LOCAL (identité hors des arguments, captures demandées au navigateur) ; `null` pour un serveur externe. */
 export function buildCallMeta(o: {
   isLocal: boolean;
   username: string;
@@ -579,12 +596,16 @@ export function buildCallMeta(o: {
   runLogTok: string;
   userId?: number | null;
   subagent?: SousAgent | null;
+  webCaptures?: boolean;
+  vision?: boolean;
 }): Dict | null {
   if (!o.isLocal) return null;
   const meta: Dict = { username: o.username };
   if (o.userId) meta["user_id"] = strPy(Math.trunc(o.userId));
   if (o.chatId) meta["chat_id"] = strPy(o.chatId);
   if (o.liveShell) meta["live_shell"] = "1";
+  if (o.webCaptures) meta["web_captures"] = "1";
+  if (o.vision) meta["vision"] = "1";
   meta["call_id"] = strPy(o.callId);
   meta["log_token"] = `${o.runLogTok}:${strPy(o.callId)}`;
   if (o.subagent) meta["subagent"] = sousAgentEnDict(o.subagent);
@@ -611,13 +632,17 @@ export function isLocalTool(toolCfgMap: ReadonlyMap<string, ConfigMcp>, toolName
   return c["command"] === "DEFAULT_LOCAL_PYTHON" || c["identity"] === "meta";
 }
 
+const CITATION_COUPEE =
+  " This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool " +
+  "yourself, do NOT call anything; continue your answer as plain text without repeating the markup.";
+
 /** Appel coupé par `finish=length` : ni exécuté ni persisté ; le texte est gardé et une relance compacte demandée. */
 async function handleTruncatedToolCall(
   ctx: RunContext,
   workingMessages: Dict[],
   iterClean: string,
   iteration: number,
-  o: { channel: string; runHistory: Dict[] | null; ctxFull: boolean | null },
+  o: { channel: string; runHistory: Dict[] | null; ctxFull: boolean | null; citationPossible: boolean },
 ): Promise<void> {
   log.warn(
     `[run_chat_multi_mcp] tool_call ${o.channel} tronqué (finish=length, iter ${iteration}) — appel(s) NON exécuté(s), relance compacte demandée`,
@@ -647,7 +672,7 @@ async function handleTruncatedToolCall(
   } catch {
     consigne = defaut;
   }
-  workingMessages.push(ephemeral("user", consigne));
+  workingMessages.push(ephemeral("user", o.citationPossible ? consigne + CITATION_COUPEE : consigne));
 }
 
 export class TruncationGuard {
@@ -666,13 +691,14 @@ export class TruncationGuard {
     ctx: RunContext,
     rec: RunRecord,
     workingMessages: Dict[],
-    o: { usage: Dict; iterClean: string; iteration: number },
+    o: { usage: Dict; iterClean: string; iteration: number; citationPossible?: boolean },
   ): Promise<boolean> {
     const plein = lengthCutIsCtxFull(o.usage, rec.ctxSize);
     await handleTruncatedToolCall(ctx, workingMessages, o.iterClean, o.iteration, {
       channel,
       runHistory: rec.runToolHistory,
       ctxFull: plein,
+      citationPossible: o.citationPossible ?? false,
     });
     this.streak += 1;
     if (plein === true) this.ctxFull = true;
@@ -817,6 +843,8 @@ export async function openNativeRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        webCaptures: ctx.c.webCaptures ?? false,
+        vision: NATIF.vision && ctx.c.modelHasVision,
       }),
       args_error: argsError,
     });
@@ -829,22 +857,29 @@ export interface TextReply {
   rawText: string;
   iterClean: string;
   calls: AppelTexte[] | null;
+  /** Le texte s'arrête dans un appel vers un outil connu sans en être un : à relancer s'il a été coupé par la longueur, jamais exécuté. */
+  appelOuvert: boolean;
   unknownText: string;
   unknownNames: string[];
 }
 
-export function classifyTextReply(
+/** Seule une réponse faite d'appels en est un ; le balisage final d'une prose compte si le moteur déclare n'avoir aucun parseur d'outils. */
+export async function classifyTextReply(
   ctx: RunContext,
   live: LiveText,
   iterClean: string,
   iteration: number,
-): TextReply {
+): Promise<TextReply> {
   let rawText = iterClean;
   let legacy = rawText ? Analyse.extractToolCalls(rawText) : null;
+  if (!legacy) {
+    const enQueue = Analyse.extractTrailingToolCalls(rawText);
+    if (enQueue && (await outilsEnTexteDeclares(currentEngine()))) legacy = enQueue;
+  }
   let unknownText = "";
   let unknownNames: string[] = [];
+  const connus = new Set([...ctx.c.toolCfgMap.keys(), ...ctx.c.builtinHandlers.keys()]);
   if (legacy) {
-    const connus = new Set([...ctx.c.toolCfgMap.keys(), ...ctx.c.builtinHandlers.keys()]);
     const retenus = legacy.filter(([n]) => typeof n === "string" && connus.has(n));
     if (!retenus.length) {
       if (looksLikePureToolCallText(rawText)) {
@@ -861,7 +896,9 @@ export function classifyTextReply(
     } else legacy = retenus;
   }
   if (legacy) noterObservation(currentEngine(), "outils_en_texte");
-  return { rawText, iterClean, calls: legacy, unknownText, unknownNames };
+  const ouvert = legacy || Analyse.LAST_PARSE_DIAGNOSTIC ? null : Analyse.openCallAtEnd(rawText);
+  const appelOuvert = ouvert === "" || (ouvert !== null && connus.has(ouvert));
+  return { rawText, iterClean, calls: legacy, appelOuvert, unknownText, unknownNames };
 }
 
 export const MALFORMED_RETRY_MAX = 2;
@@ -978,6 +1015,8 @@ export function openTextRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        webCaptures: ctx.c.webCaptures ?? false,
+        vision: TEXTE.vision && ctx.c.modelHasVision,
       }),
     });
   });
@@ -1135,13 +1174,6 @@ export async function runToolBatch(
       evt["screenshot_url"] = ss.url;
       evt["screenshot_step"] = ss.step;
       evt["screenshot_session"] = ss.session_id;
-      if (channel.vision && ctx.c.modelHasVision && port) {
-        const dossier = process.env["PW_SCREENS_DIR"] || "/tmp/pw_screens";
-        const png = path.join(dossier, `step_${strPy(ss.session_id)}_${strPy(ss.step)}.png`);
-        const relais = `/api/playwright/screenshot/step_${strPy(ss.session_id)}_${strPy(ss.step)}.png`;
-        if (await garde(ensureLocalAsset(ctx.c.userId, png, relais)))
-          await garde(port.trackLastScreenshotForVision(chatKey, png));
-      }
     }
     await garde(prefetchDesktopFrame(ctx.c.userId, toolName, resultat));
     const af = await populateDesktopFrame(
@@ -1199,6 +1231,8 @@ export async function runToolBatch(
       (toolName === "pw_page" && estDict(finalArgs) && port?.pwVerbOf("pw_page", finalArgs) === "inspect") ||
       toolName === "desktop_observe";
     if (ctx.c.modelHasVision && inspect && port) {
+      if (toolName === "pw_page")
+        await garde(suivreVisionPw(port, ctx.c.userId, chatKey, finalArgs, resultat));
       const img = port.getLastScreenshotB64(chatKey);
       if (img) {
         const defaut =

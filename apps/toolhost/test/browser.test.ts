@@ -14,9 +14,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { ClientBrut } from "../../../packages/outils-mcp/test/aides";
 import { familleBrowser } from "../src/mcp/browser";
+import { injectionsNavigateurBac } from "../src/mcp/browser/bac";
 import { journalMuet } from "./aides";
 import { FauxNavigateur, SESSION, SITE } from "./faux-navigateur";
-import { portLibre } from "./interop/aides-python";
 
 const dossier = mkdtempSync(path.join(tmpdir(), "elpis-browser-"));
 let faux: FauxNavigateur;
@@ -33,13 +33,14 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });
 
 /** Client en mémoire de la famille telle que l'hôte la sert (base de l'hôte non ouverte : mémoire AX éteinte). */
 async function client(): Promise<ClientBrut> {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   const serveur = new ServeurOutils({ limiteDebit: null, limiteConcurrence: null });
   serveur.enregistrerFamille("browser", familleBrowser({ journal: journalMuet }).outils);
@@ -75,6 +76,42 @@ describe("famille browser servie par l'hôte", () => {
       { username: "bob" },
     );
     expect(faux.vues.map((v) => `${v.methode} ${v.chemin}`)).toEqual(["POST /action", "GET /smart_inspect"]);
+  });
+
+  it("captures demandées par le core (_meta) : en-tête sur la requête de l'outil, jamais sur sa page jointe ; vision à pw_page inspect seulement", async () => {
+    const b = await client();
+    const meta = { username: "bob", web_captures: "1", vision: "1" };
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, meta);
+    faux.captures.length = 0;
+    await b.appeler(
+      "pw_act",
+      { session_id: SESSION, action: "click", target: "role=link|name=Produits" },
+      meta,
+    );
+    await b.appeler("pw_page", { session_id: SESSION, action: "inspect", level: "lite" }, meta);
+    await b.appeler("pw_find", { session_id: SESSION }, meta);
+    expect(faux.captures).toEqual([
+      ["/action", "1", null],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", "1", "1"],
+      ["/smart_inspect", "1", null],
+    ]);
+    faux.captures.length = 0;
+    await b.appeler(
+      "pw_act",
+      { session_id: SESSION, action: "click", target: "role=link|name=Produits" },
+      { username: "bob" },
+    );
+    await b.appeler(
+      "pw_page",
+      { session_id: SESSION, action: "inspect" },
+      { username: "bob", web_captures: "0" },
+    );
+    expect(faux.captures).toEqual([
+      ["/action", null, null],
+      ["/smart_inspect", null, null],
+      ["/smart_inspect", null, null],
+    ]);
   });
 
   it("propriétaire du compte (nom assaini) imposé à chaque requête ; la session ouverte est enregistrée à son nom", async () => {
@@ -118,7 +155,7 @@ describe("famille browser servie par l'hôte", () => {
     expect(texte(await attendre())).toContain('"error": "session_expired"');
     faux.imposees.set("POST /wait_for_dynamic", [[500, { error: { cause: "x" } }]]);
     expect(texte(await attendre())).toContain(`"message": "{'cause': 'x'}"`);
-    vi.stubEnv("PLAYWRIGHT_API_URL", `http://127.0.0.1:${await portLibre()}`);
+    injectionsNavigateurBac.service = () => faux.absent;
     expect(texte(await attendre())).toContain('"message": "connection_refused"');
   });
 
@@ -150,6 +187,56 @@ describe("famille browser servie par l'hôte", () => {
       { session_id: SESSION, url: `${SITE}/a`, owner: "bob" },
       { session_id: SESSION, url: `${SITE}/b`, switch: true, owner: "bob" },
     ]);
+  });
+
+  it("pw_page extract et text : max, offset et level='full' (couleurs) transmis ; eval rendu tel que le service l'a plafonné", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const page = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_page", { session_id: SESSION, ...args }, { username: "bob" });
+    await page({ action: "extract", target: "css=#t", max: 20, offset: 40, level: "full" });
+    await page({ action: "extract" });
+    await page({ action: "text", offset: 20000 });
+    const corps = faux.vues
+      .filter((v) => v.chemin === "/extract_table" || v.chemin === "/extract_text")
+      .map((v) => JSON.parse(v.corps) as Dict);
+    expect(corps).toEqual([
+      { session_id: SESSION, max_rows: 20, offset: 40, selector: "#t", styles: true, owner: "bob" },
+      { session_id: SESSION, max_rows: 50, offset: 0, owner: "bob" },
+      { session_id: SESSION, offset: 20000, owner: "bob" },
+    ]);
+    vi.stubEnv("PLAYWRIGHT_EVAL_MAX_CHARS", "100");
+    const r = contenu(await page({ action: "eval", value: "grand" }))["result"] as Dict;
+    expect(r["result"]).toBe("x".repeat(150));
+  });
+
+  it("pw_mock add : is_regex transmis (faux par défaut), url_pattern exigé avant tout appel", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const mock = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_mock", { session_id: SESSION, action: "add", ...args }, { username: "bob" });
+    await mock({ url_pattern: "/api/.*\\?id=\\d+$", is_regex: true });
+    await mock({ url_pattern: "/api/users", status: 500 });
+    expect(texte(await mock({}))).toContain("is_regex=true");
+    expect(faux.vues.map((v) => JSON.parse(v.corps) as Dict)).toEqual([
+      expect.objectContaining({ url_pattern: "/api/.*\\?id=\\d+$", is_regex: true, status: 200, times: -1 }),
+      expect.objectContaining({ url_pattern: "/api/users", is_regex: false, status: 500 }),
+    ]);
+  });
+
+  it("pw_visual : masques transmis sans le préfixe css=, absents sans masque", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const visuel = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_visual", { session_id: SESSION, name: "accueil", ...args }, { username: "bob" });
+    await visuel({ mask: ["css=#horloge", ".pub"] });
+    await visuel({});
+    const [a, c] = faux.vues.filter((v) => v.chemin === "/visual").map((v) => JSON.parse(v.corps) as Dict);
+    expect(a).toMatchObject({ name: "accueil", mask: ["#horloge", ".pub"] });
+    expect(c).not.toHaveProperty("mask");
   });
 
   it("pw_act : délai dépassé sur une session à plusieurs onglets, onglet actif rappelé (lu sur /sessions) ; un seul onglet : message inchangé", async () => {

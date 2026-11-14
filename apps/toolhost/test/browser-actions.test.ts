@@ -32,13 +32,14 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });
 
 /** Client en mémoire de la famille browser, session ouverte au nom de bob. */
 async function client(): Promise<ClientBrut> {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   const serveur = new ServeurOutils({ limiteDebit: null, limiteConcurrence: null });
   serveur.enregistrerFamille("browser", familleBrowser({ journal: journalMuet }).outils);
@@ -74,6 +75,17 @@ describe("pw_act : strict, nth et erreurs codées du service", () => {
     expect(a).toMatchObject({ by_role: "link", by_name: "delete", nth: 2, strict: true });
     expect(c).not.toHaveProperty("nth");
     expect(c).not.toHaveProperty("strict");
+  });
+
+  it("position du clic transmise telle quelle, seulement quand elle est donnée", async () => {
+    const b = await client();
+    const agir = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_act", { session_id: SESSION, observe: false, ...args }, { username: "bob" });
+    await agir({ action: "click", target: "css=#toile", position: { x: 20, y: 80 } });
+    await agir({ action: "click", target: "css=#toile" });
+    const [a, c] = actions();
+    expect(a).toMatchObject({ by_css: "#toile", position: { x: 20, y: 80 } });
+    expect(c).not.toHaveProperty("position");
   });
 
   it("erreur codée du service (tout statut) : code, message, correctif et contexte (suggestions, candidats)", async () => {

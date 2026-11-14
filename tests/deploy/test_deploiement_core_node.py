@@ -68,7 +68,7 @@ def test_unites_du_core_node(racine):
                          'Environment="LOCAL_MCP_URL=http://127.0.0.1:8765/mcp"', f"EnvironmentFile=-{racine}/.env",
                          f"WorkingDirectory={racine}", "Restart=always", "SuccessExitStatus=75", "KillMode=mixed",
                          "KillSignal=SIGTERM", "TimeoutStopSec=310",
-                         "After=elpis-toolhost.service elpis-rag.service elpis-browser.service caddy.service"):
+                         "After=elpis-toolhost.service elpis-rag.service caddy.service"):
             assert attendue in lignes, (mode, attendue)
         assert "gunicorn" not in unites[f"elpis-{mode}.service"]
         assert "relance.sh" not in unites[f"elpis-{mode}.service"]
@@ -79,7 +79,7 @@ def test_unites_du_core_node(racine):
     assert not any(ligne.startswith("KillSignal") for ligne in lignes)
     assert {"elpis-main.service", "elpis-admin.service", "elpis-toolhost.service"} \
         <= set(unites["elpis.target"].split("Wants=")[1].split())
-    for retire in ("elpis-appmcp.service", "elpis-tools.service"):
+    for retire in ("elpis-appmcp.service", "elpis-tools.service", "elpis-browser.service"):
         assert retire not in unites and retire not in unites["elpis.target"]
 
 
@@ -91,7 +91,7 @@ def test_elpis_appmcp_python_ignore(racine):
     unites = _unites(r.stdout)
     assert "elpis-appmcp.service" not in unites and "elpis-appmcp.service" not in unites["elpis.target"]
     for mode in ("main", "admin"):
-        assert "After=elpis-toolhost.service elpis-rag.service elpis-browser.service caddy.service" \
+        assert "After=elpis-toolhost.service elpis-rag.service caddy.service" \
             in unites[f"elpis-{mode}.service"].splitlines()
 
 
@@ -305,7 +305,8 @@ def test_doctor_verifie_l_empreinte_du_runtime(racine, cas):
         assert (" : NON" in lignes[0]) is (cas == "autre"), lignes[0]
 
 
-def test_status_voit_le_navigateur_sur_le_node_du_core(racine, tmp_path):
+def test_status_sans_service_navigateur_sur_l_hote(racine, tmp_path):
+    """Le navigateur ne tourne que dans les sandboxes : status ne liste plus de service browser, même installé."""
     (racine / "browser-service/node_modules").mkdir(parents=True)
     (racine / "node/bin").mkdir(parents=True)
     _executable(racine / "node/bin/node", '#!/bin/sh\n[ "$1" = -v ] && echo v24.21.0\n')
@@ -316,7 +317,26 @@ def test_status_voit_le_navigateur_sur_le_node_du_core(racine, tmp_path):
     r = subprocess.run([str(outils / "bash"), str(racine / "elpis"), "status"], capture_output=True, text=True,
                        timeout=60, cwd=str(racine), env={"PATH": str(outils), "HOME": str(racine), "LANG": "C.UTF-8"},
                        stdin=subprocess.DEVNULL)
-    assert re.search(r"^  browser\s+-\s+3000\s+arrêté$", r.stdout, re.M), r.stdout + r.stderr
+    assert re.search(r"^  admin\s+-\s+8002\s+", r.stdout, re.M), r.stdout + r.stderr
+    assert not re.search(r"^  browser\s", r.stdout, re.M) and "3000" not in r.stdout, r.stdout
+
+
+def test_logs_browser_demande_le_compte(racine):
+    r = _elpis(racine, "logs", "browser", node=_faux_node(racine))
+    assert r.returncode == 1 and "./elpis logs browser COMPTE" in r.stderr, r.stdout + r.stderr
+
+
+def test_doctor_navigateur_dans_la_sandbox_seulement(racine):
+    """browser.mode ancien ignoré : contrôles de la sandbox (autorité du relais…), plus aucun du service central."""
+    (racine / "browser-service/node_modules").mkdir(parents=True)
+    (racine / "config.json").write_text('{"browser": {"mode": "central", "sandbox_users": ["bob"]}}', encoding="utf-8")
+    r = _elpis(racine, "doctor", node=_faux_node(racine), timeout=300)
+    sortie = r.stdout + r.stderr
+    assert "navigateur dans le bac : autorité du relais" in sortie, sortie
+    assert "service navigateur (monté dans la sandbox de chaque compte)" in sortie, sortie
+    for central in ("jeton du service navigateur", "service navigateur (/health)", "jeton exigé", "service central",
+                    "données du service central"):
+        assert central not in sortie, central
 
 
 FAUX_CORE = """#!/bin/sh

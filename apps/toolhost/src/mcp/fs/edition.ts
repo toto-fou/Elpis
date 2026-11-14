@@ -19,12 +19,11 @@ import {
   rstripPy,
   splitlinesPy,
   stripPy,
-  subn,
-  trouverTout,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { err } from "@elpis/outils-mcp";
 
+import type { SessionCalcul } from "../../fichiers/calcul-execution";
 import { ErreurCodec } from "./codecs";
 
 /** `ValueError` levée par le moteur (message lu par `_edit_err`). */
@@ -88,6 +87,7 @@ export const CODES_MESSAGE: readonly (readonly [RegExp, string])[] = [
   [/provide at least one of before_context/u, "context_required"],
   [/str_replace_ctx: no match/u, "context_no_match"],
   [/bad regex|bad pattern/u, "bad_regex"],
+  [/regex_timeout:/u, "regex_timeout"],
   [/provide anchor_str or anchor_re/u, "anchor_required"],
   [/anchor: position must be/u, "invalid_position"],
   [/anchor: occurrence=/u, "occurrence_out_of_range"],
@@ -227,7 +227,7 @@ export function errEdition(e: Error, o: { prefixe?: string; hint?: string; kw?: 
 
 const REDOS_NESTED = /\([^()]*[+*][^()]*\)[+*]/u;
 
-/** `_check_regex_safe` : motif trop long ou à quantificateur imbriqué refusé avant compilation (`re.error`). */
+/** `_check_regex_safe` : motif trop long ou à quantificateur imbriqué refusé avant compilation (`re.error`) ; un refus lisible, la protection de la boucle est le thread tué à l'échéance. */
 export function verifierRegexSure(motif: string): void {
   if (!motif) return;
   if (longueurPy(motif) > 2000) throw new ErreurRe("pattern too long (>2000 chars) — denial-of-service risk");
@@ -425,11 +425,12 @@ export function candidatProche(texte: string, ancien: string): string {
 }
 
 /** `_resolve_anchor` : (ligne, position) d'insertion ; `occurrence` -1 = la dernière. */
-export function resoudreAncre(
+export async function resoudreAncre(
   texte: string,
   o: { str?: string; re?: string; pos?: string; occurrence?: number },
-): [number, number] {
-  let corr: [number, number][];
+  fil: SessionCalcul,
+): Promise<[number, number]> {
+  let corr: ArrayLike<number>;
   if (o.re) {
     let m;
     try {
@@ -439,19 +440,19 @@ export function resoudreAncre(
       if (e instanceof ErreurRe) throw new ErreurEdition(`anchor: bad regex (${e.message})`);
       throw e;
     }
-    corr = [...trouverTout(m, texte)].map((x) => [x.debut, x.fin]);
+    corr = await fil.occurrences(m, texte);
   } else if (o.str) {
-    corr = [];
+    const paires: number[] = [];
     for (let i = texte.indexOf(o.str); i >= 0; i = texte.indexOf(o.str, i + 1))
-      corr.push([i, i + o.str.length]);
+      paires.push(i, i + o.str.length);
+    corr = paires;
   } else throw new ErreurEdition("anchor: provide anchor_str or anchor_re");
-  if (!corr.length) throw new ErreurEdition("anchor: not found in file");
+  const total = corr.length / 2;
+  if (!total) throw new ErreurEdition("anchor: not found in file");
   let occ = o.occurrence ?? 1;
-  if (occ === -1) occ = corr.length;
-  if (occ < 1 || occ > corr.length)
-    throw new ErreurEdition(`anchor: occurrence=${occ} out of range (1..${corr.length})`);
-  const [debut, fin] = corr[occ - 1] as [number, number];
-  const pos = o.pos === "before" ? debut : fin;
+  if (occ === -1) occ = total;
+  if (occ < 1 || occ > total) throw new ErreurEdition(`anchor: occurrence=${occ} out of range (1..${total})`);
+  const pos = corr[2 * (occ - 1) + (o.pos === "before" ? 0 : 1)] as number;
   return [compterNl(texte, pos) + 1, pos];
 }
 
@@ -570,8 +571,12 @@ function texteExige(v: unknown, quoi: string): string {
   throw new ErreurPython("TypeError", `${quoi} must be str, not ${nomType(v)}`);
 }
 
-/** `_apply_one_edit` : (nouveau texte, info) ou `ErreurEdition` avec l'indice de correction. */
-export function appliquerEdition(ancien: string, edit: Dict): [string, Dict] {
+/** `_apply_one_edit` : (nouveau texte, info) ou `ErreurEdition` avec l'indice de correction ; motifs exécutés dans `fil`. */
+export async function appliquerEdition(
+  ancien: string,
+  edit: Dict,
+  fil: SessionCalcul,
+): Promise<[string, Dict]> {
   const act = action(edit);
   if (act === "str_replace") {
     const old = texteExige(lire(edit, "old_str", ""), "old_str");
@@ -673,7 +678,7 @@ export function appliquerEdition(ancien: string, edit: Dict): [string, Dict] {
       if (e instanceof ErreurRe) throw new ErreurEdition(`regex: bad pattern (${e.message})`);
       throw e;
     }
-    const [sortie, n] = subn(m, repl, ancien, count);
+    const [sortie, n] = await fil.subn(m, repl, ancien, count);
     if (n === 0) throw new ErreurEdition("regex: pattern matched 0 times — check pattern or flags");
     return [sortie, { action: "regex", replacements: n }];
   }
@@ -736,7 +741,11 @@ export function appliquerEdition(ancien: string, edit: Dict): [string, Dict] {
     if (position !== "before" && position !== "after")
       throw new ErreurEdition("anchor: position must be 'before' or 'after'");
     if (!contenu) throw new ErreurEdition("anchor: content required");
-    const [ligne, pos0] = resoudreAncre(ancien, { str: ancreStr, re: ancreRe, pos: position, occurrence });
+    const [ligne, pos0] = await resoudreAncre(
+      ancien,
+      { str: ancreStr, re: ancreRe, pos: position, occurrence },
+      fil,
+    );
     let pos = pos0;
     if (position === "after" && !(pos > 0 && ancien[pos - 1] === "\n")) {
       const nl = ancien.indexOf("\n", pos);

@@ -811,12 +811,13 @@ When it opens a page on one of these addresses, the browser opens a session for 
 the certificate check of the secret (verified unless you allowed otherwise); an `http-auth` secret is
 applied at once, and that session cannot be recorded (HAR or trace). Otherwise the session is an
 ordinary one: the assistant keeps all its testing tools there (scripts, mocks, recorder, exports).
-For a login form it calls `pw_login`, the only protected step: the browser service reloads the
-login page, sets the assistant's mocks and other tabs aside, checks the form, types the user name
-and password, submits, then reopens the page in a new tab so that the password is no longer in it.
-The assistant only learns whether the login worked; the password stays out of its view, of
-recordings and of the network log. A form placed inside another site's frame is refused, and so is
-a login while the session records a HAR or a trace. If the site itself shows the password back on a
+For a login form it calls `pw_login`, the only protected step: the browser, in your sandbox,
+reloads the login page, sets the assistant's mocks aside, checks the form, types the user name and
+a one-time placeholder, submits, then reopens the page in a new tab. Elpis replaces the placeholder
+with the password only on its way to the secret's own site, outside your sandbox. The assistant
+only learns whether the login worked; the password never enters your sandbox and stays out of the
+assistant's view, of recordings and of the network log. A form placed inside another site's frame
+is refused. If the site itself shows the password back on a
 page after the login, that page is the site's content: the assistant can read it like any other. A
 session serves one secret: the assistant goes back to it for that secret instead of opening new
 ones. If a page asks for a login that is not attached, the assistant asks you to attach one with
@@ -1283,6 +1284,10 @@ agent carries out, even if subagents are enabled for your conversations.
   cases". Chains are limited in depth to avoid loops.
 - **Manual** — ▶ button at any time.
 
+The content of a webhook event and the summary of an upstream routine reach the
+model as untrusted data, never as an instruction: the routine's prompt says what
+to do with them.
+
 ### Following runs
 
 Each routine has its **log**: status (success, failure, skipped, cancelled),
@@ -1509,7 +1514,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | Tab | What you set there |
 |---|---|
 | **Profile** | Your information, photo (cropped before upload: drag, zoom, Fit, Fill, quarter turn), password change |
-| **Chat** | *Conversation*: personal system prompt, chat area width, live terminal, wake-ups, system notifications, clear conversations. *Display*: timeline, context, thinking, metrics, density, web screenshots. *Voice*: dictation and voice reply |
+| **Chat** | *Conversation*: personal system prompt, chat area width, live terminal, wake-ups, system notifications, clear conversations. *Display*: timeline, context, thinking, metrics, density, browser step screenshots (off by default). *Voice*: dictation and voice reply |
 | **Compaction** | Automatic compaction, threshold, maximum number of compactions per conversation |
 | **AI models** | Providers offered by the administrator + your own providers |
 | **Appearance** | *Theme*: dark mode, skin (those the administrator has enabled, then *My skins*), Elpis colors (Gold or Clay). *Editor*: follow skin or classic, dark theme. *Mascot*: logo or mascot on the home screen; see below. The assistant's name and avatar are those of the application, chosen by the administrator |

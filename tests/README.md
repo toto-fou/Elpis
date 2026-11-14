@@ -81,7 +81,7 @@ venv/bin/ruff check . && venv/bin/mypy         # lint et typage (pyproject.toml)
   vecteurs (`migration-kit/vecteurs/<domaine>.py` écrit
   `packages/…/test/vecteurs/*.json`, figés : `migration-kit/vecteurs/FIGES.md`) ;
   le test TS les rejoue à l'identique.
-- `node migration-kit/goldens_check.mjs` : goldens contre le registre
+- `node migration-kit/goldens_check.mts` : goldens contre le registre
   (`--exiger-entrees`).
 
 ## Tests front historiques et bancs

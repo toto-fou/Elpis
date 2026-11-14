@@ -5,6 +5,7 @@ import { ref } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { useVolet } from "../../features/communs/volet";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import NavigationConsoleDepliee from "./NavigationConsoleDepliee.vue";
 
 const adm = domaineAdmin();
@@ -155,72 +156,74 @@ const { deplie, large, crochets } = useVolet(
             </button>
           </div>
 
-          <div v-if="adm.adminMeOpen" class="adm-menu" role="dialog" aria-label="Compte et apparence">
-            <div class="adm-menu__sec">Apparence</div>
-            <div class="adm-menu__row">
-              <div class="adm-seg adm-seg--sm" role="radiogroup" aria-label="Mode">
-                <button
-                  v-for="m in [
-                    { v: 'system', l: 'Système' },
-                    { v: 'light', l: 'Clair' },
-                    { v: 'dark', l: 'Sombre' },
-                  ]"
-                  :key="m.v"
-                  type="button"
-                  role="radio"
-                  :aria-checked="adm.themeMode === m.v ? 'true' : 'false'"
-                  class="adm-seg__btn"
-                  :class="adm.themeMode === m.v ? 'is-active' : ''"
-                  @click="adm.setThemeMode(m.v)"
-                >
-                  {{ m.l }}
-                </button>
+          <TransitionMenu haut>
+            <div v-if="adm.adminMeOpen" class="adm-menu" role="dialog" aria-label="Compte et apparence">
+              <div class="adm-menu__sec">Apparence</div>
+              <div class="adm-menu__row">
+                <div class="adm-seg adm-seg--sm" role="radiogroup" aria-label="Mode">
+                  <button
+                    v-for="m in [
+                      { v: 'system', l: 'Système' },
+                      { v: 'light', l: 'Clair' },
+                      { v: 'dark', l: 'Sombre' },
+                    ]"
+                    :key="m.v"
+                    type="button"
+                    role="radio"
+                    :aria-checked="adm.themeMode === m.v ? 'true' : 'false'"
+                    class="adm-seg__btn"
+                    :class="adm.themeMode === m.v ? 'is-active' : ''"
+                    @click="adm.setThemeMode(m.v)"
+                  >
+                    {{ m.l }}
+                  </button>
+                </div>
               </div>
+              <button
+                v-for="sk in adm.APP_SKINS"
+                :key="'skin-' + sk.id"
+                type="button"
+                class="adm-menu__item"
+                :aria-pressed="((adm.settings && adm.settings.skin) || '') === sk.id ? 'true' : 'false'"
+                :title="sk.desc"
+                @click="adm.setAppSkin(sk.id)"
+              >
+                <span
+                  class="adm-swatch"
+                  aria-hidden="true"
+                  :style="{ '--sw-rail': sk.sw[0], '--sw-bg': sk.sw[1], '--sw-acc': sk.sw[2] }"
+                ></span>
+                <span class="flex-1">{{ sk.label }}</span>
+                <i
+                  v-if="((adm.settings && adm.settings.skin) || '') === sk.id"
+                  class="ph ph-check adm-menu__check"
+                  aria-hidden="true"
+                ></i>
+              </button>
+              <div class="adm-menu__sep" role="separator"></div>
+              <button
+                type="button"
+                class="adm-menu__item"
+                role="switch"
+                :aria-checked="adm.adminAutoOpen ? 'true' : 'false'"
+                @click="adm.toggleAdminAutoOpen"
+              >
+                <i class="ph ph-squares-four" aria-hidden="true"></i>
+                <span class="flex-1">Ouvrir la console à la connexion</span>
+                <i v-if="adm.adminAutoOpen" class="ph ph-check adm-menu__check" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="adm-menu__item"
+                @click="
+                  adm.adminMeOpen = false;
+                  adm.adminConfirmLeave().then((ok) => ok && adm.logout());
+                "
+              >
+                <i class="ph ph-sign-out" aria-hidden="true"></i><span class="flex-1">Déconnexion</span>
+              </button>
             </div>
-            <button
-              v-for="sk in adm.APP_SKINS"
-              :key="'skin-' + sk.id"
-              type="button"
-              class="adm-menu__item"
-              :aria-pressed="((adm.settings && adm.settings.skin) || '') === sk.id ? 'true' : 'false'"
-              :title="sk.desc"
-              @click="adm.setAppSkin(sk.id)"
-            >
-              <span
-                class="adm-swatch"
-                aria-hidden="true"
-                :style="{ '--sw-rail': sk.sw[0], '--sw-bg': sk.sw[1], '--sw-acc': sk.sw[2] }"
-              ></span>
-              <span class="flex-1">{{ sk.label }}</span>
-              <i
-                v-if="((adm.settings && adm.settings.skin) || '') === sk.id"
-                class="ph ph-check adm-menu__check"
-                aria-hidden="true"
-              ></i>
-            </button>
-            <div class="adm-menu__sep" role="separator"></div>
-            <button
-              type="button"
-              class="adm-menu__item"
-              role="switch"
-              :aria-checked="adm.adminAutoOpen ? 'true' : 'false'"
-              @click="adm.toggleAdminAutoOpen"
-            >
-              <i class="ph ph-squares-four" aria-hidden="true"></i>
-              <span class="flex-1">Ouvrir la console à la connexion</span>
-              <i v-if="adm.adminAutoOpen" class="ph ph-check adm-menu__check" aria-hidden="true"></i>
-            </button>
-            <button
-              type="button"
-              class="adm-menu__item"
-              @click="
-                adm.adminMeOpen = false;
-                adm.adminConfirmLeave().then((ok) => ok && adm.logout());
-              "
-            >
-              <i class="ph ph-sign-out" aria-hidden="true"></i><span class="flex-1">Déconnexion</span>
-            </button>
-          </div>
+          </TransitionMenu>
         </div>
       </div>
     </Transition>

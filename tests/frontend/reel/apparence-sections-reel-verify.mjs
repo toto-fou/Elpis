@@ -89,6 +89,18 @@ try {
     }));
     const choixAnimations = (await modale.locator('[aria-labelledby="set-mouvement-lbl"] [role="radio"]').allInnerTexts()).join('|');
     v.ok(`Animations : ${choixAnimations}, « Système » par défaut`, choixAnimations === 'Système|Complètes|Réduites' && (await coche()) === 'Système' && avant.ui_motion === undefined);
+    // Même colonne que « Mode » : mêmes bords, six boutons de même largeur, aucun libellé coupé.
+    const segments = await page.evaluate(() => ['set-theme-mode-lbl', 'set-mouvement-lbl'].map((id) => {
+        const g = document.querySelector(`[aria-labelledby="${id}"]`);
+        const r = g.getBoundingClientRect();
+        const boutons = [...g.querySelectorAll('[role="radio"]')];
+        return { gauche: r.left, droite: r.right, largeurs: boutons.map((b) => b.getBoundingClientRect().width), coupe: boutons.some((b) => b.scrollWidth > b.clientWidth + 1) };
+    }));
+    const largeurs = segments.flatMap((s) => s.largeurs);
+    v.ok('Animations : contrôle aligné sur « Mode », six boutons de même largeur, libellés entiers',
+        Math.abs(segments[0].gauche - segments[1].gauche) < 0.5 && Math.abs(segments[0].droite - segments[1].droite) < 0.5
+        && largeurs.length === 6 && Math.max(...largeurs) - Math.min(...largeurs) < 0.5 && !segments.some((s) => s.coupe),
+        JSON.stringify(segments));
     const depart = await mouvement();
     v.ok('Animations « Système » : la page suit le poste (mouvement réduit, largeur posée d\'un coup)', depart.poste && !depart.glisse && depart.garde === null);
     await animations('Complètes').click();

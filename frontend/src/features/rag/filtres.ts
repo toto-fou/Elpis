@@ -43,26 +43,34 @@ export function correspondEtat(d: Pick<DocumentRag, "status">, filtre: FiltreEta
   }
 }
 
-/** Documents dont le chemin contient le texte (sans accents ni casse) et qui passent le filtre d'état. */
-export function filtrerDocuments(
-  liste: readonly DocumentRag[],
-  texte: string,
-  etat: FiltreEtat,
-): DocumentRag[] {
-  const q = sansAccents(texte.trim());
-  return liste.filter((d) => correspondEtat(d, etat) && (q === "" || sansAccents(d.rel_path).includes(q)));
-}
-
 export type CleTri = "chemin" | "taille" | "recent";
 
-/** Tri stable : le chemin par ordre naturel, la taille et la date du plus grand ou plus récent au plus petit. */
-export function trierDocuments(liste: readonly DocumentRag[], tri: CleTri): DocumentRag[] {
-  const copie = [...liste];
-  const nat = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
-  if (tri === "taille") return copie.sort((a, b) => b.bytes - a.bytes || nat.compare(a.rel_path, b.rel_path));
+const NATUREL = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
+
+/** Places des documents dont le chemin contient le texte (sans accents ni casse), en tri stable : chemin par ordre naturel, taille et date du plus grand ou plus récent au plus petit. */
+export function ordonnerDocuments(liste: readonly DocumentRag[], texte: string, tri: CleTri): number[] {
+  const q = sansAccents(texte.trim());
+  const places: number[] = [];
+  for (let i = 0; i < liste.length; i++)
+    if (q === "" || sansAccents(liste[i]!.rel_path).includes(q)) places.push(i);
+  const chemin = (i: number, j: number): number => NATUREL.compare(liste[i]!.rel_path, liste[j]!.rel_path);
+  if (tri === "taille") return places.sort((i, j) => liste[j]!.bytes - liste[i]!.bytes || chemin(i, j));
   if (tri === "recent")
-    return copie.sort((a, b) => b.created_at - a.created_at || nat.compare(a.rel_path, b.rel_path));
-  return copie.sort((a, b) => nat.compare(a.rel_path, b.rel_path));
+    return places.sort((i, j) => liste[j]!.created_at - liste[i]!.created_at || chemin(i, j));
+  return places.sort(chemin);
+}
+
+/** Mêmes documents aux mêmes places avec les mêmes clés de tri (chemin, taille, date) : un ordre calculé sur l'une vaut pour l'autre. */
+export function memesCles(a: readonly DocumentRag[], b: readonly DocumentRag[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (x === y) continue;
+    if (x.id !== y.id || x.rel_path !== y.rel_path || x.bytes !== y.bytes || x.created_at !== y.created_at)
+      return false;
+  }
+  return true;
 }
 
 /** Insère ou remplace un document par son identifiant (la ligne vue par un événement). */

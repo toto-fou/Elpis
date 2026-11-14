@@ -28,12 +28,22 @@ export function suivreLargeur(el: Element, rappel: (largeur: number) => void): (
   return () => obs.disconnect();
 }
 
+/** Bords gauche et droit de l'élément sans l'échelle ni le glissement de son entrée en cours. */
+function bordsSansEntree(el: HTMLElement): { left: number; right: number } {
+  const r = el.getBoundingClientRect();
+  const style = getComputedStyle(el);
+  if (!style.transform || style.transform === "none") return r;
+  const t = new DOMMatrixReadOnly(style.transform);
+  const left = r.left - (parseFloat(style.transformOrigin) || 0) * (1 - t.a) - t.e;
+  return { left, right: left + (r.right - r.left) / t.a };
+}
+
 /** Décale un menu pour qu'il reste dans le cadre qui le rogne (colonne ou fenêtre étroites). */
 export function garderDansCadre(menu: HTMLElement | null): void {
   const cadre = menu?.closest(".elpis-ed-corps, [data-editor-root]");
   if (!menu || !cadre) return;
   menu.style.translate = "";
-  const m = menu.getBoundingClientRect();
+  const m = bordsSansEntree(menu);
   const c = cadre.getBoundingClientRect();
   const marge = 6;
   const ecart =

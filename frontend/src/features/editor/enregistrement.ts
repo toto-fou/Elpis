@@ -416,14 +416,14 @@ export function setupEditorSave(
   }
 
   let minuterieLint: ReturnType<typeof setTimeout> | null = null;
-  /** Lint retardé (800 ms) ; sans `code`, le contenu est lu au tir (pas à chaque frappe). */
+  /** Lint retardé (800 ms) ; sans `code`, le contenu d'un fichier Python est lu au tir (pas à chaque frappe), les autres ne sont pas lus. */
   function scheduleLint(chemin: string, code?: string): void {
     if (minuterieLint) clearTimeout(minuterieLint);
     minuterieLint = setTimeout(() => {
       minuterieLint = null;
       if (!monacoRef.instance) return;
-      const texte =
-        typeof code === "string" ? code : modelOk(chemin) ? (models[chemin]?.getValue() ?? "") : "";
+      const python = chemin.endsWith(".py") && modelOk(chemin);
+      const texte = typeof code === "string" ? code : python ? (models[chemin]?.getValue() ?? "") : "";
       void lintCurrentFile(chemin, texte);
     }, 800);
   }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/editor/etat.ts — état du composant éditeur : refs de l'interface, éditeurs Monaco (non réactifs), tables par chemin (contenu disque, états de vue, flux en cours). */
-import { computed, markRaw, ref } from "vue";
+import { computed, markRaw, ref, shallowRef } from "vue";
 import type { Ref } from "vue";
 import type * as M from "monaco-editor";
 
@@ -135,7 +135,7 @@ export function creerEtatEditeur() {
     showEditorMore: ref(false),
     diskConflicts: ref<Record<string, ConflitDisque>>({}),
     assistantStash: ref<Record<string, CopieAssistant>>({}),
-    sandboxFiles: ref<NoeudArbre[]>([]),
+    sandboxFiles: shallowRef<NoeudArbre[]>([]),
     sandboxQuota: ref<Quota>({ used_mb: 0, quota_mb: 5120, pct: 0 }),
     isLoadingFiles: ref(false),
     showHiddenFiles,

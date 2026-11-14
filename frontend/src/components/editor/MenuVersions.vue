@@ -3,12 +3,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import BlocComparer from "./BlocComparer.vue";
 import MenuDeroulant from "./MenuDeroulant.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
 const ouvert = ref(false);
-const compare = (base: string): boolean => ed.isDiffView && ed.diffBase === base;
 
 /** Ouvre la vue Historique, versions du fichier actif dépliées. */
 function historiqueDuFichier(): void {
@@ -36,37 +36,7 @@ function historiqueDuFichier(): void {
       </button>
     </template>
     <template v-if="!ed.activeIsViewer">
-      <div class="ed2-menu__titre">Comparer avec</div>
-      <button
-        role="menuitemcheckbox"
-        class="ed2-menu__item"
-        :aria-checked="compare('saved') ? 'true' : 'false'"
-        @click="ed.toggleDiffMode('saved')"
-      >
-        <i class="ph ph-floppy-disk" aria-hidden="true"></i
-        ><span class="ed2-menu__libelle">La sauvegarde</span>
-        <i v-if="compare('saved')" class="ph ph-check" aria-hidden="true"></i>
-      </button>
-      <button
-        v-if="ed.activeInRepo"
-        role="menuitemcheckbox"
-        class="ed2-menu__item"
-        :aria-checked="compare('head') ? 'true' : 'false'"
-        @click="ed.toggleDiffMode('head')"
-      >
-        <i class="ph ph-git-commit" aria-hidden="true"></i
-        ><span class="ed2-menu__libelle">Le dernier commit</span>
-        <i v-if="compare('head')" class="ph ph-check" aria-hidden="true"></i>
-      </button>
-      <button
-        role="menuitemcheckbox"
-        class="ed2-menu__item"
-        :aria-checked="compare('history') ? 'true' : 'false'"
-        @click="ed.toggleOriginalDiff()"
-      >
-        <i class="ph ph-flag" aria-hidden="true"></i><span class="ed2-menu__libelle">L'original</span>
-        <i v-if="compare('history')" class="ph ph-check" aria-hidden="true"></i>
-      </button>
+      <BlocComparer />
       <div class="ed2-menu__sep"></div>
     </template>
     <button role="menuitem" class="ed2-menu__item" @click="historiqueDuFichier">

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/studio/menu.ts — Annotation Studio : capture annotée d'une cible desktop (live par SSE ou à la demande), plans, inspecteur, arbre UIA en colonne, zoom et déplacement de la scène. */
-import { computed, getCurrentScope, nextTick, onScopeDispose, ref } from "vue";
+import { computed, getCurrentScope, markRaw, nextTick, onScopeDispose, ref, shallowRef } from "vue";
 import type { Ref } from "vue";
 
 import { anchorQuality, targetKwargs } from "../../modeles/automation-model.ts";
 import {
   a11yAudit,
   a11yAuditCsv,
+  a11yAuditResume,
   anchorFromElement,
   boxOnScreen,
   deepestAt,
@@ -14,10 +15,12 @@ import {
   elementLayers,
   elementTreeRows,
   filterByLayers,
+  indexerElements,
   layerOrdinal,
   realName,
 } from "../../modeles/scenario-model.ts";
 import type { ElementUi } from "../../modeles/scenario-model.ts";
+import { parImage } from "../editor/redimension.ts";
 import type { LecteurBureau } from "./api.ts";
 
 /** Élément détecté par l'agent ou la vision : identifiant et boîte toujours présents (les autres filtrés par `boxOnScreen`). */
@@ -160,13 +163,43 @@ const surface = (el: ElementUi | null | undefined): number => {
 const jsonOuVide = async (r: Response | null): Promise<Record<string, unknown>> =>
   r ? ((await r.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
+const FINS_GLISSER = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+
+/** Glisser d'une poignée de largeur : écart horizontal appliqué une fois par image, fin au relâchement ou à la perte du pointeur. */
+export function glisserPoignee(
+  ev: PointerEvent,
+  appliquer: (ecart: number) => void,
+  finir: () => void,
+): void {
+  if (!ev || ev.button) return;
+  const el = ev.currentTarget as HTMLElement;
+  const depart = ev.clientX;
+  const position = parImage((x) => appliquer(depart - x));
+  const deplacer = (e: PointerEvent): void => position.pousser(e.clientX);
+  const lacher = (): void => {
+    el.removeEventListener("pointermove", deplacer);
+    for (const t of FINS_GLISSER) el.removeEventListener(t, lacher);
+    position.vider();
+    finir();
+  };
+  try {
+    el.setPointerCapture(ev.pointerId);
+  } catch {
+    /* ancien navigateur */
+  }
+  el.addEventListener("pointermove", deplacer);
+  for (const t of FINS_GLISSER) el.addEventListener(t, lacher);
+  ev.preventDefault();
+}
+
 export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   const { currentView } = refs;
   const { fetchAuth } = ctx;
   const lireJson: LecteurBureau = ctx.lireJson ?? ((r) => jsonOuVide(r));
   const toast = (m: string, t?: string): void => ctx.showToast?.(m, t);
 
-  const studioFrame = ref<FrameStudio>(trameVide());
+  /** Trame toujours remplacée en entier : référence peu profonde, ses boîtes ne passent pas par les proxys de la réactivité. */
+  const studioFrame = shallowRef<FrameStudio>(trameVide());
   const studioTargets = ref<CibleStudio[]>([]);
   const selectedTarget = ref("");
   const studioPrompt = ref("");
@@ -194,6 +227,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const H = Number(f.imgH || 0);
     return (f.boxes || []).filter((b) => b && boxOnScreen(b.box, W, H));
   });
+  /** Index de l'arbre de la trame, partagé par l'inspecteur (chaque survol) et l'audit. */
+  const indexStudio = computed(() => indexerElements(studioElements.value));
 
   /** Un grand cadre (fenêtre, conteneur) couvre l'écran : jamais dessiné en permanence, seulement au survol. */
   function isContainerBox(el: ElementUi): boolean {
@@ -288,8 +323,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const el = studioInspectEl.value;
     if (!el) return null;
     const els = studioElements.value;
-    const crumbs = elementAncestors(els, el) as ElementStudio[];
-    const anchor = anchorFromElement(el, els);
+    const crumbs = elementAncestors(els, el, indexStudio.value) as ElementStudio[];
+    const anchor = anchorFromElement(el, els, indexStudio.value);
     const quality = anchorQuality(anchor);
     const target = targetKwargs(anchor);
     const info = { el, crumbs, anchor, quality, target, path: anchor.path || "" };
@@ -345,7 +380,11 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
 
   const studioAuditOpen = ref(false);
-  const studioAudit = computed(() => a11yAudit(studioElements.value) as unknown as AuditStudio);
+  /** Lignes complètes (chemins, voisins) lues seulement par le panneau ouvert et l'export ; le bouton lit les comptes. */
+  const studioAudit = computed(
+    () => a11yAudit(studioElements.value, indexStudio.value) as unknown as AuditStudio,
+  );
+  const studioAuditResume = computed(() => a11yAuditResume(studioElements.value));
   function toggleStudioAudit(): void {
     studioAuditOpen.value = !studioAuditOpen.value;
   }
@@ -381,30 +420,13 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
   /** Poignée sur le bord gauche : glisser vers la gauche élargit l'arbre (la scène rétrécit). */
   function studioTreeDockDragStart(ev: PointerEvent): void {
-    if (!ev || ev.button) return;
-    const startX = ev.clientX;
     const startW = studioTreeWidth.value;
-    const el = ev.currentTarget as HTMLElement;
-    const move = (e: PointerEvent): void => {
-      studioTreeWidth.value = Math.round(
-        Math.max(TREE_W_MIN, Math.min(TREE_W_MAX, startW + (startX - e.clientX))),
-      );
-    };
-    const up = (): void => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      ecrireStockage("studioTreeWidth", String(studioTreeWidth.value));
-    };
-    try {
-      el.setPointerCapture(ev.pointerId);
-    } catch {
-      /* ancien navigateur */
-    }
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    ev.preventDefault();
+    glisserPoignee(
+      ev,
+      (ecart) =>
+        (studioTreeWidth.value = Math.round(Math.max(TREE_W_MIN, Math.min(TREE_W_MAX, startW + ecart)))),
+      () => ecrireStockage("studioTreeWidth", String(studioTreeWidth.value)),
+    );
   }
   function exportStudioAudit(): void {
     try {
@@ -530,7 +552,7 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     }
   }
 
-  /** Point d'entrée unique des images (live et manuel) ; seule la dernière demande écrit (jeton de séquence). */
+  /** Point d'entrée unique des images (live et manuel) ; seule la dernière demande écrit (jeton de séquence) ; Studio fermé aussi, le serveur purgeant ses trames après 15 min. */
   async function applyFrame(frame: TrameFil | null | undefined): Promise<void> {
     if (!frame) return;
     const maSeq = ++sequenceTrame;
@@ -544,14 +566,16 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
         if (r && r.ok) {
           const blob = await r.blob();
           blobUrl = URL.createObjectURL(blob);
-          // Dimensions lues sur l'image : sans elles le viewBox tombe à « 0 0 1 1 » et les annotations sont projetées hors champ.
-          try {
-            const bmp = await createImageBitmap(blob);
-            natW = bmp.width;
-            natH = bmp.height;
-            if (bmp.close) bmp.close();
-          } catch {
-            /* repli : onStageImgLoad */
+          // Dimensions lues sur l'image si le serveur ne les donne pas : sans elles le viewBox tombe à « 0 0 1 1 ».
+          if (!Number(frame.img_w || frame.imgW) || !Number(frame.img_h || frame.imgH)) {
+            try {
+              const bmp = await createImageBitmap(blob);
+              natW = bmp.width;
+              natH = bmp.height;
+              if (bmp.close) bmp.close();
+            } catch {
+              /* repli : onStageImgLoad */
+            }
           }
         }
       } catch {
@@ -576,9 +600,11 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
       }
     }
     dernierBlob = blobUrl;
+    const boxes = Array.isArray(frame.boxes) ? frame.boxes : [];
+    for (const b of boxes) if (b && typeof b === "object") markRaw(b);
     studioFrame.value = {
       imageUrl: blobUrl,
-      boxes: Array.isArray(frame.boxes) ? frame.boxes : [],
+      boxes,
       imgW: Number(frame.img_w || frame.imgW || 0) || natW || 0,
       imgH: Number(frame.img_h || frame.imgH || 0) || natH || 0,
       target: frame.target || selectedTarget.value || "",
@@ -740,16 +766,10 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const n = Number(c || 0);
     return n > 0 ? `${Math.round(n * 100)}%` : "—";
   }
-  function boxStroke(el: ElementUi | null | undefined): string {
-    if (el && el.id === selectedElementId.value) return "var(--accent)";
-    if (el && el.id === hoveredElementId.value) return "var(--warn-soft)";
-    return "var(--accent-300)";
-  }
 
   const studioZoom = ref<"fit" | number>("fit");
   const studioPan = ref({ x: 0, y: 0 });
   const studioStage = ref({ w: 0, h: 0 });
-  const studioDensity = ref("leaves");
   let elementScene: Element | null = null;
 
   /** Mesure le cadre à l'écran ; l'objet n'est remplacé que si la taille change (chaque nouvel objet re-rend l'overlay). */
@@ -836,31 +856,6 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     studioPan.value = { x: vue.x + dx, y: vue.y + dy };
   }
 
-  /** Feuilles : éléments qui n'en contiennent aucun autre, pour casser l'empilement conteneur et cellules. */
-  const studioLeafIds = computed(() => {
-    const els = studioElements.value.filter((e) => e && e.box);
-    const feuilles = new Set(els.map((e) => e.id));
-    for (const ext of els) {
-      const [ax1 = 0, ay1 = 0, ax2 = 0, ay2 = 0] = ext.box ?? [];
-      for (const int of els) {
-        if (int === ext || !feuilles.has(ext.id)) continue;
-        const [bx1 = 0, by1 = 0, bx2 = 0, by2 = 0] = int.box ?? [];
-        const dedans = bx1 >= ax1 - 1 && by1 >= ay1 - 1 && bx2 <= ax2 + 1 && by2 <= ay2 + 1;
-        if (dedans && surface(int) < surface(ext) * 0.95) {
-          feuilles.delete(ext.id);
-          break;
-        }
-      }
-    }
-    return feuilles;
-  });
-  const studioVisibleElements = computed(() => {
-    const tout = studioOverlayElements.value;
-    if (studioDensity.value === "all") return tout;
-    const feuilles = studioLeafIds.value;
-    return tout.filter((el) => feuilles.has(el.id));
-  });
-
   const studioFilter = ref("");
   const treeCollapsed = ref<Record<string, boolean>>({});
   const studioTreeRows = computed(
@@ -905,7 +900,7 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     const els = studioElements.value;
     const el = els.find((e) => e && e.id === id);
     if (!el) return;
-    const anc = elementAncestors(els, el);
+    const anc = elementAncestors(els, el, indexStudio.value);
     if (anc.some((a) => treeCollapsed.value[String(a.id)])) {
       const c = Object.assign({}, treeCollapsed.value);
       for (const a of anc) delete c[String(a.id)];
@@ -972,6 +967,7 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     studioTreeDockDragStart,
     studioAuditOpen,
     studioAudit,
+    studioAuditResume,
     toggleStudioAudit,
     exportStudioAudit,
     studioHitTest,
@@ -1013,17 +1009,13 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     setDepthMax,
     layerLabel,
     fmtConfidence,
-    boxStroke,
     isContainerBox,
     studioZoom,
     studioPan,
     studioStage,
-    studioDensity,
     studioViewBox,
     studioScale,
     studioFitScale,
-    studioVisibleElements,
-    studioLeafIds,
     measureStage,
     setStudioZoom,
     zoomStudio,

@@ -2,6 +2,7 @@
 <!-- frontend/src/components/editor/BarreEtat.vue — barre d'état de l'éditeur : branche Git, curseur, problèmes du fichier, langage, indentation, encodage et fins de ligne, état d'enregistrement. -->
 <script setup lang="ts">
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 </script>
@@ -52,12 +53,17 @@ const ed = domaineEditeur();
             ><i class="ph ph-warning"></i>{{ ed.problemCounts.warnings }}</span
           >
         </button>
-        <template v-if="ed.showProblems && ed.activeProblems.length">
-          <div class="fixed inset-0 z-40" @click="ed.showProblems = false"></div>
+        <div
+          v-if="ed.showProblems && ed.activeProblems.length"
+          class="fixed inset-0 z-40"
+          @click="ed.showProblems = false"
+        ></div>
+        <TransitionMenu haut>
           <div
+            v-if="ed.showProblems && ed.activeProblems.length"
             role="listbox"
             aria-label="Problèmes"
-            class="fixed bottom-8 z-50 w-[420px] max-w-[70vw] max-h-64 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1 font-sans whitespace-normal"
+            class="menu-ancre-gauche fixed bottom-8 z-50 w-[420px] max-w-[70vw] max-h-64 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1 font-sans whitespace-normal"
           >
             <button
               v-for="(pb, i) in ed.activeProblems"
@@ -74,7 +80,7 @@ const ed = domaineEditeur();
               <span class="shrink-0 text-slate-500 font-mono">{{ pb.line }}:{{ pb.col }}</span>
             </button>
           </div>
-        </template>
+        </TransitionMenu>
       </span>
       <span class="shrink-0 uppercase elpis-sb-opt" :title="'Langage : ' + ed.statusLanguage">{{
         ed.statusLanguage

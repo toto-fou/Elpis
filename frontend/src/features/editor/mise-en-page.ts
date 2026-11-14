@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/editor/mise-en-page.ts — mise en page de Monaco : passes après transition, ouverture fluide du panneau (observateur neutralisé pendant l'animation), plein écran et sa sortie par Échap. */
+/** frontend/src/features/editor/mise-en-page.ts — mise en page de Monaco : mise en page immédiate (l'observateur de taille suit ensuite les transitions), ouverture fluide du panneau (observateur neutralisé pendant l'animation), plein écran et sa sortie par Échap. */
 import { nextTick, watch } from "vue";
 import type { Ref } from "vue";
 
@@ -27,30 +27,13 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
   // Verrou d'ouverture : pendant l'animation de largeur du panneau, ni l'observateur ni robustLayout ne mettent en page.
   let ouverture = false;
   let reglageOuverture: ReturnType<typeof setTimeout> | null = null;
-  let passes: Array<ReturnType<typeof setTimeout>> = [];
   let passesAffichage: Array<ReturnType<typeof setTimeout>> = [];
-  let imageTransition: number | null = null;
   let minuterieIndice: ReturnType<typeof setTimeout> | null = null;
 
-  /** Mise en page immédiate puis passes à 50, 150, 320 et 600 ms (transitions CSS) ; les passes précédentes sont annulées. */
+  /** Mise en page immédiate, hors ouverture du panneau ; les transitions de taille qui suivent passent par l'observateur (une mise en page par image). */
   function robustLayout(): void {
     if (ouverture) return;
     _forceLayout();
-    for (const id of passes) clearTimeout(id);
-    passes = [50, 150, 320, 600].map((t) =>
-      setTimeout(() => {
-        try {
-          monacoRef.instance?.layout();
-        } catch {
-          /* éditeur libéré */
-        }
-        try {
-          if (monacoRef.instance2 && splitView.value) monacoRef.instance2.layout();
-        } catch {
-          /* éditeur libéré */
-        }
-      }, t),
-    );
   }
 
   /** Ouverture fluide : observateur neutralisé pendant la transition, une seule mise en page à la fin. */
@@ -106,25 +89,6 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
     );
   });
 
-  /** Mise en page à chaque image pendant ~320 ms (transition de largeur) ; une seule boucle à la fois. */
-  function _relayoutMonacoDuringTransition(duree = 320): void {
-    if (imageTransition != null) {
-      cancelAnimationFrame(imageTransition);
-      imageTransition = null;
-    }
-    const debut = performance.now();
-    const pas = (): void => {
-      imageTransition = null;
-      try {
-        monacoRef.instance?.layout();
-      } catch {
-        /* éditeur libéré */
-      }
-      if (performance.now() - debut < duree) imageTransition = requestAnimationFrame(pas);
-    };
-    imageTransition = requestAnimationFrame(pas);
-  }
-
   function toggleEditorFullscreen(): void {
     editorFullscreen.value = !editorFullscreen.value;
     if (editorFullscreen.value) {
@@ -142,7 +106,6 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
       }
       void nextTick(() => robustLayout());
     }
-    _relayoutMonacoDuringTransition();
   }
 
   /** Sortie du plein écran par la cascade Échap d'app.js. */
@@ -150,7 +113,6 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
     if (!editorFullscreen.value) return;
     editorFullscreen.value = false;
     void nextTick(() => robustLayout());
-    _relayoutMonacoDuringTransition();
   }
 
   // Repli seulement : la cascade Échap d'app.js est l'autorité (événement marqué) ; Monaco et le menu « + » passent d'abord.
@@ -172,19 +134,13 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
   }
   _bindFullscreenEsc();
 
-  /** Minuteries, boucle d'images et écoute d'Échap retirées ; l'écoute est rebranchée au prochain `initMonaco`. */
+  /** Minuteries et écoute d'Échap retirées ; l'écoute est rebranchée au prochain `initMonaco`. */
   function libererMiseEnPage(): void {
     annulerPassesAffichage();
     ouverture = false;
     if (reglageOuverture) {
       clearTimeout(reglageOuverture);
       reglageOuverture = null;
-    }
-    for (const id of passes) clearTimeout(id);
-    passes = [];
-    if (imageTransition != null) {
-      cancelAnimationFrame(imageTransition);
-      imageTransition = null;
     }
     document.removeEventListener("keydown", echapPleinEcran);
     echapBranche = false;
@@ -195,7 +151,6 @@ export function setupEditorLayout(e: EtatEditeur, showSidebar: () => Ref<boolean
     robustLayout,
     _smoothOpenLayout,
     enOuverture: (): boolean => ouverture,
-    _relayoutMonacoDuringTransition,
     toggleEditorFullscreen,
     exitEditorFullscreen,
     _bindFullscreenEsc,

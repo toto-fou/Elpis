@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import ElementArbre from "./ElementArbre.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 </script>
@@ -61,9 +62,10 @@ const ed = domaineEditeur();
             }}</span>
             <i class="ph ph-caret-down text-[8px] text-slate-500 shrink-0"></i>
           </button>
-          <template v-if="ed.showGitRepoMenu">
-            <div class="fixed inset-0 z-40" @click="ed.showGitRepoMenu = false"></div>
+          <div v-if="ed.showGitRepoMenu" class="fixed inset-0 z-40" @click="ed.showGitRepoMenu = false"></div>
+          <TransitionMenu>
             <div
+              v-if="ed.showGitRepoMenu"
               class="absolute left-0 right-0 top-full mt-1 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 max-h-48 overflow-y-auto custom-scrollbar"
             >
               <button
@@ -105,7 +107,7 @@ const ed = domaineEditeur();
                 <i class="ph ph-plus text-xs"></i> Initialiser...
               </button>
             </div>
-          </template>
+          </TransitionMenu>
         </div>
       </div>
 
@@ -129,10 +131,15 @@ const ed = domaineEditeur();
               >
               <i class="ph ph-caret-down text-[8px] text-slate-500 shrink-0 ml-auto"></i>
             </button>
-            <template v-if="ed.showGitBranchMenu">
-              <div class="fixed inset-0 z-40" @click="ed.showGitBranchMenu = false"></div>
+            <div
+              v-if="ed.showGitBranchMenu"
+              class="fixed inset-0 z-40"
+              @click="ed.showGitBranchMenu = false"
+            ></div>
+            <TransitionMenu>
               <div
-                class="absolute left-0 top-full mt-1 w-56 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar"
+                v-if="ed.showGitBranchMenu"
+                class="menu-ancre-gauche absolute left-0 top-full mt-1 w-56 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar"
               >
                 <div class="px-2.5 py-1 text-xs font-semibold text-slate-500">Locales</div>
                 <button
@@ -177,7 +184,7 @@ const ed = domaineEditeur();
                   <i class="ph ph-plus text-xs"></i> Nouvelle branche
                 </button>
               </div>
-            </template>
+            </TransitionMenu>
           </div>
           <button
             class="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition shrink-0"
@@ -211,10 +218,15 @@ const ed = domaineEditeur();
             >
               <i class="ph ph-dots-three text-base"></i>
             </button>
-            <template v-if="ed.showGitMoreMenu">
-              <div class="fixed inset-0 z-40" @click="ed.showGitMoreMenu = false"></div>
+            <div
+              v-if="ed.showGitMoreMenu"
+              class="fixed inset-0 z-40"
+              @click="ed.showGitMoreMenu = false"
+            ></div>
+            <TransitionMenu>
               <div
-                class="absolute right-0 top-full mt-1 w-48 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
+                v-if="ed.showGitMoreMenu"
+                class="menu-ancre-droite absolute right-0 top-full mt-1 w-48 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
               >
                 <button
                   class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"
@@ -305,7 +317,7 @@ const ed = domaineEditeur();
                   <i class="ph ph-arrow-counter-clockwise text-red-400 text-sm"></i> Annuler dernier commit
                 </button>
               </div>
-            </template>
+            </TransitionMenu>
           </div>
         </div>
 

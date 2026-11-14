@@ -98,10 +98,18 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     clearScm: (p) => diff._clearScm(p),
     loadHead: (p, f) => diff._loadHead(p, f),
     headText: (p) => diff.texteTete(p),
-    forceLayout: () => page._forceLayout(),
     robustLayout: () => page.robustLayout(),
+    editeurDroit() {
+      monacoRef.instance2 = editeurs?.droit() ?? null;
+      return monacoRef.instance2;
+    },
+    differences() {
+      const d = editeurs?.differences() ?? null;
+      monacoRef.diff = d?.diff ?? null;
+      monacoRef.originalModel = d?.original ?? null;
+      return d;
+    },
     smoothOpenLayout: () => page._smoothOpenLayout(),
-    relayoutDuringTransition: () => page._relayoutMonacoDuringTransition(),
     closeEditorCtxMenu: () => outils.closeEditorCtxMenu(),
     openEditorCtxMenu: (ev) => outils._openEditorCtxMenu(ev),
     editorCtxComplete: () => ia.editorCtxComplete(),
@@ -618,7 +626,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
             if (surBlur() && p && onglets._tabIsDirty(p))
               void enr.saveEditorContent({ silent: true, path: p });
           },
-          enregistrer: () => void enr.saveEditorContent(),
           menu: (ev) => outils._openEditorCtxMenu(ev),
           focusGauche() {
             e.activePane.value = "left";
@@ -639,8 +646,18 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
             if (surBlur() && p && onglets._tabIsDirty(p))
               void enr.saveEditorContent({ silent: true, path: p });
           },
-          enregistrerDroit() {
-            if (e.splitTabPath.value) void enr.saveEditorContent({ path: e.splitTabPath.value });
+          // Le raccourci de la fenêtre a enregistré le panneau actif : reste l'autre fichier, affiché en vue scindée et modifié.
+          enregistrerAutre() {
+            const p = e.splitTabPath.value;
+            const affiche = e.splitView.value && e.splitMode.value === "code";
+            if (
+              p &&
+              affiche &&
+              e.activePane.value !== "right" &&
+              p !== activeTabPath.value &&
+              onglets._tabIsDirty(p)
+            )
+              void enr.saveEditorContent({ path: p });
           },
           redimension() {
             // Pas de mise en page par image pendant l'animation d'ouverture (saccade).
@@ -657,9 +674,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
         },
       );
       monacoRef.instance = editeurs.instance;
-      monacoRef.instance2 = editeurs.instance2;
-      monacoRef.diff = editeurs.diff;
-      monacoRef.originalModel = editeurs.originalModel;
       if (interfaceEditeur.value !== "classic") appliquerTheme();
       page._bindFullscreenEsc();
       setTimeout(() => {
@@ -784,26 +798,37 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     },
   );
 
+  // Éditeur masqué : son thème attend le prochain affichage (redéfinir celui de Monaco restyle toute la page).
+  let themeEnRetard = false;
+  function suivreTheme(): void {
+    if (showEditor.value) appliquerTheme();
+    else themeEnRetard = true;
+  }
+  watch(showEditor, (v) => {
+    if (!v || !themeEnRetard) return;
+    themeEnRetard = false;
+    appliquerTheme();
+  });
   // Thème de l'éditeur à chaud (global à Monaco) : vs / vs-dark en classique, jetons du thème de la page ailleurs.
   watch(
     () => [settings.value?.editor_dark_mode, interfaceEditeur.value] as const,
     (_v, avant) => {
       if (avant === undefined) return;
-      void nextTick(appliquerTheme);
+      void nextTick(suivreTheme);
     },
   );
   // Feuille du skin : liée quand l'éditeur suit le skin, puis thème recalculé sur ses jetons.
   watch(
     () => (interfaceEditeur.value === "skin" ? feuilleEditeur.value : ""),
     (url) => {
-      void chargerFeuilleEditeur(url).then(() => nextTick(appliquerTheme));
+      void chargerFeuilleEditeur(url).then(() => nextTick(suivreTheme));
     },
     { immediate: true },
   );
   // Thème ou mode sombre de la page changés (classes du body) : l'éditeur lié au skin suit.
   if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
     const observateur = new MutationObserver(() => {
-      if (interfaceEditeur.value !== "classic") appliquerTheme();
+      if (interfaceEditeur.value !== "classic") suivreTheme();
     });
     observateur.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     onScopeDispose(() => observateur.disconnect());
@@ -821,6 +846,7 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
         r.editor_word_wrap,
         r.editor_minimap,
         r.editor_line_numbers,
+        r.ui_motion,
       ].join("|");
     },
     (_cur, avant) => {
@@ -970,7 +996,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     termStartRename: terminal.termStartRename,
     termCommitRename: terminal.termCommitRename,
     termCancelRename: terminal.termCancelRename,
-    editorSplitDragging: redim.editorSplitDragging,
     editorSplitStart: redim.editorSplitStart,
     explorerResizeStart: redim.explorerResizeStart,
     mdPreview: e.mdPreview,

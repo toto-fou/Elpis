@@ -715,6 +715,42 @@ describe("battement : suivi glissé", () => {
     stop();
   });
 
+  it.each(["fin du tour", "Stop"])(
+    "%s pendant un glissé : le glissé finit au bas, sans saut, puis le battement s'éteint",
+    async (cas) => {
+      mouvement(false);
+      const { api, stop } = monter();
+      const f = filDefilant(2000, 1400);
+      brancher(api, f.el);
+      await contenu(api, "Début de la réponse.");
+      await image(30);
+      f.etat.hauteur += 40;
+      await contenu(api, " Dernière ligne.");
+      await image();
+      const ecart = f.ecart();
+      expect(ecart).toBeGreaterThan(4);
+      if (cas === "Stop") api.stopGeneration();
+      else
+        await api.handleStreamEvent({
+          type: "final",
+          chat_id: "c1",
+          run_ids: [],
+          metrics: null,
+          persisted: true,
+          assistant: "",
+        });
+      await Vue.nextTick();
+      await Vue.nextTick();
+      expect(f.ecart()).toBe(ecart);
+      await image(20);
+      expect(f.ecart()).toBe(0);
+      expect(file.size).toBe(0);
+      expect(battementEnCours()).toBe(false);
+      sansRecul(f.ecrits);
+      stop();
+    },
+  );
+
   it("mouvement réduit : le bas est posé tout de suite, sans glissé", async () => {
     mouvement(true);
     const { api, stop } = monter();

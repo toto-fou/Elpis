@@ -174,13 +174,14 @@ export function creerRenduFlux(c: CoeurChat) {
     if (i >= 0 && cur) arr[i] = suivrePorteur(Object.assign({}, cur, p), false);
   }
 
+  // Un glissé du suivi encore en cours (fin de tour, Stop) finit seul au bas : pas de saut, sauf demande explicite.
   function scrollToBottom(force?: boolean): void {
     if (!e.chatContainer.value || (!force && r.isUserScrolling.value)) return;
     if (force) r.isUserScrolling.value = false;
     l.vsEnsureTail();
     void nextTick(() => {
       const el = e.chatContainer.value;
-      if (!el) return;
+      if (!el || (glisse && !force)) return;
       ctx._lockAutoScroll?.();
       el.scrollTop = el.scrollHeight;
     });

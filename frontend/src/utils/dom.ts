@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/utils/dom.ts — petites aides DOM partagées par les composants : préférence de mouvement, presse-papiers, dépliage d'une réflexion. */
+import { mouvementReduit } from "../platform/mouvement.ts";
 
-export function mouvementReduit(): boolean {
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
+export { mouvementReduit };
 
 /** Copie dans le presse-papiers, repli `execCommand` hors contexte sécurisé ; lève en cas d'échec. */
 export async function copierTexte(texte: string): Promise<void> {

@@ -3,6 +3,7 @@
 import { nextTick, ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { mouvementReduit } from "../../platform/mouvement";
 import { SELECTEUR_FOCUSABLES } from "../../utils/focus";
 
 export interface CrochetsVolet {
@@ -11,11 +12,6 @@ export interface CrochetsVolet {
   onBeforeLeave(el: Element): void;
   onLeave(el: Element): void;
   onAfterLeave(el?: Element): void;
-}
-
-/** Vrai si le mouvement est réduit : aucune largeur ne glisse, elle est posée d'un coup. */
-function mouvementReduit(): boolean {
-  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 // Jetons de mouvement de style.css : une durée en ms (repli si le jeton manque), une courbe.

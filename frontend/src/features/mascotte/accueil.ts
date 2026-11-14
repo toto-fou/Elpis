@@ -5,6 +5,7 @@ import type { Glyphe, Motif } from "./motifs";
 import { SCENARIOS, SCENARIOS_TIRABLES } from "./scenes";
 import type { Acte, Scenario } from "./scenes";
 import { journal } from "../../platform/journal";
+import { mouvementReduit } from "../../platform/mouvement";
 
 export interface DonneesSprite {
   format?: "sprite";
@@ -460,8 +461,11 @@ export function montrerAccueil(hote: HTMLElement, options: OptionsAccueil = {}):
 
   const ctx = canevas.getContext("2d") as CanvasRenderingContext2D;
 
-  const sobre =
-    options.mouvement === "toujours" ? { matches: false } : matchMedia("(prefers-reduced-motion: reduce)");
+  const sobre = {
+    get matches(): boolean {
+      return options.mouvement !== "toujours" && mouvementReduit();
+    },
+  };
 
   let k = 8,
     largeur = 0,

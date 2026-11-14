@@ -396,3 +396,12 @@ describe("transitions nommées : jetons et mise en page", () => {
     }
   });
 });
+
+describe("choix d'animations du compte", () => {
+  it("le code ne lit la préférence du poste que par platform/mouvement.ts, que le choix du compte gouverne", () => {
+    const lecteurs = readdirSync(join(FRONT, "src"), { recursive: true, encoding: "utf8" })
+      .filter((f) => /\.(ts|vue)$/.test(f))
+      .filter((f) => readFileSync(join(FRONT, "src", f), "utf8").includes("prefers-reduced-motion"));
+    expect(lecteurs).toEqual(["platform/mouvement.ts"]);
+  });
+});

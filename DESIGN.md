@@ -197,6 +197,13 @@ De facto scale, to follow so a new layer finds its place:
   offsets are declared under `@media (prefers-reduced-motion: no-preference)`); a sliding
   panel takes its width at once and its content fades in place. Every new animation or named transition gets its entry in
   that block.
+- The account chooses its animations (Settings › Appearance › Animations,
+  `ui_motion`): follow the workstation (default), full, or reduced. Style sheets
+  only ever read `prefers-reduced-motion`; when the choice contradicts the
+  workstation, `platform/mouvement.ts` inverts that media feature in every
+  loaded sheet (skins included) and restores it otherwise, so a sheet needs
+  nothing more than the two media blocks above. Code never reads the media
+  query itself: it calls `mouvementReduit()`.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.
 

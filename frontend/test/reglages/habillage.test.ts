@@ -15,6 +15,7 @@ import {
 } from "../../src/features/reglages/habillage";
 import type { Habillage } from "../../src/features/reglages/habillage";
 import type { CtxReglages, ReglagesApp, VueReglages } from "../../src/features/reglages/types";
+import { choixMouvementMemorise, mouvementReduit } from "../../src/platform/mouvement";
 import { json } from "../aides";
 
 const TERMINAL: Habillage = {
@@ -356,6 +357,22 @@ describe("creerApparence : l'habillage gardé tient jusqu'aux réglages", () => 
     await nextTick();
     obs.disconnect();
     expect(mutations).toEqual([]);
+  });
+
+  it("animations : le choix du compte gouverne la page et reste gardé ; les réglages d'un autre compte le remplacent", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+    const { settings } = await monter({ id: "elpis", m: "light", b: false }, "elpis");
+    expect(mouvementReduit()).toBe(true);
+    settings.value = { ...settings.value, ui_motion: "full" };
+    await nextTick();
+    expect(mouvementReduit()).toBe(false);
+    expect(choixMouvementMemorise()).toBe("full");
+    const autre = { ...settings.value };
+    delete autre.ui_motion;
+    settings.value = autre;
+    await nextTick();
+    expect(mouvementReduit()).toBe(true);
+    expect(choixMouvementMemorise()).toBe("system");
   });
 
   it("autre compte : ses réglages remplacent l'habillage gardé", async () => {

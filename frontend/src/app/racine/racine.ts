@@ -27,6 +27,7 @@ import { creerVoix } from "../../features/voix/voix";
 import { ClientHttp } from "../../platform/http/client";
 import { journal } from "../../platform/journal";
 import { creerHttpLegacy } from "../../platform/http/legacy";
+import { choixMouvementMemorise } from "../../platform/mouvement";
 import { creerAnnonceur, creerFenetre, creerMenuContextuel, creerToasts } from "./chrome";
 import type { ElementMenu } from "./chrome";
 import { creerClavier } from "./clavier";
@@ -568,6 +569,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     assistant_name: "Elpis",
     // Apparence du dernier compte de ce navigateur, déjà posée avant le premier rendu : les réglages la confirment.
     ...reglagesHabillage(),
+    ui_motion: choixMouvementMemorise(),
     system_prompt: "",
     mcp_servers: [],
     sandbox_path_display: "",

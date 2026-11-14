@@ -5,6 +5,7 @@ import type * as Vue from "vue";
 import type { Ref } from "vue";
 
 import type { HttpLegacy } from "../../platform/http/legacy";
+import type { ChoixMouvement } from "../../platform/mouvement";
 
 export type VueReglages = Pick<typeof Vue, "computed" | "nextTick" | "ref" | "watch">;
 export type FetchAuth = HttpLegacy["fetchAuth"];
@@ -76,6 +77,7 @@ export interface ReglagesApp {
   thinking_display?: "collapsed" | "expanded" | "hidden";
   footer_metrics?: "full" | "essential" | "hidden";
   thread_density?: "comfortable" | "compact";
+  ui_motion?: ChoixMouvement;
   voice_input_enabled?: boolean;
   voice_reply_enabled?: boolean;
   voice_reply_tools_enabled?: boolean;

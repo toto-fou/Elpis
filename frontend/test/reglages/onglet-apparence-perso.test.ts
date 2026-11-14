@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/onglet-apparence-perso.test.ts — Paramètres › Apparence › Mes habillages : masquée si la fonction est coupée, menu groupé, Aperçu, Supprimer, assistant. */
+/** frontend/test/reglages/onglet-apparence-perso.test.ts — Paramètres › Apparence : rangée Animations (système, complètes, réduites) et Mes habillages (masquée si la fonction est coupée, menu groupé, Aperçu, Supprimer, assistant). */
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -87,5 +87,37 @@ describe("Paramètres › Apparence › Mes habillages", () => {
     expect(fonctions.apercuHabillage).toHaveBeenCalledWith(expect.objectContaining({ id: "perso:a" }));
     expect(fonctions.supprimerHabillage).toHaveBeenCalledWith(expect.objectContaining({ id: "perso:a" }));
     expect(fonctions.ouvrirAssistant).toHaveBeenCalledWith("apparence");
+  });
+});
+
+describe("Paramètres › Apparence › Animations", () => {
+  const boutons = (hote: HTMLElement): HTMLButtonElement[] =>
+    Array.from(
+      hote.querySelectorAll<HTMLButtonElement>('[aria-labelledby="set-mouvement-lbl"] [role="radio"]'),
+    );
+  const coches = (hote: HTMLElement): string[] =>
+    boutons(hote).map((b) => b.getAttribute("aria-checked") ?? "");
+
+  it("trois choix sous « Mode » ; sans réglage du compte, « Système » est coché", () => {
+    const { hote } = monter({});
+    expect(hote.querySelector("#set-mouvement-lbl")?.textContent?.trim()).toBe("Animations");
+    expect(boutons(hote).map((b) => b.textContent?.trim())).toEqual(["Système", "Complètes", "Réduites"]);
+    expect(coches(hote)).toEqual(["true", "false", "false"]);
+  });
+
+  it("un clic pose le choix dans les réglages (enregistré avec eux) ; une valeur inconnue revient à « Système »", async () => {
+    const settings = reactive<Record<string, unknown>>({ skin: "elpis", ui_motion: "reduced" });
+    const { hote } = monter({ settings });
+    expect(coches(hote)).toEqual(["false", "false", "true"]);
+    boutons(hote)[1]?.click();
+    await nextTick();
+    expect(settings["ui_motion"]).toBe("full");
+    expect(coches(hote)).toEqual(["false", "true", "false"]);
+    boutons(hote)[0]?.click();
+    await nextTick();
+    expect(settings["ui_motion"]).toBe("system");
+    settings["ui_motion"] = "turbo";
+    await nextTick();
+    expect(coches(hote)).toEqual(["true", "false", "false"]);
   });
 });

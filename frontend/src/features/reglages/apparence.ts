@@ -4,6 +4,7 @@ import { PREFIXE_PERSO } from "@elpis/contracts";
 import { getCurrentScope, onScopeDispose } from "vue";
 import type { Ref } from "vue";
 
+import { definirMouvement } from "../../platform/mouvement";
 import { corpsJson, estObjet, liste, objet, texte } from "../../utils/lecture-json";
 import { rethemerVisuels as rethemerRendus } from "../chat/rendu/enrichissement";
 import { lireMemoire, poserHabillage } from "./habillage";
@@ -129,6 +130,9 @@ export function creerApparence(
     () => void poserHabillage(habillage.value).then(() => setTimeout(rethemerRendus, 0)),
     { immediate: true },
   );
+
+  // Animations : le choix du compte gouverne la page (feuilles et code), dès la création.
+  watch(() => settings.value.ui_motion, definirMouvement, { immediate: true });
 
   /** Palette affichée : celle du compte si le skin courant la propose, sinon la première. */
   const paletteCourante = computed<PaletteApp | null>(() => {

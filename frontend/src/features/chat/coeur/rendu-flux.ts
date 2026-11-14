@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/rendu-flux.ts — rendu du flux : patchs du message en cours, rendu Markdown incrémental (corps `_md`, ligne vivante `_pp`), tampons de réflexion, de narration et de corps, sortie shell coalescée, battement unique (une image, une mise à jour, une écriture de défilement) ; le texte qui grandit passe par le porteur du message, qui n'est remplacé que pour un changement de structure. */
 import { journal } from "../../../platform/journal";
+import { mouvementReduit } from "../../../platform/mouvement";
 import { getCurrentScope, markRaw, nextTick, onScopeDispose, toRaw } from "vue";
 
 import { marquerBattement } from "../../../utils/battement";
@@ -252,7 +253,6 @@ export function creerRenduFlux(c: CoeurChat) {
   let minuterieCaret: ReturnType<typeof setTimeout> | null = null;
   let glisse = false;
   let dernierPas = 0;
-  let mqReduit: MediaQueryList | null = null;
   const budget = creerBudget();
   const vCorps = creerVersement();
   const vReflexion = creerVersement();
@@ -270,13 +270,6 @@ export function creerRenduFlux(c: CoeurChat) {
     return (
       !!f.thinkBuf || !!f.preContentBuf || (corpsArme && !!f.streamBuf) || f.shellPend.size > 0 || glisse
     );
-  }
-
-  // Liste de requête créée une fois : lue à chaque image du glissé.
-  function mouvementReduit(): boolean {
-    mqReduit ??=
-      typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-    return !!mqReduit?.matches;
   }
 
   // Seule écriture du défilement pendant une réponse : glissé vers le nouveau bas (l'observateur de taille du fil le laisse faire), jamais plus de deux lignes de retard, arrêté dès qu'une écriture n'avance plus (bas réel au-dessus de l'estimé : zoom, pixels physiques) ; immédiat en mouvement réduit et onglet caché.

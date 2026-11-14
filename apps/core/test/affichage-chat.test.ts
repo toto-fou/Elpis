@@ -37,6 +37,7 @@ describe("préférences d'affichage du chat", () => {
       "footer_metrics",
       "thread_density",
       "editor_ui",
+      "ui_motion",
     ]);
     for (const cle of Object.keys(CHOIX_AFFICHAGE)) {
       expect(USER_SETTINGS_ALLOWED.has(cle)).toBe(true);

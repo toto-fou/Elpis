@@ -138,6 +138,23 @@ try {
         v.ok(`${nom} : éditeur fermé, la barre de saisie reprend sa largeur et sa place dans un seul sens`,
             apres.join() === avant.join() && etapes(fermeture) >= 5 && unSens(fermeture.map((x) => x[1]), 1) && unSens(fermeture.map((x) => x[0]), 1),
             `${etapes(fermeture)} étapes, de ${ouvert} à ${apres}`);
+        // Autre volet replié pendant la fermeture : la largeur de la barre suit jusqu'au bout, sans revenir en arrière à la fin.
+        await page.evaluate(() => { window.__racine().showEditor = true; });
+        await page.waitForTimeout(900);
+        const croise = await page.evaluate(async () => {
+            const lire = () => Math.round(document.querySelector('.elpis-compose-col').getBoundingClientRect().width);
+            const images = [lire()];
+            const t0 = performance.now();
+            const r = window.__racine();
+            r.showEditor = false;
+            setTimeout(() => { r.showSidebar = false; }, 100);
+            await new Promise((fin) => { const b = () => { images.push(lire()); if (performance.now() - t0 < 900) requestAnimationFrame(b); else fin(); }; requestAnimationFrame(b); });
+            r.showSidebar = true;
+            return images;
+        });
+        v.ok(`${nom} : éditeur fermé puis volet latéral replié en cours de route, la barre de saisie s'élargit sans à-coup final`,
+            croise.at(-1) > croise[0] && unSens(croise, 1), `de ${croise[0]} à ${croise.at(-1)} px, ${new Set(croise).size} étapes`);
+        await page.waitForTimeout(500);
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.waitForTimeout(300);
 

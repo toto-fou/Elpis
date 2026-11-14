@@ -13,6 +13,7 @@ import {
   cibleCompte,
   compteCouvrant,
   depotDeLUrl,
+  hotePrive,
   lirePortee,
   niveauxPortee,
   porteeDesSaisis,
@@ -85,6 +86,20 @@ describe("portée d'un compte git", () => {
     ])
       expect(depotDeLUrl(url), url).toMatchObject({ chemin: null, servi: false });
     expect(depotDeLUrl("https://github.com/acme/api?x=1")).toMatchObject({ chemin: null, servi: true });
+    expect(depotDeLUrl("https://forge.lan/@scope/pkg.git")).toMatchObject({ chemin: null, servi: false });
+    for (const h of [
+      "localhost:3000",
+      "forge.lan",
+      "git.corp:8443",
+      "10.2.3.4",
+      "192.168.1.20:3000",
+      "172.20.0.1",
+      "[::1]:3000",
+      "[fd00::1]",
+    ])
+      expect(hotePrive(h), h).toBe(true);
+    for (const h of ["github.com", "git.exemple.org:8443", "8.8.8.8", "172.32.0.1", "[2001:db8::1]", ""])
+      expect(hotePrive(h), h).toBe(false);
     for (const url of [
       "git@github.com:acme/api.git",
       "HTTPS://github.com/a/b",

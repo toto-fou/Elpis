@@ -112,7 +112,7 @@ describe("table des secrets", () => {
       "name",
       "scope",
       "user",
-      "usage",
+      "dernier usage",
       "Actions",
     ]);
     const intranet = ligne(hote, "intranet-admin");
@@ -124,7 +124,10 @@ describe("table des secrets", () => {
     ).toEqual(["https://intranet.example.lan:8443", "https://idp.example.lan"]);
     expect(intranet.querySelector(".elpis-secrets__schema")?.textContent).toBe("https://");
     expect(cellules(intranet)[2]).toBe("admin");
-    expect(intranet.querySelector("[data-dernier]")?.textContent).toBe("2 min");
+    expect(intranet.querySelector("[data-dernier]")?.textContent).toBe("il y a 2 min");
+    expect(intranet.querySelector(".elpis-secrets__details")?.textContent?.trim()).toBe(
+      "user=admin · utilisé il y a 2 min",
+    );
     expect(intranet.querySelector("[data-usages]")?.textContent).toBe("3 usages");
     expect(intranet.querySelector(".elpis-secrets__usage")?.getAttribute("title")).toMatch(
       /\d{2}\/\d{2}\/\d{4}/u,
@@ -133,9 +136,9 @@ describe("table des secrets", () => {
     expect(ligne(hote, "gitlab")).toBeNull();
     expect(ligne(hote, "mcp-srv")).toBeNull();
     const git = ligne(hote, "sandbox-git");
-    expect(cellules(git).slice(1, 4)).toEqual(["git.lan", "—", "—"]);
+    expect(cellules(git).slice(1, 4)).toEqual(["git.lan", "—", "jamais"]);
     expect(git.querySelector("[data-usages]")).toBeNull();
-    expect(git.querySelector(".elpis-secrets__details")?.textContent?.trim()).toBe("user=— · —");
+    expect(git.querySelector(".elpis-secrets__details")?.textContent?.trim()).toBe("user=— · jamais utilisé");
     expect(hote.textContent).not.toMatch(/p4ss|secret_enc/u);
   });
 
@@ -157,6 +160,8 @@ describe("table des secrets", () => {
     expect(large.querySelectorAll(".elpis-secrets__site")).toHaveLength(3);
     const plus = large.querySelector<HTMLButtonElement>("[data-plus-sites]")!;
     expect([plus.textContent?.trim(), plus.getAttribute("aria-expanded")]).toEqual(["+ 4 autres", "false"]);
+    expect(plus.getAttribute("aria-label")).toBe("Sites de large : 4 autres");
+    expect(document.getElementById(plus.getAttribute("aria-controls") ?? "")?.tagName).toBe("UL");
     plus.click();
     await attendre();
     expect(ligne(hote, "large").querySelectorAll(".elpis-secrets__site")).toHaveLength(7);
@@ -165,6 +170,15 @@ describe("table des secrets", () => {
     reduire.click();
     await attendre();
     expect(ligne(hote, "large").querySelectorAll(".elpis-secrets__site")).toHaveLength(3);
+    // Liste dépliée puis réduite à quatre sites : plus rien à replier, le bouton disparaît.
+    ligne(hote, "large").querySelector<HTMLButtonElement>("[data-plus-sites]")!.click();
+    await attendre();
+    g.secrets = g.secrets.map((x) =>
+      x.name === "large" ? { ...x, scope: { origins: sites.slice(0, 4) } } : x,
+    );
+    await attendre();
+    expect(ligne(hote, "large").querySelectorAll(".elpis-secrets__site")).toHaveLength(4);
+    expect(ligne(hote, "large").querySelector("[data-plus-sites]")).toBeNull();
   });
 
   it("menu ⋯ selon le genre : complet, vérification d'un importé, git importé renvoyé à Comptes Git", async () => {

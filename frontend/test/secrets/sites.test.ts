@@ -141,7 +141,7 @@ describe("éditeur de sites", () => {
 });
 
 describe("table", () => {
-  it("montre tous les sites en pastilles, dans la ligne et dans le panneau de vérification", async () => {
+  it("montre tous les sites, un par ligne, dans la ligne et dans le panneau de vérification", async () => {
     const { hote, g } = monter(TableSecrets, [
       secret(1, { name: "multi", state: "unverified", scope: { origins: SITES } }),
     ]);
@@ -151,7 +151,7 @@ describe("table", () => {
     expect([...ligne.querySelectorAll(".elpis-secrets__site")].map((e) => e.textContent?.trim())).toEqual(
       SITES,
     );
-    expect(ligne.textContent).not.toMatch(/\+\d/u);
+    expect(ligne.querySelector("[data-plus-sites]")).toBeNull();
     g.choisir(1, "verifier");
     await attendre();
     const panneau = hote.querySelector<HTMLElement>("[data-panneau]")!;

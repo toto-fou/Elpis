@@ -584,6 +584,14 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     ).toBe(409);
     expect(await jeton(bob, "https://casses.lan/Acme/x.git")).toBe("g1");
     expect(await jeton(bob, "https://casses.lan/acme/x.git")).toBe("g2");
+    // Changer le seul type de l'un d'eux le ferait couvrir l'endroit de l'autre : refusé.
+    const minuscule = (await comptes(bob)).find((c) => c["host"] === "casses.lan" && c["path"] === "acme");
+    const change = await appel(bob, "PUT", `/api/git/connectors/${String(minuscule?.["id"])}`, {
+      provider_type: "gitea",
+      token: "g2",
+    });
+    expect(change.statusCode).toBe(409);
+    expect(await jeton(bob, "https://casses.lan/acme/x.git")).toBe("g2");
     const autre = await creer(bob, { provider_type: "gitea", host: "mixte.lan", path: "autre", token: "t3" });
     expect(
       (await appel(bob, "PUT", `/api/git/connectors/${autre}`, { path: "ACME", token: "t4" })).statusCode,

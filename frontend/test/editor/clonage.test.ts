@@ -73,8 +73,21 @@ describe("ce que dit l'adresse", () => {
       origine: "http://ailleurs.lan",
       clair: true,
     });
-    // Dépôt à la racine de l'hôte : le serveur ne lui cherche aucun compte, même celui de tout l'hôte.
+    // Dépôt à la racine de l'hôte, ou « @ » dans le chemin : le serveur ne leur cherche aucun compte, même celui de tout l'hôte.
     expect(accesClone("https://github.com/projet.git", [PERSO])).toMatchObject({ etat: "aucun" });
+    expect(accesClone("https://github.com/@scope/pkg.git", [PERSO])).toMatchObject({ etat: "aucun" });
+    // En http, un jeton enregistré ne part que vers le réseau local, ou si l'API du compte est en http.
+    expect(accesClone("http://github.com/autre/depot", [PERSO])).toMatchObject({
+      etat: "aucun",
+      clair: true,
+    });
+    const local = compte(10, "forge.lan:3000", "");
+    expect(accesClone("http://forge.lan:3000/a/b", [local])).toMatchObject({ etat: "compte", clair: true });
+    expect(accesClone("http://192.168.1.20/a/b", [compte(11, "192.168.1.20", "")])).toMatchObject({
+      etat: "compte",
+    });
+    const enHttp = compte(12, "git.exemple.org", "", { api_base: "http://git.exemple.org/api/v1" });
+    expect(accesClone("http://git.exemple.org/a/b", [enHttp])).toMatchObject({ etat: "compte" });
     // Jeton importé du bac, pas encore vérifié : dit, ce n'est pas « sans jeton ».
     const importe = compte(8, "import.lan", "", { has_token: false, to_verify: true });
     expect(accesClone("https://import.lan/a/b", [importe])).toMatchObject({
@@ -130,7 +143,10 @@ describe("ce que dit l'adresse", () => {
     const importe = compte(8, "import.lan", "acme", { has_token: false, to_verify: true });
     const ferme = p("https://import.lan/acme/api", [importe]);
     expect(ferme.choix.map((c) => c.fermee)).toEqual([false, true, false]);
-    expect(ferme.defaut).toBeNull();
+    // La portée d'office tomberait sur ce compte : la plus proche ouverte, plus précise d'abord.
+    expect(ferme.defaut).toBe("acme/api");
+    const seule = p("https://import.lan/seul.git", [compte(9, "import.lan", "", { to_verify: true })]);
+    expect(seule.defaut).toBeNull();
     expect(p("https://github.com/seul.git", []).defaut).toBe("");
     expect(p("pas une adresse", TOUS)).toEqual({ choix: [], defaut: null });
   });
@@ -373,6 +389,11 @@ describe("fenêtre montée", () => {
     // Même hôte en http : ce qui a été saisi pour https ne part pas en clair.
     await v.saisir("#clone-url", "http://forge.lan/autre/depot.git");
     expect(v.etat.gitCloneCreds.value).toMatchObject({ ouvert: false, token: "" });
+    // Rien ne part encore : la mention « en clair » ne vient qu'avec des identifiants saisis ou un compte utilisé.
+    expect(v.q("[data-clair]")).toBeNull();
+    v.q<HTMLButtonElement>("[data-saisir]")!.click();
+    await nextTick();
+    await v.saisir("#clone-jeton", "tok2");
     expect(v.q("[data-clair]")?.textContent).toContain("http : envoi en clair");
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
     expect(v.q("[data-acces]")?.textContent).toContain("Adresse http(s) attendue");

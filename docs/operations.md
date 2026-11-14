@@ -835,9 +835,9 @@ browser"); there is no browser service on the host. It needs:
    `browser-service/`: `*.js`, `package.json`; nothing else of the folder is mounted;
    `chmod o+rx browser-service/node_modules` if npm created it 0700).
 3. Preferably two CPUs per sandbox (`"executors": {"limits": {"cpu_quota_pct": 200}}`):
-   Chromium shares the sandbox's CPU quota, and at the default 100 % the step screenshot of a
-   heavy page misses its 3 s delay on about 5 % of actions (none at 200 %; `./elpis doctor`
-   warns).
+   Chromium shares the sandbox's CPU quota, and at the default 100 % a step screenshot (off by
+   default, turned on per account in Settings › Chat) of a heavy page can miss its 3 s delay
+   (none at 200 %; `./elpis doctor` warns).
 
 Without one of them the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its
 fix. `browser.mode` and `browser.sandbox_users` from earlier versions are ignored.

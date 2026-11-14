@@ -1514,7 +1514,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | Tab | What you set there |
 |---|---|
 | **Profile** | Your information, photo (cropped before upload: drag, zoom, Fit, Fill, quarter turn), password change |
-| **Chat** | *Conversation*: personal system prompt, chat area width, live terminal, wake-ups, system notifications, clear conversations. *Display*: timeline, context, thinking, metrics, density, web screenshots. *Voice*: dictation and voice reply |
+| **Chat** | *Conversation*: personal system prompt, chat area width, live terminal, wake-ups, system notifications, clear conversations. *Display*: timeline, context, thinking, metrics, density, browser step screenshots (off by default). *Voice*: dictation and voice reply |
 | **Compaction** | Automatic compaction, threshold, maximum number of compactions per conversation |
 | **AI models** | Providers offered by the administrator + your own providers |
 | **Appearance** | *Theme*: dark mode, skin (those the administrator has enabled, then *My skins*), Elpis colors (Gold or Clay). *Editor*: follow skin or classic, dark theme. *Mascot*: logo or mascot on the home screen; see below. The assistant's name and avatar are those of the application, chosen by the administrator |

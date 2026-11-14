@@ -1549,27 +1549,32 @@ Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
 
 ### Secrets
 
-Settings › **Secrets** lists the vault of your account in one table: `name`, `type`, `scope`,
-`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user` and `tls` show
-under the name and the usage columns move to its tooltip). An imported secret is marked
-`unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
-it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no
+Settings › **Secrets** › *Secrets web* lists the vault of your account, one block per secret like
+the other parts (Git accounts, tokens): its name; under it the type, the version (`v2` after one
+rotation), the identifier and the last use (in words, with the number of uses; the exact date is
+in the tooltip); then every site in full, one per line (beyond four, the first three and a button
+to unfold the rest). The actions are on the right: *Vérifier* for an imported secret, rotation,
+edit, delete (the same button, clicked twice). An imported secret is marked *à vérifier*; *TLS non
+vérifié* says the certificate is not checked; *autre clé* marks a value encrypted with another key
+than the current vault key (rotate it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no
 API returns them, and the model never reads them. The value fields are masked, cannot be copied
 and are left out of the browser's password manager.
 
-- **New** creates a `web-login`, `http-auth` or `token` secret. The name is a slug
+- **Nouveau secret**, under the list, creates a `web-login`, `http-auth` or `token` secret. The name is a slug
   (`[a-z0-9][a-z0-9._-]{0,47}`, checked as you type); the scope lists exact origins,
   `scheme://host[:port]`, one per line (a token has none); `tls` is `strict` unless you choose
   `insecure`; the policy says whether the subagents and the routines may use it.
-- The **⋯** menu of a row offers **Rotation** (a new value, `version` + 1), **Edit** (an empty value
+- The buttons of a block offer *Rotation* (a new value, `version` + 1), *Modifier* (an empty value
   keeps the current one; adding an origin or switching to `tls insecure` requires the value
-  again), **Verify** for any imported secret, `git` included (read its scope, then it becomes
-  `active`) and **Delete**, confirmed by clicking the same button a second time. Escape closes the
-  menu, then the panel, then the form, and asks before discarding what you typed.
-- Secrets of a connector are listed but managed where they are created: `git` and `llm` secrets
-  offer **Rotation** and a link to Git accounts or AI models; `mcp` secrets are read-only here
-  (their value holds the server's authentication, headers and variables) and link to the MCP
-  servers panel.
+  again), *Vérifier* for any imported secret, `git` included (read what it is used for, then it
+  becomes usable) and *Supprimer*, confirmed by clicking the same button a second time (clicking
+  or tabbing elsewhere cancels). Escape closes the confirmation, then the panel, then the form,
+  and asks before discarding what you typed.
+- Secrets of a connector are managed where they are created (Git accounts, AI models, the MCP
+  servers panel) and are not listed here, except a `git` token imported from your sandbox: it
+  stays here, with *Vérifier* and a link to Git accounts, until you verify it. The administration
+  console lists the instance's connector secrets (`llm`, `mcp`, image engine): rotation there,
+  `mcp` values being read-only (they hold the server's authentication, headers and variables).
 
 The secrets of the instance (shared LLM connectors and MCP servers, image engine) are in the
 [admin console](#admin-console), *Models & services › Secrets*.

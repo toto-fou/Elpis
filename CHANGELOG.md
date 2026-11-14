@@ -160,6 +160,14 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Secrets web looks like the other parts of Secrets.** One block per secret instead of a table:
+  the name with its states in plain words (*à vérifier*, *TLS non vérifié*, *autre clé*), a line
+  with the type, the version, the identifier and the last use, then each site in full on its own
+  line (long lists fold after three). The actions are visible on the right, as for Git accounts
+  and tokens (*Vérifier*, rotation, edit, delete confirmed on the same button), the panel opens
+  inside the block, and *Nouveau secret* is at the bottom. The console keeps its table of instance
+  secrets, with columns named in plain words (*Nom*, *Utilisé pour*, *Identifiant*, *Dernier
+  usage*).
 - **Remote tokens have their own part.** Settings › Secrets gets a fourth part, *Remote*: the
   tokens of the machines connected to Remote code (one per machine, with its command, last use,
   regeneration, revocation one by one or all at once). *Jetons MCP* now lists tool tokens only,

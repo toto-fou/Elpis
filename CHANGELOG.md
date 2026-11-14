@@ -166,9 +166,9 @@ follow [SemVer](https://semver.org/).
   holding an imported token still to verify is named as such, here and in Settings.
 - **Remote tokens have their own part.** Settings › Secrets gets a fourth part, *Remote*: the
   tokens of the machines connected to Remote code (one per machine, with its command, last use,
-  regeneration and revocation one by one). *Jetons MCP* now lists tool tokens only, and its form
-  no longer asks for a type. Both parts say how tokens are kept: only a fingerprint, the value is
-  shown once.
+  regeneration, revocation one by one or all at once). *Jetons MCP* now lists tool tokens only,
+  and its form no longer asks for a type. Each part keeps its own form and its own token shown
+  once, and says how tokens are kept: only a fingerprint and the last 4 characters.
 - **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
   *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
   `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).

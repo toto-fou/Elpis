@@ -182,7 +182,7 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
             id: "jetons",
             libelle: "Jetons MCP",
             icone: "ph-key",
-            mots: "token jeton mcp openapi connexions acces client application",
+            mots: "token jeton mcp openapi opencode connexions acces client application",
             aide: "Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI).",
           },
           {

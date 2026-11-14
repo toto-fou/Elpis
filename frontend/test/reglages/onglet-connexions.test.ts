@@ -96,29 +96,75 @@ describe("Jetons MCP", () => {
     const v = await monter("tools");
     expect(v.noms()).toEqual(["VS Code du bureau …ab12", "agent CI …ab12"]);
     expect(v.hote.textContent).not.toContain("poste-dev");
-    expect(v.q("[data-protection]")?.textContent).toContain("ne garde que l'empreinte");
+    expect(v.q("[data-protection]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "ne garde que l'empreinte d'un jeton et ses 4 derniers caractères",
+    );
     expect(v.q("[data-protection]")?.textContent).not.toContain("poste relié");
     expect(v.hote.textContent).toContain("Applications autorisées");
     v.q<HTMLButtonElement>("[data-nouveau-jeton]")!.click();
     await nextTick();
-    expect(v.D.cnxState.value.form?.kind).toBe("tools");
+    expect(v.D.cnxState.value.parties.tools.form?.kind).toBe("tools");
     expect(v.q("select")).toBeNull();
     expect(v.hote.textContent).toContain("Familles d'outils");
   });
 
-  it("un jeton Remote montré ou en cours de création n'apparaît pas dans cette partie", async () => {
+  it("un jeton Remote montré ou en cours de création n'apparaît pas dans cette partie, et ne lui retire ni son jeton montré ni son brouillon", async () => {
     const v = await monter("tools");
-    v.D.cnxShowConfig(JETONS[1] as never);
+    v.D.cnxShowConfig(JETONS[0] as never);
     await nextTick();
-    expect(v.q("[data-jeton-montre]")).toBeNull();
+    expect(v.q("[data-jeton-montre]")?.textContent).toContain("VS Code du bureau");
+    v.D.cnxShowConfig(JETONS[1] as never);
     v.D.cnxNew("opencode");
     await nextTick();
+    expect(v.q("[data-jeton-montre]")?.textContent).toContain("VS Code du bureau");
+    expect(v.q("[data-jeton-montre]")?.textContent).not.toContain("poste-dev");
     expect(v.q("[data-nom-jeton]")).toBeNull();
     expect(v.q("[data-nouveau-jeton]")).not.toBeNull();
+  });
+
+  it("jetons d'outils fermés par l'administrateur alors que Remote est permis : création fermée ici seulement", async () => {
+    const v = await monter("tools", liste(JETONS, true, false));
+    expect(v.q<HTMLButtonElement>("[data-nouveau-jeton]")?.disabled).toBe(true);
+    expect(v.q("[data-desactive]")?.textContent).toContain("jetons d'outils sont désactivés");
+    app?.unmount();
+    document.body.innerHTML = "";
+    const remote = await monter("opencode", liste(JETONS, true, false));
+    expect(remote.q<HTMLButtonElement>("[data-nouveau-jeton]")?.disabled).toBe(false);
+    expect(remote.q("[data-desactive]")).toBeNull();
   });
 });
 
 describe("Remote", () => {
+  it("tant que la liste n'est pas arrivée : rien n'est dit désactivé ; régénérer un jeton le montre ici, avec sa commande", async () => {
+    const hote = document.createElement("div");
+    document.body.appendChild(hote);
+    const D = setupConnexions(
+      { showToast: () => undefined, openConfirm: () => Promise.resolve(true) },
+      new ClientHttp(new GestionnaireSession(), (u: string, o?: RequestInit) =>
+        Promise.resolve(
+          u.includes("/oauth/grants")
+            ? json({ enabled: false, items: [] })
+            : o?.method === "POST"
+              ? json({ token: "pcr_regenere", item: JETONS[1] })
+              : json(liste(JETONS)),
+        ),
+      ),
+    );
+    app = createApp({ render: () => h(OngletConnexions, { genre: "opencode" }) });
+    app.config.warnHandler = () => {};
+    app.provide(CLE_REGLAGES, proxyRefs(D) as never);
+    app.mount(hote);
+    await nextTick();
+    expect(hote.querySelector("[data-desactive]")).toBeNull();
+    expect(hote.querySelector<HTMLButtonElement>("[data-nouveau-jeton]")?.disabled).toBe(false);
+    await D.loadConnexions();
+    await nextTick();
+    hote.querySelector<HTMLButtonElement>('[data-jeton] button[aria-label="Régénérer le jeton"]')!.click();
+    await vi.waitFor(() =>
+      expect(hote.querySelector("[data-jeton-montre]")?.textContent).toContain("/remote pcr_regenere"),
+    );
+  });
+
   it("ne liste que les jetons des postes reliés, sans familles ni applications autorisées ; un jeton créé ici est un jeton Remote, montré une fois avec sa commande", async () => {
     const v = await monter("opencode");
     expect(v.noms()).toEqual(["OpenCode · poste-dev (installation) …ab12"]);
@@ -129,12 +175,17 @@ describe("Remote", () => {
     );
     v.q<HTMLButtonElement>("[data-nouveau-jeton]")!.click();
     await nextTick();
-    expect(v.D.cnxState.value.form).toEqual({ kind: "opencode", name: "", families: {}, days: null });
+    expect(v.D.cnxState.value.parties.opencode.form).toEqual({
+      kind: "opencode",
+      name: "",
+      families: {},
+      days: null,
+    });
     expect(v.hote.textContent).not.toContain("Familles d'outils");
     const nom = v.q<HTMLInputElement>("[data-nom-jeton]")!;
     nom.value = "poste du bureau";
     nom.dispatchEvent(new Event("input"));
-    await v.D.cnxCreate();
+    await v.D.cnxCreate("opencode");
     await nextTick();
     const post = v.vus.find((x) => x[1] === "POST")!;
     expect(JSON.parse(post[2] as string)).toMatchObject({ kind: "opencode", name: "poste du bureau" });
@@ -180,6 +231,13 @@ describe("Remote", () => {
     expect(coupe.q<HTMLButtonElement>("[data-nouveau-jeton]")?.disabled).toBe(true);
     expect(coupe.q("[data-desactive]")?.textContent).toContain("Remote est désactivé par l'administrateur.");
     expect(coupe.noms()).toHaveLength(1);
+    // Régénérer créerait un jeton que le serveur refuse : fermé aussi ; révoquer reste possible.
+    expect(coupe.q<HTMLButtonElement>('[data-jeton] button[aria-label="Régénérer le jeton"]')?.disabled).toBe(
+      true,
+    );
+    expect(coupe.q<HTMLButtonElement>('[data-jeton] button[aria-label="Révoquer le jeton"]')?.disabled).toBe(
+      false,
+    );
     // Côté outils, c'est la politique des jetons d'outils qui ferme la création, pas Remote.
     app?.unmount();
     document.body.innerHTML = "";

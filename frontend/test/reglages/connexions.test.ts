@@ -84,8 +84,8 @@ describe("setupConnexions", () => {
     const { D } = monter(() => json(LISTE()));
     await D.loadConnexions();
     D.cnxNew();
-    expect(D.cnxState.value.form?.families).toEqual({ fs: true, git: true, desktop: false });
-    expect(D.cnxState.value.form?.days).toBe(30);
+    expect(D.cnxState.value.parties.tools.form?.families).toEqual({ fs: true, git: true, desktop: false });
+    expect(D.cnxState.value.parties.tools.form?.days).toBe(30);
   });
 
   it("nouveau jeton Remote : un nom seulement, ni familles ni durée ; envoyé avec son genre", async () => {
@@ -96,17 +96,55 @@ describe("setupConnexions", () => {
     );
     await D.loadConnexions();
     D.cnxNew("opencode");
-    expect(D.cnxState.value.form).toEqual({ kind: "opencode", name: "", families: {}, days: null });
-    D.cnxState.value.form!.name = "poste du bureau";
-    await D.cnxCreate();
+    expect(D.cnxState.value.parties.opencode.form).toEqual({
+      kind: "opencode",
+      name: "",
+      families: {},
+      days: null,
+    });
+    expect(D.cnxState.value.parties.tools.form).toBeNull();
+    D.cnxState.value.parties.opencode.form!.name = "poste du bureau";
+    await D.cnxCreate("opencode");
     expect(JSON.parse(vus.find((v) => v[1] === "POST")![2] as string)).toEqual({
       kind: "opencode",
       name: "poste du bureau",
       families: [],
       days: null,
     });
-    expect(D.cnxState.value.tab).toBe("remote");
-    expect(D.cnxBlocks().map((b) => b.text)).toEqual(["/remote pcr_neuf"]);
+    expect(D.cnxState.value.parties.opencode.tab).toBe("remote");
+    expect(D.cnxBlocks("opencode").map((b) => b.text)).toEqual(["/remote pcr_neuf"]);
+    expect(D.cnxBlocks()).toEqual([]);
+  });
+
+  it("chaque partie garde les siens : un jeton montré ou un brouillon d'un côté survit à ce qu'on fait de l'autre", async () => {
+    const { D } = monter((u, o) => {
+      if (o?.method !== "POST") return json(LISTE([jeton(4), jeton(5, { kind: "opencode", families: [] })]));
+      const remote =
+        u.includes("/regenerate") || (JSON.parse(o.body as string) as { kind?: string }).kind === "opencode";
+      return remote
+        ? json({ token: "pcr_neuf", item: jeton(5, { kind: "opencode", families: [] }) })
+        : json({ token: "ept_neuf", item: jeton(4) });
+    });
+    await D.loadConnexions();
+    expect(D.cnxState.value.charge).toBe(true);
+    D.cnxNew();
+    await D.cnxCreate();
+    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
+    // Côté Remote : formulaire ouvert, commande consultée, jeton régénéré, formulaire annulé.
+    D.cnxNew("opencode");
+    D.cnxShowConfig(D.cnxState.value.tokens[1]!);
+    await D.cnxRegenerate(D.cnxState.value.tokens[1]!);
+    expect(D.cnxState.value.parties.opencode.reveal?.token).toBe("pcr_neuf");
+    D.cnxCancel("opencode");
+    D.cnxCloseReveal("opencode");
+    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
+    // Et l'inverse : un brouillon Remote survit à un jeton d'outils consulté puis révoqué.
+    D.cnxNew("opencode");
+    D.cnxState.value.parties.opencode.form!.name = "brouillon";
+    D.cnxShowConfig(D.cnxState.value.tokens[0]!);
+    await D.cnxRevoke(D.cnxState.value.tokens[0]!);
+    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
+    expect(D.cnxState.value.parties.opencode.form?.name).toBe("brouillon");
   });
 
   it("création : familles cochées envoyées, jeton montré une fois", async () => {
@@ -115,14 +153,14 @@ describe("setupConnexions", () => {
     );
     await D.loadConnexions();
     D.cnxNew();
-    D.cnxState.value.form!.families.git = false;
+    D.cnxState.value.parties.tools.form!.families.git = false;
     await D.cnxCreate();
     const post = vus.find((v) => v[1] === "POST")!;
     expect(JSON.parse(post[2] as string).families).toEqual(["fs"]);
-    expect(D.cnxState.value.reveal?.token).toBe("ept_neuf");
-    expect(D.cnxState.value.form).toBeNull();
+    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
+    expect(D.cnxState.value.parties.tools.form).toBeNull();
     D.cnxShowConfig(D.cnxState.value.tokens[0]!);
-    expect(D.cnxState.value.reveal?.token).toBe("");
+    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("");
     expect(D.cnxBlocks().every((b) => !b.text.includes("ept_neuf"))).toBe(true);
   });
 
@@ -133,8 +171,8 @@ describe("setupConnexions", () => {
     await D.loadConnexions();
     D.cnxNew();
     await D.cnxCreate();
-    expect(D.cnxState.value.error).toBe("Durée maximale : 90 jours.");
-    expect(D.cnxState.value.reveal).toBeNull();
+    expect(D.cnxState.value.parties.tools.error).toBe("Durée maximale : 90 jours.");
+    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
     expect(D.cnxState.value.busy).toBe(false);
   });
 
@@ -145,9 +183,9 @@ describe("setupConnexions", () => {
     await D.loadConnexions();
     D.cnxNew();
     await D.cnxCreate();
-    expect(D.cnxState.value.reveal?.token).toBe("ept_secret");
+    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_secret");
     D.cnxReset();
-    expect(D.cnxState.value.reveal).toBeNull();
+    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
     expect(JSON.stringify(D.cnxState.value)).not.toContain("ept_secret");
   });
 

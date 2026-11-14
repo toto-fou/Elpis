@@ -3,19 +3,23 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { genreDe } from "../../../features/reglages/connexions";
 import type { GenreJeton } from "../../../features/reglages/connexions";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const props = defineProps<{ genre: GenreJeton }>();
 const rg = domaineReglages();
 const remote = computed(() => props.genre === "opencode");
-/** Jetons, jeton montré et formulaire de ce genre seulement : l'autre partie garde les siens. */
-const jetons = computed(() => rg.cnxState.tokens.filter((t) => t.kind === props.genre));
-const montre = computed(() => (rg.cnxState.reveal?.item.kind === props.genre ? rg.cnxState.reveal : null));
-const formulaire = computed(() => (rg.cnxState.form?.kind === props.genre ? rg.cnxState.form : null));
-/** Création possible : jetons d'outils permis par l'administrateur, ou Remote activé. */
+/** Ce que cette partie garde pour elle (formulaire, jeton montré, onglet, erreur) : l'autre a les siens. */
+const partie = computed(() => rg.cnxState.parties[props.genre]);
+const jetons = computed(() => rg.cnxState.tokens.filter((t) => genreDe(t) === props.genre));
+const montre = computed(() => partie.value.reveal);
+const formulaire = computed(() => partie.value.form);
+/** Création possible : jetons d'outils permis par l'administrateur, ou Remote activé ; rien n'est dit fermé avant que la liste soit arrivée. */
 const creable = computed(() =>
-  remote.value ? rg.cnxState.opencode : !rg.cnxState.policy || rg.cnxState.policy.tools_enabled,
+  remote.value
+    ? !rg.cnxState.charge || rg.cnxState.opencode
+    : !rg.cnxState.policy || rg.cnxState.policy.tools_enabled,
 );
 </script>
 
@@ -24,7 +28,8 @@ const creable = computed(() =>
   <div class="space-y-5 max-w-2xl" :data-jetons="genre">
     <p class="text-xs text-slate-500 leading-snug" data-protection>
       <template v-if="remote">Un jeton par poste relié en Remote : le révoquer déconnecte ce poste. </template
-      >Elpis ne garde que l'empreinte d'un jeton : sa valeur n'est montrée qu'à sa création.
+      >Elpis ne garde que l'empreinte d'un jeton et ses 4 derniers caractères : sa valeur entière n'est
+      montrée qu'à sa création.
     </p>
     <div
       v-if="montre"
@@ -40,7 +45,7 @@ const creable = computed(() =>
         <button
           aria-label="Fermer"
           class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"
-          @click="rg.cnxCloseReveal()"
+          @click="rg.cnxCloseReveal(genre)"
         >
           <i class="ph ph-x" aria-hidden="true"></i>
         </button>
@@ -65,23 +70,23 @@ const creable = computed(() =>
       </p>
       <div class="flex flex-wrap gap-1" role="tablist">
         <button
-          v-for="b in rg.cnxBlocks()"
+          v-for="b in rg.cnxBlocks(genre)"
           :key="b.id"
           role="tab"
-          :aria-selected="rg.cnxState.tab === b.id ? 'true' : 'false'"
+          :aria-selected="partie.tab === b.id ? 'true' : 'false'"
           class="h-7 px-2.5 rounded-md text-xs transition-colors"
           :class="
-            rg.cnxState.tab === b.id
+            partie.tab === b.id
               ? 'bg-blue-50 text-blue-700 font-semibold'
               : 'text-slate-600 hover:bg-slate-100'
           "
-          @click="rg.cnxState.tab = b.id"
+          @click="partie.tab = b.id"
         >
           {{ b.label }}
         </button>
       </div>
-      <template v-for="b in rg.cnxBlocks()" :key="'blk' + b.id">
-        <div v-if="rg.cnxState.tab === b.id" class="relative">
+      <template v-for="b in rg.cnxBlocks(genre)" :key="'blk' + b.id">
+        <div v-if="partie.tab === b.id" class="relative">
           <pre
             class="font-mono text-xs leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-64 overflow-auto custom-scrollbar whitespace-pre"
             >{{ b.text }}</pre>
@@ -139,7 +144,7 @@ const creable = computed(() =>
           <i class="ph ph-brackets-curly" aria-hidden="true"></i>
         </button>
         <button
-          :disabled="rg.cnxState.busy"
+          :disabled="rg.cnxState.busy || !creable"
           title="Régénérer"
           aria-label="Régénérer le jeton"
           class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"
@@ -221,18 +226,18 @@ const creable = computed(() =>
           </div>
         </div>
       </template>
-      <p v-if="rg.cnxState.error" class="text-xs text-red-600">{{ rg.cnxState.error }}</p>
+      <p v-if="partie.error" class="text-xs text-red-600" role="alert">{{ partie.error }}</p>
       <div class="flex items-center gap-2 pt-1">
         <button
           :disabled="rg.cnxState.busy"
           class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-          @click="rg.cnxCreate()"
+          @click="rg.cnxCreate(genre)"
         >
           Créer
         </button>
         <button
           class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-          @click="rg.cnxCancel()"
+          @click="rg.cnxCancel(genre)"
         >
           Annuler
         </button>
@@ -247,7 +252,7 @@ const creable = computed(() =>
     >
       <i class="ph ph-plus" aria-hidden="true"></i> Nouveau jeton
     </button>
-    <p v-if="!creable" class="text-xs text-slate-500" data-desactive>
+    <p v-if="rg.cnxState.charge && !creable" class="text-xs text-slate-500" data-desactive>
       {{
         remote
           ? "Remote est désactivé par l'administrateur."

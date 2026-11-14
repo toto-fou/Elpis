@@ -179,8 +179,9 @@ try {
         await capture(page, '6-remote');
         await dialogue.locator('[data-sous-menu] [data-section="jetons"]').click();
         await mcp.waitFor({ timeout: 10000 }).catch(() => {});
-        v.ok('Jetons MCP : toujours le seul jeton d\'outils, le jeton Remote n\'y est pas',
-            JSON.stringify(await nomsDe(mcp)) === '["client de test"]' && (await mcp.locator('[data-jeton-montre]').count()) === 0, JSON.stringify(await nomsDe(mcp)));
+        const encoreMontre = ((await mcp.locator('[data-jeton-montre]').textContent().catch(() => '')) || '');
+        v.ok('Jetons MCP : toujours le seul jeton d\'outils, encore montré ; le jeton Remote n\'y est pas',
+            JSON.stringify(await nomsDe(mcp)) === '["client de test"]' && /ept_[A-Za-z0-9_-]{20,}/.test(encoreMontre) && !encoreMontre.includes('pcr_'), JSON.stringify(await nomsDe(mcp)));
     }
     await page.keyboard.press('Escape');
     await dialogue.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});

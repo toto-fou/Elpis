@@ -1521,7 +1521,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | **Skills** | *Global*: the instance library and its drafts. *Personal*: your own procedures |
 | **Archives** | Your archived conversations: restore or delete |
 | **Sandbox** | Container state, network profile, restart, emptying the working folder |
-| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets). *Git accounts*: your access to Git hosts; see [Git accounts](#git-accounts). *Jetons MCP*: tokens for your Elpis tools from another client. *Remote*: one token per machine connected to Remote code; revoking it disconnects that machine. Elpis keeps only a fingerprint of these tokens: their value is shown once, when created |
+| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets). *Git accounts*: your access to Git hosts; see [Git accounts](#git-accounts). *Jetons MCP*: tokens for your Elpis tools from another client. *Remote*: one token per machine connected to Remote code; revoking it disconnects that machine (or all of them at once). Elpis keeps only a fingerprint of these tokens and their last 4 characters: the full value is shown once, when created |
 
 Tabs with a lot of content are split into parts, in a strip at the top of the content; the modal returns to the last part
 you opened, and the rail search leads to the right one.

@@ -84,7 +84,9 @@ describe("Secrets : quatre sections", () => {
       expect(ids(q), q).toContain("secrets");
     expect(sectionTrouvee("secrets", "openapi")).toBe("jetons");
     expect(sectionTrouvee("secrets", "appairage")).toBe("remote");
-    expect(sectionTrouvee("secrets", "opencode")).toBe("remote");
+    // « opencode » : la configuration du client MCP est dans Jetons MCP, première des deux parties qui en parlent.
+    expect(sectionTrouvee("secrets", "opencode")).toBe("jetons");
+    expect(sectionTrouvee("secrets", "poste")).toBe("remote");
     expect(sectionTrouvee("secrets", "github")).toBe("git");
     expect(sectionTrouvee("secrets", "Comptes Git")).toBe("git");
     expect(sectionTrouvee("secrets", "Jetons d'accès")).toBeNull();

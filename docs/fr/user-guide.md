@@ -1470,7 +1470,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Skills** | *Global* : la bibliothèque de l'instance et ses brouillons. *Perso* : vos propres procédures |
 | **Archives** | Vos conversations archivées : restaurer ou supprimer |
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
-| **Secrets** | Votre coffre : identifiants de sites et jetons. *Comptes Git* : vos accès aux forges Git ; voir [Comptes Git](#comptes-git). *Jetons MCP* : jetons pour utiliser vos outils Elpis depuis un autre client. *Remote* : un jeton par poste relié à Remote code ; le révoquer déconnecte ce poste. Elpis ne garde que l'empreinte de ces jetons : leur valeur n'est montrée qu'une fois, à leur création |
+| **Secrets** | Votre coffre : identifiants de sites et jetons. *Comptes Git* : vos accès aux forges Git ; voir [Comptes Git](#comptes-git). *Jetons MCP* : jetons pour utiliser vos outils Elpis depuis un autre client. *Remote* : un jeton par poste relié en Remote ; le révoquer déconnecte ce poste (ou tous d'un coup). Elpis ne garde que l'empreinte de ces jetons et leurs 4 derniers caractères : leur valeur entière n'est montrée qu'une fois, à leur création |
 
 Les onglets chargés se divisent en parties, dans un bandeau en haut du contenu ; la modale revient à la dernière partie
 ouverte, et la recherche du rail mène à la bonne.

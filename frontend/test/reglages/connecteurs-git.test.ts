@@ -84,11 +84,11 @@ describe("setupGitConnecteurs", () => {
     G.newGitConnector();
     Object.assign(G.gitConnForm.value!, { portee: " GitHub.com/Acme/API.git ", token: "t" });
     await G.saveGitConnector();
-    expect(envoye()).toMatchObject({ host: "github.com", path: "acme/api" });
+    expect(envoye()).toMatchObject({ host: "github.com", path: "Acme/API" });
     G.newGitConnector();
     Object.assign(G.gitConnForm.value!, { portee: "https://u@Forge.lan:3000/Equipe/", token: "t" });
     await G.saveGitConnector();
-    expect(envoye()).toMatchObject({ host: "forge.lan:3000", path: "equipe" });
+    expect(envoye()).toMatchObject({ host: "forge.lan:3000", path: "Equipe" });
     G.newGitConnector();
     Object.assign(G.gitConnForm.value!, { portee: "github.com/a b", token: "t" });
     const avant = vus.length;
@@ -97,11 +97,27 @@ describe("setupGitConnecteurs", () => {
     expect(toasts.at(-1)).toContain("Portée invalide");
     G.editGitConnector({ ...CONNECTEUR, path: "acme" });
     expect(G.gitConnForm.value!.portee).toBe("github.com/acme");
+    // Portée inchangée : ni hôte ni chemin ne partent (un simple libellé ne touche pas à la portée).
+    G.gitConnForm.value!.label = "robot";
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ label: "robot" });
+    expect(envoye()).not.toHaveProperty("host");
+    expect(envoye()).not.toHaveProperty("path");
+    G.editGitConnector({ ...CONNECTEUR, path: "acme" });
     G.gitConnForm.value!.portee = "github.com";
     await G.saveGitConnector();
     expect(envoye()).toMatchObject({ host: "github.com", path: "" });
+    // Compte sans portée : champ vide, son hôte en indice ; enregistré tel quel il le reste, une portée saisie l'active.
     G.editGitConnector({ ...CONNECTEUR, path: null });
-    expect(G.gitConnForm.value!.portee).toBe("github.com");
+    expect(G.gitConnForm.value).toMatchObject({ portee: "", hote: "github.com" });
+    G.gitConnForm.value!.token = "t2";
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ token: "t2" });
+    expect(envoye()).not.toHaveProperty("path");
+    G.editGitConnector({ ...CONNECTEUR, path: null });
+    G.gitConnForm.value!.portee = "github.com/Acme";
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ host: "github.com", path: "Acme" });
   });
 
   it("formulaire : hôte et jeton requis à la création ; envoi sans jeton vide en édition", async () => {

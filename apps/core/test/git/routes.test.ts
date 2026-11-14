@@ -35,18 +35,33 @@ const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as 
 /** Écart voulu (coffre) : changer l'hôte (64) ou le type (66) sans saisir de jeton efface le jeton que le Python gardait ; en 64, saisi à nouveau, il rejoint le Python (en 68, un nouveau jeton remplace celui du Python). */
 const ETAPE_HOTE_SANS_JETON = 64;
 const ETAPE_TYPE_SANS_JETON = 66;
-/** Écart voulu (portée par chemin) : un seul compte par portée ; le vecteur en crée plusieurs sur un même hôte, distingués par leur libellé : chacun perd sa portée avant la création du suivant (inactif, toujours joignable par son id) ; le doublon de l'étape 35, que l'index unique du Python faisait échouer en 500, est refusé en 409. */
+/** Écart voulu (portée par chemin) : un seul compte par portée ; le vecteur en crée plusieurs sur un même hôte, distingués par leur libellé : chaque création reçoit son libellé pour chemin (comptes actifs, cohérents avec leur secret) ; le doublon de l'étape 35, que l'index unique du Python faisait échouer en 500, est refusé en 409. */
 const ETAPE_DOUBLON = 35;
 const REFUS_DOUBLON = {
   statut: 409,
-  corps: '{"detail":"Un autre compte s\'applique déjà à tout gh.example:8443."}',
+  corps: '{"detail":"Un autre compte s\'applique déjà à gh.example:8443/colle."}',
 };
+/** Corps d'une création du vecteur, son libellé pour chemin (« faux » : l'organisation `bob`, dont le vecteur liste un dépôt). */
+function avecPortee(corps: unknown): unknown {
+  const libelle =
+    typeof corps === "object" && corps !== null ? (corps as Record<string, unknown>)["label"] : "";
+  if (typeof libelle !== "string" || !libelle) return corps;
+  return { ...(corps as object), path: libelle === "faux" ? "bob" : libelle };
+}
 /** Écart voulu (coffre) : la liste dit `vault` où le Python disait `plain`. */
 const versCoffre = (corps: string | undefined): string | undefined =>
   corps?.replaceAll('"token_scheme":"plain"', '"token_scheme":"vault"');
 /** Écart voulu (portée par chemin) : `path` d'un compte et de l'analyse d'une URL, absent du Python ; « Compte » où il disait « Connecteur ». */
 const sansPortee = (corps: string): string =>
   corps.replace(/"path":(?:"[^"]*"|null),/gu, "").replaceAll("Compte introuvable", "Connecteur introuvable");
+/** Écart voulu (portée par chemin) : la liste est triée par hôte puis portée, celle du Python par hôte puis libellé : remise dans son ordre avant comparaison. */
+function ordrePython(corps: string): string {
+  if (!corps.startsWith('{"connectors":[')) return corps;
+  const d = JSON.parse(corps) as { connectors: { host: string; label: string }[] };
+  const cle = (c: { host: string; label: string }): string => `${c.host}\u0000${c.label}`;
+  d.connectors.sort((a, b) => (cle(a) < cle(b) ? -1 : cle(a) > cle(b) ? 1 : 0));
+  return JSON.stringify(d);
+}
 
 function fauxServeur(): Promise<Server> {
   const srv = createServer((req, res) => {
@@ -120,10 +135,11 @@ describe.each(MOTEURS)("/api/git/connectors (%s)", (moteur) => {
       let charge: string | undefined;
       if (typeof corps === "string" && corps.startsWith("<<")) charge = corps.slice(2, -2);
       else if (corps !== null && corps !== undefined)
-        charge = pyJsonDumps(corps, { ensureAscii: false }).replaceAll("<PORT>", port);
+        charge = pyJsonDumps(
+          methode === "POST" && cheminBrut === "/api/git/connectors" ? avecPortee(corps) : corps,
+          { ensureAscii: false },
+        ).replaceAll("<PORT>", port);
       if (charge !== undefined) entetes["content-type"] = "application/json";
-      if (methode === "POST" && chemin === "/api/git/connectors" && i !== ETAPE_DOUBLON)
-        await t.base.run("UPDATE git_connectors SET path = NULL");
       let avant = audits.length;
       let r = await app.inject({
         method: methode as "GET" | "POST" | "PUT" | "DELETE",
@@ -151,7 +167,7 @@ describe.each(MOTEURS)("/api/git/connectors (%s)", (moteur) => {
         crees.push((r.json() as { id: number }).id);
       const attendu = i === ETAPE_DOUBLON ? { ...REFUS_DOUBLON, audits: [] } : V.reponses[i];
       expect(r.statusCode, `étape ${i} ${methode} ${chemin}`).toBe(attendu?.statut);
-      expect(sansPortee(versPython(r.body)), `étape ${i} ${methode} ${chemin}`).toBe(
+      expect(sansPortee(ordrePython(versPython(r.body))), `étape ${i} ${methode} ${chemin}`).toBe(
         versCoffre(attendu?.corps),
       );
       expect(JSON.parse(versPython(JSON.stringify(audits.slice(avant)))), `étape ${i}`).toEqual(

@@ -1,0 +1,53 @@
+{
+  "source": "règles de portée des comptes git, communes au core (apps/core/src/secrets/portee.ts, git/connecteurs.ts) et à l'interface (frontend/src/utils/portee-git.ts)",
+  "chemins": [
+    ["", ""],
+    [" / ", ""],
+    ["Acme", "Acme"],
+    ["/Acme/API.git/", "Acme/API"],
+    ["groupe/sous-groupe/depot_1.x", "groupe/sous-groupe/depot_1.x"],
+    ["scm/~bob/outils", "scm/~bob/outils"],
+    ["acme//api", null],
+    ["acme/../autre", null],
+    ["acme/.", null],
+    ["acme/a b", null],
+    ["acme%2fapi", null],
+    ["acme/api?x=1", null],
+    ["acme\\api", null],
+    ["x@hote/acme", null],
+    ["a/b/c/d/e/f/g/h/i", null],
+    ["é/x", null],
+    ["acme/api.git.git", null],
+    ["acme/api.GIT", null]
+  ],
+  "couverture": [
+    ["", "acme/api", true],
+    ["", null, true],
+    ["acme", "acme/api", true],
+    ["acme/api", "acme/api", true],
+    ["acme", "acme", true],
+    ["acme", "acme-corp/api", false],
+    ["acme/api", "acme", false],
+    ["acme/api", "acme/api-v2", false],
+    ["acme", "Acme/api", false],
+    ["acme", null, false],
+    ["acme", "", false]
+  ],
+  "urls": [
+    ["https://GitHub.com/Acme/API.git", "Acme/API"],
+    ["https://gl.lan/groupe/sous/depot", "groupe/sous/depot"],
+    ["https://bb.lan/scm/proj/depot.git/", "scm/proj/depot"],
+    ["http://u@forge.lan:3000/g/sous/depot/", "g/sous/depot"],
+    ["https://github.com/acme/api?x=1", null],
+    ["https://github.com/acme/api#f", null],
+    ["https://github.com/acme/..%2f..%2fautre/depot.git", null],
+    ["https://github.com/acme/%2e%2e/depot", null],
+    ["https://github.com/acme/a b.git", null],
+    ["https://github.com/seul.git", null],
+    ["https://git.corp/x@git.corp/acme/api", null],
+    ["https://github.com/acme/api.git.git", null],
+    ["https://github.com/acme/api.GIT", null],
+    ["https://github.com//acme/api", null],
+    ["https://github.com/acme//api", null]
+  ]
+}

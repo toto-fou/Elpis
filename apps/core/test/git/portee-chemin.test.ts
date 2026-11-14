@@ -12,6 +12,7 @@ import { createUser, creerGardes, dependancesParDefaut, installerAuth } from "@e
 import { HttpError } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
+import { amont } from "@elpis/fichiers";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { configurerCoffre, configureAudit, oublierConfigurationAudit } from "@elpis/securite";
@@ -22,6 +23,7 @@ import { MIGRATIONS_DU_CORE } from "../../src/base";
 import { creerFamilleGit } from "../../src/familles/git";
 import {
   cheminDeLUrl,
+  cheminPourType,
   compteCouvrant,
   contexteUtilisateur,
   createConnector,
@@ -31,70 +33,61 @@ import {
 import type { LigneConnecteur } from "../../src/git/connecteurs";
 import { brancherAdressesInterdites } from "../../src/git/garde";
 import { porteeDesSaisis } from "../../src/git/resolveur";
-import { cheminCouvre, cheminDepot, elargit, normaliserPortee } from "../../src/secrets/portee";
+import { cheminCouvre, cheminDepot, cheminExact, elargit, normaliserPortee } from "../../src/secrets/portee";
 import { portsMigrationsDuCore } from "../../src/secrets/reprise";
 import { COLONNES_SECRET, dechiffrerLigne, modifierSecret } from "../../src/secrets/stockage";
 import type { LigneSecret } from "../../src/secrets/stockage";
 import { appTest } from "../aides";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
+const V = JSON.parse(readFileSync(new URL("../vecteurs/portee-git.json", import.meta.url), "utf-8")) as {
+  chemins: [string, string | null][];
+  couverture: [string, string | null, boolean][];
+  urls: [string, string | null][];
+};
 
 describe("chemins et portées (règles pures)", () => {
-  it("chemin d'une portée : segments simples en minuscules, sans barres aux bords ni `.git` ; vide = tout l'hôte ; illisible = null", () => {
-    expect(cheminDepot("")).toBe("");
-    expect(cheminDepot(" / ")).toBe("");
-    expect(cheminDepot("Acme")).toBe("acme");
-    expect(cheminDepot("/Acme/API.git/")).toBe("acme/api");
-    expect(cheminDepot("groupe/sous-groupe/depot_1.x")).toBe("groupe/sous-groupe/depot_1.x");
-    expect(cheminDepot("scm/~bob/outils")).toBe("scm/~bob/outils");
-    for (const brut of [
-      "acme//api",
-      "acme/../autre",
-      "acme/.",
-      "acme/a b",
-      "acme%2fapi",
-      "acme/api?x=1",
-      "acme\\api",
-      "a/b/c/d/e/f/g/h/i",
-      "é/x",
-      "x".repeat(201),
-    ])
-      expect(cheminDepot(brut), brut).toBeNull();
+  it("chemin d'une portée : segments simples, casse gardée, barres des bords et un `.git` retirés ; vide = tout l'hôte ; illisible = null (vecteurs partagés avec l'interface)", () => {
+    for (const [brut, attendu] of V.chemins) expect(cheminDepot(brut), JSON.stringify(brut)).toBe(attendu);
+    expect(cheminDepot("x".repeat(201))).toBeNull();
+    expect(cheminExact("acme/api")).toBe("acme/api");
+    for (const brut of ["", "/acme/api", "acme/api/", " acme", "acme/api.git"])
+      expect(cheminExact(brut), JSON.stringify(brut)).toBeNull();
   });
 
-  it("couverture : tout l'hôte, le chemin même ou un parent sur une frontière de segment ; un dépôt illisible n'est couvert que par tout l'hôte", () => {
-    expect(cheminCouvre("", "acme/api")).toBe(true);
-    expect(cheminCouvre("", null)).toBe(true);
-    expect(cheminCouvre("acme", "acme/api")).toBe(true);
-    expect(cheminCouvre("acme/api", "acme/api")).toBe(true);
-    expect(cheminCouvre("acme", "acme")).toBe(true);
-    expect(cheminCouvre("acme", "acme-corp/api")).toBe(false);
-    expect(cheminCouvre("acme/api", "acme")).toBe(false);
-    expect(cheminCouvre("acme/api", "acme/api-v2")).toBe(false);
-    expect(cheminCouvre("acme", null)).toBe(false);
-    expect(cheminCouvre("acme", "")).toBe(false);
+  it("couverture : tout l'hôte, le chemin même ou un parent sur une frontière de segment, casse comprise ; un dépôt illisible n'est couvert que par tout l'hôte", () => {
+    for (const [portee, chemin, attendu] of V.couverture)
+      expect(cheminCouvre(portee, chemin), JSON.stringify([portee, chemin])).toBe(attendu);
   });
 
-  it("chemin d'une URL de dépôt : organisation/dépôt en minuscules ; forme SSH lue ; requête, encodage ou segment douteux : null", () => {
-    expect(cheminDeLUrl("https://GitHub.com/Acme/API.git")).toBe("acme/api");
-    expect(cheminDeLUrl("https://gl.lan/groupe/sous/depot")).toBe("groupe/sous/depot");
-    expect(cheminDeLUrl("git@github.com:acme/api.git")).toBe("acme/api");
-    expect(cheminDeLUrl("https://bb.lan/scm/proj/depot.git")).toBe("scm/proj/depot");
-    for (const url of [
-      "https://github.com/acme/api?x=1",
-      "https://github.com/acme/..%2f..%2fautre/depot.git",
-      "https://github.com/acme/%2e%2e/depot",
-      "https://github.com/acme/a b.git",
-      "https://github.com/seul.git",
-      "",
-    ])
-      expect(cheminDeLUrl(url), url).toBeNull();
+  it("chemin d'une URL : celui que le relais joint, casse gardée ; `@`, requête, encodage, second `.git`, segment vide ou unique : null ; forme SSH lue", () => {
+    for (const [url, attendu] of V.urls) {
+      expect(cheminDeLUrl(url), url).toBe(attendu);
+      let joint: string | null;
+      try {
+        joint = amont(url)[1];
+      } catch {
+        joint = null;
+      }
+      // Quand le relais accepte l'URL et qu'un chemin est lu, c'est exactement le dépôt qu'il joint.
+      if (attendu !== null && joint !== null) expect(joint, url).toBe(`/${attendu}`);
+    }
+    expect(amont("https://git.corp/x@git.corp/acme/api")[1]).toBe("/x@git.corp/acme/api");
+    expect(cheminDeLUrl("git@github.com:Acme/API.git")).toBe("Acme/API");
+    expect(cheminDeLUrl("git@github.com:acme/api.git.git")).toBeNull();
+    expect(cheminDeLUrl("")).toBeNull();
   });
 
-  it("portée du coffre : `path` facultatif, normalisé, absent pour tout l'hôte ; clé inconnue ou chemin illisible refusés ; réduire n'élargit pas", () => {
+  it("casse selon le type du compte : ignorée par les forges connues, exacte pour un service générique", () => {
+    expect(cheminPourType("Acme/API", "github")).toBe("acme/api");
+    expect(cheminPourType("Acme/API", "bitbucket-server")).toBe("acme/api");
+    expect(cheminPourType("Acme/API", "generic")).toBe("Acme/API");
+  });
+
+  it("portée du coffre : `path` facultatif, mis en forme, absent pour tout l'hôte ; clé inconnue ou chemin illisible refusés ; réduire n'élargit pas", () => {
     expect(normaliserPortee("git", { host: "GitHub.com" })).toEqual({ host: "github.com" });
     expect(normaliserPortee("git", { host: "github.com", path: "" })).toEqual({ host: "github.com" });
-    expect(normaliserPortee("git", { host: "github.com", path: "/Acme/API.git" })).toEqual({
+    expect(normaliserPortee("git", { host: "github.com", path: "/acme/api.git" })).toEqual({
       host: "github.com",
       path: "acme/api",
     });
@@ -114,30 +107,45 @@ describe("chemins et portées (règles pures)", () => {
     expect(elargit("git", depot, org)).toBe(true);
     expect(elargit("git", org, h)).toBe(true);
     expect(elargit("git", org, { host: "github.com", path: "autre" })).toBe(true);
+    expect(elargit("git", org, { host: "github.com", path: "Acme" })).toBe(true);
     expect(elargit("git", org, { host: "gitlab.com", path: "acme" })).toBe(true);
   });
 
-  it("compte retenu : le plus long chemin qui couvre ; jamais un compte sans portée ; identifiants saisis : portée demandée si elle couvre, compte à chemin rafraîchi, tout l'hôte s'il est libre, sinon le parent du dépôt", () => {
-    const c = (id: number, path: string | null): LigneConnecteur =>
-      ({ id, path, host: "h", owner_user_id: 1 }) as LigneConnecteur;
+  it("compte retenu : le plus long chemin qui couvre, selon la casse de son type ; jamais un compte sans portée ; un dépôt illisible n'a pas de compte dès qu'un compte de l'hôte est borné", () => {
+    const c = (id: number, path: string | null, type = "github"): LigneConnecteur =>
+      ({ id, path, host: "h", owner_user_id: 1, provider_type: type }) as LigneConnecteur;
     const tous = [c(1, ""), c(2, "acme"), c(3, "acme/api"), c(4, null)];
     expect(compteCouvrant(tous, "acme/api")?.id).toBe(3);
-    expect(compteCouvrant(tous, "acme/api/sous")?.id).toBe(3);
+    expect(compteCouvrant(tous, "Acme/API/sous")?.id).toBe(3);
     expect(compteCouvrant(tous, "acme/web")?.id).toBe(2);
     expect(compteCouvrant(tous, "autre/x")?.id).toBe(1);
-    expect(compteCouvrant(tous, null)?.id).toBe(1);
+    expect(compteCouvrant(tous, null)).toBeUndefined();
+    expect(compteCouvrant([c(1, ""), c(4, null)], null)?.id).toBe(1);
     expect(compteCouvrant([c(2, "acme"), c(4, null)], "autre/x")).toBeUndefined();
     expect(compteCouvrant([c(4, null)], "acme/api")).toBeUndefined();
+    const generiques = [c(1, "", "generic"), c(2, "Equipe/Depot", "generic")];
+    expect(compteCouvrant(generiques, "Equipe/Depot")?.id).toBe(2);
+    expect(compteCouvrant(generiques, "equipe/depot")?.id).toBe(1);
+  });
+
+  it("identifiants saisis : portée demandée si elle couvre (dans la casse de l'URL), compte à chemin rafraîchi, tout l'hôte s'il est libre, sinon le parent du dépôt ; dépôt illisible : jamais par-dessus le compte de tout l'hôte", () => {
+    const c = (id: number, path: string | null): LigneConnecteur =>
+      ({ id, path, host: "h", owner_user_id: 1, provider_type: "gitea" }) as LigneConnecteur;
+    const tous = [c(1, ""), c(2, "acme"), c(3, "acme/api"), c(4, null)];
     expect(porteeDesSaisis([], "acme/api")).toBe("");
     expect(porteeDesSaisis([c(4, null)], "acme/api")).toBe("");
-    expect(porteeDesSaisis([c(1, "")], "acme/api")).toBe("acme");
+    expect(porteeDesSaisis([c(1, "")], "Acme/API")).toBe("Acme");
     expect(porteeDesSaisis([c(1, "")], "g/sous/depot")).toBe("g/sous");
-    expect(porteeDesSaisis([c(1, "")], null)).toBe("");
-    expect(porteeDesSaisis(tous, "acme/web")).toBe("acme");
+    expect(porteeDesSaisis(tous, "Acme/web")).toBe("Acme");
     expect(porteeDesSaisis(tous, "acme/web", "")).toBe("");
-    expect(porteeDesSaisis(tous, "acme/web", "Acme/Web.git")).toBe("acme/web");
+    expect(porteeDesSaisis(tous, "Acme/Web", "acme/web.git")).toBe("Acme/Web");
     expect(porteeDesSaisis(tous, "acme/web", "ailleurs")).toBe("acme");
     expect(porteeDesSaisis(tous, "acme/web", "a b")).toBe("acme");
+    expect(porteeDesSaisis([], null)).toBe("");
+    expect(porteeDesSaisis([c(2, "acme")], null)).toBe("");
+    expect(porteeDesSaisis([c(1, "")], null)).toBeNull();
+    expect(porteeDesSaisis([c(1, "")], null, "acme")).toBeNull();
+    expect(porteeDesSaisis([c(1, "")], null, "")).toBe("");
   });
 });
 
@@ -277,11 +285,20 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     expect(await jeton(bob, "https://forge.lan/acme/web.git")).toBe("tok-org");
     expect(await jeton(bob, "https://forge.lan/acme-corp/x.git")).toBe("tok-hote");
     expect(await jeton(bob, "https://forge.lan/autre/y")).toBe("tok-hote");
-    expect(await jeton(bob, "https://forge.lan/acme/api?x=1")).toBe("tok-hote");
-    expect(await jeton(alice, "https://forge.lan/acme/api.git")).toBeNull();
     expect(evenements("vault.secret.used").at(-1)).toMatchObject({
-      details: { usage: "git", target: "forge.lan" },
+      details: { usage: "git", target: "forge.lan/autre/y" },
     });
+    // Dépôt illisible sur un hôte découpé en portées : aucun jeton, pas même celui de tout l'hôte.
+    const lus = evenements("vault.secret.used").length;
+    for (const url of [
+      "https://forge.lan/acme/api?x=1",
+      "https://forge.lan/x@forge.lan/acme/api",
+      "https://forge.lan/acme/api.git.git",
+      "https://forge.lan/acme/%61pi",
+    ])
+      expect(await jeton(bob, url), url).toBeNull();
+    expect(evenements("vault.secret.used").length).toBe(lus);
+    expect(await jeton(alice, "https://forge.lan/acme/api.git")).toBeNull();
     expect(
       (await comptes(bob)).filter((c) => c["host"] === "forge.lan").map((c) => [c["path"], c["has_token"]]),
     ).toEqual([
@@ -296,16 +313,32 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     const ctx = contexteUtilisateur({ userId: bob, username: "bob" });
     expect(await jeton(bob, "https://seul.lan/acme/api.git")).toBe("tok-acme");
     expect(await identifiantGitDisponible(t.base, bob, "https://seul.lan/acme/api.git", ctx)).toBe(true);
+    expect(await jeton(bob, "https://seul.lan/ACME/API.git")).toBe("tok-acme");
     for (const url of [
       "https://seul.lan/autre/depot.git",
       "https://seul.lan/acme-corp/depot.git",
       "https://seul.lan/acme/..%2f..%2fautre/depot.git",
       "https://seul.lan/acme/api?x=1",
       "https://seul.lan/acme%2fapi/x",
+      "https://seul.lan/x@seul.lan/acme/api",
+      "https://seul.lan/autre@seul.lan/acme/api.git",
+      "https://seul.lan/acme/api.git.git",
+      "https://seul.lan/acme/api.GIT",
+      "https://seul.lan//acme/api",
     ]) {
       expect(await jeton(bob, url), url).toBeNull();
       expect(await identifiantGitDisponible(t.base, bob, url, ctx), url).toBe(false);
     }
+    // Service générique : la casse du chemin compte, elle est gardée telle que saisie.
+    const generique = await creer(bob, {
+      provider_type: "generic",
+      host: "casse.lan",
+      path: "Equipe/Depot",
+      token: "tok-casse",
+    });
+    expect(await ligne(generique)).toMatchObject({ path: "Equipe/Depot" });
+    expect(await jeton(bob, "https://casse.lan/Equipe/Depot.git")).toBe("tok-casse");
+    expect(await jeton(bob, "https://casse.lan/equipe/depot.git")).toBeNull();
   });
 
   it("portée du compte élargie hors du coffre : le coffre refuse (journalisé), aucun jeton ne sort", async () => {
@@ -409,10 +442,11 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     ).toMatchObject({ ok: true, host: "github.com", path: "" });
   });
 
-  it("migration 0030 : par compte et par hôte, le dernier compte utilisé garde tout l'hôte, les autres restent sans portée (inactifs, à préciser) ; l'index par libellé part ; un compte sans portée en reçoit une sans ressaisir le jeton", async () => {
+  it("montée de version d'une base d'avant la portée : colonne ajoutée, puis 0030 par main ; par compte et par hôte, le dernier compte utilisé garde tout l'hôte, les autres restent sans portée ; l'index par libellé part ; un compte sans portée en reçoit une sans ressaisir le jeton", async () => {
     const acteur = { userId: bob, username: "bob" };
     const ids: number[] = [];
-    for (const [i, label] of ["vieux", "recent", "jamais"].entries()) {
+    const noms = ["vieux", "recent", "jamais"];
+    for (const [i, label] of noms.entries())
       ids.push(
         await createConnector(
           t.base,
@@ -423,26 +457,32 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
           acteur,
         ),
       );
-    }
     const seul = await createConnector(t.base, alice, "gitea", "double.lan", { token: "tok-al" }, acteur);
     const [vieux, recent, jamais] = ids as [number, number, number];
-    // État d'avant la migration : portée du coffre sur l'hôte seul, aucune colonne `path` renseignée, index unique par libellé.
+    // Base d'avant : secrets sur l'hôte seul, table sans colonne `path`, unicité par libellé, 0030 jamais jouée.
     for (const [i, cid] of ids.entries())
       await modifierSecret(
         t.base,
         bob,
         Number((await secretDe(cid))["id"]),
-        { scope: { host: "double.lan" }, value: `tok-${["vieux", "recent", "jamais"][i]}` },
+        { scope: { host: "double.lan" }, value: `tok-${noms[i]}` },
         acteur,
       );
     await t.base.run("DELETE FROM git_connectors WHERE host <> 'double.lan'");
-    await t.base.run("UPDATE git_connectors SET path = NULL");
     await t.base.run("UPDATE git_connectors SET last_used = 100 WHERE id = ?", [vieux]);
     await t.base.run("UPDATE git_connectors SET last_used = 200 WHERE id = ?", [recent]);
+    await t.base.run("DROP INDEX idx_gitconn_owner_host_path");
+    await t.base.run("ALTER TABLE git_connectors DROP COLUMN path");
     await t.base.run(
       "CREATE UNIQUE INDEX idx_gitconn_owner_host_label ON git_connectors (owner_user_id, host, label)",
     );
     await t.base.run("DELETE FROM schema_migrations WHERE name = '0030_git_account_scope'");
+    // Un process sans l'implémentation (admin, hôte d'outils) passe d'abord : colonne et index posés, 0030 laissée à main, aucun compte ne sert en attendant.
+    const sans = await initialiserBase(t.base);
+    expect(sans.echec).toBeNull();
+    expect(sans.colonnesAjoutees).toContain("git_connectors.path");
+    expect(sans.differees.map((d) => d.name)).toEqual(["0030_git_account_scope"]);
+    expect(await jeton(bob, "https://double.lan/acme/api.git")).toBeNull();
     const r = await initialiserBase(t.base, {
       migrations: MIGRATIONS_DU_CORE,
       ports: portsMigrationsDuCore(),
@@ -461,7 +501,7 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
       migrations: MIGRATIONS_DU_CORE,
       ports: portsMigrationsDuCore(),
     });
-    expect(rejouee.appliquees).toEqual([]);
+    expect([rejouee.appliquees, rejouee.colonnesAjoutees]).toEqual([[], []]);
     // Un compte sans portée ne sert à aucun dépôt, garde son jeton (testable), et s'active en recevant un chemin, sans le ressaisir.
     expect(await portee(vieux)).toEqual({ host: "double.lan" });
     expect((await comptes(bob)).find((c) => c["id"] === vieux)).toMatchObject({
@@ -470,11 +510,24 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
     });
     expect(await jeton(bob, "https://double.lan/acme/api.git")).toBe("tok-recent");
     expect((await appel(bob, "PUT", `/api/git/connectors/${vieux}`, { label: "v" })).statusCode).toBe(200);
+    expect((await appel(bob, "PUT", `/api/git/connectors/${vieux}`, { path: null })).statusCode).toBe(404);
     expect((await ligne(vieux))["path"]).toBeNull();
     expect((await appel(bob, "PUT", `/api/git/connectors/${vieux}`, { path: "acme" })).statusCode).toBe(200);
     expect(await portee(vieux)).toEqual({ host: "double.lan", path: "acme" });
     expect(await jeton(bob, "https://double.lan/acme/api.git")).toBe("tok-vieux");
     expect(await jeton(bob, "https://double.lan/autre/x.git")).toBe("tok-recent");
     expect((await appel(bob, "PUT", `/api/git/connectors/${jamais}`, { path: "" })).statusCode).toBe(409);
+  });
+
+  it("portée saisie : jamais tronquée (une saisie trop longue est refusée, pas raccourcie en une portée plus large)", async () => {
+    const longue = `${"/".repeat(295)}acme/api`;
+    const r = await appel(bob, "POST", "/api/git/connectors", {
+      provider_type: "gitea",
+      host: "long.lan",
+      path: longue,
+      token: "t",
+    });
+    expect(r.statusCode).toBe(400);
+    expect(await t.base.get("SELECT id FROM git_connectors WHERE host = 'long.lan'")).toBeUndefined();
   });
 });

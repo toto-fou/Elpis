@@ -972,7 +972,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     }
   };
 
-  // Arrivée d'un compte (pas une relecture du même) : flux système, modèles, boîte de réception, notifications, reprise. Départ : purge complète.
+  // Arrivée d'un compte (pas une relecture du même) : flux système, boîte de réception, notifications, reprise. Départ : purge complète.
   const compteId = (): number | null => user.value?.id ?? null;
   watch(compteId, (id, avant) => {
     if (id !== null && so.reprendreOAuth()) return;
@@ -980,8 +980,6 @@ export function creerRacine(options: OptionsRacine = {}) {
       m.chat?.connectSystemEvents();
       // Console seule : ni boîte de réception, ni notifications, ni reprise (routes absentes du port d'administration).
       if (consoleSeule) return;
-      // Liste des modèles : lue une fois ici ; ensuite les événements système et le sondage la tiennent à jour.
-      void m.chat?.loadAvailableModels();
       m.reglages?.startInboxPolling();
       void n.loadNotifications();
       so.restaurerSession();

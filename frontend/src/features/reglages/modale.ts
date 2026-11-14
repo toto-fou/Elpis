@@ -135,7 +135,8 @@ export function creerModale(
         dep.reinitialiserEpingles();
         settings.value = recu;
       }
-      if (modeles && recu.enable_model_selector) void ctx.loadAvailableModels?.();
+      // Sélecteur affiché ou non : le premier envoi a besoin du modèle et de ses réglages (ensuite : événements système et sondage).
+      if (modeles) void ctx.loadAvailableModels?.();
       if (!window.__ADMIN_ONLY_MODE__) void dep.loadSharedMcpServers();
       return instantane;
     } catch {

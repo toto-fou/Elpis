@@ -646,10 +646,17 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
             if (surBlur() && p && onglets._tabIsDirty(p))
               void enr.saveEditorContent({ silent: true, path: p });
           },
-          // Le raccourci de la fenêtre a enregistré le panneau actif : reste l'autre fichier d'une vue scindée.
+          // Le raccourci de la fenêtre a enregistré le panneau actif : reste l'autre fichier, affiché en vue scindée et modifié.
           enregistrerAutre() {
             const p = e.splitTabPath.value;
-            if (p && e.activePane.value !== "right" && p !== activeTabPath.value)
+            const affiche = e.splitView.value && e.splitMode.value === "code";
+            if (
+              p &&
+              affiche &&
+              e.activePane.value !== "right" &&
+              p !== activeTabPath.value &&
+              onglets._tabIsDirty(p)
+            )
               void enr.saveEditorContent({ path: p });
           },
           redimension() {

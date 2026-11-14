@@ -467,7 +467,7 @@ try {
     v.ok('menu « … » : entrées et focus sur la première', (await page.getByRole('menuitem').count()) === 5 && await page.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Escape');
-    v.ok('Échap ferme le menu avant la page', !(await page.getByRole('menu').count()) && await racine(page).isVisible());
+    v.ok('Échap ferme le menu avant la page', await jusqua(async () => !(await page.getByRole('menu').count()), 3000) && await racine(page).isVisible());
     await page.getByRole('tab', { name: 'Documents' }).focus();
     await page.keyboard.press('ArrowRight');
     v.ok('onglets : flèche droite active « Tester » et lui donne le focus', await page.getByRole('tab', { name: 'Tester' }).getAttribute('aria-selected') === 'true' && await page.evaluate(() => document.activeElement?.id === 'rag-tab-tester'));

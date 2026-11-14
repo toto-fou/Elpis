@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/editor/clonage.test.ts — fenêtre « Cloner un dépôt » : compte qui servira selon l'adresse, dossier créé, portées des identifiants saisis, compte proposé ; clonage avec identifiants (portée envoyée, refus d'accès, purge) ; fenêtre montée (état d'accès, saisie sur place, dépôts du compte proposé). */
+/** frontend/test/editor/clonage.test.ts — fenêtre « Cloner un dépôt » : adresse lue, compte qui servira, dossier créé, portées des identifiants saisis, compte proposé ; clonage avec identifiants (portée envoyée, refus d'accès, purge) ; fenêtre montée (liste ou adresse, récapitulatif, saisie sur place, dépôts du compte proposé). */
 import { createApp, defineComponent, h, nextTick, proxyRefs, ref } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +10,8 @@ import {
   comptePropose,
   comptesUtilisables,
   dossierDuClone,
+  exempleAdresse,
+  lectureAdresse,
   nomCompte,
   porteesIdentifiants,
   refusDAcces,
@@ -112,6 +114,40 @@ describe("ce que dit l'adresse", () => {
     expect(comptesUtilisables(TOUS).map((c) => c.id)).toEqual([1, 2]);
     expect(nomCompte(ROBOT)).toBe("github.com/acme · robot");
     expect(nomCompte(compte(9, "h", ""))).toBe("h");
+  });
+
+  it("adresse lue : hôte et dépôt d'une adresse http(s) ; SSH et autres schémas refusés ; en cours de saisie : incomplète, sans reproche ; exemple du champ sur l'hôte du compte proposé", () => {
+    expect(lectureAdresse("  ")).toEqual({ etat: "vide" });
+    expect(lectureAdresse(" https://Forge.lan:3000/equipe/outil.git/ ")).toEqual({
+      etat: "lue",
+      hote: "forge.lan:3000",
+      depot: "equipe/outil",
+    });
+    expect(lectureAdresse("HTTP://u:p@forge.lan/a/b/c?x=1")).toEqual({
+      etat: "lue",
+      hote: "forge.lan",
+      depot: "a/b/c",
+    });
+    expect(lectureAdresse("https://forge.lan/seul")).toMatchObject({ etat: "lue", depot: "seul" });
+    for (const ssh of ["git@github.com:acme/api.git", "ssh://git@forge.lan:2222/acme/api.git"])
+      expect(lectureAdresse(ssh), ssh).toEqual({ etat: "ssh" });
+    for (const autre of ["git://forge.lan/a/b.git", "forge.lan/a/b", "/chemin/local", "acme/api"])
+      expect(lectureAdresse(autre), autre).toEqual({ etat: "invalide" });
+    for (const debut of [
+      "h",
+      "http",
+      "https:/",
+      "https://",
+      "https://forge.lan",
+      "https://forge.lan/",
+      "https://?x",
+    ])
+      expect(lectureAdresse(debut), debut).toEqual({ etat: "incomplete" });
+    expect(exempleAdresse([])).toBe("https://forge.exemple/organisation/depot.git");
+    expect(exempleAdresse(TOUS)).toBe("https://github.com/acme/depot.git");
+    expect(
+      exempleAdresse([compte(5, "192.168.1.10:3000", "", { api_base: "http://192.168.1.10:3000/api/v1" })]),
+    ).toBe("http://192.168.1.10:3000/organisation/depot.git");
   });
 
   it("dossier créé : dernier segment sans `.git` ; portées des identifiants : de l'hôte au dépôt, celle d'un compte existant signalée, proposée comme le serveur ; rien d'office pour une adresse illisible sur un hôte déjà pris", () => {
@@ -320,6 +356,10 @@ describe("fenêtre montée", () => {
     app.mount(hote);
     const q = <T extends Element = HTMLElement>(s: string): T | null => document.querySelector<T>(s);
     const saisir = async (s: string, valeur: string): Promise<void> => {
+      if (q(s) === null && s === "#clone-url") {
+        q<HTMLButtonElement>('[data-source="adresse"]')!.click();
+        await nextTick();
+      }
       const champ = q<HTMLInputElement>(s)!;
       champ.value = valeur;
       champ.dispatchEvent(new Event("input"));
@@ -349,6 +389,101 @@ describe("fenêtre montée", () => {
     await nextTick();
     expect(aucun.chargements).toEqual([]);
     expect(aucun.q("[data-mes-depots]")).toBeNull();
+    // Sans compte utilisable : ni onglets ni liste, l'adresse seule.
+    expect(aucun.q("[role=tablist]")).toBeNull();
+    expect(aucun.q("#clone-url")).not.toBeNull();
+  });
+
+  it("un seul champ à la fois : la liste d'abord, l'adresse sous son onglet ; le focus suit, les flèches changent d'onglet ; la liste garde sa place pendant le chargement et en cas d'erreur", async () => {
+    const v = monter([PERSO]);
+    await nextTick();
+    await nextTick();
+    const onglet = (s: string) => v.q<HTMLButtonElement>(`[data-source="${s}"]`)!;
+    expect(onglet("depots").getAttribute("aria-selected")).toBe("true");
+    expect(v.q("#clone-url")).toBeNull();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Filtrer mes dépôts");
+    // Chargement, erreur, liste : la même boîte.
+    v.etat.gitCloneReposLoading.value = true;
+    await nextTick();
+    expect(v.q("[data-liste-depots] [role=status]")?.textContent).toContain("Chargement des dépôts");
+    v.etat.gitCloneReposLoading.value = false;
+    v.etat.gitCloneReposError.value = "Aucun dépôt accessible";
+    await nextTick();
+    expect(v.q("[data-liste-vide]")?.textContent).toContain("Aucun dépôt accessible");
+    v.q<HTMLButtonElement>("[data-vers-adresse]")!.click();
+    await nextTick();
+    await nextTick();
+    expect(onglet("adresse").getAttribute("aria-selected")).toBe("true");
+    expect(v.q("[data-mes-depots]")).toBeNull();
+    expect(document.activeElement?.id).toBe("clone-url");
+    expect(v.q<HTMLInputElement>("#clone-url")?.placeholder).toBe(
+      "https://github.com/organisation/depot.git",
+    );
+    v.q("[role=tablist]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    await nextTick();
+    await nextTick();
+    expect(onglet("depots").getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(onglet("depots"));
+    // Dépôt choisi dans la liste : il se lit dans le récapitulatif, l'adresse le retrouve sous son onglet.
+    v.etat.gitCloneReposError.value = "";
+    v.etat.gitFilteredCloneRepos.value = [
+      { full_name: "acme/site", clone_url: "https://github.com/acme/site.git" },
+    ];
+    await nextTick();
+    v.q<HTMLButtonElement>("[data-depot]")!.click();
+    await nextTick();
+    expect(v.q("[data-depot-lu]")?.textContent?.replace(/\s+/gu, " ").trim()).toBe(
+      "acme/site sur github.com",
+    );
+    onglet("adresse").click();
+    await nextTick();
+    expect(v.q<HTMLInputElement>("#clone-url")?.value).toBe("https://github.com/acme/site.git");
+  });
+
+  it("réouverture : la liste des dépôts attend la fin de l'animation d'ouverture, le focus revient au filtre", async () => {
+    const v = monter([PERSO]);
+    v.etat.gitFilteredCloneRepos.value = [
+      { full_name: "acme/site", clone_url: "https://github.com/acme/site.git" },
+    ];
+    await nextTick();
+    expect(document.querySelectorAll("[data-depot]").length).toBe(1);
+    v.etat.showGitCloneModal.value = false;
+    await nextTick();
+    v.etat.showGitCloneModal.value = true;
+    await nextTick();
+    expect(document.querySelectorAll("[data-depot]").length).toBe(0);
+    expect(v.q("[data-liste-depots] [role=status]")).not.toBeNull();
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-depot]").length).toBe(1));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Filtrer mes dépôts");
+  });
+
+  it("récapitulatif : rien de choisi, adresse en cours, adresse SSH ou autre refusée avec la raison ; « Cloner » n'est offert qu'une fois le dépôt lu", async () => {
+    const v = monter([PERSO]);
+    await nextTick();
+    const lu = () => v.q("[data-depot-lu]")?.textContent?.replace(/\s+/gu, " ").trim();
+    const bouton = () => v.q<HTMLButtonElement>("[data-cloner]")!;
+    expect(lu()).toBe("Choisissez un dépôt dans la liste");
+    expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
+    expect(bouton().disabled).toBe(true);
+    await v.saisir("#clone-url", "");
+    expect(lu()).toBe("Saisissez son adresse");
+    expect(v.q("[data-aide]")?.textContent).toContain("Adresse http(s) que la forge propose");
+    await v.saisir("#clone-url", "https://github.com/");
+    expect(lu()).toBe("Adresse incomplète");
+    expect(bouton().disabled).toBe(true);
+    await v.saisir("#clone-url", "git@github.com:acme/api.git");
+    expect(lu()).toBe("Adresse non reconnue");
+    expect(v.q("[data-aide]")?.textContent).toContain("Adresse SSH non prise en charge");
+    expect(bouton().disabled).toBe(true);
+    v.q<HTMLInputElement>("#clone-url")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await nextTick();
+    expect(v.clones).toEqual([]);
+    await v.saisir("#clone-url", "ftp://github.com/acme/api.git");
+    expect(v.q("[data-aide]")?.textContent).toContain("elle commence par https:// ou http://");
+    await v.saisir("#clone-url", "https://github.com/acme/api.git");
+    expect(lu()).toBe("acme/api sur github.com");
+    expect(v.q("[data-acces]")?.textContent).toContain("Compte github.com · perso");
+    expect(bouton().disabled).toBe(false);
   });
 
   it("l'adresse dit quel compte servira ; sans compte : identifiants saisis sur place, enregistrés pour la portée proposée puis choisie", async () => {
@@ -360,7 +495,9 @@ describe("fenêtre montée", () => {
     expect(v.q("[data-identifiants]")).toBeNull();
     await v.saisir("#clone-url", "https://forge.lan/equipe/outil.git");
     expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("aucun");
-    expect(v.q("[data-acces]")?.textContent).toContain("Aucun compte ne s'applique à cette adresse");
+    expect(v.q("[data-acces]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "Aucun compte : dépôt public, ou",
+    );
     v.q<HTMLButtonElement>("[data-saisir]")!.click();
     await nextTick();
     expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent?.trim())).toEqual([
@@ -396,7 +533,7 @@ describe("fenêtre montée", () => {
     await v.saisir("#clone-jeton", "tok2");
     expect(v.q("[data-clair]")?.textContent).toContain("http : envoi en clair");
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
-    expect(v.q("[data-acces]")?.textContent).toContain("Adresse http(s) attendue");
+    expect(v.q("[data-acces]")?.textContent?.trim()).toBe("—");
     expect(v.q("[data-identifiants]")).toBeNull();
   });
 

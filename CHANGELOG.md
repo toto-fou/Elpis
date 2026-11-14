@@ -143,10 +143,15 @@ follow [SemVer](https://semver.org/).
   (long lists fold after three), the identifier is no longer cut, and last use and number of uses
   share one column. `tls` is only mentioned when it is `insecure`. Text is larger and long hosts
   break at their dots.
-- **Clone window of the editor.** Wider and reordered: the repositories of a Git account are
-  listed as soon as it opens (the account is chosen only when there are several), the line
-  under the address says which account will authenticate the clone or that none applies, and
-  the folder shows the name it will get. Without an account, or after an access refusal (said
+- **Clone window of the editor.** Redone around one question at a time. The repository is named
+  either in *Mes dépôts* (the repositories of a Git account, listed as soon as the window opens;
+  the account is chosen only when there are several) or under *Adresse* (one field, with an
+  example on your own forge; an SSH address is refused with the reason). Below, three lines say
+  what will happen: the repository as it was read, the account that will authenticate the clone
+  or that none applies, and the folder it will get. *Cloner* is offered once a repository is
+  read. The window opens smoothly: no blur behind it (nor behind the other Git windows), it is
+  anchored at the top so that it never jumps when its content changes, and the list keeps its
+  place while loading. Without an account, or after an access refusal (said
   in plain words above git's message), credentials are typed in place and saved for the host,
   the organization or the repository; before, the window sent you to Settings and lost the
   address. Typed credentials are kept only when the host asked for them and the clone succeeded,

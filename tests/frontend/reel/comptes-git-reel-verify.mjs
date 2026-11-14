@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre de clonage de l'éditeur (dépôts du compte, compte qui servira, identifiants saisis sur place et leur portée). */
+/** tests/frontend/reel/comptes-git-reel-verify.mjs — comptes git contre le core TS réel : partie « Comptes Git » de Paramètres › Secrets (ancien lien compris), portée d'un compte (niveaux proposés, doublon refusé, compte le plus précis), fenêtre de clonage de l'éditeur (liste d'un compte ou adresse, récapitulatif, compte qui servira, identifiants saisis sur place et leur portée). */
 // Recette : ELPIS_NODE_MODULES=…/browser-service/node_modules [ELPIS_CAPTURES=dossier] node tests/frontend/reel/comptes-git-reel-verify.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,6 +46,8 @@ async function simuler(page) {
 const capture = async (page, nom) => {
     if (!CAPTURES) return;
     fs.mkdirSync(CAPTURES, { recursive: true });
+    // Une fenêtre qui s'ouvre encore serait prise à moitié fondue.
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(CAPTURES, `${nom}.png`) });
 };
 
@@ -127,17 +129,35 @@ try {
     await clone.waitFor({ timeout: 10000 }).catch(() => {});
     v.ok('fenêtre de clonage ouverte', await clone.isVisible());
     await clone.locator('[data-depot]').first().waitFor({ timeout: 10000 }).catch(() => {});
-    v.ok('« Mes dépôts » : un choix de compte, les dépôts listés sans geste',
-        (await clone.locator('#clone-compte option').count()) === 2 && (await clone.locator('[data-depot]').count()) === 2);
+    const texte = async (s) => ((await clone.locator(s).textContent()) || '').replace(/\s+/g, ' ').trim();
+    const haut = async () => Math.round((await clone.boundingBox())?.y ?? -1);
+    v.ok('« Mes dépôts » d\'abord : un choix de compte, les dépôts listés sans geste, pas de champ d\'adresse',
+        (await clone.locator('[data-source="depots"]').getAttribute('aria-selected')) === 'true' &&
+        (await clone.locator('#clone-compte option').count()) === 2 && (await clone.locator('[data-depot]').count()) === 2 &&
+        (await clone.locator('#clone-url').count()) === 0);
+    v.ok('rien de choisi : le récapitulatif le dit, « Cloner » n\'est pas offert',
+        (await texte('[data-depot-lu]')) === 'Choisissez un dépôt dans la liste' && (await clone.locator('[data-cloner]').isDisabled()));
+    v.ok('fond de la fenêtre sans flou',
+        (await clone.evaluate((e) => getComputedStyle(e.parentElement).backdropFilter)) === 'none');
     await clone.locator('[data-depot]').first().click();
-    v.ok('dépôt choisi : adresse remplie, compte le plus précis annoncé, dossier proposé',
-        (await clone.locator('#clone-url').inputValue()) === 'https://github.com/acme/api.git' &&
-        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com/acme · robot') &&
+    v.ok('dépôt choisi : lu dans le récapitulatif, compte le plus précis annoncé, dossier proposé',
+        (await texte('[data-depot-lu]')) === 'acme/api sur github.com' &&
+        (await texte('[data-acces]')).includes('Compte github.com/acme · robot') &&
         (await clone.locator('#clone-dossier').getAttribute('placeholder')) === 'api',
-        ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' '));
-    await capture(page, '3-clonage-compte');
+        await texte('[data-acces]'));
+    await capture(page, '3-clonage-liste');
+    const avant = await haut();
+    await clone.locator('[data-source="adresse"]').click();
+    v.ok('onglet « Adresse » : le champ porte l\'adresse du dépôt choisi, la fenêtre ne bouge pas',
+        (await clone.locator('#clone-url').inputValue()) === 'https://github.com/acme/api.git' &&
+        (await clone.locator('[data-mes-depots]').count()) === 0 && (await haut()) === avant,
+        `${avant} → ${await haut()}`);
+    await clone.locator('#clone-url').fill('git@github.com:acme/api.git');
+    v.ok('adresse SSH : refusée avec la raison, « Cloner » n\'est pas offert',
+        (await texte('[data-aide]')).includes('Adresse SSH non prise en charge') && (await clone.locator('[data-cloner]').isDisabled()));
     await clone.locator('#clone-url').fill('https://github.com/autre/depot.git');
-    v.ok('autre organisation : le compte de tout l\'hôte', ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com · perso'));
+    v.ok('autre organisation : le compte de tout l\'hôte', (await texte('[data-acces]')).includes('Compte github.com · perso'));
+    await capture(page, '3-clonage-adresse');
     await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
     v.ok('hôte sans compte : dit, avec la saisie d\'identifiants proposée',
         (await clone.locator('[data-acces]').getAttribute('data-etat')) === 'aucun' && (await clone.locator('[data-saisir]').count()) === 1);
@@ -155,10 +175,12 @@ try {
         ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Identifiants saisis pour forge.lan'));
     await capture(page, '4-clonage-identifiants');
     // Autre hôte : ce qui a été saisi pour forge.lan est oublié, rien ne part vers github.com.
+    await clone.locator('[data-source="depots"]').click();
     await clone.locator('[data-depot]').first().click();
     v.ok('changer d\'hôte oublie les identifiants saisis',
         (await clone.locator('[data-identifiants]').count()) === 0 &&
         ((await clone.locator('[data-acces]').textContent()) || '').replace(/\s+/g, ' ').includes('Compte github.com/acme · robot'));
+    await clone.locator('[data-source="adresse"]').click();
     await clone.locator('#clone-url').fill('https://forge.lan/equipe/outil.git');
     await clone.locator('[data-saisir]').click();
     v.ok('la saisie rouverte est vide', (await clone.locator('#clone-jeton').inputValue()) === '' && (await clone.locator('#clone-identifiant').inputValue()) === '');

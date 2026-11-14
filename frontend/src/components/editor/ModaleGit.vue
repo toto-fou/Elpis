@@ -18,7 +18,7 @@ function champSuivant(e: KeyboardEvent): void {
   <Transition name="modal">
     <div
       v-if="ed.showGitInitModal"
-      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="ed.showGitInitModal = false"
       @keydown.esc="ed.showGitInitModal = false"
     >
@@ -88,7 +88,7 @@ function champSuivant(e: KeyboardEvent): void {
   <Transition name="modal">
     <div
       v-if="ed.showGitRemoteModal"
-      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="ed.showGitRemoteModal = false"
       @keydown.esc="ed.showGitRemoteModal = false"
     >
@@ -152,7 +152,7 @@ function champSuivant(e: KeyboardEvent): void {
   <Transition name="modal">
     <div
       v-if="ed.showGitPushAuth"
-      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="ed.showGitPushAuth = false"
       @keydown.esc="ed.showGitPushAuth = false"
     >
@@ -243,7 +243,7 @@ function champSuivant(e: KeyboardEvent): void {
   <Transition name="modal">
     <div
       v-if="ed.showGitMergeModal"
-      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+      class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="ed.showGitMergeModal = false"
       @keydown.esc="ed.showGitMergeModal = false"
     >

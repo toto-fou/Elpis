@@ -1181,6 +1181,15 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     }
 }
 
+/* Fenêtre « Cloner un dépôt » : ancrée en haut (sa hauteur change sans qu'elle se déplace), liste de
+   hauteur fixe (chargement, erreur ou dépôts : même place), récapitulatif libellé / valeur. */
+.elpis-clone-fond { align-items: flex-start; overflow-y: auto; padding: min(12vh, 7rem) 1rem 1rem; }
+.elpis-clone-source { min-height: 2.625rem; }
+.elpis-clone-liste { height: 13rem; }
+.elpis-clone-recap { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 0.625rem 0.75rem; }
+.elpis-clone-recap > [data-identifiants] { grid-column-start: 2; }
+.elpis-clone-recap > p { overflow-wrap: anywhere; }
+
 /* ─── Menus flottants : transitions « popover » et « popover-up » (<TransitionMenu>) ───
    Menus déroulants et contextuels, listes de choix, sous-menus, palettes et petits flottants.
    « popover » s'ouvre vers le bas depuis le bord haut de son ancre, « popover-up » (menu posé

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/editor/clonage.ts — fenêtre « Cloner un dépôt » : ce que dit l'adresse saisie (compte git que le serveur prendra, dossier créé, portées où ranger des identifiants saisis), compte dont les dépôts sont proposés, refus d'accès reconnu. */
+/** frontend/src/features/editor/clonage.ts — fenêtre « Cloner un dépôt » : ce que dit l'adresse saisie (hôte et dépôt lus, compte git que le serveur prendra, dossier créé, portées où ranger des identifiants saisis), compte dont les dépôts sont proposés, refus d'accès reconnu. */
 import {
   cheminPourType,
   cibleCompte,
@@ -76,6 +76,39 @@ export function accesClone(url: string, comptes: readonly CompteClone[] | null |
 /** Nom du compte tel qu'affiché : ce à quoi il s'applique, puis son libellé. */
 export function nomCompte(c: CompteClone): string {
   return cibleCompte(c) + (c.label ? ` · ${c.label}` : "");
+}
+
+/** Ce que la fenêtre lit de l'adresse saisie : rien, une adresse SSH (jamais clonée : seul http(s) est joint), autre chose qu'une adresse http(s), une adresse encore sans hôte ou sans dépôt, ou l'hôte et le dépôt. */
+export type LectureAdresse =
+  | { readonly etat: "vide" | "ssh" | "invalide" | "incomplete" }
+  | { readonly etat: "lue"; readonly hote: string; readonly depot: string };
+
+export function lectureAdresse(url: string): LectureAdresse {
+  const t = url.trim();
+  if (!t) return { etat: "vide" };
+  if (/^(?:ssh:\/\/|[\w.-]+@[\w.-]+:)/iu.test(t)) return { etat: "ssh" };
+  if (!/^https?:\/\//iu.test(t)) {
+    const debut = t.toLowerCase();
+    return { etat: "https://".startsWith(debut) || "http://".startsWith(debut) ? "incomplete" : "invalide" };
+  }
+  const apres = t.slice(t.indexOf("://") + 3);
+  const barre = apres.search(/[/?#]/u);
+  const autorite = barre < 0 ? apres : apres.slice(0, barre);
+  const hote = autorite.slice(autorite.lastIndexOf("@") + 1).toLowerCase();
+  const chemin = barre < 0 || apres[barre] !== "/" ? "" : apres.slice(barre + 1);
+  const depot = chemin
+    .replace(/[?#].*$/u, "")
+    .replace(/\/+$/u, "")
+    .replace(/\.git$/u, "");
+  return hote && depot ? { etat: "lue", hote, depot } : { etat: "incomplete" };
+}
+
+/** Adresse d'exemple du champ : sur l'hôte du compte proposé, dans son organisation s'il en a une ; sans compte, une forge fictive. */
+export function exempleAdresse(comptes: readonly CompteClone[] | null | undefined): string {
+  const c = comptePropose(comptes);
+  if (c === null) return "https://forge.exemple/organisation/depot.git";
+  const schema = (c.api_base ?? "").startsWith("http://") ? "http" : "https";
+  return `${schema}://${c.host}/${c.path ? c.path.split("/")[0] : "organisation"}/depot.git`;
 }
 
 /** Dossier que le clone crée d'après l'adresse (dernier segment sans `.git`, comme le serveur) ; `""` sans adresse lisible. */

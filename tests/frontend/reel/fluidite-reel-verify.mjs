@@ -115,6 +115,32 @@ try {
             v.ok(`${nom} : ${volet} ouvert puis fermé, largeur du volet et contenu glissés, aucune autre propriété de mise en page animée`, vus.some((x) => x.startsWith('transform@')) && largeur.length > 0 && hors.length === 0, (hors.length ? hors : vus).slice(0, 4).join(' ; ') || 'aucune animation');
         }
 
+        // ── Éditeur (grand écran) : la barre de saisie change de largeur et de place image par image, dans un seul sens ──
+        await page.setViewportSize({ width: 1920, height: 1080 });
+        await page.waitForTimeout(300);
+        const filmer = (ouvrir) => page.evaluate(async (ouvrir) => {
+            const lire = () => { const r = document.querySelector('.elpis-compose-col').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; };
+            const images = [lire()];
+            const t0 = performance.now();
+            window.__racine().showEditor = ouvrir;
+            await new Promise((fin) => { const b = () => { images.push(lire()); if (performance.now() - t0 < 800) requestAnimationFrame(b); else fin(); }; requestAnimationFrame(b); });
+            return images;
+        }, ouvrir);
+        // Un seul sens, à 1 px près (arrondis) ; un saut d'une image dans l'autre sens trahit une largeur posée d'un coup.
+        const unSens = (xs, sens) => xs.every((x, i) => i === 0 || sens * (x - xs[i - 1]) >= -1);
+        const etapes = (f) => new Set(f.map((x) => x.join())).size;
+        const ouverture = await filmer(true);
+        const fermeture = await filmer(false);
+        const [avant, ouvert, apres] = [ouverture[0], ouverture.at(-1), fermeture.at(-1)];
+        v.ok(`${nom} : éditeur ouvert, la barre de saisie rétrécit et glisse dans un seul sens, image par image`,
+            ouvert[1] < avant[1] && etapes(ouverture) >= 5 && unSens(ouverture.map((x) => x[1]), -1) && unSens(ouverture.map((x) => x[0]), -1),
+            `${etapes(ouverture)} étapes, de ${avant} à ${ouvert}`);
+        v.ok(`${nom} : éditeur fermé, la barre de saisie reprend sa largeur et sa place dans un seul sens`,
+            apres.join() === avant.join() && etapes(fermeture) >= 5 && unSens(fermeture.map((x) => x[1]), 1) && unSens(fermeture.map((x) => x[0]), 1),
+            `${etapes(fermeture)} étapes, de ${ouvert} à ${apres}`);
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.waitForTimeout(300);
+
         // ── Redimensionnement ──
         const cdp = await ctx.newCDPSession(page);
         const r = await redimensionner(nav, page, cdp);

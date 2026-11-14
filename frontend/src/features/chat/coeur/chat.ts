@@ -941,7 +941,6 @@ export function setupChat(
     diffCardState: carteFichiers.diffCardState,
     diffFilesFor: carteFichiers.diffFilesFor,
     hasDiffFiles: carteFichiers.hasDiffFiles,
-    diffCardRev: carteFichiers.diffCardRev,
     isDiffEditorEnabled: carteFichiers.isDiffEditorEnabled,
     onDiffRowClick: carteFichiers.onDiffRowClick,
     downloadOneFile: carteFichiers.downloadOneFile,
@@ -953,7 +952,6 @@ export function setupChat(
     toggleEffect: cartesMemoire.toggleEffect,
     undoMemoryEffect: cartesMemoire.undoMemoryEffect,
     manageMemory: cartesMemoire.manageMemory,
-    effectUiRev: cartesMemoire.effectUiRev,
     toolStepsForDisplay: cartesMemoire.toolStepsForDisplay,
   };
 }

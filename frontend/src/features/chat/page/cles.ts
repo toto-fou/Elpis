@@ -91,8 +91,6 @@ const LISTE: Cles<Omit<ContexteListe, keyof ContexteMessage>> = {
   visibleMessages: true,
   vsTopPad: true,
   vsBotPad: true,
-  effectUiRev: true,
-  diffCardRev: true,
   isThinking: true,
   statusText: true,
   compactionNotice: true,

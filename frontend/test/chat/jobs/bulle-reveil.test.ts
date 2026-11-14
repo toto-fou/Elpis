@@ -52,8 +52,6 @@ function contexte(surcharges: Record<string, unknown> = {}): ContexteMessage {
     visibleMessages: [],
     vsTopPad: 0,
     vsBotPad: 0,
-    effectUiRev: 0,
-    diffCardRev: 0,
     isThinking: false,
     statusText: "",
     compactionNotice: null,

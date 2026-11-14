@@ -285,13 +285,11 @@ export interface NoticeCompaction {
   reason?: string;
 }
 
-/** Ce que la liste lit en plus sur l'app historique : fenêtre virtuelle, révisions des états hors message, statut du tour. */
+/** Ce que la liste lit en plus sur l'app historique : fenêtre virtuelle, statut du tour. */
 export interface ContexteListe extends ContexteMessage {
   readonly visibleMessages: readonly EntreeMessage[];
   readonly vsTopPad: number;
   readonly vsBotPad: number;
-  readonly effectUiRev: number;
-  readonly diffCardRev: number;
   readonly isThinking: boolean;
   readonly statusText: string;
   readonly compactionNotice: NoticeCompaction | null;

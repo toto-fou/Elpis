@@ -63,8 +63,8 @@ function monterFil() {
     (url.startsWith("/api/sandbox/download")
       ? { ok: true, arrayBuffer: async () => new TextEncoder().encode("a\nb\n").buffer }
       : { ok: true, json: async () => detail }) as unknown as Response;
-  const memoire = creerCartesMemoire({ ref, reactive }, { currentChatId: ref("c1") }, { fetchAuth });
-  const fichiers = creerCarteFichiers({ ref, reactive }, { settings: ref({}) }, { fetchAuth });
+  const memoire = creerCartesMemoire({ reactive }, { currentChatId: ref("c1") }, { fetchAuth });
+  const fichiers = creerCarteFichiers({ reactive }, { settings: ref({}) }, { fetchAuth });
   const etat = reactive({
     settings: { assistant_name: "Elpis" },
     user: { username: "alice", avatar: null },

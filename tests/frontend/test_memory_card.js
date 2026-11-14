@@ -466,7 +466,6 @@ await ta('déplier une ligne charge le détail par op, une seule fois', async ()
     assert.deepStrictEqual(depuisBac(MM.effectDetail(ligne).data.added), ['note']);
     MM.toggleEffect(ligne); MM.toggleEffect(ligne);
     assert.equal(appels.length, 1, 'détail rechargé inutilement');
-    assert.ok(MM.effectUiRev.value > 0, 'v-memo non invalidé');
 });
 
 await ta('annuler : succès → détail marqué annulé ; refus → message', async () => {

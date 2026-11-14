@@ -79,15 +79,24 @@ function viser(): void {
   void nextTick(() => champs[source.value].value?.focus());
 }
 
-function choisirSource(s: Source): void {
+/** Changement de façon : l'erreur d'un clonage ne suit pas sous le dépôt neuf, ni l'inverse. */
+function prendre(s: Source): void {
+  if ((s === "nouveau") !== (source.value === "nouveau")) {
+    ed.gitError = "";
+    ed.gitCloneCreds.refus = false;
+  }
   choisie.value = s;
+}
+
+function choisirSource(s: Source): void {
+  prendre(s);
   viser();
 }
 
 /** Flèches sur les onglets : la façon voisine, le focus reste sur l'onglet. */
 function sourceVoisine(pas: number): void {
   const l = sources.value;
-  choisie.value = l[(l.indexOf(source.value) + pas + l.length) % l.length] ?? "url";
+  prendre(l[(l.indexOf(source.value) + pas + l.length) % l.length] ?? "url");
   void nextTick(() => onglets.value?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
 }
 
@@ -150,9 +159,15 @@ async function cloner(): Promise<void> {
   if (await ed.gitClone(portee.value ?? undefined)) void ed.loadGitConnectors();
 }
 
+/** Opération lancée par le bouton du bas : son libellé la suit, pas l'onglet affiché. */
+const initialisation = ref(false);
+const neuf = computed(() => (ed.gitLoading ? initialisation.value : source.value === "nouveau"));
+
 /** Bouton du bas : initialise le dépôt neuf, ou clone le dépôt lu. */
 function valider(): void {
-  if (source.value === "nouveau") void ed.gitInit();
+  if (ed.gitLoading) return;
+  initialisation.value = source.value === "nouveau";
+  if (initialisation.value) void ed.gitInit();
   else void cloner();
 }
 
@@ -611,14 +626,9 @@ function versJeton(): void {
             @click="valider"
           >
             <i v-if="ed.gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i
-            ><i
-              v-else
-              class="ph"
-              :class="source === 'nouveau' ? 'ph-plus' : 'ph-download-simple'"
-              aria-hidden="true"
-            ></i>
+            ><i v-else class="ph" :class="neuf ? 'ph-plus' : 'ph-download-simple'" aria-hidden="true"></i>
             {{
-              source === "nouveau"
+              neuf
                 ? ed.gitLoading
                   ? "Initialisation…"
                   : "Initialiser"

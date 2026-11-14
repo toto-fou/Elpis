@@ -121,6 +121,25 @@ try {
     const double = await ajouter({ url: 'https://github.com/autre/depot.git', jeton: 'jeton-3' });
     v.ok('même portée une seconde fois : refusée (409)', double.statut === 409, JSON.stringify(double));
     await capture(page, '2-comptes-git-formulaire');
+    // URL que le serveur lit autrement que la saisie (organisation seule, hôte avec port sans schéma) : les niveaux et le choix restent ceux de la saisie.
+    const relue = async (url, niveau) => {
+        const champUrl = git.locator('[data-url]');
+        await champUrl.fill(url);
+        const analyse = page.waitForResponse((r) => r.url().endsWith('/api/git/connectors/parse'), { timeout: 10000 }).catch(() => null);
+        await git.locator('[data-niveau]', { has: page.locator('.font-mono', { hasText: new RegExp(`^${niveau.replaceAll('.', '\\.')}$`) }) }).click();
+        await analyse;
+        await page.waitForTimeout(150);
+        return {
+            niveaux: await git.locator('[data-niveau] .font-mono').evaluateAll((l) => l.map((e) => e.textContent.trim())),
+            choisi: ((await git.locator('[data-niveau][aria-checked="true"] .font-mono').textContent().catch(() => '')) || '').trim(),
+        };
+    };
+    const organisation = await relue('https://github.com/acme', 'github.com/acme');
+    v.ok('URL d\'une organisation : ses deux niveaux restent proposés, le choix de l\'organisation est gardé après l\'analyse',
+        JSON.stringify(organisation) === '{"niveaux":["github.com","github.com/acme"],"choisi":"github.com/acme"}', JSON.stringify(organisation));
+    const port = await relue('git.exemple.lan:3000/equipe/outil', 'git.exemple.lan:3000/equipe');
+    v.ok('hôte avec port, sans schéma : le port reste dans les niveaux et le choix',
+        JSON.stringify(port) === '{"niveaux":["git.exemple.lan:3000","git.exemple.lan:3000/equipe","git.exemple.lan:3000/equipe/outil"],"choisi":"git.exemple.lan:3000/equipe"}', JSON.stringify(port));
     await git.getByRole('button', { name: 'Annuler' }).click();
 
     // Ancien lien : l'identifiant d'onglet « connectors » ouvre la partie.

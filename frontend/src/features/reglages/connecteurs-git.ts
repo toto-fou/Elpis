@@ -106,18 +106,31 @@ export function setupGitConnecteurs(
     );
   }
 
-  /** URL en cours de saisie : ses portées sont proposées ; celle choisie reste si l'URL la permet encore, sinon tout le serveur. */
+  /** URL en cours de saisie : ses niveaux sont proposés ; le choix reste si l'URL le permet encore ; sinon, création : tout le serveur ; modification : la même étendue qu'avant (serveur, organisation, dépôt), et rien tant que rien n'était choisi. */
   function readGitConnUrl(): void {
     const f = gitConnForm.value;
     if (!f) return;
     const rang = f.niveaux.indexOf(f.portee);
     f.niveaux = niveauxDeLUrl(f.repo_url, f.provider_type);
-    // Même niveau gardé quand seule la casse change (autre type de serveur), sinon tout le serveur.
-    if (!f.niveaux.includes(f.portee))
-      f.portee =
-        f.niveaux.find((n, i) => i === rang && n.toLowerCase() === f.portee.toLowerCase()) ??
-        f.niveaux[0] ??
-        "";
+    if (f.niveaux.includes(f.portee)) return;
+    if (!f.id) f.portee = f.niveaux[0] ?? "";
+    else f.portee = rang < 0 ? "" : (f.niveaux[Math.min(rang, f.niveaux.length - 1)] ?? "");
+  }
+
+  /** Type de serveur changé : mêmes niveaux dans la casse du nouveau type, le choix garde son rang ; une portée intacte le reste (le serveur la remet lui-même dans cette casse). */
+  function niveauxDuType(f: FormulaireGit): void {
+    const rang = f.niveaux.indexOf(f.portee);
+    const intacte = f.depart !== null && f.portee === f.depart;
+    f.niveaux = niveauxDeLUrl(f.repo_url, f.provider_type);
+    f.portee = rang < 0 ? "" : (f.niveaux[rang] ?? "");
+    if (intacte) f.depart = f.portee;
+  }
+
+  function retypeGitConn(): void {
+    const f = gitConnForm.value;
+    if (!f) return;
+    niveauxDuType(f);
+    void parseGitRepoUrl();
   }
 
   function editGitConnector(c: ConnecteurGit): void {
@@ -142,28 +155,35 @@ export function setupGitConnecteurs(
     gitConnForm.value = null;
   };
 
-  /** Création : le serveur reconnaît le type et l'API d'après l'URL (et lit les formes que la saisie locale ne lit pas, SSH comprise) ; un compte modifié garde les siens. */
+  /** Le serveur reconnaît le type et l'API d'après l'URL (création seulement : un compte modifié garde les siens) et lit les formes que la saisie ne lit pas (SSH) ; les niveaux d'une URL lisible restent ceux de la saisie. */
   async function parseGitRepoUrl(): Promise<void> {
     const f = gitConnForm.value;
     const url = (f?.repo_url || "").trim();
-    if (!f || !url || f.id) return;
+    if (!f || !url) return;
+    const lisible = niveauxDeLUrl(url, f.provider_type).length > 0;
+    if (f.id && lisible) return;
+    const type = f.provider_type;
     const d = valeurOuNull(
-      await http.requete("/api/git/connectors/parse", json("POST", { url, provider_type: f.provider_type }), {
+      await http.requete("/api/git/connectors/parse", json("POST", { url, provider_type: type }), {
         schema: schemaReponseAnalyseUrlGit,
       }),
     );
-    if (!d?.ok) return;
-    if (d.detected_provider_type && d.detected_provider_type !== "generic")
-      f.provider_type = d.detected_provider_type;
-    if (d.host) {
-      // Niveau choisi pendant l'analyse : gardé à son rang si seule la casse change, sinon tout le serveur.
-      const rang = f.niveaux.indexOf(f.portee);
-      const choisi = f.portee.toLowerCase();
-      f.niveaux = niveauxPortee(d.path || null).map((n) => cibleCompte({ host: d.host, path: n }));
-      if (!f.niveaux.includes(f.portee))
-        f.portee = f.niveaux.find((n, i) => i === rang && n.toLowerCase() === choisi) ?? d.host;
+    // Réponse tardive : le formulaire, l'URL ou le type ont changé depuis, elle ne vaut plus.
+    if (gitConnForm.value !== f || f.repo_url.trim() !== url || f.provider_type !== type || !d?.ok) return;
+    if (!f.id) {
+      if (d.api_base) f.api_base = d.api_base;
+      if (
+        d.detected_provider_type &&
+        d.detected_provider_type !== "generic" &&
+        d.detected_provider_type !== type
+      ) {
+        f.provider_type = d.detected_provider_type;
+        if (lisible) niveauxDuType(f);
+      }
     }
-    if (d.api_base) f.api_base = d.api_base;
+    if (!d.host || lisible) return;
+    f.niveaux = niveauxPortee(d.path || null).map((n) => cibleCompte({ host: d.host, path: n }));
+    if (!f.niveaux.includes(f.portee)) f.portee = f.id ? "" : d.host;
   }
 
   async function saveGitConnector(): Promise<void> {
@@ -174,8 +194,9 @@ export function setupGitConnecteurs(
     const inchangee = edition && (f.portee || "").trim() === (f.depart ?? "");
     let portee: { host: string; path: string } | null = null;
     if (!inchangee) {
-      // Enregistrement sans que le champ ait été relu (saisie puis clic immédiat).
+      // Enregistrement sans que le champ ait été relu (saisie puis clic immédiat) ; URL que seule l'analyse du serveur sait lire (SSH) : elle est attendue.
       if (!(f.portee || "").trim()) readGitConnUrl();
+      if (!(f.portee || "").trim()) await parseGitRepoUrl();
       portee = lirePortee(f.portee || "");
       if (portee === null) {
         toast((f.repo_url || "").trim() ? "URL non reconnue" : "URL requise", "error");
@@ -220,7 +241,7 @@ export function setupGitConnecteurs(
   async function deleteGitConnector(c: ConnecteurGit): Promise<void> {
     const ok = await ctx?.openConfirm?.(
       "Supprimer le compte ?",
-      c.provider_type + " · " + cibleCompte(c) + (c.label ? " · " + c.label : ""),
+      nomTypeGit(c.provider_type) + " · " + cibleCompte(c) + (c.label ? " · " + c.label : ""),
       true,
     );
     if (!ok) return;
@@ -269,5 +290,6 @@ export function setupGitConnecteurs(
     testGitConnector,
     parseGitRepoUrl,
     readGitConnUrl,
+    retypeGitConn,
   };
 }

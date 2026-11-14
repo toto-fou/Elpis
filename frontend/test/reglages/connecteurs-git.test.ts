@@ -23,7 +23,39 @@ const CONNECTEUR = {
   has_token: true,
 };
 
-function monter(route: (u: string, o?: RequestInit) => Response) {
+/** Ce que répond `/api/git/connectors/parse`, lu comme le serveur : un chemin seulement pour `propriétaire/dépôt` d'une URL à schéma ou d'une forme SSH (un `hôte:port/…` sans schéma est pris pour une forme SSH). */
+function analyse(o?: RequestInit): Response {
+  const { url, provider_type: type } = JSON.parse(o?.body as string) as {
+    url: string;
+    provider_type: string;
+  };
+  const ssh = /^(?:[^/@]+@)?([^/:]+):(.+)$/u.exec(url);
+  let host = url.split("/")[0] ?? "";
+  let brut = "";
+  if (url.includes("://")) {
+    host = new URL(url).host;
+    brut = new URL(url).pathname;
+  } else if (ssh) {
+    host = ssh[1] ?? "";
+    brut = ssh[2] ?? "";
+  }
+  const segments = brut
+    .replace(/\.git$/u, "")
+    .split("/")
+    .filter(Boolean);
+  const detecte = host === "github.com" ? "github" : host.includes("gitlab") ? "gitlab" : "generic";
+  const chemin = segments.length >= 2 ? segments.join("/") : "";
+  return json({
+    ok: true,
+    host: host.toLowerCase(),
+    path: type === "generic" ? chemin : chemin.toLowerCase(),
+    detected_provider_type: detecte,
+    api_base: detecte === "gitlab" ? `https://${host}/api/v4` : "",
+    scheme: "https",
+  });
+}
+
+function monter(route: (u: string, o?: RequestInit) => Response | Promise<Response>) {
   const vus: Array<[string, string, unknown]> = [];
   const toasts: string[] = [];
   const fetch = (u: string, o?: RequestInit): Promise<Response> => {
@@ -41,16 +73,9 @@ function monter(route: (u: string, o?: RequestInit) => Response) {
 
 describe("setupGitConnecteurs", () => {
   it("charge comptes et types ; l'URL saisie propose ses niveaux sur-le-champ (tout le serveur d'office), le serveur reconnaît ensuite le type et l'API ; types nommés en clair", async () => {
-    const { G } = monter((u) =>
+    const { G } = monter((u, o) =>
       u.endsWith("/parse")
-        ? json({
-            ok: true,
-            host: "gitlab.lan",
-            path: "a/b",
-            detected_provider_type: "gitlab",
-            api_base: "https://gitlab.lan/api/v4",
-            scheme: "https",
-          })
+        ? analyse(o)
         : json({ connectors: [CONNECTEUR], provider_types: ["github", "gitlab"] }),
     );
     await G.loadGitConnectors();
@@ -63,52 +88,170 @@ describe("setupGitConnecteurs", () => {
       "inconnu",
     ]);
     G.newGitConnector();
-    G.gitConnForm.value!.repo_url = "https://gitlab.lan/a/b";
+    const f = G.gitConnForm.value!;
+    f.repo_url = "https://gitlab.lan/a/b";
     G.readGitConnUrl();
-    expect(G.gitConnForm.value).toMatchObject({
+    expect(f).toMatchObject({
       provider_type: "github",
       portee: "gitlab.lan",
       niveaux: ["gitlab.lan", "gitlab.lan/a", "gitlab.lan/a/b"],
     });
     await G.parseGitRepoUrl();
-    expect(G.gitConnForm.value).toMatchObject({
+    expect(f).toMatchObject({
       provider_type: "gitlab",
       portee: "gitlab.lan",
       niveaux: ["gitlab.lan", "gitlab.lan/a", "gitlab.lan/a/b"],
       api_base: "https://gitlab.lan/api/v4",
     });
-    // Un niveau choisi est gardé quand la même URL est relue ; une URL d'un autre hôte le remplace.
-    G.gitConnForm.value!.portee = "gitlab.lan/a";
-    await G.parseGitRepoUrl();
-    expect(G.gitConnForm.value!.portee).toBe("gitlab.lan/a");
-    G.gitConnForm.value!.portee = "ailleurs.lan/x";
-    await G.parseGitRepoUrl();
-    expect(G.gitConnForm.value!.portee).toBe("gitlab.lan");
     // URL raccourcie : le niveau choisi reste s'il existe encore, sinon tout le serveur ; illisible : plus rien de proposé.
-    G.gitConnForm.value!.portee = "gitlab.lan/a";
-    G.gitConnForm.value!.repo_url = "https://gitlab.lan/a";
+    f.portee = "gitlab.lan/a";
+    f.repo_url = "https://gitlab.lan/a";
     G.readGitConnUrl();
-    expect(G.gitConnForm.value).toMatchObject({
-      portee: "gitlab.lan/a",
-      niveaux: ["gitlab.lan", "gitlab.lan/a"],
-    });
-    G.gitConnForm.value!.repo_url = "https://gitlab.lan";
+    expect(f).toMatchObject({ portee: "gitlab.lan/a", niveaux: ["gitlab.lan", "gitlab.lan/a"] });
+    f.repo_url = "https://gitlab.lan";
     G.readGitConnUrl();
-    expect(G.gitConnForm.value).toMatchObject({ portee: "gitlab.lan", niveaux: ["gitlab.lan"] });
-    G.gitConnForm.value!.repo_url = "gitlab.lan/a b";
+    expect(f).toMatchObject({ portee: "gitlab.lan", niveaux: ["gitlab.lan"] });
+    f.repo_url = "gitlab.lan/a b";
     G.readGitConnUrl();
-    expect(G.gitConnForm.value).toMatchObject({ portee: "", niveaux: [] });
-    // Casse du chemin : ignorée sauf pour « Autre serveur Git » ; le niveau choisi suit le changement de type.
-    G.gitConnForm.value!.repo_url = "https://Git.lan/Equipe/Outil.git";
+    expect(f).toMatchObject({ portee: "", niveaux: [] });
+    // Casse du chemin : ignorée sauf pour « Autre serveur Git » ; le niveau choisi garde son rang quand le type change.
+    f.repo_url = "https://Git.lan/Equipe/Outil.git";
     G.readGitConnUrl();
-    expect(G.gitConnForm.value!.niveaux).toEqual(["git.lan", "git.lan/equipe", "git.lan/equipe/outil"]);
-    G.gitConnForm.value!.portee = "git.lan/equipe";
-    G.gitConnForm.value!.provider_type = "generic";
-    G.readGitConnUrl();
-    expect(G.gitConnForm.value).toMatchObject({
+    expect(f.niveaux).toEqual(["git.lan", "git.lan/equipe", "git.lan/equipe/outil"]);
+    f.portee = "git.lan/equipe";
+    f.provider_type = "generic";
+    G.retypeGitConn();
+    expect(f).toMatchObject({
       portee: "git.lan/Equipe",
       niveaux: ["git.lan", "git.lan/Equipe", "git.lan/Equipe/Outil"],
     });
+  });
+
+  it("les niveaux d'une URL lisible restent ceux de la saisie, même quand le serveur la lit autrement : organisation seule, hôte sans schéma, hôte avec port ; le niveau choisi pendant l'analyse est gardé et envoyé", async () => {
+    const { G, vus } = monter((u, o) => (u.endsWith("/parse") ? analyse(o) : json({ ok: true, id: 9 })));
+    const envoye = (): Record<string, unknown> =>
+      JSON.parse(
+        vus.filter((v) => v[1] === "POST" && v[0] === "/api/git/connectors").at(-1)![2] as string,
+      ) as Record<string, unknown>;
+    for (const [url, niveaux, choix, attendu] of [
+      [
+        "https://github.com/acme",
+        ["github.com", "github.com/acme"],
+        "github.com/acme",
+        ["github.com", "acme"],
+      ],
+      ["git.lan/acme", ["git.lan", "git.lan/acme"], "git.lan/acme", ["git.lan", "acme"]],
+      [
+        "git.lan:3000/acme/repo",
+        ["git.lan:3000", "git.lan:3000/acme", "git.lan:3000/acme/repo"],
+        "git.lan:3000/acme/repo",
+        ["git.lan:3000", "acme/repo"],
+      ],
+    ] as const) {
+      G.newGitConnector();
+      const f = G.gitConnForm.value!;
+      Object.assign(f, { repo_url: url, token: "t" });
+      G.readGitConnUrl();
+      expect(f.niveaux, url).toEqual(niveaux);
+      // Le clic sur un niveau quitte le champ : l'analyse part, le choix est fait avant sa réponse.
+      const analyseEnCours = G.parseGitRepoUrl();
+      f.portee = choix;
+      await analyseEnCours;
+      expect(f, url).toMatchObject({ niveaux, portee: choix });
+      await G.saveGitConnector();
+      expect([envoye()["host"], envoye()["path"]], url).toEqual(attendu);
+    }
+  });
+
+  it("réponse d'analyse tardive : ignorée dès que l'URL a changé ; URL SSH : lue par le serveur, un enregistrement immédiat l'attend ; compte modifié : ni son type ni son API ne sont touchés", async () => {
+    let lacher: (() => void) | null = null;
+    const { G, vus, toasts } = monter((u, o) => {
+      if (!u.endsWith("/parse")) return json({ ok: true, id: 9 });
+      const reponse = analyse(o);
+      if ((JSON.parse(o?.body as string) as { url: string }).url.includes("gitlab-ancien")) {
+        return new Promise<Response>((r) => {
+          lacher = () => r(reponse);
+        });
+      }
+      return reponse;
+    });
+    G.newGitConnector();
+    const f = G.gitConnForm.value!;
+    f.repo_url = "https://gitlab-ancien.lan/a/b";
+    G.readGitConnUrl();
+    const tardive = G.parseGitRepoUrl();
+    f.repo_url = "https://neuf.lan/x/y";
+    G.readGitConnUrl();
+    f.portee = "neuf.lan/x";
+    lacher!();
+    await tardive;
+    expect(f).toMatchObject({
+      provider_type: "github",
+      api_base: "",
+      portee: "neuf.lan/x",
+      niveaux: ["neuf.lan", "neuf.lan/x", "neuf.lan/x/y"],
+    });
+    // Forme SSH : la saisie ne la lit pas, le serveur si ; « Ajouter » cliqué aussitôt attend sa réponse.
+    G.newGitConnector();
+    Object.assign(G.gitConnForm.value!, { repo_url: "git@git.lan:acme/repo.git", token: "t" });
+    G.readGitConnUrl();
+    expect(G.gitConnForm.value!.niveaux).toEqual([]);
+    await G.saveGitConnector();
+    expect(toasts.at(-1)).toBe("Compte ajouté");
+    expect(JSON.parse(vus.at(-2)![2] as string)).toMatchObject({ host: "git.lan", path: "" });
+    // Compte modifié : une URL SSH est lue par le serveur, rien n'est choisi d'office, type et API restent.
+    G.editGitConnector({
+      ...CONNECTEUR,
+      provider_type: "gitea",
+      host: "git.lan",
+      api_base: "http://git.lan/api/v1",
+    });
+    const m = G.gitConnForm.value!;
+    m.repo_url = "git@gitlab.lan:acme/repo.git";
+    G.readGitConnUrl();
+    await G.parseGitRepoUrl();
+    expect(m).toMatchObject({
+      provider_type: "gitea",
+      api_base: "http://git.lan/api/v1",
+      portee: "",
+      niveaux: ["gitlab.lan", "gitlab.lan/acme", "gitlab.lan/acme/repo"],
+    });
+  });
+
+  it("modification : un compte inactif dont on change le type reste inactif ; une portée intacte n'est pas envoyée, même quand le type en change la casse ; une URL retapée garde la même étendue", async () => {
+    const { G, vus } = monter((u, o) => (u.endsWith("/parse") ? analyse(o) : json({ ok: true })));
+    const envoye = (): Record<string, unknown> =>
+      JSON.parse(vus.filter((v) => v[1] === "PUT").at(-1)![2] as string) as Record<string, unknown>;
+    G.editGitConnector({ ...CONNECTEUR, path: null });
+    G.gitConnForm.value!.provider_type = "gitea";
+    G.retypeGitConn();
+    expect(G.gitConnForm.value!.portee).toBe("");
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ provider_type: "gitea" });
+    expect(envoye()).not.toHaveProperty("host");
+    expect(envoye()).not.toHaveProperty("path");
+    G.editGitConnector({ ...CONNECTEUR, provider_type: "generic", host: "git.lan", path: "Acme" });
+    G.gitConnForm.value!.provider_type = "gitea";
+    G.retypeGitConn();
+    expect(G.gitConnForm.value).toMatchObject({
+      portee: "git.lan/acme",
+      niveaux: ["git.lan", "git.lan/acme"],
+    });
+    await G.saveGitConnector();
+    expect(envoye()).toMatchObject({ provider_type: "gitea" });
+    expect(envoye()).not.toHaveProperty("path");
+    // URL retapée pour une autre organisation : le compte reste à l'échelle d'une organisation ; un compte inactif reste sans choix.
+    G.editGitConnector({ ...CONNECTEUR, path: "acme" });
+    G.gitConnForm.value!.repo_url = "https://github.com/autre/depot";
+    G.readGitConnUrl();
+    expect(G.gitConnForm.value!.portee).toBe("github.com/autre");
+    G.gitConnForm.value!.repo_url = "https://github.com";
+    G.readGitConnUrl();
+    expect(G.gitConnForm.value!.portee).toBe("github.com");
+    G.editGitConnector({ ...CONNECTEUR, path: null });
+    G.gitConnForm.value!.repo_url = "https://github.com/autre/depot";
+    G.readGitConnUrl();
+    expect(G.gitConnForm.value!.portee).toBe("");
   });
 
   it("ce à quoi sert le compte : envoyé en hôte et chemin ; une URL illisible n'est pas envoyée ; la modification part de l'URL du compte, sans interroger le serveur", async () => {
@@ -134,9 +277,12 @@ describe("setupGitConnecteurs", () => {
     G.newGitConnector();
     Object.assign(G.gitConnForm.value!, { repo_url: "github.com/a b", token: "t" });
     G.readGitConnUrl();
-    const avant = vus.length;
+    // Le serveur est interrogé (il lit des formes que la saisie ne lit pas), mais rien n'est enregistré.
+    const enregistrements = (): number =>
+      vus.filter((v) => v[0] === "/api/git/connectors" && v[1] === "POST").length;
+    const avant = enregistrements();
     await G.saveGitConnector();
-    expect(vus.length).toBe(avant);
+    expect(enregistrements()).toBe(avant);
     expect(toasts.at(-1)).toBe("URL non reconnue");
     G.editGitConnector({ ...CONNECTEUR, path: "acme" });
     expect(G.gitConnForm.value).toMatchObject({
@@ -144,8 +290,9 @@ describe("setupGitConnecteurs", () => {
       portee: "github.com/acme",
       niveaux: ["github.com", "github.com/acme"],
     });
+    const requetes = vus.length;
     await G.parseGitRepoUrl();
-    expect(vus.length).toBe(avant);
+    expect(vus.length).toBe(requetes);
     // Portée inchangée : ni hôte ni chemin ne partent (un simple libellé ne touche pas à la portée).
     G.gitConnForm.value!.label = "robot";
     await G.saveGitConnector();

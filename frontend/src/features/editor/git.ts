@@ -295,6 +295,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   }
 
   async function gitInit(): Promise<void> {
+    if (gitLoading.value) return;
     gitError.value = "";
     await occuper(async () => {
       const r = await poster("/api/sandbox/git/init", gitInitForm.value);

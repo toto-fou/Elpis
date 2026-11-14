@@ -1349,7 +1349,7 @@ Un bouton **Assistant** ouvre une conversation pré-configurée pour vous aider 
 ## Comptes Git
 
 Paramètres → **Secrets** → **Comptes Git** : enregistrez vos accès aux forges (GitHub,
-GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
+GitLab, Bitbucket cloud ou serveur, Gitea / Forgejo, ou tout autre serveur Git).
 
 - **URL** : collez l'URL de votre serveur Git, d'une organisation ou d'un dépôt ; le type de
   serveur est reconnu.
@@ -1359,12 +1359,12 @@ GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
   couvre qui sert : un jeton personnel pour l'hôte et un jeton limité à une organisation ou à un
   dépôt cohabitent. Deux comptes ne peuvent pas s'appliquer exactement au même endroit.
 - Réduire ce à quoi un compte s'applique garde son jeton ; l'élargir ou le déplacer le redemande.
-- La casse du chemin est ignorée, sauf pour un service *generic*, où elle est gardée telle que
+- La casse du chemin est ignorée, sauf pour le type *Autre serveur Git*, où elle est gardée telle que
   saisie. Sur Bitbucket Server, le chemin commence par `scm/`, comme dans l'adresse de clonage
   (`bb.example/scm/proj`).
 - Un compte marqué *inactif* (deux comptes partageaient un hôte avant cette version) ne sert
   pas tant que vous ne l'avez pas modifié pour choisir à quoi il sert.
-- **Tester** valide le jeton ; la fenêtre de clonage de l'éditeur liste les dépôts du compte, dans
+- **Tester** valide le jeton ; la fenêtre *Ajouter un dépôt* de l'éditeur liste les dépôts du compte, dans
   la limite de ce à quoi il s'applique.
 - Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais
   écrit dans votre sandbox, jamais renvoyé à votre navigateur, jamais montré à

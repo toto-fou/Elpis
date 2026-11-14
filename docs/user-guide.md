@@ -1400,7 +1400,7 @@ write a correct skill the first time.
 ## Git accounts
 
 Settings → **Secrets** → **Git accounts**: register your access to code hosts (GitHub,
-GitLab, Bitbucket cloud or server, Gitea, or a generic service).
+GitLab, Bitbucket cloud or server, Gitea / Forgejo, or any other Git server).
 
 - **URL**: paste the URL of your Git server, of an organization or of a repository; the type of
   server is detected.
@@ -1411,11 +1411,11 @@ GitLab, Bitbucket cloud or server, Gitea, or a generic service).
   repository work side by side. Two accounts cannot apply to exactly the same place.
 - Narrowing where an account applies keeps its token; widening or moving it asks for the token
   again.
-- Case is ignored in the path, except for a *generic* service, where it is kept as typed. On
+- Case is ignored in the path, except for the type *Autre serveur Git*, where it is kept as typed. On
   Bitbucket Server the path starts with `scm/`, as in the clone address (`bb.example/scm/proj`).
 - An account marked *inactif* (two accounts shared a host before this version) is not used
   until you edit it and choose what it is used for.
-- **Test connection** validates the token; the editor's clone window lists the repositories of the
+- **Tester** validates the token; the editor's *Ajouter un dépôt* window lists the repositories of the
   account, within what it applies to.
 - The token is stored **encrypted in the server's secrets vault** — never written
   to your sandbox, never sent back to your browser, never shown to the assistant.

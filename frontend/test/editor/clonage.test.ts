@@ -532,6 +532,25 @@ describe("fenêtre montée", () => {
     await nextTick();
     expect(v.racine.gitInit).toHaveBeenCalledTimes(1);
     expect(v.clones).toEqual([]);
+    // Opération en cours : Entrée ne relance rien, le libellé reste celui de l'opération quand on change d'onglet.
+    v.etat.gitLoading.value = true;
+    await nextTick();
+    v.q<HTMLInputElement>("#init-dossier")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(v.racine.gitInit).toHaveBeenCalledTimes(1);
+    expect(bouton().textContent?.trim()).toBe("Initialisation…");
+    v.q<HTMLButtonElement>('[data-source="url"]')!.click();
+    await nextTick();
+    expect(bouton().textContent?.trim()).toBe("Initialisation…");
+    v.etat.gitLoading.value = false;
+    // L'erreur d'un clonage ne suit pas sous « Nouveau dépôt ».
+    v.etat.gitError.value = REFUS_GIT;
+    v.etat.gitCloneCreds.value.refus = true;
+    await nextTick();
+    expect(v.q("[data-erreur]")).not.toBeNull();
+    v.q<HTMLButtonElement>('[data-source="nouveau"]')!.click();
+    await nextTick();
+    expect(v.q("[data-erreur]")).toBeNull();
+    expect(v.etat.gitCloneCreds.value.refus).toBe(false);
     // Flèche droite depuis le dernier onglet : retour au premier.
     v.q("[role=tablist]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     await nextTick();

@@ -1,19 +1,31 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — Paramètres › Secrets › Comptes Git : comptes désignés par l'URL d'un serveur, d'une organisation ou d'un dépôt, jeton en écriture seule. -->
 <script setup lang="ts">
+import { nextTick, ref } from "vue";
+
 import { nomTypeGit } from "../../../features/reglages/connecteurs-git";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import { cibleCompte } from "../../../utils/portee-git";
 
 const rg = domaineReglages();
+const niveaux = ref<HTMLElement | null>(null);
+
+/** Flèches dans « Utiliser ce compte pour » : le niveau voisin est choisi et prend le focus. */
+function niveauVoisin(pas: number): void {
+  const f = rg.gitConnForm;
+  if (!f?.niveaux.length) return;
+  const i = f.niveaux.indexOf(f.portee);
+  f.portee = f.niveaux[i < 0 ? 0 : (i + pas + f.niveaux.length) % f.niveaux.length] ?? f.portee;
+  void nextTick(() => niveaux.value?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+}
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl" data-onglet-git>
     <p class="text-xs text-slate-500 leading-snug" data-regle>
-      Un compte sert pour les dépôts dont l'URL commence par la sienne. Si plusieurs conviennent, le plus
-      précis est pris.
+      Un compte sert pour les dépôts placés sous son URL (serveur, organisation ou dépôt). Si plusieurs
+      conviennent, le plus précis est pris.
     </p>
     <div v-if="rg.gitConnectors.length" class="space-y-2">
       <div v-for="c in rg.gitConnectors" :key="c.id" class="border border-slate-200 rounded-xl p-3.5">
@@ -121,7 +133,16 @@ const rg = domaineReglages();
 
       <div v-if="rg.gitConnForm.niveaux.length">
         <div id="git-portee-lbl" class="text-xs font-medium text-slate-500">Utiliser ce compte pour</div>
-        <div class="flex flex-wrap gap-1.5 mt-1" role="radiogroup" aria-labelledby="git-portee-lbl">
+        <div
+          ref="niveaux"
+          class="flex flex-wrap gap-1.5 mt-1"
+          role="radiogroup"
+          aria-labelledby="git-portee-lbl"
+          @keydown.left.prevent="niveauVoisin(-1)"
+          @keydown.up.prevent="niveauVoisin(-1)"
+          @keydown.right.prevent="niveauVoisin(1)"
+          @keydown.down.prevent="niveauVoisin(1)"
+        >
           <button
             v-for="(n, i) in rg.gitConnForm.niveaux"
             :key="n"
@@ -134,6 +155,12 @@ const rg = domaineReglages();
                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
             "
             :aria-checked="rg.gitConnForm.portee === n ? 'true' : 'false'"
+            :tabindex="
+              rg.gitConnForm.portee === n ||
+              (i === 0 && !rg.gitConnForm.niveaux.includes(rg.gitConnForm.portee))
+                ? 0
+                : -1
+            "
             data-niveau
             @click="rg.gitConnForm.portee = n"
           >
@@ -149,10 +176,7 @@ const rg = domaineReglages();
           id="git-type"
           v-model="rg.gitConnForm.provider_type"
           class="set-select w-full mt-0.5"
-          @change="
-            rg.readGitConnUrl();
-            rg.parseGitRepoUrl();
-          "
+          @change="rg.retypeGitConn()"
         >
           <option v-for="t in rg.gitConnTypes" :key="t" :value="t">{{ nomTypeGit(t) }}</option>
         </select>

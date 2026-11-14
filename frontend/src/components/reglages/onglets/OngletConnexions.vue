@@ -1,20 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletConnexions.vue — onglet « connexions » des Paramètres. -->
 <script setup lang="ts">
-import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
-const titre = "Jetons d'accès";
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-2xl">
-    <AideOnglet :titre="titre"
-      >Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode).</AideOnglet
-    >
-
     <div
       v-if="rg.cnxState.reveal"
       class="border rounded-xl p-4 space-y-3"

@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/conteneur.ts — conteneur Docker persistant d'un compte (executors/_user_sandbox.py) : options de lancement, création, réconciliations, arrêt, purge, agent et exec. */
 import { randomUUID } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { lookup } from "node:dns/promises";
 
 import {
@@ -43,6 +52,12 @@ import {
   RELAY_DIR,
   RELAY_MOUNT,
 } from "./montages";
+import {
+  empreinteNavigateur,
+  montagesNavigateur,
+  MONTAGES_NAVIGATEUR,
+  SCRIPT_NAVIGATEUR,
+} from "./navigateur";
 import * as privdrop from "./privdrop";
 import { configBacDepuis, netcfgHash, profilParId } from "./profils";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
@@ -353,17 +368,26 @@ export class UserSandbox implements BacPourAgent {
   /** `_config_matches` : options de lancement, image, agent et config réseau du conteneur à jour ; vrai sur incertitude. */
   async configMatches(signal?: AbortSignal): Promise<boolean> {
     const profil = this.networkProfile;
-    const format = [labelTpl("netcfg"), labelTpl("spec"), "{{.Config.Image}}", labelTpl("agent")].join("|");
-    const [rc, out] = await this.appel(["inspect", "--format", format, this.containerName], 5, signal);
+    // Navigateur installé : son étiquette doit suivre les montages (sinon, rien à comparer).
+    const navigateur = empreinteNavigateur();
+    const champs = [labelTpl("netcfg"), labelTpl("spec"), "{{.Config.Image}}", labelTpl("agent")];
+    if (navigateur) champs.push(labelTpl("browser"));
+    const [rc, out] = await this.appel(
+      ["inspect", "--format", champs.join("|"), this.containerName],
+      5,
+      signal,
+    );
     if (rc !== 0) return true;
-    const [cur = "", spec = "", image = "", agent = ""] = [
+    const [cur = "", spec = "", image = "", agent = "", nav = ""] = [
       ...stripPy(decoderRemplace(out)).split("|"),
+      "",
       "",
       "",
       "",
     ];
     if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
       return false;
+    if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return profil.mode !== "allowlist_ip";
     return cur === netcfgHash(profil);
   }
@@ -646,6 +670,8 @@ export class UserSandbox implements BacPourAgent {
         for (const ip of profil.dns) args.push("--dns", ip);
       }
     }
+    const navigateur = montagesNavigateur();
+    if (navigateur !== null) args.push(...navigateur, "--label", label("browser", empreinteNavigateur()));
     for (const a of this.cfg.extra_run_args) args.push(a);
     args.push(this.cfg.image, "sleep", "infinity");
     return args;
@@ -851,6 +877,55 @@ export class UserSandbox implements BacPourAgent {
       throw new ExecError(
         `Agent non démarré dans ${this.containerName} : ${prefixePy(stripPy(decoderRemplace(err)), 300)}`,
       );
+  }
+
+  /** Service navigateur du bac lancé détaché sous `exec_user` (script `SCRIPT_NAVIGATEUR`) ; `env` passé par un fichier 0600 de l'hôte, jamais en argument. */
+  async startNavigateur(env: Readonly<Record<string, string>>): Promise<void> {
+    if (this.recreationReportee) throw new ExecError(this.recreationReportee);
+    const execUser = this.cfg.exec_user || "10001:10001";
+    await this.ensurePrivdropProbed(execUser);
+    const [utilisateur, prefixe] = this.resoudreUtilisateur(execUser);
+    const fichier = pyJoin(pyParent(this.sandboxPath), `.browser-env-${randomUUID()}`);
+    const lignes = Object.entries(env).map(([k, v]) => `${k}=${v.replace(/[\r\n]/gu, "")}`);
+    writeFileSync(fichier, lignes.join("\n") + "\n", { mode: 0o600 });
+    try {
+      const [rc, , err] = await this.appel(
+        ["exec", "-d", "--user", utilisateur, "--env-file", fichier, this.containerName, ...prefixe].concat([
+          "sh",
+          "-c",
+          SCRIPT_NAVIGATEUR,
+        ]),
+        15,
+      );
+      if (rc !== 0)
+        throw new ExecError(
+          `Service navigateur non démarré dans ${this.containerName} : ${prefixePy(stripPy(decoderRemplace(err)), 300)}`,
+        );
+    } finally {
+      rmSync(fichier, { force: true });
+    }
+  }
+
+  /** Arrête le service navigateur du bac (TERM au processus du service). */
+  async stopNavigateur(): Promise<void> {
+    await this.appel(
+      [
+        "exec",
+        "--user",
+        "0:0",
+        this.containerName,
+        "pkill",
+        "-TERM",
+        "-f",
+        `${MONTAGES_NAVIGATEUR.service}/server.js`,
+      ],
+      10,
+    );
+  }
+
+  /** Activité du compte poussée au bac (outils pw_* compris), sans l'attendre. */
+  marquerActivite(): void {
+    this.activite();
   }
 
   /** Activité poussée à l'agent, sans l'attendre (le GC d'inactivité lit le mtime de /work). */

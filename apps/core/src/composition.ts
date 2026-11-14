@@ -89,6 +89,7 @@ import { creerFamilleOpenapi } from "./familles/openapi";
 import { creerPontMcp } from "./familles/pont-mcp";
 import { creerFamillePrompts } from "./familles/prompts";
 import { creerFamilleRoutines } from "./familles/routines";
+import { creerFamilleSecrets } from "./familles/secrets";
 import { creerFamilleWebhooks } from "./familles/webhooks";
 import { creerFamilleLlm } from "./familles/llm";
 import { creerFamilleMcp } from "./familles/mcp";
@@ -143,6 +144,7 @@ import { brancherIndexationRag } from "./rag/service";
 import { installerMeneur, Meneur, meneur } from "./routines/meneur";
 import { installerPlanificateur, Planificateur } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
+import { brancherCoffreMcpDuCore } from "./secrets/mcp";
 import { installerComptesSkills } from "./skills/ports";
 import { CLIENT_VOIX } from "./voix/client";
 import { installerClientVoix } from "./voix/ports";
@@ -333,7 +335,7 @@ export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeV
   return planificateur;
 }
 
-/** Sessions de navigateur des sous-agents laissées par le process précédent fermées au démarrage de main, en arrière-plan et en un appel ; `BROWSER_CHILD_CLEANUP=0` le coupe (tests). */
+/** Sessions de navigateur des sous-agents laissées par le process précédent fermées au démarrage de main, en arrière-plan, par le service de chaque bac ; `BROWSER_CHILD_CLEANUP=0` le coupe (tests). */
 export function brancherNettoyageNavigateursEnfants(
   cycle: CycleDeVie,
   journal: Journal,
@@ -382,6 +384,7 @@ export async function composer(
 ): Promise<Composition> {
   configurerAuditDuCore(mode, journal);
   brancherGardeUrl((url, schemas) => blockRemoteUrlReason(url, { allowSchemes: schemas }));
+  brancherCoffreMcpDuCore();
   await convertirJetonsAuDemarrage(base, journal);
   installerPortsMemoire(base);
   installerPortsSkills(base);
@@ -506,7 +509,7 @@ export async function composer(
       creerFamilleExecutions({ base }),
       creerFamilleChatControle({ base, auth, arret: cycle.signalArret }),
       creerFamilleImages({ base }),
-      creerFamilleAdminImages(),
+      creerFamilleAdminImages({ base }),
       creerFamilleChat({ base, auth, arret: cycle.signalArret }),
       creerFamilleChatCompression({ base }),
       ...(mode === "main"
@@ -525,6 +528,7 @@ export async function composer(
         ? [creerFamilleInterneJobs({ auth, service: jobs }), creerFamilleJobs({ service: jobs })]
         : []),
       creerFamilleGit({ base }),
+      creerFamilleSecrets({ base, auth }),
       creerFamilleAdminComptes({
         base,
         auth,

@@ -28,6 +28,8 @@ export interface ServeurMcp {
   has_auth?: boolean;
   headers?: PaireMcp[];
   env?: PaireMcp[];
+  /** Secret du coffre illisible, retiré ou non repris : à ressaisir. */
+  secret_error?: string;
   [cle: string]: unknown;
 }
 

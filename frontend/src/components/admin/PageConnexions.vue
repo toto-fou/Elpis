@@ -161,6 +161,12 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                         title="Clé API enregistrée"
                         ><i class="ph ph-key" aria-hidden="true"></i
                       ></span>
+                      <span
+                        v-else-if="c.key_error"
+                        class="text-[10px] text-red-600 shrink-0"
+                        :title="adm.admLlmMotifCle(c.key_error)"
+                        >clé à ressaisir</span
+                      >
                       <span v-if="c.enabled === false" class="text-[10px] text-amber-700 shrink-0"
                         >désactivé</span
                       >

@@ -21,6 +21,15 @@ import { gardeFocus as creerGardeFocus, piegerTab } from "../../utils/focus";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
 
+/** Pourquoi la clé d'un connecteur partagé est inutilisable (`key_error`), dit à l'administrateur. */
+const MOTIFS_CLE: Readonly<Record<string, string>> = {
+  vault_unavailable: "Clé du coffre indisponible sur ce serveur (./elpis doctor).",
+  undecryptable: "Clé illisible avec la clé actuelle du coffre : ressaisissez-la (ou ./elpis vault rekey).",
+  missing: "Clé absente du coffre (supprimée) : ressaisissez-la.",
+  legacy_unreadable: "Ancienne clé illisible (clé de chiffrement changée) : ressaisissez-la.",
+  legacy_pending: "Ancienne clé pas encore rangée dans le coffre (journal de démarrage, ./elpis doctor).",
+};
+
 export interface FormulaireConnecteurPartage {
   id?: number;
   provider_type: string;
@@ -208,6 +217,8 @@ export function creerInference(b: BaseAdmin) {
     }
   }
   const admLlmLabel = (pt: string): string => admLlmPresets.value[pt]?.label || pt;
+  const admLlmMotifCle = (code: string | null | undefined): string =>
+    (code && MOTIFS_CLE[code]) || "Clé du connecteur inutilisable.";
   function newAdmLlmConnector(): void {
     admLlmForm.value = {
       provider_type: "vllm",
@@ -391,6 +402,7 @@ export function creerInference(b: BaseAdmin) {
     admLlmBusy,
     admLlmTest,
     admLlmLabel,
+    admLlmMotifCle,
     loadAdminLlmConnectors,
     newAdmLlmConnector,
     editAdmLlmConnector,

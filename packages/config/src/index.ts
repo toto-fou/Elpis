@@ -90,6 +90,7 @@ export function surchargerConfig(partiel: Partial<Reglages>): () => void {
   };
 }
 export {
+  cheminCopieConfigJson,
   CONFIG_ILLISIBLE,
   lireConfigDisque,
   mettreAJourConfigJson,

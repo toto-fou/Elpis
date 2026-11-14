@@ -2,20 +2,17 @@
 // ============================================================================
 //  proc_util.js — choix des processus navigateur ORPHELINS (module pur).
 // ============================================================================
-//  Avant : tout renderer Chromium (ou processus de contenu Firefox) de plus de
-//  20 min était tué, y compris ceux d'un onglet actif — une session longue
+//  Avant : tout renderer Chromium de plus de 20 min était tué, y compris ceux
+//  d'un onglet actif — une session longue
 //  (formulaire, suivi d'une page) perdait sa page au bout de 20 min. On ne tue
 //  plus que les processus de contenu dont le parent n'est PLUS un processus
 //  navigateur principal (le navigateur qui les a lancés est mort).
 //  Entrée : la sortie de ``ps -o pid=,ppid=,etimes=,args=`` ; aucune E/S ici.
 // ============================================================================
 
-// Processus « enfants » d'un navigateur : renderers, gpu-process, utilitaires,
-// zygotes Chromium ; processus de contenu Firefox (y compris son serveur de
-// fork, ``-contentproc -ipcHandle``). Ils ne sont jamais des principaux.
-const _CONTENU = /(?:chrom(?:e|ium)[^ ]*.*--type=(?:renderer|gpu-process|utility|zygote)|firefox[^ ]*.*-contentproc)/i;
+// Processus « enfants » de Chromium (renderers, gpu-process, utilitaires, zygotes) : jamais des principaux.
+const _CONTENU = /chrom(?:e|ium)[^ ]*.*--type=(?:renderer|gpu-process|utility|zygote)/i;
 const _PRINCIPAL_CHROME = /chrom(?:e|ium)/i;
-const _PRINCIPAL_FIREFOX = /firefox/i;
 
 /** Lignes ``ps`` → ``[{pid, ppid, age, args}]`` (lignes illisibles ignorées). */
 export function lirePs(texte) {
@@ -31,17 +28,10 @@ export function lirePs(texte) {
 function _estPrincipal(p) {
     if (_CONTENU.test(p.args)) return false;
     if (_PRINCIPAL_CHROME.test(p.args)) return !/--type=/.test(p.args);
-    if (_PRINCIPAL_FIREFOX.test(p.args)) return !/-contentproc/.test(p.args);
     return false;
 }
 
-/**
- * Vrai si ``p`` se rattache, en remontant ses parents À TRAVERS les processus
- * intermédiaires (zygote Chromium, serveur de fork Firefox, autres processus
- * de contenu), à un navigateur principal vivant (ou à un PID épargné).
- * Chromium : renderer/gpu → zygote → principal ; Firefox : contenu → serveur
- * de fork → principal.
- */
+/** Vrai si ``p`` remonte, à travers zygotes et autres processus de contenu (renderer/gpu → zygote → principal), à un navigateur principal vivant ou à un PID épargné. */
 function _rattache(p, parPid, garde) {
     const vus = new Set();
     let cur = p;

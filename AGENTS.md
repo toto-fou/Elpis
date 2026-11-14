@@ -43,7 +43,7 @@ ELPIS_RACINE=$PWD APP_MODE=admin LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
 ```
 
 Default ports: main 8001, admin 8002, MCP tools (`toolhost`) 8765,
-RAG 8000, Qdrant 6333, browser 3000,
+RAG 8000, Qdrant 6333 (the browser has no port: it runs in each sandbox),
 `llama-server` 8080. The instance configuration is `config.json` at the root
 (not versioned; template: `config.example.json`). The `?v=` versions of
 resources are rewritten to the process's `BUILD_ID`: restart the core to

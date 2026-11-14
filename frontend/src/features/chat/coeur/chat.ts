@@ -18,6 +18,10 @@ import { creerHistoriqueChat } from "../historique/historique";
 import { creerJobs } from "../jobs/jobs";
 import { imageInitialProgress } from "../../images/formats";
 import { creerCollectionsChat, ecouterEvenementsRag } from "../../rag/collections-chat";
+import { ClientHttp } from "../../../platform/http/client";
+import { creerApiSecrets } from "../../secrets/api";
+import type { ApiSecrets } from "../../secrets/api";
+import { creerSecretsChat } from "../../secrets/chat";
 import type { DemandeImage } from "../../images/formats";
 import type { CtxImages, RefsImages, SurfaceImages } from "../../images/images";
 import type {
@@ -63,6 +67,8 @@ export interface ModulesChat {
   echantillonnage(refs: RefsEchantillonnage, ctx: CtxEchantillonnage): SurfaceEchantillonnage;
   voix(refs: RefsVoix, ctx: CtxVoix): SurfaceVoix;
   images(refs: RefsImages, ctx: CtxImages): SurfaceImages;
+  /** Client du coffre (secrets attachés, `/secret`) ; à défaut, un client sur la session du chat. */
+  secrets?(): ApiSecrets;
 }
 
 /** Surface du chat vue des gabarits (refs déballées par la racine). */
@@ -126,6 +132,11 @@ export function setupChat(
     showToast: ctx.showToast,
     currentChatId,
   });
+  const secretsChat = creerSecretsChat({
+    api: modules.secrets?.() ?? creerApiSecrets(new ClientHttp(session)),
+    currentChatId,
+    toast: ctx.showToast,
+  });
   let images: SurfaceImages | null = null;
   const composeur = creerComposeur(
     Vue,
@@ -157,6 +168,7 @@ export function setupChat(
       get rag() {
         return ctx.ragCommande ?? null;
       },
+      secrets: secretsChat.commande,
       get agents() {
         return ctx.agentsCommande ?? null;
       },
@@ -336,6 +348,7 @@ export function setupChat(
       closeTaskModal: segments.closeTaskModal,
       applyChatPlanMode: outils.applyChatPlanMode,
       applyChatRag: (rag: unknown) => ragChat.appliquerDuChat(rag),
+      applyChatSecrets: (ids: unknown, id: string) => secretsChat.appliquerDuChat(ids, id),
       applyChatCtxUsage: (u: unknown, id: string) => outils.applyChatCtxUsage(u, id),
     } as unknown as DepsHistorique,
     session,
@@ -507,6 +520,8 @@ export function setupChat(
     pinnedSkillNames: () => (composeurTyped.pinnedSkills.value || []).map((s) => s.name),
     ragEnAttente: () => ragChat.enAttente(),
     ragCreation: (ids: unknown) => ragChat.confirmerCreation(ids),
+    secretsEnAttente: () => secretsChat.enAttente(),
+    secretsEnvoyes: (id: string) => secretsChat.envoyes(id),
     clearPinnedSkills: () => {
       composeurTyped.pinnedSkills.value = [];
     },
@@ -542,6 +557,7 @@ export function setupChat(
     inputMessage.value = "";
     composeurTyped.pinnedSkills.value = [];
     ragChat.vider();
+    secretsChat.vider();
     e.todoList.value = [];
     e.queueStatus.value = null;
     jobs.jobsReinitialiser();
@@ -581,6 +597,10 @@ export function setupChat(
     nouveauChat: () => historique.startNewChat(),
     apres: () => void nextTick(() => inputRef.value?.focus()),
   });
+  // Secrets changés dans Paramètres › Secrets : menus de /secret relus, puces resynchronisées.
+  const surSecrets = (): void => secretsChat.changementCompte();
+  window.addEventListener("secrets:changed", surSecrets);
+  Vue.onScopeDispose(() => window.removeEventListener("secrets:changed", surSecrets));
   watch(
     user,
     (u, avant) => {
@@ -644,6 +664,9 @@ export function setupChat(
     ragChat,
     ragActives: ragChat.actives,
     retirerCollectionRag: (id: string) => ragChat.retirer(id),
+    secretsChat,
+    secretsAttaches: secretsChat.attaches,
+    detacherSecret: (id: number) => secretsChat.detacher(id),
     manifestServers: e.manifestServers,
     manifestTools: e.manifestTools,
     loadManifestServers: outils.loadManifestServers,

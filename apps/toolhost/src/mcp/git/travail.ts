@@ -3,6 +3,7 @@
 import type { Dict } from "@elpis/commun";
 import { BLANC_PY, lowerPy, prefixePy, reprPy, splitlinesPy, stripPy, strPy } from "@elpis/commun";
 import { RelayRefused } from "@elpis/fichiers";
+import type { CompteRappel } from "@elpis/fichiers";
 import { ok } from "@elpis/outils-mcp";
 
 import { enAnglais } from "../anglais";
@@ -24,6 +25,7 @@ import {
   executer,
   executerReseau,
   intentionValide,
+  jetonDisponible,
   lectureGit,
   ligneEchec,
   politique,
@@ -348,10 +350,10 @@ export interface IssuePr {
   readonly [champ: string]: unknown;
 }
 
-/** Ce que l'hôte demande au core pour ouvrir la PR : le jeton de l'API de PR ne quitte jamais main. */
+/** Ce que l'hôte demande au core pour ouvrir la PR (compte et appelant signés) : le jeton de l'API de PR ne quitte jamais main. */
 export interface PortPr {
   ouvrirPr(
-    compte: { user_id: number; username: string },
+    compte: CompteRappel,
     demande: { remote_url: string; head: string; base: string; title: string; body: string; draft: boolean },
   ): Promise<IssuePr | null>;
 }
@@ -360,7 +362,7 @@ export interface PortPr {
 const CORPS_MAX = 200_000;
 
 const SANS_JETON =
-  " (no Git Connector provides a token for this host: add one in Settings, or use an SSH remote)";
+  " (no Git account provides a token for this host: ask the user to add one in Settings › Git accounts; a token is never passed to a tool)";
 
 /** `git_submit` : branche d'agent poussée par le relais (seule elle peut bouger), puis PR ouverte par le core ou URL de repli. */
 export function gitSubmit(
@@ -403,7 +405,7 @@ export function gitSubmit(
     if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
-        jeton = Boolean((await c.source.gitCredential(uid, remote))?.["token"]);
+        jeton = await jetonDisponible(c, uid, remote);
       } catch {
         jeton = false;
       }
@@ -431,7 +433,7 @@ export function gitSubmit(
       if (!detail) detail = `git returned no output: probably a silent authentication failure${note}`;
       return errGit(
         "push_failed",
-        `git push failed: ${prefixePy(detail, 400)}. Common causes: missing credentials (Git Connector / SSH key), force-push required (NOT enabled automatically), or a remote that refuses.`,
+        `git push failed: ${prefixePy(detail, 400)}. Common causes: missing credentials (ask the user to add a Git account for this host in Settings › Git accounts), force-push required (NOT enabled automatically), or a remote that refuses.`,
         { branch: br, remote, returncode: pu["returncode"] ?? null },
       );
     }
@@ -466,10 +468,7 @@ export function gitSubmit(
       body: prefixePy(corps, CORPS_MAX).toWellFormed(),
       draft: a.draft,
     };
-    const issue =
-      pr === null
-        ? null
-        : await pr.ouvrirPr({ user_id: uid, username: c.username }, demande).catch(() => null);
+    const issue = pr === null ? null : await pr.ouvrirPr(c.compte(uid), demande).catch(() => null);
     if (issue === null)
       return errGit(
         "pr_service_unavailable",
@@ -502,14 +501,14 @@ function issuePr(r: IssuePr, br: string, pousses: number, base: string, draft: b
       const hote = s("host");
       const message =
         provider === "unknown"
-          ? `Pushed to origin/${br}, but the host ${reprPy(hote)} is not recognized automatically (self-hosted). To open the PR WITHOUT typing a token, register a Git Connector with the right provider_type (e.g. 'gitea') for this host in Settings → Git Connectors.`
-          : `Pushed to origin/${br}. No Git Connector for ${hote || provider}: open the PR via fallback_url, or add a connector in Settings → Git Connectors.`;
+          ? `Pushed to origin/${br}, but the host ${reprPy(hote)} is not recognized automatically (self-hosted). To open the PR without a token, ask the user to add a Git account with the right provider type (e.g. 'gitea') for this host in Settings › Git accounts.`
+          : `Pushed to origin/${br}. No Git account for ${hote || provider}: open the PR via fallback_url, or ask the user to add one in Settings › Git accounts.`;
       return ok({ branch: br, commits_pushed: pousses, provider, fallback_url: s("fallback_url"), message });
     }
     case "blocked_api_base":
       return errGit(
         "blocked_api_base",
-        `The connector API (${reprPy(s("api_base"))}) is refused by the SSRF guard: ${s("reason")}. Fix the api_base of the Git Connector in Settings → Git Connectors.`,
+        `The Git account API (${reprPy(s("api_base"))}) is refused by the SSRF guard: ${s("reason")}. Ask the user to fix its API base in Settings › Git accounts.`,
         { branch: br, commits_pushed: pousses, fallback_url: s("fallback_url") },
       );
     case "no_api":

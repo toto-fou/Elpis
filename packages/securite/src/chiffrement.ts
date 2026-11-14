@@ -137,6 +137,18 @@ function dechiffrerDonnees(
   return retirerRembourrage(Buffer.concat([aes.update(chiffre), aes.final()]));
 }
 
+/** Forme d'un jeton Fernet, sans clé : base64url stricte, version 0x80, IV, blocs AES entiers, HMAC. */
+export function estJetonFernet(valeur: string): boolean {
+  if (!/^[A-Za-z0-9_-]+={0,2}$/.test(valeur)) return false;
+  try {
+    const [, data] = donneesNonVerifiees(valeur);
+    return data.length >= 73 && (data.length - 57) % 16 === 0;
+  } catch (e) {
+    if (e instanceof InvalidToken) return false;
+    throw e;
+  }
+}
+
 /** Fernet de `cryptography` : AES-128-CBC, PKCS7, HMAC-SHA256 ; base64url(0x80‖heure‖IV‖chiffré‖HMAC). */
 export class Fernet {
   readonly #cles: ClesFernet;
@@ -415,12 +427,38 @@ export function loadOrCreateKey(source: SourceCle): string | null {
 let source: SourceCle | null = null;
 let chiffreur: Fernet | null = null;
 let resolu = false;
+let lecteur: Fernet | null = null;
 
 /** Source de la clé maître (démarrage, tests) ; la résolution reste paresseuse et mémorisée. */
 export function configurerChiffrement(s: SourceCle): void {
   source = s;
   chiffreur = null;
   resolu = false;
+  lecteur = null;
+}
+
+/** Clé maître déjà posée (env, config.json, fichier lisible), jamais créée ; `null` sinon. */
+function cleExistante(s: SourceCle): string | null {
+  const env = texteDefini(s.cleEnv);
+  if (env) return coerceToFernetKey(env);
+  if (s.cleConfig !== null && s.cleConfig !== undefined && typeof s.cleConfig !== "string") return null;
+  const json = texteDefini(s.cleConfig as string | null | undefined);
+  if (json) return coerceToFernetKey(json);
+  if (!isAbsolute(s.fichierCle)) return null;
+  const lue = lireCle(s.fichierCle);
+  return !lue.absent && lue.texte ? coerceToFernetKey(lue.texte) : null;
+}
+
+/** Chiffreur pour relire seulement : celui déjà résolu, sinon la clé existante ; jamais de clé neuve (elle rendrait tout illisible). */
+function cipherExistant(): Fernet | null {
+  if (resolu) return chiffreur;
+  if (source === null)
+    throw new Error("chiffrement non configuré : appeler configurerChiffrement() au démarrage");
+  if (lecteur === null) {
+    const cle = cleExistante(source);
+    if (cle) lecteur = new Fernet(cle);
+  }
+  return lecteur;
 }
 
 function getCipher(): Fernet | null {
@@ -438,6 +476,25 @@ export function encrypt(plaintext: string | null | undefined): string {
   if (f === null)
     throw new EncryptionUnavailable("Clé de chiffrement indisponible — définir APP_ENCRYPTION_KEY.");
   return f.encrypt(encoderUtf8Py(plaintext || ""));
+}
+
+/** Une clé maître existe pour relire les anciens chiffrés (aucune n'est créée pour le savoir). */
+export function cleFernetPresente(): boolean {
+  return cipherExistant() !== null;
+}
+
+/** Clair d'un jeton de la clé maître pour une reprise de données : `InvalidToken` (jeton illisible, autre clé) ou `EncryptionUnavailable` (aucune clé, jamais créée ici), jamais "". */
+export function decryptStrict(token: string): string {
+  const f = cipherExistant();
+  if (f === null)
+    throw new EncryptionUnavailable("Clé de chiffrement indisponible — définir APP_ENCRYPTION_KEY.");
+  try {
+    if (!estAscii(token)) throw new InvalidToken();
+    return decoderUtf8Py(f.decrypt(token));
+  } catch (e) {
+    if (e instanceof InvalidToken || estErreurPython(e, "ValueError", "TypeError")) throw new InvalidToken();
+    throw e;
+  }
 }
 
 /** "" (et un avertissement) sur jeton invalide ou clé changée ; "" sans bruit si aucune clé n'existe. */

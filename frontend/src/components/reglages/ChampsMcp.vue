@@ -28,11 +28,29 @@ const AUTHS = [
 ] as const;
 const cle = computed<"headers" | "env">(() => (f.value?.type === "stdio" ? "env" : "headers"));
 const indiceSecret = (ph: string): string => (f.value?.has_auth ? "inchangé" : ph);
+const ERREURS_SECRET: Readonly<Record<string, string>> = {
+  undecryptable: "Secret illisible avec la clé actuelle du coffre : ressaisissez-le.",
+  missing: "Secret retiré du coffre : ressaisissez-le.",
+  not_migrated: "Secret non repris dans le coffre : ressaisissez-le.",
+};
+// Clé du coffre absente : la ressaisie échouerait aussi, seul un administrateur peut la rétablir.
+const erreurSecret = computed(() => {
+  const code = f.value?.secret_error;
+  if (!code) return "";
+  if (code === "key_unavailable")
+    return admin.value
+      ? "Clé du coffre indisponible sur le serveur : voir ./elpis doctor."
+      : "Clé du coffre indisponible sur le serveur : prévenez un administrateur.";
+  return ERREURS_SECRET[code] ?? "Secret à ressaisir.";
+});
 </script>
 
 <template>
   <fieldset v-if="f" class="space-y-2.5 max-w-[600px] min-w-0" :disabled="rg.mcpOccupe">
     <legend class="text-xs font-semibold text-slate-500 pb-1.5">Connexion</legend>
+    <p v-if="erreurSecret" class="flex items-center gap-1.5 text-xs text-amber-700" role="status">
+      <i class="ph ph-warning" aria-hidden="true"></i>{{ erreurSecret }}
+    </p>
     <div class="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3">
       <label for="mcp-nom" class="text-[13px] text-slate-500 pt-1.5">Nom</label>
       <div>

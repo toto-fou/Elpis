@@ -7,7 +7,7 @@ import type { Ref } from "vue";
 import { corpsJson, detailErreur, estObjet, lireSchema, objet } from "../../utils/lecture-json";
 import { normaliserServeursMcp } from "./mcp";
 import type { Persistance } from "./persistance";
-import { entreeRail } from "./rail";
+import { ANCIENS_ONGLETS, entreeRail } from "./rail";
 import type { CtxReglages, ReglagesApp, RefsReglages, VueReglages } from "./types";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
@@ -28,6 +28,7 @@ export interface DependancesModale {
   loadSandboxState(): Promise<void>;
   loadGitConnectors(): Promise<void>;
   loadConnexions(): Promise<void>;
+  loadSecrets(): Promise<void>;
   cnxReset(): void;
   cancelMemoryEdit(): void;
   startNewTemplate(): void;
@@ -134,7 +135,7 @@ export function creerModale(
       archives: () => dep.loadArchives(),
       sandbox: () => dep.loadSandboxState(),
       connectors: () => dep.loadGitConnectors(),
-      connexions: () => dep.loadConnexions(),
+      secrets: () => Promise.all([dep.loadSecrets(), dep.loadConnexions()]),
       skills: () => ctx.openSkillsTab?.(),
     };
   }
@@ -173,7 +174,10 @@ export function creerModale(
     }
     await openSettings();
     if (!tab) return;
-    const [cible = tab, sous = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];
+    const [brut = tab, sousBrut = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];
+    const ancien = ANCIENS_ONGLETS[brut];
+    const cible = ancien?.onglet ?? brut;
+    const sous = sousBrut || ancien?.section || "";
     settingsTab.value = cible;
     if (sous && entreeRail(cible)?.sections?.some((x) => x.id === sous)) settingsSections.value[cible] = sous;
     const charger = chargeursOnglet()[cible];

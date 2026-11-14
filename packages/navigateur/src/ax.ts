@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques et purges (port de shared_infra/memory/ax/). */
+/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques (identifiants fournis par l'appelant, depuis le coffre) et purges, anciens identifiants `ax_credentials` compris (port de shared_infra/memory/ax/). */
 import {
   BLANC_PY,
   comparePointsDeCode,
@@ -21,8 +21,9 @@ import { readConfigJson } from "@elpis/config";
 import { castFloat, greatest, nullsFirst } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
+import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
-import { urlServiceNavigateur } from "./client";
+import { requeteService, serviceNavigateur } from "./mode";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -125,6 +126,53 @@ export function normalizeUrl(url: string): [string, string] {
   } catch {
     return ["", "/"];
   }
+}
+
+/** Origine exacte (schéma, hôte, port) d'une URL http(s), vide sinon : clé des identifiants de sites, sans alias ni réduction d'IP. */
+export function origineExacte(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Une clé d'`ax_credentials` sans schéma est une ancienne clé de site : son origine est inconnue, elle n'est jamais remplie. */
+const cleAvecOrigine = (cle: unknown): boolean => String(cle).includes("://");
+
+/** Site AX d'une clé d'`ax_credentials`, pour l'affichage et les purges seulement. */
+const siteDeCle = (cle: unknown): string =>
+  cleAvecOrigine(cle) ? normalizeUrl(String(cle))[0] : String(cle);
+
+/** Identifiant d'un site montré par la console : nom de connexion, origine exacte, usages ; jamais de valeur. */
+export interface IdentifiantSite {
+  readonly username: string | null;
+  readonly origin: string;
+  readonly use_count: number;
+  readonly last_ok: number | null;
+}
+
+/** Identifiant connu d'un site AX (secret du coffre du compte qui consulte), `undefined` sinon. */
+export type IdentifiantsDesSites = (site: string) => IdentifiantSite | undefined;
+
+/** Identifiants rattachés à un site AX retirés (d'un compte, ou de tous) ; nombre de lignes retirées. */
+async function retirerIdentifiantsDuSite(
+  x: Executeur,
+  site: string,
+  proprietaire: string | null,
+): Promise<number> {
+  const lignes = await (proprietaire === null
+    ? x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials")
+    : x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials WHERE owner = ?", [
+        proprietaire,
+      ]));
+  let retirees = 0;
+  for (const r of lignes)
+    if (siteDeCle(r.site) === site)
+      retirees += (await x.run("DELETE FROM ax_credentials WHERE owner = ? AND site = ?", [r.owner, r.site]))
+        .changes;
+  return retirees;
 }
 
 // ── Lecture ──────────────────────────────────────────────────────────────
@@ -258,22 +306,99 @@ export async function getTreeJson(x: Executeur, site: string): Promise<{ site: s
   };
 }
 
-/** `_render_selector` : sélecteur compact pour le modèle, avec son taux de succès dès deux essais. */
+// ── Rendu pour le modèle : la mémoire est partagée entre comptes et nourrie par les pages ──
+
+const ROLES_ARIA: ReadonlySet<string> = new Set(
+  (
+    "alert alertdialog application article banner blockquote button caption cell checkbox code columnheader " +
+    "combobox complementary contentinfo definition deletion dialog directory document emphasis feed figure form " +
+    "generic grid gridcell group heading img insertion link list listbox listitem log main marquee math menu " +
+    "menubar menuitem menuitemcheckbox menuitemradio meter navigation none note option paragraph presentation " +
+    "progressbar radio radiogroup region row rowgroup rowheader scrollbar search searchbox separator slider " +
+    "spinbutton status strong subscript superscript switch tab table tablist tabpanel term textbox time timer " +
+    "toolbar tooltip tree treegrid treeitem"
+  ).split(" "),
+);
+const NOM_MAX = 80;
+const CHEMIN_MAX = 120;
+/** Plafond d'écriture de `recordAction` : aucun sélecteur enregistré n'est écarté au rendu. */
+const SELECTEUR_MAX = 300;
+const INVISIBLES = /\p{Cf}+/gu;
+const NON_IMPRIMABLES = /[\p{Cc}\u2028\u2029]+/gu;
+const CHEVRON_DE_BALISE = /<(?!\s*(?:=|[0-9](?![xX])))/gu;
+
+function borner(texte: string, max: number): string {
+  return longueurPy(texte) <= max ? texte : `${prefixePy(texte, max - 1)}…`;
+}
+
+/** Rôle ARIA connu, `generic` sinon : la colonne vient d'un attribut de page ou d'un argument d'outil. */
+export function roleInerte(role: unknown): string {
+  const r = lowerPy(stripPy(String(role ?? "")));
+  return ROLES_ARIA.has(r) ? r : "generic";
+}
+
+/** Valeur recopiable telle quelle par le modèle : `>`, `"` et comparaisons XPath gardés, rien qui ouvre une balise ni une ligne. */
+function valeurInerte(valeur: string): string {
+  return valeur.replace(INVISIBLES, "").replace(NON_IMPRIMABLES, " ").replace(CHEVRON_DE_BALISE, "&lt;");
+}
+
+/** Nom ou libellé inerte et borné, `&` et `"` gardés : une seule ligne, aucune balise ni marqueur. */
+export function nomInerte(nom: unknown): string {
+  const inerte = neutraliserMarqueursTour(neutraliserJetonsRole(valeurInerte(String(nom ?? ""))));
+  return borner(stripPy(inerte), NOM_MAX);
+}
+
+/** Chemin ou site inerte et borné. */
+export function cheminInerte(chemin: unknown): string {
+  return borner(valeurInerte(String(chemin ?? "")), CHEMIN_MAX);
+}
+
+/** Sélecteur rendu tel quel par `pw_memory` : valeur inerte, écarté (`null`) au-delà du plafond d'écriture. */
+export function selecteurInerte<T extends { value?: unknown }>(sel: T | null | undefined): T | null {
+  if (!sel) return null;
+  const v = valeurInerte(String(sel.value ?? ""));
+  return longueurPy(v) > SELECTEUR_MAX ? null : { ...sel, value: v };
+}
+
+/** Cible DSL rendue par `pw_memory` : inerte, écartée (`null`) au-delà du plafond. */
+export function cibleInerte(cible: unknown): string | null {
+  if (cible === null || cible === undefined) return null;
+  const v = valeurInerte(String(cible));
+  return longueurPy(v) > SELECTEUR_MAX + NOM_MAX ? null : v;
+}
+
+function libelleElement(n: NoeudDom): string {
+  return `${roleInerte(n.role)} "${nomInerte(n.name)}"`;
+}
+
+function libelleNoeud(n: NoeudDom): string {
+  return n.name ? libelleElement(n) : roleInerte(n.role);
+}
+
+/** `_render_selector` : sélecteur compact pour le modèle, avec son taux de succès dès deux essais ; texte coupé (le service cherche une sous-chaîne), `""` pour ce qu'une coupe casserait ou un rôle inconnu. */
 export function renderSelector(sel: Selecteur): string {
   const sc = sel.success_count;
   const total = sc + sel.failure_count;
   const tag = total >= 2 ? `(${sc}/${total}, ${Math.trunc((100 * sc) / Math.max(total, 1))}%)` : "";
-  const val = sel.value;
+  const val = valeurInerte(sel.value);
   let base: string;
   if (sel.strategy === "role_name") {
     const i = val.indexOf("|");
-    base = i < 0 ? `role=${val} name=""` : `role=${val.slice(0, i)} name="${val.slice(i + 1)}"`;
+    const role = lowerPy(i < 0 ? val : val.slice(0, i));
+    if (role && !ROLES_ARIA.has(role)) return "";
+    base = i < 0 ? `role=${role} name=""` : `role=${role} name="${prefixePy(val.slice(i + 1), NOM_MAX)}"`;
   } else if (sel.strategy === "text" || sel.strategy === "label" || sel.strategy === "placeholder") {
-    base = `${sel.strategy}="${val}"`;
+    base = `${sel.strategy}="${prefixePy(val, NOM_MAX)}"`;
   } else {
+    if (longueurPy(val) > SELECTEUR_MAX) return "";
     base = `${sel.strategy}=${val}`;
   }
   return stripPy(`${base} ${tag}`);
+}
+
+/** Meilleur sélecteur rendable d'un nœud, `""` sans aucun. */
+function premierSelecteur(n: NoeudDom): string {
+  return n.selectors.map((s) => renderSelector(s)).find((r) => r) ?? "";
 }
 
 /** `_render_dom_subtree` : branches `|-` / `` `- ``, sélecteurs sous les éléments, usage au-delà d'une vérification. */
@@ -283,12 +408,14 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   const vc = noeud.verified_count || 0;
   const usage = vc > 1 ? ` [used ${vc}x]` : "";
   if (noeud.node_type === "region") {
-    const libelle = noeud.name ? `${noeud.role} "${noeud.name}"` : noeud.role;
-    lignes.push(`${retrait}${branche}${libelle}${usage}`);
+    lignes.push(`${retrait}${branche}${libelleNoeud(noeud)}${usage}`);
   } else {
-    lignes.push(`${retrait}${branche}${noeud.role} "${noeud.name}"${usage}`);
+    lignes.push(`${retrait}${branche}${libelleElement(noeud)}${usage}`);
     const prefixeSel = retrait + (dernier ? "   " : "|  ");
-    for (const sel of noeud.selectors) lignes.push(`${prefixeSel}- ${renderSelector(sel)}`);
+    for (const sel of noeud.selectors) {
+      const rendu = renderSelector(sel);
+      if (rendu) lignes.push(`${prefixeSel}- ${rendu}`);
+    }
   }
   const suivants = [...prefixes, dernier ? "   " : "|  "];
   noeud.children.forEach((enfant, i) => {
@@ -296,27 +423,12 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   });
 }
 
-/** `_render_credentials_hint` : nom de connexion du propriétaire sur ce site, jamais le mot de passe ; rien sans propriétaire. */
-async function indiceIdentifiants(x: Executeur, site: string, proprietaire: string): Promise<string | null> {
-  if (!site || !proprietaire) return null;
-  try {
-    const r = await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-      site,
-      proprietaire,
-    ]);
-    if (r === undefined) return null;
-    return `CREDENTIALS KNOWN: user=${String(r["username"])} (used ${String(r["use_count"])}x, auto-injected by pw_session)`;
-  } catch {
-    return null;
-  }
-}
-
-/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars`. */
+/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars` ; plus d'indice d'identifiants (le coffre les annonce par le bloc `<secrets>`). */
 export async function renderFullDomForPrompt(
   x: Executeur,
   site: string,
   maxChars = 6000,
-  proprietaire = "",
+  _proprietaire = "",
 ): Promise<string> {
   if (!site) return "";
   const dom = await loadDomTree(x, site);
@@ -324,14 +436,15 @@ export async function renderFullDomForPrompt(
   let elements = 0;
   for (const page of dom.values())
     for (const n of page.byId.values()) if (n.node_type === "element") elements++;
-  const lignes = [`KNOWN UI: ${site}`, `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`];
-  const indice = await indiceIdentifiants(x, site, proprietaire);
-  if (indice) lignes.push(indice);
-  lignes.push("");
+  const lignes = [
+    `KNOWN UI: ${cheminInerte(site)}`,
+    `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`,
+    "",
+  ];
   for (const chemin of cheminsTries(dom.keys())) {
     const racines = dom.get(chemin)?.roots ?? [];
     if (racines.length === 0) continue;
-    lignes.push(`[${chemin}]`);
+    lignes.push(`[${cheminInerte(chemin)}]`);
     racines.forEach((r, i) => {
       rendreSousArbre(r, lignes, i === racines.length - 1, ["  "]);
     });
@@ -357,7 +470,7 @@ export function detectSitesFromText(text: string | null | undefined): string[] {
   return out;
 }
 
-/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur (2 s) ; `null` au moindre échec. */
+/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur du bac du compte (2 s) ; `null` au moindre échec. */
 export async function detectSessionUrl(
   messages: readonly unknown[] | null | undefined,
   owner = "",
@@ -377,23 +490,20 @@ export async function detectSessionUrl(
   }
   if (!sessionId || !owner) return null;
   try {
-    const base = urlServiceNavigateur();
     const qs = new URLSearchParams({
       session_id: sessionId,
       owner: pwOwner(owner),
       skip_screenshot: "true",
       level: "lite",
     });
-    const delai = AbortSignal.timeout(2000);
-    const r = await fetch(`${base}/smart_inspect?${qs.toString()}`, {
-      method: "GET",
-      signal: signal ? AbortSignal.any([signal, delai]) : delai,
+    const r = await requeteService(serviceNavigateur(owner), `/smart_inspect?${qs.toString()}`, {
+      delaiMs: 2000,
+      ...(signal ? { signal } : {}),
     });
-    if (!r.ok) return null;
-    const data = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(await r.arrayBuffer()));
-    if (!estDict(data)) return null;
-    const url = veritePy(data["url"]) ? data["url"] : data["current_url"];
-    return typeof url === "string" && url ? url : null;
+    if (r.statut !== 200) return null;
+    const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
+    const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
+    return typeof u === "string" && u ? u : null;
   } catch {
     if (signal?.aborted) throw signal.reason;
     return null;
@@ -419,10 +529,6 @@ export async function siteSignal(x: Executeur, site: string): Promise<number> {
   }
 }
 
-function libelleNoeud(n: NoeudDom): string {
-  return n.name ? `${n.role} "${n.name}"` : n.role;
-}
-
 /** `render_focused_dom_for_prompt` : ancêtres, frères et descendants (deux niveaux) du dernier élément utilisé de la page. */
 export async function renderFocusedDomForPrompt(
   x: Executeur,
@@ -434,7 +540,7 @@ export async function renderFocusedDomForPrompt(
   if (!site || !currentPath) return "";
   const page = (await loadDomTree(x, site, { path: currentPath })).get(currentPath);
   if (page === undefined || page.byId.size === 0)
-    return `KNOWN UI: ${site}\nFOCUSED ON: [${currentPath}] (no DOM recorded yet, use pw_page(op='inspect') to discover)`;
+    return `KNOWN UI: ${cheminInerte(site)}\nFOCUSED ON: [${cheminInerte(currentPath)}] (no DOM recorded yet, use pw_page(op='inspect') to discover)`;
   const byId = page.byId;
   let courant: NoeudDom | undefined;
   if (veritePy(options.currentNodeId) && byId.has(options.currentNodeId as number))
@@ -444,10 +550,11 @@ export async function renderFocusedDomForPrompt(
       .filter((n) => n.node_type === "element")
       .sort((a, b) => (b.last_ok || 0) - (a.last_ok || 0))[0];
   if (courant === undefined) return renderFullDomForPrompt(x, site, maxChars);
-  const lignes = [`KNOWN UI: ${site}`, `FOCUSED ON: [${currentPath}] ${courant.role} "${courant.name}"`];
-  const indice = await indiceIdentifiants(x, site, options.owner ?? "");
-  if (indice) lignes.push(indice);
-  lignes.push("");
+  const lignes = [
+    `KNOWN UI: ${cheminInerte(site)}`,
+    `FOCUSED ON: [${cheminInerte(currentPath)}] ${libelleElement(courant)}`,
+    "",
+  ];
   const ancetres: NoeudDom[] = [];
   for (let n = courant; ancetres.length < 2;) {
     const parent = n.parent_id === null ? undefined : byId.get(n.parent_id);
@@ -470,8 +577,8 @@ export async function renderFocusedDomForPrompt(
     if (freres.length) {
       lignes.push("Siblings (same parent):");
       for (const f of freres) {
-        const sel = f.selectors[0];
-        lignes.push(`  - ${f.role} "${f.name}"${sel ? `  [${renderSelector(sel)}]` : ""}`);
+        const sel = premierSelecteur(f);
+        lignes.push(`  - ${libelleElement(f)}${sel ? `  [${sel}]` : ""}`);
       }
       lignes.push("");
     }
@@ -489,9 +596,9 @@ export async function renderFocusedDomForPrompt(
     lignes.push("Below (1-2 hops):");
     for (const [d, profondeur] of descendants) {
       const retrait = "  ".repeat(profondeur);
-      lignes.push(`${retrait}- ${d.role} "${d.name}"`);
-      const sel = d.selectors[0];
-      if (sel) lignes.push(`${retrait}     ${renderSelector(sel)}`);
+      lignes.push(`${retrait}- ${libelleElement(d)}`);
+      const sel = premierSelecteur(d);
+      if (sel) lignes.push(`${retrait}     ${sel}`);
     }
     lignes.push("");
   }
@@ -520,10 +627,10 @@ function reel(v: unknown): FlottantPy | null {
   return v === null || v === undefined ? null : new FlottantPy(Number(v));
 }
 
-/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants du seul propriétaire, aucun sans propriétaire. */
+/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants donnés par l'appelant (coffre du compte qui consulte), aucun sans lui. */
 export async function listSitesWithStats(
   x: Executeur,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown>[]> {
   try {
     const lignes = await x.all(
@@ -540,12 +647,7 @@ export async function listSitesWithStats(
     for (const r of lignes) {
       const site = r["site"] as string;
       const trans = await x.get("SELECT COUNT(*) AS n FROM ax_transitions WHERE site = ?", [site]);
-      const cred = proprietaire
-        ? await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-            site,
-            proprietaire,
-          ])
-        : undefined;
+      const cred = identifiants?.(site);
       out.push({
         site,
         elements: r["elements"] || 0,
@@ -553,8 +655,9 @@ export async function listSitesWithStats(
         paths: r["paths"] || 0,
         transitions: trans ? trans["n"] : 0,
         has_credentials: cred !== undefined,
-        cred_username: cred ? cred["username"] : null,
-        cred_use_count: cred ? cred["use_count"] : 0,
+        cred_username: cred ? cred.username : null,
+        cred_origin: cred ? cred.origin : null,
+        cred_use_count: cred ? cred.use_count : 0,
         last_activity: reel(r["last_activity"]),
       });
     }
@@ -565,11 +668,11 @@ export async function listSitesWithStats(
   }
 }
 
-/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants du seul propriétaire. */
+/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants donnés par l'appelant (coffre du compte qui consulte). */
 export async function getSiteStats(
   x: Executeur,
   site: string,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown> | null> {
   if (!site) return null;
   try {
@@ -593,12 +696,7 @@ export async function getSiteStats(
       "SELECT COUNT(*) AS n FROM ax_selectors s JOIN ax_nodes n ON s.node_id = n.id WHERE n.site = ?",
       [site],
     );
-    const cred = proprietaire
-      ? await x.get("SELECT username, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?", [
-          site,
-          proprietaire,
-        ])
-      : undefined;
+    const cred = identifiants?.(site);
     return {
       site,
       elements_ok: agg["elements_ok"] || 0,
@@ -610,9 +708,10 @@ export async function getSiteStats(
       first_activity: reel(agg["first_activity"]),
       last_activity: reel(agg["last_activity"]),
       has_credentials: cred !== undefined,
-      cred_username: cred ? cred["username"] : null,
-      cred_use_count: cred ? cred["use_count"] : 0,
-      cred_last_ok: cred ? reel(cred["last_ok"]) : null,
+      cred_username: cred ? cred.username : null,
+      cred_origin: cred ? cred.origin : null,
+      cred_use_count: cred ? cred.use_count : 0,
+      cred_last_ok: cred ? reel(cred.last_ok) : null,
     };
   } catch (e) {
     log().warn(`[ax] get_site_stats failed: ${texte(e)}`);
@@ -647,9 +746,7 @@ export async function deleteSite(
       ]);
       const tr = (await x.run("DELETE FROM ax_transitions WHERE site = ?", [site])).changes;
       const nd = (await x.run("DELETE FROM ax_nodes WHERE site = ?", [site])).changes;
-      const cr = includeCredentials
-        ? (await x.run("DELETE FROM ax_credentials WHERE site = ?", [site])).changes
-        : 0;
+      const cr = includeCredentials ? await retirerIdentifiantsDuSite(x, site, null) : 0;
       return { nodes: nd, selectors: Number(sel?.["n"] ?? 0), transitions: tr, credentials: cr };
     });
     log().info(
@@ -706,7 +803,7 @@ export async function markSiteStale(
   }
 }
 
-/** `delete_credentials` : URL normalisée ou site tel quel ; `proprietaire` absent = tous les comptes (administration). */
+/** `delete_credentials` : URL normalisée ou site tel quel, avec toutes les origines de ce site ; `proprietaire` absent = tous les comptes (administration). */
 export async function deleteCredentials(
   x: Executeur,
   urlOuSite: string,
@@ -716,12 +813,7 @@ export async function deleteCredentials(
   const site = urlOuSite.startsWith("http") ? normalizeUrl(urlOuSite)[0] : urlOuSite;
   if (!site) return false;
   try {
-    const r = await verrouAx.avec(() =>
-      proprietaire === null
-        ? x.run("DELETE FROM ax_credentials WHERE site = ?", [site])
-        : x.run("DELETE FROM ax_credentials WHERE site = ? AND owner = ?", [site, proprietaire]),
-    );
-    return r.changes > 0;
+    return (await verrouAx.avec(() => retirerIdentifiantsDuSite(x, site, proprietaire))) > 0;
   } catch {
     return false;
   }

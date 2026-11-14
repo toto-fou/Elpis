@@ -69,7 +69,7 @@ LAUNCH_FLAGS = {
 }
 APP_MCP_PORT = 8766
 PORTS = {"application": 8001, "administration": 8002, "RAG": 8000,
-         "hôte d'outils MCP": 8765, "navigateur": 3000, "Qdrant": 6333}
+         "hôte d'outils MCP": 8765, "Qdrant": 6333}
 
 
 # =============================================================================

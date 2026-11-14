@@ -371,7 +371,7 @@ export async function* runTurn(
   let erreurTour: Dict | null = null;
   let nouvelEtatCompression: Dict = {};
   let nouvellesClesElaguees: string[] = [];
-  const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.jobSuffix);
+  const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.secretsSuffix, plan.jobSuffix);
   const nouveauSuffixe: Dict = suffixeTour ? { text: suffixeTour } : {};
   const issueJobs = { message: false, reponse: false, suffixe: false };
   const drapeaux = { detache: false, lecteurParti: false, outils: false, finalEnvoye: false };
@@ -651,7 +651,7 @@ export async function* runTurn(
                   customAgents: Array.isArray(plan.userSettings["custom_agents"])
                     ? (plan.userSettings["custom_agents"] as unknown[])
                     : [],
-                  userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid),
+                  userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid, plan.secretsMcp),
                   userId: uid,
                   thinkingMode: plan.thinkingMode,
                   slotParent: () => slotParent,
@@ -675,7 +675,7 @@ export async function* runTurn(
               ? buildAgentBuiltinTool({
                   base: db,
                   userId: uid,
-                  serveurs: () => agentMcpConfigs(db, plan.userSettings, uid),
+                  serveurs: () => agentMcpConfigs(db, plan.userSettings, uid, plan.secretsMcp),
                   reveil: plan.origin === "job_wake",
                 })
               : {};

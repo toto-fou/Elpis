@@ -12,6 +12,7 @@ export const schemaSiteAx = z.object({
   transitions: entier,
   has_credentials: z.boolean(),
   cred_username: z.string().nullable(),
+  cred_origin: z.string().nullable(),
   cred_use_count: entier,
   last_activity: z.number().nullable(),
 });
@@ -29,6 +30,7 @@ export const schemaReponseStatsSiteAx = z.object({
   last_activity: z.number().nullable(),
   has_credentials: z.boolean(),
   cred_username: z.string().nullable(),
+  cred_origin: z.string().nullable(),
   cred_use_count: entier,
   cred_last_ok: z.number().nullable(),
 });

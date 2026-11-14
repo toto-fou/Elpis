@@ -4,8 +4,19 @@ import { reprPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { messageErreur } from "@elpis/mcp";
-import { errPw, findPath, first, listSitesWithStats, loadDomTree, searchNodes } from "@elpis/navigateur";
-import { getUsername } from "@elpis/outils-mcp";
+import {
+  cheminInerte,
+  cibleInerte,
+  errPw,
+  findPath,
+  first,
+  listSitesWithStats,
+  loadDomTree,
+  nomInerte,
+  roleInerte,
+  searchNodes,
+  selecteurInerte,
+} from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { borne } from "./appel";
@@ -18,12 +29,12 @@ async function elementsDePage(ax: Base, site: string, chemin: string, limit: unk
   for (const n of page?.byId.values() ?? [])
     if (n.node_type === "element")
       elements.push({
-        role: n.role,
-        name: n.name,
+        role: roleInerte(n.role),
+        name: nomInerte(n.name),
         region_tag: n.region_tag,
         verified_count: n.verified_count,
         stale: n.stale,
-        selector: n.selectors[0] ?? null,
+        selector: selecteurInerte(n.selectors[0]),
       });
   elements.sort(
     (p, q) =>
@@ -42,10 +53,11 @@ async function elementsDePage(ax: Base, site: string, chemin: string, limit: unk
 }
 
 /** Requête `op` sur la mémoire AX ; arguments manquants refusés avec leur message Python. */
-async function interroger(ax: Base, op: string, a: Dict, username: string): Promise<unknown> {
+async function interroger(ax: Base, op: string, a: Dict): Promise<unknown> {
   const site = a["site"] as string;
   if (op === "sites") {
-    const sites = await listSitesWithStats(ax, username || "");
+    // Sites venus des pages visitées : rendus inertes et bornés ; les identifiants sont au coffre (bloc `<secrets>`), jamais ici.
+    const sites = (await listSitesWithStats(ax)).map((r) => ({ ...r, site: cheminInerte(r["site"]) }));
     return { op: "sites", count: sites.length, sites };
   }
   if (op === "path") {
@@ -57,11 +69,33 @@ async function interroger(ax: Base, op: string, a: Dict, username: string): Prom
       (a["from_path"] as string) || null,
       borne(a["max_depth"], 1, 12),
     );
-    return { op: "path", ...r };
+    const steps = (r["steps"] as Dict[]).map((e) => ({
+      ...e,
+      from: cheminInerte(e["from"]),
+      to: cheminInerte(e["to"]),
+      action_role: roleInerte(e["action_role"]),
+      action_name: nomInerte(e["action_name"]),
+      action_selector: selecteurInerte(e["action_selector"] as { value?: unknown } | null),
+      action_target: cibleInerte(e["action_target"]),
+    }));
+    return {
+      op: "path",
+      ...r,
+      from_path: r["from_path"] ? cheminInerte(r["from_path"]) : r["from_path"],
+      steps,
+    };
   }
   if (op === "find") {
     if (!site || !a["query"]) return errPw("find requires site= and query=");
-    const matches = await searchNodes(ax, site, a["query"] as string, borne(a["limit"], 1, 100));
+    const matches = (await searchNodes(ax, site, a["query"] as string, borne(a["limit"], 1, 100))).map(
+      (m) => ({
+        ...m,
+        path: cheminInerte(m["path"]),
+        role: roleInerte(m["role"]),
+        name: nomInerte(m["name"]),
+        selector: selecteurInerte(m["selector"] as { value?: unknown } | null),
+      }),
+    );
     return { op: "find", site, query: a["query"], count: matches.length, matches };
   }
   if (op === "page") {
@@ -73,8 +107,7 @@ async function interroger(ax: Base, op: string, a: Dict, username: string): Prom
 
 /** `pw_memory` : sans session ni service navigateur ; mémoire AX éteinte (base de l'hôte absente) = refus. */
 export function pwMemory(s: ServicesBrowser) {
-  return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
-    const username = getUsername(ctx);
+  return async (a: Dict, _ctx: ContexteAppel): Promise<unknown> => {
     const op = first(a["action"], a["op"]);
     if (!op)
       return errPw("action_required", "", {
@@ -88,7 +121,7 @@ export function pwMemory(s: ServicesBrowser) {
         "backend.ax_memory failed to import in this process — check server logs for [ax] lines",
       );
     try {
-      return await interroger(ax, op, a, username);
+      return await interroger(ax, op, a);
     } catch (e) {
       return errPw(`ax memory query failed: ${messageErreur(e)}`);
     }

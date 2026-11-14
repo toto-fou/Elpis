@@ -99,6 +99,14 @@ export interface RagSlash {
   lancer(raw: string): Promise<ResultatCommande>;
 }
 
+/** Commande `/secret` : secrets attachés à la conversation, sous-commandes et noms des menus (features/secrets/chat.ts). */
+export interface SecretSlash {
+  disponible(): boolean;
+  valeurs(avant: readonly string[]): readonly ValeurArgument[];
+  actualiser(): void;
+  lancer(raw: string): Promise<ResultatCommande>;
+}
+
 /** Commande `/agents` : page Agents, sous-agents du compte activés ou non. */
 export interface AgentsSlash {
   disponible(): boolean;
@@ -120,6 +128,7 @@ export interface CtxSlash {
   ouvrirAssistant?: (id: string, pre?: Record<string, string>) => unknown;
   jobs?: JobsSlash;
   rag?: RagSlash | null;
+  secrets?: SecretSlash | null;
   agents?: AgentsSlash | null;
 }
 
@@ -178,6 +187,7 @@ export const SETTINGS_TABS: readonly ValeurArgument[] = [
   { value: "archives", label: "Archives" },
   { value: "sandbox", label: "Sandbox" },
   { value: "connectors", label: "Connecteurs" },
+  { value: "secrets", label: "Secrets" },
 ];
 
 // Tables littérales : une classe d'icône composée à la volée serait absente de la feuille générée.
@@ -425,6 +435,37 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
         ((mots[0] === "use" || mots[0] === "add") && mots.length >= 2),
       hidden: () => !ctx.rag || !ctx.rag.disponible(),
       run: async (_a, raw) => (ctx.rag ? ctx.rag.lancer(raw) : { ok: false, msg: "RAG indisponible." }),
+    },
+    {
+      name: "secret",
+      label: "Secrets",
+      icon: "ph-key",
+      desc: "Secrets de la conversation : /secret, attach <name>…, detach <name>|--all",
+      args: [
+        {
+          name: "action",
+          label: "action",
+          ordreDonne: true,
+          titre: () => "Secrets",
+          get values(): ValeurArgument[] {
+            return [...(ctx.secrets?.valeurs([]) ?? [])];
+          },
+        },
+        {
+          name: "name",
+          label: "name",
+          values: [],
+          ordreDonne: true,
+          titre: (avant) => (avant[0] === "detach" ? "Secrets attachés" : "Secrets à attacher"),
+          valuesFor: (avant) => [...(ctx.secrets?.valeurs(avant) ?? [])],
+        },
+      ],
+      // « /secret » seul liste ; attach et detach attendent un nom (ou --all).
+      sansArgument: [],
+      complet: (mots) => (mots[0] === "attach" || mots[0] === "detach") && mots.length >= 2,
+      hidden: () => !ctx.secrets || !ctx.secrets.disponible(),
+      run: async (_a, raw) =>
+        ctx.secrets ? ctx.secrets.lancer(raw) : { ok: false, msg: "Secrets indisponibles." },
     },
     {
       name: "agents",
@@ -804,6 +845,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     }
     if ((cmd.args || []).length) {
       if (cmd.name === "template" && templates) await templates.loadTemplates();
+      if (cmd.name === "secret") ctx.secrets?.actualiser();
       remplacer(slashRaw.value, "/" + cmd.name + " ");
       void nextTick(rafraichir);
       return;
@@ -912,6 +954,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (c.head && "jobs".startsWith(String(c.name || "").toLowerCase()) && String(c.name || "").length >= 2)
       ctx.jobs?.actualiser();
     if (c.head && c.name.toLowerCase() === "rag") ctx.rag?.actualiser();
+    if (c.head && c.name.toLowerCase() === "secret") ctx.secrets?.actualiser();
     if (
       templates &&
       c.head &&

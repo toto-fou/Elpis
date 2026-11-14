@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/mcp/src/pool.ts — pool unique du process : connexions MCP persistantes, cache des outils, concurrence par entrée et par compte, reconnexion sans rejeu d'un outil qui a peut-être agi. */
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import {
   comparePointsDeCode,
@@ -169,6 +169,8 @@ export function estErreurTransport(e: unknown): boolean {
 
 interface Entree {
   key: string;
+  /** Nom et type du serveur, pour le journal (la clé n'y est jamais écrite). */
+  libelle: string;
   client: ClientMcp;
   tools: OutilMcp[];
   toolsFetchedAt: number;
@@ -220,6 +222,15 @@ function sha256Hex(texte: string): string {
   return createHash("sha256").update(texte, "utf8").digest("hex");
 }
 
+/** Clé tirée au démarrage du process : une empreinte ou une clé de pool vue ailleurs ne permet pas d'éprouver un jeton. */
+const CLE_EMPREINTE = randomBytes(32);
+
+function hmacHex(texte: string): string {
+  if (!texte.isWellFormed())
+    throw new ErreurPython("ValueError", "'utf-8' codec can't encode character: surrogates not allowed");
+  return createHmac("sha256", CLE_EMPREINTE).update(texte, "utf8").digest("hex");
+}
+
 /** `sorted(liste)` : textes par points de code, nombres par valeur ; types mêlés → TypeError. */
 function trierPy(v: unknown): unknown[] {
   if (!Array.isArray(v)) {
@@ -234,7 +245,7 @@ function trierPy(v: unknown): unknown[] {
   throw new ErreurPython("TypeError", "'<' not supported between instances");
 }
 
-/** Empreinte stable des éléments d'auth (en-têtes, authorization, basic_auth, env) : deux identités distinctes, deux entrées. */
+/** Empreinte des éléments d'auth (en-têtes, authorization, basic_auth, env), stable dans le process (HMAC à clé propre au process) : deux identités distinctes, deux entrées. */
 export function authFingerprint(cfg: ConfigMcp): string {
   const materiau = {
     headers: lire(cfg, "headers") ?? null,
@@ -242,7 +253,7 @@ export function authFingerprint(cfg: ConfigMcp): string {
     basic_auth: lire(cfg, "basic_auth") ?? null,
     env: lire(cfg, "env") ?? null,
   };
-  return sha256Hex(pyJsonDumps(materiau, { sortKeys: true })).slice(0, 12);
+  return hmacHex(pyJsonDumps(materiau, { sortKeys: true })).slice(0, 12);
 }
 
 /** Clé de pool d'une config : une entrée par entrée de manifeste intégrée, sinon type + adresse + empreinte d'auth (+ confiance). */
@@ -402,11 +413,11 @@ export class PoolMcp {
             entree.tools = await entree.client.listerOutils(borne.signal);
             entree.toolsFetchedAt = maintenant();
             if (partielle && entree.persistent) this.ingerer(entree.tools, key);
-            log().info(`Outils rafraîchis pour '${nomCfg(cfg, key)}' (${entree.tools.length} outils)`);
+            log().info(`Outils rafraîchis pour '${nomCfg(cfg, "?")}' (${entree.tools.length} outils)`);
             return [entree.client, entree.tools];
           } catch (e) {
             if (signal?.aborted) throw raisonAnnulation(signal);
-            log().warn(`Échec rafraîchissement outils '${nomCfg(cfg, key)}': ${messageErreur(e)}`);
+            log().warn(`Échec rafraîchissement outils '${nomCfg(cfg, "?")}': ${messageErreur(e)}`);
             entree.healthy = false;
           } finally {
             borne.liberer();
@@ -433,7 +444,7 @@ export class PoolMcp {
   async callTool(cfg: ConfigMcp, toolName: string, args: Dict, options: OptionsAppel = {}): Promise<unknown> {
     const key = makeKey(cfg);
     const { signal, queueTimeoutS } = options;
-    const nom = nomCfg(cfg, key);
+    const nom = nomCfg(cfg, "?");
     const utilisateur = utilisateurDuMeta(options.meta);
     let entree = this.pool.get(key);
     if (entree === undefined || !entree.healthy) {
@@ -697,8 +708,10 @@ export class PoolMcp {
     const t = maintenant();
     const integree = estConfigIntegree(cfg);
     const conc = client.correle ? Math.max(1, Math.trunc(this.options.parallelisme())) : 1;
+    const libelle = `'${nomCfg(cfg, "?")}' (${strPy(Object.hasOwn(cfg, "type") ? cfg["type"] : "sse")})`;
     this.pool.set(key, {
       key,
+      libelle,
       client,
       tools: outils,
       toolsFetchedAt: t,
@@ -712,9 +725,7 @@ export class PoolMcp {
       persistent: integree,
     });
     if (integree) this.ingerer(outils, key);
-    log().info(
-      `Connecté '${nomCfg(cfg, "?")}' en ${Math.round((t - t0) * 1000)}ms (${outils.length} outils). Clé=${key}`,
-    );
+    log().info(`Connecté ${libelle} en ${Math.round((t - t0) * 1000)}ms (${outils.length} outils).`);
     return [client, outils];
   }
 
@@ -731,7 +742,7 @@ export class PoolMcp {
         const actuelle = this.pool.get(key);
         if (actuelle !== undefined && actuelle !== tombee && actuelle.healthy) {
           log().info(
-            `'${nomCfg(cfg, key)}' a déjà été reconnecté par un autre appel — on se rattache à l'entrée saine au lieu de la remplacer.`,
+            `'${nomCfg(cfg, "?")}' a déjà été reconnecté par un autre appel — on se rattache à l'entrée saine au lieu de la remplacer.`,
           );
           return [actuelle.client, actuelle.tools];
         }
@@ -775,29 +786,29 @@ export class PoolMcp {
     const entree = this.pool.get(key);
     if (entree === undefined) return;
     this.pool.delete(key);
-    const fermeture = this.drainerEtFermer(key, entree);
+    const fermeture = this.drainerEtFermer(entree);
     this.fermetures.add(fermeture);
     void fermeture.finally(() => this.fermetures.delete(fermeture)).catch(() => undefined);
     await course(fermeture, signal);
   }
 
-  private async drainerEtFermer(key: string, entree: Entree): Promise<void> {
+  private async drainerEtFermer(entree: Entree): Promise<void> {
     const pris = await this.exclusivite(entree, this.drainageS);
     if (pris === null) {
       log().warn(
-        `Fermeture forcée de ${key} après timeout — un call_tool était bloqué. Le subprocess sera tué.`,
+        `Fermeture forcée de ${entree.libelle} après timeout — un call_tool était bloqué. Le subprocess sera tué.`,
       );
       try {
         await entree.client.fermer();
       } catch (e) {
-        log().debug(`Erreur fermeture forcée ${key}: ${messageErreur(e)}`);
+        log().debug(`Erreur fermeture forcée ${entree.libelle}: ${messageErreur(e)}`);
       }
       return;
     }
     try {
       await entree.client.fermer();
     } catch (e) {
-      log().debug(`Erreur fermeture ${key}: ${messageErreur(e)}`);
+      log().debug(`Erreur fermeture ${entree.libelle}: ${messageErreur(e)}`);
     } finally {
       this.rendreExclusivite(entree, pris);
     }
@@ -842,7 +853,7 @@ export class PoolMcp {
     );
     for (const [key, entree] of candidates) {
       if (occupee(entree)) {
-        log().debug(`Skip cleanup de ${key} : connexion en usage`);
+        log().debug(`Skip cleanup de ${entree.libelle} : connexion en usage`);
         continue;
       }
       let pris: number | null = null;
@@ -855,11 +866,11 @@ export class PoolMcp {
           return exclusif;
         });
         if (pris === null) continue;
-        log().info(`Fermeture connexion inactive: ${key}`);
+        log().info(`Fermeture connexion inactive: ${entree.libelle}`);
         try {
           await entree.client.fermer();
         } catch (e) {
-          log().debug(`Erreur fermeture ${key}: ${messageErreur(e)}`);
+          log().debug(`Erreur fermeture ${entree.libelle}: ${messageErreur(e)}`);
         }
       } finally {
         this.rendreExclusivite(entree, pris);

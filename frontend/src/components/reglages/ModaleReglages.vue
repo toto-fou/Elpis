@@ -1,7 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/ModaleReglages.vue — gabarit migré de includes/modals/settings.html. -->
 <script setup lang="ts">
+import { computed, watchEffect } from "vue";
+
 import { domaineReglages } from "../../features/reglages/domaine";
+import { ANCIENS_ONGLETS } from "../../features/reglages/rail";
+import { sectionCourante } from "../../features/reglages/sections";
 import RecadrageImage from "../communs/RecadrageImage.vue";
 import OngletSkills from "../skills/OngletSkills.vue";
 import OngletApparence from "./onglets/OngletApparence.vue";
@@ -16,11 +20,21 @@ import OngletModelesIA from "./onglets/OngletModelesIA.vue";
 import OngletProfil from "./onglets/OngletProfil.vue";
 import OngletPrompts from "./onglets/OngletPrompts.vue";
 import OngletSandbox from "./onglets/OngletSandbox.vue";
+import OngletSecrets from "./onglets/OngletSecrets.vue";
 import OngletUtilisation from "./onglets/OngletUtilisation.vue";
 import RailParametres from "./RailParametres.vue";
 import SousMenuReglages from "./SousMenuReglages.vue";
 
 const rg = domaineReglages();
+const section = computed(() => (rg.settingsTab === "secrets" ? sectionCourante(rg, "secrets") : null));
+
+// Un ancien identifiant d'onglet posé directement mène à sa nouvelle section.
+watchEffect(() => {
+  const ancien = ANCIENS_ONGLETS[rg.settingsTab];
+  if (!ancien) return;
+  rg.settingsTab = ancien.onglet;
+  rg.settingsSections[ancien.onglet] = ancien.section;
+});
 </script>
 
 <template>
@@ -91,7 +105,9 @@ const rg = domaineReglages();
 
               <OngletMemoire v-if="rg.settingsTab === 'memory'" />
 
-              <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
+              <OngletConnexions v-if="rg.settingsTab === 'secrets' && section?.id === 'jetons'" />
+
+              <OngletSecrets v-if="rg.settingsTab === 'secrets' && section?.id !== 'jetons'" />
 
               <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
 

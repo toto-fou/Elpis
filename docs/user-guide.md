@@ -35,6 +35,7 @@
   - [Dictating and listening to replies](#dictating-and-listening-to-replies)
   - [`@file` mentions](#file-mentions)
   - [Slash commands (`/`)](#slash-commands-)
+  - [Logging in to websites](#logging-in-to-websites)
   - [Attachments and images](#attachments-and-images)
   - [Generating images](#generating-images)
   - [Streaming, stop, resume, regenerate](#streaming-stop-resume-regenerate)
@@ -503,8 +504,8 @@ tools; under each group of the Permissions tab, a line says what the selected op
 **Publishing a branch.** `git_submit` (push the branch and open the merge
 request) is visible outside your machine: no agent calls it. The `pr` agent
 prepares the branch and the commit, then hands back the exact call; the assistant
-runs it, in the chat, where you see it. Likewise, no agent saves a Git
-credential (`git_set_credential`): it is stored with your account, outside the sandbox.
+runs it, in the chat, where you see it. No agent, and not the assistant either, ever
+receives a Git token: you add it yourself in Settings → Git accounts.
 
 **Several agents at once.** The agents that a single message launches start together,
 within the limit set by the administrator. The harness does not order them: the
@@ -765,9 +766,67 @@ Type `/` at the start of the input:
 | `/image [16:9] [x2] description` | Generate an image directly, without opening Images mode |
 | `/routine [goal]` | Open the routine creation assistant (scoping, then an interview in the chat) |
 | `/rag …` | The chat's document collections: see [In the chat](#in-the-chat) |
+| `/secret …` | Logins the assistant may use in this conversation: see [Logging in to websites](#logging-in-to-websites) |
 
 If your input matches no command, the menu switches
 automatically to skill search.
+
+### Logging in to websites
+
+The assistant can log in to a website for you without ever seeing the password. You keep the
+login in your **vault** ([Settings › Secrets](#secrets)): a name such as `intranet-admin`, its type
+(`web-login` for a login form, `http-auth` for a browser password prompt), the exact addresses
+where it may be used (for example `https://intranet.example.lan:8443`, plus the address of the
+sign-in page when it lives elsewhere), the user name and the password. The password can be
+written, never read back.
+
+A secret is used only in a conversation you attach it to:
+
+| Command | Effect |
+|---|---|
+| `/secret` | Lists the secrets attached to this conversation, then the ones you can attach |
+| `/secret attach <name>…` | Attaches one or more secrets; a chip `secret:<name>` stays above the input |
+| `/secret detach <name>` or `--all` | Detaches them; the × of a chip detaches that secret |
+
+The menu completes the sub-commands and the names: `attach` offers your verified `web-login` and
+`http-auth` secrets that are not attached yet, `detach` offers `--all` then the attached ones.
+Only these two types attach, and an imported secret must first be checked (**Verify** in
+Settings › Secrets); a refusal is shown in one line. In an existing conversation the attachment
+is saved at once; in a new conversation the chips wait in the composer and are saved with your
+first message, before the assistant starts working. Opening a conversation shows its chips
+again. The subagents of the conversation inherit the attachment unless the secret's policy says
+otherwise; routines use a secret only when its policy allows routines.
+
+**What the assistant sees.** With your next message it receives a short list, never a value:
+
+```
+<secrets selection="…">
+Secrets the user attached to this conversation and its sub-agents, from this message on. Values are never shown to you: never ask the user for a password.
+- intranet-admin  web-login  https://intranet.example.lan:8443  user=admin
+…
+</secrets>
+```
+
+When it opens a page on one of these addresses, the browser opens a session for that secret, with
+the certificate check of the secret (verified unless you allowed otherwise); an `http-auth` secret is
+applied at once, and that session cannot be recorded (HAR or trace). Otherwise the session is an
+ordinary one: the assistant keeps all its testing tools there (scripts, mocks, recorder, exports).
+For a login form it calls `pw_login`, the only protected step: the browser, in your sandbox,
+reloads the login page, sets the assistant's mocks aside, checks the form, types the user name and
+a one-time placeholder, submits, then reopens the page in a new tab. Elpis replaces the placeholder
+with the password only on its way to the secret's own site, outside your sandbox. The assistant
+only learns whether the login worked; the password never enters your sandbox and stays out of the
+assistant's view, of recordings and of the network log. A form placed inside another site's frame
+is refused. If the site itself shows the password back on a
+page after the login, that page is the site's content: the assistant can read it like any other. A
+session serves one secret: the assistant goes back to it for that secret instead of opening new
+ones. If a page asks for a login that is not attached, the assistant asks you to attach one with
+`/secret attach <name>`, or to give the credentials in the chat if they are only test data (they then
+stay in plain text in the chat history). Each use is written to the security journal.
+
+Logins that the browser used to remember by itself (before the vault) are moved into it at the
+update, as **unverified** secrets named after their site: check them in Settings › Secrets before
+attaching them.
 
 ### Attachments and images
 
@@ -1332,12 +1391,21 @@ GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 
 - Just paste a repository URL: the service and host are detected.
 - **Test connection** validates the token and lists the accessible repositories.
-- The token is stored **on the server side only** — never written to your
-  sandbox, never sent back to your browser.
+- The token is stored **encrypted in the server's secrets vault** — never written
+  to your sandbox, never sent back to your browser, never shown to the assistant.
+  Leave the field empty when editing an account to keep the current token.
+  Changing the host, the service type or the API address without entering a
+  token clears the token: enter it again for the new address.
+- A token imported from an old `.git-credentials.json` file of your sandbox is
+  not used until you verify it in Settings › Secrets (the assistant could have
+  written that file).
+- An account whose token can no longer be read (for example after a change of
+  the server's key) shows no token: enter it again.
 
 These accounts feed the editor's Git panel and the assistant's Git tools:
 a `git clone` on a private host works without you
-typing credentials.
+typing credentials. The assistant cannot receive a token in the chat: when a
+repository needs credentials, it asks you to add a Git account here.
 
 [↑ Contents](#contents)
 
@@ -1426,6 +1494,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | **Skills** | *Global*: the instance library and its drafts. *Personal*: your own procedures |
 | **Archives** | Your archived conversations: restore or delete |
 | **Sandbox** | Container state, network profile, restart, emptying the working folder |
+| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets) |
 | **Git accounts** | Your access to Git hosts |
 
 Tabs with a lot of content are split into parts, in a strip at the top of the content; the modal returns to the last part
@@ -1446,6 +1515,33 @@ already exists, Elpis offers to replace it. In the *My skins* list, **Preview** 
 removes the skin after confirmation. The section disappears if the administrator has turned the feature off (Admin console › Appearance).
 
 Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
+
+### Secrets
+
+Settings › **Secrets** lists the vault of your account in one table: `name`, `type`, `scope`,
+`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user` and `tls` show
+under the name and the usage columns move to its tooltip). An imported secret is marked
+`unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
+it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no
+API returns them, and the model never reads them. The value fields are masked, cannot be copied
+and are left out of the browser's password manager.
+
+- **New** creates a `web-login`, `http-auth` or `token` secret. The name is a slug
+  (`[a-z0-9][a-z0-9._-]{0,47}`, checked as you type); the scope lists exact origins,
+  `scheme://host[:port]`, one per line (a token has none); `tls` is `strict` unless you choose
+  `insecure`; the policy says whether the subagents and the routines may use it.
+- The **⋯** menu of a row offers **Rotation** (a new value, `version` + 1), **Edit** (an empty value
+  keeps the current one; adding an origin or switching to `tls insecure` requires the value
+  again), **Verify** for any imported secret, `git` included (read its scope, then it becomes
+  `active`) and **Delete**, confirmed by clicking the same button a second time. Escape closes the
+  menu, then the panel, then the form, and asks before discarding what you typed.
+- Secrets of a connector are listed but managed where they are created: `git` and `llm` secrets
+  offer **Rotation** and a link to Git accounts or AI models; `mcp` secrets are read-only here
+  (their value holds the server's authentication, headers and variables) and link to the MCP
+  servers panel.
+
+The secrets of the instance (shared LLM connectors and MCP servers, image engine) are in the
+[admin console](#admin-console), *Models & services › Secrets*.
 
 The personal system prompt is **permanent** (it applies to all your
 conversations); generation settings, on the other hand, apply only to the
@@ -1473,7 +1569,7 @@ in local time; hover one for the exact UTC time. Old links (`#runs`, `#tool-call
 |---|---|
 | **Overview** | Landing page: what needs attention (*To review*), service status, last 24 hours, installation |
 | **Monitoring** | **Metrics** (widgets of your choice, visible automatic refresh, CSV export, Prometheus collection), **Report** (archived daily digest, A4 preview before printing, charts shown or removed), **Activity** (*Runs* and *Tool calls* tabs: search, sort, pagination with the total, error filters, clickable `run_id`), **Logs** (*Technical* tab: dated, filterable history, then live stream; *Security* tab: the security journal, administrators only) |
-| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly) |
+| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly), **Secrets** (secrets of the instance: rotation, except `mcp`; the keys of shared connectors and of the image engine are deleted from their own page, the others with a confirmation in place) |
 | **Users & access** | **Accounts** (role, groups, allowed servers and models, sandbox quota and network profile, machines), **Groups**, **Default permissions** (features, providers allowed to users), **Passwords & sessions** (password policy, cookie, session revocation) |
 | **Sandbox** | **Limits & policy** (memory, CPU, processes, command duration, idle shutdown), **Network** (profiles), **Tool hosts**, **Containers** |
 | **System** | **Instance** (identity, welcome screen, sign-in page, runtime), **Appearance** (skins offered), **HTTPS access**, **Data** (local and remote backup, database, restore), **Logging** (retention and hold of the security journal, forwarding through the host's syslog), **Maintenance** (periodic maintenance, restart, metrics purge) |

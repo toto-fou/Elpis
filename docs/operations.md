@@ -46,7 +46,7 @@ mounted ISO image). Node.js is not listed: it ships with Elpis. The commands,
 for a manual installation (`--no-apt`), with Debian 13 names:
 
 ```bash
-# base: Python and its venv, downloads, certificates, git updates, bubblewrap jail
+# socle: Python and its venv, downloads, certificates, git updates, bubblewrap jail
 sudo apt install --no-install-recommends python3 python3-venv git curl \
     ca-certificates openssl bubblewrap
 # sandbox: Docker for the users' sandbox (terminal, code execution)
@@ -56,14 +56,6 @@ sudo apt install --no-install-recommends \
     libreoffice-writer-nogui libreoffice-calc-nogui libreoffice-impress-nogui \
     fonts-dejavu fonts-liberation fonts-crosextra-carlito \
     fonts-crosextra-caladea
-# navigateur: Chromium libraries for the browser service (Playwright 1.64 list)
-sudo apt install --no-install-recommends xvfb fonts-noto-color-emoji \
-    fonts-unifont libfontconfig1 libfreetype6 xfonts-scalable fonts-liberation \
-    fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
-    fonts-freefont-ttf libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 \
-    libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 libdrm2 libgbm1 \
-    libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libx11-6 libxcb1 \
-    libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2
 # https: Caddy front end (local certificate or Let's Encrypt)
 sudo apt install --no-install-recommends caddy
 # postgresql-local: PostgreSQL server on this machine (--db postgres-local)
@@ -80,6 +72,11 @@ Debian 12, without the `t64` suffix); Caddy comes from main on Debian 12 and
 13, from universe on Ubuntu 24.04. Elsewhere, `install.sh` and `./elpis doctor`
 handle only the base: install the equivalent of the file, then run
 `./install.sh --skip-system`.
+
+The browser needs no apt package on the host: the Chromium headless shell only
+runs inside the sandboxes, whose image carries its libraries and fonts. An
+installation made before keeps the packages of the former `navigateur` group:
+nothing is removed.
 
 `./install.sh --dry-run` prints what the installation would do on this
 machine, without prompts (default answers and command-line options), without
@@ -111,7 +108,8 @@ git archive --format=tar.gz -o elpis-<version>.tar.gz <tag>
 ```
 
 `make_release.sh` writes `dist/elpis-offline-<version>-<arch>.tar`: Python
-wheels, Qdrant, sandbox image, browser (without the OS packages, which
+wheels, Qdrant, sandbox image, browser (npm dependencies, the Chromium
+headless shell and ffmpeg, about 120 MB; without the OS packages, which
 `install.sh` takes through apt from the LAN mirror, Caddy included), and for
 the core:
 
@@ -377,10 +375,14 @@ version:
 - Without a `security.listen` setting (configuration from before this
   setting), the application stays open to the network, as before;
   `./elpis configure --listen local` restricts it to this machine.
-- Browser states saved before 0.0.1 (`browser-service/cookies/state_<id>.json`)
-  belong to no account: they are never reloaded and never purged (they keep
-  session cookies). The browser service reports them at startup; delete them by
-  hand (`rm browser-service/cookies/state_<id>.json`).
+- The browser only runs in the sandboxes now. What the former central browser
+  service left (its data in `user_db/browser/` or in folders of
+  `browser-service/` such as `cookies/`, the token
+  `user_db/.browser_service_token`, the packages of the former `navigateur` apt
+  group) is no longer used and stays in place: delete it by hand if you wish
+  (saved states keep session cookies). Run `sudo ./elpis service install` once
+  after the upgrade: it removes the old `elpis-browser` unit, which would
+  otherwise keep restarting (the service no longer starts outside a sandbox).
 
 ## Rolling back
 
@@ -498,7 +500,8 @@ therefore needs the core bundle, which `./install.sh` builds before configuring.
 | Admin console › System › Data › Restore | full archive or by scope |
 
 The full archive contains the database (SQLite snapshot, whatever the engine),
-`user_db/` (including the encryption key and the session secret: protect them
+`user_db/` (including the encryption key, the session secret and, while no vault
+key is set up, the fallback key of the secrets vault: protect them
 accordingly, and the RAG store `user_db/rag`: uploaded documents and extracted
 texts), the sandboxes, the MCP servers, the skins, the personal skills
 store and the security journal (`audit/`, see
@@ -506,6 +509,8 @@ store and the security journal (`audit/`, see
 listed in `backup-warnings.txt`.
 
 Not included, to be backed up separately: `config.json`, `.env`, `mcp.json`,
+the key of the secrets vault (`/etc/elpis/vault.key`, see
+[Secrets vault key](#secrets-vault-key)),
 the browser's saved states (`browser-service/cookies/`), a RAG store placed
 outside `user_db/` (`rag.store_dir`); what is specific to the machine
 (`.db_password`, state of a database switch); logs, PID files and the
@@ -531,7 +536,7 @@ disappeared, and can be deleted with services stopped (like the
 | Command | Role |
 |---|---|
 | `./elpis status` | services and ports |
-| `./elpis doctor` | full diagnostic (dependencies, the core's Node.js, built bundle, up to date with the sources and native module loaded, database as seen by the core, certificate authorities, Docker, sandbox image, bubblewrap, HTTPS, LLM engine probed with its key, recommended launch flags for vLLM and SGLang, the core's last engine probe if `main` is running, RAG: extractor and its isolation, shared store and token, Qdrant, embeddings, OCR, browser states to attach); optional items are reported without counting as a problem |
+| `./elpis doctor` | full diagnostic (dependencies, the core's Node.js, built bundle, up to date with the sources and native module loaded, database as seen by the core, certificate authorities, Docker, sandbox image, bubblewrap, HTTPS, LLM engine probed with its key, recommended launch flags for vLLM and SGLang, the core's last engine probe if `main` is running, RAG: extractor and its isolation, shared store and token, Qdrant, embeddings, OCR, browser states to attach, security journal, key of the secrets vault); optional items are reported without counting as a problem |
 | `./elpis logs [service] [-f]` | logs (`qdrant`, `rag`, `toolhost`, `main`, `admin`, `browser`) |
 | `GET /api/admin/metrics/prometheus` | Prometheus metrics (admin process, :8002): admin session or collection token |
 
@@ -670,6 +675,190 @@ rsyslog account: that is what `audit setup` does.
 For sending the security journal, the access log and the services' output to a collector (mutual
 TLS, disk queues, what can still be lost), follow
 [deploy/rsyslog/README.md](../deploy/rsyslog/README.md).
+
+## Secrets vault key
+
+Secrets saved in Elpis (website logins, HTTP authentication, Git, LLM and MCP keys, tokens) are
+rows of the `vault_secrets` table. Each value is encrypted with AES-256-GCM and bound to its owner,
+kind, name and to the columns that decide its use (scope, policy, state, version, user name): a
+row changed directly in the database no longer decrypts. The secrets of routine webhooks are
+encrypted with the same key, in their routine's row; `status` and `rekey` include them. The key is
+never in the database; the services take the first of:
+
+1. `ELPIS_VAULT_KEY` (environment): avoid it, prefer the key file (see
+   [configuration.md](configuration.md#secrets-vault));
+2. `/etc/elpis/vault.key` (or `ELPIS_VAULT_KEY_PATH`);
+3. `user_db/.vault.key`, a fallback created next to the database when the first secret is saved,
+   and only while the vault is empty.
+
+Only `main` and `admin` can read the key: the other units neither receive the variables nor see
+the key files.
+
+Each encrypted value carries the `kid` of its key (first 8 hexadecimal digits of the SHA-256 of
+the key), so a key change is detected and repaired with `rekey`. Variables:
+[configuration.md](configuration.md#secrets-vault).
+
+### Setting up the key
+
+```bash
+sudo ./elpis vault setup
+sudo systemctl restart elpis.target    # or ./elpis restart
+```
+
+It creates `/etc/elpis/vault.key`: 32 random bytes in base64, mode 0440, owned by root and by the
+key group of the security journal (the service account's own primary group, or `elpis-cle`), in
+`/etc/elpis` (0750). The service account is found as for `audit setup`. Safe to run again: an
+existing key is kept, never replaced, and its owner and mode are applied again. The key is checked
+by the core itself, with the rule the services apply (canonical base64 or 64 hexadecimal digits,
+32 bytes, not a single repeated byte): an invalid key is refused and left as it is. The command
+therefore needs the core bundle (`./install.sh`). The services read the key when they start, and
+`sudo ./elpis service install` hides it from the units other than `main` and `admin`.
+
+If secrets were saved before, under the fallback key, re-encrypt them once the services have
+restarted, then delete the fallback:
+
+```bash
+./elpis vault rekey --from user_db/.vault.key
+./elpis vault status          # exit code 0: every secret uses the current key
+rm user_db/.vault.key
+```
+
+### Updating: connector and image engine keys
+
+From the version that adds migration `0028_vault_llm_images`, the API keys of the LLM connectors
+and of the image engine live in the vault. At the first start of `main` (admin, the tool host and
+the commands leave it to `main`), the migration moves them there and the log says how many
+(`migration 0028_vault_llm_images : …`).
+Set the key up **before** that restart (`sudo ./elpis vault setup`), so that they go under
+`/etc/elpis/vault.key` rather than the fallback key. Then:
+
+- `./elpis secret ls` lists them: `llm-<provider>-<id>` (an account's, or the instance's for a
+  shared connector) and `image-engine`;
+- a key that the current encryption key could not decrypt is kept and logged as a warning; the
+  console shows "clé à ressaisir" on the connector: enter the key again, or restore the former
+  `APP_ENCRYPTION_KEY` / `user_db/.encryption_key` and restart. Without any encryption key, none
+  is created: the Fernet keys wait as they are and move at a start where the key is back;
+- if the vault key cannot be read, the migration fails (error in the log, `./elpis doctor`
+  lists it as pending) and nothing changes until a restart with a readable key;
+- the secrets it creates are reported in that startup log and written to the security journal
+  (`vault.secret.created`);
+- `main` then compacts the database once (`VACUUM` on SQLite, `VACUUM FULL` of the connectors
+  table on PostgreSQL; a failure is logged as a warning and does not stop the start);
+- at the next starts, `main` retries what is left (kept keys, MCP values not moved yet, former AX
+  credentials) under the schema lock, writes nothing when nothing is left, and compacts again only
+  after a retry that removed old values;
+- **rotate the provider keys afterwards** (in the provider's console, then in Administration ›
+  Connexions and Images): the backups taken before the update still hold the old keys, encrypted
+  with the Fernet key, which they or the machine may also hold. The update removes them from the
+  database file (`secure_delete` and the compaction), from `config.json` and from
+  `config.json.bak`.
+
+Going back to an earlier version is not supported. A key that an earlier version writes again is
+compared with the vault at the next start of `main`: the vault value is kept, the other removed,
+and a warning is logged when they differ.
+
+### Backing up the key
+
+Backups (`./elpis backup`, the console) contain the database, so the encrypted secrets, but not
+`/etc/elpis/vault.key`. **Back the key up separately, off the machine** (offline medium,
+administrators' password manager): without it, the secrets cannot be decrypted and must be
+entered again. Keep it away from the backups: whoever holds a backup and the key can read every
+secret. The fallback `user_db/.vault.key` is inside the backups, which is why `./elpis doctor`
+warns while it is in use.
+
+### Changing the key
+
+1. Keep a copy of the old key, readable by the service account (`rekey` runs under it), for
+   example `sudo install -m 0400 -o <account> /etc/elpis/vault.key /home/<account>/vault.key.old`.
+2. Remove `/etc/elpis/vault.key` (`setup` never replaces it), run `sudo ./elpis vault setup`
+   (or set `ELPIS_VAULT_KEY`) and restart the services. Until the next step, the secrets of the old
+   key are refused (`secret_undecryptable`).
+3. `./elpis vault rekey --from /home/<account>/vault.key.old` re-encrypts, one by one, the
+   secrets of the old key with the current one. A secret changed meanwhile is left for the next
+   run. The command is written to the security journal (`vault.key.rekeyed`, outcome `failure`
+   for any exit code other than 0). Exit codes:
+
+   | Code | Meaning |
+   |---|---|
+   | 0 | No secret is left under another key than the current one |
+   | 1 | At least one secret of the old key could not be re-encrypted (altered, or a column changed in the database) |
+   | 2 | Bad command line, old key missing or invalid, no current key |
+   | 3 | Nothing altered, but secrets remain under another key: a third key, or secrets changed during the run (run it again, then `./elpis vault status`) |
+
+4. `./elpis vault status` reports no secret under another key: destroy the old copy.
+
+A relative `--from` path is read from the Elpis folder.
+
+### Commands
+
+| Command | Role |
+|---|---|
+| `sudo ./elpis vault setup` | Creates the key (above) |
+| `./elpis vault status` | Source and `kid` of the key, number of secrets (accounts, instance), secrets under another key. Exit code 0 when the key is readable and every secret uses it, 1 otherwise |
+| `./elpis vault rekey --from FILE` | Re-encrypts the secrets of an old key with the current one |
+| `./elpis secret ls [--user ACCOUNT]` | Metadata of the secrets: owner, name, kind, scope, user name, state, version, uses, last use, key. Never a value |
+
+They use the core bundle and the database. Run them as the service account; with `sudo`, they
+switch to it, so that root never creates database files.
+
+### Losing the key
+
+When `/etc/elpis/vault.key` disappears while secrets exist, the services cannot read them (after
+a restart), and saving a secret is refused (`secret_key_unavailable`): no new fallback key is
+created, since secrets encrypted with it would hide the problem. `./elpis doctor` and
+`./elpis vault status` say so. Restore the key from its copy and restart the services. Without a
+copy, run `sudo ./elpis vault setup`, then give each secret its value again (rotation).
+
+### What `./elpis doctor` checks
+
+- `/etc/elpis/vault.key`: 0440, root, group of the service account alone, readable by it. Run
+  under the service account, a session opened before the account joined that group cannot read it
+  (the services started from it could not open the vault): the doctor says so, as for the key of
+  the security journal;
+- the key in use, as the core sees it: a warning for the fallback `user_db/.vault.key`, for a key
+  that cannot be read or is invalid, for secrets encrypted with another key
+  (`./elpis vault rekey`), and for secrets left without any key (restore it).
+
+## Browser in the sandbox
+
+The browser runs only inside each account's sandbox (see `docs/configuration.md`, "Controlled
+browser"); there is no browser service on the host. It needs:
+
+1. Docker and the image `elpis/sandbox:1.8.0`: `./install.sh --sandbox build` (or
+   `deploy/docker/sandbox/build_offline.sh`, which builds 1.7.0 then the browser layer of
+   `deploy/docker/sandbox-browser/`); offline, `deploy/docker/sandbox/load_image.sh
+   elpis-sandbox-1.8.0.tar.gz`. Existing containers are recreated on it at their next use
+   (`/work` is kept), and once more when the browser is installed after them (its mounts).
+2. The browser installed (`./install.sh --with-browser`): `browser-service/` and its
+   `node_modules`, the Node runtime and the Playwright cache (Chromium headless shell), mounted
+   read-only in the sandboxes and readable by the sandbox UID 10001 (the code of
+   `browser-service/`: `*.js`, `package.json`; nothing else of the folder is mounted;
+   `chmod o+rx browser-service/node_modules` if npm created it 0700).
+3. Preferably two CPUs per sandbox (`"executors": {"limits": {"cpu_quota_pct": 200}}`):
+   Chromium shares the sandbox's CPU quota, and at the default 100 % the step screenshot of a
+   heavy page misses its 3 s delay on about 5 % of actions (none at 200 %; `./elpis doctor`
+   warns).
+
+Without one of them the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its
+fix. `browser.mode` and `browser.sandbox_users` from earlier versions are ignored.
+
+**Relay CA.** `user_db/browser-relay-ca/` (or `ELPIS_BROWSER_CA_DIR`): `ca.key` (ECDSA P-256,
+0600, never copied into a sandbox) and `ca.crt` (365 days). Only the certificate goes to the
+sandboxes (`/run/elpis/browser-ca.crt`, imported into the NSS database of each service). Back
+the folder up with `user_db`. Rotation is automatic: when less than 30 days remain, the tool host
+creates a new CA at its next use, recreates the relays and each sandbox service is restarted at
+its account's next `pw_*` call with the new certificate. To rotate at once (suspected leak): stop
+the tool host, delete the folder, start the tool host.
+
+**Doctor.** `./elpis doctor` checks Docker and the sandbox image (the browser needs both), the
+browser files, the CA (and its 0600 key), the Chromium headless shell, that the mounted files are
+readable by the sandbox UID, the CPU quota, and, for each running sandbox service (reached without
+following links), that the relay socket of its account is listening.
+
+**Logs.** `./elpis logs browser <account> [-f]` (the account is required) shows the service log of that account's sandbox
+(`/work/.elpis-browser/service.log`, rotated at 5 MB), without control characters (the sandbox
+writes it). Relay refusals and upstream failures are in
+the tool host log (`[relay <account>]`).
 
 ## Recovering from an incident
 

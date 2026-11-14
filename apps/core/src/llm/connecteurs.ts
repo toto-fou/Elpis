@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/llm/connecteurs.ts — connecteurs LLM en base (`shared_infra/llm/connectors.py`) : clés chiffrées Fernet jamais renvoyées, vues publiques, champs de création, port du moteur. */
+/** apps/core/src/llm/connecteurs.ts — connecteurs LLM en base (`shared_infra/llm/connectors.py`) : clés rangées dans le coffre et jamais renvoyées, vues publiques, champs de création, port du moteur. */
 import {
   ErreurPython,
   getPy,
@@ -16,8 +16,9 @@ import {
 import type { Dict } from "@elpis/commun";
 import { readConfigJson } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
-import { decrypt, encrypt } from "@elpis/securite";
 
+import type { Acteur } from "../secrets/stockage";
+import { ACTEUR_SYSTEME, ecrireCle, lireCle, lireLien, SELECT_CONNECTEUR, supprimerCle } from "./cle-coffre";
 import type { ConnecteurPublic, ConnecteurSecret, PortConnecteurs } from "./ports";
 
 export const PROVIDER_TYPES = [
@@ -119,15 +120,6 @@ export async function compteAdmin(base: Executeur, userId: number): Promise<bool
   }
 }
 
-function encoderCle(apiKey: string): [string, string] {
-  return apiKey ? [encrypt(apiKey), "fernet"] : ["", "plain"];
-}
-
-function decoderCle(enc: unknown, scheme: unknown): string {
-  if (!veritePy(enc)) return "";
-  return scheme === "fernet" ? decrypt(strPy(enc)) : (enc as string);
-}
-
 const PUBLIC_COLS = [
   "id",
   "owner_user_id",
@@ -178,37 +170,34 @@ function colonnesPubliques(row: Dict): Dict {
   return d;
 }
 
-/** Vue SANS clé (`_public`) : `has_key` seulement. */
+/** Vue SANS clé (`_public`) : `has_key` vrai pour une clé du coffre déchiffrable avec la clé courante, sinon `key_error` dit pourquoi. */
 export function vuePublique(row: Dict): Dict {
   const d = colonnesPubliques(row);
-  d["has_key"] = veritePy(itemPy(row, "api_key_enc"));
+  const { cle, erreur } = lireCle(row);
+  d["has_key"] = erreur === null && cle !== "";
+  d["key_error"] = erreur;
   d["enabled"] = veritePy(d["enabled"]);
   return { ...d, ...limitsOf(row) };
 }
 
-/** Vue AVEC clé déchiffrée (`_with_key`) : côté serveur seulement, jamais sérialisée vers HTTP. */
+/** Vue AVEC clé déchiffrée du coffre (`_with_key`) : côté serveur seulement, jamais sérialisée vers HTTP ; clé inutilisable : `api_key` vide et `key_error`. */
 export function vueAvecCle(row: Dict): Dict {
   const d = colonnesPubliques(row);
   d["enabled"] = veritePy(d["enabled"]);
-  return {
-    ...d,
-    ...limitsOf(row),
-    api_key: decoderCle(itemPy(row, "api_key_enc"), itemPy(row, "key_scheme")),
-  };
+  const { cle, erreur } = lireCle(row);
+  return { ...d, ...limitsOf(row), api_key: cle, key_error: erreur };
 }
 
 export async function listUserConnectors(base: Executeur, ownerUserId: number): Promise<Dict[]> {
   const lignes = await base.all(
-    "SELECT * FROM llm_connectors WHERE owner_user_id=? AND scope='user' ORDER BY label ASC, id ASC",
+    `${SELECT_CONNECTEUR} WHERE c.owner_user_id=? AND c.scope='user' ORDER BY c.label ASC, c.id ASC`,
     [ownerUserId],
   );
   return lignes.map(vuePublique);
 }
 
 export async function listSharedConnectors(base: Executeur): Promise<Dict[]> {
-  const lignes = await base.all(
-    "SELECT * FROM llm_connectors WHERE scope='shared' ORDER BY label ASC, id ASC",
-  );
+  const lignes = await base.all(`${SELECT_CONNECTEUR} WHERE c.scope='shared' ORDER BY c.label ASC, c.id ASC`);
   return lignes.map(vuePublique);
 }
 
@@ -220,7 +209,7 @@ export async function connectorIdsByWire(base: Executeur, wire: unknown): Promis
 
 /** Vue publique d'un connecteur quelle que soit sa portée (réglages lus côté serveur, sans contrôle d'accès). */
 export async function getMeta(base: Executeur, connectorId: unknown): Promise<Dict | null> {
-  const r = await base.get("SELECT * FROM llm_connectors WHERE id=?", [intPy(connectorId)]);
+  const r = await base.get(`${SELECT_CONNECTEUR} WHERE c.id=?`, [intPy(connectorId)]);
   return r ? vuePublique(r) : null;
 }
 
@@ -240,9 +229,12 @@ export interface ChampsConnecteur {
   max_concurrency?: unknown;
 }
 
-/** Création ; la clé est chiffrée (EncryptionUnavailable propagée : jamais de stockage en clair). */
-export async function createConnector(base: Base, c: ChampsConnecteur): Promise<number> {
-  const [keyEnc, keyScheme] = encoderCle(c.api_key ?? "");
+/** Création, clé rangée dans le coffre dans la même transaction (coffre indisponible : rien n'est créé, jamais de stockage en clair). */
+export async function createConnector(
+  base: Base,
+  c: ChampsConnecteur,
+  acteur: Acteur = ACTEUR_SYSTEME,
+): Promise<number> {
   const maintenant = Date.now() / 1000;
   const cols = [
     "owner_user_id",
@@ -266,8 +258,8 @@ export async function createConnector(base: Base, c: ChampsConnecteur): Promise<
     c.wire,
     c.label || "",
     c.base_url || "",
-    keyEnc,
-    keyScheme,
+    "",
+    "plain",
     c.default_model || "",
     c.models_json || "",
     (c.enabled ?? true) ? 1 : 0,
@@ -280,10 +272,17 @@ export async function createConnector(base: Base, c: ChampsConnecteur): Promise<
     cols.push(k);
     vals.push(v);
   }
-  return base.insertId(
-    `INSERT INTO llm_connectors(${cols.join(", ")}) VALUES(${cols.map(() => "?").join(", ")})`,
-    vals,
-  );
+  return base.ecriture(async () => {
+    const id = await base.insertId(
+      `INSERT INTO llm_connectors(${cols.join(", ")}) VALUES(${cols.map(() => "?").join(", ")})`,
+      vals,
+    );
+    if (c.api_key) {
+      const lien = { id, scope: c.scope, owner_user_id: c.owner_user_id ?? null, secret_id: null };
+      await ecrireCle(base, { ...lien, provider_type: c.provider_type }, c.api_key, acteur);
+    }
+    return id;
+  });
 }
 
 /** Champs d'une mise à jour : une clé absente n'est pas touchée ; limites présentes = écrites (vide ⇒ NULL). */
@@ -296,12 +295,14 @@ export type ChampsMiseAJour = Partial<
   Partial<Record<"enabled", boolean | null>> &
   Partial<Record<(typeof LIMIT_COLS)[number], unknown>>;
 
+/** Mise à jour sous la condition d'accès ; une nouvelle clé va au coffre dans la même transaction. */
 async function mettreAJour(
   base: Base,
   connectorId: number,
   whereExtra: string,
   whereVals: readonly (string | number)[],
   champs: ChampsMiseAJour,
+  acteur: Acteur,
 ): Promise<boolean> {
   const sets: string[] = [];
   const vals: (string | number | null)[] = [];
@@ -322,16 +323,16 @@ async function mettreAJour(
     vals.push(posOrNone(champs[k] ?? null));
   }
   const cle = champs.api_key;
-  if (cle) {
-    const [keyEnc, keyScheme] = encoderCle(cle);
-    sets.push("api_key_enc=?", "key_scheme=?");
-    vals.push(keyEnc, keyScheme);
-  }
-  if (sets.length === 0) return false;
-  sets.push("updated_at=?");
-  vals.push(Date.now() / 1000, connectorId, ...whereVals);
-  const r = await base.run(`UPDATE llm_connectors SET ${sets.join(", ")} WHERE id=? ${whereExtra}`, vals);
-  return r.changes > 0;
+  if (sets.length === 0 && !cle) return false;
+  return base.ecriture(async () => {
+    const lien = await lireLien(base, connectorId, whereExtra, whereVals);
+    if (lien === null) return false;
+    if (cle) await ecrireCle(base, lien, cle, acteur);
+    sets.push("updated_at=?");
+    vals.push(Date.now() / 1000, connectorId, ...whereVals);
+    const r = await base.run(`UPDATE llm_connectors SET ${sets.join(", ")} WHERE id=? ${whereExtra}`, vals);
+    return r.changes > 0;
+  });
 }
 
 export function updateUserConnector(
@@ -339,33 +340,62 @@ export function updateUserConnector(
   ownerUserId: number,
   connectorId: number,
   champs: ChampsMiseAJour,
+  acteur: Acteur = ACTEUR_SYSTEME,
 ): Promise<boolean> {
-  return mettreAJour(base, connectorId, "AND owner_user_id=? AND scope='user'", [ownerUserId], champs);
+  return mettreAJour(
+    base,
+    connectorId,
+    "AND owner_user_id=? AND scope='user'",
+    [ownerUserId],
+    champs,
+    acteur,
+  );
 }
 
 export function updateSharedConnector(
   base: Base,
   connectorId: number,
   champs: ChampsMiseAJour,
+  acteur: Acteur = ACTEUR_SYSTEME,
 ): Promise<boolean> {
-  return mettreAJour(base, connectorId, "AND scope='shared'", [], champs);
+  return mettreAJour(base, connectorId, "AND scope='shared'", [], champs, acteur);
 }
 
-export async function deleteUserConnector(
+/** Suppression sous la condition d'accès, avec le secret lié du coffre, dans une transaction. */
+async function supprimer(
+  base: Base,
+  connectorId: number,
+  whereExtra: string,
+  whereVals: readonly (string | number)[],
+  acteur: Acteur,
+): Promise<boolean> {
+  return base.ecriture(async () => {
+    const lien = await lireLien(base, connectorId, whereExtra, whereVals);
+    if (lien === null) return false;
+    await supprimerCle(base, lien, acteur);
+    const r = await base.run(`DELETE FROM llm_connectors WHERE id=? ${whereExtra}`, [
+      connectorId,
+      ...whereVals,
+    ]);
+    return r.changes > 0;
+  });
+}
+
+export function deleteUserConnector(
   base: Base,
   ownerUserId: number,
   connectorId: number,
+  acteur: Acteur = ACTEUR_SYSTEME,
 ): Promise<boolean> {
-  const r = await base.run("DELETE FROM llm_connectors WHERE id=? AND owner_user_id=? AND scope='user'", [
-    connectorId,
-    ownerUserId,
-  ]);
-  return r.changes > 0;
+  return supprimer(base, connectorId, "AND owner_user_id=? AND scope='user'", [ownerUserId], acteur);
 }
 
-export async function deleteSharedConnector(base: Base, connectorId: number): Promise<boolean> {
-  const r = await base.run("DELETE FROM llm_connectors WHERE id=? AND scope='shared'", [connectorId]);
-  return r.changes > 0;
+export function deleteSharedConnector(
+  base: Base,
+  connectorId: number,
+  acteur: Acteur = ACTEUR_SYSTEME,
+): Promise<boolean> {
+  return supprimer(base, connectorId, "AND scope='shared'", [], acteur);
 }
 
 /** Connecteur utilisable par ce compte (perso ou partagé) AVEC clé : résolution de cible, jamais sérialisé. */
@@ -375,7 +405,7 @@ export async function getSecretForUser(
   connectorId: number,
 ): Promise<Dict | null> {
   const r = await base.get(
-    "SELECT * FROM llm_connectors WHERE id=? AND (scope='shared' OR (scope='user' AND owner_user_id=?))",
+    `${SELECT_CONNECTEUR} WHERE c.id=? AND (c.scope='shared' OR (c.scope='user' AND c.owner_user_id=?))`,
     [connectorId, userId],
   );
   return r ? vueAvecCle(r) : null;
@@ -387,7 +417,7 @@ export async function getUserSecret(
   ownerUserId: number,
   connectorId: number,
 ): Promise<Dict | null> {
-  const r = await base.get("SELECT * FROM llm_connectors WHERE id=? AND owner_user_id=? AND scope='user'", [
+  const r = await base.get(`${SELECT_CONNECTEUR} WHERE c.id=? AND c.owner_user_id=? AND c.scope='user'`, [
     connectorId,
     ownerUserId,
   ]);
@@ -396,14 +426,20 @@ export async function getUserSecret(
 
 /** Connecteur partagé AVEC clé (test de connexion de l'administration). */
 export async function getSharedSecret(base: Executeur, connectorId: number): Promise<Dict | null> {
-  const r = await base.get("SELECT * FROM llm_connectors WHERE id=? AND scope='shared'", [connectorId]);
+  const r = await base.get(`${SELECT_CONNECTEUR} WHERE c.id=? AND c.scope='shared'`, [connectorId]);
   return r ? vueAvecCle(r) : null;
 }
 
-/** Dernier usage, au mieux : jamais d'erreur. */
+/** Dernier usage du connecteur et de son secret du coffre, au mieux : jamais d'erreur. */
 export async function bumpLastUsed(base: Executeur, connectorId: number): Promise<void> {
+  const t = Date.now() / 1000;
   try {
-    await base.run("UPDATE llm_connectors SET last_used=? WHERE id=?", [Date.now() / 1000, connectorId]);
+    await base.run("UPDATE llm_connectors SET last_used=? WHERE id=?", [t, connectorId]);
+    await base.run(
+      "UPDATE vault_secrets SET use_count = use_count + 1, last_used_at = ? " +
+        "WHERE id = (SELECT secret_id FROM llm_connectors WHERE id = ?)",
+      [t, connectorId],
+    );
   } catch {
     return;
   }

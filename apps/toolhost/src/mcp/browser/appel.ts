@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/appel.ts — appel d'un outil pw_* : compte, refus d'une session d'autrui, client du service au propriétaire du compte, mémoire AX de la base de l'hôte. */
+/** apps/toolhost/src/mcp/browser/appel.ts — appel d'un outil pw_* : compte, refus d'une session d'autrui ou, pour un sous-agent, d'une session ouverte pour un secret qui exclut les sous-agents, client du service au propriétaire du compte, mémoire AX de la base de l'hôte. */
 import { estDict, intPy, lowerPy, nomTypePy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import {
   ClientNavigateur,
+  errPw,
+  jugeRelaisBac,
   pwOwner,
   pwOwnerEnfant,
   rappelOnglet,
@@ -16,11 +18,17 @@ import { current, lireSousAgent } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
+import { bacDuCompteOutil } from "../espace";
+import { demarrageImpossible, ErreurNavigateurBac, injectionsNavigateurBac, serviceDuCompte } from "./bac";
+import { liaison } from "./liaisons";
+import { refusSecret } from "./secrets";
+import type { PortSecrets } from "./secrets";
 
-/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux) et journal. */
+/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux), journal, coffre du core (absent : sessions ordinaires seulement). */
 export interface ServicesBrowser {
   readonly ax: () => Base | null;
   readonly journal: Journal;
+  readonly secrets?: PortSecrets | null;
 }
 
 /** Rôle de l'appelant vis-à-vis du navigateur : le chat (session du compte), un sous-agent à session isolée (la sienne seule), un sous-agent sur la session du compte. */
@@ -48,7 +56,7 @@ export function proprietaireDe(
   return { owner: pwOwnerEnfant(username, sa.id), portee: "isolee" };
 }
 
-/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
+/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte ; session ouverte pour un secret dont la politique exclut les sous-agents, pour un sous-agent), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
 export async function ouvrirAppel(
   ctx: ContexteAppel,
   s: ServicesBrowser,
@@ -57,21 +65,63 @@ export async function ouvrirAppel(
   const username = getUsername(ctx);
   const refus = await refusSessionDAutrui(sessionId, username);
   if (refus !== null) return { refus };
-  const { owner, portee } = proprietaireDe(username, sousAgentDe(ctx));
+  const sa = sousAgentDe(ctx);
+  const { owner, portee } = proprietaireDe(username, sa);
+  const lien = sa !== null && typeof sessionId === "string" ? liaison(owner, sessionId) : undefined;
+  if (lien !== undefined && !lien.sousAgents)
+    return {
+      refus: refusSecret(
+        "secret_not_attached",
+        `This browser session was opened for secret '${lien.secret}', which sub-agents may not use.`,
+        "Leave this session to the main conversation and return your report; the user can allow sub-agents in the secret's policy (Settings › Secrets).",
+      ),
+    };
+  let service: Awaited<ReturnType<typeof serviceDuCompte>>;
+  try {
+    service = await serviceDuCompte(username);
+  } catch (e) {
+    const panne = e instanceof ErreurNavigateurBac ? e : new ErreurNavigateurBac(demarrageImpossible(e));
+    return { refus: errPw("browser_sandbox_unavailable", "", { message: panne.message, fix: panne.fix }) };
+  }
   return {
     refus: null,
     appel: {
       username,
-      client: new ClientNavigateur({ owner }),
+      client: new ClientNavigateur({ owner, service }),
       ax: s.ax(),
       portee,
     },
   };
 }
 
-/** `HEADLESS` (`PLAYWRIGHT_HEADLESS`, vrai par défaut), lu à l'appel. */
-export function headless(): boolean {
-  return lowerPy(process.env["PLAYWRIGHT_HEADLESS"] ?? "true") === "true";
+/** Refus anticipé d'une adresse : boucle locale du bac admise, le reste jugé comme le relais (profil réseau du bac, machine d'Elpis). */
+export async function refusUrlAppel(appel: Appel, url: unknown): Promise<Dict | null> {
+  const texte = typeof url === "string" ? url.trim() : "";
+  if (/^about:blank$/iu.test(texte)) return null;
+  let u: URL | null;
+  try {
+    u = new URL(texte);
+  } catch {
+    u = null;
+  }
+  const refus = (motif: string): Dict =>
+    errPw("url_blocked", "", {
+      message: `Address refused by the browser policy: ${motif}. URL: ${texte.slice(0, 200)}.`,
+      fix: "Sites served inside your sandbox are reachable at http://localhost:<port>; other destinations depend on the sandbox network profile.",
+    });
+  if (u === null || (u.protocol !== "http:" && u.protocol !== "https:"))
+    return refus("only http and https addresses are allowed");
+  const hote = u.hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+  if (hote === "localhost" || hote.endsWith(".localhost") || /^127\./u.test(hote) || hote === "::1")
+    return null;
+  const port = Number(u.port || (u.protocol === "https:" ? 443 : 80));
+  let juge = injectionsNavigateurBac.juge?.(appel.username) ?? null;
+  if (juge === null) {
+    const profil = (await bacDuCompteOutil(appel.username)).networkProfile;
+    juge = jugeRelaisBac(() => profil);
+  }
+  const v = await juge(hote, port);
+  return v.ok ? null : refus(v.motif);
 }
 
 /** Réglage entier de l'environnement lu à l'appel (`int(os.environ.get(nom, défaut))`). */

@@ -191,6 +191,14 @@ async function enregistrer(): Promise<void> {
         </p>
         <p v-if="rg.mcpErreur" role="alert" class="text-[13px] text-red-600">{{ rg.mcpErreur }}</p>
 
+        <p
+          v-if="!editable && f.secret_error"
+          class="flex items-center gap-1.5 text-xs text-amber-700 max-w-[600px]"
+          role="status"
+        >
+          <i class="ph ph-warning" aria-hidden="true"></i>Secret de ce serveur partagé inutilisable : demandez
+          à un administrateur de le ressaisir.
+        </p>
         <ChampsMcp v-if="editable" />
         <dl v-else class="grid grid-cols-[88px_minmax(0,1fr)] gap-x-3 gap-y-2.5 text-[13px] max-w-[600px]">
           <dt class="text-slate-500">Type</dt>

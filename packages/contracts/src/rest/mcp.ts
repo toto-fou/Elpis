@@ -64,6 +64,8 @@ export const schemaServeurPartage = z.object({
   updated_at: z.number().optional(),
   headers: z.array(schemaPaireMasquee).optional(),
   env: z.array(schemaPaireMasquee).optional(),
+  /** Vue administrateur : secret du coffre illisible (`undecryptable`, `key_unavailable`), retiré (`missing`) ou non repris (`not_migrated`). */
+  secret_error: z.string().optional(),
 });
 export type ServeurPartage = z.infer<typeof schemaServeurPartage>;
 export const schemaReponseServeursPartages = z.object({

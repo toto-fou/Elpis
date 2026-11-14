@@ -6,6 +6,7 @@ import { journal } from "../../journal";
 import { estDict, splitlinesPy } from "../../python";
 import type { Dict } from "../../python";
 import { LlmTarget } from "../cible";
+import { motifCle } from "../cle-coffre";
 import { getLlmClient } from "../client-http";
 import { getPy, iterExige } from "../dict-py";
 import { engineForTarget } from "../moteurs";
@@ -72,8 +73,10 @@ export function decorate(row: Dict, ids: readonly unknown[]): Dict {
   return { models: ordonner(pt, ids), free: freeModels(pt, ids) };
 }
 
-/** Modèles d'un connecteur `{ok, models, status, error?}` ; replis : liste saisie à la main, puis catalogue Anthropic. */
+/** Modèles d'un connecteur `{ok, models, status, error?}` ; replis : liste saisie à la main, puis catalogue Anthropic ; clé du coffre inutilisable : aucun appel. */
 export async function fetchModels(row: Dict, options: { timeout?: number } = {}): Promise<Dict> {
+  const erreurCle = texte(row, "key_error");
+  if (erreurCle) return { ok: false, status: 0, models: [], error: motifCle(erreurCle) };
   const manuel = splitlinesPy(texte(row, "models_json").replaceAll(",", "\n"))
     .map((m) => stripPy(m))
     .filter((m) => m);
@@ -114,11 +117,14 @@ export async function fetchModels(row: Dict, options: { timeout?: number } = {})
   }
 }
 
-/** Test de connexion (lister les modèles ; `sonde` : rapport du profil hors générique) : `{ok, status, models_count, error?, hint?, sonde?}`, jamais la clé. */
+/** Test de connexion (lister les modèles ; `sonde` : rapport du profil hors générique) : `{ok, status, models_count, error?, hint?, sonde?}`, jamais la clé ; clé du coffre inutilisable : échec sans appel. */
 export async function testConnector(
   row: Dict,
   options: { timeout?: number; sonde?: boolean } = {},
 ): Promise<Dict> {
+  const erreurCle = texte(row, "key_error");
+  if (erreurCle)
+    return { ok: false, status: 0, models_count: 0, error: "clé inutilisable", hint: motifCle(erreurCle) };
   const res = await fetchModels(row, options);
   const statut = res["status"];
   const sortie: Dict = {

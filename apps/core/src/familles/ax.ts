@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/ax.ts — mémoire AX des sites (interfaces apprises par le navigateur) : lecture pour tout compte, purges pour l'équipe, effacement total pour l'admin (shared_infra/memory/routes_ax.py). */
+/** apps/core/src/familles/ax.ts — mémoire AX des sites (interfaces apprises par le navigateur) : lecture pour tout compte (identifiants d'un site lus dans son coffre « Secrets »), purges pour l'équipe, effacement total pour l'admin (shared_infra/memory/routes_ax.py). */
 import { ligneUtilisateur } from "@elpis/auth";
 import { HttpError, veritePy } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -15,10 +15,15 @@ import {
   getTreeJson,
   listSitesWithStats,
   markSiteStale,
+  normalizeUrl,
   renderFullDomForPrompt,
   wipeAll,
 } from "@elpis/navigateur";
+import type { IdentifiantSite, IdentifiantsDesSites } from "@elpis/navigateur";
 import type { Famille } from "../routes";
+import { genreAttachable } from "../secrets/attache";
+import { origines } from "../secrets/portee";
+import { listerSecrets } from "../secrets/stockage";
 import { utilisateur } from "./comptes";
 import { entrees, py, reponseJsonPy } from "@elpis/http";
 
@@ -48,9 +53,25 @@ async function exigerRole(
 const exigerEquipe = (base: Base, req: FastifyRequest): Promise<number> =>
   exigerRole(base, req, [1, 2], "Admin or moderator required");
 
-/** Compte de la session : seuls ses propres identifiants de site sont montrés (aucun sans nom). */
-function proprietaire(req: FastifyRequest): string {
-  return req.utilisateur?.username || "";
+/** Identifiants des sites du compte de la session, lus dans son coffre (`web-login`, `http-auth`, vérifiés d'abord puis les plus récemment utilisés) : nom de connexion, origine, usages ; jamais de valeur. */
+async function identifiantsDuCoffre(base: Base, req: FastifyRequest): Promise<IdentifiantsDesSites> {
+  const uid = req.utilisateur?.id;
+  if (!uid) return () => undefined;
+  const secrets = (await listerSecrets(base, uid))
+    .filter((s) => genreAttachable(s.kind))
+    .sort(
+      (a, b) =>
+        Number(b.state === "active") - Number(a.state === "active") ||
+        (b.last_used_at ?? 0) - (a.last_used_at ?? 0),
+    );
+  const parSite = new Map<string, IdentifiantSite>();
+  for (const s of secrets)
+    for (const origin of origines(s.scope)) {
+      const [site] = normalizeUrl(origin);
+      if (site && !parSite.has(site))
+        parSite.set(site, { username: s.username, origin, use_count: s.use_count, last_ok: s.last_used_at });
+    }
+  return (site) => parSite.get(site);
 }
 
 function site(req: FastifyRequest): string {
@@ -73,7 +94,7 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
         acces: "session",
         traiter: async (req, rep) => {
           utilisateur(req);
-          const sites = await listSitesWithStats(base, proprietaire(req));
+          const sites = await listSitesWithStats(base, await identifiantsDuCoffre(base, req));
           return reponseJsonPy(rep, { sites, count: sites.length });
         },
       },
@@ -85,7 +106,7 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
         traiter: async (req, rep) => {
           utilisateur(req);
           const s = site(req);
-          const stats = await getSiteStats(base, s, proprietaire(req));
+          const stats = await getSiteStats(base, s, await identifiantsDuCoffre(base, req));
           if (stats === null) throw introuvable(s);
           return reponseJsonPy(rep, stats);
         },

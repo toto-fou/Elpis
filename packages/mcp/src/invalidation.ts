@@ -7,9 +7,8 @@ import { estDict } from "./outils";
 import type { Dict } from "./outils";
 import type { PoolMcp } from "./pool";
 import { deConfiance, journalDe, marquerConfiance } from "./ports";
-import { personalToConfig } from "./serveurs";
 
-/** `reglages` : liste `mcp_servers` d'un compte avant et après sauvegarde ; `partage` : serveur de la bibliothèque écrit (config résolue d'avant, `null` à la création) ; `manifeste` : `mcp.json` relu par l'administration. */
+/** `reglages` : configs résolues (secrets du coffre compris) des serveurs perso d'un compte avant et après sauvegarde ; `partage` : serveur de la bibliothèque écrit (config résolue d'avant, `null` à la création) ; `manifeste` : `mcp.json` relu par l'administration. */
 export type EvenementMcp =
   | { type: "reglages"; avant: unknown[]; apres: unknown[] }
   | { type: "partage"; avant: Dict | null }
@@ -55,7 +54,7 @@ async function invaliderVariantes(pool: PoolMcp, cfg: Dict): Promise<void> {
   await pool.invalidate(deConfiance(cfg) ? { ...cfg } : marquerConfiance({ ...cfg }));
 }
 
-/** Invalidation ciblée des serveurs perso modifiés (ancienne et nouvelle clé), recyclage large si une entrée n'a pas d'id. */
+/** Invalidation ciblée des serveurs perso modifiés, secret compris (ancienne et nouvelle clé) : configs résolues d'avant et d'après ; recyclage large si l'une n'a pas d'id. */
 export async function invaliderServeursPerso(
   pool: PoolMcp,
   avant: unknown[],
@@ -74,10 +73,8 @@ export async function invaliderServeursPerso(
   );
   let fermees = 0;
   for (const sid of touches) {
-    for (const src of [anciens.get(sid), nouveaux.get(sid)]) {
-      if (src === undefined) continue;
-      const cfg = await personalToConfig(src, { allowStdio: true });
-      if (Object.keys(cfg).length === 0) continue;
+    for (const cfg of [anciens.get(sid), nouveaux.get(sid)]) {
+      if (cfg === undefined || Object.keys(cfg).length === 0) continue;
       await invaliderVariantes(pool, cfg);
       fermees++;
     }

@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
 /** packages/config/src/config-json.ts — lire-modifier-écrire de config.json sous `config.json.lock` (elpis.verrou.v1.1), relecture sur disque. */
+import { basename, dirname, join } from "node:path";
+
 import { ErreurJsonPy, estDict, estErreurValeur, existePy, lireTextePy, pyJsonLoads } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { avecVerrou, cheminVerrou } from "@elpis/verrous";
 
 import { config } from "./instance";
 import { writeConfigJson } from "./vivant";
+
+/** Copie gardée avant chaque réécriture par la console (et l'assistant) : `Path.with_suffix(".json.bak")`, soit config.json.bak. */
+export function cheminCopieConfigJson(chemin: string = config.CONFIG_JSON_PATH): string {
+  const nom = basename(chemin);
+  const point = nom.lastIndexOf(".");
+  return join(dirname(chemin), `${point > 0 ? nom.slice(0, point) : nom}.json.bak`);
+}
 
 /** Exclusion inter-process du lire-modifier-écrire de config.json : `config.json.lock` au protocole elpis.verrou.v1.1. */
 export async function sousVerrouConfigJson<T>(f: () => T | Promise<T>): Promise<T> {

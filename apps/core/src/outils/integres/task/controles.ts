@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/task/controles.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, navigateur privé de l'enfant fermé en fin de run (et au démarrage, ceux du process précédent, en un appel), rapport complet sauvé dans le bac, branche relue en fin de run. */
+/** apps/core/src/outils/integres/task/controles.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, navigateur privé de l'enfant fermé en fin de run (et au démarrage, ceux du process précédent, par le service de chaque bac), rapport complet sauvé dans le bac, branche relue en fin de run. */
 import { estDict, jsonLoads, prefixePy, strPy } from "@elpis/commun";
 import { BUILTIN_SENTINEL } from "@elpis/mcp";
-import { urlServiceNavigateur } from "@elpis/navigateur";
+import { requeteService, servicesDesBacs } from "@elpis/navigateur";
+import type { ServiceNavigateur } from "@elpis/navigateur";
 import { sousAgentEnDict } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
@@ -139,27 +140,34 @@ export const hoteTacheParDefaut: PortsHoteTache = {
   },
 };
 
-/** `POST /cleanup_children` sans propriétaire (le core est le seul client du service) : corps JSON rendu, `null` sur toute panne. */
-async function posterNettoyageEnfants(corps: Dict): Promise<unknown> {
-  const base = urlServiceNavigateur();
+/** `POST /cleanup_children` au service d'un bac, sans propriétaire : corps JSON rendu, `null` sur toute panne (service arrêté compris). */
+async function posterNettoyageEnfants(s: ServiceNavigateur, corps: Dict): Promise<unknown> {
   try {
-    const r = await fetch(`${base}/cleanup_children`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(corps),
-      signal: AbortSignal.timeout(5000),
+    const r = await requeteService(s, "/cleanup_children", {
+      methode: "POST",
+      entetes: { "content-type": "application/json" },
+      corps: JSON.stringify(corps),
+      delaiMs: 5000,
     });
-    return r.ok ? await r.json() : null;
+    return r.statut === 200 ? (JSON.parse(r.corps.toString("utf8")) as unknown) : null;
   } catch {
     return null;
   }
 }
 
-/** Au démarrage de main : un seul appel ferme les sessions de navigateur des sous-agents de tous les comptes ouvertes avant ce process (runs interrompus), jamais celles des comptes ; rend le nombre fermé (0 si le service ne répond pas). */
+/** Au démarrage de main : le service navigateur de chaque bac ferme les sessions de ses sous-agents ouvertes avant ce process (runs interrompus), jamais celles du compte ; rend le nombre fermé (0 pour un service arrêté). */
 export async function fermerNavigateursEnfantsOrphelins(
-  o: { ageMs?: () => number; poster?: (corps: Dict) => Promise<unknown> } = {},
+  o: {
+    ageMs?: () => number;
+    services?: () => ServiceNavigateur[];
+    poster?: (s: ServiceNavigateur, corps: Dict) => Promise<unknown>;
+  } = {},
 ): Promise<number> {
-  const ageMs = o.ageMs ?? ((): number => Math.floor(process.uptime() * 1000));
-  const r = await (o.poster ?? posterNettoyageEnfants)({ older_than_ms: ageMs() });
-  return estDict(r) && typeof r["cleaned"] === "number" ? r["cleaned"] : 0;
+  const corps = { older_than_ms: (o.ageMs ?? ((): number => Math.floor(process.uptime() * 1000)))() };
+  const poster = o.poster ?? posterNettoyageEnfants;
+  const r = await Promise.all((o.services ?? servicesDesBacs)().map((s) => poster(s, corps)));
+  return r.reduce<number>(
+    (n, x) => n + (estDict(x) && typeof x["cleaned"] === "number" ? x["cleaned"] : 0),
+    0,
+  );
 }

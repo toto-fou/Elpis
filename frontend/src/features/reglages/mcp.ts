@@ -34,6 +34,8 @@ export interface FormulaireMcp {
   headers: PaireMcp[];
   env: PaireMcp[];
   enabled: boolean;
+  /** Secret du coffre illisible, retiré ou non repris (lecture seule) : à ressaisir. */
+  secret_error?: string;
 }
 
 /** Serveur affichable dans le panneau MCP : perso (visible) ou publié par la bibliothèque partagée. */
@@ -116,6 +118,7 @@ const formulaireVide = (portee: PorteeMcp = "perso"): FormulaireMcp => ({
   headers: [],
   env: [],
   enabled: true,
+  secret_error: "",
 });
 
 /** Paires relues du serveur : la valeur n'est jamais rendue, un champ laissé vide la laisse inchangée. */
@@ -144,6 +147,7 @@ function formDepuis(srv: Partial<ServeurMcp> | ServeurPartage, portee: PorteeMcp
     headers: pairesVides(srv.headers),
     env: pairesVides(srv.env),
     enabled: "enabled" in srv ? srv.enabled !== false : true,
+    secret_error: typeof srv.secret_error === "string" ? srv.secret_error : "",
   };
 }
 

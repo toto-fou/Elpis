@@ -10,6 +10,7 @@ import {
   sandboxUsageBytes,
 } from "@elpis/bac";
 import type { IpConteneurApercu } from "@elpis/bac";
+import { liveConfigValue } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { AgentClient, installerImportAncien } from "@elpis/fichiers";
 import { commandeStdioHote } from "@elpis/mcp";
@@ -19,6 +20,7 @@ import type { Famille } from "./app";
 import { BAC_DU_COMPTE, creerFamilleApercuFichiers } from "./apercu-fichiers";
 import type { BacDuCompte } from "./apercu-fichiers";
 import { creerFamilleBac } from "./bac/famille";
+import { baseHote } from "./base-hote";
 import { installerInvalidationUsage } from "./bac/instantanes";
 import { creerFamilleCaptures } from "./captures";
 import { creerFamilleTrames } from "./trames";
@@ -31,6 +33,7 @@ import { boucleBalayage } from "./fichiers/entretien";
 import { installerMetrique } from "./fichiers/ecriture";
 import { creerFamilleFichiers } from "./fichiers/famille";
 import { metriqueHote } from "./fichiers/metrique";
+import { boucleRepriseAx } from "./import-ax";
 import type { Journal } from "./journal";
 import { creerFamilleMandataireApercu } from "./mandataire-apercu";
 import type { CommandeStdio } from "./manifeste";
@@ -41,6 +44,7 @@ import { creerFamilleJobs } from "./mcp/shell/jobs/routes";
 import { agentVeilleDuCompte, installerVeilleurJobs, VeilleurJobs } from "./mcp/shell/jobs/veilleur";
 import type { FabriqueNative, ServiceNatif } from "./mcp/natives";
 import { FABRIQUES_NATIVES } from "./mcp/registre";
+import { arreterNavigateursBac, autoriteInstance } from "./mcp/browser/bac";
 import { arreterWorkerOffice } from "./mcp/office/famille";
 import { arreterOffice } from "./office/apercu";
 import { ClientRappel } from "./rappel";
@@ -153,10 +157,26 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     cycle.auDemarrage("balayage des envois abandonnés", () => boucleBalayage(o.journal, cycle.signalArret), {
       arrierePlan: true,
     });
+    cycle.auDemarrage(
+      "reprise des anciens identifiants AX dans le coffre",
+      () => boucleRepriseAx(baseHote, rappel, o.journal, cycle.signalArret),
+      { arrierePlan: true },
+    );
     cycle.alArret("threads de calcul (remplacements, .docx)", arreterFilsCalcul);
     cycle.alArret("conversions Office", arreterOffice);
     cycle.alArret("worker Office", arreterWorkerOffice);
     cycle.alArret("abonnement docker events", arreterReadinessCache);
+    cycle.auDemarrage("autorité du relais du navigateur des bacs", () => {
+      autoriteInstance();
+      if (
+        liveConfigValue("browser.mode", null) !== null ||
+        liveConfigValue("browser.sandbox_users", null) !== null
+      )
+        o.journal.info(
+          "[browser] config.json: browser.mode and browser.sandbox_users are ignored, the browser always runs in each account's sandbox",
+        );
+    });
+    cycle.alArret("relais des navigateurs des bacs", arreterNavigateursBac);
     cycle.auDemarrage(
       "nettoyage des terminaux",
       () => balayer(nettoyerTerminaux, cycle.signalArret, o.journal),
@@ -182,10 +202,7 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
         ...(o.demarreA !== undefined ? { demarreA: o.demarreA } : {}),
       }),
       creerFamilleBac({ journal: o.journal, ...(cycle ? { arret: cycle.signalArret } : {}) }),
-      creerFamilleCaptures({
-        journal: o.journal,
-        playwrightApi: process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000",
-      }),
+      creerFamilleCaptures({ journal: o.journal }),
       creerFamilleTrames({ journal: o.journal }),
       creerFamilleApercuFichiers(o.bacDuCompte ?? o.bacFichiers ?? BAC_DU_COMPTE),
       creerFamilleMandataireApercu({

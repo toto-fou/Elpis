@@ -19,7 +19,8 @@
  * Zéro dépendance externe
  * =======================
  * On n'installe pas la CLI Tailwind. On réutilise le compilateur DÉJÀ vendorisé,
- * exécuté dans le Chromium déjà présent (celui du browser-service). Rien ne sort
+ * exécuté dans le headless shell de Chromium déjà présent (celui du
+ * browser-service ; ``ELPIS_CHROMIUM`` : un autre binaire). Rien ne sort
  * de la machine.
  *
  * Comment la couverture est assurée
@@ -151,10 +152,7 @@ ${tokens.map((t) => `<i class="${t.replace(/"/g, '&quot;')}"></i>`).join('')}
 </body></html>`;
     fs.writeFileSync(tmp, html, 'utf8');
 
-    let browser;
-    const executablePath = process.env.ELPIS_CHROMIUM || undefined;
-    try { browser = await chromium.launch({ channel: 'chromium', headless: true, executablePath }); }
-    catch (_) { browser = await chromium.launch({ headless: true, executablePath }); }
+    const browser = await chromium.launch({ headless: true, executablePath: process.env.ELPIS_CHROMIUM || undefined });
     try {
         const page = await browser.newPage();
         await page.goto('file://' + tmp, { waitUntil: 'load', timeout: 120000 });

@@ -62,7 +62,7 @@ async function purgerDossiersDuNom(nom: string): Promise<void> {
   }
 }
 
-/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et identifiants de sites dans une transaction, puis les fichiers. */
+/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG, identifiants de sites et secrets du coffre dans une transaction, puis les fichiers. */
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
   let rag: CollectionPartieRag[] = [];
   let nom = "";
@@ -81,6 +81,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
       rag = await purgerCompteRag(tx, uid);
     });
     if (nom) await toleree(base, (tx) => tx.run("DELETE FROM ax_credentials WHERE owner=?", [nom]));
+    await toleree(base, (tx) => tx.run("DELETE FROM vault_secrets WHERE user_id=?", [uid]));
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
   if (!supprime) return false;

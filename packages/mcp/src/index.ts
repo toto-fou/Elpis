@@ -50,15 +50,23 @@ export {
 } from "./manifeste";
 export type { ConfigMcp, RepliStdio } from "./manifeste";
 export {
+  appliquerSecretsPerso,
   AUTH_MODES,
+  CLES_HERITEES,
   clientBuiltinRef,
+  completer as completerSecrets,
   createShared,
   DEFAULT_HEADER_NAME,
   deleteShared,
+  drapeauReprise,
+  drapeauSecret,
+  entreeReprise,
+  etatSansSecret,
   getShared,
   headerNameOk,
   HTTP_TYPES,
   ID_PREFIX,
+  idSecretServeur,
   InvalidPair,
   listShared,
   MAX_PAIR_NAME,
@@ -69,25 +77,56 @@ export {
   normalizeSecret,
   oublierVerdictsUrl,
   pairsPublic,
-  personalPairs,
   personalPublic,
   personalToConfig,
+  prechaufferGardeUrl,
   personalUrlBlockReason,
   publicId,
   rawShared,
+  repriseHeritee,
   resolveConfig,
   resolveForAgents,
   resolveMany,
   resolvePersonal,
   sanitizePairs,
+  secretsDeJson,
+  secretsEnJson,
+  secretsHerites,
+  secretsPartage,
+  secretsPerso,
   SERVER_TYPES,
   sharedId,
-  sharedPairs,
+  signalerServeurIgnore,
   StdioNotAllowed,
   updateShared,
   UrlNotAllowed,
 } from "./serveurs";
-export type { ChampsPartage, Paire } from "./serveurs";
+export type {
+  ChampsPartage,
+  EtatSecrets,
+  FusionPerso,
+  Heritage,
+  LecteurFernet,
+  Paire,
+  PartieSecrete,
+  RepriseHeritee,
+} from "./serveurs";
+export {
+  brancherCoffreMcp,
+  coffreMcp,
+  estVide,
+  SecretMcpIndisponible,
+  secretsVides,
+  serveurDePortee,
+} from "./coffre";
+export type {
+  ActeurMcp,
+  CacheSecretsMcp,
+  CoffreMcp,
+  ContexteSecretMcp,
+  MotifSecretMcp,
+  SecretsServeur,
+} from "./coffre";
 export { localServers, opencodeEntryFor, opencodeLocalServers } from "./registre-local";
 export { allowedOrigins, originAllowed } from "./origines";
 export { DELEGATION_TOKEN_PREFIX, delegationToken, verifyDelegation } from "./delegation";

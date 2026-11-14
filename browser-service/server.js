@@ -1,30 +1,29 @@
 // SPDX-License-Identifier: MIT
 import express from 'express';
-import { chromium, firefox, webkit, devices } from 'playwright';
+import { chromium, devices } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
-import os from 'os';
-import dns from 'dns';
 import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './nav_util.js';
 import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
-         stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
+         stateFileName, resolveStateFile, safeDownloadName,
          planArtifactPurge, planSessionSlot, occupationGroupe, placesEnfants, quotasSessions, sessionsANettoyer,
          sessionsEnfantsAnciennes } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
-import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
-         interfacesDepuisProc, fusionnerInterfaces,
-         messageRefus, makeCache } from './url_guard.js';
+import { analyserUrl, verifierBac, messageRefus } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
-import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
+import { demarrerRelais } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
-         codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
-         noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
-import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
+         codeErreur, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
+         noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
+import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './recorder_util.js';
+import { gardeJeton } from './service_auth.js';
+import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
+         verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -34,51 +33,43 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
+// Service lancé par l'hôte d'outils dans le bac d'un compte : socket unix (FIREFOX_SERVICE_SOCKET) et jeton du bac
+// (BROWSER_SERVICE_TOKEN) exigés ; boucle locale du bac jointe directement, tout le reste par le relais de l'hôte
+// (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
+const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
+const JETON = (process.env.BROWSER_SERVICE_TOKEN || '').trim();
+for (const [manque, nom] of [[!LISTEN_SOCKET, 'FIREFOX_SERVICE_SOCKET (its Unix socket)'], [!JETON, 'BROWSER_SERVICE_TOKEN (its call token)']]) {
+    if (!manque) continue;
+    console.error(`[browser-service] ${nom} is required: the browser service only runs inside an account's sandbox, started by the tool host.`);
+    process.exit(1);
+}
+// Arrêt du service après tant de secondes sans appel (0 = jamais).
+const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || '0', 10) || 0) * 1000;
+let _dernierAppel = Date.now();
+
 const app = express();
+// Jeton d'appel vérifié avant tout, statiques compris.
+app.use(gardeJeton(JETON));
+app.use((_req, _res, next) => { _dernierAppel = Date.now(); next(); });
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
 
-// ════════════════════════════════════════════════════════════════════
-//  SÉCURITÉ — bind interface
-// ════════════════════════════════════════════════════════════════════
-//
-//  Le service n'a pas d'authentification propre : il écoute sur
-//  ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) et ne doit JAMAIS être
-//  exposé publiquement — quiconque atteint le port pilote le navigateur.
-
-// (2026-09-30) Un seul ``/health``, détaillé, plus bas : celui-ci, déclaré
-// en premier, masquait l'autre (Express sert la première route qui correspond).
-
 // ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
 // backend d'Elpis les relit, de serveur à serveur.
+// Données du service : le dossier courant (/work/.elpis-browser du bac).
+const BASE_DIR = process.cwd();
 app.use('/screenshots', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
-}, express.static(path.join(process.cwd(), 'screenshots')));
-
-// ── DELETE single screenshot file (1-shot consume from Python proxy) ──
-app.delete('/screenshots/:filename', (req, res) => {
-    const fname = path.basename(req.params.filename);
-    if (!fname.endsWith('.png') || fname.includes('..')) {
-        return res.status(400).json({ error: 'Invalid filename' });
-    }
-    const fpath = path.join(process.cwd(), 'screenshots', fname);
-    fs.unlink(fpath, (err) => {
-        // Idempotent: ENOENT n'est pas une erreur (déjà supprimé)
-        if (err && err.code !== 'ENOENT') {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ status: 'deleted', filename: fname });
-    });
-});
+}, express.static(path.join(BASE_DIR, 'screenshots')));
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
-const BASE_DIR = process.cwd();
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
-const DOWNLOAD_DIR = path.join(BASE_DIR, 'downloads');
+// BROWSER_DOWNLOAD_DIR (/work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
+const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
 const COOKIES_DIR = path.join(BASE_DIR, 'cookies');
 const HAR_DIR = path.join(BASE_DIR, 'har');
 const BASELINE_DIR = path.join(BASE_DIR, 'baselines');  // goldens régression visuelle (persistants, non reapés)
@@ -89,18 +80,11 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
-const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
-const RACINES_SORTIE = [
-    ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
-    ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
-].sort((a, b) => b.n - a.n);
-
-// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
+// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI (contenu de la page intact).
 app.use((req, res, next) => {
     req.recuA = Date.now();
     const json = res.json.bind(res);
-    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode), RACINES_SORTIE));
+    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode)));
     next();
 });
 
@@ -110,73 +94,24 @@ app.use('/videos', express.static(VIDEO_DIR));
 app.use('/traces', express.static(TRACE_DIR));
 
 // ════════════════════════════════════════════════════════════════════
-//  DESTINATIONS AUTORISÉES (2026-09-30, cf. url_guard.js)
+//  DESTINATIONS (cf. url_guard.js, proxy_guard.js)
 // ════════════════════════════════════════════════════════════════════
 //  Le relais filtrant (proxy_guard.js) fait foi : TOUT le trafic du
 //  navigateur y passe (navigations, redirections, sous-ressources, WebSocket,
-//  service workers). S'y ajoute un refus ANTICIPÉ, avec un message clair pour
-//  le modèle, avant une navigation demandée (goto, nouvel onglet, /start).
-//  Pas de ``context.route`` de garde : le routage Playwright désactive le
-//  cache HTTP et coûte un aller-retour par requête, pour un contrôle que le
-//  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
-//  config.json d'Elpis (relue quand le fichier change) ou la variable
-//  ``BROWSER_URL_ALLOWLIST``.
-const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
-let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
-function listeBlancheCourante() {
-    try {
-        const st = fs.statSync(CONFIG_PATH);
-        if (st.mtimeMs !== _politique.mtime) {
-            const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-            const brut = (cfg && cfg.browser && cfg.browser.url_allowlist) || process.env.BROWSER_URL_ALLOWLIST || '';
-            _politique = { mtime: st.mtimeMs, listeBlanche: analyserListeBlanche(brut) };
-            _verdicts = makeCache({ ttlMs: 30000 });
-        }
-    } catch (_) { /* pas de config lisible : on garde la politique courante */ }
-    return _politique.listeBlanche;
-}
-// os.networkInterfaces() complété par /proc : libuv omet les interfaces sans porteuse (pont Docker vide).
-function _interfaces() {
-    const lire = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } };
-    let vues = {};
-    try { vues = os.networkInterfaces(); } catch (_) { /* /proc seul */ }
-    return fusionnerInterfaces(vues, interfacesDepuisProc({
-        ifInet6: lire('/proc/net/if_inet6'), fibTrie: lire('/proc/net/fib_trie'), route: lire('/proc/net/route'),
-    }));
-}
-let _hote = { t: 0, v: hoteDepuisInterfaces(_interfaces()) };
-function hoteCourant() {
-    if (Date.now() - _hote.t > 60000) {
-        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(_interfaces()) }; } catch (_) {}
-    }
-    return _hote.v;
-}
-const _resoudre = async (nom) => (await dns.promises.lookup(nom, { all: true, verbatim: true })).map(r => r.address);
-// Verdict par nom d'hôte (une page charge des dizaines d'URL du même hôte).
-let _verdicts = makeCache({ ttlMs: 30000 });
+//  service workers) ; la boucle locale du bac y est jointe directement, le
+//  reste part au relais de l'hôte, qui juge la destination (profil réseau du
+//  bac, politique du navigateur). Avant une navigation demandée (goto, nouvel
+//  onglet, /start), seule la forme de l'adresse est contrôlée ici.
 
-/** Motif de refus d'une URL (``null`` = permise). */
+/** Motif de refus d'une URL (``null`` = permise) : forme seule. */
 async function refusUrl(url) {
     const a = analyserUrl(url);
-    if (!a.ok) return a.motif;
-    if (a.vide) return null;
-    const listeBlanche = listeBlancheCourante();
-    const cle = a.hote;
-    const connu = _verdicts.get(cle);
-    if (connu !== undefined) return connu;
-    const m = await motifUrl(url, { resoudre: _resoudre, hote: hoteCourant(), listeBlanche });
-    _verdicts.set(cle, m);
-    return m;
+    return a.ok ? null : a.motif;
 }
 
-// Relais filtrant (proxy_guard.js) : TOUT le trafic du navigateur y passe,
-// boucle locale comprise. C'est lui qui fait foi (redirections, changements
-// d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
-    verifier: verifierDepuisPolitique({
-        resoudre: _resoudre,
-        motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
-    }),
+    verifier: verifierBac(),
+    amont: { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' },
     journal: (m) => console.warn(`[GARDE] ${m}`),
 });
 console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
@@ -206,37 +141,8 @@ async function installerGarde(context) {
     context.on('page', gardePage);
 }
 
-// ── Moteur navigateur configurable (V13) ───────────────────────────────────
-// BROWSER_ENGINE = chromium (défaut) | firefox | webkit. Chromium est le moteur
-// de référence Playwright (le plus complet/stable, meilleure émulation device,
-// CDP pour perfs/trace). Firefox/WebKit restent dispo pour le cross-browser.
-const BROWSER_ENGINE = (process.env.BROWSER_ENGINE || 'chromium').toLowerCase();
-const ENGINES = { chromium, firefox, webkit };
-
-const USER_AGENTS = {
-    chromium: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    firefox:  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
-    webkit:   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-};
-const USER_AGENT = USER_AGENTS[BROWSER_ENGINE] || USER_AGENTS.chromium;
-
-// Prefs Firefox (about:config) — appliquées UNIQUEMENT quand BROWSER_ENGINE=firefox.
-const FIREFOX_PREFS = {
-    "dom.webdriver.enabled": false,
-    "useAutomationExtension": false,
-    "general.useragent.override": USER_AGENT,
-    "intl.accept_languages": "fr-FR, fr, en-US, en",
-    "browser.download.dir": DOWNLOAD_DIR,
-    "browser.download.useDownloadDir": true,
-    "network.auth.use-sspi": false,
-    "network.http.connection-timeout": 90,
-    "dom.max_script_run_time": 60,
-    "dom.disable_beforeunload": true,
-    "browser.tabs.warnOnClose": false,
-    "browser.tabs.warnOnCloseOtherTabs": false,
-    "security.fileuri.strict_origin_policy": false,
-    "security.cert_pinning.enforcement_level": 0,
-};
+// Agent utilisateur des contextes : un Chrome de bureau (le headless shell s'annoncerait « HeadlessChrome »).
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
 
 let globalBrowser = null;
 const sessions = new Map();
@@ -246,12 +152,10 @@ const sessions = new Map();
 // ==========================================
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
-// Plafonds de sessions (`quotasSessions`) : global (tous comptes ; les sous-agents à session isolée ont le leur, à part),
-// par propriétaire, et par groupe (le compte et les propriétaires dérivés de ses enfants). Au plafond d'un
-// propriétaire ou du groupe, la plus ancienne session du demandeur cède la place (jamais celle d'un autre
-// propriétaire du groupe ni d'un autre compte) ; sans session à céder, le démarrage est refusé. Une place du
-// groupe reste au compte : ses enfants n'ont que le reste.
-const { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
+// Plafonds de sessions du compte (`quotasSessions`) : par propriétaire, et par groupe (le compte et les propriétaires dérivés
+// de ses enfants). Au plafond, la plus ancienne session du demandeur cède la place (jamais celle d'un autre propriétaire du
+// groupe) ; sans session à céder, le démarrage est refusé. Une place du groupe reste au compte : ses enfants n'ont que le reste.
+const { maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
@@ -286,11 +190,12 @@ async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) 
 // ── Une instance par utilisateur ────────────────────────────────────
 // Retourne [sid, session] de la session vivante appartenant à `owner`,
 // ou null. Une session dont la page a crashé est fermée au passage afin
-// que l'appelant puisse en recréer une proprement.
+// que l'appelant puisse en recréer une proprement. Une session ouverte avec
+// une politique TLS (pour un secret du coffre) n'est jamais reprise.
 async function findLiveSessionByOwner(owner) {
     if (!owner) return null;
     for (const [sid, s] of sessions) {
-        if (s.owner !== owner) continue;
+        if (s.owner !== owner || s.tls) continue;
         // AUDIT 2026-06 — ping borné : une page gelée ne bloque plus la
         // recherche. 'frozen' = fail-open (page sans doute juste occupée,
         // les handlers ont leurs propres timeouts).
@@ -375,7 +280,6 @@ const _reaperInterval = setInterval(async () => {
 // Even with cleanupSessionScreenshots() being called on session close,
 // leaked files accumulate when:
 //   - the Node process crashes between screenshot write and session close
-//   - the client forgets to POST /cleanup_screenshots on tab close
 //   - a session was abandoned with a broken WebSocket
 // This reaper catches both cases:
 //   (1) orphan screenshots — PNG files whose session_id is no longer in
@@ -456,59 +360,39 @@ function reapScreenshots() {
     }
 }
 
-// ── Autres artefacts : purgés par âge (2026-09-30). Téléchargements, HAR,
-// vidéos et traces servent le temps d'une session ; les états sauvegardés
-// (cookies) se rechargent plus tard, d'où une durée plus longue.
+// ── Autres artefacts : purgés par âge (2026-09-30). HAR, vidéos et traces servent le temps d'une session ; les états
+// sauvegardés (cookies) se rechargent plus tard, d'où une durée plus longue ; les téléchargements (/work) ne le sont jamais.
 const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 10) * 3600 * 1000;
 const STATE_MAX_AGE_D = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10);
 const STATE_MAX_AGE_MS = STATE_MAX_AGE_D * 86400 * 1000;
 
-function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
-    let n = 0;
+function _purgerDossier(dir, maxAgeMs) {
     let noms;
     try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
     const entrees = [];
     for (const d of noms) {
-        const f = path.join(dir, d.name);
-        if (d.isDirectory()) {
-            if (recursif) {
-                n += _purgerDossier(f, maxAgeMs);
-                try { if (!fs.readdirSync(f).length) fs.rmdirSync(f); } catch (_) {}
-            }
-            continue;
-        }
-        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(f).mtimeMs }); } catch (_) {}
+        if (!d.isFile()) continue;
+        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(path.join(dir, d.name)).mtimeMs }); } catch (_) {}
     }
-    for (const nom of planArtifactPurge(entrees, { maxAgeMs, keep: garder })) {
+    let n = 0;
+    for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
         try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
     }
     return n;
 }
 
 function reapArtifacts() {
-    // Les états sans propriétaire attendent leur rattachement : jamais purgés.
-    const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
-            + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
+    const n = _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
-            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS, { garder: isLegacyStateName });
+            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS);
     if (n) console.log(`[ARTIFACT-REAPER] ${n} fichier(s) purgé(s).`);
 }
 
-function signalerEtatsSansCompte() {
-    const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
-    if (n) {
-        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
-                   + 'à supprimer à la main (browser-service/cookies/state_<id>.json).');
-    }
-}
-
-// Run once on startup (catches crashes that left files behind across restarts)
-// and then on a timer. Les états sans compte ne sont signalés qu'au démarrage.
+// Run once on startup (catches crashes that left files behind across restarts) and then on a timer.
 setImmediate(() => {
     try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
     try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
-    try { signalerEtatsSansCompte(); } catch (e) { console.error('[STATES] startup:', e.message); }
 });
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(); }
@@ -553,73 +437,35 @@ process.on('unhandledRejection', (raison) => {
 // ==========================================
 // BROWSER LIFECYCLE
 // ==========================================
-// Override opérateur : si FIREFOX_FORCE_HEADLESS=true, le service force le
-// headless quelle que soit la valeur envoyée par le client. Robuste même si
-// le backend Python n'a pas été redémarré ou envoie encore headless:false.
-const FORCE_HEADLESS = process.env.BROWSER_FORCE_HEADLESS === 'true'
-                    || process.env.FIREFOX_FORCE_HEADLESS === 'true'; // compat ascendante
-
-// Options de launch par moteur. Les prefs Firefox (about:config) n'ont pas
-// d'équivalent direct sur Chromium/WebKit : ce qui compte (langue, downloads,
-// HTTPS, CSP) est porté côté contexte dans /start. Ici on ne met que le
-// moteur-spécifique (args anti-détection, prefs headless Firefox).
-function buildLaunchOptions(engine, headlessMode) {
-    const common = { headless: headlessMode, args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                     proxy: PROXY_NAVIGATEUR };
-    if (engine === 'firefox') {
-        return {
-            ...common,
-            firefoxUserPrefs: {
-                ...FIREFOX_PREFS,
-                // Sans cela Firefox contourne le proxy pour localhost.
-                'network.proxy.allow_hijacking_localhost': true,
-                'network.proxy.no_proxies_on': '',
-                // WebRTC ouvre des flux UDP en direct, hors du relais : coupé.
-                'media.peerconnection.enabled': false,
-                ...(headlessMode ? {
-                    'layers.acceleration.force-enabled': false,
-                    'gfx.webrender.software': true,
-                    'browser.sessionstore.resume_from_crash': false,
-                } : {}),
-            },
-            env: headlessMode
-                ? { ...process.env, MOZ_HEADLESS_WIDTH: '1920', MOZ_HEADLESS_HEIGHT: '1080' }
-                : undefined,
-        };
-    }
-    if (engine === 'chromium') {
-        return {
-            ...common,
-            args: [
-                '--no-sandbox', '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
-                '--disable-blink-features=AutomationControlled',  // anti-détection
-                // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
-                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
-            ],
-        };
-    }
-    return common; // webkit : pas d'options moteur-spécifiques
+// Chromium headless sans channel (Playwright lance le headless shell) ; langue, téléchargements, HTTPS et CSP : contexte de /start.
+function buildLaunchOptions() {
+    return {
+        headless: true,
+        args: [
+            '--no-sandbox', '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
+            '--disable-blink-features=AutomationControlled',  // anti-détection
+            // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
+            '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+        ],
+        proxy: PROXY_NAVIGATEUR,
+    };
 }
 
 // Une seule promesse de lancement : deux /start simultanés ne lancent plus
 // deux navigateurs (le second écrasait le premier, resté orphelin).
 let _lancement = null;
-async function ensureBrowser(headless) {
+async function ensureBrowser() {
     if (globalBrowser && globalBrowser.isConnected()) return globalBrowser;
     if (_lancement) return _lancement;
-    _lancement = _lancerNavigateur(headless).finally(() => { _lancement = null; });
+    _lancement = _lancerNavigateur().finally(() => { _lancement = null; });
     return _lancement;
 }
 
-async function _lancerNavigateur(headless) {
+async function _lancerNavigateur() {
     if (!globalBrowser || !globalBrowser.isConnected()) {
-        // Headless par défaut. Seul un `false` explicite force le mode fenêtré,
-        // sauf si FORCE_HEADLESS est actif.
-        const headlessMode = FORCE_HEADLESS ? true : (headless !== false);
-        const launcher = ENGINES[BROWSER_ENGINE] || chromium;
-        console.log(`[GLOBAL] Démarrage ${BROWSER_ENGINE} (Headless: ${headlessMode}${FORCE_HEADLESS ? ', forcé' : ''})`);
-        globalBrowser = await launcher.launch(buildLaunchOptions(BROWSER_ENGINE, headlessMode));
+        console.log('[GLOBAL] Démarrage de Chromium (headless shell)');
+        globalBrowser = await chromium.launch(buildLaunchOptions());
         globalBrowser.on('disconnected', () => {
             console.warn('[GLOBAL] Browser déconnecté, reset...');
             globalBrowser = null;
@@ -630,87 +476,63 @@ async function _lancerNavigateur(headless) {
 }
 
 // ==========================================
-// UTILITAIRES COULEURS
-// ==========================================
-function rgbToHex(rgb) {
-    if (!rgb) return null;
-    const m = rgb.match(/[\d.]+/g);
-    if (!m || m.length < 3) return null;
-    const [r, g, b, a] = m.map(Number);
-    if (a !== undefined && a < 0.05) return 'transparent';
-    return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-}
-
-// ==========================================
 // SHADOW DOM — SCAN RÉCURSIF PROFOND
 // ==========================================
-/**
- * Trouve un élément dans le shadow DOM (toute profondeur) via JS evaluate.
- * Retourne { found, x, y, w, h, text, tag } ou null.
- */
+// Élément trouvé dans les racines shadow ouvertes par un sélecteur CSS (toute profondeur) : point de clic vérifié (`pointDeClic`), null sinon.
 async function shadowDOMQuery(page, selector) {
     try {
-        return await page.evaluate((sel) => {
-            function deepQuery(root, selector) {
+        return await page.evaluate(({ sel, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            function deepQuery(root) {
                 try {
-                    const el = root.querySelector(selector);
-                    if (el) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            return {
-                                found: true,
-                                x: Math.round(rect.left + rect.width / 2),
-                                y: Math.round(rect.top + rect.height / 2),
-                                w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || el.value || '').trim().substring(0, 100),
-                                tag: el.tagName.toLowerCase(),
-                            };
-                        }
-                    }
+                    const el = root.querySelector(sel);
+                    const p = el ? auPoint(el) : null;
+                    if (p) return { found: true, ...p };
                 } catch (e) {}
-                // Scan shadow roots
-                const allEls = root.querySelectorAll('*');
-                for (const child of allEls) {
-                    if (child.shadowRoot) {
-                        const result = deepQuery(child.shadowRoot, selector);
-                        if (result) return result;
-                    }
+                for (const child of root.querySelectorAll('*')) {
+                    if (!child.shadowRoot) continue;
+                    const result = deepQuery(child.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepQuery(document, sel);
-        }, selector);
+            return deepQuery(document);
+        }, { sel: selector, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
-/**
- * Trouve un élément dans le shadow DOM par son texte visible.
- */
+// Élément dont le texte RENDU (sans <script> ni <style>) contient `text`, page et racines shadow ouvertes : point de clic vérifié, null sinon.
 async function shadowDOMQueryByText(page, text) {
     try {
-        return await page.evaluate((txt) => {
-            function deepTextQuery(root, text) {
-                const allEls = root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label');
-                for (const el of allEls) {
-                    const elText = (el.textContent || '').trim();
-                    if (elText.toLowerCase().includes(text.toLowerCase()) && elText.length < 200) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            const style = window.getComputedStyle(el);
-                            if (style.display !== 'none' && style.visibility !== 'hidden') {
-                                return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
-                            }
-                        }
+        return await page.evaluate(({ txt, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            const voulu = txt.toLowerCase();
+            const texteRendu = (el) => {
+                let t = '';
+                const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
+                while (w.nextNode()) t += w.currentNode.textContent;
+                return t.replace(/\s+/g, ' ').trim();
+            };
+            function deepTextQuery(root) {
+                for (const el of root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label')) {
+                    const elText = texteRendu(el);
+                    if (elText.length < 200 && elText.toLowerCase().includes(voulu)) {
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
-                    if (el.shadowRoot) {
-                        const result = deepTextQuery(el.shadowRoot, text);
-                        if (result) return result;
-                    }
+                }
+                for (const el of root.querySelectorAll('*')) {
+                    if (!el.shadowRoot) continue;
+                    const result = deepTextQuery(el.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepTextQuery(document, txt);
-        }, text);
+            return deepTextQuery(document);
+        }, { txt: text, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
@@ -845,8 +667,10 @@ function resolveOfficialLocator(page, params) {
     if (by_role) {
         const opts = {};
         // whole_name : nom entier (casse et espaces de bord ignorés) au lieu d'une sous-chaîne.
-        if (by_name) opts.name = exact ? by_name
-            : new RegExp(params.whole_name ? `^\\s*${escapeRegex(by_name)}\\s*$` : escapeRegex(by_name), 'i');
+        const coupe = typeof by_name === 'string' && by_name.length > 1 && by_name.endsWith('…');
+        const nom = coupe ? by_name.slice(0, -1) : by_name;
+        if (by_name) opts.name = exact && !coupe ? by_name
+            : new RegExp(params.whole_name && !coupe ? `^\\s*${escapeRegex(nom)}\\s*$` : coupe ? `^\\s*${escapeRegex(nom)}` : escapeRegex(nom), 'i');
         if (exact) opts.exact = true;
         loc = page.getByRole(by_role, opts);
     } else if (by_text) {
@@ -922,6 +746,10 @@ function resolveRef(ref, page, sid = null) {
 
 // Attente courte d'une cible absente avant « element_not_found » (la page peut finir de s'afficher).
 const NOT_FOUND_GRACE_MS = parseInt(process.env.PW_NOT_FOUND_GRACE_MS || '2000', 10);
+// Plafond commun des grosses sorties (eval, extract, text), en caractères JSON comptés comme le client : sous son budget de 24 000, rien n'y est recoupé.
+const PLAFOND_SORTIE = parseInt(process.env.PW_OUTPUT_MAX_CHARS || '20000', 10);
+const INDICE_PLAFOND = `Output capped at ${PLAFOND_SORTIE} characters.`;
+
 // Délai par défaut d'un geste, commun à /action et /chain, sous le délai du client (10 s) : l'erreur du service arrive d'abord.
 const ACTION_TIMEOUT_MS = parseInt(process.env.PW_ACTION_TIMEOUT_MS || '8000', 10);
 
@@ -943,7 +771,7 @@ async function resoudreCible(scope, params, graceMs = 0) {
     if (!base) return null;
     const n0 = await attendrePresence(base, graceMs);
     let r = { liste: base, n: n0, nameMatch: null, params: sansNth };
-    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name) {
+    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name && !String(sansNth.by_name).endsWith('…')) {
         const entier = { ...sansNth, whole_name: true };
         const locEntier = resolveOfficialLocator(scope, entier);
         const ne = await locEntier.count().catch(() => 0);
@@ -958,9 +786,44 @@ async function resoudreCible(scope, params, graceMs = 0) {
 async function trouveParRepli(page, selector) {
     try {
         const r = await smartResolveLocator(page, selector);
-        if (r.coords || r.strategy !== 'fallback') return true;
-        return (await r.locator.count().catch(() => 0)) > 0;
+        if (r.coords) return true;
+        if (!r.locator) return false;
+        return r.strategy !== 'fallback' || (await r.locator.count().catch(() => 0)) > 0;
     } catch (_) { return false; }
+}
+
+// Repli par chaîne : un élément réel (un sélecteur CSS/XPath peut apparaître pendant `graceMs`), sinon element_not_found avec les cibles proches ; `coords` admis pour un clic seulement.
+async function resoudreRepli(page, selector, { params = null, coords = false, graceMs = NOT_FOUND_GRACE_MS } = {}) {
+    const r = await smartResolveLocator(page, selector);
+    if (r.coords && coords) return r;
+    if (r.locator && (r.strategy !== 'fallback' || await attendrePresence(r.locator, graceMs) > 0)) return r;
+    throw await erreurIntrouvable(page, params, selector, r.coords ? ' (only reachable by its position: use action=click)' : '');
+}
+
+// Case cochée par script en dernier recours : une vraie case ou un bouton radio seulement, sinon l'erreur du geste.
+async function cocherParScript(locator, etat, erreur) {
+    const fait = await locator.evaluate((el, v) => {
+        if (el.tagName !== 'INPUT' || !['checkbox', 'radio'].includes(el.type)) return false;
+        el.checked = v;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }, etat, { timeout: 1000 }).catch(() => false);
+    if (!fait) throw erreur;
+}
+
+// Clic qui atteindrait un autre élément que la cible (calque, bandeau, dialogue posé dessus) : rien n'a été cliqué.
+function erreurInterception(cible, couvert) {
+    const quoi = cible && cible.css ? `<${cible.css}>` : 'the target';
+    const par = couvert && couvert.css ? `<${couvert.css}>${couvert.text ? ` ("${couvert.text}")` : ''}` : 'another element';
+    return erreurCodee('click_intercepted', `The click on ${quoi} would land on ${par}, which covers it: nothing was clicked.`, {
+        covering_element: couvert || null, target_element: cible || null,
+        fix: 'Close or remove what covers the element (its close button, pw_act action="press" value="Escape"), or wait until it is gone (pw_wait condition="hidden" on it), then retry.',
+    });
+}
+
+// État de clic d'un locator (`pointDeClic` dans sa frame) ; null s'il n'est plus attaché.
+async function etatClic(loc, position = null) {
+    return loc.evaluate(pointDeClic, position, { timeout: 1500 }).then((p) => (p ? { visible: true, ...p } : { visible: false }), () => null);
 }
 
 // Cibles proposées pour une cible introuvable : rôles et noms de l'instantané ARIA de la page, les plus proches d'abord.
@@ -1043,9 +906,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
         // Critical for: <div class="btn"><span>Valider</span></div>
         try {
             for (const tag of ['button', 'a', '[role="button"]', '[onclick]', 'div', 'span', 'li', 'td', 'label']) {
-                const ht = page.locator(`${tag}:has-text("${echapperCss(selector)}")`).first();
-                if (await ht.count().catch(() => 0) > 0 && await ht.isVisible({ timeout: VIS_T }).catch(() => false))
-                    return { locator: ht, frame: page, strategy: `has-text(${tag})` };
+                const ht = await plusInterieurVisible(page.locator(`${tag}:has-text("${echapperCss(selector)}")`));
+                if (ht) return { locator: ht, frame: page, strategy: `has-text(${tag})` };
             }
         } catch (e) {}
 
@@ -1058,15 +920,16 @@ async function smartResolveLocator(page, selector, opts = {}) {
             }
         } catch (e) {}
 
-        // 2d. XPath normalize-space contains — handles whitespace, nested text, case variations
+        // 2d. XPath sur le texte PROPRE d'un élément rendu (jamais html/body ni le source d'un <script>), casse ignorée en second.
         try {
+            const rendu = 'not(ancestor-or-self::script or ancestor-or-self::style or ancestor-or-self::noscript or ancestor-or-self::template)';
             const xpaths = [
-                `//*[contains(normalize-space(), ${litteralXPath(selector)})]`,
-                `//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]`,
+                `//body//*[${rendu}][text()[contains(normalize-space(.), ${litteralXPath(selector)})]]`,
+                `//body//*[${rendu}][text()[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]]`,
             ];
             for (const xp of xpaths) {
-                const xl = page.locator(`xpath=${xp}`).first();
-                if (await xl.count().catch(() => 0) > 0 && await xl.isVisible({ timeout: VIS_T }).catch(() => false)) {
+                const xl = await premierVisible(page.locator(`xpath=${xp}`));
+                if (xl) {
                     const climbed = await climbToInteractive(xl);
                     return { locator: climbed || xl, frame: page, strategy: climbed ? 'xpath-text+climb' : 'xpath-text' };
                 }
@@ -1079,9 +942,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
             for (const frame of allFrames) {
                 if (frame === page.mainFrame() || frame.isDetached()) continue;
                 try {
-                    const fl = frame.getByText(selector, { exact: false }).first();
-                    if (await fl.count().catch(() => 0) > 0)
-                        return { locator: fl, frame, strategy: 'iframe-text' };
+                    const fl = await premierVisible(frame.getByText(selector, { exact: false }));
+                    if (fl) return { locator: fl, frame, strategy: 'iframe-text' };
                 } catch (e) {}
             }
         } catch (e) {}
@@ -1130,11 +992,11 @@ async function smartResolveLocator(page, selector, opts = {}) {
     if (!isXPath) {
         const shadowResult = await shadowDOMQuery(page, selector);
         if (shadowResult?.found)
-            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y } };
+            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y }, hit: shadowResult.hit, cover: shadowResult.cover, element: shadowResult.element };
         if (textLike) {
             const shadowTextResult = await shadowDOMQueryByText(page, selector);
             if (shadowTextResult?.found)
-                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y } };
+                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y }, hit: shadowTextResult.hit, cover: shadowTextResult.cover, element: shadowTextResult.element };
         }
     }
 
@@ -1142,8 +1004,12 @@ async function smartResolveLocator(page, selector, opts = {}) {
     // Last resort: find ANY element containing the text via JS, then climb to clickable ancestor
     if (textLike) {
         try {
-            const jsResult = await page.evaluate((text) => {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+            const jsResult = await page.evaluate(({ text, srcPoint }) => {
+                const auPoint = new Function(`return (${srcPoint})`)();
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
                 const needle = text.toLowerCase().trim();
                 while (walker.nextNode()) {
                     const node = walker.currentNode;
@@ -1168,21 +1034,43 @@ async function smartResolveLocator(page, selector, opts = {}) {
                             candidate = candidate.parentElement;
                         }
                         if (!el) continue;
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width === 0 || rect.height === 0) continue;
-                        return { found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
                 }
                 return { found: false };
-            }, selector);
+            }, { text: selector, srcPoint: sourceDe(pointDeClic) });
             if (jsResult?.found)
-                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y } };
+                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y }, hit: jsResult.hit, cover: jsResult.cover, element: jsResult.element };
         } catch (e) {}
     }
 
-    // ─── Strategy 7 : Fallback without visibility check ───
+    // ─── Strategy 7 : sélecteur CSS/XPath tel quel, jamais un texte pris pour un sélecteur ───
+    if (textLike && !isPlaywrightSyntax) return { locator: null, frame: page, strategy: 'not_found' };
     const fallback = isXPath ? page.locator(`xpath=${selector}`) : page.locator(selector);
     return { locator: fallback.first(), frame: page, strategy: 'fallback' };
+}
+
+// Premier élément visible d'une liste (les `max` premiers examinés), null sinon.
+async function premierVisible(loc, max = 10) {
+    const n = Math.min(await loc.count().catch(() => 0), max);
+    for (let i = 0; i < n; i++) if (await loc.nth(i).isVisible({ timeout: 150 }).catch(() => false)) return loc.nth(i);
+    return null;
+}
+
+// Élément visible le plus intérieur d'une liste (aucun autre élément de la liste en dessous) : le bouton, pas la page qui le contient.
+async function plusInterieurVisible(loc) {
+    const k = await loc.evaluateAll((els) => {
+        const liste = els.slice(0, 400);
+        for (let i = 0; i < liste.length; i++) {
+            const e = liste[i];
+            if (liste.some((o) => o !== e && e.contains(o))) continue;
+            const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+            if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') return i;
+        }
+        return -1;
+    }).catch(() => -1);
+    return k >= 0 ? loc.nth(k) : null;
 }
 
 // Remonte d'un nœud de texte vers l'ancêtre RÉELLEMENT interactif.
@@ -1546,112 +1434,77 @@ async function captureAncestors(locator) {
 }
 
 
+// Clic par l'échelle de repli : succès seulement sur un élément réel, visible, et que le clic atteint (point vérifié avant tout clic forcé ou par coordonnées) ; sinon element_not_found, click_intercepted ou l'erreur du premier essai.
 async function smartClick(page, selector, opts = {}) {
-    const { timeout = 8000, button = 'left', modifiers = [], human = false } = opts;
-    // Reduced cascade timeouts: element is already resolved, no need for long waits
+    const { timeout = 8000, button = 'left', modifiers = [], human = false, position = null, params = null } = opts;
     const FAST = 2000;
+    const resolved = await resoudreRepli(page, selector, { params, coords: true });
+    const fin = (strategy) => ({ success: true, strategy, resolved: resolved.strategy, locator: resolved.locator || null,
+                                 cadre: resolved.frame || null, ...(decrit ? { element: decrit } : {}) });
 
-    // Résoudre le locateur d'abord
-    let resolved;
-    try { resolved = await smartResolveLocator(page, selector, opts); }
-    catch (e) { resolved = { locator: page.locator(selector).first(), frame: page, strategy: 'direct' }; }
-
-    // Cas shadow DOM / JS text walk : clic par coordonnées directement
+    // Shadow DOM / parcours du texte : clic par coordonnées, point vérifié dans la page
     if (resolved.coords) {
-        try {
-            if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
-            else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
-            return { success: true, strategy: resolved.strategy };
-        } catch (e) {}
+        if (!resolved.hit) throw erreurInterception(resolved.element, resolved.cover);
+        if (resolved.element && resolved.element.disabled)
+            throw erreurCodee('element_disabled', `<${resolved.element.css}> is disabled: nothing was clicked.`);
+        if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
+        else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
+        return { success: true, strategy: resolved.strategy, resolved: resolved.strategy, element: resolved.element };
     }
 
     const loc = resolved.locator;
     const errors = [];
+    let premiere = null;
+    const vu = await loc.evaluate(decrireNoeud, {}, { timeout: 1000 }).catch(() => null);
+    const decrit = vu ? { css: vu.tag, ...(vu.role ? { role: vu.role } : {}), ...(vu.name ? { name: vu.name } : {}) } : null;
 
-    // Stratégie 1 : Clic Playwright normal
+    // Stratégie 1 : clic Playwright (attend que l'élément soit actionnable et non couvert)
     try {
         await scrollIntoViewIfNeeded(loc);
         if (human) {
-            const box = await loc.boundingBox({ timeout: FAST });
-            if (box) {
-                const ox = box.width * (0.3 + Math.random() * 0.4);
-                const oy = box.height * (0.3 + Math.random() * 0.4);
-                await humanClick(page, box.x + ox, box.y + oy);
-                return { success: true, strategy: '1-human', resolved: resolved.strategy };
+            const etat = await etatClic(loc, position);
+            if (etat && etat.visible && etat.hit) {
+                await humanClick(page, etat.x, etat.y);
+                return fin('1-human');
             }
         }
-        await loc.click({ timeout, button, modifiers });
-        return { success: true, strategy: '1-playwright', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S1: ${e.message.substring(0, 80)}`); }
+        await loc.click({ timeout, button, modifiers, ...(position ? { position } : {}) });
+        return fin('1-playwright');
+    } catch (e) { premiere = e; errors.push(`S1: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 2 : Suppression d'overlays + pointer-events fix + clic
+    // Stratégie 2 : bandeaux connus retirés, pointer-events rétablis, puis point vérifié
+    await safeRemoveOverlays(page);
+    await loc.evaluate(el => {
+        let node = el;
+        for (let i = 0; i < 10 && node; i++) {
+            if (window.getComputedStyle(node).pointerEvents === 'none') node.style.pointerEvents = 'auto';
+            node = node.parentElement;
+        }
+    }).catch(() => {});
+    await page.waitForTimeout(100);
+    const etat = await etatClic(loc, position);
+    if (!etat) throw await erreurIntrouvable(page, params, selector, ' (it left the page)');
+    if (!etat.visible) throw Object.assign(premiere, { code: codeErreur(premiere.message) === 'timeout' ? 'timeout' : 'element_not_visible' });
+    if (!etat.hit) throw erreurInterception(etat.element, etat.cover);
+    if (etat.disabled) throw Object.assign(premiere, { code: 'element_disabled' });
     try {
-        await safeRemoveOverlays(page);
-        // Fix pointer-events:none on element and ancestors
-        await loc.evaluate(el => {
-            let node = el;
-            for (let i = 0; i < 10 && node; i++) {
-                const style = window.getComputedStyle(node);
-                if (style.pointerEvents === 'none') {
-                    node.style.pointerEvents = 'auto';
-                }
-                node = node.parentElement;
-            }
-        }).catch(() => {});
-        await page.waitForTimeout(100);
-        await scrollIntoViewIfNeeded(loc);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '2-overlay+pointer-fix', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, button, modifiers, ...(position ? { position } : {}) });
+        return fin('2-overlay+pointer-fix');
     } catch (e) { errors.push(`S2: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 3 : Force click
+    // Stratégie 3 : clic forcé au point vérifié (l'élément y est le premier touché)
     try {
-        await loc.click({ timeout: FAST, force: true, button, modifiers });
-        return { success: true, strategy: '3-force', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, force: true, button, modifiers, ...(position ? { position } : {}) });
+        return fin('3-force');
     } catch (e) { errors.push(`S3: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 4 : Scroll au centre + pause + clic
-    try {
-        await loc.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }));
-        await page.waitForTimeout(200);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '4-scroll-center', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S4: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 5 : JS element.click()
+    // Stratégie 5 : clic JS sur l'élément visible lui-même
     try {
         await loc.evaluate(el => el.click());
-        return { success: true, strategy: '5-js-click', resolved: resolved.strategy };
+        return fin('5-js-click');
     } catch (e) { errors.push(`S5: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 6 : Dispatch MouseEvent complet (mousedown + mouseup + click + pointer)
-    try {
-        await loc.evaluate(el => {
-            const rect = el.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const init = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, which: 1, button: 0, view: window };
-            el.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mousedown', init));
-            el.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mouseup', init));
-            el.dispatchEvent(new MouseEvent('click', init));
-        });
-        return { success: true, strategy: '6-mouse-event-dispatch', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S6: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 7 : Clic par coordonnées via boundingBox
-    try {
-        const box = await loc.boundingBox({ timeout: FAST });
-        if (!box) throw new Error('No bounding box');
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
-        if (human) await humanClick(page, cx, cy);
-        else await page.mouse.click(cx, cy, { button });
-        return { success: true, strategy: '7-coords', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S7: ${e.message.substring(0, 80)}`); }
-
-    throw new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`);
+    throw Object.assign(new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`), { code: 'click_failed' });
 }
 
 // ==========================================
@@ -1701,6 +1554,8 @@ async function getSession(req, res, next) {
         return res.status(404).json({ error: "Session introuvable." });
     }
     const session = sessions.get(sid);
+    // Connexion en cours : refus avant le ping et le verrou, revu sous le verrou (un client parti le rend avant la fin de /login).
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     // AUDIT 2026-06 — ping borné (3 s) : une page gelée ne bloque plus la
     // requête entrante ('frozen' = fail-open, les handlers ont leurs propres
     // timeouts). Crash → closeSession (et plus un simple delete de la Map,
@@ -1737,15 +1592,21 @@ async function getSession(req, res, next) {
         res.once('finish', release);
         res.once('close', release);
     }
+    if (session._connexionEnCours) return res.status(409).json(CONNEXION_EN_COURS);
     req.session = session;
     req.sessionId = sid;
     annoncerOnglets(req, res);
     next();
 }
 
-// ── Screenshot write for a specific step number (file I/O only).
+const CONNEXION_EN_COURS = Object.freeze({
+    error: 'A login is in progress on this session: retry once it has finished.',
+    code: 'secret_login_busy', retryable: true,
+});
+
+// ── Screenshot write for a specific step number (file I/O only) ; aucune pendant une connexion.
 async function liveSnapshotForStep(page, sid, n) {
-    if (!page || !sid || !n) return null;
+    if (!page || !sid || !n || sessions.get(sid)?._connexionEnCours) return null;
     const liveName = `live_${sid}.png`;
     const stepName = `step_${sid}_${n}.png`;
     const livePath = path.join(SCREENSHOT_DIR, liveName);
@@ -1825,6 +1686,25 @@ const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || '9000', 10)
 const BUDGET_CHAINE_MS = parseInt(process.env.PW_CHAIN_BUDGET_MS || '55000', 10);
 
 // Geste de /action qui peut naviguer : la réponse attend la page d'arrivée et en donne l'URL (`navigated`, `url_before`).
+// Téléchargements lancés pendant un geste (depuis l'arrivée de la requête) joints à sa réponse : fichier, chemin, taille (attente bornée de leur enregistrement).
+function suiviTelechargements(req, res, next) {
+    const s = req.session;
+    if (!s || !Array.isArray(s.downloads)) return next();
+    const depuis = req.recuA || Date.now();
+    const envoyer = res.json.bind(res);
+    res.json = (corps) => {
+        const lances = s.downloads.filter(d => d.debut >= depuis);
+        if (!lances.length || res.statusCode >= 400 || !corps || typeof corps !== 'object' || Array.isArray(corps)) return envoyer(corps);
+        const delai = new Promise(r => setTimeout(r, TELECHARGEMENT_ATTENTE_MS, null));
+        Promise.all(lances.map(d => Promise.race([d.fini, delai]).then(f => f || { file: d.nom, status: 'in_progress' })))
+            .then((fichiers) => { corps.downloads = fichiers; }, () => {})
+            .finally(() => { try { envoyer(corps); } catch (e) { console.error('[téléchargement] réponse non envoyée :', e.message); } });
+        return res;
+    };
+    next();
+}
+const TELECHARGEMENT_ATTENTE_MS = parseInt(process.env.PW_DOWNLOAD_WAIT_MS || '5000', 10);
+
 function suiviNavigationGeste(req, res, next) {
     const page = req.session && req.session.page;
     if (!page || !GESTES_NAVIGANTS.has(req.body && req.body.type)) return next();
@@ -1879,6 +1759,13 @@ function erreurCodee(code, message, details = null) {
     return e;
 }
 
+// Réponse d'erreur d'une route : statut selon le code (introuvable 404, clic intercepté 409, sinon 500), code et contexte de l'erreur.
+function repondreErreur(res, e, extra = {}) {
+    const code = detailsErreur(e).code || codeErreur(e.message);
+    const statut = code === 'element_not_found' ? 404 : code === 'click_intercepted' ? 409 : 500;
+    return res.status(statut).json({ error: e.message, ...detailsErreur(e), ...extra });
+}
+
 // Code propre et contexte d'une erreur levée par le service, pour le corps de la réponse.
 function detailsErreur(e) {
     const out = {};
@@ -1888,13 +1775,13 @@ function detailsErreur(e) {
 }
 
 async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
-    const opts = await locator.evaluate((el) => {
+    const lu = await locator.evaluate((el) => {
         if (!el.options) return null;
-        return Array.from(el.options).map((o, i) => ({
+        return { multiple: el.multiple, opts: Array.from(el.options).map((o, i) => ({
             i, value: o.value, label: (o.text || '').trim(), disabled: !!o.disabled,
-        }));
+        })) };
     }).catch(() => null);
-    if (opts === null) {
+    if (lu === null) {
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '?');
         const e = new Error(
             `select: <${tag}> is not a native <select>. For a custom dropdown ` +
@@ -1903,34 +1790,55 @@ async function selectOptionSmart(locator, { option_value, option_label, value, t
         e.code = 'not_a_select';
         throw e;
     }
+    const opts = lu.opts;
     const pick = (pred) => opts.find(o => !o.disabled && pred(o));
-    let hit = null;
-    if (option_value) hit = pick(o => o.value === option_value);
-    else if (option_label) {
-        const w = String(option_label).trim();
-        hit = pick(o => o.label === w)
-           || pick(o => o.label.toLowerCase() === w.toLowerCase())
-           || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
-    }
-    if (!hit) {
-        const w = String(value || text || '').trim();
-        if (w) {
-            hit = pick(o => o.value === w)
-               || pick(o => o.label === w)
+    // Option voulue : par valeur (option_value), par libellé (option_label), sinon valeur ou libellé devinés (value/text).
+    const trouver = ({ option_value, option_label, value, text }) => {
+        let hit = null;
+        if (option_value) hit = pick(o => o.value === option_value);
+        else if (option_label) {
+            const w = String(option_label).trim();
+            hit = pick(o => o.label === w)
                || pick(o => o.label.toLowerCase() === w.toLowerCase())
-               || pick(o => o.value.toLowerCase() === w.toLowerCase())
                || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
         }
+        if (!hit) {
+            const w = String(value || text || '').trim();
+            if (w) {
+                hit = pick(o => o.value === w)
+                   || pick(o => o.label === w)
+                   || pick(o => o.label.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.value.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
+            }
+        }
+        return hit;
+    };
+    const absente = (wanted) => erreurCodee('option_not_found',
+        `No <option> matching "${wanted}". Available: ` +
+        opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
+        (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
+        { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
+          fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
+    // <select multiple> : une liste (ou des textes séparés par des virgules, sauf s'ils forment une option) sélectionne chaque option nommée.
+    const champ = ['option_value', 'option_label', 'value', 'text'].find(k => ({ option_value, option_label, value, text })[k]);
+    const brut = champ ? ({ option_value, option_label, value, text })[champ] : null;
+    const liste = Array.isArray(brut) ? brut.map(String).filter(Boolean)
+        : lu.multiple && typeof brut === 'string' && brut.includes(',') && !trouver({ [champ]: brut }) ? brut.split(',').map(x => x.trim()).filter(Boolean) : null;
+    if (liste && (lu.multiple || liste.length > 1)) {
+        if (!lu.multiple) throw erreurCodee('multiple_not_allowed', `This <select> takes one option; ${liste.length} were given.`,
+            { fix: 'Pass a single option_label= (or option_value=).' });
+        const touches = liste.map(w => [w, trouver({ [champ]: w })]);
+        const manquante = touches.find(([, h]) => !h);
+        if (manquante) throw absente(manquante[0]);
+        const retenues = [...new Map(touches.map(([, h]) => [h.i, h])).values()];
+        await locator.selectOption(retenues.map(h => ({ index: h.i })), { timeout });
+        return { value: retenues.map(h => h.value).join(','), label: retenues.map(h => h.label).join(', '), index: retenues[0].i,
+                 values: retenues.map(h => h.value), labels: retenues.map(h => h.label) };
     }
-    if (!hit) {
-        const wanted = option_value || option_label || value || text || '(none)';
-        throw erreurCodee('option_not_found',
-            `No <option> matching "${wanted}". Available: ` +
-            opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
-            (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
-            { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
-              fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
-    }
+    const seule = liste ? { [champ]: liste[0] } : { option_value, option_label, value, text };
+    const hit = trouver(seule);
+    if (!hit) throw absente(seule.option_value || seule.option_label || seule.value || seule.text || '(none)');
     await locator.selectOption({ index: hit.i }, { timeout });
     return { value: hit.value, label: hit.label, index: hit.i };
 }
@@ -1957,7 +1865,7 @@ const DIALOG_DEFAULT_WHEN_UNARMED = 'accept';
 function attachDialogHandler(page, dialogState) {
     page.on('dialog', async (dialog) => {
         const type = dialog.type();
-        const message = dialog.message();
+        const message = purgerTexte(dialog.message(), dialogState.formes);
         let action = DIALOG_DEFAULT_WHEN_UNARMED;
         let input = '';
         const pol = dialogState.pending;
@@ -2034,16 +1942,23 @@ const ownerStartLocks = new Map();
 // jamais, et rien ne distinguait l'appli des traqueurs tiers. On garde aussi
 // les documents, on note l'hôte et le same-origin. Attaché à CHAQUE page
 // (onglets compris) — avant, seule la première page de la session l'était.
+// Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
+const requetesEcartees = new WeakSet();
+const documentSansFragment = (u) => String(u || '').split('#')[0];
 function attachPageLoggers(page, consoleLogs, networkLog) {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
+    // Chaque entrée porte l'URL du document (sans fragment) qui l'a émise : l'inspection ne rend que celles du document courant.
+    const noter = (line) => {
+        consoleLogs.push({ line, doc: documentSansFragment(page.url()) });
+        if (consoleLogs.length > 100) consoleLogs.shift();
+    };
     page.on('console', msg => {
-        if (['error', 'warning'].includes(msg.type())) {
-            consoleLogs.push(`[${msg.type()}] ${msg.text()}`);
-            if (consoleLogs.length > 100) consoleLogs.shift();
-        }
+        if (['error', 'warning'].includes(msg.type())) noter(`[${msg.type()}] ${purgerTexte(msg.text(), networkLog.formes)}`);
     });
+    // Exception non rattrapée de la page (onload compris), que la console ne montre pas.
+    page.on('pageerror', err => noter(`[pageerror] ${purgerTexte(String(err?.message || err), networkLog.formes)}`));
     const pageHost = () => { try { return hostOf(page.url()); } catch (_) { return ''; } };
     const entry = (req, rtype) => {
         const url = req.url();
@@ -2057,13 +1972,15 @@ function attachPageLoggers(page, consoleLogs, networkLog) {
     page.on('request', req => {
         const rtype = req.resourceType();
         if (!NET_TYPES.has(rtype)) return;
-        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: req.postData()?.substring(0, 500) || null });
+        const formes = networkLog.formes;
+        if (formes && requetePorteSecret(req.url(), chargeRequete(req), formes)) return requetesEcartees.add(req);
+        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: formes ? null : (req.postData()?.substring(0, 500) || null) });
         if (networkLog.length > 300) networkLog.shift();
     });
     page.on('response', resp => {
         const req = resp.request();
         const rtype = req.resourceType();
-        if (!NET_TYPES.has(rtype)) return;
+        if (!NET_TYPES.has(rtype) || requetesEcartees.has(req)) return;
         networkLog.push({ ts: Date.now(), dir: 'RES', status: resp.status(), ...entry(req, rtype) });
         if (networkLog.length > 300) networkLog.shift();
     });
@@ -2130,7 +2047,6 @@ function attendreOnglet(s, ms) {
 function peutOuvrirOnglet(req) {
     const b = req.body || {};
     const geste = (type, key) => ['click', 'dblclick', 'double_click'].includes(type) || (type === 'press' && key === 'Enter');
-    if (req.path === '/smart_click') return true;
     if (NAV_GRACE_MS >= ATTENTE_POPUP_MS) return false;
     if (req.path === '/action') return geste(b.type, b.key);
     if (req.path === '/chain' && Array.isArray(b.actions) && b.actions.length) {
@@ -2285,10 +2201,72 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
+// Indice joint à un démarrage arrivé sur un 401/407.
+const indiceAuthDemarrage = (nav) => {
+    const h = authHint(nav.http_status ?? null);
+    return h ? { auth_hint: h } : {};
+};
+
+// Liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
+const ENTETE_LIAISON = 'x-elpis-binding';
+function liaisonRelais(b) {
+    const l = b.relay_binding;
+    if (l === undefined || l === null) return null;
+    if (typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
+        || !Array.isArray(l.origins) || !l.origins.length || l.origins.some((o) => origineDe(o) !== o)) return undefined;
+    return { cle: l.key, origines: new Set(l.origins) };
+}
+
+// Refus (400) d'un démarrage au `tls` inconnu ou à la liaison du relais invalide, ou qui enregistrerait cette liaison (HAR, trace) ; null sinon.
+function refusDemarrage(b) {
+    if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
+    const liaison = liaisonRelais(b);
+    if (liaison === undefined) return { error: 'relay_binding must be { key, origins }.', code: 'invalid_option' };
+    // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
+    if (liaison && (b.record_har || b.trace)) return { error: 'HAR and trace recordings would keep the relay binding of HTTP authentication.', code: 'recording_with_credentials' };
+    return null;
+}
+
+// Options fixées à la création d'un contexte : sans effet sur une session reprise.
+const OPTIONS_DE_CREATION = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
+const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
+
+// Plafond qui a fait céder une session, en clair pour le modèle.
+const LIMITES_SESSIONS = {
+    owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
+    group: () => `at most ${MAX_SESSIONS_PER_GROUP} sessions for an account and its sub-agents`,
+};
+
+// Session qui va céder sa place : identifiant, adresse, inactivité et raison.
+function descriptionEviction(sid, limite, now) {
+    const s = sessions.get(sid) || {};
+    let url = ''; try { url = s.page?.url?.() || ''; } catch (_) { /* page fermée */ }
+    return { session_id: sid, url: url.substring(0, 120), idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
+             isolated: Boolean(s.isolated), reason: `closed to stay within ${(LIMITES_SESSIONS[limite] || LIMITES_SESSIONS.owner)()}` };
+}
+
+function avisEviction(evincees) {
+    return `To open this session, ${evincees.length} older idle session(s) of yours were closed (${evincees.map(e => e.session_id).join(', ')}): `
+        + `${evincees[0].reason.replace(/^closed /, '')}. Their session_id no longer works; a session that is busy or opened for a secret is never closed.`;
+}
+
+// Refus quand toutes les sessions du demandeur sont protégées (occupées ou liées à un secret) : lesquelles, et quoi faire.
+function refusSessionsProtegees(slot) {
+    const protegees = (slot.protected || []).map((sid) => {
+        const s = sessions.get(sid) || {};
+        return { session_id: sid, why: s.tls ? 'opened for a secret' : 'busy' };
+    });
+    return {
+        error: `Browser session limit reached (${(LIMITES_SESSIONS[slot.limit] || LIMITES_SESSIONS.owner)()}) and none of your sessions can be closed for this one: each is busy or opened for a secret.`,
+        code: 'browser_quota', protected_sessions: protegees,
+        fix: "Stop a session you no longer need with pw_session(action='stop', session_id=…), or reuse one: start without isolated=true reuses your main session (a new tab), and starting again for the same secret reuses its session.",
+    };
+}
+
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, headless, load_state_id, record_har = false,
+        const { url, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2297,6 +2275,10 @@ app.post('/start', async (req, res) => {
         if (!owner) return res.status(400).json({ error: 'owner requis.' });
         // Groupe du quota : le compte d'un sous-agent à session isolée (absent : le propriétaire seul).
         const group = safeOwner(req.body.group) || owner;
+        // Session ouverte pour un secret du coffre : politique TLS du secret (`tls`), contexte neuf, jamais reprise ensuite.
+        const refus = refusDemarrage(req.body);
+        if (refus) return res.status(400).json(refus);
+        const tls = req.body.tls || null;
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
@@ -2316,7 +2298,7 @@ app.post('/start', async (req, res) => {
             storageState = path.join(COOKIES_DIR, etat.file);
         }
 
-        if (PW_MUTEX && owner && !isolated) {
+        if (PW_MUTEX && owner && !isolated && !tls) {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
@@ -2331,10 +2313,18 @@ app.post('/start', async (req, res) => {
         // échéant) s'ouvre dans un NOUVEL ONGLET de l'instance existante :
         // rien en cours n'est perdu, et l'utilisateur accumule des
         // onglets entre lesquels il peut basculer (switch_tab).
-        if (owner && !isolated) {   // isolated=true → contexte neuf, pas de réutilisation (isolation des tests)
+        if (owner && !isolated && !tls) {   // isolated=true ou politique TLS → contexte neuf, pas de réutilisation
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
+                const sansEffet = optionsDeCreation(req.body);
+                if (sansEffet.length) {
+                    return res.status(409).json({
+                        error: `A session is already open for this account (one per account): ${sansEffet.join(', ')} can only be set when a session is created, so they were NOT applied and nothing was opened.`,
+                        code: 'session_options_need_new_session', ignored_options: sansEffet, session_id: existingSid,
+                        fix: `Start again with isolated=true to get a new separate session with these options, or close this one first (pw_session action='stop'), or drop ${sansEffet.join(', ')} to open the url in a new tab of the existing session.`,
+                    });
+                }
                 // AUDIT 2026-06 — la mutation tabs/page se fait SOUS le mutex
                 // de la session réutilisée (une op en vol sur cette page ne
                 // doit pas voir s.page changer sous ses pieds).
@@ -2375,6 +2365,7 @@ app.post('/start', async (req, res) => {
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
                         ...nav,
+                        ...indiceAuthDemarrage(nav),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
                         // Un état ne se pose qu'à la création du contexte : le
@@ -2392,7 +2383,7 @@ app.post('/start', async (req, res) => {
             }
         }
 
-        const browser = await ensureBrowser(headless);
+        const browser = await ensureBrowser();
         const sessionId = uuidv4();
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
@@ -2407,17 +2398,13 @@ app.post('/start', async (req, res) => {
             locale: locale || 'fr-FR',
             timezoneId: timezone || 'Europe/Paris',
             colorScheme: color_scheme || undefined,   // 'light' | 'dark' | 'no-preference'
-            ignoreHTTPSErrors: true,
+            ignoreHTTPSErrors: tls !== 'strict',
             acceptDownloads: true,
             storageState,
-            httpCredentials: (username && password) ? { username, password } : undefined,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
-        // isMobile/hasTouch ne sont supportés que sur Chromium → on les retire
-        // pour firefox/webkit (sinon Playwright lève une exception au newContext).
-        if (BROWSER_ENGINE !== 'chromium') { delete contextOpts.isMobile; delete contextOpts.hasTouch; }
         delete contextOpts.defaultBrowserType;  // clé du preset non valide pour newContext
 
         if (record_har) contextOpts.recordHar = { path: path.join(HAR_DIR, `har_${sessionId}.har`), mode: 'minimal' };
@@ -2426,6 +2413,11 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        const liaison = liaisonRelais(req.body);
+        if (liaison) {
+            await context.route((u) => liaison.origines.has(origineDe(u.href)),
+                (route) => route.fallback({ headers: { ...route.request().headers(), [ENTETE_LIAISON]: liaison.cle } }).catch(() => {}));
+        }
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2445,41 +2437,46 @@ app.post('/start', async (req, res) => {
         });
 
         // Téléchargements rangés par propriétaire, pour TOUS les onglets.
+        // Chaque téléchargement est noté sur la session (début, fichier enregistré) : le geste qui l'a lancé le rapporte.
         const dossierTelechargements = path.join(DOWNLOAD_DIR, owner);
-        context.on('page', (pg) => pg.on('download', async download => {
-            try {
+        context.on('page', (pg) => pg.on('download', (download) => {
+            const nom = safeDownloadName(download.suggestedFilename());
+            const chemin = path.join(dossierTelechargements, nom);
+            const fini = (async () => {
                 fs.mkdirSync(dossierTelechargements, { recursive: true });
-                await download.saveAs(path.join(dossierTelechargements, safeDownloadName(download.suggestedFilename())));
-            } catch (e) {}
+                await download.saveAs(chemin);
+                return { file: nom, path: chemin, size: fs.statSync(chemin).size };
+            })().catch((e) => ({ file: nom, error: sansAnsi(e.message).split('\n')[0] }));
+            const s = sessions.get(sessionId);
+            if (s) { s.downloads.push({ debut: Date.now(), nom, fini }); if (s.downloads.length > 20) s.downloads.shift(); }
         }));
         const page = await context.newPage();
 
         const dialogState = makeDialogState();
-        attachDialogHandler(page, dialogState);
-
         const consoleLogs = [];
         const networkLog = [];
+        attachDialogHandler(page, dialogState);
         attachPageLoggers(page, consoleLogs, networkLog);
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
+        const slot = planSessionSlot(sessions, owner, { maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
-            return res.status(503).json(slot.cause === 'groupe' ? {
+            if (slot.cause === 'protegees') return res.status(503).json(refusSessionsProtegees(slot));
+            return res.status(503).json({
                 error: `Browser session quota reached for this account (${MAX_SESSIONS_PER_GROUP} sessions, sub-agents included).`,
                 code: 'browser_quota',
                 fix: "Close a session you no longer need with pw_session(action='stop'), or wait for a running browser sub-agent to finish: "
                    + 'the account and its sub-agents share this quota. A sub-agent that hits it returns Status: blocked to its parent.',
-            } : {
-                error: 'Browser service saturated: too many sessions are open across all accounts.',
-                code: 'browser_saturated',
-                fix: 'Do not loop on it: retry in a few minutes, or continue without the browser.',
             });
         }
+        // Session cédée pour rester sous le plafond : dite dans la réponse, jamais en silence.
+        const evincees = slot.evict ? [descriptionEviction(slot.evict, slot.limit, now)] : [];
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
+                                tls });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -2493,40 +2490,370 @@ app.post('/start', async (req, res) => {
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav });
+        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+                   ...(evincees.length ? { evicted_sessions: evincees, warning: avisEviction(evincees) } : {}),
+                   ...indiceAuthDemarrage(nav),
+                   ...(tls ? { tls } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });
 
 
-// ======================== SMART CLICK (endpoint dédié) ========================
-app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
+// ======================== CONNEXION AVEC UN SECRET DU COFFRE ========================
+// Le modèle ne saisit jamais un secret par un geste : /login_precheck contrôle les champs sans valeur ; /login, en une requête exclusive (toute
+// autre route de la session répond 409 secret_login_busy), isole la session, recharge la page depuis le réseau, saisit, soumet, juge l'issue et
+// remplace les documents qui ont reçu le secret. Avant et après, la session est ordinaire.
+const BUDGET_LOGIN_MS = parseInt(process.env.PW_LOGIN_BUDGET_MS || '40000', 10);
+// Attente d'une réaction de la page après la soumission (navigation, champ retiré), sauf requête porteuse encore en vol.
+const REACTION_LOGIN_MS = parseInt(process.env.PW_LOGIN_REACTION_MS || '15000', 10);
+const POST_BUDGET_MS = parseInt(process.env.PW_LOGIN_POST_BUDGET_MS || '15000', 10);
+// Plafond absolu d'une connexion depuis l'arrivée de la requête, post-traitement compris.
+const PLAFOND_LOGIN_MS = parseInt(process.env.PW_LOGIN_CEILING_MS || '62000', 10);
+const FERMETURE_MS = 4000;
+const CLES_CIBLE_LOGIN = ['ref', 'by_role', 'by_name', 'by_text', 'by_label', 'by_placeholder', 'by_test_id', 'by_alt', 'by_title', 'by_css'];
+const MDP_VISIBLE = 'input[type=password i]:not([autocomplete~=new-password i])';
+const avecDelai = (promesse, ms) => Promise.race([promesse, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('délai'), { name: 'TimeoutError' })), ms))]);
+
+// Candidats d'une cible de connexion (ref ou by_*) ; null sans cible, secret_target_required si elle ne désigne rien.
+async function candidatsLogin(req, t, quoi) {
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+    const params = {};
+    for (const k of CLES_CIBLE_LOGIN) if (t[k] !== undefined && t[k] !== null && t[k] !== '') params[k] = t[k];
+    if (!Object.keys(params).length) return null;
+    const c = await cibleDepuisParams(req.session.page, params, req.sessionId, NOT_FOUND_GRACE_MS);
+    if (!c) throw erreurSecret('secret_target_required', `${quoi} matches nothing on this page.`, 400);
+    const nth = Number.isInteger(t.nth) && t.nth >= 0 && !String(params.ref || '').includes('#') ? t.nth : null;
+    return { candidats: c.liste || c.loc, nth, params };
+}
+
+async function libererLogin(p) {
+    if (p) for (const h of p.handles) await h.dispose().catch(() => {});
+}
+
+// Champs (cibles ou détectés), formulaires, bouton et origine contrôlés sans valeur ; `valeurs` (login) limite la détection aux champs à remplir.
+async function preparerLogin(req, { fin = Infinity, valeurs = null } = {}) {
+    const b = req.body;
+    const timeout = Math.max(500, Math.min(Number(b.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2, fin - Date.now()));
+    const p = { handles: [], champs: {}, origines: {}, detectes: [], submit: null, origine: null, timeout, cw: null };
     try {
-        const { page } = req.session;
-        const { selector, human = false, button = 'left', modifiers = [], wait_after = null, timeout = 8000 } = req.body;
-        const result = await smartClick(page, selector, { human, button, modifiers, timeout });
-        await postActionWait(page, wait_after);
-        res.json({ status: 'success', ...result });
+        const auto = [];
+        for (const champ of ['username', 'password']) {
+            const c = await candidatsLogin(req, b[`${champ}_target`], `${champ}_target`);
+            if (c && valeurs && !valeurs[champ])
+                throw erreurSecret('secret_target_required', `${champ}_target is given but no ${champ} value comes with it.`, 400);
+            if (c) {
+                const r = await controlerChamp(c.candidats, { champ, timeout, nth: c.nth });
+                p.handles.push(r.h);
+                p.champs[champ] = r.h;
+                p.origines[champ] = r.origine;
+            } else if (!valeurs || valeurs[champ]) auto.push(champ);
+        }
+        if (auto.length) {
+            const d = await detecterChamps(req.session.page, { champs: auto, timeout });
+            for (const champ of auto) if (d[champ]) p.handles.push(d[champ]);
+            for (const champ of auto) {
+                if (!d[champ]) continue;
+                p.origines[champ] = await controlerPoignee(d[champ], champ);
+                p.champs[champ] = d[champ];
+                p.detectes.push(champ);
+            }
+        }
+        if (!Object.keys(p.champs).length)
+            throw erreurSecret('secret_target_required', 'No login field found on this page.', 400,
+                { fix: 'Pass username_target and/or password_target (label, placeholder, role and name, or a ref from pw_find).' });
+        const origines = new Set(Object.values(p.origines));
+        if (origines.size > 1) throw erreurSecret('secret_scope_mismatch', `The login fields are in frames of different origins (${[...origines].join(', ')}): refused.`, 403);
+        p.origine = [...origines][0];
+        for (const h of Object.values(p.champs)) await verifierFormulaire(h, p.origine);
+        const cs = await candidatsLogin(req, b.submit_target, 'submit_target');
+        if (cs) {
+            p.submit = await choisirVisible(cs.candidats, { timeout, nth: cs.nth, quoi: 'submit_target' });
+            p.handles.push(p.submit);
+            const fr = await p.submit.ownerFrame();
+            if (!fr || origineDe(fr.url()) !== p.origine)
+                throw erreurSecret('secret_scope_mismatch', "submit_target is not on the login fields' origin: refused.", 403);
+            await verifierFormulaire(p.submit, p.origine);
+        } else await verifierBoutonParDefaut(p.champs.password || p.champs.username, p.origine);
+        p.cw = await candidatsLogin(req, b.wait_for, 'wait_for');
+        return p;
     } catch (e) {
-        // Feature 3: Smart retry — find alternatives
-        const alternatives = await findAlternatives(req.session.page, req.body.selector).catch(() => []);
-        // Feature 4: Screenshot on failure
-        const ss = await screenshotOnFailure(req.session.page, req.sessionId, 'smart_click');
-        res.status(500).json({
-            error: e.message,
-            selector: req.body.selector,
-            alternatives,
-            hint: alternatives.length > 0
-                ? `${alternatives.length} similar element(s) found. Try: ${alternatives.map(a => a.selector || a.text).join(', ')}`
-                : 'No similar elements found. Try pw_inspect to see the page structure.',
-            ...ss,
-        });
+        await libererLogin(p);
+        throw e;
     }
+}
+
+// Réponse d'une erreur de connexion : erreur codée telle quelle, sinon échec générique (jamais un message Playwright, qui peut citer une saisie).
+function erreurLogin(e) {
+    if (e && e.code && e.statut) return { statut: e.statut, corps: { error: e.message, code: e.code, ...(e.details || {}) } };
+    if (e && e.name === 'TimeoutError') return { statut: 408, corps: { error: 'Timed out during login.', code: 'secret_login_failed' } };
+    return { statut: 500, corps: { error: 'Login failed: the page could not be driven.', code: 'secret_login_failed' } };
+}
+
+// Identifiant (frame + chargement) du document principal : il change à chaque vraie navigation.
+async function idPrincipal(page) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+        const { frameTree } = await cdp.send('Page.getFrameTree');
+        return `${frameTree.frame.id}:${frameTree.frame.loaderId}`;
+    } finally { await cdp.detach().catch(() => {}); }
+}
+
+// Chaque onglet qui a reçu le secret est remplacé par un onglet neuf, chargé en GET sur son adresse si elle ne porte aucun secret, historique vidé (aucun retour ne rejoue le POST) ; sinon fermé, puis la session.
+async function remplacerDocuments(s, saisies, finPost, formes) {
+    const bilan = { remplacees: 0, fermees: 0, sessionFermee: false };
+    const borne = () => Math.max(300, Math.min(4000, finPost - Date.now()));
+    for (const vieux of saisies) {
+        if (vieux.isClosed()) continue;
+        let cible = null;
+        try { const u = vieux.url(); if (/^https?:/i.test(u) && purgerTexte(u, formes) === u) cible = u; } catch (e) { cible = null; }
+        const neuf = await avecDelai(s.context.newPage(), borne()).catch(() => null);
+        if (neuf) {
+            brancherOnglet(s, neuf);
+            const i = s.tabs.indexOf(vieux);
+            if (i >= 0) s.tabs[i] = neuf; else s.tabs.push(neuf);
+            if (s.page === vieux) s.page = neuf;
+        }
+        vieux.__elpisFermeParService = true;
+        try { await avecDelai(vieux.close(), borne()); } catch (e) { bilan.sessionFermee = true; return bilan; }
+        if (!neuf) { bilan.fermees++; continue; }
+        bilan.remplacees++;
+        if (cible) await avecDelai(neuf.goto(cible, { waitUntil: 'commit' }), borne()).catch(() => {});
+        await avecDelai(s.context.newCDPSession(neuf).then((cdp) => cdp.send('Page.resetNavigationHistory').finally(() => cdp.detach().catch(() => {}))), borne()).catch(() => {});
+    }
+    if (!s.tabs.some((t) => !t.isClosed())) {
+        try {
+            const np = await avecDelai(s.context.newPage(), 3000);
+            brancherOnglet(s, np);
+            s.tabs.push(np);
+            s.page = np;
+        } catch (e) { bilan.sessionFermee = true; }
+    }
+    return bilan;
+}
+
+// Un champ mot de passe visible sur l'origine du secret (formulaire de connexion réaffiché).
+async function motDePasseVisible(page, origineSecret) {
+    for (const f of page.frames()) {
+        if (f.isDetached() || origineDe(f.url()) !== origineSecret) continue;
+        if ((await avecDelai(f.locator(MDP_VISIBLE).filter({ visible: true }).count(), 1000).catch(() => 0)) > 0) return true;
+    }
+    return false;
+}
+
+// Message d'erreur affiché par la page (alerte, région live), purgé et borné, pour expliquer un échec avant le remplacement des documents.
+async function messagePage(page, formes) {
+    const textes = await avecDelai(page.evaluate(() => Array.from(document.querySelectorAll('[role=alert], [aria-live=assertive], [aria-live=polite], .error, .alert'))
+        .map((e) => (e.innerText || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3)), 1500).catch(() => []);
+    return purgerTexte(textes.join(' | '), formes).substring(0, 300);
+}
+
+// Issue après la soumission : navigation, onglet, cible wait_for, champ retiré, formulaire invalide ou rien (réponse porteuse sans suite 3 s, fenêtre écoulée) ; puis mot de passe réaffiché 1 s ou cible absente.
+async function issueConnexion(page, p, ctx) {
+    const { fin, nouvelles, etat, avecSecret, origineSecret } = ctx;
+    const observe = p.champs.password || p.champs.username;
+    const debut = Date.now();
+    const finReaction = Math.min(fin, debut + REACTION_LOGIN_MS);
+    const lim = () => Math.max(300, Math.min(2000, fin - Date.now()));
+    let issue = 'no_change';
+    while (Date.now() < fin) {
+        if (etat.navigue || nouvelles.length) { issue = 'navigated'; break; }
+        if (p.cw && (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), lim()).catch(() => 0)) > 0) { issue = 'wait_for'; break; }
+        const vu = await avecDelai(observe.evaluate((el) => ({ parti: !el.isConnected || el.getClientRects().length === 0, invalide: Boolean(el.form && el.form.querySelector(':invalid')) })), lim())
+            .catch((e) => ({ parti: !(e && e.name === 'TimeoutError'), invalide: false }));
+        if (vu.parti) { issue = 'field_gone'; break; }
+        if (vu.invalide && !etat.enVol && !etat.repondu && Date.now() - debut > 1000) { issue = 'form_invalid'; break; }
+        if (!etat.enVol && ((etat.repondu && Date.now() - etat.repondu > 3000) || Date.now() >= finReaction)) break;
+        await page.waitForTimeout(150).catch(() => {});
+    }
+    for (const t = Math.min(fin, Date.now() + 1000); issue === 'field_gone' && !etat.navigue && Date.now() < t; ) await page.waitForTimeout(100).catch(() => {});
+    if (issue === 'field_gone' && etat.navigue) issue = 'navigated';
+    if (issue === 'navigated' || issue === 'field_gone')
+        await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+    if (issue === 'no_change' || issue === 'form_invalid' || issue === 'wait_for' || nouvelles.length) return issue;
+    const limite = p.cw ? fin : Math.min(fin, Date.now() + 1500);
+    let depuis = 0;
+    while (Date.now() < limite) {
+        if (p.cw && (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), lim()).catch(() => 0)) > 0) return 'wait_for';
+        if (avecSecret && (await motDePasseVisible(page, origineSecret))) {
+            depuis ||= Date.now();
+            if (Date.now() - depuis >= 1000) return 'login_form_shown_again';
+        } else depuis = 0;
+        await page.waitForTimeout(150).catch(() => {});
+    }
+    return p.cw ? 'wait_for_missing' : issue;
+}
+
+// Garde réseau de /login : aucun script de service worker enregistré ; pendant la saisie, toute requête vers une autre origine est coupée ; ensuite, une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
+function gardeReseau(formes, origineSecret, etat) {
+    return async (route) => {
+        const rq = route.request();
+        if (rq.headers()['service-worker'] === 'script') return route.abort('blockedbyclient').catch(() => {});
+        const avecSecret = requetePorteSecret(rq.url(), chargeRequete(rq), formes);
+        if (etat.saisie && origineDe(rq.url()) !== origineSecret) {
+            if (avecSecret) etat.bloquees++; else etat.coupees++;
+            return route.abort('blockedbyclient').catch(() => {});
+        }
+        if (!avecSecret) return route.fallback().catch(() => {});
+        const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
+        if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
+        etat.enVol++;
+        // La requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
+        rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
+        return route.fallback().catch(() => {});
+    };
+}
+
+// Corps d'une issue de connexion : succès (200), requête porteuse bloquée (403 secret_scope_mismatch), sinon échec (422 secret_login_failed).
+function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
+    const commun = { outcome: issue, navigated: docChange, fields: Object.keys(p.champs), detected: p.detectes, ...(nouvelles.length ? { opened_tab: true } : {}) };
+    if (bloquee) return { statut: 403, corps: { ok: false, ...commun, outcome: 'blocked', code: 'secret_scope_mismatch',
+        error: 'A request carrying the secret was blocked (not a POST, another origin, or a redirect to another origin): this page does not allow a safe login.',
+        fix: 'Ask the user to check the login page; do not retry on this page.' } };
+    if (['navigated', 'field_gone', 'wait_for'].includes(issue)) return { statut: 200, corps: { ok: true, status: 'submitted', ...commun } };
+    const raisons = {
+        no_change: 'nothing changed after submission (credentials refused, extra field, captcha or two-factor step)',
+        login_form_shown_again: 'the login form came back after submission (credentials refused?)',
+        wait_for_missing: 'the page changed but the wait_for target never appeared',
+        form_invalid: 'the browser refused to submit the form (a field is invalid, e.g. a username that is not an e-mail address)',
+    };
+    return { statut: 422, corps: { ok: false, ...commun, code: 'secret_login_failed',
+        error: `The login did not succeed: ${raisons[issue] || issue}. The fields were cleared.`,
+        fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
+}
+
+// Isolement avant toute saisie (le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret) : journaux sans corps ni requête porteuse, mocks suspendus, garde réseau, service workers de l'origine retirés, page rechargée depuis le réseau (aucun script d'avant n'y reste) ; chaque étape faite ajoute son retour à `defaire`.
+async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }) {
+    s.networkLog.formes = formes;
+    if (s.dialogState) s.dialogState.formes = formes;
+    s._mocksSuspendus = true;
+    defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
+    await s.context.route('**/*', garde);
+    defaire.push(() => s.context.unroute('**/*', garde));
+    const cdp = await s.context.newCDPSession(page);
+    try {
+        await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
+        const avant = await idPrincipal(page);
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: Math.max(500, fin - Date.now()) });
+        if ((await idPrincipal(page)) === avant)
+            throw erreurSecret('secret_login_failed', 'The login page could not be loaded again from the network: nothing was typed.', 422);
+    } finally { await cdp.detach().catch(() => {}); }
+    await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(Math.max(0, Math.min(3000, fin - Date.now() - 20000)))]);
+}
+
+app.post('/login_precheck', getSession, async (req, res) => {
+    let p = null;
+    try {
+        p = await preparerLogin(req);
+        const targets = {};
+        for (const [champ, h] of Object.entries(p.champs)) targets[champ] = await decrireChamp(h);
+        res.json({ ok: true, frame_origin: p.origine, fields: Object.keys(p.champs), detected: p.detectes, submit: Boolean(p.submit), targets });
+    } catch (e) {
+        const r = erreurLogin(e);
+        res.status(r.statut).json(r.corps);
+    } finally {
+        await libererLogin(p);
+    }
+});
+
+app.post('/login', getSession, async (req, res) => {
+    const s = req.session;
+    const b = req.body;
+    const origineSecret = origineDe(b.secret_origin);
+    const uv = typeof b.username_value === 'string' ? b.username_value : '';
+    const pv = typeof b.password_value === 'string' ? b.password_value : '';
+    const formes = formesSecret(pv);
+    const fin = req.recuA + BUDGET_LOGIN_MS - 500;
+    // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
+    s._connexionEnCours = true;
+    const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
+    const garde = gardeReseau(formes, origineSecret, etat);
+    const phaseSaisie = (oui) => { etat.saisie = oui; };
+    const saisies = new Set();
+    const nouvelles = [];
+    const surPage = (pg) => { nouvelles.push(pg); };
+    const defaire = [];
+    let p = null, avecSecret = false, tape = false, sortie = null, message = '';
+    let post = { remplacees: 0, fermees: 0, sessionFermee: false };
+    s.context.on('page', surPage);
+    try {
+        try {
+            if (!origineSecret) throw erreurSecret('secret_scope_mismatch', 'secret_origin must be an http(s) origin (scheme://host[:port]).', 400);
+            if (!uv && !pv) throw erreurSecret('secret_target_required', 'Nothing to type: username_value and password_value are both empty.', 400);
+            if (pv && !formes.length) throw erreurSecret('secret_login_failed', 'A password shorter than 3 characters cannot be guarded or purged: login refused.', 400);
+            if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
+            const prep = preparerLogin(req, { fin, valeurs: { username: uv, password: pv } });
+            try { p = await avecDelai(prep, Math.max(500, fin - Date.now())); }
+            catch (e) { prep.then(libererLogin, () => {}); throw e; }
+            if (p.origine !== origineSecret)
+                throw erreurSecret('secret_scope_mismatch', `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`, 403);
+            avecSecret = Boolean(p.champs.password);
+            if (avecSecret) for (const h of Object.values(p.champs)) saisies.add((await avecDelai(h.ownerFrame(), 3000)).page());
+            const page = s.page;
+            const surNav = (f) => { if (f === page.mainFrame()) etat.navigue = true; };
+            page.on('framenavigated', surNav);
+            try {
+                for (const champ of ['username', 'password']) {
+                    const h = p.champs[champ];
+                    if (!h) continue;
+                    if ((await controlerPoignee(h, champ)) !== origineSecret)
+                        throw erreurSecret('secret_scope_mismatch', "The field's frame left the secret's origin: nothing more was typed.", 403);
+                    await verifierFormulaire(h, origineSecret);
+                    tape = true;
+                    if (avecSecret) phaseSaisie(true);
+                    await remplirChamp(h, champ === 'password' ? pv : uv, { champ, timeout: p.timeout, delaiAvant: fin });
+                }
+                const observe = p.champs.password || p.champs.username;
+                const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => '');
+                const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+                if (etat.saisie) await page.waitForTimeout(150).catch(() => {});
+                phaseSaisie(false);
+                if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
+                else await observe.press('Enter', { timeout: t, noWaitAfter: true });
+                const issue = await issueConnexion(page, p, { fin, nouvelles, etat, avecSecret, origineSecret });
+                const apresId = await avecDelai(idPrincipal(page), 2000).catch(() => avantId);
+                const bloquee = issue !== 'wait_for' && (etat.bloquees > 0 || /^chrome-error:/.test(page.url()));
+                sortie = sortieConnexion(issue, { bloquee, docChange: avantId !== '' && apresId !== avantId, p, nouvelles });
+            } finally {
+                phaseSaisie(false);
+                page.off('framenavigated', surNav);
+            }
+        } catch (e) {
+            sortie = erreurLogin(e);
+            console.warn(`[login] ${req.sessionId.substring(0, 8)}… ${purgerTexte(sansAnsi(String(e && e.message)), formes).split('\n')[0].substring(0, 200)}`);
+        }
+        s.context.off('page', surPage);
+        if (p && tape && sortie.statut !== 200) {
+            message = await messagePage(s.page, formes);
+            for (const h of Object.values(p.champs)) await viderChamp(h);
+        }
+        await libererLogin(p).catch(() => {});
+        if (avecSecret && saisies.size) {
+            try { post = await remplacerDocuments(s, saisies, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS)), formes); }
+            catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
+            if (post.sessionFermee) await avecDelai(closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }), FERMETURE_MS).catch(() => {});
+        }
+    } finally {
+        for (const retour of defaire.reverse()) await Promise.resolve().then(retour).catch(() => {});
+        s._connexionEnCours = false;
+    }
+    let url = '', titre = '';
+    if (!post.sessionFermee) { try { url = s.page.url(); titre = await avecDelai(s.page.title(), 1500).catch(() => ''); } catch (e) { url = ''; } }
+    const corps = {
+        ...sortie.corps,
+        ...(message ? { page_message: message } : {}),
+        ...(post.sessionFermee ? { ok: false, outcome: 'session_closed', session_closed: true, code: 'secret_login_failed',
+            error: 'The documents that received the secret could not be replaced: the session was closed for safety.',
+            fix: 'Start a new session.' } : {}),
+        url: purgerTexte(url, formes).substring(0, 300), title: purgerTexte(titre, formes).substring(0, 200),
+        documents_replaced: post.remplacees,
+        ...(post.fermees ? { page_closed: true, warning: 'A document that received the secret could not be replaced: its page was closed for safety.' } : {}),
+    };
+    res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
 });
 
 
 // ======================== ACTIONS ========================
-app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, res) => {
+app.post('/action', getSession, autoSnapshot, suiviTelechargements, suiviNavigationGeste, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -2554,6 +2881,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
         const opts = { timeout, button, modifiers };
+        // Point de clic dans la cible ({x, y} depuis son coin haut gauche : canvas, carte), pour click, dblclick, rclick et hover.
+        const point = position && typeof position === 'object' ? position : null;
+        if (point && !(Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0))
+            return res.status(400).json({ error: 'position must be {x, y}: pixels from the top-left corner of the target, 0 or more.', code: 'invalid_position' });
+        const auPoint = point ? { position: { x: point.x, y: point.y } } : {};
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
         let extra = {};             // champs additionnels du résultat (expanded, drag…)
@@ -2594,9 +2926,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 }
             }
             const outcome = classifyNavOutcome(targetUrl, prevUrl, landed, navError, { restored });
-            // GUIDAGE MODÈLE : si la page répond 401/407, elle est protégée par
-            // auth HTTP. On joint un hint expliquant que username/password se
-            // passent au pw_session(start) (httpCredentials), pas au goto.
+            // GUIDAGE MODÈLE : une page en 401/407 est protégée par une auth HTTP ; l'indice renvoie au secret attaché (pw_session start), jamais à un mot de passe.
             // Toute réponse rend aussi son statut (un 404 reste un succès), l'adresse finale et un certificat douteux.
             if (outcome.httpStatus === 200) Object.assign(outcome.body, await detailsNavigation(gotoResp, targetUrl, landed));
             const hint = authHint(outcome.body.http_status ?? null);
@@ -2663,6 +2993,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             const avis = [];
             if (cible.n > 1 && nth === null)
                 avis.push(`${cible.n} elements match ${expr}; acted on the first. Pass strict=true to refuse ambiguous targets, or add |nth=K / use a ref from pw_find.`);
+            else if (cible.n > 1)
+                avis.push(`${cible.n} elements match ${expr}; acted on nth=${nth} (0-based). A position breaks when the list changes: prefer a ref from pw_find or a more precise target.`);
             if (cible.nameMatch === 'substring') {
                 const vu = await officialLocator.evaluate(decrireNoeud).catch(() => null);
                 avis.push(`No ${by_role} is named exactly "${by_name}"; matched by substring${vu && vu.name ? ` ("${vu.name}")` : ''}.`);
@@ -2771,20 +3103,21 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 ? Math.min(timeout, OFFICIAL_TRY_MS)
                 : timeout;
             const _t = officialTimeout;
+            const cadresAvant = req.session._recorder?.recording ? await cheminCadres(officialLocator) : [];
             try {
                 if (type === 'click') {
-                    await officialLocator.click({ timeout: _t, button, modifiers, force });
+                    await officialLocator.click({ timeout: _t, button, modifiers, force, ...auPoint });
                     // Un treeitem / disclosure dit s'il s'est ouvert : sans ça un
                     // clic « réussi » qui n'a fait que SÉLECTIONNER passait pour
                     // un dépliage (audit tools web 2026-09-05).
                     const _ae = await officialLocator.getAttribute('aria-expanded', { timeout: 500 }).catch(() => null);
                     if (_ae !== null && _ae !== undefined) extra.expanded = _ae === 'true';
                 } else if (type === 'double_click' || type === 'dblclick') {
-                    await officialLocator.dblclick({ timeout: _t, button, modifiers });
+                    await officialLocator.dblclick({ timeout: _t, button, modifiers, ...auPoint });
                 } else if (type === 'right_click' || type === 'rclick') {
-                    await officialLocator.click({ timeout: _t, button: 'right', modifiers });
+                    await officialLocator.click({ timeout: _t, button: 'right', modifiers, ...auPoint });
                 } else if (type === 'hover') {
-                    await officialLocator.hover({ timeout: _t, modifiers });
+                    await officialLocator.hover({ timeout: _t, modifiers, ...auPoint });
                 } else if (type === 'check') {
                     await officialLocator.check({ timeout: _t, force });
                 } else if (type === 'uncheck') {
@@ -2838,6 +3171,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // L'option RÉELLEMENT choisie — le rejeu n'écrit plus
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
+                    ...(uploadFiles ? { files: uploadFiles.map(f => f.name) } : {}),
+                    ...(cadresAvant.length ? { frames: cadresAvant } : {}),
                     url: page.url(), ref,
                 }, officialLocator);
                 return res.json({
@@ -2846,7 +3181,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // Ce que le service a RÉELLEMENT résolu, et par quel chemin :
                     // un succès par repli n'est plus indiscernable d'un succès
                     // direct (audit tools web 2026-09-05).
-                    resolved_selector: describeLocator(ref ? { ref } : { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath }, { first: true }),
+                    resolved_selector: describeLocator(ref ? { ref } : { ...cible.params, ...(nth !== null ? { nth } : {}) }, { first: true }),
                     attempts: [{ via: ref ? 'ref' : 'official', ok: true, ms: Date.now() - _t0 }],
                     url: page.url(),
                     ...(selectedOption ? { selected: selectedOption } : {}),
@@ -2890,10 +3225,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             : {};
         // Chaque réponse de repli complète la liste des tentatives : la dernière
         // est celle qui a atterri (via = stratégie smartResolve).
-        const _landed = (via) => ({
+        const _landed = (via, element = null) => ({
             ..._fb,
             attempts: [...(_fb.attempts || []), { via: `smart:${via || 'selector'}`, ok: true, ms: Date.now() - _t0 }],
             resolved_selector: describeLocator({ selector }, { first: true }),
+            ...(element ? { resolved_element: element } : {}),
         });
         // Budget du repli : l'essai officiel a déjà consommé jusqu'à
         // OFFICIAL_TRY_MS. Sans plafond ici, une cible RÉELLEMENT absente
@@ -2903,7 +3239,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // AMENER À L'ÉCRAN (cible + pas de direction)
         if (type === 'scroll_into_view') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', strategy: 'scroll_into_view', ..._landed('scroll_into_view') });
@@ -2911,25 +3247,21 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC SMART (via smartClick)
         if (type === 'click') {
-            const result = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, force });
+            const { locator: cliqueSur, cadre, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams, position: point });
+            const ancestors = cliqueSur ? await captureAncestors(cliqueSur).catch(() => []) : [];
             await postActionWait(page, wait_after);
-            // AX Memory : essai de capture des ancetres (best-effort)
-            let ancestors = [];
-            try {
-                const loc = page.locator(selector).first();
-                ancestors = await captureAncestors(loc).catch(() => []);
-            } catch (e) { ancestors = []; }
-            recordEvent(req.session, { action: 'click', selector, url: page.url() });
+            const cadres = req.session._recorder?.recording && cadre ? await cheminCadres(cadre) : [];
+            await recordEvent(req.session, { action: 'click', selector, url: page.url(), ...(cadres.length ? { frames: cadres } : {}) }, cliqueSur);
             return res.json({
                 status: 'success', ...result,
-                url: page.url(), ancestors, ..._landed(result && result.strategy),
+                url: page.url(), ancestors, ..._landed(result.strategy, element),
             });
         }
 
         // CLIC RELATIF
         if (type === 'click_relative') {
             const layoutSelector = `${selector}:${position}(${relative_to})`;
-            const result = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
+            const { locator: _l, cadre: _c, ...result } = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...result });
         }
@@ -2945,32 +3277,32 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DOUBLE-CLIC
         if (type === 'dblclick') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.dblclick({ timeout: _lt, force });
+            await locator.dblclick({ timeout: _lt, force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
 
         // CLIC DROIT
         if (type === 'right_click') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.click({ timeout: _lt, button: 'right', force });
+            await locator.click({ timeout: _lt, button: 'right', force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
 
         // HOVER
         if (type === 'hover') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             if (human) {
                 const box = await locator.boundingBox().catch(() => null);
                 if (box) { await humanMouseMove(page, 960, 540, box.x + box.width / 2, box.y + box.height / 2); }
                 else await locator.hover({ timeout: _lt, force });
             } else {
                 await scrollIntoViewIfNeeded(locator);
-                await locator.hover({ timeout: _lt, force });
+                await locator.hover({ timeout: _lt, force, ...auPoint });
             }
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
@@ -2978,7 +3310,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // FILL — gère input natif, contentEditable, React/Vue/Angular
         if (type === 'fill') {
-            let resolved = await smartResolveLocator(page, selector);
+            let resolved = await resoudreRepli(page, selector, { params: cibleParams });
             let loc = resolved.locator;
             let fillMethod = '';
 
@@ -3036,9 +3368,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 return res.json({ status: 'success', method: `${fillMethod}ctrl-a-type` });
             } catch (e) { errors.push(`ctrl+a: ${e.message.substring(0, 80)}`); }
 
-            // Tentative 3 : JS value + React/Vue native setter
+            // Tentative 3 : JS value + React/Vue native setter, sur un vrai champ seulement
             try {
                 await loc.evaluate((el, val) => {
+                    if (!['INPUT', 'TEXTAREA'].includes(el.tagName)) throw new Error(`<${el.tagName.toLowerCase()}> is not a text field`);
                     // React native setter (works with React 16+, 17, 18)
                     const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value') ||
                         Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -3066,7 +3399,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // TYPE (frappe humaine)
         if (type === 'type') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.click({ timeout: 3000 }).catch(() => {});
             if (human) {
                 for (const char of text) {
@@ -3084,7 +3417,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // CLAVIER
         if (type === 'press') {
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.press(key, { timeout: _lt });
             } else {
                 await page.keyboard.press(key);
@@ -3096,7 +3429,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // SELECT (natif)
         if (type === 'select') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             // Même résolution sans essai-erreur que la branche officielle : on
             // lit les <option> puis on choisit. L'ancien code enchaînait deux
             // selectOption avec le timeout PLEIN chacun (10 s + 10 s).
@@ -3109,23 +3442,23 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CHECK/UNCHECK
         if (type === 'check') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.check({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, true, e); }
             recordEvent(req.session, { action: 'check', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
         if (type === 'uncheck') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.uncheck({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, false, e); }
             recordEvent(req.session, { action: 'uncheck', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
 
         // DÉPLIER / REPLIER (arbre, accordéon)
         if (type === 'expand' || type === 'collapse') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await expandTreeItem(page, locator, type === 'expand', _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed(type) });
@@ -3133,7 +3466,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DRAG & DROP (même moteur que le chemin officiel : dragTo → HTML5 → décalage)
         if (type === 'drag') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await performDrag(page, locator, req.body, _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed('drag') });
@@ -3141,8 +3474,9 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // UPLOAD
         if (type === 'upload') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.setInputFiles(uploadFiles, { timeout: _lt });
+            await recordEvent(req.session, { action: 'upload', selector, files: uploadFiles.map(f => f.name), url: page.url() }, locator);
             return res.json({ status: 'success', uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })),
                               ..._landed('upload') });
         }
@@ -3151,7 +3485,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'scroll') {
             const { direction = 'down', amount = 500 } = req.body;
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.evaluate((el, { direction, amount }) => {
                     const map = { down: [0, amount], up: [0, -amount], right: [amount, 0], left: [-amount, 0] };
                     const [x, y] = map[direction] || [0, amount];
@@ -3186,7 +3520,12 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'remove_overlays') { await safeRemoveOverlays(page); return res.json({ status: 'success' }); }
 
         return res.status(400).json({ error: `Type d'action inconnu: "${type}"` });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
+    } catch (e) {
+        const code = detailsErreur(e).code || codeErreur(e.message);
+        const proches = ['timeout', 'element_not_visible', 'element_disabled', 'click_failed'].includes(code) && req.body.selector
+            ? await findAlternatives(req.session.page, req.body.selector, 3).catch(() => []) : [];
+        repondreErreur(res, e, proches.length ? { alternatives: proches } : {});
+    }
 });
 
 
@@ -3283,441 +3622,23 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== LOCATE (legacy, kept for compat) ========================
-app.post('/locate', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            text,                  // Texte affiché (ex: "Login", "S'inscrire")
-            role,                  // ARIA role (button, link, textbox, checkbox, radio, combobox, ...)
-            label,                 // aria-label OU <label for=> associé
-            placeholder,           // input placeholder
-            test_id,               // data-testid / data-cy / data-qa
-            tag,                   // restriction par tag (button, a, input, ...)
-            exact = false,         // matching exact ou contains
-            visible_only = true,
-            max = 5,
-        } = req.body;
-
-        if (!text && !role && !label && !placeholder && !test_id && !tag) {
-            return res.status(400).json({ error: "Au moins un critère requis: text, role, label, placeholder, test_id, ou tag" });
-        }
-
-        const matches = await page.evaluate((opts) => {
-            const { text, role, label, placeholder, test_id, tag, exact, visible_only, max } = opts;
-
-            function isVisible(el) {
-                const r = el.getBoundingClientRect();
-                if (r.width < 2 || r.height < 2) return false;
-                const cs = window.getComputedStyle(el);
-                if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return false;
-                return true;
-            }
-            function txtMatch(haystack, needle) {
-                if (!needle) return true;
-                if (!haystack) return false;
-                if (exact) return haystack.trim() === needle.trim();
-                return haystack.toLowerCase().includes(needle.toLowerCase());
-            }
-            function getXPath(el) {
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) return `//*[@id="${el.id}"]`;
-                const parts = [];
-                while (el && el.nodeType === 1 && el.tagName !== 'HTML') {
-                    let i = 1, sib = el.previousElementSibling;
-                    while (sib) { if (sib.tagName === el.tagName) i++; sib = sib.previousElementSibling; }
-                    parts.unshift(`${el.tagName.toLowerCase()}[${i}]`);
-                    el = el.parentElement;
-                }
-                return '/html/' + parts.join('/');
-            }
-            function escapeAttr(v) { return String(v).replace(/[\\"]/g, '\\$&'); }
-            function escapeCssIdent(v) {
-                // Escape pour utilisation dans un sélecteur CSS class (.xxx)
-                return String(v).replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
-            }
-            function isStableClass(cls) {
-                // Filtre les classes générées (CSS-in-JS, BEM hashés, framework runtime)
-                if (!cls || cls.length < 2 || cls.length > 60) return false;
-                // Heuristiques de hashes (jss-123, css-1abc2de, sc-xxx, _abc123, MuiButton-root-23)
-                if (/^(jss|css|sc-|emotion-|styled-|_)[\w-]{3,}/i.test(cls)) return false;
-                if (/-\d{2,}$/.test(cls)) return false;       // suffix numérique long (Mui-root-123)
-                if (/^[a-f0-9]{6,}$/i.test(cls)) return false; // hash hex pur
-                if (/^[A-Za-z]{1,2}_[A-Za-z0-9]{4,}$/.test(cls)) return false; // pattern type "a_xY3z"
-                return true;
-            }
-            function buildCssSelectors(el) {
-                const sel = [];
-                const tag = el.tagName.toLowerCase();
-
-                // 1. ID stable
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) sel.push(`#${el.id}`);
-
-                // 2. Test-IDs (les plus fiables pour SPA)
-                const tid = el.getAttribute('data-testid') || el.getAttribute('data-cy') ||
-                            el.getAttribute('data-qa') || el.getAttribute('data-test') || el.getAttribute('data-id');
-                if (tid) sel.push(`[data-testid="${escapeAttr(tid)}"]`);
-
-                // 3. Name attribute
-                const name = el.getAttribute('name');
-                if (name) sel.push(`${tag}[name="${escapeAttr(name)}"]`);
-
-                // 4. ARIA label
-                const aria = el.getAttribute('aria-label');
-                if (aria && aria.length < 80) sel.push(`[aria-label="${escapeAttr(aria)}"]`);
-
-                // 5. Placeholder
-                const ph = el.getAttribute('placeholder');
-                if (ph && ph.length < 80) sel.push(`${tag}[placeholder="${escapeAttr(ph)}"]`);
-
-                // 6. Role attribute
-                const role = el.getAttribute('role');
-                if (role) sel.push(`[role="${escapeAttr(role)}"]`);
-
-                // 7. href pour les liens
-                if (tag === 'a' && el.getAttribute('href')) {
-                    const h = el.getAttribute('href');
-                    if (h.length < 100) sel.push(`a[href="${escapeAttr(h)}"]`);
-                }
-
-                // 8. SPA-friendly : classes stables (filtrées)
-                const cls = el.className && typeof el.className === 'string' ? el.className.trim() : '';
-                if (cls) {
-                    const stable = cls.split(/\s+/).filter(isStableClass);
-                    if (stable.length > 0) {
-                        // Utilise jusqu'à 2 classes stables pour spécificité raisonnable
-                        const c1 = stable[0];
-                        sel.push(`${tag}.${escapeCssIdent(c1)}`);
-                        if (stable.length > 1) {
-                            sel.push(`${tag}.${escapeCssIdent(c1)}.${escapeCssIdent(stable[1])}`);
-                        }
-                    }
-                }
-
-                // 9. Fallback : nth-of-type avec parent contexte (utile quand rien d'autre)
-                if (sel.length === 0) {
-                    const parent = el.parentElement;
-                    if (parent) {
-                        const parentTag = parent.tagName.toLowerCase();
-                        const parentId = parent.id && /^[a-zA-Z][\w-]*$/.test(parent.id) ? `#${parent.id}` : null;
-                        const sameTag = Array.from(parent.children).filter(c => c.tagName === el.tagName);
-                        const idx = sameTag.indexOf(el) + 1;
-                        if (parentId) {
-                            sel.push(`${parentId} > ${tag}:nth-of-type(${idx})`);
-                        } else if (sameTag.length > 1) {
-                            sel.push(`${parentTag} > ${tag}:nth-of-type(${idx})`);
-                        }
-                    }
-                }
-
-                return sel;
-            }
-            function buildPlaywrightSelectors(el, txt) {
-                // ⚠️ IMPORTANT : on émet :has-text() (CSS extension Playwright)
-                // PLUTÔT QUE text= ou tag:text=, car :has-text() est compatible
-                // avec page.locator() ET page.click() de manière fiable.
-                // Le format "tag:text=..." n'est pas valide CSS et échoue souvent.
-                const sel = [];
-                const tag = el.tagName.toLowerCase();
-                let role = el.getAttribute('role');
-                if (!role) {
-                    if (el.tagName === 'BUTTON') role = 'button';
-                    else if (el.tagName === 'A' && el.getAttribute('href')) role = 'link';
-                    else if (el.tagName === 'INPUT') {
-                        const t = (el.getAttribute('type') || 'text').toLowerCase();
-                        if (t === 'checkbox') role = 'checkbox';
-                        else if (t === 'radio') role = 'radio';
-                        else if (t === 'submit' || t === 'button') role = 'button';
-                        else role = 'textbox';
-                    }
-                    else if (el.tagName === 'SELECT') role = 'combobox';
-                    else if (el.tagName === 'TEXTAREA') role = 'textbox';
-                }
-                if (!role) {
-                    let cs;
-                    try { cs = window.getComputedStyle(el); } catch (e) { cs = null; }
-                    if (cs && cs.cursor === 'pointer') role = 'button';
-                }
-
-                const accName = el.getAttribute('aria-label') || (txt && txt.trim().substring(0, 60));
-                // 1. role= (Playwright officiel, recommandé)
-                if (role && accName) sel.push(`role=${role}[name="${escapeAttr(accName)}"]`);
-                // 2. :has-text() — fiable, CSS pur Playwright (préféré à text=)
-                if (txt && txt.trim().length > 0 && txt.trim().length < 50) {
-                    sel.push(`${tag}:has-text("${escapeAttr(txt.trim())}")`);
-                }
-                return sel;
-            }
-
-            // 1. Sélection candidate par tag/role/test_id
-            // SPA-friendly : pour les apps modernes (React/Vue/Angular), les éléments
-            // cliquables sont souvent des <div>/<span> sans semantic. On élargit.
-            let pool;
-            if (test_id) {
-                pool = Array.from(document.querySelectorAll(
-                    `[data-testid="${test_id}"], [data-cy="${test_id}"], [data-qa="${test_id}"]`
-                ));
-            } else if (tag) {
-                pool = Array.from(document.querySelectorAll(tag));
-            } else {
-                // Pool large : éléments natifs interactifs + heuristique SPA
-                const candidates = new Set();
-
-                // (a) Éléments natifs / ARIA-rolés (rapide, indispensable)
-                document.querySelectorAll(
-                    'a, button, input, select, textarea, label, summary, ' +
-                    '[role], [tabindex]:not([tabindex="-1"]), ' +
-                    '[data-testid], [data-cy], [data-qa], [data-test], [data-id], ' +
-                    '[onclick], [contenteditable="true"]'
-                ).forEach(el => candidates.add(el));
-
-                // (b) Heuristique SPA : div/span/li/p avec signaux d'interactivité
-                // - cursor:pointer (le plus fiable pour les SPA modernes)
-                // - classnames typiques (btn, button, click, action, link, item, card, tab, menu, option)
-                // - ng-click / v-on:click / @click attributes (Angular/Vue)
-                const SPA_TAGS = 'div, span, li, p, td, th, section, article, header, footer, nav, aside, figure, h1, h2, h3, h4, h5, h6, img, svg, i';
-                const CLASS_HINTS = /\b(btn|button|click|clickable|action|link|item|card|tab|menu|option|toggle|trigger|select|control|nav-item|menu-item|list-item|tile|chip|badge|cta|press|tap)\b/i;
-
-                document.querySelectorAll(SPA_TAGS).forEach(el => {
-                    if (candidates.has(el)) return;
-
-                    // Skip rapides : très grand container, body wrapper
-                    const r = el.getBoundingClientRect();
-                    if (r.width === 0 || r.height === 0) return;
-                    // skip "page wrappers" : trop gros (probable container, pas un bouton)
-                    if (r.width > window.innerWidth * 0.95 && r.height > window.innerHeight * 0.7) return;
-
-                    // Signal 1: cursor pointer (très bon indicateur SPA)
-                    let cs;
-                    try { cs = window.getComputedStyle(el); } catch (e) { return; }
-                    if (cs.cursor === 'pointer') {
-                        candidates.add(el);
-                        return;
-                    }
-
-                    // Signal 2: classes évocatrices
-                    const cls = el.className && typeof el.className === 'string' ? el.className : '';
-                    if (cls && CLASS_HINTS.test(cls)) {
-                        candidates.add(el);
-                        return;
-                    }
-
-                    // Signal 3: framework markers (Angular/Vue/React handlers serializés en attribut)
-                    const attrs = el.attributes;
-                    for (let i = 0; i < attrs.length; i++) {
-                        const an = attrs[i].name;
-                        if (an.startsWith('ng-click') || an.startsWith('v-on:click') ||
-                            an === '@click' || an.startsWith('(click)') ||
-                            an.startsWith('data-on-') || an.startsWith('data-action')) {
-                            candidates.add(el);
-                            return;
-                        }
-                    }
-                });
-
-                pool = Array.from(candidates);
-            }
-
-            const found = [];
-            for (const el of pool) {
-                if (visible_only && !isVisible(el)) continue;
-
-                const elText = (el.textContent || el.value || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
-                const elLabel = el.getAttribute('aria-label') ||
-                                (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || '';
-                const elPlaceholder = el.getAttribute('placeholder') || '';
-
-                // Role inference SPA-friendly
-                let elRole = el.getAttribute('role');
-                let cs;
-                try { cs = window.getComputedStyle(el); } catch (e) { cs = null; }
-                if (!elRole) {
-                    if (el.tagName === 'BUTTON') elRole = 'button';
-                    else if (el.tagName === 'A' && el.getAttribute('href')) elRole = 'link';
-                    else if (el.tagName === 'INPUT') {
-                        const t = (el.getAttribute('type') || 'text').toLowerCase();
-                        elRole = (t === 'checkbox') ? 'checkbox' :
-                                 (t === 'radio') ? 'radio' :
-                                 (t === 'submit' || t === 'button') ? 'button' : 'textbox';
-                    }
-                    else if (el.tagName === 'SELECT') elRole = 'combobox';
-                    else if (el.tagName === 'TEXTAREA') elRole = 'textbox';
-                    else if (cs && cs.cursor === 'pointer') elRole = 'button'; // SPA pseudo-button
-                }
-
-                // Filtres
-                if (text && !txtMatch(elText, text) && !txtMatch(elLabel, text) && !txtMatch(elPlaceholder, text)) continue;
-                if (label && !txtMatch(elLabel, label)) continue;
-                if (placeholder && !txtMatch(elPlaceholder, placeholder)) continue;
-                if (role && elRole !== role) continue;
-
-                const r = el.getBoundingClientRect();
-                const cssSelectors = buildCssSelectors(el);
-                const pwSelectors = buildPlaywrightSelectors(el, elText);
-
-                // Score : favorise id > test_id > aria > role+name > href > class stable > cursor:pointer > text
-                let score = 0;
-                if (cssSelectors.find(s => s.startsWith('#'))) score += 100;
-                if (cssSelectors.find(s => s.includes('data-testid'))) score += 90;
-                if (cssSelectors.find(s => s.includes('aria-label'))) score += 70;
-                if (pwSelectors.find(s => s.startsWith('role='))) score += 60;
-                if (cssSelectors.find(s => s.includes('[name='))) score += 50;
-                if (cssSelectors.find(s => s.includes('placeholder'))) score += 40;
-                if (cssSelectors.find(s => /^[a-z]+\.[\w-]+/i.test(s))) score += 30; // class stable
-                if (cs && cs.cursor === 'pointer') score += 15;                       // SPA pseudo-button
-                if (r.top >= 0 && r.top <= window.innerHeight) score += 10;          // viewport bonus
-
-                found.push({
-                    tag: el.tagName.toLowerCase(),
-                    text: elText.substring(0, 80),
-                    role: elRole,
-                    visible: isVisible(el),
-                    enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
-                    in_viewport: r.top >= 0 && r.top <= window.innerHeight,
-                    // Sélecteurs : on garde 3 candidats max, ordonnés par robustesse.
-                    // Le LLM doit utiliser `selector` en priorité ; alternatives en fallback.
-                    selector: cssSelectors[0] || pwSelectors[0] || getXPath(el),
-                    alt_selectors: [
-                        ...cssSelectors.slice(1, 3),
-                        ...pwSelectors.slice(0, 2),
-                    ].filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 3),
-                    xpath: getXPath(el),
-                    score,
-                    _meta: {
-                        // Champs internes ignorables par le LLM, utiles pour debug
-                        label: elLabel.substring(0, 80),
-                        placeholder: elPlaceholder.substring(0, 80),
-                        href: el.getAttribute('href'),
-                        test_id: el.getAttribute('data-testid') || el.getAttribute('data-cy') || el.getAttribute('data-qa'),
-                        cursor_pointer: cs ? cs.cursor === 'pointer' : false,
-                        rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
-                    },
-                });
-            }
-
-            // Tri par score décroissant
-            found.sort((a, b) => b.score - a.score);
-            return found.slice(0, max);
-        }, { text, role, label, placeholder, test_id, tag, exact, visible_only, max });
-
-        // Format de retour compact : best en haut, alternatives uniquement si pertinent.
-        // On omet _meta du top-level pour réduire le contexte vu par le LLM.
-        const cleanMatch = (m) => {
-            const { _meta, ...rest } = m;
-            return rest;
-        };
-        const best = matches[0] ? cleanMatch(matches[0]) : null;
-        // Si 1 seul match : pas besoin d'alternatives. Si plusieurs : top 3.
-        const altMatches = matches.length > 1 ? matches.slice(1, 3).map(cleanMatch) : [];
-
-        res.json({
-            count: matches.length,
-            best,                   // ← À utiliser directement : best.selector
-            alternatives: altMatches,
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== QUERY (raw CSS/XPath, returns matches with details) ========================
-app.post('/query', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, xpath, max = 20, visible_only = false } = req.body;
-
-        if (!selector && !xpath) {
-            return res.status(400).json({ error: "Fournir 'selector' (CSS) ou 'xpath'" });
-        }
-
-        const result = await page.evaluate(({ selector, xpath, max, visible_only }) => {
-            function isVisible(el) {
-                const r = el.getBoundingClientRect();
-                if (r.width < 2 || r.height < 2) return false;
-                const cs = window.getComputedStyle(el);
-                if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return false;
-                return true;
-            }
-            function getXPath(el) {
-                if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) return `//*[@id="${el.id}"]`;
-                const parts = [];
-                while (el && el.nodeType === 1 && el.tagName !== 'HTML') {
-                    let i = 1, sib = el.previousElementSibling;
-                    while (sib) { if (sib.tagName === el.tagName) i++; sib = sib.previousElementSibling; }
-                    parts.unshift(`${el.tagName.toLowerCase()}[${i}]`);
-                    el = el.parentElement;
-                }
-                return '/html/' + parts.join('/');
-            }
-
-            let nodes = [];
-            try {
-                if (xpath) {
-                    const it = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                    for (let i = 0; i < it.snapshotLength && nodes.length < max * 2; i++) {
-                        nodes.push(it.snapshotItem(i));
-                    }
-                } else {
-                    nodes = Array.from(document.querySelectorAll(selector)).slice(0, max * 2);
-                }
-            } catch (e) {
-                return { error: 'Sélecteur invalide: ' + e.message, count: 0, matches: [] };
-            }
-
-            const matches = [];
-            for (const el of nodes) {
-                if (matches.length >= max) break;
-                if (!el || el.nodeType !== 1) continue;
-                if (visible_only && !isVisible(el)) continue;
-
-                // Garde uniquement les attrs utiles : id/class/href/data-*/name/type/aria-*
-                // Évite d'envoyer 50 attrs framework (style, srcset gigantesque, etc.)
-                const usefulAttrs = {};
-                for (const a of el.attributes) {
-                    const n = a.name;
-                    if (n === 'id' || n === 'class' || n === 'href' || n === 'name' ||
-                        n === 'type' || n === 'value' || n === 'placeholder' || n === 'title' ||
-                        n === 'alt' || n === 'role' || n === 'src' ||
-                        n.startsWith('data-') || n.startsWith('aria-')) {
-                        if (a.value && a.value.length < 120) usefulAttrs[n] = a.value;
-                        else if (a.value) usefulAttrs[n] = a.value.substring(0, 120) + '…';
-                    }
-                }
-                matches.push({
-                    tag: el.tagName.toLowerCase(),
-                    text: (el.textContent || '').trim().substring(0, 100),
-                    value: el.value !== undefined && el.value !== '' ? String(el.value).substring(0, 100) : undefined,
-                    attrs: usefulAttrs,
-                    visible: isVisible(el),
-                    enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
-                    xpath: getXPath(el),
-                });
-            }
-
-            return { count: matches.length, matches };
-        }, { selector, xpath, max, visible_only });
-
-        if (result.error) return res.status(400).json({ error: result.error });
-        // Drop undefined fields (JSON sérialise pas, mais c'est plus propre)
-        result.matches = result.matches.map(m => Object.fromEntries(Object.entries(m).filter(([_, v]) => v !== undefined)));
-        res.json(result);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== HANDLE DROPDOWN (custom + natif) ========================
 app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector, option_text, option_value, search_text } = req.body;
 
-        const { locator } = await smartResolveLocator(page, selector);
+        const { locator } = await resoudreRepli(page, selector);
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
 
         // Cas 1 : select natif (même choix que select, l'option retenue est rendue)
         if (tag === 'select') {
             const selected = await selectOptionSmart(locator, {
                 option_value, option_label: option_value ? undefined : option_text, timeout: ACTION_TIMEOUT_MS });
+            await recordEvent(req.session, { action: 'select', selector, value: selected.value, option_label: selected.label, selected, url: page.url() }, locator);
             return res.json({ status: 'success', type: 'native-select', selected });
         }
+
 
         // Cas 2 : combobox/input avec datalist
         const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
@@ -3735,17 +3656,23 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
                 const sl = page.locator(s).first();
                 if (await sl.count().catch(() => 0) > 0) {
                     const label = (await sl.innerText({ timeout: 1000 }).catch(() => '')).trim();
+                    const optionDecrite = await sl.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
                     await sl.click();
+                    await recordEvent(req.session, { action: 'pick', kind: 'autocomplete', selector, url: page.url(),
+                        value: search_text || option_text || option_value || '', option: label,
+                        ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                     const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
                     return res.json({ status: 'success', type: 'input-autocomplete', selected: { label, value: valeur } });
                 }
             }
             await page.keyboard.press('Enter');
             const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
+            await recordEvent(req.session, { action: 'pick', kind: 'enter', selector, url: page.url(), value: search_text || option_text || option_value || '' }, locator);
             return res.json({ status: 'success', type: 'input-enter', selected: { value: valeur } });
         }
 
-        // Cas 3 : dropdown custom (div/button)
+        // Cas 3 : dropdown custom (div/button) ; le déclencheur est décrit avant que la liste ne s'ouvre
+        const declencheur = req.session._recorder?.recording ? await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
         await smartClick(page, selector);
         await page.waitForTimeout(350);
 
@@ -3766,7 +3693,10 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             const optLoc = page.locator(s).first();
             if (await optLoc.count().catch(() => 0) > 0 && await optLoc.isVisible({ timeout: 500 }).catch(() => false)) {
                 const label = (await optLoc.innerText({ timeout: 1000 }).catch(() => optionText)).trim();
+                const optionDecrite = req.session._recorder?.recording ? await optLoc.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
                 await optLoc.click();
+                await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: label,
+                    ...(declencheur ? { locator: declencheur } : {}), ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                 return res.json({ status: 'success', type: 'custom-dropdown', matched_by: s, selected: { label } });
             }
         }
@@ -3775,260 +3705,14 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const shadowOpt = await shadowDOMQueryByText(page, optionText);
         if (shadowOpt?.found) {
             await page.mouse.click(shadowOpt.x, shadowOpt.y);
+            await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: optionText,
+                ...(declencheur ? { locator: declencheur } : {}) }, locator);
             return res.json({ status: 'success', type: 'shadow-dom-dropdown', selected: { label: optionText } });
         }
 
         return res.status(404).json({ error: `Option "${optionText}" not found in the dropdown.`, code: 'option_not_found',
             fix: 'Open the dropdown and read its options with pw_page(action="inspect"), then pass the visible text as option_label=.' });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
-});
-
-
-// ======================== SELECT DATE ========================
-app.post('/select_date', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, date, format = 'YYYY-MM-DD' } = req.body;
-        // date doit être au format ISO : "2024-03-15"
-        const [year, month, day] = date.split('-');
-
-        const { locator } = await smartResolveLocator(page, selector);
-        const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
-
-        if (inputType === 'date') {
-            // Input natif date
-            await locator.fill(date);
-            await locator.evaluate(el => ['input', 'change', 'blur'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true }))));
-            return res.json({ status: 'success', type: 'native-date-input' });
-        }
-
-        if (inputType === 'datetime-local') {
-            const dtValue = `${date}T${req.body.time || '00:00'}`;
-            await locator.fill(dtValue);
-            return res.json({ status: 'success', type: 'datetime-local' });
-        }
-
-        // Essayer de mettre la date via JS
-        try {
-            await locator.evaluate((el, val) => {
-                const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                if (nativeInput?.set) nativeInput.set.call(el, val);
-                else el.value = val;
-                ['input', 'change', 'blur'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true })));
-            }, date);
-            return res.json({ status: 'success', type: 'js-value' });
-        } catch (e) {}
-
-        // Essai : format affiché (DD/MM/YYYY)
-        const formatted = format === 'DD/MM/YYYY' ? `${day}/${month}/${year}` :
-            format === 'MM/DD/YYYY' ? `${month}/${day}/${year}` : date;
-        await locator.fill(formatted);
-        return res.json({ status: 'success', type: 'fill-formatted' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== SELECT COLOR ========================
-app.post('/select_color', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, hex_color } = req.body;
-        // hex_color : ex "#ff5733"
-        const { locator } = await smartResolveLocator(page, selector);
-        const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
-
-        if (inputType === 'color') {
-            await locator.evaluate((el, color) => {
-                const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                if (nativeInput?.set) nativeInput.set.call(el, color);
-                else el.value = color;
-                ['input', 'change'].forEach(ev => el.dispatchEvent(new Event(ev, { bubbles: true })));
-            }, hex_color);
-            return res.json({ status: 'success', type: 'native-color-input', color: hex_color });
-        }
-
-        // Tenter fill direct
-        await locator.fill(hex_color);
-        return res.json({ status: 'success', type: 'fill', color: hex_color });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== GET COLORS ========================
-app.post('/get_colors', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector } = req.body;
-
-        if (selector) {
-            const { locator } = await smartResolveLocator(page, selector);
-            const colors = await locator.evaluate(el => {
-                const style = window.getComputedStyle(el);
-                function toHex(rgb) {
-                    if (!rgb || rgb === 'transparent') return null;
-                    const m = rgb.match(/[\d.]+/g);
-                    if (!m || m.length < 3) return null;
-                    const [r, g, b, a] = m.map(Number);
-                    if (a !== undefined && a < 0.05) return null;
-                    return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-                }
-                function luminance(hex) {
-                    if (!hex) return null;
-                    const r = parseInt(hex.slice(1, 3), 16) / 255;
-                    const g = parseInt(hex.slice(3, 5), 16) / 255;
-                    const b = parseInt(hex.slice(5, 7), 16) / 255;
-                    const toLinear = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-                    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-                }
-                const textHex = toHex(style.color);
-                const bgHex = toHex(style.backgroundColor);
-                const lText = luminance(textHex);
-                const lBg = luminance(bgHex);
-                let contrast = null;
-                if (lText !== null && lBg !== null) {
-                    const lighter = Math.max(lText, lBg);
-                    const darker = Math.min(lText, lBg);
-                    contrast = parseFloat(((lighter + 0.05) / (darker + 0.05)).toFixed(2));
-                }
-                return {
-                    text: textHex,
-                    background: bgHex,
-                    border: toHex(style.borderColor),
-                    outline: toHex(style.outlineColor),
-                    boxShadow: style.boxShadow !== 'none' ? style.boxShadow.substring(0, 100) : null,
-                    opacity: style.opacity,
-                    contrast_ratio: contrast,
-                    wcag_aa: contrast ? contrast >= 4.5 : null,
-                    wcag_aaa: contrast ? contrast >= 7 : null,
-                    is_disabled_looking: contrast !== null && contrast < 2.5,
-                };
-            });
-            return res.json({ selector, ...colors });
-        }
-
-        // Palette globale de la page
-        const palette = await page.evaluate(() => {
-            const colorCounts = {};
-            document.querySelectorAll('*').forEach(el => {
-                try {
-                    const style = window.getComputedStyle(el);
-                    [style.color, style.backgroundColor, style.borderColor].forEach(c => {
-                        if (!c || c.includes('rgba(0, 0, 0, 0)') || c === 'transparent') return;
-                        colorCounts[c] = (colorCounts[c] || 0) + 1;
-                    });
-                } catch (e) {}
-            });
-            function toHex(rgb) {
-                const m = rgb.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            return Object.entries(colorCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 30)
-                .map(([rgb, count]) => ({ hex: toHex(rgb), rgb, count }))
-                .filter(x => x.hex);
-        });
-        res.json({ palette });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== FIND ELEMENTS ========================
-app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { query, type: elemType, visible_only = true, max = 20, in_viewport = false } = req.body;
-
-        const results = await page.evaluate(({ query, elemType, visibleOnly, max, inViewport }) => {
-            function toHex(rgb) {
-                const m = rgb?.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            function buildSelector(el) {
-                if (el.id && !/^\d/.test(el.id)) return `#${el.id}`;
-                const testId = el.getAttribute('data-testid') || el.getAttribute('data-cy') || el.getAttribute('data-qa');
-                if (testId) return `[data-testid="${testId}"]`;
-                const name = el.getAttribute('name');
-                if (name) return `${el.tagName.toLowerCase()}[name="${name}"]`;
-                const ariaLabel = el.getAttribute('aria-label');
-                if (ariaLabel) return `[aria-label="${ariaLabel.substring(0, 60)}"]`;
-                const text = el.textContent?.trim().substring(0, 40);
-                if (text) return `${el.tagName.toLowerCase()}:has-text("${text}")`;
-                return el.tagName.toLowerCase();
-            }
-
-            let candidates = [];
-
-            if (elemType) {
-                const typeMap = {
-                    'button': 'button, [role="button"], input[type="button"], input[type="submit"]',
-                    'input': 'input:not([type="hidden"]), textarea',
-                    'link': 'a[href]',
-                    'select': 'select, [role="combobox"], [role="listbox"]',
-                    'checkbox': 'input[type="checkbox"], [role="checkbox"]',
-                    'radio': 'input[type="radio"], [role="radio"]',
-                    'image': 'img',
-                    'table': 'table, [role="grid"], [role="table"]',
-                    'interactive': 'a, button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])',
-                };
-                candidates = Array.from(document.querySelectorAll(typeMap[elemType] || elemType));
-            } else {
-                candidates = Array.from(document.querySelectorAll('*'));
-            }
-
-            const results = [];
-            for (const el of candidates) {
-                if (results.length >= max) break;
-                try {
-                    const rect = el.getBoundingClientRect();
-                    if (rect.width === 0 && rect.height === 0) continue;
-                    const style = window.getComputedStyle(el);
-                    if (visibleOnly && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
-                    if (inViewport && (rect.top < 0 || rect.top > window.innerHeight || rect.left < 0 || rect.left > window.innerWidth)) continue;
-
-                    const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
-
-                    // Filtre par query
-                    if (query) {
-                        const q = query.toLowerCase();
-                        const matches = text.toLowerCase().includes(q) ||
-                            (el.id && el.id.toLowerCase().includes(q)) ||
-                            (el.className?.toString().toLowerCase().includes(q)) ||
-                            (el.getAttribute('aria-label') || '').toLowerCase().includes(q) ||
-                            (el.getAttribute('placeholder') || '').toLowerCase().includes(q) ||
-                            (el.getAttribute('name') || '').toLowerCase().includes(q);
-                        if (!matches) continue;
-                    }
-
-                    results.push({
-                        tag: el.tagName.toLowerCase(),
-                        text: text.substring(0, 100),
-                        selector: buildSelector(el),
-                        rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
-                        center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
-                        role: el.getAttribute('role'),
-                        type: el.getAttribute('type'),
-                        disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
-                        checked: el.checked,
-                        value: (el.value || '').substring(0, 100),
-                        href: el.href || null,
-                        color: toHex(style.color),
-                        bg: toHex(style.backgroundColor),
-                        in_viewport: rect.top >= 0 && rect.top <= window.innerHeight,
-                    });
-                } catch (e) {}
-            }
-            return results;
-        }, { query, elemType, visibleOnly: visible_only, max, inViewport: in_viewport });
-
-        res.json({ elements: results, count: results.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4050,7 +3734,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch (e) {}
         }
 
-        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow }) => {
+        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, srcUnique }) => {
+            const unique = new Function(`return (${srcUnique})`)();
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -4182,6 +3867,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return parts.join(' > ');
             }
+            // Sélecteur lisible gardé s'il désigne l'élément seul, sinon rendu unique (même règle que pw_observe).
+            function selUnique(el) {
+                try { return unique(el, buildBestSelector(el), buildBestSelector); } catch (e) { return buildBestSelector(el); }
+            }
             function anchoredSelector(el) {
                 // id stable sur l'élément lui-même, sinon chemin positionnel ANCRÉ
                 // (id d'ancêtre ou body) — jamais un chemin qui part d'un « tbody »
@@ -4213,26 +3902,28 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 }
                 return '';
             }
+            // Nom de plus de 80 caractères coupé avec « … » (jamais vidé) : name=<début>… reste une cible (préfixe).
+            const borneNom = (t) => (t.length > 80 ? `${t.slice(0, 79)}…` : t);
             function axName(el) {
                 // Accessible-name priority: aria-label > aria-labelledby >
                 // associated <label> > control text > placeholder/title/alt.
                 try {
                     const al = el.getAttribute('aria-label');
-                    if (al && al.trim()) return al.trim().substring(0, 80);
+                    if (al && al.trim()) return borneNom(al.trim().replace(/\s+/g, ' '));
                     const lb = el.getAttribute('aria-labelledby');
                     if (lb) {
                         const txt = lb.split(/\s+/).map(id => {
                             const r = document.getElementById(id);
                             return r ? (r.textContent || '').trim() : '';
                         }).filter(Boolean).join(' ');
-                        if (txt) return txt.substring(0, 80);
+                        if (txt) return borneNom(txt.replace(/\s+/g, ' '));
                     }
                     if (el.id) {
                         const lf = document.querySelector('label[for="' + el.id.replace(/[\\"]/g, '\\$&') + '"]');
-                        if (lf && lf.textContent.trim()) return lf.textContent.trim().substring(0, 80);
+                        if (lf && lf.textContent.trim()) return borneNom(lf.textContent.replace(/\s+/g, ' ').trim());
                     }
                     const wrap = el.closest('label');
-                    if (wrap && wrap.textContent.trim()) return wrap.textContent.trim().substring(0, 80);
+                    if (wrap && wrap.textContent.trim()) return borneNom(wrap.textContent.replace(/\s+/g, ' ').trim());
                     // Le texte propre vaut nom accessible pour TOUT contrôle qui
                     // n'a pas de valeur saisie — pas seulement button/a/role=button.
                     // Un `<div role="combobox">Choisir une ville</div>` ressortait
@@ -4243,12 +3934,10 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     const NO_OWN_TEXT = new Set(['input', 'textarea', 'select']);
                     if (!NO_OWN_TEXT.has(tag)) {
                         const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-                        // Un conteneur qui agrège le texte de toute une section
-                        // n'a pas un « nom » : on borne.
-                        if (t && t.length <= 120) return t.substring(0, 80);
+                        if (t) return borneNom(t);
                     }
-                    return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || el.value || '') + '').trim().substring(0, 80);
+                    return borneNom(((el.getAttribute('placeholder') || el.getAttribute('title')
+                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').replace(/\s+/g, ' ').trim());
                 } catch (e) { return ''; }
             }
 
@@ -4327,7 +4016,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         const sr = host.shadowRoot;
                         if (!sr) continue;
                         _shadowHosts.push(host);
-                        const hostSel = buildBestSelector(host);
+                        const hostSel = selUnique(host);
                         const inter = sr.querySelectorAll(interactiveQuery);
                         for (const el of inter) {
                             if (!_inShadow.has(el)) { _inShadow.set(el, hostSel); _semantic.push(el); }
@@ -4394,20 +4083,24 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // éléments sans le dire, et le modèle concluait « n'existe pas »
             // (audit tools web 2026-09-05).
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _allCandidates) {
-                if (interactives.length >= maxItems) { omitted.over_max = _allCandidates.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const rect = el.getBoundingClientRect();
+                // Au-delà du plafond, chaque candidat restant est encore classé (petit, hors écran) : over_max ne compte que les retenus de trop.
+                if (interactives.length >= maxItems) {
+                    if (rect.width < 2 || rect.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (rect.width < 2 || rect.height < 2) { omitted.too_small++; continue; }
                 if (viewportOnly && (rect.bottom < -50 || rect.top > window.innerHeight + 50)) { omitted.offscreen++; continue; }
                 const style = window.getComputedStyle(el);
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4418,7 +4111,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 else if (tag === 'select') elemType = 'select';
                 else if (tag === 'textarea') elemType = 'textarea';
 
-                const sel = buildBestSelector(el);
+                const sel = selUnique(el);
                 const item = {
                     idx: idx++, type: elemType, text, selector: sel,
                     role: axRole(el), name: axName(el),
@@ -4461,7 +4154,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value) item.value = el.value.substring(0, 100);
+                    if (el.value && el.type !== 'password') item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4509,24 +4202,31 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: f.value?.substring(0, 100), label: (() => {
+                    value: f.type === 'password' ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
                     })(),
-                    selector: buildBestSelector(f),
+                    selector: selUnique(f),
                 }));
                 return { index: i, id: form.id || null, action: form.action || null, method: form.method || 'get', fields, submit_btn: (() => {
                     const btn = form.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
-                    return btn ? { text: btn.textContent.trim(), selector: buildBestSelector(btn) } : null;
+                    return btn ? { text: btn.textContent.trim(), selector: selUnique(btn) } : null;
                 })() };
             });
 
-            // ─── Tableaux (full only) ───
-            const tables = (level !== 'full') ? [] : Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]')).map((t, i) => {
-                const headers = Array.from(t.querySelectorAll('th, [role="columnheader"]')).map(h => h.textContent.trim()).filter(Boolean);
-                const rows = t.querySelectorAll('tr, [role="row"]').length;
-                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows, cols: headers.length || 'unknown', headers: headers.slice(0, 15), selector: buildBestSelector(t) };
+            // ─── Tableaux (tous niveaux, 10 au plus) : en-têtes <th>, sinon la première ligne, sinon aucun ───
+            const _tables = Array.from(document.querySelectorAll('table, [role="grid"], [role="table"]'));
+            const tables = _tables.slice(0, 10).map((t, i) => {
+                const net = (c) => (c.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 60);
+                const lignes = Array.from(t.querySelectorAll('tr, [role="row"]'));
+                const th = Array.from(t.querySelectorAll('th, [role="columnheader"]'));
+                const premiere = lignes[0] ? Array.from(lignes[0].querySelectorAll('td, th, [role="cell"], [role="gridcell"]')) : [];
+                const source = th.length ? 'th' : premiere.some(c => net(c)) ? 'first_row' : 'none';
+                const headers = source === 'th' ? th.map(net) : source === 'first_row' ? premiere.map(net) : [];
+                return { index: i, tag: t.tagName.toLowerCase(), role: t.getAttribute('role'), rows: lignes.length,
+                         cols: Math.max(headers.length, premiere.length), headers: headers.slice(0, 15), header_source: source,
+                         selector: selUnique(t) };
             });
 
             // ─── Structure sémantique (nav+full) ───
@@ -4555,7 +4255,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 
             // ─── Alertes (always — they're cheap and important for the LLM) ───
             const alerts = Array.from(document.querySelectorAll('[role="alert"], [role="status"], .alert, .notification, .toast, .snackbar, .error, .warning, .success')).slice(0, 5).map(el => ({
-                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: buildBestSelector(el),
+                role: el.getAttribute('role'), text: el.textContent.trim().substring(0, 200), selector: selUnique(el),
             })).filter(a => a.text.length > 0);
 
             const scrollables = _scrollables.sort((a, b) => b.area - a.area).slice(0, 5).map(x => ({
@@ -4576,7 +4276,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             // absence ne doit pas être confondue avec « pas encore implémenté »
             // (audit tools web 2026-09-05, retest 2). Vide = la page défile
             // elle-même (ou rien ne défile), non-vide = viser un conteneur.
-            return { interactives, forms, tables, regions, alerts, url: location.href, title: document.title,
+            return { interactives, forms, tables, ...(_tables.length > 10 ? { tables_total: _tables.length } : {}), regions, alerts, url: location.href, title: document.title,
                      viewport: { w: window.innerWidth, h: window.innerHeight },
                      scroll: { x: window.scrollX, y: window.scrollY, maxY },
                      candidates_total: _allCandidates.length, omitted,
@@ -4586,7 +4286,8 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                      ...(shadow.length ? { shadow } : {}) };
         };
 
-        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow });
+        const srcUnique = sourceDe(selecteurUnique);
+        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, srcUnique });
 
         // ── Contenu des iframes ───────────────────────────────────────────
         // page.evaluate ne s'exécute QUE dans la frame principale : tout ce qui
@@ -4605,7 +4306,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 let sub = null;
                 try {
                     sub = await Promise.race([
-                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow }),
+                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow, srcUnique }),
                         new Promise(r => setTimeout(() => r(null), 3000)),
                     ]);
                 } catch (e) { sub = null; }
@@ -4659,200 +4360,11 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             level, viewport_only: viewportOnly, max_items: maxItems,
             screenshot: skipScreenshot ? null : `smart_${sid}.png`,
             // Répétitions compactées en « (×N) » (audit tools web 2026-09-05).
-            console_errors: compactConsole(req.session.consoleLogs || [], 5),
+            console_errors: compactConsole((req.session.consoleLogs || [])
+                .filter(e => e.doc === documentSansFragment(page.url())).map(e => e.line), 5),
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
-
-// ======================== INSPECT (vue textuelle complète) ========================
-app.get('/inspect', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const sid = req.query.session_id;
-        const skipScreenshot = req.query.skip_screenshot === 'true';
-
-        if (!skipScreenshot) {
-            try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `view_${sid}.png`) }); } catch (e) {}
-        }
-
-        const mainView = await inspectFrame(page, 'MAIN');
-        let iframeViews = '';
-        const frames = getAllFrames(page);
-        let frameIdx = 0;
-        for (const frame of frames) {
-            if (frame === page.mainFrame() || frame.isDetached()) continue;
-            try {
-                const frameUrl = frame.url();
-                if (frameUrl.includes('doubleclick') || frameUrl.includes('facebook.com/tr') || frameUrl.includes('google-analytics')) continue;
-                const content = await inspectFrame(frame, `IFRAME_${frameIdx}`);
-                if (content && content.trim().length > 10) {
-                    iframeViews += `\n\n===== IFRAME #${frameIdx} (${frameUrl.substring(0, 80)}) =====\n${content}`;
-                    frameIdx++;
-                }
-            } catch (e) {}
-        }
-        res.json({
-            url: page.url(),
-            title: await page.title().catch(() => ''),
-            view: (mainView + iframeViews).replace(/\n{3,}/g, '\n\n').trim(),
-            screenshot: skipScreenshot ? null : `view_${sid}.png`,
-            console_errors: compactConsole(req.session.consoleLogs || [], 10),
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-async function inspectFrame(frame, label) {
-    try {
-        return await frame.evaluate(() => {
-            const MAX_DEPTH = 30, MAX_TEXT = 200;
-            function toHex(rgb) {
-                const m = rgb?.match(/[\d.]+/g);
-                if (!m || m.length < 3) return null;
-                const [r, g, b, a] = m.map(Number);
-                if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
-            }
-            function isVisible(el) {
-                if (!el?.getBoundingClientRect) return false;
-                const style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
-            }
-            function clean(s) { return s ? s.replace(/\s+/g, ' ').trim().substring(0, MAX_TEXT) : ''; }
-            function isTableLike(el) {
-                const style = window.getComputedStyle(el);
-                return ['table', 'table-row', 'table-cell', 'grid', 'inline-grid'].includes(style.display) ||
-                    ['table', 'grid', 'row', 'gridcell', 'columnheader'].includes(el.getAttribute('role'));
-            }
-            function buildSelector(node) {
-                const attrs = [];
-                if (node.id && !/^\d/.test(node.id) && !/^:r/.test(node.id) && !node.id.startsWith('ext-')) attrs.push(`#${node.id}`);
-                if (node.className && typeof node.className === 'string') {
-                    const cls = node.className.split(' ').filter(c => c.length > 2 && c.length < 50 && !/\d{3,}/.test(c) && !['active', 'hover', 'focus', 'selected', 'open', 'show'].some(s => c === s)).slice(0, 3);
-                    if (cls.length) attrs.push(`.${cls.join('.')}`);
-                }
-                for (const a of ['name', 'data-testid', 'data-cy', 'data-automation', 'data-qa', 'aria-label', 'placeholder', 'title']) {
-                    const val = node.getAttribute(a);
-                    if (val && val.length < 80) attrs.push(`[${a}="${val.replace(/[\\"]/g, '\\$&')}"]`);
-                }
-                return attrs.join('').substring(0, 150);
-            }
-            function getColorHint(node) {
-                const style = window.getComputedStyle(node);
-                const bg = toHex(style.backgroundColor);
-                const clr = toHex(style.color);
-                const parts = [];
-                if (bg) parts.push(`bg:${bg}`);
-                if (clr) parts.push(`clr:${clr}`);
-                if (node.disabled || node.getAttribute('aria-disabled') === 'true') parts.push('DISABLED');
-                return parts.length ? ` {${parts.join(' ')}}` : '';
-            }
-            function traverse(node, depth = 0, inTable = false) {
-                if (depth > MAX_DEPTH) return '';
-                if (node.nodeType === Node.TEXT_NODE) { const t = clean(node.textContent); return t.length > 1 ? t : ''; }
-                if (node.nodeType !== Node.ELEMENT_NODE) return '';
-                if (!isVisible(node)) return '';
-                const tag = node.tagName.toLowerCase();
-                if (['script', 'style', 'noscript', 'link', 'meta', 'br', 'hr', 'wbr', 'head'].includes(tag)) return '';
-                const role = node.getAttribute('role');
-                const ariaLabel = node.getAttribute('aria-label');
-                const style = window.getComputedStyle(node);
-                const isPointer = style.cursor === 'pointer';
-                const hasClick = node.getAttribute('onclick') || node.getAttribute('@click') || node.getAttribute('ng-click') || node.getAttribute('data-action') || node.getAttribute('v-on:click');
-                const isNativeInteractive = ['a', 'button', 'input', 'select', 'textarea', 'details', 'summary'].includes(tag);
-                const isAriaInteractive = ['button', 'checkbox', 'link', 'menuitem', 'option', 'radio', 'switch', 'tab', 'combobox', 'textbox', 'searchbox', 'slider', 'spinbutton', 'treeitem'].includes(role);
-                const isCustomInteractive = (hasClick || (isPointer && node.children.length < 5)) && ['div', 'span', 'li', 'td', 'label', 'img', 'i', 'p', 'section'].includes(tag);
-                const isInteractive = isNativeInteractive || isAriaInteractive || isCustomInteractive || tag === 'svg';
-                const sel = buildSelector(node);
-                const colorHint = isInteractive ? getColorHint(node) : '';
-
-                // Tables
-                if (tag === 'table' || (isTableLike(node) && role === 'table'))
-                    return `\n📋 TABLE${sel ? ' ' + sel : ''}\n${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}\n`;
-                if (tag === 'thead') return `  [HEADER]${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}\n`;
-                if (tag === 'tbody' || tag === 'tfoot') return Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('');
-                if (tag === 'tr' || role === 'row') return `\n  |${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}`;
-                if (tag === 'td' || tag === 'th' || role === 'gridcell' || role === 'columnheader') {
-                    const content = Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join(' ');
-                    const interactive = node.querySelector('button, a, input, select, [role="button"]');
-                    if (interactive) return ` ${clean(content)} (→${buildSelector(interactive)}) |`;
-                    return ` ${clean(content)} |`;
-                }
-                if (isTableLike(node) && !['table'].includes(tag)) {
-                    const dt = style.display;
-                    if (dt === 'table-row' || role === 'row') return `\n  |${Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join('')}`;
-                    if (dt === 'table-cell' || role === 'gridcell' || role === 'columnheader') return ` ${clean(Array.from(node.childNodes).map(c => traverse(c, depth + 1, true)).join(' '))} |`;
-                }
-
-                // Éléments interactifs
-                if (isInteractive) {
-                    let type = tag.toUpperCase(), lbl = '';
-                    if (tag === 'input') {
-                        const it = node.getAttribute('type') || 'text';
-                        type = `INPUT:${it}`;
-                        lbl = node.value || node.getAttribute('placeholder') || ariaLabel || '';
-                        if (it === 'checkbox' || it === 'radio') lbl += node.checked ? ' ✓' : ' ○';
-                        if (it === 'color') lbl += ` [valeur: ${node.value}]`;
-                        if (it === 'date' || it === 'datetime-local') lbl += ` [date: ${node.value}]`;
-                        if (it === 'range') lbl += ` [${node.min || 0}-${node.max || 100}, val: ${node.value}]`;
-                    } else if (tag === 'select') {
-                        type = 'SELECT';
-                        const selected = node.options?.[node.selectedIndex];
-                        lbl = selected ? selected.text : (ariaLabel || '');
-                        const options = Array.from(node.options || []).slice(0, 12).map(o => o.text.trim()).filter(Boolean);
-                        if (options.length) lbl += ` [Options: ${options.join(', ')}]`;
-                    } else if (tag === 'textarea') {
-                        type = 'TEXTAREA'; lbl = clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
-                    } else if (tag === 'svg' || tag === 'img' || tag === 'i') {
-                        type = 'ICON'; lbl = ariaLabel || node.getAttribute('alt') || node.getAttribute('data-icon') || node.getAttribute('title') || node.className?.toString().match(/fa-[\w-]+|icon-[\w-]+|mdi-[\w-]+|bi-[\w-]+/)?.[0] || 'Graphic';
-                    } else if (tag === 'a') {
-                        type = 'LINK'; lbl = clean(node.textContent) || ariaLabel || '';
-                        const href = node.getAttribute('href');
-                        if (href && !href.startsWith('javascript:') && href !== '#') lbl += ` → ${href.substring(0, 60)}`;
-                    } else {
-                        if (role === 'checkbox') type = 'CHECKBOX';
-                        else if (role === 'radio') type = 'RADIO';
-                        else if (role === 'tab') type = 'TAB';
-                        else if (role === 'menuitem' || role === 'menuitemcheckbox') type = 'MENUITEM';
-                        else if (role === 'switch') type = 'SWITCH';
-                        else if (role === 'slider') type = 'SLIDER';
-                        else if (role === 'option') type = 'OPTION';
-                        else if (role === 'combobox') type = 'COMBOBOX';
-                        else if (tag === 'button' || role === 'button') type = 'BUTTON';
-                        else type = `CLICKABLE:${tag}`;
-                        lbl = clean(node.textContent) || ariaLabel || '';
-                    }
-                    if (!lbl) lbl = '(sans texte)';
-                    const ariaExpanded = node.getAttribute('aria-expanded');
-                    const ariaSelected = node.getAttribute('aria-selected');
-                    const stateHint = [ariaExpanded ? `expanded:${ariaExpanded}` : '', ariaSelected ? `selected:${ariaSelected}` : ''].filter(Boolean).join(' ');
-                    return `\n[${type}] "${lbl.substring(0, 120)}" ${sel}${colorHint}${stateHint ? ` (${stateHint})` : ''}`;
-                }
-
-                // Structure
-                const children = Array.from(node.childNodes).map(c => traverse(c, depth + 1, inTable)).join(' ');
-                if (['h1', 'h2', 'h3', 'h4', 'h5'].includes(tag)) return `\n${'#'.repeat(parseInt(tag[1]))} ${clean(children)}\n`;
-                if (tag === 'form') return `\n─── FORM${sel ? ' ' + sel : ''} ───\n${children}\n─── /FORM ───\n`;
-                if (tag === 'nav') return `\n[NAV]\n${children}\n`;
-                if (tag === 'main' || role === 'main') return `\n[MAIN]\n${children}\n`;
-                if (tag === 'header' || role === 'banner') return `\n[HEADER]\n${children}\n`;
-                if (tag === 'footer' || role === 'contentinfo') return `\n[FOOTER]\n${children}\n`;
-                if (tag === 'aside' || role === 'complementary') return `\n[SIDEBAR]\n${children}\n`;
-                if (tag === 'section' || tag === 'article') return `\n${children}\n`;
-                if (tag === 'label') { const forId = node.getAttribute('for'); return `LABEL${forId ? `(for=${forId})` : ''}: ${clean(children)} `; }
-                if (tag === 'li') return `\n  • ${children}`;
-                if (tag === 'option') return '';
-                if (tag === 'iframe') return `\n[IFRAME: ${node.src?.substring(0, 60) || 'embedded'}]\n`;
-                if (tag === 'dialog' || role === 'dialog') return `\n[DIALOG]\n${children}\n[/DIALOG]\n`;
-                if (role === 'alert' || role === 'status') return `\n[ALERTE: ${clean(children)}]\n`;
-                return children;
-            }
-            return traverse(document.body);
-        });
-    } catch (e) { return `(Erreur inspection: ${e.message})`; }
-}
 
 
 // ======================== SCREENSHOT ANNOTÉ ========================
@@ -4865,7 +4377,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
         const filepath = path.join(SCREENSHOT_DIR, filename);
 
         if (selector && !skip_image) {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector);
             await locator.screenshot({ path: filepath });
         } else if (annotate) {
             const elementsMap = await page.evaluate(() => {
@@ -4892,7 +4404,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || (el.type === 'password' ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -4908,32 +4420,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
             await page.screenshot({ path: filepath, fullPage: full_page });
         }
         res.json({ status: 'success', screenshot: skip_image ? null : filename });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== ACCESSIBILITY TREE ========================
-app.get('/accessibility', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const snapshot = await page.accessibility.snapshot({ interestingOnly: true });
-        function flatten(node, depth = 0) {
-            if (!node) return '';
-            const indent = '  '.repeat(depth);
-            let line = `${indent}[${node.role}] "${node.name || ''}"`;
-            if (node.value !== undefined) line += ` value="${node.value}"`;
-            if (node.checked !== undefined) line += ` checked=${node.checked}`;
-            if (node.selected !== undefined) line += ` selected=${node.selected}`;
-            if (node.expanded !== undefined) line += ` expanded=${node.expanded}`;
-            if (node.disabled) line += ` DISABLED`;
-            if (node.focused) line += ` *FOCUSED*`;
-            if (node.required) line += ` REQUIRED`;
-            let result = line + '\n';
-            if (node.children) for (const child of node.children) result += flatten(child, depth + 1);
-            return result;
-        }
-        res.json({ tree: flatten(snapshot), raw: snapshot });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -5000,22 +4487,42 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             let prev = 0; root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!visible(h)) return; const lvl = +h.tagName[1]; if (prev && lvl > prev + 1) add('heading-order', 'moderate', h, `saut de titre h${prev}→h${lvl}`); prev = lvl; });
             // 7. tabindex positif
             root.querySelectorAll('[tabindex]').forEach(el => { const t = parseInt(el.getAttribute('tabindex'), 10); if (t > 0) add('tabindex', 'moderate', el, `tabindex=${t} (>0) casse l'ordre de tabulation`); });
-            // 8. contraste couleur (WCAG AA) — best-effort, plafonné
-            const parseRGB = s => { const m = s.match(/\d+(\.\d+)?/g); return m ? m.slice(0, 3).map(Number) : null; };
+            // 8. contraste du texte (WCAG 2.x AA : 4,5:1, 3:1 pour le grand texte) ; fond résolu par les ancêtres, images et dégradés écartés
+            const MAX_CONTRAST = 500;
+            const parseRGBA = (s) => { const m = String(s).match(/[\d.]+/g); return m && m.length >= 3 ? { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 } : null; };
             const lum = rgb => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
-            const bgOf = el => { let e = el; while (e) { const b = getComputedStyle(e).backgroundColor; const rgb = parseRGB(b); if (rgb && b !== 'rgba(0, 0, 0, 0)' && b !== 'transparent') return rgb; e = e.parentElement; } return [255, 255, 255]; };
-            let checked = 0;
-            root.querySelectorAll('p,span,a,li,td,th,label,button,h1,h2,h3,h4,h5,h6').forEach(el => {
-                if (checked > 200 || !visible(el)) return;
-                if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return;
-                const st = getComputedStyle(el); const fg = parseRGB(st.color); if (!fg) return;
+            const over = (top, under) => top.c.map((v, i) => v * top.a + under[i] * (1 - top.a));
+            // Fond effectif : couches de fond des ancêtres composées sur blanc ; `null` si une image ou un dégradé intervient.
+            const bgOf = el => {
+                const couches = [];
+                for (let e = el; e; e = e.parentElement) {
+                    const st = getComputedStyle(e);
+                    if (st.backgroundImage && st.backgroundImage !== 'none') return null;
+                    const k = parseRGBA(st.backgroundColor);
+                    if (k && k.a > 0) { couches.push(k); if (k.a >= 1) break; }
+                }
+                return couches.reduceRight((under, k) => over(k, under), [255, 255, 255]);
+            };
+            const portes = new Set(); let skippedBg = 0, checked = 0, capped = false;
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                const el = n.parentElement;
+                if (!el || portes.has(el) || !n.textContent.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+                portes.add(el);
+                if (!visible(el) || el.closest('[disabled]')) continue;
+                if (checked >= MAX_CONTRAST) { capped = true; break; }
+                const st = getComputedStyle(el);
+                const fgRaw = parseRGBA(st.color); if (!fgRaw) continue;
+                const bg = bgOf(el);
+                if (!bg) { skippedBg++; continue; }
                 checked++;
-                const L1 = lum(fg) + 0.05, L2 = lum(bgOf(el)) + 0.05;
+                const fg = over(fgRaw, bg);
+                const L1 = lum(fg) + 0.05, L2 = lum(bg) + 0.05;
                 const ratio = Math.max(L1, L2) / Math.min(L1, L2);
                 const fs = parseFloat(st.fontSize), large = fs >= 24 || (fs >= 18.66 && +st.fontWeight >= 700);
                 const min = large ? 3 : 4.5;
-                if (ratio < min) add('color-contrast', 'serious', el, `contraste ${ratio.toFixed(2)}:1 < ${min}:1 (AA)`);
-            });
+                if (ratio < min) add('color-contrast', 'serious', el, `contrast ${ratio.toFixed(2)}:1 < ${min}:1 (WCAG AA, ${large ? 'large' : 'normal'} text)`);
+            }
             const by_impact = V.reduce((a, v) => { a[v.impact] = (a[v.impact] || 0) + 1; return a; }, {});
             const by_rule = V.reduce((a, v) => { a[v.rule] = (a[v.rule] || 0) + 1; return a; }, {});
             // Audit tools web 2026-09-05 — `total/by_impact` seuls ne disaient pas
@@ -5023,7 +4530,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             return { ok: true, scope: scopeSel, violations: V.slice(0, 100), total: V.length,
                      truncated: V.length > 100, by_impact, by_rule,
                      rules_run: ['image-alt', 'label', 'control-name', 'duplicate-id', 'html-lang', 'heading-order', 'tabindex', 'color-contrast'],
-                     contrast_sampled: checked, contrast_capped: checked > 200,
+                     contrast_sampled: checked, contrast_capped: capped,
+                     ...(skippedBg ? { contrast_skipped: skippedBg, contrast_note: `${skippedBg} text element(s) on an image or gradient background were not checked: verify them by eye.` } : {}),
                      passed: V.length === 0 };
         }, { scopeSel: scope, srcUnique: sourceDe(selecteurUnique) });
         res.json(report);
@@ -5038,12 +4546,36 @@ app.post('/a11y_audit', getSession, async (req, res) => {
 // à vision. passed = diff_ratio <= threshold.
 // Zones modifiées rendues par /visual (les plus fournies d'abord ; diff_bbox couvre toutes les zones).
 const VISUAL_MAX_REGIONS = 10;
+// Nombre de pixels changés toléré au plus quand aucun seuil n'est donné.
+const VISUAL_DEFAUT_MAX_PIXELS = 200;
+const VISUAL_ATTENTE_MS = parseInt(process.env.PW_VISUAL_WAIT_MS || '5000', 10);
+const COULEUR_MASQUE = '#FF00FF';
+
+// Rectangles des zones masquées en pixels de la capture (page entière, ou relatifs à l'élément `selector`), et les masques sans élément.
+async function zonesMasquees(page, selector, masques) {
+    const rects = [], absents = [];
+    const origine = selector ? await page.locator(selector).first().evaluate((e) => {
+        const r = e.getBoundingClientRect(); return { x: r.left, y: r.top };
+    }).catch(() => ({ x: 0, y: 0 })) : null;
+    for (const m of masques) {
+        const boites = await page.locator(m).evaluateAll((els, rel) => els.map((e) => {
+            const r = e.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+            const x0 = rel ? r.left - rel.x : r.left + window.scrollX, y0 = rel ? r.top - rel.y : r.top + window.scrollY;
+            return { x: Math.floor(x0 * k), y: Math.floor(y0 * k), w: Math.ceil(r.width * k) + 1, h: Math.ceil(r.height * k) + 1 };
+        }).filter((b) => b.w > 1 && b.h > 1), origine).catch(() => []);
+        if (boites.length) rects.push(...boites); else absents.push(m);
+    }
+    return { rects, absents };
+}
+
 app.post('/visual', getSession, async (req, res) => {
     try {
         const { page } = req.session;
         const name = (req.body.name || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
         const selector = req.body.selector || null;
-        const threshold = typeof req.body.threshold === 'number' ? req.body.threshold : 0.01;
+        // Sans seuil explicite : au plus 0,1 % des pixels ET au plus VISUAL_DEFAUT_MAX_PIXELS (0,86 % d'une petite page passait à 1 %).
+        const seuilExplicite = typeof req.body.threshold === 'number';
+        const threshold = seuilExplicite ? req.body.threshold : 0.001;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
         // Références par propriétaire : un compte ne compare ni n'écrase
@@ -5052,19 +4584,29 @@ app.post('/visual', getSession, async (req, res) => {
         fs.mkdirSync(dossierRef, { recursive: true });
         const baselinePath = path.join(dossierRef, `${name}.png`);
 
+        // Élément absent : erreur claire après une courte attente, pas les 30 s de la capture.
+        if (selector && !(await attendrePresence(page.locator(selector), VISUAL_ATTENTE_MS))) {
+            return res.status(404).json({ error: `No element matches selector ${JSON.stringify(selector)} (waited ${VISUAL_ATTENTE_MS / 1000} s).`,
+                code: 'element_not_found', fix: 'Check the selector with pw_find, or compare the whole page without selector=.' });
+        }
+        // Zones masquées (mask=) : peintes de la même couleur dans la capture et dans la référence avant la comparaison.
+        const masques = Array.isArray(req.body.mask) ? req.body.mask.filter(m => typeof m === 'string' && m.trim()).slice(0, 20) : [];
         const target = selector ? page.locator(selector).first() : page;
-        const curBuf = await target.screenshot(selector ? {} : { fullPage: true });
+        const curBuf = await target.screenshot({ ...(selector ? {} : { fullPage: true }), timeout: VISUAL_ATTENTE_MS,
+                                                 ...(masques.length ? { mask: masques.map(m => page.locator(m)), maskColor: COULEUR_MASQUE } : {}) });
+        const zonesMasque = masques.length ? await zonesMasquees(page, selector, masques) : { rects: [], absents: [] };
 
         if (!fs.existsSync(baselinePath) || update) {
             fs.writeFileSync(baselinePath, curBuf);
             return res.json({ ok: true, name, baseline_created: true, passed: true,
+                ...(masques.length ? { masked: zonesMasque.rects.length } : {}),
                 size_mismatch: false, pixel_diff_failed: false, fail_reason: null,
                 message: update ? 'baseline mise à jour' : 'baseline créée (premier passage)' });
         }
 
         const baseB64 = 'data:image/png;base64,' + fs.readFileSync(baselinePath).toString('base64');
         const curB64 = 'data:image/png;base64,' + curBuf.toString('base64');
-        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions }) => {
+        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions, rects, couleur }) => {
             const load = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
             const [a, b] = await Promise.all([load(baseB64), load(curB64)]);
             // Une capture fullPage n'est PAS stable au pixel près : mesuré, le
@@ -5084,8 +4626,9 @@ app.post('/visual', getSession, async (req, res) => {
             const size_drift = Math.max(dw / Math.max(1, w), dh / Math.max(1, h));
             const c = document.createElement('canvas'); c.width = w; c.height = h;
             const x = c.getContext('2d');
-            x.drawImage(a, 0, 0); const da = x.getImageData(0, 0, w, h).data;
-            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); const db = x.getImageData(0, 0, w, h).data;
+            const peindre = () => { x.fillStyle = couleur; for (const r of rects) x.fillRect(r.x, r.y, r.w, r.h); };
+            x.drawImage(a, 0, 0); peindre(); const da = x.getImageData(0, 0, w, h).data;
+            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); peindre(); const db = x.getImageData(0, 0, w, h).data;
             const out = x.createImageData(w, h), od = out.data; let nd = 0;
             const C = 16, cols = Math.ceil(w / C), rows = Math.ceil(h / C);
             const nc = new Uint32Array(cols * rows), cx0 = new Uint32Array(cols * rows), cy0 = new Uint32Array(cols * rows);
@@ -5102,7 +4645,7 @@ app.post('/visual', getSession, async (req, res) => {
             const zones = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
             return { w, h, diff_pixels: nd, total: w * h, diff_ratio: nd / (w * h),
                      dims, size_drift, diff_png: c.toDataURL('image/png'), zones };
-        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS });
+        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS, rects: zonesMasque.rects, couleur: COULEUR_MASQUE });
 
         const ts = Date.now();
         const curName = `visual_${name}_current_${ts}.png`;
@@ -5126,9 +4669,11 @@ app.post('/visual', getSession, async (req, res) => {
 
         // Audit tools web 2026-09-05 — deux causes d'échec DISTINCTES, dites
         // séparément : pixels au-delà du seuil, et/ou dimensions qui ont bougé.
-        const pixelFailed = result.diff_ratio > threshold;
+        const pixelFailed = result.diff_ratio > threshold || (!seuilExplicite && result.diff_pixels > VISUAL_DEFAUT_MAX_PIXELS);
         const failReason = [pixelFailed ? 'pixel_diff' : null, sizeChanged ? 'size_mismatch' : null].filter(Boolean).join('+') || null;
         res.json({ ok: true, name, passed: !pixelFailed && !sizeChanged, threshold,
+            ...(masques.length ? { masked: zonesMasque.rects.length, ...(zonesMasque.absents.length ? { mask_not_found: zonesMasque.absents } : {}) } : {}),
+            ...(seuilExplicite ? {} : { max_diff_pixels: VISUAL_DEFAUT_MAX_PIXELS }),
             pixel_diff_failed: pixelFailed, size_mismatch: sizeChanged, fail_reason: failReason,
             diff_ratio: result.diff_ratio, diff_pixels: result.diff_pixels,
             diff_bbox: result.zones.bbox, diff_regions: result.zones.regions,
@@ -5145,7 +4690,7 @@ app.post('/visual', getSession, async (req, res) => {
 app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const { locator } = await smartResolveLocator(page, req.body.selector);
+        const { locator } = await resoudreRepli(page, req.body.selector);
         const info = await locator.evaluate(el => {
             const rect = el.getBoundingClientRect();
             const style = window.getComputedStyle(el);
@@ -5160,11 +4705,12 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: el.value, href: el.href, src: el.src,
+                // Valeur d'un champ mot de passe jamais rendue, ni par la propriété ni par l'attribut.
+                value: el.type === 'password' ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(el.type === 'password' && a.name === 'value')).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5181,7 +4727,7 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
             };
         });
         res.json(info);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -5220,43 +4766,16 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== INTERCEPT REQUESTS ========================
-app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { block_patterns = [], modify_headers = {} } = req.body;
-        await page.route('**/*', (route, request) => {
-            const url = request.url();
-            for (const pattern of block_patterns) { if (url.includes(pattern)) { route.abort(); return; } }
-            // fallback (et non continue) : la garde des destinations, posée
-            // sur le contexte, doit encore voir la requête.
-            if (Object.keys(modify_headers).length > 0) { route.fallback({ headers: { ...request.headers(), ...modify_headers } }); return; }
-            route.fallback();
-        });
-        res.json({ status: 'intercepting', blocking: block_patterns.length, modifying_headers: Object.keys(modify_headers).length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== CAPTURE API RESPONSE ========================
-app.post('/capture_response', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { url_pattern, timeout = 15000 } = req.body;
-        const response = await page.waitForResponse(resp => resp.url().includes(url_pattern), { timeout });
-        let body;
-        try { body = await response.json(); } catch { body = await response.text(); }
-        res.json({ status: response.status(), url: response.url(), headers: response.headers(), body });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== EXTRACT TABLE ========================
+// Lignes d'un tableau par pages (`max_rows`, 50 par défaut, `offset`), texte des cellules seul sauf `styles` (couleurs), sous le plafond commun.
 app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const selector = req.body.selector || 'table';
-        const data = await page.evaluate((sel) => {
+        const maxRows = Math.max(1, Math.min(parseInt(req.body.max_rows, 10) || 50, 500));
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const styles = req.body.styles === true;
+        const data = await page.evaluate(({ sel, offset, maxRows, styles }) => {
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -5264,82 +4783,82 @@ app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
                 if (a !== undefined && a < 0.05) return null;
                 return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
             }
-            const table = document.querySelector(sel);
-            if (!table) return { error: `Aucun élément trouvé pour "${sel}"` };
+            const net = (c) => (c.innerText || '').replace(/\s+/g, ' ').trim();
+            let table;
+            try { table = document.querySelector(sel); } catch (e) { return { error: `Invalid selector "${sel}".` }; }
+            if (!table) return { error: `No element matches "${sel}".` };
             const tag = table.tagName.toLowerCase();
 
             if (tag === 'table') {
-                const headers = [];
-                table.querySelectorAll('thead th, thead td, tr:first-child th').forEach(c => {
-                    const style = window.getComputedStyle(c);
-                    headers.push({
-                        text: c.innerText.replace(/\s+/g, ' ').trim(),
-                        bg: toHex(style.backgroundColor),
-                        color: toHex(style.color),
+                const tete = Array.from(table.querySelectorAll('thead th, thead td, tr:first-child th'));
+                const headers = tete.map(net);
+                const lignes = Array.from(table.querySelectorAll('tbody tr, tr')).filter((row, i) =>
+                    !(i === 0 && headers.length > 0 && row.querySelector('th')) && row.querySelectorAll('td, th').length > 0);
+                const rows = lignes.slice(offset, offset + maxRows).map((row) => {
+                    const out = {};
+                    const actions = [];
+                    row.querySelectorAll('td, th').forEach((c, j) => {
+                        const key = headers[j] || `col_${j}`;
+                        if (styles) {
+                            const cs = window.getComputedStyle(c);
+                            out[key] = { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) };
+                        } else out[key] = net(c);
+                        for (const btn of c.querySelectorAll('button, a, [role="button"]'))
+                            actions.push({ column: key, text: btn.textContent.trim().substring(0, 50), tag: btn.tagName.toLowerCase(), ...(btn.href ? { href: btn.href } : {}) });
                     });
+                    if (styles) out._row_bg = toHex(window.getComputedStyle(row).backgroundColor);
+                    if (actions.length) out._actions = actions;
+                    return out;
                 });
-                const rows = [];
-                table.querySelectorAll('tbody tr, tr').forEach((row, i) => {
-                    if (i === 0 && headers.length > 0 && row.querySelector('th')) return;
-                    const cells = row.querySelectorAll('td, th');
-                    if (cells.length === 0) return;
-                    const rowData = {};
-                    const rowStyle = window.getComputedStyle(row);
-                    const rowMeta = { _row_bg: toHex(rowStyle.backgroundColor) };
-                    cells.forEach((c, j) => {
-                        const key = headers[j]?.text || `col_${j}`;
-                        const cellStyle = window.getComputedStyle(c);
-                        rowData[key] = {
-                            text: c.innerText.replace(/\s+/g, ' ').trim(),
-                            bg: toHex(cellStyle.backgroundColor),
-                            color: toHex(cellStyle.color),
-                            // Boutons/liens dans la cellule
-                            actions: Array.from(c.querySelectorAll('button, a, [role="button"]')).map(btn => ({
-                                text: btn.textContent.trim().substring(0, 50),
-                                tag: btn.tagName.toLowerCase(),
-                                href: btn.href || null,
-                            })),
-                        };
-                    });
-                    rows.push({ ...rowMeta, ...rowData });
-                });
-                return { headers: headers.map(h => h.text), headers_with_colors: headers, rows, count: rows.length, type: 'html-table' };
+                return { type: 'html-table', headers, rows, total_rows: lignes.length,
+                         ...(styles ? { headers_with_colors: tete.map(c => { const cs = window.getComputedStyle(c); return { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) }; }) } : {}) };
             }
 
             // Pseudo-table (divs avec role=grid, etc.)
-            const roleRows = table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]');
-            if (roleRows.length > 0) {
-                const rows = [];
-                roleRows.forEach(row => {
-                    const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]');
-                    if (cells.length > 0) rows.push(Array.from(cells).map(c => c.innerText.replace(/\s+/g, ' ').trim()));
-                });
-                return { rows, count: rows.length, type: 'pseudo-table' };
-            }
+            const roleRows = Array.from(table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]'))
+                .map(row => Array.from(row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]')).map(net))
+                .filter(cells => cells.length > 0);
+            if (roleRows.length > 0) return { type: 'pseudo-table', rows: roleRows.slice(offset, offset + maxRows), total_rows: roleRows.length };
 
-            return { text: table.innerText.substring(0, 5000), type: 'raw' };
-        }, selector);
-        res.json(data);
+            return { text: net(table).substring(0, 5000), type: 'raw' };
+        }, { sel: selector, offset, maxRows, styles });
+        if (data.error) return res.status(404).json({ error: data.error, code: 'element_not_found',
+            fix: 'List the tables with pw_page(action="inspect") (tables[].selector) and pass one as target=.' });
+        if (!Array.isArray(data.rows)) return res.json(data);
+        const { rows, ...entete } = data;
+        const b = bornerValeur(rows, PLAFOND_SORTIE - longueurJsonPy(entete) - 400);
+        const rendues = b.value.length;
+        const suite = offset + rendues < data.total_rows ? offset + rendues : null;
+        res.json({ ...entete, rows: b.value, offset, count: rendues,
+                   ...(suite !== null ? { truncated: true, next_offset: suite, omitted: `${data.total_rows - offset - rendues} of ${data.total_rows} rows after this page`,
+                                          hint: `${b.truncated ? `${INDICE_PLAFOND} ` : ''}Call again with offset=${suite} for the next rows (max= rows per call, up to 500).` } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 
 // ======================== EXTRACT TEXT ========================
+// Morceau d'un texte à partir de `offset`, sous le plafond commun : longueur totale, et la suite à demander s'il en reste.
+function morceauTexte(complet, offset) {
+    const morceau = couperTexte(complet.slice(offset), PLAFOND_SORTIE);
+    const fin = offset + morceau.length;
+    return { text: morceau, total_length: complet.length, ...(offset ? { offset } : {}),
+             ...(fin < complet.length ? { truncated: true, next_offset: fin, omitted: `${complet.length - fin} of ${complet.length} characters after this part`,
+                                          hint: `${INDICE_PLAFOND} Call again with offset=${fin} for the rest, or narrow with target=.` } : {}) };
+}
 app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', include_hidden = false, include_frames = false, pierce_shadow = true } = req.body;
-        const { locator } = await smartResolveLocator(page, selector);
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const { locator } = await resoudreRepli(page, selector);
         const text = include_hidden
             ? await locator.evaluate(el => el.textContent)
             : await locator.innerText();
         const clean = (t) => (t || '').replace(/\s+/g, ' ').trim();
-        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans
-        // innerText du document — seul le contenu « slotté » (DOM léger) y est.
-        // Audit tools web 2026-09-05 : /shadowdom rendait la coquille.
+        // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans innerText : celui des hôtes DANS la cible (elle comprise) est ajouté.
         let shadowText = '';
         if (pierce_shadow !== false) {
-            shadowText = await page.evaluate(() => {
+            shadowText = await locator.evaluate((cible) => {
                 const parts = [];
                 const textOf = (root) => {
                     let out = '';
@@ -5349,18 +4868,20 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
                     let n; while ((n = it.nextNode())) out += n.textContent + ' ';
                     return out.replace(/\s+/g, ' ').trim();
                 };
+                const hote = (host, depth) => {
+                    const sr = host.shadowRoot; if (!sr) return;
+                    const t = textOf(sr);
+                    if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
+                    walk(sr, depth + 1);
+                };
                 const walk = (root, depth) => {
                     if (depth > 4) return;
-                    for (const host of root.querySelectorAll('*')) {
-                        const sr = host.shadowRoot; if (!sr) continue;
-                        const t = textOf(sr);
-                        if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
-                        walk(sr, depth + 1);
-                    }
+                    for (const host of root.querySelectorAll('*')) hote(host, depth);
                 };
-                walk(document, 0);
+                hote(cible, 0);
+                walk(cible, 0);
                 return parts.join('\n');
-            }).catch(() => '');
+            }, undefined, { timeout: 3000 }).catch(() => '');
         }
         // Le texte d'une <iframe> n'apparaît JAMAIS dans celui du document
         // parent : sur une appli encadrée, extract_text rendait la coquille et
@@ -5380,14 +4901,14 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
             }
             if (shadowText) parts.push(shadowText);
             return res.json({
-                text: parts.join('\n').substring(0, 80000),
+                ...morceauTexte(parts.join('\n'), offset),
                 frames_read: read, frames_total: kids.length,
                 ...(shadowText ? { shadow_text_included: true } : {}),
             });
         }
-        res.json({ text: (clean(text) + (shadowText ? '\n' + shadowText : '')).substring(0, 80000),
+        res.json({ ...morceauTexte(clean(text) + (shadowText ? '\n' + shadowText : ''), offset),
                    ...(shadowText ? { shadow_text_included: true } : {}) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -5502,54 +5023,6 @@ app.get('/frames', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== CLIPBOARD ========================
-app.post('/clipboard', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { action, text } = req.body;
-        if (action === 'copy') { await page.keyboard.press('Control+c'); const content = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null); return res.json({ status: 'success', text: content }); }
-        if (action === 'paste') { if (text) await page.evaluate(t => navigator.clipboard.writeText(t), text); await page.keyboard.press('Control+v'); return res.json({ status: 'success' }); }
-        if (action === 'select_all') { await page.keyboard.press('Control+a'); return res.json({ status: 'success' }); }
-        if (action === 'cut') { await page.keyboard.press('Control+x'); return res.json({ status: 'success' }); }
-        if (action === 'read') { return res.json({ text: await page.evaluate(() => navigator.clipboard.readText()).catch(() => null) }); }
-        res.status(400).json({ error: `Action clipboard inconnue: ${action}` });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== MUTATION OBSERVER ========================
-app.post('/watch_changes', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector = 'body', timeout = 10000, attribute_filter } = req.body;
-        const changes = await page.evaluate(({ selector, timeout, attribute_filter }) => {
-            return new Promise((resolve) => {
-                const target = document.querySelector(selector);
-                if (!target) { resolve({ error: 'Element not found' }); return; }
-                const mutations = [];
-                const config = { childList: true, subtree: true, attributes: true, characterData: true };
-                if (attribute_filter) config.attributeFilter = attribute_filter;
-                const observer = new MutationObserver(list => {
-                    for (const m of list) {
-                        if (m.type === 'childList') {
-                            m.addedNodes.forEach(n => { if (n.nodeType === Node.ELEMENT_NODE) mutations.push({ type: 'added', tag: n.tagName, text: n.textContent?.trim().substring(0, 100) }); });
-                            m.removedNodes.forEach(n => { if (n.nodeType === Node.ELEMENT_NODE) mutations.push({ type: 'removed', tag: n.tagName, text: n.textContent?.trim().substring(0, 100) }); });
-                        } else if (m.type === 'attributes') {
-                            mutations.push({ type: 'attr_changed', attr: m.attributeName, tag: m.target.tagName, newValue: m.target.getAttribute(m.attributeName)?.substring(0, 100) });
-                        } else if (m.type === 'characterData') {
-                            mutations.push({ type: 'text_changed', text: m.target.textContent?.substring(0, 100) });
-                        }
-                    }
-                });
-                observer.observe(target, config);
-                setTimeout(() => { observer.disconnect(); resolve(mutations); }, timeout);
-            });
-        }, { selector, timeout, attribute_filter });
-        res.json({ changes, count: changes.length });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
 // ======================== PDF / PRINT ========================
 app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
     try {
@@ -5565,6 +5038,38 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EVALUATE JS ========================
+// Résultat d'un script tenu sous `max` caractères : chaîne coupée, liste ou objet réduit à ses premiers éléments, avec ce qui manque et un conseil.
+function resultatBorne(valeur, max) {
+    const b = bornerValeur(valeur, max);
+    return { result: b.value, ...(b.truncated ? { truncated: true, omitted: b.omitted,
+        hint: `${INDICE_PLAFOND} Return only what you need: .slice(0, N), the fields you need, a count.` } : {}) };
+}
+
+// Délai d'un script de pw_page eval, sous celui du client (10 s) : à l'échéance la réponse part et la session est rendue, la promesse abandonnée ne retient rien.
+const EVAL_TIMEOUT_MS = parseInt(process.env.PW_EVAL_TIMEOUT_MS || '8000', 10);
+
+// Script exécuté comme une expression s'il en est une (`document.title`), sinon comme le corps d'une fonction asynchrone (instructions, `return`, `throw`) : l'erreur rendue est la sienne.
+async function evaluerAvecDelai(cadre, script, delaiMs) {
+    const enCours = cadre.evaluate(async (corps) => {
+        let fn;
+        try { fn = new Function(`return (async () => { return (${corps}\n); })();`); }
+        catch (e) {
+            if (!(e instanceof SyntaxError)) throw e;
+            fn = new Function(`return (async () => { ${corps}\n })();`);
+        }
+        return await fn();
+    }, script);
+    enCours.catch(() => {});
+    let minuterie;
+    const delai = new Promise((_, rejeter) => {
+        minuterie = setTimeout(() => rejeter(erreurCodee('eval_timeout',
+            `The script did not finish within ${Math.round(Math.max(0, delaiMs) / 1000)} s (a promise that never settles?); it was abandoned and may still run in the page.`,
+            { fix: 'Make the script settle on its own (add a timeout to what it awaits, e.g. Promise.race with a timer), or wait in the page with pw_wait.' })), Math.max(0, delaiMs));
+    });
+    try { return await Promise.race([enCours, delai]); }
+    finally { clearTimeout(minuterie); }
+}
+
 app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
@@ -5572,33 +5077,24 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
         if (!script || typeof script !== 'string') {
             return res.status(400).json({ error: 'script (string) required' });
         }
-        // Wrap script as an async function body. Supports both expression-style
-        // ("document.title") and statement-style ("return document.title").
-        // Auto-`return` the expression if no `return` keyword is present.
-        const hasReturn = /\breturn\b/.test(script);
-        const fnBody = hasReturn ? script : `return (${script});`;
+        const echeance = Date.now() + EVAL_TIMEOUT_MS;
         if (in_all_frames) {
             const results = [];
             for (const frame of page.frames()) {
                 if (frame.isDetached()) continue;
                 try {
-                    const r = await frame.evaluate(async (body) => {
-                        const fn = new Function(`return (async () => { ${body} })();`);
-                        return await fn();
-                    }, fnBody);
+                    const r = await evaluerAvecDelai(frame, script, echeance - Date.now());
                     results.push({ frame: frame.url(), result: r });
-                } catch (e) { results.push({ frame: frame.url(), error: e.message }); }
+                } catch (e) { results.push({ frame: frame.url(), error: e.message, ...detailsErreur(e) }); }
             }
             recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
-            return res.json({ results });
+            const part = Math.floor(PLAFOND_SORTIE / Math.max(1, results.length));
+            return res.json({ results: results.map((x) => ('result' in x ? { ...x, ...resultatBorne(x.result, part) } : x)) });
         }
-        const result = await page.evaluate(async (body) => {
-            const fn = new Function(`return (async () => { ${body} })();`);
-            return await fn();
-        }, fnBody);
+        const result = await evaluerAvecDelai(page, script, EVAL_TIMEOUT_MS);
         recordEvent(req.session, { action: 'eval', script, url: page.url() });
-        res.json({ result });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+        res.json(resultatBorne(result, PLAFOND_SORTIE));
+    } catch (e) { res.status(e.code === 'eval_timeout' ? 408 : 500).json({ error: e.message, ...detailsErreur(e) }); }
 });
 
 
@@ -5635,7 +5131,7 @@ app.post('/trace_export', getSession, async (req, res) => {
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
         await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
         req.session.traceActive = false;
-        res.json({ ok: true, trace_url: `/traces/${file}`, hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
+        res.json({ ok: true, trace_url: `/traces/${file}`, file: path.join(TRACE_DIR, file), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5665,16 +5161,14 @@ app.get('/health', (req, res) => {
         ok: true,
         service: 'browser',
         status: 'running',
-        engine: BROWSER_ENGINE,
+        engine: 'chromium',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
-        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
+        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes celles du compte.
         sessions: sessionList,
         session_count: sessions.size,
-        max_sessions: MAX_SESSIONS,
         ...(groupe ? { group_sessions: groupe.compte + groupe.enfants, max_sessions_per_group: MAX_SESSIONS_PER_GROUP, child_slots_left: Math.max(0, placesEnfants(groupe, MAX_SESSIONS_PER_GROUP) - groupe.enfants) } : {}),
         session_ttl_min: SESSION_TTL_MS / 60000,
         browser_connected: globalBrowser?.isConnected() || false,
-        url_allowlist: !listeBlancheCourante().vide,
     });
 });
 
@@ -5722,11 +5216,16 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         const label = selector || describeLocator(params, { first: false }) || '?';
 
         let polled = null;
+        let attrReel = null;
         const probe = async () => {
             const count = await loc.count().catch(() => 0);
-            if (!count) return { count: 0, text: null, attr: null, visible: false };
+            if (!count) { attrReel = null; return { count: 0, text: null, attr: null, visible: false }; }
             const text = ((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim().substring(0, 500);
-            const attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            let attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            attrReel = attr;
+            // Attribut value d'un champ mot de passe : jamais rendu (masqué aussi si le contrôle échoue).
+            if (attr !== null && String(attribute).toLowerCase() === 'value'
+                && await first.evaluate(el => el.type === 'password', undefined, { timeout: 800 }).catch(() => true)) attr = '[password value hidden]';
             const visible = await first.isVisible().catch(() => false);
             return { count, text, attr, visible };
         };
@@ -5767,7 +5266,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
             if (condition === 'count_decreases' && cur.count < (initial.count || 0))
                 return done('changed', { from: initial.count || 0, to: cur.count });
             if (condition === 'attribute_changes' && attribute && cur.count) {
-                if (expected_value && cur.attr === expected_value) return done('matched', { attribute, value: cur.attr });
+                if (expected_value && attrReel === expected_value) return done('matched', { attribute, value: cur.attr });
                 if (!expected_value && initial.attr !== null && cur.attr !== initial.attr) return done('changed', { attribute, from: initial.attr, to: cur.attr });
             }
             await page.waitForTimeout(poll_interval);
@@ -5777,184 +5276,8 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 });
 
 
-// ======================== DISPATCH EVENT ========================
-// Déclenche n'importe quel événement DOM sur un élément
-app.post('/dispatch_event', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            selector,
-            event,          // 'click' | 'input' | 'change' | 'focus' | 'blur' | 'keydown' | ...
-            event_type = 'Event',  // 'Event' | 'MouseEvent' | 'KeyboardEvent' | 'InputEvent' | 'CustomEvent'
-            event_init = {},       // propriétés de l'événement
-            use_native = true,     // true = déclenche aussi l'event natif Playwright si possible
-        } = req.body;
-
-        if (!selector || !event) return res.status(400).json({ error: 'selector et event requis' });
-
-        const { locator, strategy } = await smartResolveLocator(page, selector);
-
-        // Déclencher via Playwright natif si possible
-        if (use_native) {
-            if (event === 'click') { await locator.click({ timeout: 5000 }).catch(() => {}); }
-            else if (event === 'focus') { await locator.focus({ timeout: 3000 }).catch(() => {}); }
-            else if (event === 'blur') { await locator.blur({ timeout: 3000 }).catch(() => {}); }
-        }
-
-        // Dispatch JS complet pour les événements custom ou non-natifs
-        const result = await locator.evaluate((el, { event, event_type, event_init }) => {
-            let evt;
-            switch (event_type) {
-                case 'MouseEvent':
-                    evt = new MouseEvent(event, { bubbles: true, cancelable: true, ...event_init });
-                    break;
-                case 'KeyboardEvent':
-                    evt = new KeyboardEvent(event, { bubbles: true, cancelable: true, ...event_init });
-                    break;
-                case 'InputEvent':
-                    evt = new InputEvent(event, { bubbles: true, ...event_init });
-                    break;
-                case 'FocusEvent':
-                    evt = new FocusEvent(event, { bubbles: ['focusin','focusout'].includes(event), ...event_init });
-                    break;
-                case 'CustomEvent':
-                    evt = new CustomEvent(event, { bubbles: true, detail: event_init.detail || null });
-                    break;
-                default:
-                    evt = new Event(event, { bubbles: true, cancelable: true, ...event_init });
-            }
-            el.dispatchEvent(evt);
-            return { dispatched: true, event, tag: el.tagName, id: el.id };
-        }, { event, event_type, event_init });
-
-        res.json({ status: 'success', ...result, strategy });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== TRIGGER REACT/VUE/ANGULAR ========================
-// Force la mise à jour des frameworks JS en simulant une vraie saisie utilisateur
-app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const { selector, value, framework = 'auto' } = req.body;
-
-        if (!selector) return res.status(400).json({ error: 'selector requis' });
-
-        const { locator } = await smartResolveLocator(page, selector);
-        const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => 'input');
-
-        const detected = await locator.evaluate((el, { value, framework }) => {
-            const tag = el.tagName.toLowerCase();
-            const results = [];
-
-            // ─── Détection framework ───
-            let fw = framework;
-            if (fw === 'auto') {
-                if (el._reactFiber || el.__reactFiber || el.__reactProps || document.querySelector('[data-reactroot]')) fw = 'react';
-                else if (el.__vue__ || el.__vue3 || document.querySelector('[data-v-app]')) fw = 'vue';
-                else if (window.ng || document.querySelector('[ng-version]')) fw = 'angular';
-                else fw = 'vanilla';
-            }
-
-            // ─── React : passer par le synthetic event system ───
-            if (fw === 'react') {
-                try {
-                    // React 16+
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-                        || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-                    if (nativeInputValueSetter && value !== undefined) {
-                        nativeInputValueSetter.call(el, value);
-                        results.push('react:native-setter');
-                    }
-                    // Déclencher les events dans l'ordre exact React
-                    ['focus', 'keydown', 'keypress', 'input', 'keyup', 'change', 'blur'].forEach(evName => {
-                        const evCls = ['keydown','keypress','keyup'].includes(evName) ? KeyboardEvent
-                            : ['focus','blur'].includes(evName) ? FocusEvent : Event;
-                        el.dispatchEvent(new evCls(evName, { bubbles: true, cancelable: true }));
-                    });
-                    results.push('react:events-dispatched');
-                } catch (e) { results.push('react:error:' + e.message); }
-            }
-
-            // ─── Vue 3 : proxy reactif ───
-            if (fw === 'vue') {
-                try {
-                    if (value !== undefined) el.value = value;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    results.push('vue:events');
-                    // Vue 3 internal update
-                    const __vue = el.__vueParentComponent;
-                    if (__vue?.emit) { __vue.emit('update:modelValue', value); results.push('vue:emit'); }
-                } catch (e) { results.push('vue:error:' + e.message); }
-            }
-
-            // ─── Angular : NgModel zone trigger ───
-            if (fw === 'angular') {
-                try {
-                    if (value !== undefined) el.value = value;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    // Angular Zone.js
-                    if (window.getAllAngularRootElements) {
-                        const ngZone = window.ng?.getComponent?.(el)?.ngZone;
-                        if (ngZone) { ngZone.run(() => {}); results.push('angular:zone'); }
-                    }
-                    results.push('angular:events');
-                } catch (e) { results.push('angular:error:' + e.message); }
-            }
-
-            // ─── Vanilla / fallback ───
-            if (fw === 'vanilla' || results.length === 0) {
-                try {
-                    if (value !== undefined) el.value = value;
-                    ['input', 'change', 'blur'].forEach(evName => {
-                        el.dispatchEvent(new Event(evName, { bubbles: true }));
-                    });
-                    results.push('vanilla:events');
-                } catch (e) { results.push('vanilla:error:' + e.message); }
-            }
-
-            return { fw, results, tag: el.tagName, currentValue: el.value };
-        }, { value, framework });
-
-        res.json({ status: 'success', ...detected });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== POLL UNTIL ========================
-// Exécute un script JS en boucle jusqu'à ce qu'il retourne true
-app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            script,           // JS retournant true/false : "return document.querySelector('#result') !== null"
-            timeout = 15000,
-            poll_interval = 300,
-        } = req.body;
-
-        if (!script || typeof script !== 'string') return res.status(400).json({ error: 'script (string) required' });
-
-        // Le corps n'est compilé que dans la page, comme pour /evaluate.
-        const condition = (body) => new Function(body)();
-        try {
-            await page.waitForFunction(condition, script, { timeout, polling: poll_interval });
-            // Capturer le résultat final
-            const finalValue = await page.evaluate(condition, script).catch(() => null);
-            return res.json({ status: 'success', result: finalValue, elapsed_ms: timeout });
-        } catch (e) {
-            return res.status(408).json({ error: `Timeout après ${timeout}ms — condition non atteinte`, script });
-        }
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-// ======================== INTERCEPT NEXT DIALOG ========================
-// Configure la gestion du prochain dialog avant de déclencher l'action qui l'ouvre
 // ======================== DIALOGUE : POLITIQUE ARMABLE ====================
-// Contrairement à /handle_next_dialog (qui retient la réponse HTTP jusqu'à ce
+// Contrairement à une attente bloquante (qui retiendrait la réponse HTTP jusqu'à ce
 // qu'un dialogue apparaisse — inutilisable pour un agent, qui doit rendre la
 // main pour déclencher l'action qui l'ouvre), on arme et on rend la main tout
 // de suite. Le handler global consulte la politique au moment voulu.
@@ -5988,50 +5311,6 @@ app.post('/dialog', getSession, async (req, res) => {
             sticky: sticky === true || sticky === 'true',
         };
         res.json({ status: 'armed', ...view() });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-
-app.post('/handle_next_dialog', getSession, autoSnapshot, async (req, res) => {
-    try {
-        const { page } = req.session;
-        const {
-            action = 'accept',   // accept | dismiss
-            input_text = '',     // Pour les prompt() dialogs
-            timeout = 10000,
-        } = req.body;
-        const attente = Number(timeout);
-        if (!(attente >= 0 && attente <= 60000)) return res.status(400).json({ error: 'timeout must be 0 to 60000 ms' });
-
-        // Remplacer le handler dialog par défaut pour la prochaine occurrence seulement
-        let resolved = false;
-        const handler = async (dialog) => {
-            if (resolved) return;
-            resolved = true;
-            page.off('dialog', handler);
-            const type = dialog.type();
-            const message = dialog.message();
-            try {
-                if (action === 'dismiss') await dialog.dismiss();
-                else if (input_text && type === 'prompt') await dialog.accept(input_text);
-                else await dialog.accept();
-                res.json({ status: 'handled', dialog_type: type, message, action });
-            } catch (e) {
-                res.json({ status: 'handled_error', error: e.message, dialog_type: type });
-            }
-        };
-
-        page.on('dialog', handler);
-
-        // Timeout si aucun dialog n'apparaît
-        setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                page.off('dialog', handler);
-                res.json({ status: 'no_dialog', timeout_ms: timeout });
-            }
-        }, attente);
-
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6096,7 +5375,7 @@ async function findAlternatives(page, failedSelector, maxSuggestions = 5) {
 // ==========================================
 // ACTION CHAINING (Feature 2) — v2: prefers by_* params over selector strings
 // ==========================================
-app.post('/chain', getSession, autoSnapshot, async (req, res) => {
+app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, res) => {
     try {
         const { page } = req.session;
         const { actions = [], stop_on_error = true, screenshot_on_fail = true } = req.body;
@@ -6128,8 +5407,8 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 }
             }
             if (act.selector) {
-                const r = await smartResolveLocator(page, act.selector);
-                if (r && r.locator) return { locator: r.locator, source: r.strategy || 'selector' };
+                const r = await resoudreRepli(page, act.selector, { params });
+                return { locator: r.locator, source: r.strategy || 'selector' };
             }
             throw new Error('No target: provide by_*/ref or selector');
         }
@@ -6141,6 +5420,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const act = actions[i];
             const actType = act.type || act.action || '';
             const startMs = Date.now();
+            let locEtape = null;
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
             try {
@@ -6159,9 +5439,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
-                            result = await smartClick(page, act.selector, {
+                            const { locator: cliqueSur, cadre: _c, ...clic } = await smartClick(page, act.selector, {
                                 human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
+                            locEtape = cliqueSur;
+                            result = clic;
                         }
                         break;
                     }
@@ -6291,7 +5573,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
+                    }, locEtape || ((saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null));
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -6360,9 +5642,15 @@ app.get('/sessions', (req, res) => {
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
+            ...(s.isolated ? { isolated: true } : {}), ...(s.tls ? { secret: true } : {}),
         });
     }
-    res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
+    // Plafonds : par propriétaire, par groupe (le compte et ses sous-agents), et ce que ce propriétaire peut encore ouvrir.
+    const groupe = owner ? occupationGroupe(sessions, owner) : { compte: 0, enfants: 0 };
+    const effectif = Math.max(0, Math.min(MAX_SESSIONS_PER_OWNER, MAX_SESSIONS_PER_GROUP - groupe.enfants));
+    res.json({ count: list.length, max_per_owner: MAX_SESSIONS_PER_OWNER, max_per_group: MAX_SESSIONS_PER_GROUP,
+               effective_max: effectif, ttl_min: SESSION_TTL_MS / 60000, sessions: list,
+               limits_note: `You can keep ${effectif} session(s) at once (${MAX_SESSIONS_PER_OWNER} per owner, ${MAX_SESSIONS_PER_GROUP} for the account and its sub-agents). At the limit, start closes your oldest idle session (an isolated one first) and says so; a busy session or one opened for a secret is never closed.` });
 });
 
 // ======================== FORCE CLEANUP ========================
@@ -6376,30 +5664,13 @@ app.post('/cleanup', async (req, res) => {
     res.json({ cleaned: siennes.length });
 });
 
-// Sessions des sous-agents de tous les comptes ouvertes depuis `older_than_ms`, jamais celle d'un compte ; sans propriétaire : le core, seul client du service, au démarrage (celles du process précédent).
+// Sessions des sous-agents ouvertes depuis `older_than_ms`, jamais celle du compte ; sans propriétaire : le core, à son démarrage (celles des runs du process précédent).
 app.post('/cleanup_children', async (req, res) => {
     const ageMinMs = req.body?.older_than_ms;
     if (typeof ageMinMs !== 'number' || !(ageMinMs >= 0)) return res.status(400).json({ error: 'older_than_ms requis (ms, >= 0).' });
     const sids = sessionsEnfantsAnciennes(sessions, { ageMinMs });
     for (const sid of sids) await closeSession(sid, 'orphan_children');
     res.json({ cleaned: sids.length });
-});
-
-// Cleanup les screenshots de session(s) sans fermer les sessions Playwright.
-// Usage : appelé par le frontend quand il n'a plus besoin des images affichées
-// (nouveau message, navigation, fermeture d'onglet via beacon).
-// Body : { session_ids: ["sid1", "sid2", ...] }
-app.post('/cleanup_screenshots', async (req, res) => {
-    const sids = (req.body && req.body.session_ids) || [];
-    if (!Array.isArray(sids)) return res.status(400).json({ error: 'session_ids must be an array' });
-    let cleaned = 0;
-    for (const sid of sids) {
-        if (typeof sid === 'string' && sid.length >= 8 && sid.length <= 64 && /^[A-Za-z0-9\-]+$/.test(sid)) {
-            cleanupSessionScreenshots(sid);
-            cleaned++;
-        }
-    }
-    res.json({ cleaned });
 });
 
 
@@ -6475,7 +5746,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
 
-        let pass = false, actual = null, expected = value;
+        let pass = false, actual = null, expected = value, champSecret = false;
         try {
             // Most assertions tolerate a brief wait. We use a manual loop because
             // Playwright's `expect` API isn't loaded server-side.
@@ -6518,7 +5789,11 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         return actual.includes(value);
                     }
                     case 'value-equals': {
-                        actual = await loc.inputValue({ timeout: POLL }).catch(() => '');
+                        // Valeur et nature du champ lues ensemble : le masque ne dépend pas d'une seconde lecture.
+                        const lu = await loc.evaluate(el => ({ v: el.value ?? '', pw: el.type === 'password' }), undefined, { timeout: POLL })
+                            .catch(() => ({ v: '', pw: false }));
+                        champSecret = lu.pw;
+                        actual = lu.v;
                         return actual === value;
                     }
                     case 'count-eq': {
@@ -6541,6 +5816,10 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         }
                         if (!attrName) return false;
                         const got = await loc.getAttribute(attrName, { timeout: POLL }).catch(() => null);
+                        // Attribut value d'un champ mot de passe (recopié par React) : masqué, et masqué aussi si le contrôle échoue.
+                        if (String(attrName).toLowerCase() === 'value' && got !== null) {
+                            champSecret = await loc.evaluate(el => el.type === 'password', undefined, { timeout: POLL }).catch(() => true);
+                        }
                         actual = got;
                         return got === attrVal;
                     }
@@ -6557,6 +5836,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             return res.status(400).json({ error: e.message, assertion, duration_ms: Date.now() - startMs });
         }
 
+        // Valeur d'un champ mot de passe : comparée, jamais renvoyée.
+        if (champSecret && actual) actual = '[password value hidden]';
         const out = { pass, assertion, expected, actual, duration_ms: Date.now() - startMs };
         if (!pass) {
             // Always attach a screenshot on failed assertion — invaluable for debugging.
@@ -6690,13 +5971,16 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             let i = 0;
             const _all = _semantic.concat(_heur);
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
-            let _consumed = 0;
             for (const el of _all) {
-                if (items.length >= maxItems) { omitted.over_max = _all.length - _consumed; break; }
-                _consumed++;
                 if (seen.has(el)) continue;
                 seen.add(el);
                 const r = el.getBoundingClientRect();
+                if (items.length >= maxItems) {
+                    if (r.width < 2 || r.height < 2) omitted.too_small++;
+                    else if (viewportOnly && (r.bottom < -50 || r.top > window.innerHeight + 50)) omitted.offscreen++;
+                    else omitted.over_max++;
+                    continue;
+                }
                 if (r.width < 2 || r.height < 2) { omitted.too_small++; continue; }
                 const cs = window.getComputedStyle(el);
                 if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') { omitted.hidden++; continue; }
@@ -6705,7 +5989,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,
@@ -6793,30 +6077,25 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
 // ════════════════════════════════════════════════════════════════════
 // Each session keeps its own mock list under session._mocks. The route
 // handler is registered ONCE per session lazily; subsequent add/remove
-// calls only mutate the list (no double-route registration).
+// calls only mutate the list (no double-route registration); none during a vault login.
 async function ensureMockHandler(session) {
     if (session._mockHandlerRegistered) return;
     const { context } = session;
     session._mocks = session._mocks || [];
     // Use context.route so it covers all pages in the session (incl. new tabs).
     await context.route('**/*', async (route, request) => {
+        if (session._mocksSuspendus) return route.fallback().catch(() => {});
         const url = request.url();
         const method = request.method();
         const mocks = session._mocks || [];
+        // Le premier mock ajouté l'emporte quand plusieurs correspondent (le plus précis d'abord, un attrape-tout ensuite).
         for (const m of mocks) {
             if (m._exhausted) continue;
             if (m.method && m.method.toUpperCase() !== method) continue;
-            let match = false;
-            try {
-                if (m.is_regex) match = new RegExp(m.url_pattern).test(url);
-                else match = url.includes(m.url_pattern);
-            } catch (e) { match = url.includes(m.url_pattern); }
-            if (!match) continue;
+            if (!(m._re ? m._re.test(url) : url.includes(m.url_pattern))) continue;
             if (m.delay_ms && m.delay_ms > 0) await new Promise(r => setTimeout(r, m.delay_ms));
-            if (m.times !== -1) {
-                m._used = (m._used || 0) + 1;
-                if (m._used >= m.times) m._exhausted = true;
-            }
+            m._used = (m._used || 0) + 1;
+            if (m.times !== -1 && m._used >= m.times) m._exhausted = true;
             try {
                 await route.fulfill({
                     status: m.status,
@@ -6824,7 +6103,7 @@ async function ensureMockHandler(session) {
                     body: m.body || '',
                     headers: m.headers || {},
                 });
-            } catch (e) { /* route may have been aborted by another handler */ }
+            } catch (e) { m._used -= 1; /* route may have been aborted by another handler */ }
             return;
         }
         // Aucun mock : on passe la main (la garde des destinations décide).
@@ -6833,23 +6112,49 @@ async function ensureMockHandler(session) {
     session._mockHandlerRegistered = true;
 }
 
+const METHODES_HTTP = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+const NOTE_PRIORITE = 'When several mocks match a request, the first added (still active) wins: add the most specific first, a catch-all last.';
+
+// Mock validé : motif (sous-chaîne ; expression régulière avec is_regex, brute ou /…/drapeaux), statut 100-599, délai, fois, méthode, corps et en-têtes textes ; sinon l'erreur invalid_mock du premier champ fautif.
+function mockValide(b) {
+    const refus = (champ, message) => ({ erreur: { error: message, code: 'invalid_mock', field: champ,
+        fix: 'Fix that field and call add again: url_pattern (substring, or regular expression with is_regex=true), status 100-599, delay_ms 0-60000, times -1 (unlimited) or 1 and more.' } });
+    const entier = (v, defaut) => (v === undefined || v === null ? defaut : (typeof v === 'number' || (typeof v === 'string' && /^-?\d+$/.test(v.trim()))) && Number.isInteger(Number(v)) ? Number(v) : NaN);
+    const { url_pattern: motif, is_regex = false, method = '', body = '', content_type = 'application/json', headers = {} } = b;
+    if (typeof motif !== 'string' || !motif) return refus('url_pattern', 'url_pattern is required (a non-empty string).');
+    if (typeof is_regex !== 'boolean') return refus('is_regex', 'is_regex must be true or false.');
+    let re = null;
+    if (is_regex) {
+        const delimite = /^\/(.+)\/([a-z]*)$/s.exec(motif);
+        try { re = delimite ? new RegExp(delimite[1], delimite[2].replace(/[gy]/g, '')) : new RegExp(motif); }
+        catch (e) { return refus('url_pattern', `url_pattern is not a valid regular expression: ${e.message}`); }
+    }
+    const status = entier(b.status, 200), delai = entier(b.delay_ms, 0), fois = entier(b.times, -1);
+    if (!(status >= 100 && status <= 599)) return refus('status', `status must be an HTTP status between 100 and 599 (got ${JSON.stringify(b.status)}).`);
+    if (!(delai >= 0 && delai <= 60000)) return refus('delay_ms', `delay_ms must be between 0 and 60000 (got ${JSON.stringify(b.delay_ms)}).`);
+    if (!(fois === -1 || fois >= 1)) return refus('times', `times must be -1 (unlimited) or at least 1 (got ${JSON.stringify(b.times)}).`);
+    if (typeof method !== 'string' || (method && !METHODES_HTTP.has(method.toUpperCase()))) return refus('method', `method must be empty (any) or one of ${[...METHODES_HTTP].join(', ')}.`);
+    if (body !== null && typeof body !== 'string') return refus('body', 'body must be a string (serialize JSON yourself).');
+    if (typeof content_type !== 'string') return refus('content_type', 'content_type must be a string.');
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.values(headers).some(v => typeof v !== 'string'))
+        return refus('headers', 'headers must be an object of strings.');
+    const airRegex = !is_regex && /\.[*+]|\\[dwsDWS.?/]|^\^|\$$/.test(motif);
+    return { mock: { url_pattern: motif, is_regex, _re: re, status, body: body || '', content_type, delay_ms: delai, times: fois,
+                     method: method.toUpperCase(), headers },
+             ...(airRegex ? { warning: 'url_pattern is matched as a plain substring of the URL; it looks like a regular expression: add is_regex=true to match it as one.' } : {}) };
+}
+
 app.post('/mock/add', getSession, async (req, res) => {
     try {
-        const {
-            url_pattern, status = 200, body = '', content_type = 'application/json',
-            delay_ms = 0, times = -1, method = '', is_regex = false, headers = {},
-        } = req.body;
-        if (!url_pattern) return res.status(400).json({ error: 'url_pattern required' });
+        const v = mockValide(req.body);
+        if (v.erreur) return res.status(400).json(v.erreur);
         await ensureMockHandler(req.session);
         req.session._mocks = req.session._mocks || [];
         const id = `mock_${Math.random().toString(36).substring(2, 10)}`;
-        req.session._mocks.push({
-            id, url_pattern, status: parseInt(status), body, content_type,
-            delay_ms: parseInt(delay_ms), times: parseInt(times),
-            method, is_regex: !!is_regex, headers,
-            _used: 0, _exhausted: false, created_at: Date.now(),
-        });
-        res.json({ status: 'added', id, mocks_count: req.session._mocks.length });
+        req.session._mocks.push({ id, ...v.mock, _used: 0, _exhausted: false, created_at: Date.now() });
+        const n = req.session._mocks.length;
+        res.json({ status: 'added', id, mocks_count: n, is_regex: v.mock.is_regex,
+                   ...(n > 1 ? { note: NOTE_PRIORITE } : {}), ...(v.warning ? { warning: v.warning } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6860,7 +6165,7 @@ app.get('/mock/list', getSession, async (req, res) => {
         exhausted: !!m._exhausted, method: m.method || 'ANY',
         is_regex: !!m.is_regex,
     }));
-    res.json({ count: list.length, mocks: list });
+    res.json({ count: list.length, mocks: list, precedence: NOTE_PRIORITE });
 });
 
 app.post('/mock/clear', getSession, async (req, res) => {
@@ -6900,9 +6205,41 @@ async function attributsDuChamp(locator) {
     }), null, { timeout: 1000 }).catch(() => ({}));
 }
 
+// Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame ou Locator).
+async function cheminCadres(cible) {
+    let cadre = null;
+    if (cible && typeof cible.parentFrame === 'function') cadre = cible;
+    else if (cible) {
+        const h = await cible.elementHandle({ timeout: 1000 }).catch(() => null);
+        if (!h) return [];
+        cadre = await h.ownerFrame().catch(() => null);
+        await h.dispose().catch(() => {});
+    }
+    const chemin = [];
+    try {
+        while (cadre && cadre.parentFrame()) {
+            const el = await cadre.frameElement();
+            chemin.unshift(await el.evaluate(selecteurCadre));
+            await el.dispose().catch(() => {});
+            cadre = cadre.parentFrame();
+        }
+    } catch (_) { return []; }
+    return chemin;
+}
+
 // Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
 async function recordEvent(session, evt, locator = null) {
     if (!session || !session._recorder || !session._recorder.recording) return;
+    if (locator && !evt.frames) {
+        const cadres = await cheminCadres(locator);
+        if (cadres.length) evt = { ...evt, frames: cadres };
+    }
+    // Geste par `ref` ou par un texte de repli : le sélecteur stable est lu sur l'élément visé, au moment du geste.
+    const parTexte = evt.selector && isLikelyText(evt.selector);
+    if (locator && ((evt.ref && !evt.selector) || parTexte) && !Object.values(evt.locator || {}).some(Boolean)) {
+        const l = await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
+        if (l) evt = { ...evt, locator: l };
+    }
     if (evt.action === 'fill' || evt.action === 'type')
         evt = masquerSecret(evt, locator ? await attributsDuChamp(locator) : {}, session._recorder.variables || (session._recorder.variables = new Map()));
     if (evt.action === 'eval') evt = { ...evt, script: masquerScript(evt.script).slice(0, 300) };
@@ -6962,40 +6299,46 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     const events = r.events;
 
     function escape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    function targetExpr(evt, fmt) {
-        // evt.locator is the resolved kw set (role, name, text, label, css, ...)
-        const l = evt.locator || {};
+    function targetExpr(evt, fmt, l = evt.locator || {}) {
+        // l : sélecteur stable relevé (role, name, text, label, css…) ; les cadres de evt.frames préfixent la cible
         if (fmt === 'playwright') {
-            if (l.role && l.name) return `page.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
-            if (l.role) return `page.getByRole('${escape(l.role)}')`;
-            if (l.label) return `page.getByLabel('${escape(l.label)}')`;
-            if (l.placeholder) return `page.getByPlaceholder('${escape(l.placeholder)}')`;
-            if (l.test_id) return `page.getByTestId('${escape(l.test_id)}')`;
-            if (l.text) return `page.getByText('${escape(l.text)}')`;
-            if (l.css) return `page.locator('${escape(l.css)}')`;
-            if (l.xpath) return `page.locator('xpath=${escape(l.xpath)}')`;
-            return `page.locator('${escape(evt.selector || '')}')`;
+            const page = porteeCadres(evt.frames, 'playwright', escape);
+            if (l.role && l.name) return `${page}.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
+            if (l.role) return `${page}.getByRole('${escape(l.role)}')`;
+            if (l.label) return `${page}.getByLabel('${escape(l.label)}')`;
+            if (l.placeholder) return `${page}.getByPlaceholder('${escape(l.placeholder)}')`;
+            if (l.test_id) return `${page}.getByTestId('${escape(l.test_id)}')`;
+            if (l.text) return `${page}.getByText('${escape(l.text)}')`;
+            if (l.css) return `${page}.locator('${escape(l.css)}')`;
+            if (l.xpath) return `${page}.locator('xpath=${escape(l.xpath)}')`;
+            return `${page}.locator('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'cypress') {
             if (l.test_id) return `cy.get('[data-testid="${escape(l.test_id)}"]')`;
             if (l.role && l.name) return `cy.findByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
             if (l.label) return `cy.findByLabelText('${escape(l.label)}')`;
+            if (l.placeholder) return `cy.findByPlaceholderText('${escape(l.placeholder)}')`;
             if (l.text) return `cy.contains('${escape(l.text)}')`;
             if (l.css) return `cy.get('${escape(l.css)}')`;
             return `cy.get('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'robot') {
-            // Robot Framework with Browser library
-            if (l.role && l.name) return `role=${l.role}[name="${l.name}"]`;
-            if (l.test_id) return `[data-testid="${l.test_id}"]`;
-            if (l.label) return `label=${l.label}`;
-            if (l.text) return `text=${l.text}`;
-            if (l.css) return l.css;
-            return evt.selector || '';
+            // Robot Framework with Browser library ; `>>>` entre dans chaque cadre
+            const cadres = porteeCadres(evt.frames, 'robot');
+            if (l.role && l.name) return `${cadres}role=${l.role}[name="${l.name}"]`;
+            if (l.test_id) return `${cadres}[data-testid="${l.test_id}"]`;
+            if (l.label) return `${cadres}label=${l.label}`;
+            if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/[\\"]/g, '\\$&')}"]`;
+            if (l.text) return `${cadres}text=${l.text}`;
+            if (l.css) return `${cadres}${l.css}`;
+            return `${cadres}${evt.selector || ''}`;
         }
         return evt.selector || '';
     }
 
+    // Option cliquée d'un choix (pick) : son sélecteur relevé, sinon son texte exact.
+    const optionDe = (e, fmt) => targetExpr(e, fmt, e.option_locator || { text: e.option || '' });
+    const fichiersJs = (e) => `[${(e.files || []).map(f => `'${escape(f)}'`).join(', ')}]`;
     let script = '';
     if (format === 'json') {
         script = JSON.stringify(events, null, 2);
@@ -7020,6 +6363,11 @@ app.get('/recorder/dump', getSession, async (req, res) => {
                 case 'check': lines.push(`  await ${t}.check();`); break;
                 case 'uncheck': lines.push(`  await ${t}.uncheck();`); break;
                 case 'hover': lines.push(`  await ${t}.hover();`); break;
+                case 'upload': lines.push(`  await ${t}.setInputFiles(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`  await ${t}.click();`, `  await ${optionDe(e, 'playwright')}.click();`);
+                    else lines.push(`  await ${t}.fill('${escape(e.value)}');`, e.kind === 'enter' ? `  await ${t}.press('Enter');` : `  await ${optionDe(e, 'playwright')}.click();`);
+                    break;
                 default: lines.push(`  // ${e.action}: ${escape(JSON.stringify(e)).replace(/[\u2028\u2029]/g, ' ')}`);
             }
         }
@@ -7029,17 +6377,27 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const lines = ["describe('recorded session', () => {", "  it('replays', () => {"];
         for (const e of events) {
             const t = targetExpr(e, 'cypress');
+            const geste = [];
             switch (e.action) {
-                case 'goto':  lines.push(`    cy.visit('${escape(e.url)}');`); break;
-                case 'click': lines.push(`    ${t}.click();`); break;
+                case 'goto':  geste.push(`cy.visit('${escape(e.url)}');`); break;
+                case 'click': geste.push(`${t}.click();`); break;
                 case 'fill':
-                case 'type':  lines.push(e.secret ? `    ${t}.type(Cypress.env('${e.secret}'), { log: false });` : `    ${t}.type('${escape(e.value)}');`); break;
-                case 'eval': lines.push(`    // eval not replayed: ${commentaireEval(e.script)}`); break;
-                case 'select': lines.push(`    ${t}.select(${selectOptionArg(e, 'cypress')});`); break;
-                case 'check': lines.push(`    ${t}.check();`); break;
-                case 'uncheck': lines.push(`    ${t}.uncheck();`); break;
-                default: lines.push(`    // ${e.action}`);
+                case 'type':  geste.push(e.secret ? `${t}.type(Cypress.env('${e.secret}'), { log: false });` : `${t}.type('${escape(e.value)}');`); break;
+                case 'eval': geste.push(`// eval not replayed: ${commentaireEval(e.script)}`); break;
+                case 'select': geste.push(`${t}.select(${selectOptionArg(e, 'cypress')});`); break;
+                case 'check': geste.push(`${t}.check();`); break;
+                case 'uncheck': geste.push(`${t}.uncheck();`); break;
+                case 'upload': geste.push(`${t}.selectFile(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') geste.push(`${t}.click();`, `${optionDe(e, 'cypress')}.click();`);
+                    else geste.push(`${t}.type('${escape(e.value)}${e.kind === 'enter' ? '{enter}' : ''}');`, ...(e.kind === 'enter' ? [] : [`${optionDe(e, 'cypress')}.click();`]));
+                    break;
+                default: geste.push(`// ${e.action}`);
             }
+            // Geste dans des <iframe> : joué dans le corps du document du cadre.
+            const cadre = e.action === 'goto' || e.action === 'eval' ? '' : porteeCadres(e.frames, 'cypress', escape);
+            if (cadre) lines.push(`    ${cadre}.within(() => { ${geste.join(' ')} });`);
+            else lines.push(...geste.map(g => `    ${g}`));
         }
         lines.push('  });', '});');
         script = lines.join('\n');
@@ -7048,16 +6406,25 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const { secret_variables: aFournir } = notesDuScript(events);
         if (aFournir.length) lines.push('*** Variables ***', ...aFournir.map(v => `\${${v}}    %{${v}}`), '');
         lines.push('*** Test Cases ***', 'Recorded Session');
+        let pageOuverte = false;
         for (const e of events) {
             const t = celluleRobot(targetExpr(e, 'robot'));
             switch (e.action) {
-                case 'goto':  lines.push(`    New Page    ${celluleRobot(e.url)}`); break;
+                // Le premier goto ouvre l'onglet ; les suivants naviguent dans le même.
+                case 'goto':  lines.push(`    ${pageOuverte ? 'Go To' : 'New Page'}    ${celluleRobot(e.url)}`); pageOuverte = true; break;
                 case 'click': lines.push(`    Click    ${t}`); break;
                 case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'eval':  lines.push(`    # eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'press': lines.push(`    Keyboard Key    press    ${celluleRobot(e.key || e.value)}`); break;
                 case 'select': lines.push(`    Select Options By    ${t}    ${selectOptionArg(e, 'robot')}`); break;
+                case 'check': lines.push(`    Check Checkbox    ${t}`); break;
+                case 'uncheck': lines.push(`    Uncheck Checkbox    ${t}`); break;
+                case 'upload': lines.push(`    Upload File By Selector    ${t}    ${(e.files || []).map(celluleRobot).join('    ')}`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`    Click    ${t}`, `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    else lines.push(`    Fill Text    ${t}    ${celluleRobot(e.value)}`, e.kind === 'enter' ? `    Keyboard Key    press    Enter` : `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    break;
                 default: lines.push(`    # ${e.action}`);
             }
         }
@@ -7067,18 +6434,28 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     const { secret_variables, notes } = notesDuScript(events);
-    res.json({ format, count: events.length, script,
+    // Le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
+    const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
+    let fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+    try {
+        fs.mkdirSync('/work/recordings', { recursive: true });
+        fs.writeFileSync(fichier, script);
+    } catch (e) { fichier = null; }
+    res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 
 
-// SECURITY FIX (critique) : on bind explicitement à 127.0.0.1 par défaut
-// pour empêcher l'exposition externe. L'opérateur peut exposer le service
-// sur d'autres interfaces via FIREFOX_SERVICE_HOST=0.0.0.0, en sachant que
-// le service n'a alors AUCUNE barrière. Le port reste configurable via
-// FIREFOX_SERVICE_PORT.
-const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
-const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
-app.listen(LISTEN_PORT, LISTEN_HOST, () => {
-    console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
+// Socket unix du bac (/run/elpis/browser.sock), joint par l'hôte d'outils avec le jeton du bac.
+try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+app.listen(LISTEN_SOCKET, () => {
+    try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); }
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET} (TTL: 15min, ${MAX_SESSIONS_PER_OWNER} sessions par propriétaire, ${MAX_SESSIONS_PER_GROUP} pour le compte, sous-agents compris)`);
 });
+// Sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
+if (ARRET_INACTIF_MS > 0) {
+    let arret = false;
+    setInterval(() => {
+        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; gracefulShutdown('idle', 0); }
+    }, Math.min(30000, ARRET_INACTIF_MS)).unref();
+}

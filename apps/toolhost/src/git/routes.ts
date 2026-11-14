@@ -253,7 +253,11 @@ async function reseau(
 /** `_validate_git_url` : 403 si `url` n'est pas un dépôt distant permis. */
 async function validerUrl(ctx: ContexteFichiers, url: string, uid: number): Promise<void> {
   if (!url) throw new HttpError(400, "URL manquante");
-  const motif = await reseauGit.remoteBlockReason(url, uid, ctx.rappel);
+  const motif = await reseauGit.remoteBlockReason(
+    url,
+    { user_id: uid, username: resolveUsername(uid) ?? "" },
+    ctx.rappel,
+  );
   if (motif) throw new HttpError(403, `URL refusée (anti-SSRF) : ${motif}`);
 }
 

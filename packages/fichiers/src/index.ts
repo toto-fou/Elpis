@@ -56,7 +56,7 @@ export {
   run,
   runNetwork,
 } from "./git";
-export type { GardeDepot, ImportAncien, OptionsReseau, SourceGit } from "./git";
+export type { CompteRappel, GardeDepot, ImportAncien, OptionsReseau, SourceGit } from "./git";
 export {
   currentSession,
   dossierCompte,

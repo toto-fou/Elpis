@@ -37,7 +37,8 @@
   [operations.md](operations.md#system-prerequisites-apt-packages).
 - `install.sh` installs the rest: the Python venv and its dependencies, Node.js
   24 without npm in `node/` (core and browser service) and the core bundle
-  (`apps/core/dist`), Qdrant (RAG), Chromium, and the sandbox image.
+  (`apps/core/dist`), Qdrant (RAG), the Chromium headless shell, and the sandbox
+  image.
 
 ### Inference engine
 
@@ -181,7 +182,7 @@ settings (back to the Database page), switching to SQLite, or aborting.
 
 | Question (option that answers it) | Default | Effect |
 |---|---|---|
-| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium (Playwright) |
+| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium headless shell and ffmpeg (Playwright) |
 | Sandbox image (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` of `deploy/docker/sandbox/`, or `docker pull` + tag |
 | Database (`--db sqlite\|postgres-local\|external`) | sqlite (first time; unchanged afterwards) | see [Database](#database) |
 | LibreOffice (`--with-office`, `--no-office`) | yes if already installed | docx/xlsx/pptx previews (LibreOffice nogui + bubblewrap, installed with apt) |
@@ -218,7 +219,7 @@ the connection to the selected database.
 | Step | Questions | Written to |
 |---|---|---|
 | 1. LLM | type (llama.cpp, vLLM, SGLang, other OpenAI-compatible); address, whose port follows the type until an address is entered (8080, 8000, 30000); optional API key (the server's `--api-key`, masked input); probe `GET /v1/models` with the key as Bearer (401: "key rejected"), never `/props?model=`, which would load a model; model chosen from the announced list; recommended launch flags for vLLM and SGLang | `config.json › llama`: `engine`, `url` (server base), `api_key`, `model`; only changed values are rewritten |
-| 2. Cloud | provider (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), masked API key, model | **shared** connector in the database, key encrypted (Fernet) |
+| 2. Cloud | provider (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), masked API key, model | **shared** connector in the database, its key in the [secrets vault](#secrets-vault) as an instance secret (`llm-<provider>-<id>`); when a key is entered, an unavailable vault key stops this step with its cause, and so does running it as root |
 | 3. Access | HTTPS: no / local certificate (`install_caddy.sh`) / public domain with Let's Encrypt (`Caddyfile.acme.template`); without HTTPS, listening (`--listen local\|lan`: this server only or local network, see [Listening](#listening-securitylisten)); access host name; ports already in use are flagged | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
 | 4. RAG | activation, embeddings server (probed) and model, reranker, vision OCR | `config.json › rag` (`embed`, `reranker`, `ocr`), see [RAG](#rag-rag) |
 | 5. Sandbox | Docker image (presence checked), memory per sandbox | `executors` |
@@ -322,8 +323,8 @@ after. If Elpis is already running, restart it afterwards (`./elpis restart` or
 ```
 
 `start` runs in sequence: Qdrant (6333) → RAG (8000) → MCP tool
-host (8765) → main (8001) → admin (8002) → browser service (3000);
-the account's tools are served by main itself. Main and admin
+host (8765) → main (8001) → admin (8002); the account's tools are served by
+main itself, and the browser is started by the tool host inside each account's sandbox. Main and admin
 listen according to [`security.listen`](#listening-securitylisten) (`127.0.0.1` behind
 Caddy in every case); the RAG extractor and Qdrant listen locally only.
 
@@ -404,7 +405,7 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
 ```
 
 - One unit per service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
-  `elpis-main`, `elpis-admin`, `elpis-browser`), grouped under
+  `elpis-main`, `elpis-admin`), grouped under
   `elpis.target`, started at boot, restarted on failure, logs in
   journald under the tag `elpis-<service>` (`./elpis logs main -f`).
   Rerun `sudo ./elpis service install` after an update that changes the units
@@ -468,7 +469,7 @@ Sections:
 | `welcome` / `app_info` / `login_page` | Branding (edited from the admin console); `app_info.name` is the name of the application and of the assistant, `app_info.logo_b64` is its logo and the assistant's avatar, for all accounts |
 | `skins` | `dir` (folder of imported or created skins, default `user_skins`, overridable with `APP_SKINS_DIR`, read at startup), `enabled` (`{id: boolean}`, re-read live: a built-in that is absent takes its value from `frontend/css/skins/skins.json`, Kiki disabled; an imported skin that is absent is disabled; Ardoise and the default skin stay active), `default` (default `elpis`: skin of accounts with no choice or whose skin was disabled). Set from Admin console › System › Appearance; the folder is included in full backups |
 | `voice` | Voice engine — `enabled`, then two independent sub-blocks: `stt.*` (address, `format` among `whisper.cpp`/`openai`/`llama-audio`, language, vocabulary, `logprob_min`, caps) and `tts.*` (address, `format`, voice, speed, caps). Coercion and bounds in `apps/core/src/voix/config.ts`, re-read on EVERY call |
-| `image` | Image generation — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` belongs to `PUT /api/admin/image/key`: the raw editor does not write it. See [Image generation](#image-generation) |
+| `image` | Image generation — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. The API key is in the secrets vault, not here: a former `api_key_enc` is moved there at startup, then removed (also from `config.json.bak`). See [Image generation](#image-generation) |
 
 ### Publication by subagents
 
@@ -720,6 +721,22 @@ matching advice (log and console), once per engine. Testing a
 "SGLang (local)") use the same profile as the default engine; their
 address is the server base followed by `/v1`.
 
+**Connector keys.** The API key of a connector, personal (Settings › AI models) or shared
+(Admin console › Connections, `./elpis configure`), is kept in the
+[secrets vault](#secrets-vault): a secret of kind `llm` named `llm-<provider>-<id>`, owned by
+the account or, for a shared connector, by the instance, scoped to its connector. The form keeps
+its key field, write-only: an empty field leaves the key as it is, and deleting the connector
+deletes its secret. The key can also be rotated or deleted from the secrets lists. It is read
+from the vault each time a conversation, a routine or a test resolves the connector, so a
+rotation applies to the next turn. A connector whose key cannot be used shows "clé à ressaisir"
+in the console (`has_key: false` and `key_error` in the API: vault key unavailable,
+undecryptable, deleted from the vault, or an old key that could not be moved); using it fails
+with "Le serveur sélectionné est illisible (clé)." instead of calling the provider without a key.
+Each key counts toward the vault limits (200 secrets per account; the instance's 200 are shared
+by the shared connectors, the image engine key and the console's instance secrets). The
+`subagents`, `routines` and `tls` policy of these secrets is not used: a connector's key goes to
+its provider whoever calls it, with the connector's TLS settings.
+
 ### Cloud providers for accounts (`llm.allowed_provider_types`)
 
 An account connects a cloud provider with its own key in Settings › AI
@@ -881,6 +898,63 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | `ELPIS_GROUPE_JOURNAL` | `elpis-journal` | Group that reads the journal folders (`audit setup`; `adm` is accepted) |
 | `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`) |
 | `ELPIS_USER` | — | Service account for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
+
+#### Secrets vault
+
+Key of the secrets vault (AES-256-GCM), read by `main`, `admin` and `./elpis vault` the first time
+a secret is encrypted or decrypted; restart the services after changing it. The first source found
+wins; setup, backup and key change are in [operations.md](operations.md#secrets-vault-key).
+
+| Variable | Default | Description |
+|---|---|---|
+| `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in canonical base64 (44 characters, as printed by `base64`) or 64 hexadecimal digits; a key made of one repeated byte is refused. An invalid value is an error, with no fallback |
+| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback |
+| — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved, and only while the vault is empty. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
+
+- **Prefer the key file to `ELPIS_VAULT_KEY`.** A value in `.env` sits in a file of the repository
+  that every unit reads. `main` and `admin` remove both variables from their environment as soon as
+  they have read them, so no child process inherits them. The other units (`toolhost`, `browser`,
+  `rag`, `qdrant`) unset them (`UnsetEnvironment=`) and cannot open the key files
+  (`InaccessiblePaths=`), as do the processes started by `./elpis start`. Even so, `.env` still
+  travels with copies of the folder.
+- **A key file that exists but cannot be read** (permissions) or does not hold a valid key is an
+  error. The vault never falls back to another key, since secrets encrypted with it could not be
+  read later.
+- **When secrets exist and no key is found** (the key file was deleted), saving a secret is
+  refused (`secret_key_unavailable`) instead of creating a new fallback key, and `./elpis doctor`
+  says so: restore the key.
+- **`sudo ./elpis vault setup` and the permission check of `./elpis doctor` only handle
+  `/etc/elpis/vault.key`.** With `ELPIS_VAULT_KEY_PATH`, create and protect the file yourself
+  (0440, root and a group holding the service account alone, readable by no other unit). The
+  doctor still reports what the core sees: key source, `kid`, secrets under another key.
+
+The tokens of Git accounts and the secrets of routine webhooks are encrypted with this key. The
+first start of `main` after the update moves the existing ones out of their plain columns
+(migration `0027_vault_git`; admin, the tool host and the commands leave it to `main`); if no
+usable key is available (a key file that cannot be read, or no key while secrets already exist),
+the migration is not applied (error in the `main` log, nothing is lost), Git accounts show no
+token and webhooks are ignored until the key is fixed and the services restarted. A token that the
+vault refuses (an invalid host) stays where it was, unused, with a warning in the log: enter it
+again in the Git account.
+
+**Upgrade (migration `0028_vault_llm_images`).** At the first start of `main`, the
+keys of the LLM connectors (encrypted with the Fernet key `APP_ENCRYPTION_KEY` /
+`user_db/.encryption_key`, or stored in clear by old versions) and the image engine's key of
+`config.json` move into the vault; the startup log lists them. Admin, the tool host and the
+installer leave the migration to `main`, which holds the vault key. Without any key, the fallback
+`user_db/.vault.key` is created only while the vault is still empty. If the vault key is
+unavailable (unreadable, or missing while secrets exist), the migration fails, is logged as an
+error and is retried at the next start (`./elpis doctor` lists it as pending); nothing is lost
+meanwhile. A key that the current Fernet key cannot
+decrypt is kept and reported, never dropped, and does not hold back the others: enter it again, or
+restore the former encryption key and restart, and `main` moves it at startup. Without any Fernet
+key, none is created: the Fernet keys wait as they are for a start with the key. The secrets
+created by the migration are listed in the startup log and written to the security journal
+(`vault.secret.created`), then `main` compacts the database once. Once the vault holds the image
+engine key, it is also removed from `config.json.bak`. **After the upgrade, rotate the provider keys** (LLM connectors,
+image engine): earlier backups of the database and of `config.json` still hold them, encrypted
+with the old Fernet key. Downgrades are not supported: a key written again by an older version
+is compared with the vault at the next start, and the vault value is kept.
 
 #### Local MCP server
 
@@ -1058,7 +1132,13 @@ With a ``toolhost.json`` (remote host), the host does not open ``app.db``: ident
 tokens, identity, git credentials; for the ``desktop`` family served by the TS host:
 automation-finished notification and anchor memory, account taken from
 the signed identity envelope) with the service token, LOCAL database
-(``toolhost.json › db_path``) for its terminal sessions and the AX memory.
+(``toolhost.json › db_path``) for its terminal sessions and the AX memory. The site
+passwords of that memory are encrypted there with the host's master key, the only reader:
+``APP_ENCRYPTION_KEY``, ``app.encryption_key``, otherwise ``.encryption_key`` created next to
+its database on the first save (back it up with the database). Without a key the password is
+not kept and the session still opens; with a lost or changed key it must be given again.
+Rows saved before this version are not converted: those keyed by a bare site (without a scheme)
+are never read again but keep their password in clear until the site is deleted from the AX memory.
 ACCOUNT-bound families (``memory``, ``todo``, ``chart``, ``skill`` = library)
 = ``role: app`` manifest entries, served by main, never by a remote
 host (they write to its database); ``skill_run``
@@ -1099,21 +1179,26 @@ Native ``skill_run`` family: the account's skills are read from its protected st
 host); an old store left on a remote host by the Python core takes precedence over the
 mirror: delete it.
 Native ``git`` family: the network (clone, fetch, pull, push) goes through the authenticating
-relay, and a Git connector's token is given only to the repository's exact host;
-``git_submit`` pushes the agent branch then asks the core for the PR
-(``POST /api/internal/git/pr``, account of the signed envelope), which resolves the
+relay, and a Git account's token is given only to the repository's exact host. The host asks the
+core for it (``GET /api/internal/git/credential``) with the signed identity of the call (account,
+conversation and sub-agent of the tool call): the core reads them from that envelope, never from
+the query, applies the secret's policy for sub-agents and routine runs, takes the token out of the
+secrets vault and writes ``vault.secret.used``. ``git_clone`` and ``git_submit`` only check that
+a token exists (``GET /api/internal/git/credential/available``, not counted) before the network
+operation reads it. ``git_submit`` pushes the agent branch then asks the core
+for the PR (``POST /api/internal/git/pr``, account of the signed envelope), which resolves the
 connector, keeps its ``api_base`` and calls the PR API: this API's token
 never leaves the core. Core unreachable after the push: error
-``pr_service_unavailable`` (branch pushed, PR to reopen); ``git_set_credential``
-and the token entered at clone time are stored by the core
-(``credential_store_unavailable`` if it does not answer). With this native family,
-an agent tool creates a connector only for a host (port included) already
-registered by the account or by an administrator: otherwise ``host_not_registered``,
-and the connector is added in Settings → Git accounts; it updates only the
-connectors it created (``auto``), never a connector entered in Settings or
-imported (``connector_exists``); an old
-``.git-credentials.json`` in the sandbox follows the same rule (kept if a host is refused);
-the editor's clone has no such limit.
+``pr_service_unavailable`` (branch pushed, PR to reopen). No agent tool takes a token
+(``git_clone`` has no ``username``/``token`` and ``git_set_credential`` no longer exists): when a
+repository needs credentials, the tool's error tells the model to ask the user to add a Git
+account in Settings › Git accounts. Only the editor's clone saves the credentials typed by the
+user (``POST /api/internal/git/credential``, origin ``editeur``), into the vault; push and pull
+use typed credentials without saving them. An old ``.git-credentials.json`` in the sandbox is
+imported into the vault only for a host (port included) already registered by the account or by
+an administrator (kept if a host is refused); the agent can write that file, so its tokens are
+imported as unverified secrets (``meta.source`` ``sandbox-file``) that are never used until the
+user verifies them in Settings › Secrets.
 ``TOOLHOST_APP_URL`` points to the local core (``http://127.0.0.1:8001``, set by
 ``./elpis`` unless a value is already in the environment): without the core URL, the
 ``/api/internal/*`` callbacks are inactive (``shell_job`` answers ``not_available_here``,
@@ -1190,11 +1275,9 @@ must then be removed before recreating an account with the same name.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Browser service (app side) |
-| `FIREFOX_SERVICE_PORT` | `3000` | Browser service listening port |
-| `PW_STATE_MAX_AGE_D` | `30` | Days to keep a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read at browser service startup (`.env`). States from before 0.0.1, with no account, are never purged: see [operations.md](operations.md#upgrading) |
-| `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours to keep browser downloads, HAR files, videos and traces; `0` = never deleted |
-| `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Playwright options |
+| `PW_STATE_MAX_AGE_D` | `30` | Days the browser service of a sandbox keeps a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read in the service's environment, which the tool host does not fill from `.env`: the default applies |
+| `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours the browser service of a sandbox keeps HAR files, videos and traces (downloads in `/work/downloads` are never deleted); `0` = never deleted. Same environment as above |
+| `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `10` (s) / `false` | Playwright options |
 | `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Visual annotation endpoint |
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, annotation prompt |
 | `APP_DESKTOP_*` | see `config.py` | Control agents: timeouts, observation scope, capture format, caps |
@@ -1213,42 +1296,115 @@ must then be removed before recreating an account with the same name.
 | `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Bounded retry of a run |
 | `PTY_MAX_PER_USER` | derived | Terminals per user |
 
-### Controlled browser: allowed destinations
+### Controlled browser
 
-The browser service (`browser-service/`, `pw_*` tools) reaches only
-`http` and `https` addresses (plus `about:blank`). All its traffic — navigation,
-redirects, subresources, WebSocket — goes through a local relay that
-resolves each name itself and connects only to the address it has judged.
-Refused: loopback, link-local (including metadata
-addresses), addresses belonging to the Elpis host, and container
-networks. The local network is allowed by default (intranet). Optional
-allowlist, re-read live: `browser.url_allowlist` in
-`config.json` (or `BROWSER_URL_ALLOWLIST`, separated by commas or
-spaces) — exact hosts, `*.domain`, IP addresses or CIDR blocks; when set, it
-restricts the LOCAL NETWORK to the hosts and networks it names (public
-destinations stay reachable, and the refusals above stay
-absolute). Sessions, saved states,
-downloads and visual references are filed per account; at most 3
-sessions per owner (`BROWSER_MAX_SESSIONS_PER_OWNER`), at most 4 for an account and
-its subagents together (`BROWSER_MAX_SESSIONS_PER_GROUP`, never below the per-owner
-quota), 10 in all for accounts (`BROWSER_MAX_SESSIONS`) and, separately, 6 in all for
-subagents (`BROWSER_MAX_CHILD_SESSIONS`): a subagent never takes an account's place;
-a new session never closes
-another account's session, nor the account's or a sibling's session when a subagent
-is the one asking. Each `task` subagent that drives the browser has its own private session, which
-counts toward its account's group quota, with one place left for the chat's session:
-the chat and three `web` agents fit in the four places by default, and a batch that contains a `web`
-agent launches only three at a time. At the quota, startup is refused with the error `browser_quota` (with
-its `fix`, readable by the model), and the launch of a `web` agent is refused even before it
-tries (`task_unavailable`). Raise `BROWSER_MAX_SESSIONS_PER_GROUP` (simultaneous `web` agents
-+ 1 for the chat's session), and `BROWSER_MAX_CHILD_SESSIONS`
-if several accounts launch `web` agents in parallel.
-Restart the service together with the core. A service or tool host older than the
-core does not know the group quota (each child counts separately) or the
-safe closing of a child's sessions: upgrade them together.
+The browser (`browser-service/`, `pw_*` tools) runs only inside each account's sandbox: the tool
+host starts its service in the container at the account's first `pw_*` call (Docker and the sandbox
+image `elpis/sandbox:1.8.0` are required). It reaches the sandbox loopback directly
+(`http://localhost:<port>`: sites served in `/work`); all its other traffic — navigation, redirects,
+subresources, WebSocket — goes through the account's secret relay in the tool host, which resolves
+each name itself and connects only to the address it has judged. The account's network profile
+decides first (the default `isolated` profile allows nothing outside the sandbox, with a clear
+error); then the browser policy refuses loopback, link-local (including metadata addresses),
+addresses belonging to the Elpis host, and container networks. The local network is allowed by
+default (intranet). Optional allowlist, re-read live: `browser.url_allowlist` in `config.json` —
+exact hosts, `*.domain`, IP addresses or CIDR blocks; when set, it restricts the LOCAL NETWORK to
+the hosts and networks it names (public destinations stay reachable, and the refusals above stay
+absolute).
 
-⚠ **Upgrade**: an automation that navigated to `localhost`,
-the host's address or a local container is now refused.
+Sessions, saved states, downloads and visual references stay in the account's sandbox
+(`/work/.elpis-browser`, `/work/downloads`). The service of a sandbox keeps at most 3 sessions per
+owner and 4 for the account and its subagents together, one place of which stays with the chat
+(`BROWSER_MAX_SESSIONS_PER_OWNER`, `BROWSER_MAX_SESSIONS_PER_GROUP` in the service's environment,
+which the tool host does not fill: the defaults apply). A new session never closes the account's
+or a sibling's session when a subagent is the one asking. At a cap, the requester's oldest idle
+session gives way (an isolated one before the account's main session), never one that is busy or
+opened for a vault secret; the start result names it (`evicted_sessions` and a warning), and when
+none can give way the start is refused (`browser_quota`, `protected_sessions`). Each `task`
+subagent that drives the browser has its own private session, which counts toward its account's
+quota: the chat and three `web` agents fit in the four places, and a batch that contains a `web`
+agent launches only three at a time. At the quota, startup is refused with the error
+`browser_quota` (with its `fix`, readable by the model), and the launch of a `web` agent is
+refused even before it tries (`task_unavailable`).
+
+| Key (`config.json`) | Default | Effect |
+|---|---|---|
+| `browser.sandbox_idle_minutes` | `15` | Minutes without a call before a sandbox browser service stops (started again by the next `pw_*` tool). |
+| `browser.url_allowlist` | `[]` | Local-network allowlist of the browser policy (above). |
+
+`browser.mode` and `browser.sandbox_users`, from earlier versions, are ignored (the tool host
+says so once at start).
+
+| Variable | Default | Effect |
+|---|---|---|
+| `ELPIS_BROWSER_CA_DIR` | `user_db/browser-relay-ca` | Folder of the instance CA of the secret relay (`ca.key` 0600, `ca.crt`, 365 days, renewed 30 days before its end). |
+| `PLAYWRIGHT_BROWSERS_PATH` | `~/.cache/ms-playwright` | Playwright cache mounted read-only in the sandboxes (Chromium headless shell). |
+
+When the sandbox cannot serve (Docker missing or stopped, image missing, browser not installed),
+the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its fix, and
+`./elpis doctor` reports the same. See `docs/architecture.md`, "Browser in the sandbox", and
+`docs/operations.md`, "Browser in the sandbox".
+
+⚠ **Upgrade**: an automation that navigated to the host's address or a local container from the
+browser is refused; `localhost` now means the account's sandbox.
+
+### MCP servers: secrets
+
+The MCP servers of an account (Settings › MCP, `users.settings_json › mcp_servers`) and those of
+the shared library (published by an administrator from the same dialog, `mcp_shared_servers`)
+keep their secret parts in the [secrets vault](#secrets-vault): one secret per server, kind `mcp`,
+named `mcp-<server id>` (`mcp-shared-<n>`, an instance secret, for a shared server), with the scope
+`{"server": "<server id>"}`. The server keeps its other settings (type, address or command, auth
+mode, user or header name) and the id of its secret (`secret_id`). The value is a JSON object with
+the non-empty parts:
+
+```json
+{"auth": "<token, password or header value of the auth mode>",
+ "headers": [{"name": "X-API-Key", "value": "…"}],
+ "env": [{"name": "WIKIJS_TOKEN", "value": "…"}]}
+```
+
+`headers` and `env` are also read as objects (`{"X-API-Key": "…"}`), and a value that is not a
+JSON object is the `auth` part: a rotation from Settings › Secrets can be the bare token, but it
+then replaces the headers and variables. Header and variable names are checked when the server
+connects: an invalid or reserved name (`Host`, `PYTHONPATH`…) is skipped, with a warning in the
+core log. The value holds 16,384 characters at most.
+
+- **Forms.** The secret fields stay write-only: an empty field keeps the value, the auth mode
+  "None" removes the token, and removing a header or a variable removes it. `has_auth` and
+  `has_value` mean "readable with the current vault key". A secret that cannot be read, or was
+  removed from the vault, is never overwritten or removed by a save of the list: only a new value
+  replaces it, or deleting the server removes it. Old values still on the server (not yet in the
+  vault) are listed by name, with the auth mode they imply, and a save that brings no new value for
+  them keeps them and moves them into the vault. The account that owns a personal server can enter
+  a secret that cannot be used again, even when it may not otherwise change that server; for a
+  server of the shared library, an administrator does.
+- **Saves.** A save of the list reads and writes the settings and the vault in one transaction, so
+  two saves at the same time never lose a server or leave a secret behind. A list that names the
+  same server id twice is refused (400). The Test button joins the stored secret only to a test of
+  the same type and address (or command).
+- **Connection.** The secret is read and decrypted for each turn, routine run and sub-agent, at
+  most once per turn, never cached longer: a rotation applies to the next turn. Its policy applies:
+  created with `routines` and `subagents` allowed, either can be turned off in Settings › Secrets.
+  A server whose secret cannot be read (another key, removed from the vault, key unavailable,
+  refused by its policy, flagged by the migration) is left out, with a warning in the core log
+  (once an hour per server and reason); it is never connected with part of its secrets.
+- **Flags.** `secret_error` on a server (in `GET /api/settings`, and in the administrator's view
+  of the shared library) tells why its secret cannot be used: `undecryptable`,
+  `key_unavailable`, `missing` (deleted from the vault) or `not_migrated` (refused by the vault
+  during the migration: too long, or too many secrets; a Fernet value waiting for its key; or an
+  older secret field still filled in).
+  The server form shows it.
+- **Migration `0029_vault_mcp`** (at core startup) moves the existing values into the vault:
+  Fernet ones (`auth_enc`, `headers_enc`, `env_enc`) and older plain ones (`authorization` →
+  auth mode "raw", `basic_auth` → "basic", `headers` and `env` objects). Only what the server
+  used is kept (headers for HTTP and SSE, variables for `stdio`, the token when an auth mode is
+  set); a server without a type becomes SSE, as the form saves it. A Fernet value that cannot be
+  decrypted stays where it was, unused, flagged `undecryptable` (another key) or `not_migrated`
+  (no key at all: the migration never creates one) and logged; the main service tries it again at
+  each start while such values are left (once the key is back in `APP_ENCRYPTION_KEY` or
+  `user_db/.encryption_key`), and entering the secret again clears it. Without the vault key, the migration fails, nothing is written, and it runs
+  again at the next start (`./elpis restart` and `./elpis doctor` list it as pending).
 
 ### Image generation
 
@@ -1268,11 +1424,15 @@ A single engine, set in Admin console › Models & services › Images
   `max_concurrent` applies only to an OpenAI service.
 - **TLS**: system certificate store, plus the authority pasted into
   `ca_pem` (internal PKI). `verify: false` is for testing only.
-- **API key**: encrypted (Fernet) in `api_key_enc`, written by
-  `PUT /api/admin/image/key`, never sent back. It is tied to the engine's
-  address (scheme, host and port): after changing the address to
-  another machine, enter it again (the console says so). A test against
-  another address uses only the key entered in the form.
+- **API key**: in the [secrets vault](#secrets-vault), as the instance secret `image-engine`
+  (kind `token`), written by `PUT /api/admin/image/key` and never sent back. Its scope is the
+  exact origin of the engine (scheme, host and port): the key is used only while `url` keeps
+  that origin, so after moving the engine to another machine, enter it again (the console says
+  so, `stale`). A test against another address uses only the key entered in the form. A key
+  written by an earlier version in `config.json › image.api_key_enc` is moved to the vault at
+  startup, then removed from `config.json` and `config.json.bak`; if it cannot be decrypted it
+  stays there, reported as `stale` and in the log, until it is entered again. Edit it here rather
+  than in the secrets lists: among tokens, only this instance secret takes an origins scope.
 - **Access**: `enabled` and an address; `groups` (ids, empty = everyone,
   administrators always allowed) is checked on every turn and on every
   call of the `generate_image` tool. Each account can then turn off

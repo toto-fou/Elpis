@@ -195,6 +195,8 @@ const COMPOSEUR: Cles<DomaineComposeur> = {
   imageMode: true,
   ragActives: true,
   retirerCollectionRag: true,
+  secretsAttaches: true,
+  detacherSecret: true,
   sharedPromptsList: true,
   refreshInboxCount: true,
   triggerFileUpload: true,

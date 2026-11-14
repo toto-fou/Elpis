@@ -151,8 +151,12 @@ the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assi
 
 **Frontend build**: Vite builds `frontend/dist/` when the release is prepared
 (`make_release.sh`); the core serves the entry points through their manifest (hashed
-names, long cache). The other static files (CSS, skins, assets) keep
-cache-busting through `BUILD_ID`.
+names, long cache). The other files the pages link (CSS, skins, assets)
+carry their fingerprint in `?v=` (modification time and size) and get the
+same long immutable cache. Text is compressed: the build writes `.br` and
+`.gz` next to each asset, served by `Accept-Encoding`; other static text is
+compressed once in memory; JSON responses of 16 KiB or more are compressed
+on the fly for same-origin requests only (BREACH), never a stream.
 
 ---
 
@@ -777,7 +781,7 @@ sequenceDiagram
     R->>B: wait for the engine, then generation (background task + queue)
     B-->>R: events
     R->>R: optimistic save, then kv_cache and final
-    R-->>C: NDJSON drained (tokens batched every 25 ms)
+    R-->>C: NDJSON drained (first text at once, then tokens batched every 25 ms)
     Note over R: stream closed, run detached or closed
 ```
 
@@ -1146,12 +1150,17 @@ The `/` (chat), `/` and `/admin` (console) pages receive `POLITIQUE_CSP`
 reread on each page ([configuration](configuration.md#content-security-policy-securitycsp)):
 
 ```
-default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none';
 base-uri 'self'; frame-ancestors 'self'; form-action 'self'
 ```
 
-No inline or evaluated script (`eval`, `new Function`): Zod runs in
+One inline script only, allowed by its hash: `SCRIPT_HABILLAGE`, written by the
+server in place of the `<!-- @habillage -->` marker, sets the body classes (and
+the skin's stylesheets) of the last appearance remembered by the browser
+(`frontend/src/features/reglages/habillage.ts`, `localStorage` key
+`elpis-habillage`) before the first paint. No other inline script, no evaluated
+script (`eval`, `new Function`): Zod runs in
 `jitless` mode, set by `src/platform/zod-sans-eval.ts`, imported first by
 the entry points (a schema built earlier would read `jitless` as false and probe
 `new Function`). Each opening is justified by a violation report:
@@ -1204,7 +1213,10 @@ the other colors are semantic (status).
 - **Registry.** Built-in skins are described by
   `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `palettes`, `darkBase`,
   `enabled_by_default`, `brand`, `mascot`); their stylesheet
-  `css/skins/<id>/skin.css` is linked statically by `index.html` and `admin.html`.
+  `css/skins/<id>/skin.css` is listed in the inert `<template id="elpis-habillages">` of
+  `index.html` and `admin.html`: only the active skin's sheets are linked, before the first
+  paint from the appearance remembered by the browser (`@habillage` script), then on demand,
+  loaded before the body classes switch (`frontend/src/features/reglages/habillage.ts`).
   Slate (empty `id`) is `style.css` with no class. `css/skins/<id>/editeur.css`
   (`ardoise/` for Slate) carries the skin's editor style; its presence is enough.
   `css/skins/<id>/polices.css` declares the skin's bundled fonts, apart from
@@ -3952,7 +3964,7 @@ key, to move the former values into the vault (migrations and startup catch-ups)
 | **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet (format also read by the remaining Python): `decryptStrict` reads, without ever creating a key, the former LLM connector, image engine and MCP values and the AX site passwords being moved into the secrets vault |
 | **Secrets vault** | `packages/securite/src/coffre.ts`, `apps/core/src/secrets/` | AES-256-GCM, AAD per secret, key outside the database (`/etc/elpis/vault.key`); a value reaches the tool host only, by the signed internal resolution; see [Secrets vault](#secrets-vault) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
-| **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
+| **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'` plus the hash of the appearance script (`SCRIPT_HABILLAGE`), no other inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
 | **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | Remote Git URLs, AX diagnostics |
 | **Bounded bodies** | `packages/http/src/app.ts` (`limiteCorps` per route) | An upload beyond its route's limit is refused |
 | **Path traversal** | editor paths normalized by the tool host (`apps/toolhost/src/fichiers/`); links resolved by the container agent | Single chokepoint |

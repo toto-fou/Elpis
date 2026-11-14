@@ -11,23 +11,6 @@ export const VENDOR_NPM: Readonly<Record<string, readonly [paquet: string, fichi
   "vendor/mermaid.min.js": ["mermaid", "dist/mermaid.min.js"],
   "vendor/highlight.min.js": ["@highlightjs/cdn-assets", "highlight.min.js"],
   "vendor/chart.js": ["chart.js", "dist/chart.umd.js"],
-  "vendor/chartjs-adapter-date-fns.bundle.min.js": [
-    "chartjs-adapter-date-fns",
-    "dist/chartjs-adapter-date-fns.bundle.min.js",
-  ],
-  "vendor/chartjs-plugin-datalabels.min.js": [
-    "chartjs-plugin-datalabels",
-    "dist/chartjs-plugin-datalabels.min.js",
-  ],
-  "vendor/chartjs-plugin-annotation.min.js": [
-    "chartjs-plugin-annotation",
-    "dist/chartjs-plugin-annotation.min.js",
-  ],
-  "vendor/chartjs-chart-treemap.min.js": ["chartjs-chart-treemap", "dist/chartjs-chart-treemap.min.js"],
-  "vendor/chartjs-chart-sankey.min.js": ["chartjs-chart-sankey", "dist/chartjs-chart-sankey.min.js"],
-  "vendor/chartjs-chart-matrix.min.js": ["chartjs-chart-matrix", "dist/chartjs-chart-matrix.min.js"],
-  "vendor/chartjs-chart-boxplot.umd.min.js": ["@sgratzl/chartjs-chart-boxplot", "build/index.umd.min.js"],
-  "vendor/chartjs-chart-financial.js": ["chartjs-chart-financial", "dist/chartjs-chart-financial.js"],
   "vendor/echarts.min.js": ["echarts", "dist/echarts.min.js"],
   "vendor/echarts-langFR.js": ["echarts", "i18n/langFR.js"],
 };

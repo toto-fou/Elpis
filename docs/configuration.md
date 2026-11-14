@@ -355,7 +355,8 @@ Reinstallation: the value in place (or its absence) is kept.
 
 The application pages (`/` of the chat, `/` and `/admin` of the console)
 carry a content security policy (CSP) header: scripts from the
-origin only, no inline or evaluated scripts, no embedded objects, no
+origin only, no evaluated scripts, a single inline script allowed by its
+hash (the appearance set before the first paint), no embedded objects, no
 framing by another site (`apps/core/src/interface/pages.ts ›
 POLITIQUE_CSP`). Fallback setting, re-read on every page (no restart needed):
 

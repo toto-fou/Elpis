@@ -20,8 +20,12 @@ export interface ProgressionImport {
 
 export interface ConnecteurGit {
   id: string | number;
-  host?: string;
+  host: string;
+  /** `""` : tout l'hôte ; chemin d'une organisation ou d'un dépôt ; `null` : sans portée (inactif). */
+  path: string | null;
   label?: string;
+  has_token?: boolean;
+  to_verify?: boolean;
   [cle: string]: unknown;
 }
 
@@ -35,8 +39,7 @@ export interface RacineEditeur {
   handleExplorerDrop(ev: DragEvent): unknown;
   cancelSandboxUpload(): unknown;
   openContextMenu(ev: MouseEvent | KeyboardEvent, type: string, item: unknown): void;
-  openSettings(): unknown;
-  settingsTab: string;
+  openSettingsTab(onglet: string): unknown;
   renderMarkdown(source: string): string;
   gitConnectors: ConnecteurGit[];
   loadGitConnectors(): unknown;
@@ -58,8 +61,7 @@ const CLES: Readonly<Record<keyof RacineEditeur | "showEditor", true>> = {
   handleExplorerDrop: true,
   cancelSandboxUpload: true,
   openContextMenu: true,
-  openSettings: true,
-  settingsTab: true,
+  openSettingsTab: true,
   renderMarkdown: true,
   gitConnectors: true,
   loadGitConnectors: true,

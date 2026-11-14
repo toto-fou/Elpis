@@ -62,7 +62,6 @@ export function creerClavier(s: EtatClavier) {
       !!c?.assistantForm.value.open ||
       vrai(a?.showAxModal) ||
       vrai(e?.showGitCloneModal) ||
-      vrai(e?.showGitInitModal) ||
       vrai(e?.showGitRemoteModal) ||
       vrai(e?.showGitPushAuth) ||
       vrai(e?.showGitMergeModal) ||
@@ -245,7 +244,6 @@ export function creerClavier(s: EtatClavier) {
     }
     for (const fenetre of [
       ed?.showGitCloneModal,
-      ed?.showGitInitModal,
       ed?.showGitRemoteModal,
       ed?.showGitPushAuth,
       ed?.showGitMergeModal,

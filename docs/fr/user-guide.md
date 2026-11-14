@@ -1129,8 +1129,29 @@ Un panneau Git complet, sur les dépôts de votre sandbox :
 | **Fusion** | Aperçu avant fusion, résolution de conflits, abandon |
 | **Réparation** | Annuler le dernier commit, restaurer un commit |
 
-L'authentification passe par vos [connecteurs Git](#connecteurs-git) : aucun
+L'authentification passe par vos [comptes Git](#comptes-git) : aucun
 identifiant n'est écrit dans la sandbox.
+
+**Ajouter un dépôt.** Un seul bouton, *Ajouter un dépôt*, ouvre une fenêtre à trois façons : *Mes
+dépôts* (les dépôts d'un de vos comptes Git ; choisissez le compte si vous en avez plusieurs),
+*Depuis une URL* (n'importe quelle URL de clonage en http(s) ; une URL SSH est refusée avec la
+raison) et *Nouveau dépôt* (un dépôt vide initialisé dans un dossier de votre espace de travail).
+Les commits sont attribués automatiquement : les vôtres à votre compte (`alice <alice@elpis>`),
+ceux de l'assistant à `alice (Elpis agent)`, sur des branches `agent/…` ; une demande de fusion
+qu'il ouvre appartient au compte Git dont le jeton sert. Pour un clone, trois lignes
+disent ce qui sera fait : le dépôt tel qu'il a été lu, le compte qui servira, et le dossier. Ce
+compte est le plus précis qui couvre le dépôt ; la fenêtre le dit quand ce serveur a plusieurs
+comptes, quand le compte n'a pas de jeton ou porte un jeton importé encore à vérifier, ou quand
+aucun ne convient. En `http://`, un compte
+ne sert que pour un hôte du réseau local (ou si son API est elle-même en http) ; ce qui part alors,
+ou les identifiants que vous saisissez, est signalé comme envoyé en clair. Un dépôt à la racine d'un hôte
+(`https://git.exemple/projet.git`, un seul segment) n'est servi par aucun compte. Sans compte, ou si l'accès est refusé, saisissez des identifiants sur
+place : ils sont envoyés si l'hôte les demande et, quand le clone réussit alors, enregistrés comme
+compte Git pour l'endroit que vous choisissez (l'hôte, l'organisation ou le dépôt ; un endroit qui
+a déjà son compte dit qu'il met ce compte à jour). La fenêtre vous dit quand ils n'ont pas été
+enregistrés. Changer l'hôte ou le schéma de l'URL, ou fermer la fenêtre, oublie ce que vous
+avez saisi.
+Le dossier prend par défaut le nom du dépôt.
 
 ### Snapshots
 

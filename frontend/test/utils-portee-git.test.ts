@@ -64,14 +64,34 @@ describe("portée d'un compte git", () => {
       expect(lirePortee(brut), brut).toBeNull();
   });
 
-  it("URL de clonage : hôte, port compris ; autre schéma ou texte : null", () => {
+  it("URL de clonage : schéma, hôte tel qu'écrit (port compris), chemin ; un dépôt à la racine de l'hôte n'est pas servi par un compte ; autre schéma ou texte : null", () => {
     expect(depotDeLUrl("https://GitHub.com/Acme/API.git")).toEqual({
+      schema: "https",
       host: "github.com",
       chemin: "Acme/API",
+      servi: true,
     });
-    expect(depotDeLUrl(" http://u@forge.lan:3000/g/sous/depot/ ")?.host).toBe("forge.lan:3000");
-    expect(depotDeLUrl("https://github.com")).toEqual({ host: "github.com", chemin: null });
-    for (const url of ["git@github.com:acme/api.git", "ftp://h/a/b", "acme/api", ""])
+    expect(depotDeLUrl(" http://u@forge.lan:3000/g/sous/depot/ ")).toMatchObject({
+      schema: "http",
+      host: "forge.lan:3000",
+      servi: true,
+    });
+    expect(depotDeLUrl("https://github.com:443/acme/api")?.host).toBe("github.com:443");
+    for (const url of [
+      "https://github.com",
+      "https://github.com/",
+      "https://git.lan/projet.git",
+      "https://h?x=1",
+    ])
+      expect(depotDeLUrl(url), url).toMatchObject({ chemin: null, servi: false });
+    expect(depotDeLUrl("https://github.com/acme/api?x=1")).toMatchObject({ chemin: null, servi: true });
+    for (const url of [
+      "git@github.com:acme/api.git",
+      "HTTPS://github.com/a/b",
+      "ftp://h/a/b",
+      "acme/api",
+      "",
+    ])
       expect(depotDeLUrl(url), url).toBeNull();
   });
 

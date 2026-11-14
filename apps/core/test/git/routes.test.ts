@@ -53,7 +53,10 @@ const versCoffre = (corps: string | undefined): string | undefined =>
   corps?.replaceAll('"token_scheme":"plain"', '"token_scheme":"vault"');
 /** Écart voulu (portée par chemin) : `path` d'un compte et de l'analyse d'une URL, absent du Python ; « Compte » où il disait « Connecteur ». */
 const sansPortee = (corps: string): string =>
-  corps.replace(/"path":(?:"[^"]*"|null),/gu, "").replaceAll("Compte introuvable", "Connecteur introuvable");
+  corps
+    .replace(/"path":(?:"[^"]*"|null),/gu, "")
+    .replace(/,"to_verify":(?:true|false)/gu, "")
+    .replaceAll("Compte introuvable", "Connecteur introuvable");
 /** Écart voulu (portée par chemin) : la liste est triée par hôte puis portée, celle du Python par hôte puis libellé : remise dans son ordre avant comparaison. */
 function ordrePython(corps: string): string {
   if (!corps.startsWith('{"connectors":[')) return corps;

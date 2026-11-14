@@ -65,7 +65,21 @@ describe("ce que dit l'adresse", () => {
     expect(accesClone("https://ailleurs.lan/a/b.git", TOUS)).toEqual({
       etat: "aucun",
       hote: "ailleurs.lan",
+      origine: "https://ailleurs.lan",
+      clair: false,
       chemin: "a/b",
+    });
+    expect(accesClone("http://ailleurs.lan/a/b.git", TOUS)).toMatchObject({
+      origine: "http://ailleurs.lan",
+      clair: true,
+    });
+    // Dépôt à la racine de l'hôte : le serveur ne lui cherche aucun compte, même celui de tout l'hôte.
+    expect(accesClone("https://github.com/projet.git", [PERSO])).toMatchObject({ etat: "aucun" });
+    // Jeton importé du bac, pas encore vérifié : dit, ce n'est pas « sans jeton ».
+    const importe = compte(8, "import.lan", "", { has_token: false, to_verify: true });
+    expect(accesClone("https://import.lan/a/b", [importe])).toMatchObject({
+      etat: "a-verifier",
+      compte: importe,
     });
     // Un compte plus précis sans jeton masque celui de tout l'hôte, comme côté serveur.
     const vide = compte(7, "github.com", "acme/api", { has_token: false });
@@ -94,9 +108,9 @@ describe("ce que dit l'adresse", () => {
     const p = (url: string, comptes: CompteClone[]) => porteesIdentifiants(accesClone(url, comptes), comptes);
     expect(p("https://forge.lan/acme/api.git", [])).toEqual({
       choix: [
-        { valeur: "", libelle: "forge.lan", remplace: null },
-        { valeur: "acme", libelle: "forge.lan/acme", remplace: null },
-        { valeur: "acme/api", libelle: "forge.lan/acme/api", remplace: null },
+        { valeur: "", libelle: "forge.lan", remplace: null, fermee: false },
+        { valeur: "acme", libelle: "forge.lan/acme", remplace: null, fermee: false },
+        { valeur: "acme/api", libelle: "forge.lan/acme/api", remplace: null, fermee: false },
       ],
       defaut: "",
     });
@@ -109,9 +123,14 @@ describe("ce que dit l'adresse", () => {
       null,
     ]);
     expect(p("https://github.com/seul.git", [PERSO])).toEqual({
-      choix: [{ valeur: "", libelle: "github.com", remplace: "github.com · perso" }],
+      choix: [{ valeur: "", libelle: "github.com", remplace: "github.com · perso", fermee: false }],
       defaut: null,
     });
+    // Compte à vérifier : sa portée est fermée, et rien n'est proposé d'office si elle l'était.
+    const importe = compte(8, "import.lan", "acme", { has_token: false, to_verify: true });
+    const ferme = p("https://import.lan/acme/api", [importe]);
+    expect(ferme.choix.map((c) => c.fermee)).toEqual([false, true, false]);
+    expect(ferme.defaut).toBeNull();
     expect(p("https://github.com/seul.git", []).defaut).toBe("");
     expect(p("pas une adresse", TOUS)).toEqual({ choix: [], defaut: null });
   });
@@ -130,8 +149,14 @@ describe("ce que dit l'adresse", () => {
     ])
       expect(refusDAcces(400, message), message).toBe(true);
     expect(refusDAcces(409, "Relais Git : authentification refusée (401)")).toBe(false);
-    expect(refusDAcces(400, "fatal: repository 'https://h/acme/oauth-lib.git/' not found")).toBe(false);
-    expect(refusDAcces(400, "fatal: unable to access: Could not resolve host")).toBe(false);
+    for (const message of [
+      "fatal: repository 'https://h/acme/oauth-lib.git/' not found",
+      "fatal: repository 'https://h/acme/issue-401.git/' not found",
+      "fatal: unable to access: Could not resolve host",
+      "remote: Enumerating objects: 403, done.\nremote: Counting objects: 100% (401/401), done.\nfatal: early EOF",
+      "error: unable to write file src/unauthorized.ts: No space left on device",
+    ])
+      expect(refusDAcces(400, message), message).toBe(false);
   });
 });
 
@@ -319,7 +344,7 @@ describe("fenêtre montée", () => {
     expect(v.q("[data-identifiants]")).toBeNull();
     await v.saisir("#clone-url", "https://forge.lan/equipe/outil.git");
     expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("aucun");
-    expect(v.q("[data-acces]")?.textContent).toContain("Aucun compte ne s'applique sur forge.lan");
+    expect(v.q("[data-acces]")?.textContent).toContain("Aucun compte ne s'applique à cette adresse");
     v.q<HTMLButtonElement>("[data-saisir]")!.click();
     await nextTick();
     expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent?.trim())).toEqual([
@@ -345,6 +370,10 @@ describe("fenêtre montée", () => {
     await v.saisir("#clone-url", "https://forge.lan/autre/depot.git");
     expect(v.etat.gitCloneCreds.value).toMatchObject({ ouvert: true, token: "tok", portee: null });
     expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("");
+    // Même hôte en http : ce qui a été saisi pour https ne part pas en clair.
+    await v.saisir("#clone-url", "http://forge.lan/autre/depot.git");
+    expect(v.etat.gitCloneCreds.value).toMatchObject({ ouvert: false, token: "" });
+    expect(v.q("[data-clair]")?.textContent).toContain("http : envoi en clair");
     await v.saisir("#clone-url", "git@github.com:acme/api.git");
     expect(v.q("[data-acces]")?.textContent).toContain("Adresse http(s) attendue");
     expect(v.q("[data-identifiants]")).toBeNull();
@@ -396,26 +425,52 @@ describe("fenêtre montée", () => {
     await nextTick();
     expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("acme/api");
     expect([...document.querySelectorAll("#clone-portee option")].map((o) => o.textContent?.trim())).toEqual([
-      "github.com — remplace son jeton",
+      "github.com — met à jour ce compte",
       "github.com/acme",
-      "github.com/acme/api — remplace son jeton",
+      "github.com/acme/api — met à jour ce compte",
     ]);
     // Même hôte : le bloc reste ouvert.
     await v.saisir("#clone-url", "https://github.com/seul.git");
     expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("aucun");
     expect(v.q("#clone-portee")).toBeNull();
-    expect(v.q("[data-non-enregistres]")?.textContent).toContain("Utilisés pour ce clone seulement");
+    expect(v.q("[data-non-enregistres]")?.textContent).toContain("Non enregistrés");
     await v.saisir("#clone-jeton", "tok");
+    expect(v.clones).toEqual([]);
     v.q<HTMLButtonElement>("[data-cloner]")!.click();
     await nextTick();
-    expect(v.clones.at(-1)).toBeUndefined();
+    expect(v.clones).toEqual([undefined]);
   });
 
-  it("refus d'accès : le message le dit avant le détail ; « Comptes Git » ferme la fenêtre et ouvre la partie des Paramètres", async () => {
-    const v = monter([]);
-    v.etat.gitError.value = REFUS_GIT;
-    v.etat.gitCloneCreds.value.refus = true;
+  it("compte au jeton importé à vérifier : dit, avec le chemin vers Comptes Git ; sa portée ne peut pas être choisie", async () => {
+    const importe = compte(8, "import.lan", "", { has_token: false, to_verify: true, label: "imported" });
+    const v = monter([importe]);
+    await v.saisir("#clone-url", "https://import.lan/acme/api.git");
+    expect(v.q("[data-acces]")?.getAttribute("data-etat")).toBe("a-verifier");
+    expect(v.q("[data-acces]")?.textContent?.replace(/\s+/gu, " ")).toContain(
+      "Compte import.lan · imported à vérifier",
+    );
+    v.q<HTMLButtonElement>("[data-saisir]")!.click();
     await nextTick();
+    const options = [...document.querySelectorAll<HTMLOptionElement>("#clone-portee option")];
+    expect(options.map((o) => [o.textContent?.trim(), o.disabled])).toEqual([
+      ["import.lan — compte à vérifier", true],
+      ["import.lan/acme", false],
+      ["import.lan/acme/api", false],
+    ]);
+    expect(v.q<HTMLSelectElement>("#clone-portee")?.value).toBe("acme");
+    v.q<HTMLButtonElement>("[data-verifier]")!.click();
+    await nextTick();
+    expect(v.racine.openSettingsTab).toHaveBeenCalledWith("secrets:git");
+  });
+
+  it("refus d'accès : le message le dit avant le détail, le focus va à l'identifiant ; « Comptes Git » ferme la fenêtre et ouvre la partie des Paramètres", async () => {
+    const v = monter([]);
+    await v.saisir("#clone-url", "https://forge.lan/a/b.git");
+    v.etat.gitError.value = REFUS_GIT;
+    Object.assign(v.etat.gitCloneCreds.value, { ouvert: true, refus: true });
+    await nextTick();
+    await nextTick();
+    expect(document.activeElement?.id).toBe("clone-identifiant");
     expect(v.q("[data-erreur]")?.textContent).toContain("Accès refusé : saisissez des identifiants.");
     expect(v.q("[data-erreur]")?.textContent).toContain(REFUS_GIT);
     v.q<HTMLButtonElement>("[data-comptes]")!.click();

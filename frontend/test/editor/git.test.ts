@@ -96,6 +96,25 @@ describe("Git de l'éditeur", () => {
     expect(v.api.showGitPushAuth.value).toBe(false);
     expect(v.toasts).toContain("Authentication failed");
     expect(v.api.gitLoading.value).toBe(false);
+    // Ce que git dit vraiment dans le bac (il ne peut pas demander d'identifiants) ouvre aussi la fenêtre ; une sortie de progression avec « 403 » non.
+    const bac = monter((url) =>
+      Promise.resolve(
+        url.includes("push")
+          ? json({ detail: "fatal: could not read Username for 'https://h': terminal prompts disabled" }, 400)
+          : json({}),
+      ),
+    );
+    await bac.api.gitPush();
+    expect(bac.api.showGitPushAuth.value).toBe(true);
+    const progression = monter((url) =>
+      Promise.resolve(
+        url.includes("push")
+          ? json({ detail: "remote: Counting objects: 403, done.\nerror: failed to push some refs" }, 400)
+          : json({}),
+      ),
+    );
+    await progression.api.gitPush();
+    expect(progression.api.showGitPushAuth.value).toBe(false);
   });
 
   it("onglets du dépôt rechargés après un pull, onglets modifiés gardés puis vérifiés", async () => {

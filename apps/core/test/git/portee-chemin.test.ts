@@ -530,6 +530,10 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
       acteur,
     );
     expect((await secretDe(importe))["state"]).toBe("unverified");
+    expect((await comptes(bob)).find((c) => c["id"] === importe)).toMatchObject({
+      has_token: false,
+      to_verify: true,
+    });
     for (const portee of [undefined, "", "acme"])
       expect(
         await saveGitCredential(
@@ -565,6 +569,21 @@ describe.each(MOTEURS)("comptes git à portée par chemin (%s)", (moteur) => {
       token: "t2",
     });
     expect(r.statusCode).toBe(409);
+    // Deux comptes génériques : la casse distingue deux endroits, le chemin identique reste refusé.
+    await creer(bob, { provider_type: "generic", host: "casses.lan", path: "Acme", token: "g1" });
+    await creer(bob, { provider_type: "generic", host: "casses.lan", path: "acme", token: "g2" });
+    expect(
+      (
+        await appel(bob, "POST", "/api/git/connectors", {
+          provider_type: "generic",
+          host: "casses.lan",
+          path: "Acme",
+          token: "g3",
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(await jeton(bob, "https://casses.lan/Acme/x.git")).toBe("g1");
+    expect(await jeton(bob, "https://casses.lan/acme/x.git")).toBe("g2");
     const autre = await creer(bob, { provider_type: "gitea", host: "mixte.lan", path: "autre", token: "t3" });
     expect(
       (await appel(bob, "PUT", `/api/git/connectors/${autre}`, { path: "ACME", token: "t4" })).statusCode,

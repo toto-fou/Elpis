@@ -258,6 +258,25 @@ describe("transitions nommées : jetons et mise en page", () => {
     ]);
   });
 
+  it("volets et lignes de l'historique : la sortie pose son état final dès -leave-active (départ à la première image), le glissement hors mouvement réduit seulement", () => {
+    const de = (selecteur: string) =>
+      REGLES.filter(
+        (r) => r.f === "css/style.css" && r.selecteur.split(",").some((s) => s.trim() === selecteur),
+      );
+    const glisse = /prefers-reduced-motion:\s*no-preference/;
+    for (const selecteur of [".volet-leave-active", ".elpis-ligne-leave-active.elpis-ligne-leave-active"]) {
+      const opacites = de(selecteur)
+        .filter((r) => r.contexte.length === 0)
+        .flatMap((r) => declarations(r.corps, /^opacity$/));
+      expect(opacites, selecteur).toEqual(["0"]);
+    }
+    const glissements = de(".volet-leave-active > *").filter(
+      (r) => declarations(r.corps, /^transform$/).length,
+    );
+    expect(glissements).toHaveLength(1);
+    expect(glissements[0]?.contexte.some((c) => glisse.test(c))).toBe(true);
+  });
+
   it("le détail d'un outil n'anime aucune propriété de mise en page", () => {
     const regles = REGLES.filter((r) => /\.tool-detail-/.test(r.selecteur));
     expect(regles.length).toBeGreaterThanOrEqual(3);

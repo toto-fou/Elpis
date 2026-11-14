@@ -138,13 +138,14 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
-- **Secrets table easier to read.** Four columns instead of eight, named in plain words (*Nom*,
-  *Utilisé pour*, *Identifiant*, *Dernier usage*; the form and the details use the same words):
-  the name is shown in full with its
-  type, version and states under it, each site of the scope is written in full on its own line
-  (long lists fold after three), the identifier is no longer cut, and last use and number of uses
-  share one column. `tls` is only mentioned when it is `insecure`. Text is larger and long hosts
-  break at their dots.
+- **Secrets web looks like the other parts of Secrets.** One block per secret instead of a table:
+  the name with its states in plain words (*à vérifier*, *TLS non vérifié*, *autre clé*), a line
+  with the type, the version, the identifier and the last use, then each site in full on its own
+  line (long lists fold after three). The actions are visible on the right, as for Git accounts
+  and tokens (*Vérifier*, rotation, edit, delete confirmed on the same button), the panel opens
+  inside the block, and *Nouveau secret* is at the bottom. The console keeps its table of instance
+  secrets, with columns named in plain words (*Nom*, *Utilisé pour*, *Identifiant*, *Dernier
+  usage*).
 - **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
   *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
   repositories of a Git account, listed as soon as the window opens; the account is chosen when

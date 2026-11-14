@@ -85,7 +85,7 @@ const monterTable = (g: ReturnType<typeof store>["g"]): HTMLElement => monter(Ta
 const soumettre = (f: HTMLFormElement): boolean =>
   f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 const ligne = (hote: HTMLElement, nom: string): HTMLElement =>
-  hote.querySelector<HTMLElement>(`tr[data-secret="${nom}"]`)!;
+  hote.querySelector<HTMLElement>(`[data-secret="${nom}"]`)!;
 const cellules = (tr: HTMLElement): string[] =>
   [...tr.querySelectorAll("td")].map((td) => (td.textContent ?? "").replace(/\s+/g, " ").trim());
 const etiquettes = (tr: HTMLElement): string[] =>

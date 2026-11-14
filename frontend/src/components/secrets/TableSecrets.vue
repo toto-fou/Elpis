@@ -1,61 +1,26 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name (type, version, états), scope (un site par ligne, entier), user, dernier usage ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
+<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets de l'instance (console) : nom (type, version, états), ce pour quoi il sert (un site par ligne, entier), identifiant, dernier usage ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action ; les Paramètres ont leur liste, ListeSecrets. -->
 <script setup lang="ts">
-import type { Secret } from "@elpis/contracts";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-import { maintenantServeurS } from "../../platform/horloge";
-import { dernierUsage, porteeTexte } from "../../features/secrets/format";
+import { porteeTexte } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
-import ChampValeur from "./ChampValeur.vue";
-import FormulaireSecret from "./FormulaireSecret.vue";
+import {
+  infoNom,
+  infoUsage,
+  morceaux,
+  partiesSite,
+  quand,
+  sitesRepliables,
+  usages,
+} from "../../features/secrets/presentation";
+import PanneauSecret from "./PanneauSecret.vue";
 import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const g = domaineSecrets();
 const racine = ref<HTMLElement | null>(null);
 const COLONNES = 5;
-/** Sites montrés d'emblée ; au-delà, la ligne se déplie. */
-const SITES_VISIBLES = 3;
-const dateCourte = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
-const deplies = ref<ReadonlySet<number>>(new Set());
-
-const usage = (s: Secret): string => dernierUsage(s.last_used_at, maintenantServeurS());
-const infoUsage = (s: Secret): string =>
-  s.last_used_at ? dateCourte.format(s.last_used_at * 1000) : "jamais utilisé";
-/** Infobulle du nom : tout ce que la ligne résume. */
-const infoNom = (s: Secret): string =>
-  `${s.name}\nuser=${s.username ?? "—"} · tls=${s.policy.tls} · version ${s.version}\n${s.use_count} usages · dernier : ${infoUsage(s)}`;
-const usages = (s: Secret): string => `${s.use_count} usage${s.use_count > 1 ? "s" : ""}`;
-/** Dernier usage en clair : « il y a 2 min », « à l'instant », « jamais ». */
-function quand(s: Secret): string {
-  if (!s.last_used_at) return "jamais";
-  const duree = usage(s);
-  return duree.startsWith("<") ? "à l'instant" : `il y a ${duree}`;
-}
-/** La liste de sites se replie : plus de sites que la ligne n'en montre d'emblée. */
-const repliable = (s: Secret): boolean => porteeTexte(s).length > SITES_VISIBLES + 1;
-
-/** Sites affichés d'une ligne : tous s'ils tiennent ou si elle est dépliée, sinon les premiers. */
-function sitesMontres(s: Secret): string[] {
-  const tous = porteeTexte(s);
-  return deplies.value.has(s.id) || !repliable(s) ? tous : tous.slice(0, SITES_VISIBLES);
-}
-const sitesCaches = (s: Secret): number => porteeTexte(s).length - sitesMontres(s).length;
-
-function basculerSites(id: number): void {
-  const suite = new Set(deplies.value);
-  if (!suite.delete(id)) suite.add(id);
-  deplies.value = suite;
-}
-
-/** Morceaux d'un hôte ou d'un identifiant entre lesquels une ligne peut se couper : après un point, une arobase ou une barre, avant un port. */
-const morceaux = (texte: string): string[] => texte.split(/(?<=[.@/])|(?=:)/u);
-
-/** Schéma d'un site (`https://`) et le reste : l'hôte se lit d'abord. */
-function partiesSite(site: string): [string, string] {
-  const i = site.indexOf("://");
-  return i < 0 ? ["", site] : [site.slice(0, i + 3), site.slice(i + 3)];
-}
+const { deplies, repliable, sitesMontres, sitesCaches, basculerSites } = sitesRepliables();
 
 // Clic hors du menu ouvert et de son bouton : menu refermé (la confirmation armée avec lui).
 function dehors(e: Event): void {
@@ -356,90 +321,7 @@ watch(
             :data-panneau="s.id"
           >
             <td :colspan="COLONNES">
-              <form
-                v-if="g.panneau?.id === s.id && g.panneau.mode === 'rotation'"
-                class="elpis-secrets__ligne"
-                :aria-label="`Rotation de ${s.name}`"
-                @submit.prevent="g.tourner(s.id)"
-              >
-                <label :for="`secret-rot-${s.id}`" class="elpis-secrets__etiq">Nouvelle valeur</label>
-                <ChampValeur
-                  :id="`secret-rot-${s.id}`"
-                  v-model="g.valeurRotation"
-                  class="set-input font-mono elpis-secrets__champ"
-                />
-                <span class="elpis-secrets__aide">version {{ s.version }} → {{ s.version + 1 }}</span>
-                <button
-                  type="submit"
-                  class="adm-btn adm-btn--primary adm-btn--sm"
-                  :disabled="!g.valeurRotation || g.occupe"
-                >
-                  Rotation
-                </button>
-                <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="g.fermerPanneau()">
-                  Annuler
-                </button>
-              </form>
-
-              <div v-else-if="g.panneau?.id === s.id && g.panneau.mode === 'verifier'">
-                <dl class="elpis-secrets__dl">
-                  <dt>Utilisé pour</dt>
-                  <dd class="font-mono">
-                    <ul class="elpis-secrets__sites" :aria-label="`Sites de ${s.name}`">
-                      <li v-for="o in porteeTexte(s)" :key="o" class="elpis-secrets__site">{{ o }}</li>
-                    </ul>
-                  </dd>
-                  <dt>Identifiant</dt>
-                  <dd class="font-mono">{{ s.username ?? "—" }}</dd>
-                  <dt>TLS</dt>
-                  <dd class="font-mono">{{ s.policy.tls }}</dd>
-                </dl>
-                <div class="elpis-secrets__ligne">
-                  <button
-                    type="button"
-                    class="adm-btn adm-btn--primary adm-btn--sm"
-                    :disabled="g.occupe"
-                    @click="g.verifier(s.id)"
-                  >
-                    Vérifier
-                  </button>
-                  <button
-                    v-if="g.droits(s).modification"
-                    type="button"
-                    class="adm-btn adm-tool adm-btn--sm"
-                    @click="g.choisir(s.id, 'modifier')"
-                  >
-                    Modifier le scope
-                  </button>
-                  <button
-                    v-else-if="g.droits(s).gere"
-                    type="button"
-                    class="adm-btn adm-tool adm-btn--sm"
-                    @click="g.choisir(s.id, 'gerer')"
-                  >
-                    {{ g.droits(s).gere?.libelle }}
-                  </button>
-                  <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="g.fermerPanneau()">
-                    Annuler
-                  </button>
-                  <span class="elpis-secrets__aide"
-                    >unverified → active ; élargir le scope exige la valeur.</span
-                  >
-                </div>
-              </div>
-
-              <FormulaireSecret
-                v-else-if="g.panneau?.id === s.id && g.panneau.mode === 'modifier'"
-                mode="edition"
-              />
-
-              <p
-                v-if="g.erreur?.cible === s.id && g.panneau?.mode !== 'modifier'"
-                role="alert"
-                class="elpis-secrets__refus"
-              >
-                {{ g.erreur.message }}
-              </p>
+              <PanneauSecret :secret="s" />
             </td>
           </tr>
         </template>

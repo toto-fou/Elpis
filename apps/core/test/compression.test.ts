@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/compression.test.ts — encodage négocié, variantes en mémoire, JSON compressé à la volée (même origine seulement), flux jamais compressés ni retardés. */
+/** apps/core/test/compression.test.ts — encodage négocié, variantes en mémoire, JSON compressé à la volée (nos pages seulement : Fetch Metadata, ou Referer en HTTP direct), flux jamais compressés ni retardés. */
 import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -9,6 +9,7 @@ import { Readable } from "node:stream";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { surchargerConfig } from "@elpis/config";
 
 import { SEUIL_JSON, VariantesEnMemoire, encodageAccepte } from "../src/interface/compression";
 import type { DefinitionRoute } from "../src/routes";
@@ -178,5 +179,96 @@ describe("JSON compressé à la volée", () => {
     expect(arrivees.t.length).toBeGreaterThanOrEqual(5);
     expect(arrivees.t[0]).toBeLessThan(200);
     expect(arrivees.t[arrivees.t.length - 1]! - arrivees.t[0]!).toBeGreaterThanOrEqual(200);
+  });
+});
+
+describe("HTTP direct, sans Fetch Metadata (installation par défaut sur le réseau local)", () => {
+  const LAN = { host: "lan.test:8001", referer: "http://lan.test:8001/", "accept-encoding": "gzip, deflate" };
+  const depuis = (headers: Record<string, string>, remoteAddress = "192.168.1.20") =>
+    app.inject({ method: "GET", url: "/gros", headers, remoteAddress });
+
+  it("Referer d'une de nos pages, connexion en clair sans mandataire : compressé", async () => {
+    for (const referer of [
+      "http://lan.test:8001/",
+      "http://lan.test:8001/admin",
+      "http://lan.test:8001/?x=1",
+    ]) {
+      const r = await depuis({ ...LAN, referer });
+      expect(r.headers["content-encoding"], referer).toBe("gzip");
+      expect(JSON.parse(gunzipSync(r.rawPayload).toString())).toEqual(gros);
+    }
+  });
+
+  it("jamais : sans Referer, autre hôte ou page, HTTPS annoncé, en-tête de relais, boucle locale, Sec-Fetch-Site inter-site", async () => {
+    const sans = { host: LAN.host, "accept-encoding": LAN["accept-encoding"] };
+    const cas: [Record<string, string>, string?][] = [
+      [sans],
+      [{ ...LAN, referer: "http://autre.test:8001/" }],
+      [{ ...LAN, referer: "http://lan.test:8002/" }],
+      [{ ...LAN, referer: "http://lan.test:8001/apercu-code" }],
+      [{ ...LAN, referer: "https://lan.test:8001/" }],
+      [{ ...LAN, referer: "pas une url" }],
+      [{ ...LAN, "x-forwarded-for": "10.0.0.9" }],
+      [{ ...LAN, "x-forwarded-proto": "https" }],
+      [{ ...LAN, forwarded: "for=10.0.0.9;proto=https" }],
+      [{ ...LAN, via: "1.1 frontal" }],
+      [{ ...LAN, "x-real-ip": "10.0.0.9" }],
+      [{ ...LAN, "sec-fetch-site": "cross-site" }],
+      [LAN, "127.0.0.1"],
+      [LAN, "::1"],
+      [LAN, "::ffff:127.0.0.1"],
+    ];
+    for (const [headers, pair] of cas) {
+      const r = await depuis(headers, pair);
+      expect(
+        [r.statusCode, r.headers["content-encoding"]],
+        `${JSON.stringify(headers)} ${pair ?? ""}`,
+      ).toEqual([200, undefined]);
+    }
+  });
+
+  it("frontal configuré (security.https) ou mandataire de confiance : Sec-Fetch-Site seul", async () => {
+    const chemin = join(dossier, "config-https.json");
+    writeFileSync(chemin, JSON.stringify({ security: { https: { enabled: true } } }));
+    const restaurer = surchargerConfig({ CONFIG_JSON_PATH: chemin });
+    try {
+      expect((await depuis(LAN)).headers["content-encoding"]).toBeUndefined();
+      expect((await depuis({ ...LAN, "sec-fetch-site": "same-origin" })).headers["content-encoding"]).toBe(
+        "gzip",
+      );
+    } finally {
+      restaurer();
+    }
+    const avant = process.env["ACCESS_LOG_TRUSTED_PROXIES"];
+    process.env["ACCESS_LOG_TRUSTED_PROXIES"] = "192.168.1.0/24";
+    const derriere = await appTest({
+      familles: [
+        {
+          nom: "derriere",
+          routes: [
+            {
+              methode: "GET",
+              chemin: "/gros",
+              processus: ["main"],
+              acces: "public",
+              traiter: (_q, rep) => rep.send(gros),
+            },
+          ],
+        },
+      ],
+    });
+    try {
+      const r = await derriere.inject({
+        method: "GET",
+        url: "/gros",
+        headers: LAN,
+        remoteAddress: "192.168.1.20",
+      });
+      expect(r.headers["content-encoding"]).toBeUndefined();
+    } finally {
+      await derriere.close();
+      if (avant === undefined) delete process.env["ACCESS_LOG_TRUSTED_PROXIES"];
+      else process.env["ACCESS_LOG_TRUSTED_PROXIES"] = avant;
+    }
   });
 });

@@ -5,7 +5,10 @@ import type { Stats } from "node:fs";
 import { promisify } from "node:util";
 import { brotliCompress, constants, gzip } from "node:zlib";
 
-import type { FastifyInstance, FastifyReply } from "fastify";
+import { estMandataireDeConfiance, mandatairesDuJournal } from "@elpis/auth";
+import type { Reseau } from "@elpis/auth";
+import { httpsEnabled } from "@elpis/config";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 export type Encodage = "br" | "gzip";
 
@@ -108,20 +111,49 @@ function ajouterVary(reponse: FastifyReply): void {
   void reponse.header("vary", liste ? `${liste}, Accept-Encoding` : "Accept-Encoding");
 }
 
-/** Corps JSON d'au moins 16 Kio compressé pour une requête de même origine seulement (pas de BREACH inter-site) ; jamais un flux, une pièce jointe, une plage ni un ETag. */
+/** En-têtes posés par un mandataire (frontal, relais TLS) : leur présence interdit la règle du HTTP direct. */
+const RELAIS = ["forwarded", "x-forwarded-for", "x-forwarded-proto", "x-forwarded-host", "x-real-ip", "via"];
+/** Pages de l'application, seules origines admises d'un Referer. */
+const PAGES = new Set(["/", "/admin", "/admin/"]);
+const BOUCLE = /^(?:127\.|::1$|::ffff:127\.)/;
+
+/** Requête émise par une page de l'application : `Sec-Fetch-Site: same-origin` (HTTPS, localhost) ; sans cet en-tête, seulement en HTTP direct (ni TLS, ni mandataire, ni frontal configuré) avec le Referer d'une de nos pages. */
+function depuisNosPages(requete: FastifyRequest, mandataires: readonly Reseau[]): boolean {
+  const site = requete.headers["sec-fetch-site"];
+  if (site !== undefined) return site === "same-origin";
+  const pair = requete.raw.socket.remoteAddress ?? "";
+  if (
+    (requete.raw.socket as { encrypted?: boolean }).encrypted === true ||
+    httpsEnabled() ||
+    RELAIS.some((nom) => requete.headers[nom] !== undefined) ||
+    BOUCLE.test(pair) ||
+    estMandataireDeConfiance(pair, mandataires)
+  )
+    return false;
+  let origine: URL;
+  try {
+    origine = new URL(String(requete.headers.referer ?? ""));
+  } catch {
+    return false;
+  }
+  return origine.protocol === "http:" && origine.host === requete.headers.host && PAGES.has(origine.pathname);
+}
+
+/** Corps JSON d'au moins 16 Kio compressé pour une requête venue de nos pages seulement (pas de BREACH inter-site) ; jamais un flux, une pièce jointe, une plage ni un ETag. */
 export function installerCompressionJson(app: FastifyInstance): void {
+  const mandataires = mandatairesDuJournal();
   app.addHook("onSend", async (requete, reponse, charge) => {
     if (typeof charge !== "string" && !Buffer.isBuffer(charge)) return charge;
     if (
       reponse.statusCode !== 200 ||
-      requete.headers["sec-fetch-site"] !== "same-origin" ||
       requete.headers.range !== undefined ||
       Buffer.byteLength(charge) < SEUIL_JSON ||
       !/^application\/json\s*(?:;|$)/i.test(String(reponse.getHeader("content-type") ?? "")) ||
       reponse.hasHeader("content-encoding") ||
       reponse.hasHeader("content-disposition") ||
       reponse.hasHeader("etag") ||
-      String(reponse.getHeader("cache-control") ?? "").includes("no-transform")
+      String(reponse.getHeader("cache-control") ?? "").includes("no-transform") ||
+      !depuisNosPages(requete, mandataires)
     )
       return charge;
     ajouterVary(reponse);

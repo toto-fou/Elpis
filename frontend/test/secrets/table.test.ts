@@ -49,9 +49,9 @@ const attendre = async (): Promise<void> => {
   await nextTick();
 };
 
-function store(portee: PorteeCoffre = "compte", horloge = { t: 0 }) {
+function store(portee: PorteeCoffre = "compte", horloge = { t: 0 }, liste = LISTE) {
   const { api, appels } = fauxServeur((url, methode, corps) => {
-    if (methode === "GET") return json({ secrets: LISTE });
+    if (methode === "GET") return json({ secrets: liste });
     if (methode === "DELETE") return json({ ok: true });
     if (url.endsWith("/verify")) return json({ secret: { ...LISTE[1]!, state: "active" } });
     if (url.endsWith("/rotate")) return json({ secret: { ...LISTE[0]!, version: 3 } });
@@ -103,40 +103,68 @@ async function ouvrirMenu(hote: HTMLElement, nom: string): Promise<void> {
 }
 
 describe("table des secrets", () => {
-  it("colonnes : name (états), type, scope (tous les sites), user, tls, version, dernier usage, usages", async () => {
+  it("colonnes : name (type, version, états), scope (sites entiers, un par ligne), user, usage ; plus de colonnes tls, version ni usages", async () => {
     const { g } = store();
     await g.charger();
     const hote = monterTable(g);
     await attendre();
     expect([...hote.querySelectorAll("thead th")].map((th) => (th.textContent ?? "").trim())).toEqual([
       "name",
-      "type",
       "scope",
       "user",
-      "tls",
-      "version",
-      "dernier usage",
-      "usages",
+      "usage",
       "Actions",
     ]);
-    expect(etiquettes(ligne(hote, "intranet-admin"))).toEqual(["intranet-admin"]);
-    expect(cellules(ligne(hote, "intranet-admin")).slice(1, 8)).toEqual([
-      "web-login",
-      "https://intranet.example.lan:8443https://idp.example.lan",
-      "admin",
-      "strict",
-      "2",
-      "2 min",
-      "3",
-    ]);
+    const intranet = ligne(hote, "intranet-admin");
+    expect(etiquettes(intranet)).toEqual(["intranet-admin"]);
+    expect(intranet.querySelector("[data-type]")?.textContent).toBe("web-login");
+    expect(intranet.querySelector("[data-version]")?.textContent).toBe("v2");
+    expect(
+      [...intranet.querySelectorAll(".elpis-secrets__site")].map((li) => li.textContent?.trim()),
+    ).toEqual(["https://intranet.example.lan:8443", "https://idp.example.lan"]);
+    expect(intranet.querySelector(".elpis-secrets__schema")?.textContent).toBe("https://");
+    expect(cellules(intranet)[2]).toBe("admin");
+    expect(intranet.querySelector("[data-dernier]")?.textContent).toBe("2 min");
+    expect(intranet.querySelector("[data-usages]")?.textContent).toBe("3 usages");
+    expect(intranet.querySelector(".elpis-secrets__usage")?.getAttribute("title")).toMatch(
+      /\d{2}\/\d{2}\/\d{4}/u,
+    );
     expect(etiquettes(ligne(hote, "ax-old"))).toEqual(["ax-old", "unverified", "⚠ kid"]);
     expect(ligne(hote, "gitlab")).toBeNull();
     expect(ligne(hote, "mcp-srv")).toBeNull();
-    expect(cellules(ligne(hote, "sandbox-git")).slice(2, 4)).toEqual(["git.lan", "—"]);
-    expect(ligne(hote, "sandbox-git").querySelector(".elpis-secrets__details")?.textContent).toBe(
-      "user=— · tls=strict",
-    );
+    const git = ligne(hote, "sandbox-git");
+    expect(cellules(git).slice(1, 4)).toEqual(["git.lan", "—", "—"]);
+    expect(git.querySelector("[data-usages]")).toBeNull();
+    expect(git.querySelector(".elpis-secrets__details")?.textContent?.trim()).toBe("user=— · —");
     expect(hote.textContent).not.toMatch(/p4ss|secret_enc/u);
+  });
+
+  it("tls insecure : signalé sous le nom, strict n'est pas répété ; beaucoup de sites : les premiers, le reste se déplie", async () => {
+    const sites = Array.from({ length: 7 }, (_, i) => `https://site${i}.example.lan`);
+    const base = secret(1, { name: "large", scope: { origins: sites } });
+    const { g } = store("compte", { t: 0 }, [
+      { ...base, policy: { ...base.policy, tls: "insecure" } },
+      secret(2, { name: "quatre", scope: { origins: sites.slice(0, 4) } }),
+    ]);
+    await g.charger();
+    const hote = monterTable(g);
+    await attendre();
+    const large = ligne(hote, "large");
+    expect(etiquettes(large)).toEqual(["large", "tls insecure"]);
+    expect(etiquettes(ligne(hote, "quatre"))).toEqual(["quatre"]);
+    expect(ligne(hote, "quatre").querySelectorAll(".elpis-secrets__site")).toHaveLength(4);
+    expect(ligne(hote, "quatre").querySelector("[data-plus-sites]")).toBeNull();
+    expect(large.querySelectorAll(".elpis-secrets__site")).toHaveLength(3);
+    const plus = large.querySelector<HTMLButtonElement>("[data-plus-sites]")!;
+    expect([plus.textContent?.trim(), plus.getAttribute("aria-expanded")]).toEqual(["+ 4 autres", "false"]);
+    plus.click();
+    await attendre();
+    expect(ligne(hote, "large").querySelectorAll(".elpis-secrets__site")).toHaveLength(7);
+    const reduire = ligne(hote, "large").querySelector<HTMLButtonElement>("[data-plus-sites]")!;
+    expect([reduire.textContent?.trim(), reduire.getAttribute("aria-expanded")]).toEqual(["réduire", "true"]);
+    reduire.click();
+    await attendre();
+    expect(ligne(hote, "large").querySelectorAll(".elpis-secrets__site")).toHaveLength(3);
   });
 
   it("menu ⋯ selon le genre : complet, vérification d'un importé, git importé renvoyé à Comptes Git", async () => {

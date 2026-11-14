@@ -16,6 +16,8 @@ const ENVOYER = "button:has(i.ph-paper-plane-right)";
 const SAISIE = "textarea[placeholder]";
 // Texte en attente en deçà duquel le fil est considéré à jour (bruit de l'estimation de longueur rendue).
 const TOLERANCE_ATTENTE = 8;
+// Hors mouvement réduit, le suivi glisse vers le bas avec au plus ECART_MAX_PX = 48 px de retard (rendu-flux.ts), plus 4 px d'arrondi.
+const ECART_GLISSE_PX = 52;
 
 /** Instrumentation posée avant l'application : repères reçus, salves simulées (enveloppe de fetch), événements du flux, lecture du DOM. */
 function instrumenter(burstMs) {
@@ -155,7 +157,7 @@ function instrumenter(burstMs) {
   };
 }
 
-/** Échantillonneur par image, lu APRÈS la peinture (message posté depuis requestAnimationFrame) : texte affiché, repères visibles, écart au bas, hauteur du corps, balisage brut. */
+/** Échantillonneur par image, lu APRÈS la peinture (message posté depuis requestAnimationFrame) : texte affiché, repères visibles, écart au bas, hauteur du corps, balisage brut, marge du caret au-dessus du composeur. */
 function demarrerEchantillonneur(nReperes) {
   const fl = window.__fl;
   fl.brut = { images: 0, gras: 0, accent: 0, marqueur: 0 };
@@ -205,6 +207,9 @@ function demarrerEchantillonneur(nReperes) {
       if (hors.includes("`")) fl.brut.accent++;
       if (/(^|\n)\s*(#{1,6}|[-*+]|\d+\.|\|.*)\s*$/.test(hors.slice(-12))) fl.brut.marqueur++;
     }
+    // Le dernier texte affiché est au caret : sa marge au-dessus du composeur dit s'il est encore visible.
+    const caret = enFlux ? corps.querySelector(".elpis-stream-caret") : null;
+    const compo = caret ? document.querySelector(".elpis-compose-col") : null;
     fl.trames.push([
       Math.round(t * 10) / 10,
       txt.length,
@@ -212,6 +217,7 @@ function demarrerEchantillonneur(nReperes) {
       cont ? Math.round(cont.scrollHeight - cont.scrollTop - cont.clientHeight) : -1,
       corps ? Math.round(corps.getBoundingClientRect().height) : 0,
       enFlux ? 1 : 0,
+      compo ? Math.round(compo.getBoundingClientRect().top - caret.getBoundingClientRect().bottom) : null,
     ]);
   };
   const boucle = () => {
@@ -325,7 +331,20 @@ function ecartsEnAttente(flux, recu, ancres) {
 /** Résultat d'une passe à partir des relevés de la page. */
 function analyser(
   fl,
-  { reperes, texte, remonter, resume, avantFin, apresFin, remontee, frappe, animations, trace, erreurs },
+  {
+    reperes,
+    texte,
+    remonter,
+    reducedMotion,
+    resume,
+    avantFin,
+    apresFin,
+    remontee,
+    frappe,
+    animations,
+    trace,
+    erreurs,
+  },
 ) {
   const rel = (v) => (v ? Math.round(v - fl.envoiA) : null);
   // Délai repère reçu → repère affiché.
@@ -350,9 +369,15 @@ function analyser(
   const ancres = [[0, 0]];
   for (const k of Object.keys(fl.pos)) ancres.push([texte.indexOf("zq" + k) + 5, fl.pos[k]]);
   ancres.push([texte.length, flux.length ? flux[flux.length - 1][1] : 0]);
-  // Suivi du bas : écart au bas peint, reculs et sauts de défilement.
+  // Suivi du bas : écart au bas peint, reculs et sauts de défilement. Hors mouvement réduit, une image en retard d'au plus
+  // ECART_GLISSE_PX dont le défilement avance est le glissé vers le nouveau bas ; hors du bas = immobile loin du bas, ou trop loin.
   const suivis = remonter ? [] : flux.filter((t) => t[3] >= 0);
   const ecartsBas = trier(suivis.map((t) => t[3]));
+  const glisse = (t, i) =>
+    reducedMotion !== "reduce" && i > 0 && t[3] <= ECART_GLISSE_PX && t[2] > suivis[i - 1][2];
+  const horsBas = suivis.filter((t, i) => t[3] > 4 && !glisse(t, i)).length;
+  const glisses = trier(suivis.filter((t, i) => t[3] > 4 && glisse(t, i)).map((t) => t[3]));
+  const marges = trier(suivis.map((t) => t[6]).filter((m) => typeof m === "number"));
   let reculs = 0;
   const sauts = [];
   for (let i = 1; i < suivis.length; i++) {
@@ -395,8 +420,10 @@ function analyser(
     },
     suiviBas: {
       images: suivis.length,
-      horsBas: ecartsBas.filter((e) => e > 4).length,
-      horsBasPct: arr1((100 * ecartsBas.filter((e) => e > 4).length) / (ecartsBas.length || 1)),
+      horsBas,
+      horsBasPct: arr1((100 * horsBas) / (ecartsBas.length || 1)),
+      glisse: { images: glisses.length, ecartMax: glisses[glisses.length - 1] ?? 0 },
+      margeCurseurMin: marges.length ? marges[0] : null,
       ecartP95: pct(ecartsBas, 0.95),
       ecartMax: ecartsBas[ecartsBas.length - 1] ?? 0,
       reculs,
@@ -629,6 +656,7 @@ export async function mesureUne(banc, params = {}) {
       reperes,
       texte,
       remonter,
+      reducedMotion,
       resume,
       avantFin: fl.avantFinal,
       apresFin,
@@ -699,7 +727,7 @@ export async function run(params = {}) {
 
 /** Cibles du plan (section 3) tenues ou non par une passe ; seules les cibles applicables aux paramètres de la passe y figurent. */
 export function verdict(r, params = {}) {
-  const { toks = 60, burst = 0, remonter = false, frappe = false } = params;
+  const { toks = 60, burst = 0, remonter = false, frappe = false, reducedMotion = "reduce" } = params;
   const rapide = toks >= 150;
   const lignes = [];
   const cible = (nom, ok, valeur, attendu) => lignes.push({ nom, ok: !!ok, valeur, attendu });
@@ -733,8 +761,21 @@ export function verdict(r, params = {}) {
       "≤ 50 ms",
     );
   if (!remonter) {
-    cible("images à plus de 4 px du bas", r.suiviBas.horsBas === 0, r.suiviBas.horsBas, "0");
+    cible(
+      reducedMotion === "reduce"
+        ? "images à plus de 4 px du bas"
+        : `images hors du bas (immobiles à plus de 4 px, ou à plus de ${ECART_GLISSE_PX} px)`,
+      r.suiviBas.horsBas === 0,
+      r.suiviBas.horsBas,
+      "0",
+    );
     cible("reculs du défilement", r.suiviBas.reculs === 0, r.suiviBas.reculs, "0");
+    cible(
+      "dernier texte affiché au-dessus du composeur, marge minimale",
+      r.suiviBas.margeCurseurMin === null || r.suiviBas.margeCurseurMin >= 0,
+      `${r.suiviBas.margeCurseurMin} px`,
+      "≥ 0 px",
+    );
   } else
     cible(
       "l'utilisateur remonté n'est pas ramené en bas",
@@ -786,7 +827,7 @@ export function ligneResume(r) {
   const f = r.global.fps;
   return (
     `1er jeton ${r.premierJetonMs} ms | délai méd ${r.delaiMs.mediane} p95 ${r.delaiMs.p95} | ${r.cadence.majParS} maj/s, ${r.cadence.caracteresParMaj.mediane} car./maj (p95 ${r.cadence.caracteresParMaj.p95})` +
-    ` | hors bas ${r.suiviBas.horsBasPct} %, reculs ${r.suiviBas.reculs} | fin : LT ${JSON.stringify(r.fin.tachesLongues)}, pire image ${r.fin.pireImageMs} ms, h ${r.fin.hauteurAvant}→${r.fin.hauteurApres}, décalage ${r.fin.decalageMax} px` +
+    ` | hors bas ${r.suiviBas.horsBasPct} %, glissé ${r.suiviBas.glisse.images} img (≤ ${r.suiviBas.glisse.ecartMax} px), caret ≥ ${r.suiviBas.margeCurseurMin} px, reculs ${r.suiviBas.reculs} | fin : LT ${JSON.stringify(r.fin.tachesLongues)}, pire image ${r.fin.pireImageMs} ms, h ${r.fin.hauteurAvant}→${r.fin.hauteurApres}, décalage ${r.fin.decalageMax} px` +
     ` | fps ${f?.mean} perdues ${f?.droppedPct} | tâches ${r.global.cdp.TaskDuration} s`
   );
 }

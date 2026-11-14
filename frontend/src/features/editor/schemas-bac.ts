@@ -106,7 +106,8 @@ export const schemaGitDiffCommit = schemaReponseDiffCommitGit;
 export const schemaGitFichier = schemaReponseFichierGit;
 export const schemaGitDiff = schemaReponseDiffGit;
 /** Création d'un dépôt : initialisé (`init`) ou cloné (`clone`). */
-export const schemaGitDepotCree = z.union([schemaReponseInitGit, schemaReponseClonerGit]);
+/** Le clone d'abord : la forme de l'init l'accepterait aussi, en lui retirant `credentials_saved`. */
+export const schemaGitDepotCree = z.union([schemaReponseClonerGit, schemaReponseInitGit]);
 export const schemaGitFusion = schemaReponseFusionGit;
 export const schemaGitResolution = schemaReponseResoudreFusionGit;
 export const schemaGitApercuFusion = schemaReponseApercuFusionGit;

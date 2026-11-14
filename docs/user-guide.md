@@ -1185,6 +1185,25 @@ A complete Git panel, on the repositories in your sandbox:
 Authentication goes through your [Git accounts](#git-accounts): no
 credential is written to the sandbox.
 
+**Add a repository.** One button, *Ajouter un dépôt*, opens a window with three ways: *Mes dépôts*
+(the repositories of one of your Git accounts; pick the account when you have several), *Depuis une
+URL* (any http(s) clone URL; an SSH URL is refused with the reason) and *Nouveau dépôt* (an empty
+repository initialized in a folder of your workspace). Commits are attributed automatically: yours
+to your account (`alice <alice@elpis>`), the assistant's to `alice (Elpis agent)`, on `agent/…`
+branches; a pull request it opens belongs to the Git account whose token is used. For a clone, three lines say what will happen: the repository as it was read, the
+account that will be used, and the folder. The account is the most specific one that covers the
+repository; the window says so when several accounts exist on that server, when the account has
+no token or holds an imported token still to verify, or when none applies. Over
+`http://` an account is only used for a host of the local network (or when its API is itself in
+http); what is then sent, or the credentials you type, is flagged as sent in clear. A repository at the root of a host
+(`https://git.example/project.git`, a single path segment) is not served by any account. With no account, or when access is refused, type
+credentials in place: they are sent if the host asks for them and, when the clone then succeeds,
+saved as a Git account for the place you choose (the host, the organization or the repository;
+a place that already has an account says it updates that account). The window tells you when they
+were not saved. Changing the host or the scheme of the URL, or closing the window, forgets
+what you typed.
+The folder defaults to the repository name.
+
 ### Snapshots
 
 A **snapshot** of your sandbox, taken on demand, restorable in one click.

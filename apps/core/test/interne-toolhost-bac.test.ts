@@ -75,12 +75,13 @@ describe.each(MOTEURS)("résolveur git et routes internes du bac (%s)", (moteur)
     rmSync(dossierCoffre, { recursive: true, force: true });
   });
 
-  it("save_git_credential et import_legacy_git_credentials : mêmes valeurs, mêmes connecteurs que le Python", async () => {
+  it("save_git_credential pour tout le serveur et import_legacy_git_credentials : mêmes valeurs, mêmes connecteurs que le Python", async () => {
     expect(ids).toEqual([1, 2, 3]);
     const valeurs: (number | null)[] = [];
     for (const e of V.etapes) {
+      // Écart voulu : sans portée demandée, un identifiant saisi ne remplace plus le compte de tout le serveur ; demandée (« "" »), la règle du Python vaut toujours.
       if (e[0] === "save")
-        valeurs.push(await saveGitCredential(t.base, e[1], e[2], e[3], e[4], e[5], acteur));
+        valeurs.push(await saveGitCredential(t.base, e[1], e[2], e[3], e[4], e[5], acteur, ""));
       else {
         const brut = e[2];
         const donnees = brut.endsWith(":b64")
@@ -164,7 +165,7 @@ describe.each(MOTEURS)("résolveur git et routes internes du bac (%s)", (moteur)
     ).toBe(401);
   });
 
-  it("identifiant saisi au clone de l'éditeur enregistré pour l'hôte ; anciens identifiants importés ; refus", async () => {
+  it("identifiant saisi au clone de l'éditeur : enregistré pour tout le serveur s'il est libre, sinon pour l'organisation du dépôt, et pour le serveur seulement si on le demande ; anciens identifiants importés ; refus", async () => {
     const restaurer = surchargerConfig({ LOCAL_MCP_TOKEN: SVC });
     try {
       let r = await enregistrer({
@@ -206,10 +207,31 @@ describe.each(MOTEURS)("résolveur git et routes internes du bac (%s)", (moteur)
         host: "forge.lan:3000",
       });
       expect(second.connector_id).not.toBe(enregistre.connector_id);
+      // Autre dépôt du même serveur : le compte de tout le serveur n'est pas remplacé, l'identifiant va à l'organisation.
+      r = await enregistrer({
+        origine: "editeur",
+        target: "https://Forge.lan/o/autre.git",
+        token: "pour-o",
+      });
+      const organisation = r.json() as { connector_id: number };
+      expect(organisation).toEqual({
+        ok: true,
+        saved: true,
+        connector_id: expect.any(Number),
+        host: "forge.lan",
+      });
+      expect(organisation.connector_id).not.toBe(enregistre.connector_id);
+      expect(
+        await t.base.get("SELECT path FROM git_connectors WHERE id=?", [organisation.connector_id]),
+      ).toEqual({ path: "o" });
+      expect(await jetonDuCoffre(enregistre.connector_id)).toBe("secret");
+      expect(await jetonDuCoffre(organisation.connector_id)).toBe("pour-o");
+      // Tout le serveur demandé : c'est son compte qui est rafraîchi.
       r = await enregistrer({
         origine: "editeur",
         target: "https://Forge.lan/o/autre.git",
         token: "neuf",
+        scope: "",
       });
       expect(r.json()).toEqual({
         ok: true,
@@ -218,6 +240,7 @@ describe.each(MOTEURS)("résolveur git et routes internes du bac (%s)", (moteur)
         host: "forge.lan",
       });
       expect(await jetonDuCoffre(enregistre.connector_id)).toBe("neuf");
+      expect(await jetonDuCoffre(organisation.connector_id)).toBe("pour-o");
       r = await enregistrer({ origine: "editeur", target: "", token: "x" });
       expect(r.json()).toEqual({ ok: true, saved: false, connector_id: null, host: "" });
       r = await enregistrer({
@@ -337,7 +360,16 @@ describe.each(MOTEURS)("résolveur git et routes internes du bac (%s)", (moteur)
         ).toBeUndefined();
       expect(await jetonDuCoffre(propre)).toBe("p");
       expect(await jetonDuCoffre(auto)).toBe("q");
-      const editeur = await enregistrer({ origine: "editeur", target: "propre.lan", token: "saisi" });
+      // Depuis l'éditeur : un serveur déjà pris et aucun dépôt lisible, rien n'est enregistré d'office ; le serveur demandé, son compte est rafraîchi.
+      const dOffice = await enregistrer({ origine: "editeur", target: "propre.lan", token: "saisi" });
+      expect(dOffice.json()).toMatchObject({ saved: false, connector_id: null });
+      expect(await jetonDuCoffre(propre)).toBe("p");
+      const editeur = await enregistrer({
+        origine: "editeur",
+        target: "propre.lan",
+        token: "saisi",
+        scope: "",
+      });
       expect(editeur.json()).toMatchObject({ saved: true, connector_id: propre });
       expect(await jetonDuCoffre(propre)).toBe("saisi");
     } finally {

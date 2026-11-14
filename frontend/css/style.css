@@ -1181,7 +1181,7 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     }
 }
 
-/* Fenêtre « Cloner un dépôt » : ancrée en haut (sa hauteur change sans qu'elle se déplace), liste de
+/* Fenêtre « Ajouter un dépôt » : ancrée en haut (sa hauteur change sans qu'elle se déplace), liste de
    hauteur fixe (chargement, erreur ou dépôts : même place), récapitulatif libellé / valeur. */
 .elpis-clone-fond { align-items: flex-start; overflow-y: auto; padding: min(12vh, 7rem) 1rem 1rem; }
 .elpis-clone-compte { min-height: 2.625rem; }

@@ -336,9 +336,13 @@ describe("core TS → hôte TS", () => {
       token: "pat-e2e",
       host: "forge.example:3000",
     });
+    // Serveur déjà pris, sans dépôt lisible : rien d'office ; tout le serveur demandé, son compte est rafraîchi.
     expect(await rappel.enregistrerIdentifiantGit(alice, "forge.example:3000", "moi", "pat-neuf", "")).toBe(
-      true,
+      false,
     );
+    expect(
+      await rappel.enregistrerIdentifiantGit(alice, "forge.example:3000", "moi", "pat-neuf", "", ""),
+    ).toBe(true);
     expect(
       await t.base.get("SELECT COUNT(*) AS n FROM git_connectors WHERE host=?", ["forge.example:3000"]),
     ).toEqual({ n: 1 });

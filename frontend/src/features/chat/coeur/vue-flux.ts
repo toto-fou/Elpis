@@ -1193,12 +1193,19 @@ export function creerVueFlux(c: CoeurChat) {
     t.toast(d.text || "Erreur", "error");
     const chat = d.chat_id || r.currentChatId.value || "local";
     await l.finalizeAllToolStreams(chat);
+    // Le texte reçu mais pas encore versé reste dans la bulle : réflexion et narration versées, corps ajouté.
+    l.stopThinkFlush();
+    l.stopPreContentFlush();
+    l.stopStreamFlush();
+    const reste = f.streamBuf;
+    f.streamBuf = "";
     const cur = t.msgs[t.idx];
     if (cur && cur.webScreenshots && cur.webScreenshots.length)
       for (const s of cur.webScreenshots) s.pending = false;
     // Une erreur n'est pas suivie d'un `final` : la bulle sort du flux ici.
     l.patch(t.idx, {
       ...(cur ? cloreTour(cur) : null),
+      ...(cur && reste ? { content: (cur.content || "") + reste } : null),
       isError: true,
       errorMessage: d.text || "Erreur",
       errorDetail: d["detail"] || "",

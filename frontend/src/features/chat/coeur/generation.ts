@@ -322,6 +322,12 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
 
   // Ne jamais rejouer un tour dont des outils ont tourné, ni un tour image accepté par le serveur.
   function echecReseau(err: unknown, serveurMaitre: boolean, imageGen: Objet | null): void {
+    // Le texte reçu mais pas encore versé reste dans la bulle : réflexion et narration versées, corps ajouté.
+    l.stopThinkFlush();
+    l.stopPreContentFlush();
+    l.stopStreamFlush();
+    const reste = f.streamBuf;
+    f.streamBuf = "";
     const msgs = l.getStreamMsgs();
     const li = l.streamIdx(msgs);
     const assistant = li >= 0 && msgs[li]?.role === "assistant";
@@ -338,6 +344,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     }
     if (assistant)
       l.patch(li, {
+        ...(reste ? { content: (msgs[li]?.content || "") + reste } : null),
         isError: !serveurMaitre,
         errorMessage: serveurMaitre
           ? "Connexion interrompue — la génération se poursuit côté serveur. Cette conversation se rechargera automatiquement à la fin."

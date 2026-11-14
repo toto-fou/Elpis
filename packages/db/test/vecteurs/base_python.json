@@ -117,9 +117,9 @@
     ],
     [
       "index",
-      "idx_gitconn_owner_host_label",
+      "idx_gitconn_owner_host_path",
       "git_connectors",
-      "CREATE UNIQUE INDEX \"idx_gitconn_owner_host_label\" ON \"git_connectors\" (\"owner_user_id\", \"host\", \"label\")"
+      "CREATE UNIQUE INDEX \"idx_gitconn_owner_host_path\" ON \"git_connectors\" (\"owner_user_id\", \"host\", \"path\")"
     ],
     [
       "index",
@@ -551,7 +551,7 @@
       "table",
       "git_connectors",
       "git_connectors",
-      "CREATE TABLE \"git_connectors\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"provider_type\" TEXT NOT NULL,\n  \"host\" TEXT NOT NULL,\n  \"api_base\" TEXT NOT NULL DEFAULT '',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"username\" TEXT NOT NULL DEFAULT '',\n  \"token_enc\" TEXT NOT NULL,\n  \"token_scheme\" TEXT NOT NULL DEFAULT 'plain',\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"last_used\" REAL,\n  \"secret_id\" INTEGER DEFAULT NULL,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+      "CREATE TABLE \"git_connectors\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"owner_user_id\" INTEGER NOT NULL,\n  \"provider_type\" TEXT NOT NULL,\n  \"host\" TEXT NOT NULL,\n  \"api_base\" TEXT NOT NULL DEFAULT '',\n  \"label\" TEXT NOT NULL DEFAULT '',\n  \"username\" TEXT NOT NULL DEFAULT '',\n  \"token_enc\" TEXT NOT NULL,\n  \"token_scheme\" TEXT NOT NULL DEFAULT 'plain',\n  \"created_at\" REAL NOT NULL,\n  \"updated_at\" REAL NOT NULL,\n  \"last_used\" REAL,\n  \"secret_id\" INTEGER DEFAULT NULL,\n  \"path\" TEXT,\n  FOREIGN KEY (\"owner_user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",

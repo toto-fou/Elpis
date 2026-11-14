@@ -124,7 +124,7 @@ describe.each(MOTEURS)("comptes git sur le coffre (%s)", (moteur) => {
 
   const ligne = async (cid: number): Promise<Record<string, unknown>> =>
     (await t.base.get<Record<string, unknown>>(
-      "SELECT host, label, username, token_enc, token_scheme, secret_id FROM git_connectors WHERE id = ?",
+      "SELECT id, host, path, label, username, token_enc, token_scheme, secret_id FROM git_connectors WHERE id = ?",
       [cid],
     )) as Record<string, unknown>;
 
@@ -292,7 +292,7 @@ describe.each(MOTEURS)("comptes git sur le coffre (%s)", (moteur) => {
         t.base,
         bob,
         "gitlab",
-        "dep.lan",
+        `dep${i}.lan`,
         { token: "tok-d", label: `dep-${i}` },
         acteur,
       );
@@ -408,7 +408,7 @@ describe.each(MOTEURS)("comptes git sur le coffre (%s)", (moteur) => {
     expect(evenements("vault.secret.used").at(-1)).toMatchObject({
       user_id: bob,
       username: "bob",
-      details: { usage: "git", target: "10.0.0.42:3000", chat_id: "chat-7", subagent: false },
+      details: { usage: "git", target: "10.0.0.42:3000/a/b", chat_id: "chat-7", subagent: false },
     });
     expect((await interne("GET", "/api/internal/git/credential", enveloppe(bob, "bob"))).statusCode).toBe(
       400,
@@ -504,8 +504,36 @@ describe.each(MOTEURS)("comptes git sur le coffre (%s)", (moteur) => {
       token: "tok-ed-2",
       origine: "editeur",
     });
-    expect((encore.json() as { connector_id: number }).connector_id).toBe(d.connector_id);
-    expect(clair(await secret(l["secret_id"]))).toBe("tok-ed-2");
+    // Un compte tient déjà tout l'hôte : il n'est pas remplacé d'office, les identifiants vont au parent du dépôt.
+    const parent = await ligne((encore.json() as { connector_id: number }).connector_id);
+    expect(parent).toMatchObject({ host: "forge2.lan", path: "o", label: "auto" });
+    expect(parent["id"]).not.toBe(d.connector_id);
+    expect(clair(await secret(parent["secret_id"]))).toBe("tok-ed-2");
+    expect(JSON.parse(String((await secret(parent["secret_id"]))?.["scope_json"]))).toEqual({
+      host: "forge2.lan",
+      path: "o",
+    });
+    expect(clair(await secret(l["secret_id"]))).toBe("tok-ed");
+    const saisir = async (target: string, token: string, scope?: string): Promise<number> =>
+      (
+        (
+          await interne("POST", "/api/internal/git/credential", env, {
+            target,
+            token,
+            origine: "editeur",
+            ...(scope === undefined ? {} : { scope }),
+          })
+        ).json() as { connector_id: number }
+      ).connector_id;
+    // Le compte à chemin qui couvre le dépôt est rafraîchi ; une portée demandée l'emporte si elle couvre le dépôt.
+    expect(await saisir("https://forge2.lan/o/tiers.git", "tok-ed-3")).toBe(parent["id"]);
+    expect(clair(await secret(parent["secret_id"]))).toBe("tok-ed-3");
+    expect(await saisir("https://forge2.lan/o/tiers.git", "tok-hote", "")).toBe(d.connector_id);
+    expect(clair(await secret(l["secret_id"]))).toBe("tok-hote");
+    const depot = await ligne(await saisir("https://forge2.lan/o/tiers.git", "tok-depot", "O/Tiers.git"));
+    expect(depot).toMatchObject({ path: "o/tiers" });
+    expect(await saisir("https://forge2.lan/o/tiers.git", "tok-ed-4", "ailleurs")).toBe(depot["id"]);
+    expect(clair(await secret(depot["secret_id"]))).toBe("tok-ed-4");
   });
 
   it("ancien .git-credentials.json (écrit par l'agent) : importé à vérifier (`unverified`, source sandbox-file), pour un hôte déjà enregistré seulement ; jamais rendu avant la vérification par l'utilisateur", async () => {

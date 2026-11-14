@@ -160,6 +160,7 @@ describe("registre des migrations", () => {
       "0027_vault_git",
       "0028_vault_llm_images",
       "0029_vault_mcp",
+      "0030_git_account_scope",
     ]);
     expect(registreMigrations(["0027_essai"]).at(-1)).toBe("0027_essai");
     expect(() => registreMigrations(["0001_avant"])).toThrow(/mal numérotée/u);

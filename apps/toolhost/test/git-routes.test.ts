@@ -159,7 +159,7 @@ describe.skipIf(!PYTHON || !IP)("réseau par le relais (amont du réseau local)"
     await amont.fermer();
   });
 
-  it("clone, pull, push, fetch : identifiants saisis après le 401, jamais écrits ; enregistrés pour l'hôte", async () => {
+  it("clone, pull, push, fetch : identifiants saisis après le 401, jamais écrits ; enregistrés pour l'hôte, avec la portée choisie", async () => {
     let r = await appel("POST", "clone", { url, dir: "copie", ...IDS, provider_type: "gitea" });
     expect(r.statut, JSON.stringify(r.corps)).toBe(200);
     expect(r.corps).toEqual({
@@ -168,12 +168,21 @@ describe.skipIf(!PYTHON || !IP)("réseau par le relais (amont du réseau local)"
       message: "Cloné dans copie/",
       credentials_saved: true,
     });
-    expect(enregistres).toEqual([[1, url, "u", JETON, "gitea"]]);
+    expect(enregistres).toEqual([[1, url, "u", JETON, "gitea", null]]);
     const config = readFileSync(path.join(work, "copie", ".git", "config"), "utf-8");
     expect(config).toContain(url);
     expect(config).not.toContain(JETON);
     expect(amont.vus[0]?.[2]).toBeUndefined();
     expect(amont.vus.slice(1).every(([, , a]) => a === BASIC)).toBe(true);
+    const borne = await appel("POST", "clone", {
+      url,
+      dir: "copie-bornee",
+      ...IDS,
+      provider_type: "gitea",
+      cred_scope: " equipe ",
+    });
+    expect(borne.statut, JSON.stringify(borne.corps)).toBe(200);
+    expect(enregistres.at(-1)).toEqual([1, url, "u", JETON, "gitea", "equipe"]);
 
     writeFileSync(path.join(amont.src, "c.txt"), "c\n");
     git(amont.src, "add", "c.txt");

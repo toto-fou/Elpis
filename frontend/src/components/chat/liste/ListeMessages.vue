@@ -1,12 +1,10 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/liste/ListeMessages.vue — fil des messages : fenêtre virtuelle (cales haute et basse), lignes mémoïsées (réveils regroupés compris), bulle de reconnexion, compaction en cours. -->
+<!-- frontend/src/components/chat/liste/ListeMessages.vue — fil des messages : fenêtre virtuelle (cales haute et basse), une ligne par entrée stable (sautée tant que son entrée ne change pas, réveils regroupés compris), bulle de reconnexion, compaction en cours. -->
 <script setup lang="ts">
 import { CLE_LISTE, domaine } from "../../../features/chat/page/domaines";
-import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import MessageChat from "../message/MessageChat.vue";
 
 const liste = domaine(CLE_LISTE);
-const pref = preferencesChat();
 const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string] }>();
 </script>
 
@@ -20,34 +18,6 @@ const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string]
   <MessageChat
     v-for="entry in liste.visibleMessages"
     :key="entry.idx"
-    v-memo="[
-      entry.msg,
-      entry.suite,
-      entry.msg.thinkingOpen,
-      entry.msg._segsOpen,
-      entry.msg._activeToolStep,
-      entry.msg._pipelineOpen,
-      entry.msg._compactOpen,
-      entry.msg.webScreenshotIdx,
-      entry.msg.webScreenshotExpanded,
-      liste.effectUiRev,
-      liste.diffCardRev,
-      entry.idx === liste.lastAssistantIdx,
-      entry.idx === liste.editingMessageIndex,
-      liste.isStreaming,
-      liste.messageSearchActive && liste.messageSearchQ,
-      !!liste.compressionStatus,
-      pref.deroule,
-      pref.reflexions,
-      pref.metriques,
-      pref.captures,
-      liste.settings.assistant_name,
-      liste.settings.skin,
-      liste.settings.enable_editor,
-      liste.logoApp,
-      liste.user && liste.user.avatar,
-      liste.user && liste.user.username,
-    ]"
     :entry="entry"
     @zoom-image="(u: string) => emit('zoom-image', u)"
     @edition="(t: string) => emit('edition', t)"

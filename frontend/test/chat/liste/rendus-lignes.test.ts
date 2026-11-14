@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/chat/liste/rendus-lignes.test.ts — fil des messages : une ligne et son habillage ne se re-rendent que quand ce qu'ils affichent change (texte du flux, message remplacé, carte mémoire, fichiers modifiés, édition, recherche, saut, bulle regroupée). */
-import { computed, createApp, nextTick, reactive, ref, watch } from "vue";
-import type { App, ComponentPublicInstance } from "vue";
+import { computed, createApp, nextTick, reactive, ref, toRaw, watch } from "vue";
+import type { App, ComponentPublicInstance, Ref } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
 
 import ListeMessages from "../../../src/components/chat/liste/ListeMessages.vue";
@@ -10,7 +10,7 @@ import { creerCartesMemoire } from "../../../src/features/chat/message/effets";
 import { creerCarteFichiers } from "../../../src/features/chat/message/fichiers-modifies";
 import type { ContexteListe, MessageAffiche } from "../../../src/features/chat/message/types";
 import { CLE_FIL, CLE_LISTE } from "../../../src/features/chat/page/domaines";
-import { creerPorteur } from "../../../src/features/chat/rendu/porteur-flux";
+import { creerPorteur, synchroniserPorteur } from "../../../src/features/chat/rendu/porteur-flux";
 import { CLE_PREFERENCES_CHAT } from "../../../src/features/reglages/affichage-chat";
 import { prefsDeroule } from "../preferences";
 
@@ -47,11 +47,12 @@ function monterFil() {
       _diffFiles: { "src/b.py": "a\n" },
     },
   ].map((m) => Object.freeze(m) as MessageAffiche);
-  const messages = ref<MessageAffiche[]>([
+  const porteur = creerPorteur();
+  const messages = ref([
     ...charges,
     { role: "user", content: "Question 4" },
-    { role: "assistant", content: "Début", isStreaming: true, _flux: creerPorteur() },
-  ]);
+    { role: "assistant", content: "Début", isStreaming: true, _flux: porteur },
+  ]) as Ref<MessageAffiche[]>;
   const defil = creerDefilementVirtuel(
     { ref, computed, watch, nextTick },
     { messages, chatContainer: ref(null), isUserScrolling: ref(false) },
@@ -130,10 +131,55 @@ function monterFil() {
   const remettre = (): void => {
     for (const k of Object.keys(rendus)) delete rendus[k];
   };
-  return { hote, messages, etat, rendus, remettre };
+  return { hote, messages, porteur, etat, rendus, remettre };
 }
 
 describe("fil des messages : rendus par ligne", () => {
+  it("le texte du flux (porteur) ne re-rend que le corps Markdown : ni la liste, ni la ligne, ni son habillage", async () => {
+    const { hote, messages, porteur, rendus, remettre } = monterFil();
+    await attendre();
+    remettre();
+    const brut = toRaw(messages.value[5]!);
+    for (const texte of ["Début de", "Début de la", "Début de la réponse"]) {
+      Object.assign(brut, { content: texte, _mdActiveHtml: "<p>" + texte + "</p>" });
+      synchroniserPorteur(porteur, brut);
+      await nextTick();
+    }
+    expect(rendus).toEqual({ ContenuMarkdown: 3 });
+    expect(hote.querySelector("[data-vs-idx='5']")?.textContent).toContain("Début de la réponse");
+  });
+
+  it("un message remplacé (outil, statut, fin du flux) re-rend sa ligne seule", async () => {
+    const { hote, messages, rendus, remettre } = monterFil();
+    await attendre();
+    remettre();
+    const cur = messages.value[5]!;
+    messages.value[5] = { ...cur, toolSteps: [{ name: "session_search", status: "running", args: {} }] };
+    await nextTick();
+    expect(Object.keys(rendus).filter((k) => /#[0-4]$/.test(k))).toEqual([]);
+    expect(rendus["MessageChat#5"]).toBe(1);
+    remettre();
+    messages.value[5] = { ...messages.value[5]!, isStreaming: false, _flux: null, content: "Fin." };
+    await nextTick();
+    expect(Object.keys(rendus).filter((k) => /#[0-4]$/.test(k))).toEqual([]);
+    expect(rendus["PiedMessage#5"]).toBe(1);
+    expect(hote.querySelector("[data-vs-idx='5'] [data-copier]")).not.toBeNull();
+  });
+
+  it("carte mémoire : ouvrir l'écriture affiche son détail sans re-rendre la liste ni les autres lignes", async () => {
+    const { hote, rendus, remettre } = monterFil();
+    await attendre();
+    remettre();
+    (hote.querySelector("[data-vs-idx='1'] [data-effect-memory] button") as HTMLButtonElement).click();
+    await attendre();
+    expect(hote.querySelector("[data-vs-idx='1'] [data-effect-added]")?.textContent).toContain(
+      "note du compte",
+    );
+    expect(
+      Object.keys(rendus).every((k) => k.startsWith("EffetMemoire") || k.startsWith("LibelleVivant")),
+    ).toBe(true);
+  });
+
   it("fichiers modifiés : les statistiques posées après le rendu s'affichent dans leur ligne seule", async () => {
     const { hote, rendus } = monterFil();
     await attendre();
@@ -142,5 +188,45 @@ describe("fil des messages : rendus par ligne", () => {
     expect(lignes).toMatch(/b\.py[\s\S]*\+1(?!\d)/);
     expect(rendus["FichiersModifies#3"]).toBeGreaterThan(0);
     expect(Object.keys(rendus).filter((k) => /#[0-2,4-5]$/.test(k))).toEqual([]);
+  });
+
+  it("édition, saut et recherche : seules les lignes concernées changent", async () => {
+    const { hote, etat, rendus, remettre } = monterFil();
+    await attendre();
+    remettre();
+    etat.editingMessageIndex = 2;
+    await nextTick();
+    expect(hote.querySelector("[data-vs-idx='2'] textarea[data-edit-message-input]")).not.toBeNull();
+    expect(Object.keys(rendus).filter((k) => k.startsWith("MessageChat"))).toEqual(["MessageChat#2"]);
+    remettre();
+    etat.editingMessageIndex = null;
+    etat.vsFlashIdx = 3;
+    await nextTick();
+    expect(hote.querySelector("[data-vs-idx='3']")?.classList.contains("vs-jump-flash")).toBe(true);
+    expect(
+      Object.keys(rendus)
+        .filter((k) => k.startsWith("MessageChat"))
+        .sort(),
+    ).toEqual(["MessageChat#2", "MessageChat#3"]);
+    remettre();
+    etat.messageSearchQ = "Question";
+    etat.messageSearchActive = true;
+    await nextTick();
+    expect(hote.querySelector("[data-vs-idx='1']")?.classList.contains("opacity-25")).toBe(true);
+    expect(hote.querySelector("[data-vs-idx='2']")?.classList.contains("opacity-25")).toBe(false);
+    expect(rendus["ListeMessages"]).toBeUndefined();
+  });
+
+  it("bulle regroupée : un réveil qui arrive re-rend la ligne de tête qu'il continue, pas les autres", async () => {
+    const reveil = { role: "user", origin: "job_wake", content: "réveil" } as MessageAffiche;
+    const { messages, rendus, remettre } = monterFil();
+    await attendre();
+    messages.value[5] = { ...messages.value[5]!, isStreaming: false, _flux: null, content: "Lancé." };
+    await nextTick();
+    remettre();
+    messages.value.push(reveil);
+    await nextTick();
+    expect(rendus["MessageChat#5"]).toBe(1);
+    expect(Object.keys(rendus).filter((k) => /#[0-4]$/.test(k))).toEqual([]);
   });
 });

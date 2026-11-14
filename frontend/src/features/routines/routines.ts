@@ -96,7 +96,6 @@ export interface CtxRoutines {
   showToast(message: string, type?: string): void;
   openConfirm(titre: string, texte: string, danger?: boolean): Promise<boolean>;
   engineModels?: (connecteur: Identifiant | null) => ModeleRoutine[] | null | undefined;
-  loadEngines?: () => unknown;
   openFile?: (chemin: string) => unknown;
 }
 
@@ -381,20 +380,20 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     currentView.value = "routines";
     reinitialiserEditeur();
     void reloadRoutineSkills();
-    try {
-      ctx.loadEngines?.();
-    } catch {
-      /* moteurs indisponibles : le sélecteur reste vide */
-    }
+    // La liste gardée de la visite précédente reste affichée, sa première routine ouverte, pendant la relecture.
+    const connue = routines.value[0];
+    if (connue) viewRoutine(connue);
     await loadRoutines();
+    const choisie = selectedRoutineId.value;
+    if (routines.value.some((r) => r.id === choisie)) return;
     const premiere = routines.value[0];
-    if (!selectedRoutineId.value && premiere) viewRoutine(premiere);
+    if (premiere) viewRoutine(premiere);
+    else if (choisie !== null) reinitialiserEditeur();
   }
   function closeRoutinesPage(): void {
     currentView.value = "chat";
     arreterSondages();
     reinitialiserEditeur();
-    routines.value = [];
     routinesError.value = "";
   }
 

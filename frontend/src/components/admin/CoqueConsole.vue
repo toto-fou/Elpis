@@ -5,6 +5,7 @@ import { defineAsyncComponent } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { formateurDate } from "../../features/admin/horodatage";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import BarreLateraleConsole from "./BarreLateraleConsole.vue";
 import EnteteConsole from "./EnteteConsole.vue";
 import PageApercu from "./PageApercu.vue";
@@ -182,42 +183,44 @@ const heure = formateurDate({ timeStyle: "short" });
             ></i>
             {{ adm.isSavingAdminPage ? "Enregistrement…" : "Enregistrer" }}
           </button>
-          <div
-            v-if="adm.adminChangesOpen"
-            id="adm-changes"
-            class="adm-changes"
-            role="dialog"
-            aria-label="Détail des modifications"
-          >
-            <ul>
-              <li v-for="c in adm.adminPageChanges" :key="c.store + ':' + c.path" class="adm-changes__row">
-                <span class="adm-changes__lbl"
-                  >{{ adm.adminChangeLabel(c)
-                  }}<i
-                    v-if="adm.adminChangeNeedsRestart(c)"
-                    class="ph ph-arrow-clockwise adm-changes__restart"
-                    title="Pris en compte au redémarrage"
-                    aria-label="Pris en compte au redémarrage"
-                  ></i
-                ></span>
-                <span v-if="adm.adminChangeSecret(c)" class="adm-changes__vals">clé modifiée</span>
-                <span v-else-if="c.store !== 'prompt'" class="adm-changes__vals">
-                  <s>{{ adm.adminChangeValue(c.before) }}</s> → <b>{{ adm.adminChangeValue(c.after) }}</b>
-                </span>
-                <span v-else class="adm-changes__vals">texte modifié</span>
-                <button
-                  v-if="adm.adminChangeRevertable(c)"
-                  type="button"
-                  class="adm-btn adm-btn--icon"
-                  :title="'Rétablir ' + adm.adminChangeLabel(c)"
-                  :aria-label="'Rétablir ' + adm.adminChangeLabel(c)"
-                  @click="adm.revertAdminChange(c)"
-                >
-                  <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
-                </button>
-              </li>
-            </ul>
-          </div>
+          <TransitionMenu haut>
+            <div
+              v-if="adm.adminChangesOpen"
+              id="adm-changes"
+              class="adm-changes menu-ancre-gauche"
+              role="dialog"
+              aria-label="Détail des modifications"
+            >
+              <ul>
+                <li v-for="c in adm.adminPageChanges" :key="c.store + ':' + c.path" class="adm-changes__row">
+                  <span class="adm-changes__lbl"
+                    >{{ adm.adminChangeLabel(c)
+                    }}<i
+                      v-if="adm.adminChangeNeedsRestart(c)"
+                      class="ph ph-arrow-clockwise adm-changes__restart"
+                      title="Pris en compte au redémarrage"
+                      aria-label="Pris en compte au redémarrage"
+                    ></i
+                  ></span>
+                  <span v-if="adm.adminChangeSecret(c)" class="adm-changes__vals">clé modifiée</span>
+                  <span v-else-if="c.store !== 'prompt'" class="adm-changes__vals">
+                    <s>{{ adm.adminChangeValue(c.before) }}</s> → <b>{{ adm.adminChangeValue(c.after) }}</b>
+                  </span>
+                  <span v-else class="adm-changes__vals">texte modifié</span>
+                  <button
+                    v-if="adm.adminChangeRevertable(c)"
+                    type="button"
+                    class="adm-btn adm-btn--icon"
+                    :title="'Rétablir ' + adm.adminChangeLabel(c)"
+                    :aria-label="'Rétablir ' + adm.adminChangeLabel(c)"
+                    @click="adm.revertAdminChange(c)"
+                  >
+                    <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </TransitionMenu>
         </div>
       </div>
     </transition>
@@ -231,62 +234,64 @@ const heure = formateurDate({ timeStyle: "short" });
 
   <ModalesConsole />
 
-  <div v-if="adm.paletteOpen" class="adm-palette-backdrop" @click.self="adm.closePalette()">
-    <div
-      class="adm-palette"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Rechercher dans la console"
-      @keydown="adm.onPaletteKey"
-    >
-      <div class="adm-palette__search">
-        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        <input
-          :ref="
-            (el) => {
-              adm.paletteInput = el as typeof adm.paletteInput;
-            }
-          "
-          v-model="adm.paletteQuery"
-          type="text"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="adm-palette-list"
-          aria-autocomplete="list"
-          :aria-activedescendant="adm.paletteResults.length ? 'adm-pal-' + adm.paletteIndex : undefined"
-          placeholder="Page, réglage ou action"
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Rechercher une page, un réglage ou une action"
-        />
-        <kbd class="adm-kbd">Échap</kbd>
-      </div>
-      <ul id="adm-palette-list" class="adm-palette__list" role="listbox" aria-label="Résultats">
-        <li
-          v-for="(r, i) in adm.paletteResults"
-          :id="'adm-pal-' + i"
-          :key="r.key"
-          role="option"
-          :aria-selected="i === adm.paletteIndex ? 'true' : 'false'"
-          class="adm-palette__item"
-          :class="{ 'is-active': i === adm.paletteIndex }"
-          @mousemove="adm.paletteIndex = i"
-          @click="adm.runPaletteItem(r)"
-        >
-          <i class="ph adm-palette__icon" :class="r.icon" aria-hidden="true"></i>
-          <span class="adm-palette__label"
-            ><template v-for="(g, k) in r.segs" :key="k"
-              ><mark v-if="g.hit">{{ g.t }}</mark
-              ><template v-else>{{ g.t }}</template></template
-            ></span
+  <Transition name="modal">
+    <div v-if="adm.paletteOpen" class="adm-palette-backdrop" @click.self="adm.closePalette()">
+      <div
+        class="adm-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Rechercher dans la console"
+        @keydown="adm.onPaletteKey"
+      >
+        <div class="adm-palette__search">
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <input
+            :ref="
+              (el) => {
+                adm.paletteInput = el as typeof adm.paletteInput;
+              }
+            "
+            v-model="adm.paletteQuery"
+            type="text"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="adm-palette-list"
+            aria-autocomplete="list"
+            :aria-activedescendant="adm.paletteResults.length ? 'adm-pal-' + adm.paletteIndex : undefined"
+            placeholder="Page, réglage ou action"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Rechercher une page, un réglage ou une action"
+          />
+          <kbd class="adm-kbd">Échap</kbd>
+        </div>
+        <ul id="adm-palette-list" class="adm-palette__list" role="listbox" aria-label="Résultats">
+          <li
+            v-for="(r, i) in adm.paletteResults"
+            :id="'adm-pal-' + i"
+            :key="r.key"
+            role="option"
+            :aria-selected="i === adm.paletteIndex ? 'true' : 'false'"
+            class="adm-palette__item"
+            :class="{ 'is-active': i === adm.paletteIndex }"
+            @mousemove="adm.paletteIndex = i"
+            @click="adm.runPaletteItem(r)"
           >
-          <span v-if="r.meta" class="adm-palette__meta">{{ r.meta }}</span>
-          <span class="adm-palette__kind">{{ r.kindLabel }}</span>
-        </li>
-        <li v-if="!adm.paletteResults.length" class="adm-palette__empty" role="presentation">
-          Aucun résultat
-        </li>
-      </ul>
+            <i class="ph adm-palette__icon" :class="r.icon" aria-hidden="true"></i>
+            <span class="adm-palette__label"
+              ><template v-for="(g, k) in r.segs" :key="k"
+                ><mark v-if="g.hit">{{ g.t }}</mark
+                ><template v-else>{{ g.t }}</template></template
+              ></span
+            >
+            <span v-if="r.meta" class="adm-palette__meta">{{ r.meta }}</span>
+            <span class="adm-palette__kind">{{ r.kindLabel }}</span>
+          </li>
+          <li v-if="!adm.paletteResults.length" class="adm-palette__empty" role="presentation">
+            Aucun résultat
+          </li>
+        </ul>
+      </div>
     </div>
-  </div>
+  </Transition>
 </template>

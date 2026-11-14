@@ -4,6 +4,7 @@
 import { computed, watch } from "vue";
 
 import BoutonAssistant from "../communs/BoutonAssistant.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 import { domaineReglages } from "../../features/reglages/domaine";
 import { sectionCourante } from "../../features/reglages/sections";
 import { PORTEES_DE_PARTIE, partieDePortee } from "../../features/skills/arbre";
@@ -12,6 +13,7 @@ import { domaineSkills } from "../../features/skills/domaine";
 import NoeudSkill from "./NoeudSkill.vue";
 
 const ks = domaineSkills();
+const VUES_CORPS = { rendered: "Rendu", source: "Source" } as const;
 const rg = domaineReglages();
 const section = computed(() => sectionCourante(rg, "skills"));
 const partie = computed<PartieSkills>(() => (section.value?.id === "perso" ? "perso" : "global"));
@@ -137,12 +139,12 @@ function poserDeclencheur(el: unknown): void {
               class="fixed inset-0 z-40"
               @click="ks.closeSkillImportMenu"
             ></div>
-            <Transition name="popover">
+            <TransitionMenu>
               <div
                 v-if="ks.showSkillImportMenu"
                 role="menu"
                 aria-label="Sources d'import"
-                class="absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl py-1"
+                class="menu-ancre-droite absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl py-1"
               >
                 <label
                   role="menuitem"
@@ -211,7 +213,7 @@ function poserDeclencheur(el: unknown): void {
                   />
                 </label>
               </div>
-            </Transition>
+            </TransitionMenu>
           </div>
           <button title="Rafraîchir" class="skl-btn skl-btn--ghost skl-btn--icon" @click="ks.loadAllSkills()">
             <i class="ph ph-arrow-clockwise" :class="ks.skillsLoading && 'animate-spin'"></i>
@@ -487,26 +489,18 @@ function poserDeclencheur(el: unknown): void {
                 aria-label="Affichage du fichier"
               >
                 <button
+                  v-for="(libelle, vue, i) in VUES_CORPS"
+                  :key="vue"
                   class="text-[11px] px-2 py-0.5 transition-colors"
-                  :class="
-                    ks.skillBodyView === 'rendered'
+                  :class="[
+                    i ? 'border-l border-slate-200' : '',
+                    ks.skillBodyView === vue
                       ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'rendered'"
+                      : 'bg-white text-slate-500 hover:bg-slate-50',
+                  ]"
+                  @click="ks.skillBodyView = vue"
                 >
-                  Rendu
-                </button>
-                <button
-                  class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
-                  :class="
-                    ks.skillBodyView === 'source'
-                      ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'source'"
-                >
-                  Source
+                  {{ libelle }}
                 </button>
               </div>
             </div>
@@ -532,26 +526,18 @@ function poserDeclencheur(el: unknown): void {
                 aria-label="Affichage du corps"
               >
                 <button
+                  v-for="(libelle, vue, i) in VUES_CORPS"
+                  :key="vue"
                   class="text-[11px] px-2 py-0.5 transition-colors"
-                  :class="
-                    ks.skillBodyView === 'rendered'
+                  :class="[
+                    i ? 'border-l border-slate-200' : '',
+                    ks.skillBodyView === vue
                       ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'rendered'"
+                      : 'bg-white text-slate-500 hover:bg-slate-50',
+                  ]"
+                  @click="ks.skillBodyView = vue"
                 >
-                  Rendu
-                </button>
-                <button
-                  class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
-                  :class="
-                    ks.skillBodyView === 'source'
-                      ? 'bg-slate-100 text-slate-800 font-medium'
-                      : 'bg-white text-slate-500 hover:bg-slate-50'
-                  "
-                  @click="ks.skillBodyView = 'source'"
-                >
-                  Source
+                  {{ libelle }}
                 </button>
               </div>
             </div>

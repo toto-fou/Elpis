@@ -33,12 +33,12 @@ t('gabarit : bandeau borné à la dernière bulle, hors génération', () => {
     assert.ok(m, 'bandeau de reprise introuvable');
     assert.ok(m[1].includes('entry.idx === lastAssistantIdx'), m[1]);
     assert.ok(m[1].includes('!isStreaming'), m[1]);
-    // Les deux conditions doivent figurer dans le v-memo de la ligne, sinon
-    // la ligne mémoïsée ne se re-rend pas quand elles changent.
+    // La ligne n'a plus de v-memo (2026-11) : rien ne fige ces conditions. S'il revient, elles doivent y figurer,
+    // sinon la ligne mémoïsée ne se re-rend pas quand elles changent.
     const liste = fs.readFileSync(path.join(RACINE_FRONT, 'src', 'components', 'chat', 'liste', 'ListeMessages.vue'), 'utf8')
         .replace(/\b(?:ctx|fil|liste)\./g, '').replace(/\s+/g, ' ');
-    const memo = liste.match(/v-memo="\[ ?entry\.msg,([\s\S]*?)\]"/);
-    assert.ok(memo && memo[1].includes('entry.idx === lastAssistantIdx') && memo[1].includes('isStreaming'));
+    const memo = liste.match(/v-memo="\[([\s\S]*?)\]"/);
+    assert.ok(!memo || (memo[1].includes('entry.idx === lastAssistantIdx') && memo[1].includes('isStreaming')));
 });
 
 fin();

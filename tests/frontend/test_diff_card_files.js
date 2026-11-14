@@ -137,9 +137,9 @@ t('gabarit : carte seulement éditeur désactivé ET fichiers modifiés (2026-09
     // La carte vit dans le composant FichiersModifies (domaine injecté ``fil``/``liste``, page/domaines.ts).
     const sfc = lire('src/components/chat/message/FichiersModifies.vue').replace(/\b(?:ctx|fil|liste)\./g, '');
     assert.ok(sfc.includes('!entry.msg.isStreaming && !isDiffEditorEnabled() && hasDiffFiles(entry.msg)'));
-    // Le v-memo de la ligne vit dans ListeMessages.vue.
+    // La ligne n'a plus de v-memo (2026-11) : rien ne fige la bascule de l'éditeur. S'il revient, elle doit y figurer.
     const liste = lire('src/components/chat/liste/ListeMessages.vue').replace(/\b(?:ctx|fil|liste)\./g, '');
-    assert.ok(/v-memo="[^"]*settings\.enable_editor/.test(liste), 'bascule éditeur hors v-memo');
+    assert.ok(!/v-memo=/.test(liste) || /v-memo="[^"]*settings\.enable_editor/.test(liste), 'bascule éditeur hors v-memo');
 });
 
 fin('test_diff_card_files.js');

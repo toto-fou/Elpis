@@ -789,26 +789,37 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     },
   );
 
+  // Éditeur masqué : son thème attend le prochain affichage (redéfinir celui de Monaco restyle toute la page).
+  let themeEnRetard = false;
+  function suivreTheme(): void {
+    if (showEditor.value) appliquerTheme();
+    else themeEnRetard = true;
+  }
+  watch(showEditor, (v) => {
+    if (!v || !themeEnRetard) return;
+    themeEnRetard = false;
+    appliquerTheme();
+  });
   // Thème de l'éditeur à chaud (global à Monaco) : vs / vs-dark en classique, jetons du thème de la page ailleurs.
   watch(
     () => [settings.value?.editor_dark_mode, interfaceEditeur.value] as const,
     (_v, avant) => {
       if (avant === undefined) return;
-      void nextTick(appliquerTheme);
+      void nextTick(suivreTheme);
     },
   );
   // Feuille du skin : liée quand l'éditeur suit le skin, puis thème recalculé sur ses jetons.
   watch(
     () => (interfaceEditeur.value === "skin" ? feuilleEditeur.value : ""),
     (url) => {
-      void chargerFeuilleEditeur(url).then(() => nextTick(appliquerTheme));
+      void chargerFeuilleEditeur(url).then(() => nextTick(suivreTheme));
     },
     { immediate: true },
   );
   // Thème ou mode sombre de la page changés (classes du body) : l'éditeur lié au skin suit.
   if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
     const observateur = new MutationObserver(() => {
-      if (interfaceEditeur.value !== "classic") appliquerTheme();
+      if (interfaceEditeur.value !== "classic") suivreTheme();
     });
     observateur.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     onScopeDispose(() => observateur.disconnect());

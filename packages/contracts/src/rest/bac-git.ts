@@ -80,6 +80,7 @@ export const schemaCorpsClonerGit = z.object({
   dir: z.string().optional(),
   cred_user: z.string().optional(),
   cred_token: z.string().optional(),
+  cred_scope: z.string().optional(),
   provider_type: z.string().optional(),
 });
 export const schemaCorpsCheminsGit = z.object({ ...depot, paths: z.array(z.string()).optional() });

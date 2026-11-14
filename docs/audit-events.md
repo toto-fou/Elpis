@@ -424,8 +424,10 @@ backups for no longer than the journal retention.
 Written by `main` (the account's secrets, the tool host's resolutions), `admin` (instance secrets)
 and `cli` (`vault rekey`). `owner` is `user` or `instance` (secrets of shared connectors, managed by
 admins). `details` never carry a value, a ciphertext or the key: `scope` lists exact origins, a git
-host, a connector or a server id; `target` is the normalised origin (or host, connector, server) a
-secret was asked for, never the page's path or query.
+host (with its organization or repository path when the account has one), a connector or a server
+id; `target` is the normalised origin (or connector, server) a secret was asked for, never the
+page's path or query; for `git` it is the host followed by the repository path
+(`github.com/acme/api`), or the host alone when that path is not plain segments.
 
 | Action                  | Outcome | When                                                                                                                              | `details`                                                                                                                                                                        |
 | ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

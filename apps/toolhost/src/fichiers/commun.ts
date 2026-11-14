@@ -41,6 +41,7 @@ export interface RappelFichiers extends SourceGit {
     utilisateur: string,
     jeton: string,
     typeFournisseur: string,
+    portee?: string | null,
   ): Promise<boolean>;
   /** `import_legacy_git_credentials` : connecteurs créés, `-1` si l'import a échoué, `IMPORT_GARDE` si des hôtes ont été refusés (fichier gardé). */
   importAncien(

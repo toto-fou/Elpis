@@ -233,13 +233,14 @@ export class ClientRappel {
     return this.retenir(cle, q);
   }
 
-  /** `save_git_credential` par le core pour `compte` (enveloppe signée) : identifiant saisi par l'humain au clone de l'éditeur, écrit dans le coffre pour l'hôte du dépôt (jamais gardé ni journalisé ici) ; vrai s'il l'a été. */
+  /** `save_git_credential` par le core pour `compte` (enveloppe signée) : identifiant saisi par l'humain au clone de l'éditeur, écrit dans le coffre pour l'hôte du dépôt et la portée choisie (`portee` : chemin d'organisation ou de dépôt, `""` tout l'hôte, absent : choisie par le core) ; jamais gardé ni journalisé ici ; vrai s'il l'a été. */
   async enregistrerIdentifiantGit(
     compte: CompteSigne,
     cible: string,
     utilisateur: string,
     jeton: string,
     typeFournisseur: string,
+    portee?: string | null,
   ): Promise<boolean> {
     if (compte.user_id <= 0 || !compte.username || !jeton) return false;
     const d = await this.appeler(
@@ -252,6 +253,7 @@ export class ClientRappel {
         token: jeton,
         provider_type: typeFournisseur,
         origine: "editeur",
+        ...(typeof portee === "string" ? { scope: portee } : {}),
       },
       compte,
     );

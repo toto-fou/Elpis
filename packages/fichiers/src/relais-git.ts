@@ -782,11 +782,11 @@ export interface OptionsTicket {
   readonly dureeS?: number;
 }
 
-/** `ticket` : ticket d'une opération (spécification pour l'agent, motifs des requêtes refusées), révoqué à la fin de `f`. */
+/** `ticket` : ticket d'une opération (spécification pour l'agent, motifs des requêtes refusées, `defie` : l'amont a demandé les identifiants saisis, qui lui ont été envoyés), révoqué à la fin de `f`. */
 export async function avecTicket<T>(
   dossier: string,
   o: OptionsTicket,
-  f: (relay: SpecRelais, refus: string[]) => Promise<T>,
+  f: (relay: SpecRelais, refus: string[], defie: () => boolean) => Promise<T>,
 ): Promise<T> {
   if (o.service !== UPLOAD && o.service !== RECEIVE) throw new Error(`ValueError: ${o.service}`);
   const [base, depot, origine] = amont(o.url);
@@ -807,7 +807,7 @@ export async function avecTicket<T>(
   const nom = await serveurRelais(dossier);
   const jeton = ajouterTicket(t);
   try {
-    return await f({ socket: nom, ticket: jeton, origin: origine }, t.refus);
+    return await f({ socket: nom, ticket: jeton, origin: origine }, t.refus, () => t.defie);
   } finally {
     tickets.delete(jeton);
   }

@@ -14,9 +14,20 @@ import {
 } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 
-import { hoteExact } from "../secrets/portee";
+import { cheminCouvre, cheminDepot, hoteExact } from "../secrets/portee";
 import type { Acteur } from "../secrets/stockage";
-import { createConnector, findForHost, hoteJoint, PROVIDER_TYPES, updateConnector } from "./connecteurs";
+import {
+  cheminDeLUrl,
+  cheminPourType,
+  compteAVerifier,
+  compteCouvrant,
+  createConnector,
+  findForHost,
+  hoteJoint,
+  PROVIDER_TYPES,
+  updateConnector,
+} from "./connecteurs";
+import type { LigneConnecteur } from "./connecteurs";
 import { defaultProviderType, detectProvider, normalizeHost } from "./detection";
 
 const HOTE_CANONIQUE: Readonly<Record<string, string>> = {
@@ -32,7 +43,24 @@ export function hoteEtFournisseur(cible: string): [string, string] {
   return [lowerPy(normalizeHost(cible) || ""), "unknown"];
 }
 
-/** `save_git_credential` (clone de l'éditeur) : compte git de l'hôte rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte. */
+/** Portée où ranger des identifiants saisis au clone, dans la casse de l'URL : celle demandée si elle couvre le dépôt ; sinon celle du compte à chemin qui le couvre, tout l'hôte si aucun compte ne l'a, ou le parent du dépôt quand un compte tient déjà tout l'hôte ; `null` (rien n'est enregistré) quand le dépôt est illisible et que tout l'hôte a déjà son compte, jamais remplacé d'office. */
+export function porteeDesSaisis(
+  comptes: readonly LigneConnecteur[],
+  chemin: string | null,
+  demandee?: string | null,
+): string | null {
+  const prefixe = (segments: number): string => (chemin ?? "").split("/").slice(0, segments).join("/");
+  const d = typeof demandee === "string" ? cheminDepot(demandee) : null;
+  if (d === "") return "";
+  if (d !== null && cheminCouvre(d.toLowerCase(), chemin === null ? null : chemin.toLowerCase()))
+    return prefixe(d.split("/").length);
+  if (chemin === null) return comptes.some((c) => c.path === "") ? null : "";
+  const couvrant = compteCouvrant(comptes, chemin);
+  if (couvrant === undefined) return "";
+  return prefixe(couvrant.path ? couvrant.path.split("/").length : chemin.split("/").length - 1);
+}
+
+/** `save_git_credential` (clone de l'éditeur) : compte git de la portée retenue (`porteeDesSaisis`) rafraîchi (jeton dans le coffre, identifiant fourni), sinon créé (type donné, détecté, ou gitea) ; son id, `null` sans jeton ni hôte, quand rien n'est à enregistrer, ou quand le compte de cette portée attend d'être vérifié. */
 export async function saveGitCredential(
   base: Base,
   uid: number,
@@ -41,15 +69,21 @@ export async function saveGitCredential(
   jeton: string,
   typeFournisseur: string,
   acteur: Acteur,
+  portee?: string | null,
 ): Promise<number | null> {
   if (!(uid && jeton && stripPy(jeton))) return null;
   const [hote, detecte] = hoteEtFournisseur(cible);
   if (!hote) return null;
   const net = stripPy(jeton);
-  const premier = (await findForHost(base, uid, hote))[0];
-  if (premier !== undefined) {
-    await updateConnector(base, uid, premier.id, { token: net, username: utilisateur || null }, acteur);
-    return premier.id;
+  const comptes = await findForHost(base, uid, hote);
+  const chemin = porteeDesSaisis(comptes, cheminDeLUrl(cible), portee);
+  if (chemin === null) return null;
+  const existant = comptes.find((c) => c.path === cheminPourType(chemin, c.provider_type));
+  if (existant !== undefined) {
+    // Compte importé du bac, à vérifier : son type et son API viennent de l'agent, une saisie au clone ne le valide pas.
+    if (await compteAVerifier(base, existant)) return null;
+    await updateConnector(base, uid, existant.id, { token: net, username: utilisateur || null }, acteur);
+    return existant.id;
   }
   let type = stripPy(lowerPy(typeFournisseur || ""));
   if (!PROVIDER_TYPES.includes(type)) {
@@ -61,7 +95,7 @@ export async function saveGitCredential(
     uid,
     type,
     hote,
-    { token: net, username: utilisateur || "", label: "auto" },
+    { token: net, path: chemin, username: utilisateur || "", label: "auto" },
     acteur,
   );
 }

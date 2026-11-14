@@ -320,9 +320,10 @@ export const TABLES: readonly Table[] = [
       { name: "updated_at", type: "real", null: false },
       { name: "last_used", type: "real" },
       { name: "secret_id", type: "int", default: null },
+      { name: "path", type: "text" },
     ],
     fks: [{"cols": ["owner_user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
-    indexes: [{"name": "idx_gitconn_owner_host", "cols": ["owner_user_id", "host"]}, {"name": "idx_gitconn_owner_host_label", "cols": ["owner_user_id", "host", "label"], "unique": true}],
+    indexes: [{"name": "idx_gitconn_owner_host", "cols": ["owner_user_id", "host"]}, {"name": "idx_gitconn_owner_host_path", "cols": ["owner_user_id", "host", "path"], "unique": true}],
   },
   {
     name: "groups",

@@ -1193,7 +1193,7 @@ never leaves the core. Core unreachable after the push: error
 ``pr_service_unavailable`` (branch pushed, PR to reopen). No agent tool takes a token
 (``git_clone`` has no ``username``/``token`` and ``git_set_credential`` no longer exists): when a
 repository needs credentials, the tool's error tells the model to ask the user to add a Git
-account in Settings › Git accounts. Only the editor's clone saves the credentials typed by the
+account in Settings › Secrets › Git accounts. Only the editor's clone saves the credentials typed by the
 user (``POST /api/internal/git/credential``, origin ``editeur``), into the vault; push and pull
 use typed credentials without saving them. An old ``.git-credentials.json`` in the sandbox is
 imported into the vault only for a host (port included) already registered by the account or by

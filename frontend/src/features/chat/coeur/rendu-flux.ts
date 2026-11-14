@@ -278,7 +278,7 @@ export function creerRenduFlux(c: CoeurChat) {
     return !!mqReduit?.matches;
   }
 
-  // Seule écriture du défilement pendant une réponse : glissé vers le nouveau bas (l'observateur de taille du fil le laisse faire), jamais plus de deux lignes de retard ; immédiat en mouvement réduit et onglet caché.
+  // Seule écriture du défilement pendant une réponse : glissé vers le nouveau bas (l'observateur de taille du fil le laisse faire), jamais plus de deux lignes de retard, arrêté dès qu'une écriture n'avance plus (bas réel au-dessus de l'estimé : zoom, pixels physiques) ; immédiat en mouvement réduit et onglet caché.
   function suivreBas(t: number, immediat: boolean): void {
     const dt = glisse ? Math.min(100, Math.max(4, t - dernierPas)) : IMAGE_MS;
     dernierPas = t;
@@ -292,7 +292,7 @@ export function creerRenduFlux(c: CoeurChat) {
       else {
         const pas = Math.max(1, ecart * (1 - Math.exp(-dt / GLISSE_MS)), ecart - ECART_MAX_PX);
         el.scrollTop = haut + pas;
-        glisse = pas < ecart;
+        glisse = pas < ecart && el.scrollTop > haut;
       }
     }
     marquerBattement(glisse);

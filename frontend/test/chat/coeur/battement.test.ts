@@ -12,6 +12,7 @@ import type { ModulesChat } from "../../../src/features/chat/coeur/chat";
 import { projeterPourPersistance } from "../../../src/features/chat/coeur/persistance";
 import type { CtxChat, MessageChat, RefsRacineChat } from "../../../src/features/chat/coeur/types";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
+import { battementEnCours } from "../../../src/utils/battement";
 
 vi.mock("../../../src/platform/vendor", () => ({
   ensureVendor: () => Promise.reject(new Error("Chargement impossible")),
@@ -537,8 +538,8 @@ describe("battement : une écriture de défilement par image", () => {
   });
 });
 
-/** Fil défilant comme dans un navigateur : `scrollTop` borné au bas, hauteur réglable, chaque écriture relevée. */
-function filDefilant(hauteur: number, haut: number) {
+/** Fil défilant comme dans un navigateur : `scrollTop` borné au bas (réel : `arrondi` px au-dessus de l'estimé, comme au zoom), hauteur réglable, chaque écriture relevée. */
+function filDefilant(hauteur: number, haut: number, arrondi = 0) {
   const etat = { hauteur, haut };
   const ecrits: number[] = [];
   const el = document.createElement("div");
@@ -548,7 +549,7 @@ function filDefilant(hauteur: number, haut: number) {
     configurable: true,
     get: () => etat.haut,
     set: (v: number) => {
-      etat.haut = Math.max(0, Math.min(v, etat.hauteur - 600));
+      etat.haut = Math.max(0, Math.min(v, etat.hauteur - 600 - arrondi));
       ecrits.push(etat.haut);
     },
   });
@@ -698,6 +699,20 @@ describe("battement : suivi glissé", () => {
     observer();
     expect(f.ecart()).toBe(0);
     await fin();
+  });
+
+  it("bas réel au-dessus de l'estimé (zoom) : le glissé s'arrête au bas atteignable et rend la main à l'observateur", async () => {
+    mouvement(false);
+    const { api, stop } = monter();
+    const f = filDefilant(2000, 1398, 2);
+    brancher(api, f.el);
+    await contenu(api, "Une ligne de plus.");
+    f.etat.hauteur += 24;
+    await image(60);
+    expect(f.etat.haut).toBe(1422);
+    expect(file.size).toBe(0);
+    expect(battementEnCours()).toBe(false);
+    stop();
   });
 
   it("mouvement réduit : le bas est posé tout de suite, sans glissé", async () => {

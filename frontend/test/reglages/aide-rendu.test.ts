@@ -62,13 +62,15 @@ const normalise = (html: string): string => {
 };
 
 describe("découpe du guide", () => {
-  it("les morceaux recomposent le texte, chacun d'au moins la taille demandée", () => {
+  it("les morceaux recomposent le texte ; le premier, court, porte le haut, les autres ont au moins la taille demandée", () => {
     for (const f of ["docs/fr/user-guide.md", "docs/user-guide.md", "docs/architecture.md"]) {
       const texte = lire(f);
       const morceaux = decouperGuide(texte);
       expect(morceaux.join(""), f).toBe(texte.replace(/\r\n?/g, "\n"));
       expect(morceaux.length, f).toBeGreaterThan(10);
-      for (const m of morceaux.slice(0, -1)) expect(m.length).toBeGreaterThanOrEqual(2000);
+      expect(morceaux[0]!.length, f).toBeGreaterThanOrEqual(500);
+      expect(morceaux[0]!.length, f).toBeLessThan(1500);
+      for (const m of morceaux.slice(1, -1)) expect(m.length).toBeGreaterThanOrEqual(2000);
     }
   });
 
@@ -94,7 +96,7 @@ describe("découpe du guide", () => {
       "## Fin",
       "",
     ].join("\n");
-    const morceaux = decouperGuide(texte, 1);
+    const morceaux = decouperGuide(texte, 1, 1);
     expect(morceaux).toEqual([
       "# Titre\n\n",
       "```md\n\n# pas un titre\n```\n\n- un\n\n- deux\n\n  suite de deux\n\n1. premier\n\n",
@@ -104,12 +106,12 @@ describe("découpe du guide", () => {
   });
 
   it("du code en ligne en tête de ligne n'ouvre pas de bloc", () => {
-    expect(decouperGuide("A\n\n```x``` y\n\n# T\n", 1)).toEqual(["A\n\n", "```x``` y\n\n", "# T\n"]);
+    expect(decouperGuide("A\n\n```x``` y\n\n# T\n", 1, 1)).toEqual(["A\n\n", "```x``` y\n\n", "# T\n"]);
   });
 
   it("un texte à liens de référence reste entier", () => {
     const texte = "# A\n\nVoir [la suite][s].\n\n## B\n\n[s]: https://exemple.org\n";
-    expect(decouperGuide(texte, 1)).toEqual([texte]);
+    expect(decouperGuide(texte, 1, 1)).toEqual([texte]);
   });
 });
 

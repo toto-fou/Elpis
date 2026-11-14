@@ -9,10 +9,12 @@ import { moteurMarkdown } from "../chat/rendu/instance";
 
 /** Taille minimale d'un morceau, en caractères de Markdown : une tranche reste courte, même processeur ralenti. */
 const TAILLE_MORCEAU = 2000;
+/** Taille minimale du premier morceau, posé dans la tâche qui reçoit le guide : le haut seul, la suite vient par tranches. */
+const TAILLE_PREMIER = 500;
 /** Durée d'une tranche de rendu ; au-delà, la suite attend la tranche suivante. */
 const TRANCHE_MS = 8;
 /** Hauteur réservée par caractère d'un morceau pas encore rendu : la barre de défilement est juste dès l'ouverture. */
-const PX_PAR_CARACTERE = 0.3;
+const PX_PAR_CARACTERE = 0.38;
 /** Un morceau à moins de cette distance de l'écran est rendu et enrichi en priorité. */
 const MARGE_APPROCHE = "400px 0px";
 const DOCS_GARDES = 2;
@@ -24,7 +26,7 @@ const ELEMENT_LISTE = /^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)/;
 const DEFINITION_LIEN = /^ {0,3}\[[^\]\n]+\]:/m;
 
 /** Découpe aux seules frontières qui ne changent pas le rendu (hors bloc de code, une ligne sans retrait ni puce après une ligne vide, ou un titre) ; un texte à liens de référence reste entier. */
-export function decouperGuide(texte: string, taille = TAILLE_MORCEAU): string[] {
+export function decouperGuide(texte: string, taille = TAILLE_MORCEAU, premier = TAILLE_PREMIER): string[] {
   const src = texte.replace(/\r\n?/g, "\n");
   if (DEFINITION_LIEN.test(src)) return [src];
   const morceaux: string[] = [];
@@ -40,7 +42,7 @@ export function decouperGuide(texte: string, taille = TAILLE_MORCEAU): string[] 
       if (f && f[0] === fence[0] && f.length >= fence.length) fence = "";
     } else {
       const coupe = /^\S/.test(ligne) && !ELEMENT_LISTE.test(ligne) && (vide || TITRE.test(ligne));
-      if (coupe && i - debut >= taille) {
+      if (coupe && i - debut >= (morceaux.length ? taille : premier)) {
         morceaux.push(src.slice(debut, i));
         debut = i;
       }

@@ -105,6 +105,16 @@ describe("Paramètres › Apparence › Animations", () => {
     expect(coches(hote)).toEqual(["true", "false", "false"]);
   });
 
+  it("« Mode » et « Animations » sont deux rangées du même bloc à colonnes partagées : contrôles de même largeur, boutons alignés", () => {
+    const { hote } = monter({});
+    const blocs = ["set-theme-mode-lbl", "set-mouvement-lbl"].map((id) =>
+      hote.querySelector(`[aria-labelledby="${id}"]`)?.closest(".set-colonnes"),
+    );
+    expect(blocs[0]).toBeTruthy();
+    expect(blocs[1]).toBe(blocs[0]);
+    expect(Array.from(blocs[0]?.children ?? []).map((r) => r.className)).toEqual(["set-row", "set-row"]);
+  });
+
   it("un clic pose le choix dans les réglages (enregistré avec eux) ; une valeur inconnue revient à « Système »", async () => {
     const settings = reactive<Record<string, unknown>>({ skin: "elpis", ui_motion: "reduced" });
     const { hote } = monter({ settings });

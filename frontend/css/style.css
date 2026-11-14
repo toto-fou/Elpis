@@ -2209,6 +2209,12 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     padding: 0.875rem;          /* p-3.5 ; l'arrondi reste en utilitaire (first/last) */
     transition: background-color .15s ease;
 }
+/* Rangées d'un même bloc dont les contrôles segmentés partagent une colonne : même largeur et boutons
+   de même taille d'une rangée à l'autre, alignés (Apparence : Mode, Animations). */
+.set-colonnes { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.set-colonnes > .set-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.set-colonnes .adm-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.set-colonnes .adm-seg__btn { text-align: center; }
 /* Sous-item : indentation seule, SANS accent gauche bleu (anti-pattern banni). */
 .set-row--sub { padding: 0.625rem 0.875rem 0.625rem 2.25rem; }  /* py-2.5 pr-3.5 pl-9 */
 

@@ -25,7 +25,10 @@ onMounted(() => void rg.chargerSkinsPerso());
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <h3 class="sr-only">{{ section?.libelle }}</h3>
   <div class="space-y-5 max-w-xl">
-    <div v-if="section?.id === 'theme'" class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+    <div
+      v-if="section?.id === 'theme'"
+      class="set-colonnes bg-slate-50 rounded-xl divide-y divide-slate-200/70"
+    >
       <div class="set-row">
         <i class="ph ph-moon text-slate-400 text-lg w-5" aria-hidden="true"></i>
         <div class="flex-1 min-w-0">

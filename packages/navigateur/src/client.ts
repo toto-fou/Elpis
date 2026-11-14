@@ -247,13 +247,25 @@ export interface OptionsClientNavigateur {
   delaiS?: number;
   /** Service du bac du compte rendu par `serviceNavigateur`, joint par son socket. */
   service: ServiceNavigateur;
+  /** Captures d'étape demandées au service (réglage du compte, `_meta.web_captures`). */
+  captures?: boolean;
+  /** Vision du modèle du tour (`_meta.vision`) : capture réduite demandée aux requêtes qui la réclament. */
+  vision?: boolean;
 }
 
 export interface OptionsRequete {
   json?: unknown;
   params?: Dict | null;
   timeout?: number | null;
+  /** Requête annexe d'un outil (page jointe, URL courante) : jamais de capture d'étape. */
+  annexe?: boolean;
+  /** Requête qui réclame la capture de la vision (`pw_page inspect`). */
+  vision?: boolean;
 }
+
+/** En-têtes de captures de l'hôte d'outils vers le service : seule source de ses captures d'étape et de vision. */
+const ENTETE_CAPTURES = "x-elpis-captures";
+const ENTETE_VISION = "x-elpis-vision";
 
 export type Echec = { genre: "connexion" | "delai" | "autre"; message: string };
 
@@ -284,12 +296,24 @@ export class ClientNavigateur {
   readonly delaiS: number;
   /** Service du bac du compte. */
   readonly service: ServiceNavigateur;
+  readonly captures: boolean;
+  readonly vision: boolean;
 
   constructor(o: OptionsClientNavigateur) {
     if (!o.owner) throw new Error("client du service navigateur sans propriétaire");
     this.owner = o.owner;
     this.service = o.service;
     this.delaiS = o.delaiS ?? intPy(process.env["PLAYWRIGHT_TIMEOUT"] ?? "10");
+    this.captures = o.captures === true;
+    this.vision = o.vision === true;
+  }
+
+  /** En-têtes d'une requête : JSON, captures d'étape (sauf requête annexe), vision (requête qui la réclame). */
+  private entetes(o: OptionsRequete, json: boolean): Record<string, string> {
+    const e: Record<string, string> = json ? { "content-type": "application/json" } : {};
+    if (this.captures && o.annexe !== true) e[ENTETE_CAPTURES] = "1";
+    if (this.vision && o.vision === true) e[ENTETE_VISION] = "1";
+    return e;
   }
 
   /** Une requête au service : statut et texte, ou l'échec classé comme requests (connexion, délai, autre). */
@@ -317,7 +341,7 @@ export class ClientNavigateur {
     try {
       const r = await requeteService(this.service, chemin, {
         methode: methode === "GET" ? "GET" : "POST",
-        entetes: charge === undefined ? {} : { "content-type": "application/json" },
+        entetes: this.entetes(o, charge !== undefined),
         ...(charge === undefined ? {} : { corps: charge }),
         delaiMs: t * 1000,
       });
@@ -400,6 +424,7 @@ export class ClientNavigateur {
             max_items: clampItems(maxItems, 25),
             skip_screenshot: "true",
           },
+          annexe: true,
         });
         if (estDict(snap) && !veritePy(snap["error"])) result = { ...result, page_after: snap };
       } catch {
@@ -414,6 +439,7 @@ export class ClientNavigateur {
     try {
       const r = await this.req("GET", "/smart_inspect", {
         params: { session_id: sessionId, skip_screenshot: "true", level: "lite" },
+        annexe: true,
       });
       if (estDict(r)) return veritePy(r["url"]) ? (r["url"] as string) : "";
     } catch {

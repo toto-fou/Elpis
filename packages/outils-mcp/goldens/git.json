@@ -1955,7 +1955,7 @@
     {
       "name": "git_clone",
       "title": "Git Clone",
-      "description": "v15 \u2014 Clone a git repo (http/https) into the sandbox.\n\nThe clone lands DIRECTLY in the sandbox (or a relative subdir given by\n``into_path``), NOT in ``git_repos/`` anymore (legacy layout).\n\nCREDENTIALS (private repo): the token of the Git account registered for the\nhost is used automatically (also by push / pull / git_submit). No tool takes\na token and a token in the URL is rejected: if the clone needs credentials,\nask the user to add a Git account for this host in Settings \u203a Git accounts.",
+      "description": "v15 \u2014 Clone a git repo (http/https) into the sandbox.\n\nThe clone lands DIRECTLY in the sandbox (or a relative subdir given by\n``into_path``), NOT in ``git_repos/`` anymore (legacy layout).\n\nCREDENTIALS (private repo): the token of the Git account registered for the\nhost is used automatically (also by push / pull / git_submit). No tool takes\na token and a token in the URL is rejected: if the clone needs credentials,\nask the user to add a Git account for this host in Settings \u203a Secrets \u203a Git accounts.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

@@ -34,6 +34,7 @@ watchEffect(() => {
   if (!ancien) return;
   rg.settingsTab = ancien.onglet;
   rg.settingsSections[ancien.onglet] = ancien.section;
+  void rg.chargerOnglet(ancien.onglet);
 });
 </script>
 

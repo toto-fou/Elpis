@@ -346,9 +346,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
       } else {
         const err = d?.error || (typeof d?.detail === "string" ? d.detail : "") || "Erreur";
         gitCloneReposError.value =
-          err === "no_api"
-            ? "Ce connecteur ne supporte pas le listing des dépôts"
-            : "Listing impossible : " + err;
+          err === "no_api" ? "Ce compte ne permet pas de lister ses dépôts" : "Listing impossible : " + err;
       }
     } catch {
       gitCloneReposError.value = "Erreur réseau";

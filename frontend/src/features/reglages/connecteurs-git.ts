@@ -30,7 +30,12 @@ export interface CtxConnecteursGit {
   openConfirm?(titre: string, message: string, danger: boolean): Promise<boolean>;
 }
 
-export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, http: ClientHttp) {
+/** `apresChangement` : avis qu'un compte (et son secret du coffre) a été créé, modifié ou supprimé. */
+export function setupGitConnecteurs(
+  ctx: CtxConnecteursGit | null | undefined,
+  http: ClientHttp,
+  apresChangement: () => void = () => undefined,
+) {
   const toast = (m: string, type?: string): void => ctx?.showToast?.(m, type);
   const gitConnectors: Ref<ConnecteurGit[]> = ref([]);
   const gitConnTypes: Ref<string[]> = ref([]);
@@ -130,6 +135,7 @@ export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, h
       if (r.type === "ok") {
         gitConnForm.value = null;
         await loadGitConnectors();
+        apresChangement();
         toast(edition ? "Compte mis à jour" : "Compte ajouté", "success");
       } else {
         const detail =
@@ -153,6 +159,7 @@ export function setupGitConnecteurs(ctx: CtxConnecteursGit | null | undefined, h
     const r = await http.requete(`/api/git/connectors/${c.id}`, { method: "DELETE" });
     if (r.type === "ok") {
       await loadGitConnectors();
+      apresChangement();
       toast("Compte supprimé", "success");
     }
   }

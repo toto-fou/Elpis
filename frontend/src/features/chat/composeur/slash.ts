@@ -3,6 +3,7 @@
 import type * as Vue from "vue";
 import type { ComputedRef, Ref } from "vue";
 
+import { ANCIENS_ONGLETS } from "../../reglages/rail.ts";
 import type { JobsSlash } from "../jobs/jobs.ts";
 import { listeServeur } from "./liste-serveur.ts";
 import type { ResultatCommande, TemplatesChat } from "./templates.ts";
@@ -529,8 +530,9 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
       args: [{ name: "onglet", label: "onglet", values: SETTINGS_TABS }],
       run: async (a) => {
         const tab = a[0] ? SETTINGS_TABS.find((t) => t.value === a[0]) || null : null;
-        if (a[0] && !tab) return { ok: false, msg: "Onglet inconnu : " + a[0] };
-        await ctx.openSettingsTab?.(tab ? tab.value : null);
+        const ancien = a[0] !== undefined && Object.hasOwn(ANCIENS_ONGLETS, a[0]) ? a[0] : null;
+        if (a[0] && !tab && !ancien) return { ok: false, msg: "Onglet inconnu : " + a[0] };
+        await ctx.openSettingsTab?.(tab ? tab.value : ancien);
         return { ok: true, silent: true };
       },
     },

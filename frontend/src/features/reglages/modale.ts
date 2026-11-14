@@ -155,10 +155,10 @@ export function creerModale(
     skills: () => ctx.openSkillsTab?.(),
   };
 
-  /** Relit les données d'un onglet (ouverture, choix dans le rail) ; un échec le laisse avec ses données précédentes. */
+  /** Relit les données d'un onglet (ouverture, choix dans le rail ; un ancien identifiant vaut le sien) ; un échec le laisse avec ses données précédentes. */
   async function chargerOnglet(id: string): Promise<void> {
     try {
-      await chargeursOnglet[id]?.();
+      await chargeursOnglet[ANCIENS_ONGLETS[id]?.onglet ?? id]?.();
     } catch {
       /* onglet ouvert avec ses données précédentes */
     }

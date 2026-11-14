@@ -46,13 +46,13 @@ function champSuivant(e: KeyboardEvent): void {
         </div>
         <div class="p-4 space-y-3">
           <div v-if="ed.gitConnectors && ed.gitConnectors.length">
-            <label class="text-xs font-medium text-slate-500 block mb-1">Cloner depuis un connecteur</label>
+            <label class="text-xs font-medium text-slate-500 block mb-1">Cloner depuis un compte Git</label>
             <select
               v-model="ed.gitCloneConnectorId"
               class="set-select w-full"
               @change="ed.gitLoadConnectorRepos(ed.gitCloneConnectorId)"
             >
-              <option value="">— choisir un connecteur —</option>
+              <option value="">— choisir un compte —</option>
               <option v-for="c in ed.gitConnectors" :key="c.id" :value="c.id">
                 {{ c.host }}<template v-if="c.label"> · {{ c.label }}</template>
               </option>
@@ -130,7 +130,7 @@ function champSuivant(e: KeyboardEvent): void {
 
           <div class="text-[11px] leading-snug">
             <template v-if="ed.gitConnectors && ed.gitConnectors.length">
-              <span class="text-slate-500"><i class="ph ph-key" aria-hidden="true"></i> Connecteurs : </span
+              <span class="text-slate-500"><i class="ph ph-key" aria-hidden="true"></i> Comptes Git : </span
               ><span v-for="(c, i) in ed.gitConnectors" :key="c.id"
                 ><span v-if="i > 0" class="text-slate-400">, </span
                 ><span class="font-mono text-slate-600">{{ c.host }}</span></span
@@ -152,7 +152,7 @@ function champSuivant(e: KeyboardEvent): void {
                   ed.showGitCloneModal = false;
                   ed.openSettingsTab('secrets:git');
                 "
-                >Ajoutez un connecteur Git</a
+                >Ajoutez un compte Git</a
               ><span class="text-slate-500"> pour vous authentifier.</span>
             </template>
           </div>

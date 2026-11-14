@@ -49,7 +49,8 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   const agents = creerAgents(vue, settings, ctx, persistance);
 
   const connexions = setupConnexions(ctx, http);
-  const git = setupGitConnecteurs(ctx, http);
+  // Un compte git porte un secret du coffre, et réciproquement : chaque liste suit les changements de l'autre.
+  const git = setupGitConnecteurs(ctx, http, () => void secrets.charger());
   const llm = setupLlmConnecteurs(ctx, http);
   const utilisation = setupUtilisation(http);
   const secrets = creerGestionSecrets({
@@ -57,7 +58,10 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     portee: "compte",
     toast: ctx.showToast,
     ouvrir: (cible) => ouvrirGestionnaireSecret(cible),
-    notifier: () => window.dispatchEvent(new CustomEvent("secrets:changed")),
+    notifier: () => {
+      window.dispatchEvent(new CustomEvent("secrets:changed"));
+      void git.loadGitConnectors();
+    },
     demanderAbandon: () =>
       ctx.openConfirm("Abandonner la saisie ?", "La saisie de ce secret sera perdue.", true, "Abandonner"),
   });

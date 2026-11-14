@@ -10,7 +10,7 @@ const rt = domaineRoutines();
   <!-- LEFT: routines list — masquée pendant la création/édition -->
   <div v-if="!rt.routineIsEditing" class="w-80 shrink-0 border-r border-slate-200 flex flex-col min-h-0">
     <div class="flex-1 overflow-y-auto p-3 custom-scrollbar">
-      <div v-if="rt.routinesLoading" class="text-center py-10">
+      <div v-if="rt.routinesLoading && !rt.routines.length" class="text-center py-10">
         <i class="ph ph-spinner animate-spin text-slate-400 text-2xl"></i>
       </div>
       <div v-else-if="rt.routinesError" class="text-center py-10">

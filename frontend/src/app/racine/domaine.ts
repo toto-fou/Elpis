@@ -11,6 +11,8 @@ export interface DomaineChrome {
   announcerAssertive: boolean;
   toasts: Toast[];
   removeToast(id: number, avecExpiration?: boolean): void;
+  pauseToast(id: number): void;
+  reprendreToast(id: number): void;
   modalState: EtatFenetre;
   modalInputRef: HTMLInputElement | null;
   modalCancelRef: HTMLButtonElement | null;
@@ -29,6 +31,8 @@ export interface DomaineChrome {
 
 export interface DomaineConnexion {
   user: unknown;
+  /** Vrai tant que la session n'est pas connue : la carte de connexion n'est pas peinte. */
+  sessionEnAttente?: boolean;
   mustChangePassword: boolean;
   loginConfig: Record<string, unknown>;
   loginForm: { username: string; password: string };

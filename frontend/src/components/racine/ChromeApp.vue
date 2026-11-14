@@ -10,12 +10,21 @@ import type { ActionConversation } from "../../features/chat/page/conversation";
 import { CLE_ENTETE } from "../../features/chat/page/domaines";
 import AnnonceurA11y from "../AnnonceurA11y.vue";
 import MenuConversation from "../chat/page/MenuConversation.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const c = domaineRacine(CLE_CHROME);
 const multi = (item: unknown): number => c.explorerMultiCount?.(item) ?? 0;
 suivreDefilement();
 // Domaines du chat : absents de la console, qui n'a pas de conversations.
 const conv = inject(CLE_ENTETE, null);
+
+// Fin du survol ou du focus d'un toast, vue à l'image suivante : passer d'un de ses boutons à l'autre le garde en pause.
+function lacher(e: Event, id: number): void {
+  const el = e.currentTarget as HTMLElement;
+  globalThis.requestAnimationFrame(() => {
+    if (!el.matches(":hover") && !el.contains(globalThis.document.activeElement)) c.reprendreToast(id);
+  });
+}
 
 /** Menu « Conversation » du clic droit : Renommer, Archiver, Supprimer passent par la racine ; Rechercher, Exporter par le chat. */
 function agirConversation(action: ActionConversation): void {
@@ -69,6 +78,10 @@ function agirConversation(action: ActionConversation): void {
         :role="['error', 'warning'].includes(t.type) ? 'alert' : 'status'"
         class="pointer-events-none flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl min-w-[300px] max-w-md"
         :class="t.type === 'error' ? 'elpis-toast--error' : 'elpis-toast'"
+        @pointerenter="c.pauseToast(t.id)"
+        @focusin="c.pauseToast(t.id)"
+        @pointerleave="lacher($event, t.id)"
+        @focusout="lacher($event, t.id)"
       >
         <i
           class="ph text-xl"
@@ -133,6 +146,14 @@ function agirConversation(action: ActionConversation): void {
             {{ c.modalState.title }}
           </h3>
           <p v-if="c.modalState.message" class="text-slate-600 text-sm mb-5">{{ c.modalState.message }}</p>
+          <!-- Note arrivée après l'ouverture : sa ligne est réservée dès l'ouverture, le bouton ne bouge pas. -->
+          <p
+            v-if="c.modalState.note !== undefined"
+            class="text-slate-600 text-sm -mt-2 mb-5 min-h-6"
+            aria-live="polite"
+          >
+            {{ c.modalState.note }}
+          </p>
           <div v-if="c.modalState.type === 'prompt'" class="mb-5">
             <input
               :ref="(el) => (c.modalInputRef = el as HTMLInputElement | null)"
@@ -209,13 +230,13 @@ function agirConversation(action: ActionConversation): void {
 
   <!-- Menu contextuel (chats, fichiers, dossiers, fond de l'explorateur) : role=menu, focus sur la première entrée,
        flèches haut/bas ; Échap passe par la cascade globale. -->
-  <Transition name="popover">
+  <TransitionMenu>
     <div
       v-show="c.contextMenu.isOpen"
       id="custom-context-menu"
       role="menu"
       aria-label="Actions"
-      class="fixed z-[8000] bg-white border border-slate-200 shadow-xl rounded-xl py-1 min-w-[180px]"
+      class="menu-ancre-gauche fixed z-[8000] bg-white border border-slate-200 shadow-xl rounded-xl py-1 min-w-[180px]"
       :style="{ top: c.contextMenu.y + 'px', left: c.contextMenu.x + 'px' }"
       @keydown="c.onContextMenuKeydown"
     >
@@ -337,5 +358,5 @@ function agirConversation(action: ActionConversation): void {
         </template>
       </div>
     </div>
-  </Transition>
+  </TransitionMenu>
 </template>

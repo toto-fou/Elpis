@@ -236,18 +236,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
   }
 
   function resetStreamState(): void {
-    l.stopStreamFlush();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.streamBuf = "";
-    f.thinkBuf = "";
-    f.preContentBuf = "";
+    l.abandonnerFlux({ corps: true, reflexion: true, narration: true });
     f.streamToolPhase = false;
     f.toolsExecutedThisTurn = false;
     f.pendingAskUser = null;
@@ -285,12 +274,8 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
     }
     e.abortController.value = null;
     l.closeToolStreamsFor(id || null);
-    f.shellPend.clear();
-    if (f.shellFlushTimer) {
-      clearTimeout(f.shellFlushTimer);
-      f.shellFlushTimer = null;
-    }
     resetStreamState();
+    l.abandonnerFlux({ shell: true });
     r.isStreaming.value = false;
     e.isThinking.value = false;
     e.statusText.value = "";
@@ -497,14 +482,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
     }
     if (mien !== f.activeGen) return true;
     if (f.ctxLive) l.clearLiveCtx();
-    if (f.thinkFlushTimer) {
-      clearInterval(f.thinkFlushTimer);
-      f.thinkFlushTimer = null;
-    }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
+    l.abandonnerFlux({ reflexion: true, narration: true });
     e.abortController.value = null;
     e.pendingWrite.value = null;
     f.streamingForChatId = null;

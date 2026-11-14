@@ -300,6 +300,8 @@ export function creerMcp(
 
   async function toggleSharedVisibility(id: string): Promise<void> {
     const visibles = settings.value.shared_mcp_visible ?? (settings.value.shared_mcp_visible = []);
+    const avant = [...visibles];
+    const actifsAvant = clonerValeur(config.value.active_mcp_ids ?? []);
     const i = visibles.indexOf(id);
     if (i >= 0) {
       visibles.splice(i, 1);
@@ -307,7 +309,12 @@ export function creerMcp(
     } else {
       visibles.push(id);
     }
-    await persistance.saveSettings(false);
+    await persistance.persistKeys(["shared_mcp_visible"], {
+      rollback: () => {
+        settings.value.shared_mcp_visible = avant;
+        config.value.active_mcp_ids = actifsAvant;
+      },
+    });
   }
 
   async function toggleServerVisibility(id: string): Promise<void> {

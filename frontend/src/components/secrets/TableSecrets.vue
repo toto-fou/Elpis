@@ -9,6 +9,7 @@ import { dernierUsage, porteeTexte } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
 import ChampValeur from "./ChampValeur.vue";
 import FormulaireSecret from "./FormulaireSecret.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const g = domaineSecrets();
 const racine = ref<HTMLElement | null>(null);
@@ -205,8 +206,9 @@ watch(
                 >
                   <i class="ph ph-dots-three" aria-hidden="true"></i>
                 </button>
-                <template v-if="g.menu === s.id">
+                <TransitionMenu>
                   <div
+                    v-if="g.menu === s.id"
                     :id="`secret-menu-${s.id}`"
                     role="menu"
                     :aria-label="`Actions sur ${s.name}`"
@@ -281,7 +283,7 @@ watch(
                       </template>
                     </div>
                   </div>
-                </template>
+                </TransitionMenu>
               </div>
             </td>
           </tr>

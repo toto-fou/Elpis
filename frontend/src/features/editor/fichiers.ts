@@ -4,7 +4,7 @@ import { computed, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { lireNdjson } from "../../platform/streams/ndjson";
-import { arbre as arbreDeLaPage } from "./arbre";
+import { arbre as arbreDeLaPage, partagerArbre } from "./arbre";
 import { importeur } from "./importeur";
 import {
   detailErreur,
@@ -246,7 +246,7 @@ export function setupEditorSandboxFs(refs: RefsFichiers, ctx: CtxFichiers, rappe
       if (res && res.ok) {
         const data = await lireJson(res, schemaArbre);
         if (data) {
-          sandboxFiles.value = data.items ?? [];
+          sandboxFiles.value = partagerArbre(sandboxFiles.value, data.items ?? []);
           treeTruncated.value = data.truncated ? { max: data.max_entries ?? 0 } : null;
         }
       }

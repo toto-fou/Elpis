@@ -45,7 +45,6 @@ export interface MessageOpencode {
   parts: PartOpencode[];
   info: InfoMessage;
   pending?: boolean;
-  _rev?: number;
 }
 
 export type ElementRendu =
@@ -360,22 +359,25 @@ export function etapes(m: MessageOpencode | null | undefined, live?: boolean): E
     if (type === "text") {
       if (!p.text) continue;
       phase = "Rédaction";
-      depuis = (p.time && typeof p.time === "object" ? nombre(p.time["start"]) : 0) || 0;
+      const pt = dict(p.time);
+      depuis = nombre(pt["start"]);
       const enFlux = !msgDone;
       const lourd = enFlux && p.text.length > 100000;
+      // Une part dont la CLI a posé la fin n'est plus en flux, même si son message l'est encore.
+      const live = enFlux && !pt["end"];
       if (!lourd && m?.role !== "user" && p.text.indexOf("```diff") !== -1) {
         const segs = decouperFencesDiff(p.text);
         if (segs.some((sg) => sg.diff)) {
-          let n = 0;
-          for (const sg of segs) {
-            if (sg.diff) sortie.push({ kind: "diff", id: `${id}:d${n++}`, text: sg.text });
+          // Ids au rang du segment, le premier texte garde celui de la part : quand une fence diff se ferme, les blocs déjà affichés restent en place.
+          segs.forEach((sg, n) => {
+            if (sg.diff) sortie.push({ kind: "diff", id: `${id}:d${n}`, text: sg.text });
             else if (sg.text.trim())
-              sortie.push({ kind: "text", id: `${id}:t${n++}`, text: sg.text, heavy: false });
-          }
+              sortie.push({ kind: "text", id: n ? `${id}:t${n}` : id, text: sg.text, heavy: false, live });
+          });
           continue;
         }
       }
-      sortie.push({ kind: "text", id, text: p.text, heavy: lourd, live: enFlux });
+      sortie.push({ kind: "text", id, text: p.text, heavy: lourd, live });
     } else if (type === "reasoning") {
       const txt = p.text || p.reasoning || "";
       if (!txt) continue;

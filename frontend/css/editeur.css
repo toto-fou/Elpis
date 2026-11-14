@@ -1022,9 +1022,11 @@ body .ed2.ed2--etroit .elpis-ed-modes button .ph {
 }
 .ed2-menu--droite {
   right: 0;
+  --menu-origine: right;
 }
 .ed2-menu--gauche {
   left: 0;
+  --menu-origine: left;
 }
 .ed2-menu--haut {
   bottom: calc(100% + 6px);

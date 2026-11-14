@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const rg = domaineReglages();
 </script>
@@ -193,12 +194,12 @@ const rg = domaineReglages();
                 aria-hidden="true"
               ></i>
             </button>
-            <Transition name="popover">
+            <TransitionMenu>
               <div
                 v-if="rg.netMenuOpen"
                 role="listbox"
                 aria-labelledby="sandbox-net-label"
-                class="absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto custom-scrollbar bg-white rounded-xl shadow-2xl border border-slate-200 z-[200]"
+                class="menu-ancre-droite absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto custom-scrollbar bg-white rounded-xl shadow-2xl border border-slate-200 z-[200]"
               >
                 <div
                   v-for="prof in rg.sandboxState.network_profiles"
@@ -236,7 +237,7 @@ const rg = domaineReglages();
                   </div>
                 </div>
               </div>
-            </Transition>
+            </TransitionMenu>
           </div>
         </div>
 

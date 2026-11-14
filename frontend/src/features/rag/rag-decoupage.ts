@@ -25,7 +25,7 @@ import {
   retirerRedecoupe,
 } from "./decoupage";
 import type { RedecoupeRag } from "./decoupage";
-import { inserer, sansAccents } from "./filtres";
+import { sansAccents } from "./filtres";
 import type { SurfaceDocuments } from "./rag-documents";
 
 export const DELAI_APERCU_MS = 400;
@@ -45,7 +45,7 @@ const APERCU_VIDE: ApercuDecoupageRag = { passages: [], total: 0, tronque: false
 
 export function creerDecoupage(
   base: BaseRag,
-  documents: Pick<SurfaceDocuments, "documents" | "appliquerTravail">,
+  documents: Pick<SurfaceDocuments, "majDocument" | "appliquerTravail">,
   delaiApercuMs: number = DELAI_APERCU_MS,
 ) {
   const { api } = base;
@@ -347,8 +347,7 @@ export function creerDecoupage(
       erreur.value = messageEchecDecoupage(r.code, r.message, "Le découpage n’a pas pu être appliqué.");
       return false;
     }
-    if (base.selection.value === id)
-      documents.documents.value = inserer(documents.documents.value, r.valeur.document);
+    if (base.selection.value === id) documents.majDocument(r.valeur.document);
     if (r.valeur.job !== null) documents.appliquerTravail(r.valeur.job);
     base.info(phrase);
     fermer();

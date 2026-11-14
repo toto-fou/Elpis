@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
 import RagLigneEssai from "./RagLigneEssai.vue";
+import ChampNombreConsole from "./ChampNombreConsole.vue";
 
 const adm = domaineAdmin();
 
@@ -139,18 +140,14 @@ const pageCourante = (offset: number): number => Math.floor(offset / adm.ragAdmP
               title="Au-delà, l'outil renvoie une erreur récupérable."
               >Délai maximal</label
             >
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-rag-timeout"
-                v-model.number="adm.configForm.rag.service_timeout"
-                data-field="config:rag.service_timeout"
-                type="number"
-                min="1"
-                max="300"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
+            <ChampNombreConsole
+              id="cnx-rag-timeout"
+              v-model="adm.configForm.rag.service_timeout"
+              data-field="config:rag.service_timeout"
+              min="1"
+              max="300"
+              unite="s"
+            />
           </div>
           <RagLigneEssai service="extracteur" :etat="extracteur().etat" :libelle="extracteur().libelle" />
         </div>
@@ -248,35 +245,27 @@ const pageCourante = (offset: number): number => Math.floor(offset / adm.ragAdmP
             <label class="adm-row__label" for="rag-embed-batch" title="Passages envoyés par requête."
               >Lot</label
             >
-            <div class="flex items-center gap-2">
-              <input
-                id="rag-embed-batch"
-                v-model.number="adm.configForm.rag.embed.batch"
-                data-field="config:rag.embed.batch"
-                type="number"
-                min="1"
-                max="512"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">passages</span>
-            </div>
+            <ChampNombreConsole
+              id="rag-embed-batch"
+              v-model="adm.configForm.rag.embed.batch"
+              data-field="config:rag.embed.batch"
+              min="1"
+              max="512"
+              unite="passages"
+            />
           </div>
           <div class="adm-row">
             <label class="adm-row__label" for="rag-embed-timeout" title="Par requête d'embeddings."
               >Délai</label
             >
-            <div class="flex items-center gap-2">
-              <input
-                id="rag-embed-timeout"
-                v-model.number="adm.configForm.rag.embed.timeout_s"
-                data-field="config:rag.embed.timeout_s"
-                type="number"
-                min="1"
-                max="600"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
+            <ChampNombreConsole
+              id="rag-embed-timeout"
+              v-model="adm.configForm.rag.embed.timeout_s"
+              data-field="config:rag.embed.timeout_s"
+              min="1"
+              max="600"
+              unite="s"
+            />
           </div>
           <RagLigneEssai service="embeddings" :etat="embeddings().etat" :libelle="embeddings().libelle" />
         </div>
@@ -389,18 +378,14 @@ const pageCourante = (offset: number): number => Math.floor(offset / adm.ragAdmP
               title="Délai de lecture d'une page par le modèle."
               >OCR : délai</label
             >
-            <div class="flex items-center gap-2">
-              <input
-                id="rag-ocr-timeout"
-                v-model.number="adm.configForm.rag.ocr.timeout_s"
-                data-field="config:rag.ocr.timeout_s"
-                type="number"
-                min="5"
-                max="3600"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s par page</span>
-            </div>
+            <ChampNombreConsole
+              id="rag-ocr-timeout"
+              v-model="adm.configForm.rag.ocr.timeout_s"
+              data-field="config:rag.ocr.timeout_s"
+              min="5"
+              max="3600"
+              unite="s par page"
+            />
           </div>
           <RagLigneEssai service="ocr" :etat="ocr().etat" :libelle="ocr().libelle" />
           <p class="adm-rag-note px-5 pb-3">
@@ -490,18 +475,14 @@ const pageCourante = (offset: number): number => Math.floor(offset / adm.ragAdmP
             <div class="adm-rag-grid">
               <div class="adm-rag-champ">
                 <label for="rag-quota-storage_mb">Stockage</label>
-                <div class="flex items-center gap-2">
-                  <input
-                    id="rag-quota-storage_mb"
-                    v-model.number="adm.configForm.rag.quotas.storage_mb"
-                    data-field="config:rag.quotas.storage_mb"
-                    aria-label="Stockage"
-                    type="number"
-                    min="0"
-                    class="set-input adm-num"
-                  />
-                  <span class="adm-unit">Mo</span>
-                </div>
+                <ChampNombreConsole
+                  id="rag-quota-storage_mb"
+                  v-model="adm.configForm.rag.quotas.storage_mb"
+                  data-field="config:rag.quotas.storage_mb"
+                  aria-label="Stockage"
+                  min="0"
+                  unite="Mo"
+                />
               </div>
               <div class="adm-rag-champ">
                 <label for="rag-quota-collections">Collections</label>
@@ -517,18 +498,14 @@ const pageCourante = (offset: number): number => Math.floor(offset / adm.ragAdmP
               </div>
               <div class="adm-rag-champ">
                 <label for="rag-quota-file_mb">Taille d'un fichier</label>
-                <div class="flex items-center gap-2">
-                  <input
-                    id="rag-quota-file_mb"
-                    v-model.number="adm.configForm.rag.quotas.file_mb"
-                    data-field="config:rag.quotas.file_mb"
-                    aria-label="Taille d'un fichier"
-                    type="number"
-                    min="0"
-                    class="set-input adm-num"
-                  />
-                  <span class="adm-unit">Mo</span>
-                </div>
+                <ChampNombreConsole
+                  id="rag-quota-file_mb"
+                  v-model="adm.configForm.rag.quotas.file_mb"
+                  data-field="config:rag.quotas.file_mb"
+                  aria-label="Taille d'un fichier"
+                  min="0"
+                  unite="Mo"
+                />
               </div>
               <div class="adm-rag-champ">
                 <label for="rag-quota-docs_per_collection">Documents par collection</label>

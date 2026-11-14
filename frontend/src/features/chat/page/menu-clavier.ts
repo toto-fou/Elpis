@@ -3,21 +3,22 @@
 
 const SELECTEUR = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
 
-/** Entrées du menu lui-même, dans l'ordre, sans celles de ses sous-menus ni des parties masquées. */
+/** Entrées du menu lui-même, dans l'ordre, sans celles de ses sous-menus, des parties masquées ni les désactivées. */
 export function entreesMenu(menu: HTMLElement): HTMLElement[] {
   return [...menu.querySelectorAll<HTMLElement>(SELECTEUR)].filter(
-    (el) => el.closest('[role="menu"]') === menu && !el.closest("[hidden]"),
+    (el) =>
+      el.closest('[role="menu"]') === menu && !el.closest("[hidden]") && !(el as HTMLButtonElement).disabled,
   );
 }
 
-/** Déplace le focus (flèches haut et bas en boucle, Début, Fin) ; vrai si la touche est consommée. */
+/** Déplace le focus (flèches haut et bas en boucle, depuis l'extérieur vers la première ou la dernière, Début, Fin) ; vrai si la touche est consommée. */
 export function naviguerMenu(e: KeyboardEvent, menu: HTMLElement): boolean {
   const items = entreesMenu(menu);
   if (!items.length) return false;
   const i = items.indexOf(document.activeElement as HTMLElement);
   let cible: HTMLElement | undefined;
   if (e.key === "ArrowDown") cible = items[(i + 1) % items.length];
-  else if (e.key === "ArrowUp") cible = items[(i - 1 + items.length) % items.length];
+  else if (e.key === "ArrowUp") cible = items[(Math.max(i, 0) - 1 + items.length) % items.length];
   else if (e.key === "Home") cible = items[0];
   else if (e.key === "End") cible = items[items.length - 1];
   if (!cible) return false;

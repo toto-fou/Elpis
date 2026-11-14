@@ -439,7 +439,7 @@ export function setupEditorTabs(
           if (activeTabPath.value === chemin) vis._applyActiveReadOnly();
         }
         l.rememberRecent(chemin);
-        l.scheduleLint(chemin, models[chemin] ? models[chemin].getValue() : "");
+        l.scheduleLint(chemin);
         l.scheduleScmRefresh(chemin);
       } else {
         const nom = chemin.split("/").pop() ?? chemin;
@@ -587,7 +587,7 @@ export function setupEditorTabs(
     }
     if (chemin.toLowerCase().endsWith(".html")) s.apercu.previewPath.value = chemin;
     l.robustLayout();
-    l.scheduleLint(chemin, models[chemin] ? models[chemin].getValue() : "");
+    l.scheduleLint(chemin);
     l.rememberRecent(chemin);
     l.scheduleScmRefresh(chemin);
   }

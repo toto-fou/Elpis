@@ -47,7 +47,7 @@ async function appliquer(): Promise<void> {
   <!-- z-[9990] : au-dessus des fenêtres hors des blocs « connecté » (transfert 6000, confirmation 7000, menu 8000),
        peintes sinon par-dessus le formulaire quand la session expire fenêtre ouverte. -->
   <div
-    v-if="!a.user && !a.mustChangePassword"
+    v-if="!a.sessionEnAttente && !a.user && !a.mustChangePassword"
     class="fixed inset-0 z-[9990] flex items-center justify-center p-4"
     :style="lc.bg_color ? 'background:' + lc.bg_color : 'background:#f8fafc'"
   >

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/auth/sse-systeme.ts — flux SSE `/api/system-events` (`setupChatSystemSSE`) : décodé par les schémas C1, ressources liées à la session. */
+/** frontend/src/features/auth/sse-systeme.ts — flux SSE `/api/system-events` (`setupChatSystemSSE`) : décodé par les schémas C1, tenu par un seul onglet du compte (`meneur.ts`), ressources liées à la session. */
 import { decoderEvenementSysteme } from "@elpis/contracts";
 import type { EtatModeles, EvenementSysteme, NotificationDirecte } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { journal } from "../../platform/journal";
+import { creerMeneur, nomCanal } from "./meneur";
+import type { CanalOnglets, Meneur } from "./meneur";
 import type { GestionnaireSession, Proprietaire } from "./session";
 
 /** Ce que le module lit d'un `EventSource` (injectable dans les tests). */
@@ -25,6 +27,7 @@ export interface RefsSse {
 export interface CtxSse {
   readonly systemAlert: Ref<unknown>;
   handleSessionExpired?(): void;
+  checkAuth?(): Promise<unknown>;
 }
 
 export type ChatJobData = Extract<EvenementSysteme, { type: "chat_job" }>["data"];
@@ -43,12 +46,17 @@ export interface RappelsSse {
 export interface DependancesSse {
   readonly session: GestionnaireSession;
   readonly creerSource?: (url: string) => SourceEvenements;
+  /** Canal entre onglets du compte ; `null` : un flux par onglet (repli sans `BroadcastChannel`). */
+  readonly creerCanal?: ((nom: string) => CanalOnglets) | null;
   readonly fetch?: (url: string, init?: RequestInit) => Promise<Response>;
   readonly recharger?: () => void;
   readonly document?: Document;
 }
 
 const DELAI_MAX = 30000;
+
+const canalNatif =
+  typeof BroadcastChannel === "function" ? (nom: string): CanalOnglets => new BroadcastChannel(nom) : null;
 
 export function setupChatSystemSSE(
   refs: RefsSse,
@@ -62,6 +70,7 @@ export function setupChatSystemSSE(
   const doc = dep.document ?? document;
   const creerSource =
     dep.creerSource ?? ((url: string) => new EventSource(url, { withCredentials: true }) as SourceEvenements);
+  const creerCanal = dep.creerCanal === undefined ? canalNatif : dep.creerCanal;
   const sonder = dep.fetch ?? ((u: string, i?: RequestInit) => globalThis.fetch(u, i));
   const recharger = dep.recharger ?? (() => window.location.reload());
 
@@ -72,32 +81,57 @@ export function setupChatSystemSSE(
   let tentative = 0;
   let dejaOuvert = false;
   let sondeRedemarrage = false;
+  // Coordination entre onglets du compte : `null` quand l'onglet tient son propre flux (repli) ou n'est pas connecté.
+  let meneur: Meneur | null = null;
+  // Prochaine ouverture du flux : resynchroniser (rôle de meneur repris d'un autre onglet).
+  let rattrapage = false;
+  // Page masquée (`pagehide`) : l'onglet a quitté les autres, il les rejoint à son retour.
+  let parti = false;
+  let volontaire = false;
 
   const visible = (): boolean => doc.visibilityState === "visible";
 
-  /** Ressources de la connexion courante : libérées par `disconnectSystemEvents` ou par la fin de la session. */
+  /** Ressources de la connexion : libérées par `disconnectSystemEvents`, ou par la fin de la session, alors signalée aux onglets du compte. */
   function possesseur(): Proprietaire {
     if (proprio?.actif) return proprio;
     const p = session.proprietaire("sse-systeme");
     p.ajouter(() => {
-      if (source) source.close();
-      source = null;
-      annulerReconnexion = null;
+      quitterOnglets(!volontaire);
+      fermerFlux();
       arreterSondage = null;
-      dejaOuvert = false;
+      parti = false;
     });
     p.ecouter(doc, "visibilitychange", surVisibilite);
+    if (doc.defaultView) p.ecouter(doc.defaultView, "pagehide", surMasquage);
     proprio = p;
     return p;
   }
 
   function surVisibilite(): void {
-    if (visible() && (!source || source.readyState === 2)) {
+    if (!visible()) return;
+    if (parti) {
+      parti = false;
+      rejoindre(true);
+      return;
+    }
+    if (meneur && !meneur.estMeneur) {
+      meneur.veiller();
+      return;
+    }
+    if (!source || source.readyState === 2) {
       tentative = 0;
       if (annulerReconnexion) annulerReconnexion();
       annulerReconnexion = null;
-      connectSystemEvents();
+      ouvrirFlux();
     }
+  }
+
+  /** Page quittée ou mise en cache : le meneur cède tout de suite son rôle. */
+  function surMasquage(): void {
+    if (!meneur) return;
+    quitterOnglets(false);
+    fermerFlux();
+    parti = true;
   }
 
   function demarrerSondageModeles(): void {
@@ -107,12 +141,90 @@ export function setupChatSystemSSE(
     }, 60000);
   }
 
-  function stopModelPolling(): void {
-    if (arreterSondage) arreterSondage();
-    arreterSondage = null;
+  /** Rejoint les onglets du compte (un seul tient le flux), sinon ouvre le sien ; déjà fait : rien. */
+  function connectSystemEvents(): void {
+    if (!user.value || meneur) return;
+    parti = false;
+    if (!rejoindre(false)) ouvrirFlux();
   }
 
-  function connectSystemEvents(): void {
+  function rejoindre(rattraper: boolean): boolean {
+    const uid = session.compte?.id;
+    if (!creerCanal || uid === undefined) return false;
+    let canal: CanalOnglets;
+    try {
+      canal = creerCanal(nomCanal(uid));
+    } catch {
+      return false;
+    }
+    const p = possesseur();
+    demarrerSondageModeles();
+    meneur = creerMeneur({
+      canal,
+      id: `${Date.now().toString(36).padStart(9, "0")}-${Math.random().toString(36).slice(2, 10)}`,
+      rattrapage: rattraper,
+      minuterie: (fn, ms) => p.minuterie(fn, ms),
+      intervalle: (fn, ms) => p.intervalle(fn, ms),
+      maintenant: () => Date.now(),
+      devancer: ouvrirFlux,
+      prendre(r) {
+        // Flux ouvert d'avance (ou en reconnexion) : gardé tel quel.
+        if (!r && (source || annulerReconnexion)) return;
+        fermerFlux();
+        rattrapage = r;
+        ouvrirFlux();
+      },
+      lacher: fermerFlux,
+      recevoir(texte) {
+        const ev = decoder(texte);
+        if (ev && ev.type !== "worker_recycling") appliquer(ev, p);
+      },
+      resynchroniser() {
+        journal.info("[sse] Flux d'un autre onglet repris : resynchronisation");
+        if (user.value) rappels.onReconnect?.();
+      },
+      verifierSession,
+    });
+    return true;
+  }
+
+  function quitterOnglets(fin: boolean): void {
+    const m = meneur;
+    meneur = null;
+    m?.quitter(fin);
+  }
+
+  function fermerFlux(): void {
+    if (source) source.close();
+    source = null;
+    if (annulerReconnexion) annulerReconnexion();
+    annulerReconnexion = null;
+    tentative = 0;
+    dejaOuvert = false;
+    rattrapage = false;
+  }
+
+  /** Un onglet du compte a perdu sa session (même cookie) : relue ici ; mot de passe à changer, fin, ou autre compte (purge puis connexion de celui-ci). */
+  function verifierSession(): void {
+    const { generation } = session;
+    const uid = session.compte?.id;
+    void sonder("/api/me-lite", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<unknown>) : null))
+      .then((d) => {
+        if (!d || typeof d !== "object" || !session.estCourante(generation)) return;
+        const moi = d as { logged_in?: unknown; id?: unknown };
+        if (moi.logged_in && moi.id === uid) return;
+        disconnectSystemEvents();
+        if (!moi.logged_in && "must_change_password" in moi) session.motDePasseAChanger();
+        else ctx.handleSessionExpired?.();
+        if (moi.logged_in) void ctx.checkAuth?.().catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }
+
+  /** Ouvre le flux de l'onglet (relayé s'il est meneur, sauf le recyclage) ; déjà ouvert ou en ouverture : rien. */
+  function ouvrirFlux(): void {
+    if (source && source.readyState !== 2) return;
     if (source) source.close();
     source = null;
     if (annulerReconnexion) annulerReconnexion();
@@ -130,12 +242,14 @@ export function setupChatSystemSSE(
     source = s;
     s.onopen = () => {
       if (!p.actif || source !== s) return;
-      if (tentative > 0 || dejaOuvert) {
+      if (tentative > 0 || dejaOuvert || rattrapage) {
         journal.info(`[sse] Reconnecté après ${tentative} tentative(s)`);
         if (user.value) rappels.onReconnect?.();
       }
       tentative = 0;
       dejaOuvert = true;
+      rattrapage = false;
+      meneur?.fluxOuvert();
     };
     s.onerror = () => {
       if (!p.actif || source !== s) return;
@@ -147,17 +261,24 @@ export function setupChatSystemSSE(
     };
     s.onmessage = (e) => {
       if (!p.actif || source !== s) return;
-      const d = decoderEvenementSysteme(typeof e.data === "string" ? e.data : "");
-      if (d.statut === "invalide") {
-        journal.avertir("[sse] événement système invalide ignoré :", d.erreur);
-        return;
-      }
-      if (d.statut === "inconnu") {
-        journal.info("[sse] événement système inconnu ignoré :", d.type);
-        return;
-      }
-      appliquer(d.evenement, p);
+      const texte = typeof e.data === "string" ? e.data : "";
+      const ev = decoder(texte);
+      if (ev?.type !== "worker_recycling") meneur?.relayer(texte);
+      if (ev) appliquer(ev, p);
     };
+  }
+
+  function decoder(texte: string): EvenementSysteme | null {
+    const d = decoderEvenementSysteme(texte);
+    if (d.statut === "invalide") {
+      journal.avertir("[sse] événement système invalide ignoré :", d.erreur);
+      return null;
+    }
+    if (d.statut === "inconnu") {
+      journal.info("[sse] événement système inconnu ignoré :", d.type);
+      return null;
+    }
+    return d.evenement;
   }
 
   function appliquer(ev: EvenementSysteme, p: Proprietaire): void {
@@ -173,7 +294,7 @@ export function setupChatSystemSSE(
         tentative = 1;
         annulerReconnexion = p.minuterie(() => {
           annulerReconnexion = null;
-          connectSystemEvents();
+          ouvrirFlux();
         }, 750);
         return;
       case "restart":
@@ -235,6 +356,7 @@ export function setupChatSystemSSE(
     setTimeout(() => void essayer(0), 6000);
   }
 
+  /** Reconnexion avec recul ; onglet caché : au retour, sauf pour le meneur dont les autres onglets dépendent. */
   function planifierReconnexion(): void {
     if (annulerReconnexion) return;
     const delai = Math.min(1000 * Math.pow(2, tentative), DELAI_MAX);
@@ -242,26 +364,22 @@ export function setupChatSystemSSE(
     journal.avertir(`[sse] Déconnecté -- reconnexion dans ${delai / 1000}s (tentative ${tentative})`);
     annulerReconnexion = possesseur().minuterie(() => {
       annulerReconnexion = null;
-      if (visible()) connectSystemEvents();
+      if (visible() || meneur) ouvrirFlux();
     }, delai);
   }
 
   function disconnectSystemEvents(): void {
     const p = proprio;
     proprio = null;
-    if (p) p.liberer();
-    if (source) source.close();
-    source = null;
-    dejaOuvert = false;
+    volontaire = true;
+    p?.liberer();
+    volontaire = false;
+    quitterOnglets(false);
+    fermerFlux();
   }
 
   possesseur();
   demarrerSondageModeles();
 
-  return {
-    connectSystemEvents,
-    disconnectSystemEvents,
-    stopModelPolling,
-    _modelPollTimer: null,
-  };
+  return { connectSystemEvents, disconnectSystemEvents };
 }

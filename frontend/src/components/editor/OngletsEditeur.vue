@@ -5,6 +5,7 @@ import { onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
 
 import { deplacerOnglet, partiesLibelle } from "../../features/editor/onglets";
 import type { MetaFichier, OngletEditeur } from "../../features/editor/onglets";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const props = defineProps<{
   visible: boolean;
@@ -235,31 +236,33 @@ defineExpose({ mesurer, defiler });
       v-text="'+' + props.caches"
     ></button>
     <div v-if="props.debordement" class="fixed inset-0 z-40" @click="emit('update:debordement', false)"></div>
-    <div
-      v-if="props.debordement"
-      role="menu"
-      aria-label="Tous les onglets ouverts"
-      class="absolute right-0 top-full mt-1 z-50 w-64 max-h-72 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1"
-    >
-      <button
-        v-for="tab in props.onglets"
-        :key="'ovf-' + tab.path"
-        role="menuitem"
-        class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
-        :class="props.actif === tab.path ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'"
-        :title="tab.path"
-        @click="emit('choisir', tab.path)"
+    <TransitionMenu>
+      <div
+        v-if="props.debordement"
+        role="menu"
+        aria-label="Tous les onglets ouverts"
+        class="menu-ancre-droite absolute right-0 top-full mt-1 z-50 w-64 max-h-72 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1"
       >
-        <span
-          class="w-1.5 h-1.5 rounded-full shrink-0"
-          :class="props.modifies.has(tab.path) ? 'bg-amber-400' : 'bg-transparent'"
-          :title="props.modifies.has(tab.path) ? 'Modifications non sauvegardées' : ''"
-        ></span>
-        <span class="truncate flex-1">{{ tab.name }}</span>
-        <span class="text-[10px] text-slate-500 font-mono truncate max-w-[80px]">{{
-          dossier(tab.path)
-        }}</span>
-      </button>
-    </div>
+        <button
+          v-for="tab in props.onglets"
+          :key="'ovf-' + tab.path"
+          role="menuitem"
+          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
+          :class="props.actif === tab.path ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'"
+          :title="tab.path"
+          @click="emit('choisir', tab.path)"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full shrink-0"
+            :class="props.modifies.has(tab.path) ? 'bg-amber-400' : 'bg-transparent'"
+            :title="props.modifies.has(tab.path) ? 'Modifications non sauvegardées' : ''"
+          ></span>
+          <span class="truncate flex-1">{{ tab.name }}</span>
+          <span class="text-[10px] text-slate-500 font-mono truncate max-w-[80px]">{{
+            dossier(tab.path)
+          }}</span>
+        </button>
+      </div>
+    </TransitionMenu>
   </div>
 </template>

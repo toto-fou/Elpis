@@ -47,6 +47,8 @@ const attenuee = computed(() => {
   return textes.length > 0 && !textes.some((t) => t.toLowerCase().includes(q));
 });
 const flash = computed(() => fil.vsFlashIdx != null && membres.value.some((m) => m.idx === fil.vsFlashIdx));
+// Valeurs propres à la ligne : changer de message édité ne re-rend que les deux lignes concernées.
+const enEdition = computed(() => fil.editingMessageIndex === props.entry.idx);
 const texteEdition = computed({
   get: () => fil.editMessageText,
   set: (v: string) => emit("edition", v),
@@ -162,7 +164,7 @@ function ouvert(e: Event): boolean {
             >{{ entry.msg.summary }}</pre>
         </details>
       </div>
-      <div v-else-if="fil.editingMessageIndex === entry.idx" class="mt-1 mb-2">
+      <div v-else-if="enEdition" class="mt-1 mb-2">
         <textarea
           v-model="texteEdition"
           data-edit-message-input

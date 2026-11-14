@@ -48,7 +48,7 @@ grays on a light surface (≥ 4.5:1). On the dark rail, use
 
 ## Themes and dark mode
 
-Three classes on `<body>`, set by `frontend/src/features/reglages/apparence.ts`:
+Three classes on `<body>`, set by `frontend/src/features/reglages/habillage.ts`:
 
 | Class | Role |
 |---|---|
@@ -95,8 +95,11 @@ the last open section is remembered and the rail search leads to it.
 
 Adding a theme: a file `frontend/css/skins/<id>/skin.css` that redefines the
 tokens under `body.elpis-skin-<id>` (and `.elpis-app-dark` for dark), an
-entry in the registry `frontend/css/skins/skins.json` (served by `/api/skins`), the `<link>` in `index.html` and
-`admin.html` after `style.css`. For its editor, a file
+entry in the registry `frontend/css/skins/skins.json` (served by `/api/skins`), its `<link data-habillage="<id>">`
+(and that of its `polices.css`, with a preload of its text font) in the inert `<template id="elpis-habillages">`
+of `index.html` and `admin.html`, after `style.css`. Only the active theme's sheets are loaded: before the
+first paint for the last appearance remembered by the browser (the `@habillage` script), on demand and before
+the class switch otherwise. For its editor, a file
 `frontend/css/skins/<id>/editeur.css`: no `<link>`, the frontend links it
 on demand. Fonts stay local (no download: the application must
 work offline).
@@ -151,17 +154,79 @@ De facto scale, to follow so a new layer finds its place:
 
 ## Motion
 
-- Transitions of 150 to 260 ms; entrances in `ease-out`, sliding panels in
-  `cubic-bezier(0.4, 0, 0.2, 1)` (`.elpis-slide-panel`, 260 ms).
-- Animate `opacity` and `transform`; avoid layout properties
-  (accepted exception: the width of sliding panels).
-- A skin sets the duration and curve of menus and dialogs (`popover`, `modal`),
-  never properties other than `opacity` and `transform`; a large decoration
+- Durations and curves are tokens in `:root` of `style.css`, never literals in
+  a named transition: `--duree-courte` (150 ms: menu exits, tool detail),
+  `--duree` (200 ms: menu entries, dialogs, toasts, fades), `--duree-longue`
+  (260 ms: sliding panels), `--duree-image` (16 ms, one frame: head start of
+  menus); `--courbe-fondu` (`ease-out`: opacity and small offsets),
+  `--courbe-entree` (menu entries, dialogs, toasts, the save bar),
+  `--courbe-volet` (sliding panels).
+- Animate `opacity` and `transform`, never layout properties, with one
+  exception: the width of a sliding panel, and the maximum width of the blocks
+  that follow it.
+- Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
+  Generation, editor) glide to their width (`--duree-longue` to open, `--duree`
+  to close), and the chat column and the composer follow frame by frame: a
+  width set at once reads as a jump. This is affordable because the thread is
+  virtualized (measured on a long thread, CPU slowed 4 times: one or two frames
+  over 25 ms per gesture, none over 50). The panel's content keeps its final
+  width, clipped by the panel, so it is not laid out again while the panel
+  moves; it enters with the named transition `volet` (opacity on the transition
+  root, `transform` on its children; rails from the left, right panels from the
+  right) and leaves the same way. The rails get their width from a CSS
+  transition; a panel that is itself the transition root is driven by
+  `features/communs/volet.ts`, which also hands the focus over. A panel wider
+  than 550 px glides proportionally longer, up to 1.5 times (the editor on a
+  wide screen: 390 ms to open, 300 ms to close): at equal duration it would move
+  three to four times faster than the others. `volet.ts` writes that duration
+  to `--volet-duree` on the panel, so its content's transition lasts as long.
+  A block whose maximum width changes with a panel (the thread column and the
+  composer when the editor opens) registers with `accompagnerVolets`: its
+  maximum width glides from its width before to the rule after, on the panel's
+  duration and curve, instead of changing at once and reversing the block's
+  direction for one frame; a rule in percent keeps following its container, so
+  another panel moving at the same time causes no jump at the end. The panel's
+  content is held at its final width by the transition classes
+  (`.elpis-slide-panel:is(.volet-enter-active, .volet-leave-active)`), and a
+  panel's exit ends with its width animation, not with its fade. The editor
+  closed from full screen retracts from the whole width, out of the flow
+  (`data-volet-couvrant`), above a chat already laid out at its final width.
+- Menus and small floating surfaces open and close through `<TransitionMenu>`
+  (`popover` down from the anchor's top edge, `popover-up` up from its bottom
+  edge, corner with `.menu-ancre-gauche` / `.menu-ancre-droite`): opacity, a
+  6 px slide (`--menu-glisse`) and a 0.97 scale (`--menu-echelle`), in over
+  `--duree` with `--courbe-entree`, out over `--duree-courte`. Both start one
+  frame ahead (`--duree-image`; entry from `@starting-style`, never
+  `-enter-from`) so the first frame after the gesture already moves; the leaving
+  menu is `inert`, drops its focus and lets clicks through. A browser without
+  `@starting-style` shows the menu at once and still animates its exit.
+- A skin sets the duration, curve, slide and scale of menus and dialogs
+  (`popover`, `modal`) by overriding these variables on the transition classes
+  (Terminal: shorter, linear, no scale), never properties other than `opacity`
+  and `transform`; a large decoration
   (light, gradient) has a fixed size and is placed with `transform`, so a resize
   does not repaint it.
-- `prefers-reduced-motion: reduce` turns off non-essential animations
-  (dedicated block in `style.css`); every new animation provides its
-  alternative (fade or instant change).
+- `prefers-reduced-motion: reduce` removes movement, not fades (dedicated
+  block in `style.css`). Kept: opacity and color transitions (150 ms at most)
+  and the opacity pulse of activity indicators (the spinner turns slower).
+  Dropped: anything that moves, scales, resizes or rotates. A named Vue
+  transition becomes an opacity fade in place, `min(its token, 150 ms)` long (its
+  offsets are declared under `@media (prefers-reduced-motion: no-preference)`); a sliding
+  panel takes its width at once and its content fades in place. Every new animation or named transition gets its entry in
+  that block.
+- The account chooses its animations (Settings › Appearance › Animations,
+  `ui_motion`): follow the workstation (default), full, or reduced. Style sheets
+  only ever read `prefers-reduced-motion`; when the choice contradicts the
+  workstation, `platform/mouvement.ts` inverts that media feature in every
+  loaded sheet (skins included) and restores it otherwise, so a sheet needs
+  nothing more than the two media blocks above. Code never reads the media
+  query itself: it calls `mouvementReduit()`. The code editor follows it too:
+  smooth scrolling, the animated caret and the sliding search panel are off
+  when motion is reduced; it reads the choice from the settings it receives,
+  when its options are applied (`features/editor/instances.ts`). Limits: a
+  motion rule added with `insertRule`, or a `<style>` outside `<head>`, is not
+  seen (none exists); a workstation change during a session reaches the code
+  editor at its next preference change.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.
 

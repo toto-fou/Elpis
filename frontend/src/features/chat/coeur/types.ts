@@ -4,6 +4,8 @@ import type { BilanTache, MetaOutils, ResumeReveil, SourceCiteeRag } from "@elpi
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../flux/aides.ts";
+import type { EtatFlux } from "../rendu/flux-blocs.ts";
+import type { PorteurFlux } from "../rendu/porteur-flux.ts";
 import type { AgentsSlash, RagSlash } from "../composeur/slash.ts";
 
 export type Objet = Record<string, unknown>;
@@ -167,7 +169,14 @@ export interface MessageChat {
   _statusLine?: string;
   _pendingPreContent?: string;
   _mdBlocks?: BlocRendu[] | null;
+  _mdActiveHtml?: string;
+  /** Texte dont `_mdActiveHtml` est le rendu exact (vide : le prochain ajout passe par un rendu). */
+  _mdActifTexte?: string;
+  _mdFlux?: EtatFlux | null;
   _ppBlocks?: BlocRendu[] | null;
+  _ppFlux?: EtatFlux | null;
+  /** Porteur d'affichage du flux en cours (hors réactivité), lâché quand le message sort du flux. */
+  _flux?: PorteurFlux | null;
   _prefillPct?: number;
   _prefillCachePct?: number;
   _thinkingStartedAt?: number;

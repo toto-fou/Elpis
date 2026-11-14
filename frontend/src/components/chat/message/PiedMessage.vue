@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/PiedMessage.vue — pied d'une réponse terminée : métriques (complètes, essentielles ou masquées selon les Paramètres), captures du navigateur (hors déroulé classique) et actions (copier, détails, régénérer, lire) ; `texte` remplace le contenu copié ou lu (bulle regroupée). -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
@@ -16,6 +16,16 @@ const captures = computed(() =>
     ? []
     : visionneuseCaptures(capturesDuTour(props.entry.msg)).items,
 );
+// « Copier » confirme sur place : coche et libellé « Réponse copiée » pendant 1,5 s (l'échec reste un toast).
+const copiee = ref(false);
+let minuterie: ReturnType<typeof globalThis.setTimeout> | undefined;
+async function copier(): Promise<void> {
+  if ((await fil.copyAssistantMessage(props.texte ?? props.entry.msg.content)) !== true) return;
+  copiee.value = true;
+  globalThis.clearTimeout(minuterie);
+  minuterie = globalThis.setTimeout(() => (copiee.value = false), 1500);
+}
+onBeforeUnmount(() => globalThis.clearTimeout(minuterie));
 </script>
 
 <template>
@@ -120,11 +130,17 @@ const captures = computed(() =>
       <button
         v-if="!fil.isImageMessage(entry.msg)"
         title="Copier la réponse"
-        class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors"
-        @click="fil.copyAssistantMessage(texte ?? entry.msg.content)"
+        :aria-label="copiee ? 'Réponse copiée' : 'Copier la réponse'"
+        class="hover:bg-slate-100 rounded-md p-1 transition-colors"
+        :class="copiee ? 'text-green-600' : 'text-slate-400 hover:text-blue-600'"
+        data-copier
+        @click="copier"
       >
-        <i class="ph ph-copy text-[14px]"></i>
+        <i class="ph text-[14px]" :class="copiee ? 'ph-check' : 'ph-copy'" aria-hidden="true"></i>
       </button>
+      <span v-if="!fil.isImageMessage(entry.msg)" class="sr-only" role="status">{{
+        copiee ? "Réponse copiée" : ""
+      }}</span>
       <button
         v-if="entry.msg.run_ids && entry.msg.run_ids.length"
         title="Détails : chronologie de l'exécution (outils, modèle, durées)"

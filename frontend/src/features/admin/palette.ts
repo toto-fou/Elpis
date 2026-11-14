@@ -2,6 +2,7 @@
 /** frontend/src/features/admin/palette.ts — recherche Ctrl+K de la console : pages, réglages (index généré des gabarits) et actions, classement par sous-mot puis flou compact, révélation du champ. */
 import type { Ref } from "vue";
 
+import { mouvementReduit } from "../../platform/mouvement";
 import { fuzzyMatch } from "../../utils/utils-purs";
 import { CHAMPS_ADMIN } from "./champs.gen";
 import type { BaseAdmin } from "./etat";
@@ -294,8 +295,7 @@ export function creerPalette(b: BaseAdmin, navigation: SurfaceNavigation) {
     }
     if (!el) return false;
     for (let d = el.closest("details"); d; d = d.parentElement?.closest("details") ?? null) d.open = true;
-    const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ block: "center", behavior: reduit ? "auto" : "smooth" });
+    el.scrollIntoView({ block: "center", behavior: mouvementReduit() ? "auto" : "smooth" });
     try {
       el.focus({ preventScroll: true });
     } catch {

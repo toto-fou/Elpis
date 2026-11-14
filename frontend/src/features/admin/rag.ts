@@ -216,7 +216,7 @@ export function setupAdminRag(b: BaseAdmin, http: ClientHttp) {
     programmer();
   }
   function programmer(): void {
-    if (minuterie !== null || arrete || e.adminTab.value !== "rag") return;
+    if (minuterie !== null || arrete || document.hidden || e.adminTab.value !== "rag") return;
     const actif = ragAdmTravaux.value.length > 0 || (ragAdmReindexation.value?.jobs.length ?? 0) > 0;
     minuterie = setTimeout(() => void tour(), actif ? SONDAGE_ACTIF_MS : SONDAGE_REPOS_MS);
   }
@@ -224,6 +224,12 @@ export function setupAdminRag(b: BaseAdmin, http: ClientHttp) {
     if (minuterie !== null) clearTimeout(minuterie);
     minuterie = null;
   }
+  /** Onglet du navigateur caché : le sondage s'arrête ; au retour, un tour tout de suite. */
+  function auChangementDeVisibilite(): void {
+    if (document.hidden) arreterSondage();
+    else if (minuterie === null) void tour();
+  }
+  document.addEventListener("visibilitychange", auChangementDeVisibilite);
 
   /** Chargeur de la page : tout ce qu'elle montre, puis le sondage des travaux. */
   async function loadRagAdmin(): Promise<void> {
@@ -275,6 +281,7 @@ export function setupAdminRag(b: BaseAdmin, http: ClientHttp) {
   onUnmounted(() => {
     arrete = true;
     arreterSondage();
+    document.removeEventListener("visibilitychange", auChangementDeVisibilite);
     if (pause !== null) clearTimeout(pause);
   });
 

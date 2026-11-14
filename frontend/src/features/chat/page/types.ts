@@ -64,6 +64,8 @@ export interface DomaineConversation {
   readonly mascotteVisible: boolean;
   readonly welcomeConfig: AccueilConfig | null;
   readonly user: { username?: string };
+  /** Conversation en cours d'ouverture : le fil affiché est celui qu'on quitte, inerte. */
+  readonly chatEnOuverture: string | null;
   messageSearchActive: boolean;
   messageSearch: string;
   readonly messageSearchQ: string;
@@ -191,13 +193,11 @@ export interface DomaineComposeur {
   readonly planMode: boolean;
   setPlanMode(on: boolean): unknown;
   manualCompress(): unknown;
-  /** Catalogue du « + » : skills du compte par portée, prompts enregistrés, gabarits. */
-  readonly skillsByScope: Readonly<Record<string, readonly SkillCatalogue[]>>;
-  loadAllSkills(): unknown;
-  readonly savedPromptsList: readonly PromptCatalogue[];
-  loadSavedPrompts(): unknown;
-  readonly templatesAll: readonly GabaritCatalogue[];
-  loadTemplates(): unknown;
+  /** Catalogue du « + », partagé avec le menu « / » : `null` tant que la liste n'a pas été lue. */
+  readonly catalogueSkills: readonly SkillCatalogue[] | null;
+  readonly cataloguePrompts: readonly PromptCatalogue[] | null;
+  readonly templatesAll: readonly GabaritCatalogue[] | null;
+  prechargerCatalogue(relire?: boolean): void;
   openTemplate(gabarit: GabaritCatalogue): unknown;
 }
 
@@ -211,6 +211,8 @@ export interface PromptCatalogue {
   id: string | number;
   title: string;
   content: string;
+  /** Reçu en partage : le « + » ne liste que les prompts du compte. */
+  shared?: boolean;
 }
 
 export interface GabaritCatalogue {
@@ -459,6 +461,10 @@ export type DomaineBarre = Pick<
   readonly logoApp: string;
   readonly user: { avatar?: string; username: string; is_admin?: boolean; role?: string };
   readonly groupedHistory: readonly GroupeChats[];
+  /** Conversation en cours d'ouverture (ligne marquée avant la réponse), ou `null`. */
+  readonly chatEnOuverture: string | null;
+  /** Lance la lecture d'une conversation à l'appui sur sa ligne, avant le clic qui l'ouvre. */
+  prechargerChat(id: string): void;
   notifDropdownRef: unknown;
   readonly notifications: readonly NotificationApp[];
   readonly groupedNotifications: readonly GroupeNotifications[];

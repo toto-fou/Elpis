@@ -21,14 +21,6 @@ export type EtatSession =
   | { readonly statut: "mot_de_passe_a_changer"; readonly generation: number }
   | { readonly statut: "connecte"; readonly generation: number; readonly compte: Compte };
 
-/** Conséquences d'une fin de session : l'affichage se détache toujours, le run serveur n'est arrêté que sur départ volontaire. */
-export function consequencesFin(raison: RaisonFin): {
-  readonly detacherAffichage: true;
-  readonly arreterRun: boolean;
-} {
-  return { detacherAffichage: true, arreterRun: raison === "deconnexion" };
-}
-
 type Nettoyage = () => void;
 
 export interface Horloge {

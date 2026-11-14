@@ -2,6 +2,7 @@
 <!-- frontend/src/components/chat/page/BarreImage.vue — barre du mode Images : format, taille, nombre, enrichir, graine, bibliothèque, options avancées. -->
 <script setup lang="ts">
 import { CLE_IMAGE, domaine } from "../../../features/chat/page/domaines";
+import TransitionMenu from "../../communs/TransitionMenu.vue";
 
 const img = domaine(CLE_IMAGE);
 
@@ -58,32 +59,34 @@ function valeur(e: Event): string {
           ></span>
           <span>{{ img.imageFormatLabel() }}</span>
         </button>
-        <div
-          v-if="img.imagePop === 'ratio'"
-          class="elpis-img-pop elpis-img-pop--ratio"
-          role="group"
-          aria-label="Format"
-        >
-          <button
-            v-for="r in img.imageBaseRatios"
-            :key="r"
-            type="button"
-            class="elpis-img-opt"
-            :aria-pressed="
-              !img.imageOpts.custom && img.imageBaseRatio(img.imageOpts.ratio) === r ? 'true' : 'false'
-            "
-            @click="img.setImageRatio(r)"
+        <TransitionMenu haut>
+          <div
+            v-if="img.imagePop === 'ratio'"
+            class="elpis-img-pop elpis-img-pop--ratio"
+            role="group"
+            aria-label="Format"
           >
-            <span
-              class="elpis-img-ratio"
-              :style="img.ratioBox(img.imageIsPortrait(img.imageOpts.ratio) ? img.imageFlipRatio(r) : r)"
-              aria-hidden="true"
-            ></span>
-            <span>{{
-              r === "1:1" ? "Carré" : img.imageIsPortrait(img.imageOpts.ratio) ? img.imageFlipRatio(r) : r
-            }}</span>
-          </button>
-        </div>
+            <button
+              v-for="r in img.imageBaseRatios"
+              :key="r"
+              type="button"
+              class="elpis-img-opt"
+              :aria-pressed="
+                !img.imageOpts.custom && img.imageBaseRatio(img.imageOpts.ratio) === r ? 'true' : 'false'
+              "
+              @click="img.setImageRatio(r)"
+            >
+              <span
+                class="elpis-img-ratio"
+                :style="img.ratioBox(img.imageIsPortrait(img.imageOpts.ratio) ? img.imageFlipRatio(r) : r)"
+                aria-hidden="true"
+              ></span>
+              <span>{{
+                r === "1:1" ? "Carré" : img.imageIsPortrait(img.imageOpts.ratio) ? img.imageFlipRatio(r) : r
+              }}</span>
+            </button>
+          </div>
+        </TransitionMenu>
       </div>
       <button
         type="button"
@@ -164,92 +167,96 @@ function valeur(e: Event): string {
       >
         <i class="ph ph-dots-three" aria-hidden="true"></i>
       </button>
-      <div
-        v-if="img.imagePop === 'more'"
-        class="elpis-img-pop elpis-img-pop--more"
-        role="group"
-        aria-label="Options avancées"
-      >
-        <template v-if="!img.imageFixedSizes.length">
-          <button
-            type="button"
-            class="elpis-img-opt elpis-img-opt--row"
-            :aria-pressed="img.imageOpts.custom ? 'true' : 'false'"
-            title="Largeur et hauteur au choix, arrondies à 64 px"
-            @click="img.setImageCustom(!img.imageOpts.custom)"
-          >
-            <i class="ph ph-arrows-out-simple" aria-hidden="true"></i><span>Dimensions libres</span>
-          </button>
-          <div v-if="img.imageOpts.custom" class="elpis-img-dims">
-            <input
-              v-model.number="img.imageOpts.cw"
-              type="number"
-              min="64"
-              :max="(img.imageStatus && img.imageStatus.max_side) || 2048"
-              :step="(img.imageStatus && img.imageStatus.step) || 64"
-              aria-label="Largeur"
-              placeholder="Largeur"
-              class="elpis-img-input"
-            />
-            <span aria-hidden="true">×</span>
-            <input
-              v-model.number="img.imageOpts.ch"
-              type="number"
-              min="64"
-              :max="(img.imageStatus && img.imageStatus.max_side) || 2048"
-              :step="(img.imageStatus && img.imageStatus.step) || 64"
-              aria-label="Hauteur"
-              placeholder="Hauteur"
-              class="elpis-img-input"
-            />
-          </div>
-        </template>
-        <label v-if="img.imageFeatures.seed" class="elpis-img-field">
-          <span>Graine</span>
-          <input
-            v-model="img.imageOpts.seed"
-            type="number"
-            min="0"
-            placeholder="Aléatoire"
-            class="elpis-img-input"
-          />
-        </label>
-        <label v-if="img.imageFeatures.steps" class="elpis-img-field">
-          <span>Étapes</span>
-          <input
-            v-model="img.imageOpts.steps"
-            type="number"
-            min="1"
-            max="200"
-            placeholder="Modèle"
-            class="elpis-img-input"
-          />
-        </label>
-        <label v-if="img.imageFeatures.negative" class="elpis-img-field elpis-img-field--col">
-          <span>À éviter</span>
-          <textarea
-            v-model="img.imageOpts.negative_prompt"
-            rows="2"
-            placeholder="flou, texte, filigrane"
-            class="elpis-img-input"
-          ></textarea>
-        </label>
-        <label
-          v-if="img.imageFeatures.strength && (img.imageEditRef || img.attachedFiles.some((f) => f.isImage))"
-          class="elpis-img-field elpis-img-field--col"
-          title="Faible : proche de l’original. Forte : s’en éloigne davantage."
+      <TransitionMenu haut>
+        <div
+          v-if="img.imagePop === 'more'"
+          class="elpis-img-pop elpis-img-pop--more"
+          role="group"
+          aria-label="Options avancées"
         >
-          <span>Force · {{ Number(img.imageOpts.strength).toFixed(2) }}</span>
-          <input
-            v-model.number="img.imageOpts.strength"
-            type="range"
-            min="0.1"
-            max="1"
-            step="0.05"
-            aria-label="Force de la modification"
-          />
-        </label>
-      </div>
+          <template v-if="!img.imageFixedSizes.length">
+            <button
+              type="button"
+              class="elpis-img-opt elpis-img-opt--row"
+              :aria-pressed="img.imageOpts.custom ? 'true' : 'false'"
+              title="Largeur et hauteur au choix, arrondies à 64 px"
+              @click="img.setImageCustom(!img.imageOpts.custom)"
+            >
+              <i class="ph ph-arrows-out-simple" aria-hidden="true"></i><span>Dimensions libres</span>
+            </button>
+            <div v-if="img.imageOpts.custom" class="elpis-img-dims">
+              <input
+                v-model.number="img.imageOpts.cw"
+                type="number"
+                min="64"
+                :max="(img.imageStatus && img.imageStatus.max_side) || 2048"
+                :step="(img.imageStatus && img.imageStatus.step) || 64"
+                aria-label="Largeur"
+                placeholder="Largeur"
+                class="elpis-img-input"
+              />
+              <span aria-hidden="true">×</span>
+              <input
+                v-model.number="img.imageOpts.ch"
+                type="number"
+                min="64"
+                :max="(img.imageStatus && img.imageStatus.max_side) || 2048"
+                :step="(img.imageStatus && img.imageStatus.step) || 64"
+                aria-label="Hauteur"
+                placeholder="Hauteur"
+                class="elpis-img-input"
+              />
+            </div>
+          </template>
+          <label v-if="img.imageFeatures.seed" class="elpis-img-field">
+            <span>Graine</span>
+            <input
+              v-model="img.imageOpts.seed"
+              type="number"
+              min="0"
+              placeholder="Aléatoire"
+              class="elpis-img-input"
+            />
+          </label>
+          <label v-if="img.imageFeatures.steps" class="elpis-img-field">
+            <span>Étapes</span>
+            <input
+              v-model="img.imageOpts.steps"
+              type="number"
+              min="1"
+              max="200"
+              placeholder="Modèle"
+              class="elpis-img-input"
+            />
+          </label>
+          <label v-if="img.imageFeatures.negative" class="elpis-img-field elpis-img-field--col">
+            <span>À éviter</span>
+            <textarea
+              v-model="img.imageOpts.negative_prompt"
+              rows="2"
+              placeholder="flou, texte, filigrane"
+              class="elpis-img-input"
+            ></textarea>
+          </label>
+          <label
+            v-if="
+              img.imageFeatures.strength && (img.imageEditRef || img.attachedFiles.some((f) => f.isImage))
+            "
+            class="elpis-img-field elpis-img-field--col"
+            title="Faible : proche de l’original. Forte : s’en éloigne davantage."
+          >
+            <span>Force · {{ Number(img.imageOpts.strength).toFixed(2) }}</span>
+            <input
+              v-model.number="img.imageOpts.strength"
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.05"
+              aria-label="Force de la modification"
+            />
+          </label>
+        </div>
+      </TransitionMenu>
     </div>
   </div>
 </template>

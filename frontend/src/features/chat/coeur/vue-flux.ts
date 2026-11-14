@@ -62,7 +62,7 @@ export function creerVueFlux(c: CoeurChat) {
 
   function surReflexion(t: Tour): void {
     l.stopPreContentFlush();
-    f.thinkBuf += t.data.text || "";
+    l.recevoirReflexion(t.data.text || "");
     // Débit, et part « en génération » de la jauge : la réflexion occupe le cache du moteur jusqu'à la mesure suivante.
     if (f.ctxLive) {
       f.ctxLive.gen += t.data.n || 1;
@@ -70,28 +70,22 @@ export function creerVueFlux(c: CoeurChat) {
       f.ctxLive.appel += t.data.n || 1;
     }
     f.inThinkPhase = true;
-    if (!f.thinkFlushTimer) f.thinkFlushTimer = setInterval(() => l.flushThinkBuf(), 100);
     if (t.idx >= 0) effacerAttente(t.idx);
   }
 
-  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle.
+  // Resynchronisation de fin de tour : le texte nettoyé par le serveur remplace la bulle, les blocs de tête inchangés sont gardés ; hors flux, tout est figé.
   function surRemplacement(t: Tour): void {
-    l.stopStreamFlush();
-    f.streamBuf = "";
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
-    if (t.idx >= 0 && l.getStreamMsgs()[t.idx])
-      l.patch(
-        t.idx,
-        Object.assign(
-          { content: t.data.text || "", _pendingPreContent: "" },
-          STREAM_RENDER_CLEAR,
-          PRE_RENDER_CLEAR,
-        ),
-      );
+    l.abandonnerFlux({ corps: true, narration: true });
+    const cur = l.getStreamMsgs()[t.idx];
+    if (!(t.idx >= 0 && cur)) return;
+    const texte = t.data.text || "";
+    const corps = cur.isStreaming
+      ? l.applyStreamRender(cur, texte)
+      : Object.assign({ content: texte }, l.figerCorps(cur, texte));
+    l.patch(
+      t.idx,
+      Object.assign({ _pendingPreContent: "" }, corps, { isStreaming: cur.isStreaming }, PRE_RENDER_CLEAR),
+    );
   }
 
   // Phase outils : le contenu va dans la ligne vivante du conteneur, jamais dans le corps.
@@ -111,15 +105,13 @@ export function creerVueFlux(c: CoeurChat) {
       f.ctxLive.appel += t.data.n || 1;
     }
     if (f.streamToolPhase) {
-      f.preContentBuf += t.data.text || "";
-      if (!f.preContentFlushTimer) f.preContentFlushTimer = setInterval(() => l.flushPreContentBuf(), 40);
+      l.recevoirNarration(t.data.text || "");
       e.isThinking.value = true;
     } else {
       l.stopPreContentFlush();
       e.isThinking.value = false;
       e.statusText.value = "";
-      f.streamBuf += t.data.text || "";
-      l.armStreamFlush();
+      l.recevoirCorps(t.data.text || "");
     }
   }
 
@@ -506,7 +498,7 @@ export function creerVueFlux(c: CoeurChat) {
       metrics: metriques,
       _prefillPct: undefined,
       isStreaming: false,
-      ...STREAM_RENDER_CLEAR,
+      ...l.figerCorps(cur, contenu),
       isTruncated: !!d["tool_limit_reached"] || !!d["cancelled"] || !!d["truncated"],
       run_ids: Array.isArray(runIds) && runIds.length ? runIds : cur.run_ids || null,
       compactions: Array.isArray(compactions) && compactions.length ? compactions : cur.compactions || null,
@@ -584,11 +576,7 @@ export function creerVueFlux(c: CoeurChat) {
     } catch (err) {
       journal.avertir("[tool_call_delta] reset error — silent fallback", err);
     }
-    if (f.preContentFlushTimer) {
-      clearInterval(f.preContentFlushTimer);
-      f.preContentFlushTimer = null;
-    }
-    f.preContentBuf = "";
+    l.abandonnerFlux({ narration: true });
     l.forgetDeltaNames(t.data.iter);
     const cur = t.msgs[t.idx];
     if (t.idx >= 0 && cur) {
@@ -1205,12 +1193,19 @@ export function creerVueFlux(c: CoeurChat) {
     t.toast(d.text || "Erreur", "error");
     const chat = d.chat_id || r.currentChatId.value || "local";
     await l.finalizeAllToolStreams(chat);
+    // Le texte reçu mais pas encore versé reste dans la bulle : réflexion et narration versées, corps ajouté.
+    l.stopThinkFlush();
+    l.stopPreContentFlush();
+    l.stopStreamFlush();
+    const reste = f.streamBuf;
+    f.streamBuf = "";
     const cur = t.msgs[t.idx];
     if (cur && cur.webScreenshots && cur.webScreenshots.length)
       for (const s of cur.webScreenshots) s.pending = false;
     // Une erreur n'est pas suivie d'un `final` : la bulle sort du flux ici.
     l.patch(t.idx, {
       ...(cur ? cloreTour(cur) : null),
+      ...(cur && reste ? { content: (cur.content || "") + reste } : null),
       isError: true,
       errorMessage: d.text || "Erreur",
       errorDetail: d["detail"] || "",

@@ -4,6 +4,7 @@
 import { domaineAdmin } from "../../features/admin/domaine";
 import ChoixPeriode from "./ChoixPeriode.vue";
 import EtatActualisation from "./EtatActualisation.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -35,221 +36,223 @@ const adm = domaineAdmin();
           >
             <i class="ph ph-dots-three" aria-hidden="true"></i>
           </button>
-          <div
-            v-if="adm.dashMenu"
-            class="adm-pop adm-dash__menu"
-            role="dialog"
-            aria-label="Options du tableau de bord"
-          >
-            <template v-if="adm.dashMenu === 'main'">
-              <div class="adm-pop__body">
-                <button type="button" class="adm-menu__item" @click="adm.dashMenu = 'widgets'">
-                  <i class="ph ph-squares-four" aria-hidden="true"></i> Widgets
-                  <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="adm-menu__item" @click="adm.dashMenu = 'export'">
-                  <i class="ph ph-export" aria-hidden="true"></i> Exporter
-                  <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
-                </button>
-                <button
-                  v-if="adm.user?.role === 'admin'"
-                  type="button"
-                  class="adm-menu__item"
-                  @click="
-                    adm.dashMenu = 'collect';
-                    adm.loadScrapeToken();
-                  "
-                >
-                  <i class="ph ph-plugs-connected" aria-hidden="true"></i> Collecte Prometheus
-                  <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
-                </button>
-              </div>
-              <div class="adm-pop__head"><span>Actualisation</span></div>
-              <div class="adm-pop__body">
-                <div class="adm-dash__rate">
-                  <span title="Indicateurs, graphes et tableaux">Indicateurs</span>
-                  <div class="adm-stepper">
-                    <button
-                      type="button"
-                      class="adm-stepper__btn"
-                      :class="adm.dashboardPollMs <= 5000 ? 'is-off' : ''"
-                      aria-label="Actualiser les indicateurs plus souvent"
-                      @click="adm.pollFaster"
-                    >
-                      <i class="ph ph-minus" aria-hidden="true"></i>
-                    </button>
-                    <span class="adm-stepper__val tabular-nums">{{ adm.pollLabel() }}</span>
-                    <button
-                      type="button"
-                      class="adm-stepper__btn"
-                      :class="adm.dashboardPollMs >= 60000 ? 'is-off' : ''"
-                      aria-label="Actualiser les indicateurs moins souvent"
-                      @click="adm.pollSlower"
-                    >
-                      <i class="ph ph-plus" aria-hidden="true"></i>
-                    </button>
+          <TransitionMenu>
+            <div
+              v-if="adm.dashMenu"
+              class="adm-pop adm-dash__menu"
+              role="dialog"
+              aria-label="Options du tableau de bord"
+            >
+              <template v-if="adm.dashMenu === 'main'">
+                <div class="adm-pop__body">
+                  <button type="button" class="adm-menu__item" @click="adm.dashMenu = 'widgets'">
+                    <i class="ph ph-squares-four" aria-hidden="true"></i> Widgets
+                    <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="adm-menu__item" @click="adm.dashMenu = 'export'">
+                    <i class="ph ph-export" aria-hidden="true"></i> Exporter
+                    <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    v-if="adm.user?.role === 'admin'"
+                    type="button"
+                    class="adm-menu__item"
+                    @click="
+                      adm.dashMenu = 'collect';
+                      adm.loadScrapeToken();
+                    "
+                  >
+                    <i class="ph ph-plugs-connected" aria-hidden="true"></i> Collecte Prometheus
+                    <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div class="adm-pop__head"><span>Actualisation</span></div>
+                <div class="adm-pop__body">
+                  <div class="adm-dash__rate">
+                    <span title="Indicateurs, graphes et tableaux">Indicateurs</span>
+                    <div class="adm-stepper">
+                      <button
+                        type="button"
+                        class="adm-stepper__btn"
+                        :class="adm.dashboardPollMs <= 5000 ? 'is-off' : ''"
+                        aria-label="Actualiser les indicateurs plus souvent"
+                        @click="adm.pollFaster"
+                      >
+                        <i class="ph ph-minus" aria-hidden="true"></i>
+                      </button>
+                      <span class="adm-stepper__val tabular-nums">{{ adm.pollLabel() }}</span>
+                      <button
+                        type="button"
+                        class="adm-stepper__btn"
+                        :class="adm.dashboardPollMs >= 60000 ? 'is-off' : ''"
+                        aria-label="Actualiser les indicateurs moins souvent"
+                        @click="adm.pollSlower"
+                      >
+                        <i class="ph ph-plus" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="adm-dash__rate">
+                    <span title="Graphes processeur, mémoire et disque">Temps réel</span>
+                    <div class="adm-stepper">
+                      <button
+                        type="button"
+                        class="adm-stepper__btn"
+                        :class="adm.livePollMs <= 2000 ? 'is-off' : ''"
+                        aria-label="Actualiser le temps réel plus souvent"
+                        @click="adm.liveFaster"
+                      >
+                        <i class="ph ph-minus" aria-hidden="true"></i>
+                      </button>
+                      <span class="adm-stepper__val tabular-nums">{{ adm.livePollLabel() }}</span>
+                      <button
+                        type="button"
+                        class="adm-stepper__btn"
+                        :class="adm.livePollMs >= 10000 ? 'is-off' : ''"
+                        aria-label="Actualiser le temps réel moins souvent"
+                        @click="adm.liveSlower"
+                      >
+                        <i class="ph ph-plus" aria-hidden="true"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div class="adm-dash__rate">
-                  <span title="Graphes processeur, mémoire et disque">Temps réel</span>
-                  <div class="adm-stepper">
-                    <button
-                      type="button"
-                      class="adm-stepper__btn"
-                      :class="adm.livePollMs <= 2000 ? 'is-off' : ''"
-                      aria-label="Actualiser le temps réel plus souvent"
-                      @click="adm.liveFaster"
-                    >
-                      <i class="ph ph-minus" aria-hidden="true"></i>
-                    </button>
-                    <span class="adm-stepper__val tabular-nums">{{ adm.livePollLabel() }}</span>
-                    <button
-                      type="button"
-                      class="adm-stepper__btn"
-                      :class="adm.livePollMs >= 10000 ? 'is-off' : ''"
-                      aria-label="Actualiser le temps réel moins souvent"
-                      @click="adm.liveSlower"
-                    >
-                      <i class="ph ph-plus" aria-hidden="true"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </template>
+              </template>
 
-            <template v-else>
-              <div class="adm-pop__head">
-                <button type="button" class="adm-pop__back" @click="adm.dashMenu = 'main'">
-                  <i class="ph ph-caret-left" aria-hidden="true"></i>
-                  {{
-                    { widgets: "Widgets", export: "Exporter", collect: "Collecte Prometheus" }[adm.dashMenu]
-                  }}
-                </button>
-                <button
+              <template v-else>
+                <div class="adm-pop__head">
+                  <button type="button" class="adm-pop__back" @click="adm.dashMenu = 'main'">
+                    <i class="ph ph-caret-left" aria-hidden="true"></i>
+                    {{
+                      { widgets: "Widgets", export: "Exporter", collect: "Collecte Prometheus" }[adm.dashMenu]
+                    }}
+                  </button>
+                  <button
+                    v-if="adm.dashMenu === 'widgets'"
+                    type="button"
+                    class="adm-btn adm-btn--quiet adm-btn--sm"
+                    title="Revenir à la sélection par défaut"
+                    @click="adm.resetWidgetPrefs()"
+                  >
+                    Défaut
+                  </button>
+                </div>
+
+                <div
                   v-if="adm.dashMenu === 'widgets'"
-                  type="button"
-                  class="adm-btn adm-btn--quiet adm-btn--sm"
-                  title="Revenir à la sélection par défaut"
-                  @click="adm.resetWidgetPrefs()"
+                  class="adm-pop__body max-h-80 overflow-y-auto custom-scrollbar"
                 >
-                  Défaut
-                </button>
-              </div>
+                  <button
+                    v-for="w in adm.allWidgetsList()"
+                    :key="w.id"
+                    type="button"
+                    class="adm-pick"
+                    :aria-pressed="w.visible ? 'true' : 'false'"
+                    @click="adm.toggleWidgetVisibility(w.id)"
+                  >
+                    <span class="adm-pick__box" :class="w.visible ? 'is-on' : ''">
+                      <i v-if="w.visible" class="ph ph-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="adm-pick__label">{{ w.title }}</span>
+                    <span v-if="w.isDefault" class="adm-tag" title="Affiché par défaut">défaut</span>
+                    <span class="adm-tag adm-tag--soft">{{
+                      w.type === "value" ? "Indicateur" : w.type === "table" ? "Tableau" : "Graphe"
+                    }}</span>
+                  </button>
+                </div>
 
-              <div
-                v-if="adm.dashMenu === 'widgets'"
-                class="adm-pop__body max-h-80 overflow-y-auto custom-scrollbar"
-              >
-                <button
-                  v-for="w in adm.allWidgetsList()"
-                  :key="w.id"
-                  type="button"
-                  class="adm-pick"
-                  :aria-pressed="w.visible ? 'true' : 'false'"
-                  @click="adm.toggleWidgetVisibility(w.id)"
-                >
-                  <span class="adm-pick__box" :class="w.visible ? 'is-on' : ''">
-                    <i v-if="w.visible" class="ph ph-check" aria-hidden="true"></i>
-                  </span>
-                  <span class="adm-pick__label">{{ w.title }}</span>
-                  <span v-if="w.isDefault" class="adm-tag" title="Affiché par défaut">défaut</span>
-                  <span class="adm-tag adm-tag--soft">{{
-                    w.type === "value" ? "Indicateur" : w.type === "table" ? "Tableau" : "Graphe"
-                  }}</span>
-                </button>
-              </div>
+                <div v-else-if="adm.dashMenu === 'export'" class="adm-pop__body adm-dash__exports">
+                  <span title="Registre de consommation (CSV)">Consommation</span>
+                  <div class="flex gap-1">
+                    <button
+                      v-for="d in [
+                        { d: 1, l: '24 h' },
+                        { d: 7, l: '7 j' },
+                        { d: 30, l: '30 j' },
+                      ]"
+                      :key="'eu' + d.d"
+                      type="button"
+                      class="adm-btn adm-tool adm-btn--sm"
+                      :aria-label="'Exporter la consommation sur ' + d.l"
+                      @click="
+                        adm.exportUsage(d.d);
+                        adm.dashMenu = null;
+                      "
+                    >
+                      {{ d.l }}
+                    </button>
+                  </div>
+                  <span title="Compteurs d'événements (CSV)">Compteurs</span>
+                  <div class="flex gap-1">
+                    <button
+                      v-for="d in [
+                        { d: 1, l: '24 h' },
+                        { d: 7, l: '7 j' },
+                        { d: 30, l: '30 j' },
+                      ]"
+                      :key="'em' + d.d"
+                      type="button"
+                      class="adm-btn adm-tool adm-btn--sm"
+                      :aria-label="'Exporter les compteurs sur ' + d.l"
+                      @click="
+                        adm.exportMetrics(d.d);
+                        adm.dashMenu = null;
+                      "
+                    >
+                      {{ d.l }}
+                    </button>
+                  </div>
+                </div>
 
-              <div v-else-if="adm.dashMenu === 'export'" class="adm-pop__body adm-dash__exports">
-                <span title="Registre de consommation (CSV)">Consommation</span>
-                <div class="flex gap-1">
-                  <button
-                    v-for="d in [
-                      { d: 1, l: '24 h' },
-                      { d: 7, l: '7 j' },
-                      { d: 30, l: '30 j' },
-                    ]"
-                    :key="'eu' + d.d"
-                    type="button"
-                    class="adm-btn adm-tool adm-btn--sm"
-                    :aria-label="'Exporter la consommation sur ' + d.l"
-                    @click="
-                      adm.exportUsage(d.d);
-                      adm.dashMenu = null;
-                    "
+                <div v-else-if="adm.dashMenu === 'collect'" class="adm-pop__body space-y-3 p-3">
+                  <div class="flex items-center gap-2">
+                    <code class="adm-code flex-1 truncate">{{ adm.prometheusUrl() }}</code>
+                    <button
+                      type="button"
+                      class="adm-btn adm-btn--icon"
+                      title="Copier l'URL"
+                      aria-label="Copier l'URL"
+                      @click="adm.copyPrometheusUrl()"
+                    >
+                      <i class="ph ph-copy" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <p
+                    class="adm-row__hint"
+                    title="Un collecteur n'a pas de session : il s'authentifie par jeton."
                   >
-                    {{ d.l }}
-                  </button>
+                    Jeton : <code>Authorization: Bearer</code> ou <code>?token=</code>
+                  </p>
+                  <div v-if="adm.scrapeToken.configured" class="flex items-center gap-2">
+                    <code class="adm-code flex-1 truncate">{{ adm.scrapeToken.token }}</code>
+                    <button
+                      type="button"
+                      class="adm-btn adm-btn--icon"
+                      title="Copier le jeton"
+                      aria-label="Copier le jeton"
+                      @click="adm.copyScrapeToken()"
+                    >
+                      <i class="ph ph-copy" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="flex gap-2">
+                    <button type="button" class="adm-btn adm-tool" @click="adm.setScrapeToken('generate')">
+                      <i class="ph ph-key" aria-hidden="true"></i>
+                      {{ adm.scrapeToken.configured ? "Régénérer" : "Générer un jeton" }}
+                    </button>
+                    <button
+                      v-if="adm.scrapeToken.configured"
+                      type="button"
+                      class="adm-btn adm-btn--danger"
+                      @click="adm.setScrapeToken('revoke')"
+                    >
+                      Révoquer
+                    </button>
+                  </div>
                 </div>
-                <span title="Compteurs d'événements (CSV)">Compteurs</span>
-                <div class="flex gap-1">
-                  <button
-                    v-for="d in [
-                      { d: 1, l: '24 h' },
-                      { d: 7, l: '7 j' },
-                      { d: 30, l: '30 j' },
-                    ]"
-                    :key="'em' + d.d"
-                    type="button"
-                    class="adm-btn adm-tool adm-btn--sm"
-                    :aria-label="'Exporter les compteurs sur ' + d.l"
-                    @click="
-                      adm.exportMetrics(d.d);
-                      adm.dashMenu = null;
-                    "
-                  >
-                    {{ d.l }}
-                  </button>
-                </div>
-              </div>
-
-              <div v-else-if="adm.dashMenu === 'collect'" class="adm-pop__body space-y-3 p-3">
-                <div class="flex items-center gap-2">
-                  <code class="adm-code flex-1 truncate">{{ adm.prometheusUrl() }}</code>
-                  <button
-                    type="button"
-                    class="adm-btn adm-btn--icon"
-                    title="Copier l'URL"
-                    aria-label="Copier l'URL"
-                    @click="adm.copyPrometheusUrl()"
-                  >
-                    <i class="ph ph-copy" aria-hidden="true"></i>
-                  </button>
-                </div>
-                <p
-                  class="adm-row__hint"
-                  title="Un collecteur n'a pas de session : il s'authentifie par jeton."
-                >
-                  Jeton : <code>Authorization: Bearer</code> ou <code>?token=</code>
-                </p>
-                <div v-if="adm.scrapeToken.configured" class="flex items-center gap-2">
-                  <code class="adm-code flex-1 truncate">{{ adm.scrapeToken.token }}</code>
-                  <button
-                    type="button"
-                    class="adm-btn adm-btn--icon"
-                    title="Copier le jeton"
-                    aria-label="Copier le jeton"
-                    @click="adm.copyScrapeToken()"
-                  >
-                    <i class="ph ph-copy" aria-hidden="true"></i>
-                  </button>
-                </div>
-                <div class="flex gap-2">
-                  <button type="button" class="adm-btn adm-tool" @click="adm.setScrapeToken('generate')">
-                    <i class="ph ph-key" aria-hidden="true"></i>
-                    {{ adm.scrapeToken.configured ? "Régénérer" : "Générer un jeton" }}
-                  </button>
-                  <button
-                    v-if="adm.scrapeToken.configured"
-                    type="button"
-                    class="adm-btn adm-btn--danger"
-                    @click="adm.setScrapeToken('revoke')"
-                  >
-                    Révoquer
-                  </button>
-                </div>
-              </div>
-            </template>
-          </div>
+              </template>
+            </div>
+          </TransitionMenu>
         </div>
       </div>
       <div class="adm-progression" :class="{ 'is-on': adm.dashboardLoading }" aria-hidden="true"></div>

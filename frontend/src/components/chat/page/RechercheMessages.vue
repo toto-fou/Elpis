@@ -39,7 +39,7 @@ const BOUTON =
 </script>
 
 <template>
-  <div class="sticky top-0 z-10 mb-4">
+  <div class="sticky top-0 z-10">
     <div
       class="flex items-center gap-1 pl-3 pr-1.5 py-1 bg-white border border-blue-200 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-400"
       role="search"

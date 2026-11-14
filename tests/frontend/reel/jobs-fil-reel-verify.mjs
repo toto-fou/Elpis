@@ -126,6 +126,8 @@ try {
     await capture('jobs-fil-reveil');
     const etatBulle = async () => ({ etat: await etatJob(k.appel), titre: await ligneJob(k.appel).getAttribute('title'), pieds: await pieds('Le serveur tourne'), attente: await attente.count(),
         lignes: await page.locator('#app [data-wake-line]').count(), texte: (await bulle('Le serveur tourne').innerText()).replace(/\s+/g, ' ') });
+    // La confirmation « Réponse copiée », posée 1,5 s sur le bouton, ne fait pas partie du rendu comparé.
+    await page.waitForFunction(() => !(document.getElementById('app')?.innerText || '').includes('Réponse copiée'), null, { timeout: 5000 }).catch(() => {});
     const avant = await etatBulle();
     await page.reload();
     await attendreMontage(page);

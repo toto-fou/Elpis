@@ -578,10 +578,10 @@ try {
     // ═══ 12. Retour au chat par Échap ═══
     await page.keyboard.press('Escape');
     v.ok('Échap sans boîte ni menu : retour au chat', await jusqua(async () => (await racine(page).count()) === 0, 3000) && (await actifPlus.count()) === 0);
-    // Rail replié : l'icône « RAG » ouvre la page
+    // Rail replié : l'icône « RAG » ouvre la page (la vue déployée sort d'abord : on attend le bouton sans libellé du rail)
     await page.evaluate(() => { window.__racine().showSidebar = false; });
     const rail = page.locator('aside.elpis-slide-panel button[data-menu-plus]:visible');
-    v.ok('rail replié : icône « Plus » visible, sans libellé', await jusqua(async () => (await rail.count()) === 1, 3000) && texte(await rail.first().textContent()) === '' && (await rail.first().locator('i.ph-dots-three-circle').count()) === 1);
+    v.ok('rail replié : icône « Plus » visible, sans libellé', await jusqua(async () => (await rail.count()) === 1 && texte(await rail.first().textContent()) === '', 3000) && (await rail.first().locator('i.ph-dots-three-circle').count()) === 1);
     await rail.first().click();
     const railRag = page.locator('aside.elpis-slide-panel [role="menuitem"][title="RAG"]');
     const boiteRail = await railRag.boundingBox();

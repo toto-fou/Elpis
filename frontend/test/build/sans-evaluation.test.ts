@@ -23,6 +23,16 @@ describe("aucune évaluation de code (CSP)", () => {
     expect(premier).toBe("../platform/zod-sans-eval");
   });
 
+  it("le build range Zod et zod-sans-eval dans le même fichier : le réglage précède tout schéma d'un autre fichier", () => {
+    const config = fs.readFileSync(path.resolve(SRC, "../vite.config.mts"), "utf8");
+    const groupe = /\{\s*name:\s*"zod",\s*test:\s*\/(.+)\/\s*\}/.exec(config)?.[1];
+    expect(groupe).toBeDefined();
+    const motif = new RegExp(groupe ?? "$^");
+    expect(motif.test("/depot/node_modules/zod/v4/core/schemas.js")).toBe(true);
+    expect(motif.test("/depot/frontend/src/platform/zod-sans-eval.ts")).toBe(true);
+    expect(motif.test("/depot/packages/contracts/src/rest/commun.ts")).toBe(false);
+  });
+
   it("zod-sans-eval pose jitless", () => {
     const texte = fs.readFileSync(path.join(SRC, "platform", "zod-sans-eval.ts"), "utf8");
     expect(texte).toMatch(/z\.config\(\{\s*jitless:\s*true\s*\}\)/);

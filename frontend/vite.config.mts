@@ -39,7 +39,11 @@ export default defineConfig({
       },
       output: {
         codeSplitting: {
-          groups: [{ name: "socle", test: /node_modules[\\/](?:vue|@vue|marked|dompurify)[\\/]/ }],
+          groups: [
+            { name: "socle", test: /node_modules[\\/](?:vue|@vue|marked|dompurify)[\\/]/ },
+            // Zod avec son réglage sans évaluation : posé avant tout schéma, quel que soit l'ordre des autres fichiers.
+            { name: "zod", test: /node_modules[\\/]zod[\\/]|[\\/]platform[\\/]zod-sans-eval\.ts$/ },
+          ],
         },
       },
     },

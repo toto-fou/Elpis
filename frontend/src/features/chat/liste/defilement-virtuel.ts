@@ -145,6 +145,11 @@ export function creerDefilementVirtuel(
     if (!suitLeBas() && (debut.value > tete(s) || fin.value < e)) {
       const garde = debut.value < e && fin.value > s;
       poser(garde ? Math.min(s, debut.value) : s, garde ? Math.max(e, fin.value) : e, total);
+      // Lignes posées sur des hauteurs estimées : mesurées dès leur rendu, la vue est complétée avant d'être peinte.
+      void nextTick(() => {
+        mesurer();
+        recalculer();
+      });
     }
     planifierRepos();
   }

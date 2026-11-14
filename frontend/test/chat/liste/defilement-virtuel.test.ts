@@ -431,6 +431,18 @@ it("un cran de molette dans la marge ne monte rien dans l'image ; le repos la co
   assert.equal(v.indices()[0], Math.floor((50 * PAS - 1200) / PAS) - TAMPON);
 });
 
+it("saut en haut d'un fil de messages courts : les lignes mesurées, la vue est couverte avant d'être peinte", async () => {
+  const v = monter(100, { hauteurLigne: 50 });
+  v.api._vsInitTail(100);
+  await vider();
+  v.refs.isUserScrolling.value = true;
+  v.scroller(0);
+  await nextTick();
+  await nextTick();
+  assert.equal(file.size, 0, "sans image de plus");
+  assert.ok(v.indices().length * (50 + 32) >= 900, "bande vide sous les lignes : " + v.indices().length);
+});
+
 it("un saut au-delà de la marge ne monte dans l'image que la vue et une hauteur de vue de chaque côté", () => {
   const v = monter(200);
   v.refs.isUserScrolling.value = true;

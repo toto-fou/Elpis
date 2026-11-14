@@ -192,6 +192,8 @@ export const SETTINGS_TABS: readonly ValeurArgument[] = [
   { value: "sandbox", label: "Sandbox" },
   { value: "secrets", label: "Secrets" },
   { value: "secrets:git", label: "Comptes Git" },
+  { value: "secrets:jetons", label: "Jetons MCP" },
+  { value: "secrets:remote", label: "Remote" },
 ];
 
 // Tables littérales : une classe d'icône composée à la volée serait absente de la feuille générée.

@@ -160,6 +160,11 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Remote tokens have their own part.** Settings › Secrets gets a fourth part, *Remote*: the
+  tokens of the machines connected to Remote code (one per machine, with its command, last use,
+  regeneration, revocation one by one or all at once). *Jetons MCP* now lists tool tokens only,
+  and its form no longer asks for a type. Each part keeps its own form and its own token shown
+  once, and says how tokens are kept: only a fingerprint and the last 4 characters.
 - **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
   *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
   repositories of a Git account, listed as soon as the window opens; the account is chosen when

@@ -5,6 +5,7 @@ import { useTemplateRef } from "vue";
 
 import { CLE_CONVERSATION, domaine } from "../../../features/chat/page/domaines";
 import { publierElement } from "../../../features/chat/page/element";
+import { accompagnerVolets } from "../../../features/communs/volet";
 import ListeMessages from "../liste/ListeMessages.vue";
 import AccueilChat from "./AccueilChat.vue";
 import RechercheMessages from "./RechercheMessages.vue";
@@ -17,6 +18,9 @@ const emit = defineEmits<{
 }>();
 const conv = domaine(CLE_CONVERSATION);
 publierElement(useTemplateRef<HTMLDivElement>("conteneur"), (el) => emit("conteneur", el));
+// Éditeur ouvert ou fermé : la largeur de la colonne glisse avec lui.
+const colonne = useTemplateRef<HTMLDivElement>("colonne");
+accompagnerVolets(() => colonne.value);
 </script>
 
 <template>
@@ -27,6 +31,7 @@ publierElement(useTemplateRef<HTMLDivElement>("conteneur"), (el) => emit("conten
     :aria-busy="conv.chatEnOuverture ? 'true' : undefined"
   >
     <div
+      ref="colonne"
       class="elpis-chat-col mx-auto transition-transform duration-300"
       :style="{
         maxWidth: !conv.showEditor || !conv.settings.enable_editor ? conv.settings.chat_width + '%' : '48rem',

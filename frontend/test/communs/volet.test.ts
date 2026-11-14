@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/communs/volet.test.ts — volet coulissant : largeur qui suit le geste (posée après la sortie en mouvement réduit), contenu gardé jusqu'à la fin de sa sortie (ouvertures et fermetures enchaînées comprises), largeur animée d'un panneau racine de la transition, focus passé au volet quand son déclencheur disparaît, rendu au déclencheur ou au rail à la fermeture. */
 /* eslint-disable vue/one-component-per-file -- hôtes de montage du composable testé */
-import { createApp, h, nextTick, reactive, Transition, vShow, withDirectives } from "vue";
+import { createApp, effectScope, h, nextTick, reactive, Transition, vShow, withDirectives } from "vue";
 import type { App } from "vue";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { useVolet } from "../../src/features/communs/volet";
+import { accompagnerVolets, useVolet } from "../../src/features/communs/volet";
 import type { CrochetsVolet } from "../../src/features/communs/volet";
 
 let app: App | null = null;
@@ -119,23 +119,31 @@ describe("useVolet : largeur qui glisse", () => {
     expect([deplie.value, large.value]).toEqual([false, false]);
   });
 
-  // Panneau de 280 px dont l'animation est enregistrée ; `cancel` et `finish` suivent l'API des animations Web.
-  function panneau(): {
+  // Panneau de 280 px (par défaut) dont l'animation est enregistrée ; `cancel`, `finish` et `currentTime` suivent l'API des animations Web.
+  function panneau(largeur = 280): {
     el: HTMLElement;
-    jouees: { images: Keyframe[]; options: KeyframeAnimationOptions; annulee: boolean; finir(): void }[];
+    jouees: {
+      images: Keyframe[];
+      options: KeyframeAnimationOptions;
+      annulee: boolean;
+      animation: { currentTime: number };
+      finir(): void;
+    }[];
   } {
     const el = document.createElement("div");
     el.className = "elpis-slide-panel";
-    el.getBoundingClientRect = () => ({ width: 280 }) as DOMRect;
+    el.getBoundingClientRect = () => ({ width: largeur }) as DOMRect;
     const jouees: ReturnType<typeof panneau>["jouees"] = [];
     el.animate = ((images: Keyframe[], options: KeyframeAnimationOptions) => {
       const ecoutes: (() => void)[] = [];
-      const j = { images, options, annulee: false, finir: () => ecoutes.forEach((f) => f()) };
-      jouees.push(j);
-      return {
+      const animation = {
+        currentTime: 0,
         cancel: () => (j.annulee = true),
         addEventListener: (_t: string, f: () => void) => ecoutes.push(f),
       };
+      const j = { images, options, annulee: false, animation, finir: () => ecoutes.forEach((f) => f()) };
+      jouees.push(j);
+      return animation;
     }) as unknown as HTMLElement["animate"];
     return { el, jouees };
   }
@@ -171,6 +179,64 @@ describe("useVolet : largeur qui glisse", () => {
     contenu.el.className = "";
     c.onEnter(contenu.el);
     expect(contenu.jouees).toHaveLength(0);
+  });
+
+  it("un panneau large glisse plus longtemps, jusqu'à une fois et demie la durée des autres", async () => {
+    const { c } = await monter();
+    const durees = (largeur: number): unknown[] => {
+      const { el, jouees } = panneau(largeur);
+      c.onEnter(el);
+      jouees[0]?.finir();
+      c.onLeave(el);
+      return jouees.map((j) => j.options.duration);
+    };
+    expect(durees(280)).toEqual([260, 200]);
+    expect(durees(550)).toEqual([260, 200]);
+    expect(durees(660)).toEqual([312, 240]);
+    expect(durees(830)).toEqual([390, 300]);
+    expect(durees(1400)).toEqual([390, 300]);
+  });
+
+  it("bloc accompagné : sa largeur maximale glisse de la largeur d'avant à celle d'après le volet, à son rythme ; rien si elle n'a pas changé", async () => {
+    const { c } = await monter();
+    const { el, jouees } = panneau(830);
+    const bloc = document.createElement("div");
+    document.body.appendChild(bloc);
+    bloc.style.maxWidth = "70%";
+    // Volet presque arrivé (lecture de la mise en page finale) : 768 px ; avant : 967 px.
+    bloc.getBoundingClientRect = () =>
+      ({ width: (jouees.at(-1)?.animation.currentTime ?? 0) > 0 ? 768 : 967 }) as DOMRect;
+    const glisses: { images: Keyframe[]; options: KeyframeAnimationOptions }[] = [];
+    bloc.animate = ((images: Keyframe[], options: KeyframeAnimationOptions) => {
+      glisses.push({ images, options });
+      return { cancel: () => undefined };
+    }) as unknown as HTMLElement["animate"];
+    const portee = effectScope();
+    portee.run(() => accompagnerVolets(() => bloc));
+
+    etat.ouvert = true;
+    bloc.style.maxWidth = "48rem";
+    c.onBeforeEnter();
+    c.onEnter(el);
+    await nextTick();
+    expect(glisses).toEqual([
+      { images: [{ maxWidth: "967px" }, { maxWidth: "768px" }], options: { duration: 390, easing: "ease" } },
+    ]);
+    expect(jouees[0]?.animation.currentTime).toBe(0);
+
+    jouees[0]?.finir();
+    etat.ouvert = false;
+    c.onLeave(el);
+    await nextTick();
+    expect(glisses).toHaveLength(1);
+
+    portee.stop();
+    etat.ouvert = true;
+    bloc.style.maxWidth = "70%";
+    c.onEnter(el);
+    await nextTick();
+    expect(glisses).toHaveLength(1);
+    bloc.remove();
   });
 
   it("mouvement réduit : aucune largeur animée", async () => {

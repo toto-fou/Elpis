@@ -1106,11 +1106,13 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
    finale, rogné par le volet : il ne se remet pas en page pendant le geste. Il
    entre en glissant depuis son bord (opacité de la racine de la transition,
    `transform` de ses enfants) et sort de même, un peu plus vite
-   (`features/communs/volet.ts`). En mouvement réduit : largeur posée d'un coup,
-   fondu sur place. Les rails à gauche glissent depuis la gauche, les volets à
+   (`features/communs/volet.ts`). Un panneau large (l'éditeur) glisse plus
+   longtemps : `volet.ts` remplace sur lui `--volet-duree`, et la largeur du
+   fil et de la barre de saisie, qui change de règle avec lui, glisse au même
+   rythme. En mouvement réduit : largeur posée d'un coup, fondu sur place. Les rails à gauche glissent depuis la gauche, les volets à
    droite depuis la droite. */
-.volet-enter-active { transition: opacity var(--duree-longue) var(--courbe-volet); }
-.volet-leave-active { transition: opacity var(--duree) var(--courbe-volet); }
+.volet-enter-active { --volet-duree: var(--duree-longue); transition: opacity var(--volet-duree) var(--courbe-volet); }
+.volet-leave-active { --volet-duree: var(--duree); transition: opacity var(--volet-duree) var(--courbe-volet); }
 .volet-enter-from,
 .volet-leave-to {
     opacity: 0;
@@ -1119,8 +1121,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 .volet-leave-active { opacity: 0; }
 aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
 @media (prefers-reduced-motion: no-preference) {
-    .volet-enter-active > * { transition: transform var(--duree-longue) var(--courbe-volet); }
-    .volet-leave-active > * { transition: transform var(--duree) var(--courbe-volet); }
+    .volet-enter-active > * { transition: transform var(--volet-duree) var(--courbe-volet); }
+    .volet-leave-active > * { transition: transform var(--volet-duree) var(--courbe-volet); }
     .volet-enter-from > *,
     .volet-leave-to > * {
         transform: translateX(var(--volet-decalage, 1.5rem));

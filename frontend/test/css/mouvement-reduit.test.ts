@@ -258,17 +258,22 @@ describe("transitions nommées : jetons et mise en page", () => {
       )?.corps ?? "";
     const glisse = /prefers-reduced-motion:\s*no-preference/;
     expect(declarations(corps(".volet-enter-active", null), /^transition$/)).toEqual([
-      "opacity var(--duree-longue) var(--courbe-volet)",
+      "opacity var(--volet-duree) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-leave-active", null), /^transition$/)).toEqual([
-      "opacity var(--duree) var(--courbe-volet)",
+      "opacity var(--volet-duree) var(--courbe-volet)",
     ]);
+    // Durée par défaut de chaque sens ; un panneau large la remplace sur lui (`volet.ts`).
+    expect(declarations(corps(".volet-enter-active", null), /^--volet-duree$/)).toEqual([
+      "var(--duree-longue)",
+    ]);
+    expect(declarations(corps(".volet-leave-active", null), /^--volet-duree$/)).toEqual(["var(--duree)"]);
     expect(declarations(corps(".volet-enter-from", null), /^opacity$/)).toEqual(["0"]);
     expect(declarations(corps(".volet-enter-active > *", glisse), /^transition$/)).toEqual([
-      "transform var(--duree-longue) var(--courbe-volet)",
+      "transform var(--volet-duree) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-leave-active > *", glisse), /^transition$/)).toEqual([
-      "transform var(--duree) var(--courbe-volet)",
+      "transform var(--volet-duree) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-enter-from > *", glisse), /^transform$/)).toEqual([
       "translateX(var(--volet-decalage, 1.5rem))",

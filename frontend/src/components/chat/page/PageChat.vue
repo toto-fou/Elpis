@@ -6,6 +6,7 @@ import { computed, useTemplateRef, watch } from "vue";
 import { CLE_COMPOSEUR, CLE_CONVERSATION, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
 import { glisserAuPremierEnvoi } from "../../../features/chat/composeur/premier-envoi";
 import { utiliserEchecsJobs } from "../../../features/chat/page/echecs-jobs";
+import { accompagnerVolets } from "../../../features/communs/volet";
 import MascottePerchee from "../../mascotte/MascottePerchee.vue";
 import MenuMention from "../composeur/MenuMention.vue";
 import PiecesJointes from "../composeur/PiecesJointes.vue";
@@ -34,6 +35,8 @@ const annonceQuestionnaire = computed(() => {
 });
 // Rien au-dessus du composeur : l'échec d'une tâche de fond est signalé par un toast.
 utiliserEchecsJobs(p, domaine(CLE_CONVERSATION));
+// Éditeur ouvert ou fermé : la largeur de la barre de saisie glisse avec lui.
+accompagnerVolets(() => p.composeColRef);
 // Premier envoi (pas l'ouverture d'une conversation) : lu avant le rendu qui pose le message.
 const page = useTemplateRef<HTMLElement>("page");
 const bande = useTemplateRef<HTMLDivElement>("bande");

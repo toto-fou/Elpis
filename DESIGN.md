@@ -162,7 +162,8 @@ De facto scale, to follow so a new layer finds its place:
   `--courbe-entree` (menu entries, dialogs, toasts, the save bar),
   `--courbe-volet` (sliding panels).
 - Animate `opacity` and `transform`, never layout properties, with one
-  exception: the width of a sliding panel.
+  exception: the width of a sliding panel, and the maximum width of the blocks
+  that follow it.
 - Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
   Generation, editor) glide to their width (`--duree-longue` to open, `--duree`
   to close), and the chat column and the composer follow frame by frame: a
@@ -174,7 +175,16 @@ De facto scale, to follow so a new layer finds its place:
   root, `transform` on its children; rails from the left, right panels from the
   right) and leaves the same way. The rails get their width from a CSS
   transition; a panel that is itself the transition root is driven by
-  `features/communs/volet.ts`, which also hands the focus over.
+  `features/communs/volet.ts`, which also hands the focus over. A panel wider
+  than 550 px glides proportionally longer, up to 1.5 times (the editor on a
+  wide screen: 390 ms to open, 300 ms to close): at equal duration it would move
+  three to four times faster than the others. `volet.ts` writes that duration
+  to `--volet-duree` on the panel, so its content's transition lasts as long.
+  A block whose maximum width changes with a panel (the thread column and the
+  composer when the editor opens) registers with `accompagnerVolets`: its
+  maximum width glides from its width before to its width after, on the
+  panel's duration and curve, instead of changing at once and reversing the
+  block's direction for one frame.
 - Menus and small floating surfaces open and close through `<TransitionMenu>`
   (`popover` down from the anchor's top edge, `popover-up` up from its bottom
   edge, corner with `.menu-ancre-gauche` / `.menu-ancre-droite`): opacity, a

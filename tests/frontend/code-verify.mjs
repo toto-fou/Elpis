@@ -330,8 +330,11 @@ try {
         window.__pre0 = c.querySelector('pre');
     }, CORPS);
     await partBlocs(texteBlocs + ' les erreurs.\n\nEnfin');
-    await page.waitForFunction((sel) => !![...document.querySelectorAll(sel)].at(-1)
-        .querySelector('pre code span[class^="hljs-"]'), CORPS, { timeout: 4000 }).catch(() => {});
+    // Le texte suivant arrivé et le code coloré : l'injection rend la main avant le rendu.
+    await page.waitForFunction((sel) => {
+        const c = [...document.querySelectorAll(sel)].at(-1);
+        return /Enfin/.test(c.textContent) && !!c.querySelector('pre code span[class^="hljs-"]');
+    }, CORPS, { timeout: 4000 }).catch(() => {});
     const blocs = await page.evaluate((sel) => {
         const c = [...document.querySelectorAll(sel)].at(-1);
         return { p: c.querySelector('p') === window.__p0, pre: c.querySelector('pre') === window.__pre0,

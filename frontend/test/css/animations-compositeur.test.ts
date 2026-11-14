@@ -53,6 +53,15 @@ describe("animations jouées par le compositeur", () => {
     },
   );
 
+  it("caret du flux : pouls d'opacité, coupé tant que le texte coule et en mouvement réduit", () => {
+    expect(proprietes("elpis-caret-pulse")).toEqual(["opacity"]);
+    expect(bloc(".elpis-stream-caret {")).toMatch(/animation:\s*elpis-caret-pulse\s/);
+    expect(bloc(".elpis-texte-coule .elpis-stream-caret {").trim()).toBe("animation: none;");
+    expect(STYLE).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.elpis-stream-caret \{ animation: none; \}/,
+    );
+  });
+
   it("éclat des libellés : la copie du texte se déplace à l'opposé de la fenêtre, à chaque image clé", () => {
     const fenetre = largeur(".mem-wave-fenetre");
     const copie = largeur(".mem-wave-copie") * fenetre;

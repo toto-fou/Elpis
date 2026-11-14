@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/coeur/battement.test.ts — battement du flux : une mise à jour du message par image (porteur ou remplacement), arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion. */
+/** frontend/test/chat/coeur/battement.test.ts — battement du flux : une mise à jour du message par image (porteur ou remplacement), arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion, caret plein tant que le texte coule. */
 import * as Vue from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -359,6 +359,53 @@ describe("battement : vidage synchrone", () => {
       isStreaming: false,
     });
     expect(file.size).toBe(0);
+    stop();
+  });
+});
+
+describe("battement : caret plein tant que le texte coule", () => {
+  const COULE = "elpis-texte-coule";
+
+  it("le fil porte la classe dès le premier caractère versé et la perd 400 ms après le dernier, sans toucher au message", async () => {
+    const { api, r, remplacements, stop } = monter();
+    const fil = document.createElement("div");
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = fil;
+    await contenu(api, "Bonjour");
+    expect(fil.classList.contains(COULE)).toBe(false);
+    await image();
+    expect(fil.classList.contains(COULE)).toBe(true);
+    // Arrivées régulières, plus espacées qu'une image : la classe reste.
+    for (let k = 0; k < 20; k++) {
+      await contenu(api, " mot");
+      await image(3);
+      expect(fil.classList.contains(COULE)).toBe(true);
+    }
+    const complet = "Bonjour" + " mot".repeat(20);
+    while (bulle(r)?.content !== complet) await image();
+    const avant = remplacements();
+    await vi.advanceTimersByTimeAsync(390);
+    expect(fil.classList.contains(COULE)).toBe(true);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(fil.classList.contains(COULE)).toBe(false);
+    expect(remplacements()).toBe(avant);
+    expect(vi.getTimerCount()).toBe(0);
+    // Le texte reprend : la classe revient à l'image qui le verse.
+    await contenu(api, " suite");
+    expect(fil.classList.contains(COULE)).toBe(false);
+    await image();
+    expect(fil.classList.contains(COULE)).toBe(true);
+    stop();
+    expect(fil.classList.contains(COULE)).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("la réflexion seule ne pose pas la classe (aucun caret ne la suit)", async () => {
+    const { api, stop } = monter();
+    const fil = document.createElement("div");
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = fil;
+    await api.handleStreamEvent({ type: "thinking_token", text: "Je réfléchis longuement.", n: 1 });
+    await image(20);
+    expect(fil.classList.contains(COULE)).toBe(false);
     stop();
   });
 });

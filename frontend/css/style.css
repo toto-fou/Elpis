@@ -4036,6 +4036,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
   animation: elpis-caret-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes elpis-caret-pulse { 50% { opacity: 0.35; } }
+/* Texte qui coule (classe posée sur le fil par le battement du flux) : caret plein ; il pulse 400 ms après le dernier caractère. */
+.elpis-texte-coule .elpis-stream-caret { animation: none; }
 
 /* Fil du tour : le dernier élément d'un texte rend sa marge,
  * l'espacement entre réflexion, texte et étapes est celui du fil (FilTour.vue). */

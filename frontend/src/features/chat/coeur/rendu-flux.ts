@@ -29,6 +29,8 @@ const SHELL_MAX = 98304;
 const TITRE_REFLEXION_MS = 250;
 const ONGLET_CACHE_MS = 250;
 const BAS_PX = 4;
+const CARET_ATTENTE_MS = 400;
+const TEXTE_COULE = "elpis-texte-coule";
 
 /** Champs d'affichage du rendu incrémental du corps (blocs, bloc actif, état de découpe), purgés à chaque remise à zéro du flux ; le porteur est lâché (le battement suivant en pose un neuf). */
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
@@ -228,17 +230,49 @@ export function creerRenduFlux(c: CoeurChat) {
   let derniereImage = 0;
   let dernierShell = -Infinity;
   let dernierTitre = -Infinity;
+  let filCoule: HTMLElement | null = null;
+  let dernierTexte = 0;
+  let minuterieCaret: ReturnType<typeof setTimeout> | null = null;
   const budget = creerBudget();
   const vCorps = creerVersement();
   const vReflexion = creerVersement();
   const vNarration = creerVersement();
 
   const maintenant = (): number => performance.now();
-  if (getCurrentScope()) onScopeDispose(() => eteindre());
+  if (getCurrentScope())
+    onScopeDispose(() => {
+      eteindre();
+      finCaret();
+    });
   const ongletCache = (): boolean => document.visibilityState === "hidden";
 
   function besoin(): boolean {
     return !!f.thinkBuf || !!f.preContentBuf || (corpsArme && !!f.streamBuf) || f.shellPend.size > 0;
+  }
+
+  // Caret plein tant que le corps s'écrit : le fil porte la classe jusqu'à 400 ms après le dernier caractère versé, le CSS fait pulser le caret ensuite.
+  function texteVerse(el: HTMLElement | null, t: number): void {
+    dernierTexte = t;
+    if (el !== filCoule) {
+      filCoule?.classList.remove(TEXTE_COULE);
+      el?.classList.add(TEXTE_COULE);
+      filCoule = el;
+    }
+    if (filCoule && minuterieCaret === null) minuterieCaret = setTimeout(attenteCaret, CARET_ATTENTE_MS);
+  }
+
+  function attenteCaret(): void {
+    const reste = dernierTexte + CARET_ATTENTE_MS - maintenant();
+    minuterieCaret = null;
+    if (reste > 0) minuterieCaret = setTimeout(attenteCaret, reste);
+    else finCaret();
+  }
+
+  function finCaret(): void {
+    if (minuterieCaret !== null) clearTimeout(minuterieCaret);
+    minuterieCaret = null;
+    filCoule?.classList.remove(TEXTE_COULE);
+    filCoule = null;
   }
 
   function annulerPlanification(): void {
@@ -416,6 +450,7 @@ export function creerRenduFlux(c: CoeurChat) {
         if (i !== idx && autre) msgs[i] = Object.assign({}, autre, { toolSteps: st });
       }
     appliquer(msgs, idx, cur, p);
+    if (corps) texteVerse(e.chatContainer.value, t0);
     const suit = !r.isUserScrolling.value && !!e.chatContainer.value;
     if ((narration || corps) && suit) l.vsEnsureTail();
     await nextTick();

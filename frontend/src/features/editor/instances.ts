@@ -2,7 +2,7 @@
 /** frontend/src/features/editor/instances.ts — éditeurs Monaco de l'éditeur (principal, puis diff et panneau droit à leur premier besoin) : options issues des réglages, abonnements et observateur possédés puis libérés ensemble, préférences et thème appliqués à chaud. */
 import { markRaw } from "vue";
 
-import { mouvementReduit } from "../../platform/mouvement";
+import { lireChoixMouvement, mouvementReduitPour } from "../../platform/mouvement";
 
 export interface Jetable {
   dispose(): void;
@@ -19,6 +19,8 @@ export interface ReglagesEditeur {
   auto_open_editor_on_write?: boolean;
   sandbox_path_display?: string;
   editor_dark_mode?: boolean;
+  /** Animations de l'interface choisies par le compte (`system`, `full`, `reduced`). */
+  ui_motion?: unknown;
   editor_font_size?: unknown;
   editor_font_family?: unknown;
   editor_tab_size?: unknown;
@@ -149,9 +151,12 @@ export interface Editeurs<
 // Une fois par page (Monaco est global) : formateur Python et suivi des marqueurs.
 let globauxEnregistres = false;
 
-/** Défilement et curseur animés, sauf en mouvement réduit (choix du compte, sinon poste) ; le curseur animé est celui de l'éditeur principal. */
-function optionsMouvement(principal: boolean): Record<string, unknown> {
-  const reduit = mouvementReduit();
+/** Défilement et curseur animés, sauf en mouvement réduit : choix du compte lu dans les réglages reçus (l'état de la page peut ne pas l'avoir encore pris), sinon poste ; le curseur animé est celui de l'éditeur principal. */
+function optionsMouvement(
+  s: ReglagesEditeur | null | undefined,
+  principal: boolean,
+): Record<string, unknown> {
+  const reduit = mouvementReduitPour(lireChoixMouvement(s?.ui_motion));
   return {
     smoothScrolling: !reduit,
     ...(principal
@@ -176,7 +181,6 @@ function options(p: PreferencesEditeur, theme: string): Record<string, unknown> 
     insertSpaces: p.insertSpaces,
     wordWrap: p.wordWrap,
     scrollBeyondLastLine: false,
-    ...optionsMouvement(false),
     padding: { top: 12, bottom: 12 },
     bracketPairColorization: { enabled: true },
     contextmenu: false,
@@ -196,7 +200,7 @@ export function prechaufferEditeurs(
 ): void {
   if (monacoServi || prechauffageLance) return;
   prechauffageLance = true;
-  const o = options(preferencesEditeur(reglages), "");
+  const o = { ...options(preferencesEditeur(reglages), ""), ...optionsMouvement(reglages, false) };
   delete o.theme;
   const horsEcran = (creer: (hote: HTMLElement) => { dispose(): void }) => (): void => {
     if (monacoServi) return;
@@ -224,6 +228,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
 ): Editeurs<E, D, Mo> {
   monacoServi = true;
   let prefs = preferencesEditeur(reglages);
+  let courants = reglages;
   let prefsAppliquees = false;
   const theme = themeEditeur(reglages);
   const jetables: Jetable[] = [];
@@ -233,7 +238,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   const instance = markRaw(
     monaco.editor.create(el.principal, {
       ...options(prefs, theme),
-      ...optionsMouvement(true),
+      ...optionsMouvement(reglages, true),
       renderWhitespace: "selection",
       "semanticHighlighting.enabled": true,
       suggest: { showWords: false },
@@ -296,7 +301,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   let instance2: E | null = null;
   function droit(): E | null {
     if (!instance2 && el.droit && !libere) {
-      const o = options(prefs, "");
+      const o = { ...options(prefs, ""), ...optionsMouvement(courants, false) };
       delete o.theme;
       const d = markRaw(monaco.editor.create(el.droit, o));
       garder(d.onDidFocusEditorText(r.focusDroit));
@@ -332,10 +337,12 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
     /** Préférences sur les éditeurs créés, le panneau droit compris ; ceux créés ensuite les reprennent. */
     appliquerPreferences(s) {
       prefs = preferencesEditeur(s);
+      courants = s;
       prefsAppliquees = true;
+      // L'éditeur de différences garde le défilement d'origine de Monaco, comme à sa création.
       for (const ed of [instance, instance2, diff]) {
         try {
-          ed?.updateOptions({ ...prefs, ...optionsMouvement(ed === instance) });
+          ed?.updateOptions(ed === diff ? prefs : { ...prefs, ...optionsMouvement(s, ed === instance) });
         } catch {
           /* éditeur libéré */
         }

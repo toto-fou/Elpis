@@ -281,31 +281,49 @@ describe("éditeurs Monaco", () => {
     f.liberer();
   });
 
-  it("mouvement : défilement et curseur animés, coupés en mouvement réduit, et repris à chaud quand le choix change", () => {
-    // Une seule liste de requête, vivante comme celle du navigateur.
-    const poste = { matches: false };
+  it("mouvement : défilement et curseur animés, coupés quand le compte ou le poste réduit ; le choix est lu dans les réglages reçus et repris à chaud", () => {
+    // Poste qui réduit ; une seule liste de requête, vivante comme celle du navigateur.
+    const poste = { matches: true };
     vi.stubGlobal("matchMedia", () => poste);
+    const anime = { smoothScrolling: true, cursorBlinking: "smooth", cursorSmoothCaretAnimation: "on" };
+    const reduit = { smoothScrolling: false, cursorBlinking: "blink", cursorSmoothCaretAnimation: "off" };
     const { monaco, options } = fauxMonaco(new Compteurs());
-    const f = creerEditeurs(monaco, elements(), {}, rappels);
+    // Compte en « Complètes » : animé malgré le poste, sans que l'état de la page ait été posé.
+    const f = creerEditeurs(monaco, elements(), { ui_motion: "full" }, rappels);
     f.droit();
-    expect(options[0]).toMatchObject({
-      smoothScrolling: true,
-      cursorBlinking: "smooth",
-      cursorSmoothCaretAnimation: "on",
-    });
+    expect(options[0]).toMatchObject(anime);
     expect(options[1]).toMatchObject({ smoothScrolling: true });
     expect(options[1]).not.toHaveProperty("cursorSmoothCaretAnimation");
-    poste.matches = true;
-    f.appliquerPreferences({});
-    expect(options[0]).toMatchObject({
-      smoothScrolling: false,
-      cursorBlinking: "blink",
-      cursorSmoothCaretAnimation: "off",
-    });
+    f.appliquerPreferences({ ui_motion: "reduced" });
+    expect(options[0]).toMatchObject(reduit);
     expect(options[1]).toMatchObject({ smoothScrolling: false });
+    f.appliquerPreferences({ ui_motion: "system" });
+    expect(options[0]).toMatchObject(reduit);
+    poste.matches = false;
+    f.appliquerPreferences({});
+    expect(options[0]).toMatchObject(anime);
     f.liberer();
-    const g = creerEditeurs(monaco, elements(), {}, rappels);
-    expect(options.at(-1)).toMatchObject({ smoothScrolling: false, cursorSmoothCaretAnimation: "off" });
+    const g = creerEditeurs(monaco, elements(), { ui_motion: "reduced" }, rappels);
+    expect(options.at(-1)).toMatchObject(reduit);
     g.liberer();
+  });
+
+  it("mouvement : l'éditeur de différences garde le défilement d'origine de Monaco, à sa création comme à chaud", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const { monaco } = fauxMonaco(new Compteurs());
+    const recus: object[] = [];
+    const creer = monaco.editor.createDiffEditor;
+    monaco.editor.createDiffEditor = (el, o) => {
+      const d = creer(el, o);
+      d.updateOptions = (n: object) => void recus.push(n);
+      return d;
+    };
+    const f = creerEditeurs(monaco, elements(), {}, rappels);
+    f.appliquerPreferences({});
+    f.differences();
+    f.appliquerPreferences({ ui_motion: "full" });
+    expect(recus.length).toBeGreaterThan(0);
+    for (const o of recus) expect(o).not.toHaveProperty("smoothScrolling");
+    f.liberer();
   });
 });

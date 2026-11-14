@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/communs/volet.test.ts — volet coulissant : largeur tenue jusqu'à la fin de la sortie du contenu (ouvertures et fermetures enchaînées comprises), focus passé au volet quand son déclencheur disparaît, rendu au déclencheur ou au rail à la fermeture. */
+/** frontend/test/communs/volet.test.ts — volet coulissant : largeur qui suit le geste (posée après la sortie en mouvement réduit), contenu gardé jusqu'à la fin de sa sortie (ouvertures et fermetures enchaînées comprises), largeur animée d'un panneau racine de la transition, focus passé au volet quand son déclencheur disparaît, rendu au déclencheur ou au rail à la fermeture. */
 /* eslint-disable vue/one-component-per-file -- hôtes de montage du composable testé */
 import { createApp, h, nextTick, reactive, Transition, vShow, withDirectives } from "vue";
 import type { App } from "vue";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { useVolet } from "../../src/features/communs/volet";
 import type { CrochetsVolet } from "../../src/features/communs/volet";
@@ -16,6 +16,7 @@ afterEach(() => {
   app = null;
   document.body.innerHTML = "";
   etat.ouvert = false;
+  vi.unstubAllGlobals();
 });
 
 // happy-dom ne calcule pas l'affichage : un élément est visible si aucun ancêtre n'est en display:none.
@@ -33,15 +34,20 @@ function bouton(texte: string, parent: HTMLElement = document.body): HTMLButtonE
 }
 
 // Monte le composable dans un composant ; `repli` est la partie affichée volet replié.
-async function monter(repli?: HTMLElement): Promise<{ deplie: { value: boolean }; c: CrochetsVolet }> {
-  let sortie: { deplie: { value: boolean }; c: CrochetsVolet } | null = null;
+interface Monte {
+  deplie: { value: boolean };
+  large: { value: boolean };
+  c: CrochetsVolet;
+}
+async function monter(repli?: HTMLElement): Promise<Monte> {
+  let sortie: Monte | null = null;
   app = createApp({
     setup() {
-      const { deplie, crochets } = useVolet(
+      const { deplie, large, crochets } = useVolet(
         () => etat.ouvert,
         () => repli,
       );
-      sortie = { deplie, c: crochets };
+      sortie = { deplie, large, c: crochets };
       return () => null;
     },
   });
@@ -87,6 +93,93 @@ describe("useVolet : largeur", () => {
     expect(deplie.value).toBe(true);
     etat.ouvert = false;
     expect(deplie.value).toBe(false);
+  });
+});
+
+describe("useVolet : largeur qui glisse", () => {
+  it("la largeur suit le geste tout de suite, le contenu reste jusqu'à la fin de sa sortie", async () => {
+    const { deplie, large, c } = await monter();
+    etat.ouvert = true;
+    expect([deplie.value, large.value]).toEqual([true, true]);
+    c.onBeforeEnter();
+    etat.ouvert = false;
+    expect([deplie.value, large.value]).toEqual([true, false]);
+    c.onAfterLeave();
+    expect([deplie.value, large.value]).toEqual([false, false]);
+  });
+
+  it("mouvement réduit : la largeur ne se replie qu'après la sortie du contenu", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce") }));
+    const { deplie, large, c } = await monter();
+    etat.ouvert = true;
+    c.onBeforeEnter();
+    etat.ouvert = false;
+    expect([deplie.value, large.value]).toEqual([true, true]);
+    c.onAfterLeave();
+    expect([deplie.value, large.value]).toEqual([false, false]);
+  });
+
+  // Panneau de 280 px dont l'animation est enregistrée ; `cancel` et `finish` suivent l'API des animations Web.
+  function panneau(): {
+    el: HTMLElement;
+    jouees: { images: Keyframe[]; options: KeyframeAnimationOptions; annulee: boolean; finir(): void }[];
+  } {
+    const el = document.createElement("div");
+    el.className = "elpis-slide-panel";
+    el.getBoundingClientRect = () => ({ width: 280 }) as DOMRect;
+    const jouees: ReturnType<typeof panneau>["jouees"] = [];
+    el.animate = ((images: Keyframe[], options: KeyframeAnimationOptions) => {
+      const ecoutes: (() => void)[] = [];
+      const j = { images, options, annulee: false, finir: () => ecoutes.forEach((f) => f()) };
+      jouees.push(j);
+      return {
+        cancel: () => (j.annulee = true),
+        addEventListener: (_t: string, f: () => void) => ecoutes.push(f),
+      };
+    }) as unknown as HTMLElement["animate"];
+    return { el, jouees };
+  }
+
+  it("panneau racine de la transition : sa largeur glisse de 0 à sa valeur, contenu tenu à la largeur finale, puis il reprend sa mise en page", async () => {
+    const { c } = await monter();
+    const { el, jouees } = panneau();
+    etat.ouvert = true;
+    c.onBeforeEnter();
+    c.onEnter(el);
+    expect(jouees).toHaveLength(1);
+    expect(jouees[0]?.images.map((i) => i["width"])).toEqual(["0px", "280px"]);
+    expect(el.classList.contains("volet-anime")).toBe(true);
+    expect(el.style.getPropertyValue("--volet-largeur")).toBe("280px");
+    jouees[0]?.finir();
+    expect(el.classList.contains("volet-anime")).toBe(false);
+  });
+
+  it("à la sortie : la largeur glisse vers 0 et y reste jusqu'au retrait du panneau ; une racine qui n'est pas un panneau n'est pas animée", async () => {
+    const { c } = await monter();
+    const { el, jouees } = panneau();
+    etat.ouvert = true;
+    c.onBeforeEnter();
+    etat.ouvert = false;
+    c.onBeforeLeave(el);
+    c.onLeave(el);
+    expect(jouees[0]?.images.map((i) => i["width"])).toEqual(["280px", "0px"]);
+    expect(jouees[0]?.options.fill).toBe("forwards");
+    c.onAfterLeave(el);
+    expect(jouees[0]?.annulee).toBe(true);
+    expect(el.classList.contains("volet-anime")).toBe(false);
+    const contenu = panneau();
+    contenu.el.className = "";
+    c.onEnter(contenu.el);
+    expect(contenu.jouees).toHaveLength(0);
+  });
+
+  it("mouvement réduit : aucune largeur animée", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce") }));
+    const { c } = await monter();
+    const { el, jouees } = panneau();
+    c.onEnter(el);
+    c.onLeave(el);
+    expect(jouees).toHaveLength(0);
   });
 });
 

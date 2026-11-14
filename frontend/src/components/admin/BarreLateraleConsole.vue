@@ -9,8 +9,8 @@ import NavigationConsoleDepliee from "./NavigationConsoleDepliee.vue";
 
 const adm = domaineAdmin();
 const mini = ref<HTMLElement | null>(null);
-// Vue dépliée : largeur tenue jusqu'à la fin de sa sortie ; le focus passe d'une vue à l'autre.
-const { deplie, crochets } = useVolet(
+// Vue dépliée : gardée jusqu'à la fin de sa sortie, la largeur glisse avec le geste ; le focus passe d'une vue à l'autre.
+const { deplie, large, crochets } = useVolet(
   () => adm.showSidebar,
   () => mini.value,
 );
@@ -19,7 +19,7 @@ const { deplie, crochets } = useVolet(
 <template>
   <aside
     class="adm-rail h-full flex flex-col shrink-0 border-r z-50 overflow-hidden elpis-slide-panel"
-    :class="deplie ? 'adm-rail--open' : 'adm-rail--mini'"
+    :class="large ? 'adm-rail--open' : 'adm-rail--mini'"
     aria-label="Console d'administration"
   >
     <div v-show="!deplie" ref="mini" class="adm-rail__mini">

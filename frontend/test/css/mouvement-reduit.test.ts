@@ -218,17 +218,28 @@ describe("transitions nommées : jetons et mise en page", () => {
     }
   });
 
-  it("les volets coulissants n'animent aucune propriété de mise en page, dans aucune feuille", () => {
+  it("volets coulissants : seule la largeur d'un rail glisse, hors mouvement réduit ; rien d'autre n'anime la mise en page, dans aucune feuille", () => {
     const regles = REGLES.filter((r) => /elpis-slide-panel|\.volet-/.test(r.selecteur));
     expect(regles.length).toBeGreaterThan(20);
+    const glisse = /prefers-reduced-motion:\s*no-preference/;
+    const largeurs: string[] = [];
     for (const r of regles) {
       for (const v of declarations(r.corps, /^transition-property$/))
         for (const p of v.split(","))
           expect(["opacity", "transform"], `${r.f} ${r.selecteur}`).toContain(p.trim());
       for (const v of declarations(r.corps, /^transition$/))
-        for (const p of v.split(",").map((x) => x.trim().split(/\s+/)[0] ?? ""))
-          expect(["opacity", "transform"], `${r.f} ${r.selecteur} : ${v}`).toContain(p);
+        for (const p of v.split(",").map((x) => x.trim().split(/\s+/)[0] ?? "")) {
+          if (p !== "width") expect(["opacity", "transform"], `${r.f} ${r.selecteur} : ${v}`).toContain(p);
+          else {
+            expect(
+              r.contexte.some((c) => glisse.test(c)),
+              `${r.f} ${r.selecteur} hors no-preference`,
+            ).toBe(true);
+            largeurs.push(`${r.selecteur} { ${v} }`);
+          }
+        }
     }
+    expect(largeurs).toEqual(["aside.elpis-slide-panel { width var(--duree-longue) var(--courbe-volet) }"]);
   });
 
   it("volet : la racine s'estompe, ses enfants glissent hors mouvement réduit, la sortie plus courte que l'entrée", () => {
@@ -244,14 +255,14 @@ describe("transitions nommées : jetons et mise en page", () => {
       "opacity var(--duree-longue) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-leave-active", null), /^transition$/)).toEqual([
-      "opacity var(--duree-courte) var(--courbe-volet)",
+      "opacity var(--duree) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-enter-from", null), /^opacity$/)).toEqual(["0"]);
     expect(declarations(corps(".volet-enter-active > *", glisse), /^transition$/)).toEqual([
       "transform var(--duree-longue) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-leave-active > *", glisse), /^transition$/)).toEqual([
-      "transform var(--duree-courte) var(--courbe-volet)",
+      "transform var(--duree) var(--courbe-volet)",
     ]);
     expect(declarations(corps(".volet-enter-from > *", glisse), /^transform$/)).toEqual([
       "translateX(var(--volet-decalage, 1.5rem))",

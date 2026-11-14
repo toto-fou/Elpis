@@ -16,8 +16,8 @@ import NotificationsPied from "./NotificationsPied.vue";
 
 const b = domaine(CLE_BARRE);
 const rail = ref<HTMLElement | null>(null);
-// Vue déployée : largeur tenue jusqu'à la fin de sa sortie ; le focus passe d'une vue à l'autre.
-const { deplie, crochets } = useVolet(
+// Vue déployée : gardée jusqu'à la fin de sa sortie, la largeur glisse avec le geste ; le focus passe d'une vue à l'autre.
+const { deplie, large, crochets } = useVolet(
   () => b.showSidebar,
   () => rail.value,
 );
@@ -59,7 +59,7 @@ const courante = (id: string): boolean =>
       !b.editorFullscreen && deplie ? 'fixed lg:relative shadow-2xl' : '',
       !b.editorFullscreen && !deplie ? 'hidden lg:flex' : '',
     ]"
-    :style="{ width: b.editorFullscreen ? '0px' : deplie ? '260px' : '48px' }"
+    :style="{ width: b.editorFullscreen ? '0px' : large ? '260px' : '48px' }"
   >
     <!-- ============================================================ -->
     <!--  RAIL RÉDUIT (48px) — miroir compact, même ordre vertical.   -->

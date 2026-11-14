@@ -1099,14 +1099,17 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 
 /* ─── Volets coulissants (`.elpis-slide-panel`, <Transition name="volet">) ──
-   La largeur prend sa valeur finale d'un coup : la colonne du chat n'est remise
-   en page qu'une fois par geste, au lieu d'une fois par image. Le contenu du
-   volet entre en glissant depuis son bord (opacité de la racine de la transition,
-   `transform` de ses enfants, rognés par le volet) ; il sort de même, plus vite,
-   et la largeur ne se replie qu'après sa sortie (`features/communs/volet.ts`).
-   Les rails à gauche glissent depuis la gauche, les volets à droite depuis la droite. */
+   La largeur du volet glisse avec le geste : la colonne du chat et la barre de
+   saisie la suivent image par image (mesuré : une image lente au plus par geste
+   sur un long fil, processeur ralenti 4 fois). Le contenu garde sa largeur
+   finale, rogné par le volet : il ne se remet pas en page pendant le geste. Il
+   entre en glissant depuis son bord (opacité de la racine de la transition,
+   `transform` de ses enfants) et sort de même, un peu plus vite
+   (`features/communs/volet.ts`). En mouvement réduit : largeur posée d'un coup,
+   fondu sur place. Les rails à gauche glissent depuis la gauche, les volets à
+   droite depuis la droite. */
 .volet-enter-active { transition: opacity var(--duree-longue) var(--courbe-volet); }
-.volet-leave-active { transition: opacity var(--duree-courte) var(--courbe-volet); }
+.volet-leave-active { transition: opacity var(--duree) var(--courbe-volet); }
 .volet-enter-from,
 .volet-leave-to {
     opacity: 0;
@@ -1116,12 +1119,16 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
 @media (prefers-reduced-motion: no-preference) {
     .volet-enter-active > * { transition: transform var(--duree-longue) var(--courbe-volet); }
-    .volet-leave-active > * { transition: transform var(--duree-courte) var(--courbe-volet); }
+    .volet-leave-active > * { transition: transform var(--duree) var(--courbe-volet); }
     .volet-enter-from > *,
     .volet-leave-to > * {
         transform: translateX(var(--volet-decalage, 1.5rem));
     }
     .volet-leave-active > * { transform: translateX(var(--volet-decalage, 1.5rem)); }
+    /* Largeur : les rails (<aside>) par leur style, les panneaux de droite par `glisserLargeur` (volet.ts), contenu tenu à sa largeur finale. */
+    aside.elpis-slide-panel { transition: width var(--duree-longue) var(--courbe-volet); }
+    .elpis-slide-panel.volet-anime { overflow: hidden; }
+    .elpis-slide-panel.volet-anime > * { min-width: var(--volet-largeur); }
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
@@ -2499,6 +2506,8 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    /* Largeur du rail déplié : le contenu ne se remet pas en page pendant que le rail glisse. */
+    min-width: 16rem;
     width: 16rem;
 }
 .adm-rail__mini {

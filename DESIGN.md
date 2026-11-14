@@ -160,14 +160,20 @@ De facto scale, to follow so a new layer finds its place:
   panels); `--courbe-fondu` (`ease-out`: opacity and small offsets),
   `--courbe-entree` (dialogs, toasts, the save bar), `--courbe-volet`
   (sliding panels).
-- Animate `opacity` and `transform`, never layout properties.
+- Animate `opacity` and `transform`, never layout properties, with one
+  exception: the width of a sliding panel.
 - Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
-  Generation, editor) take their final width at once, so the chat column is
-  laid out once per gesture. Their content moves with the named transition
-  `volet` (opacity on the transition root, `transform` on its children, clipped
-  by the panel; rails from the left, right panels from the right); it leaves in
-  `--duree-courte`, and the width folds only once it has left
-  (`features/communs/volet.ts`, which also hands the focus over).
+  Generation, editor) glide to their width (`--duree-longue` to open, `--duree`
+  to close), and the chat column and the composer follow frame by frame: a
+  width set at once reads as a jump. This is affordable because the thread is
+  virtualized (measured on a long thread, CPU slowed 4 times: one or two frames
+  over 25 ms per gesture, none over 50). The panel's content keeps its final
+  width, clipped by the panel, so it is not laid out again while the panel
+  moves; it enters with the named transition `volet` (opacity on the transition
+  root, `transform` on its children; rails from the left, right panels from the
+  right) and leaves the same way. The rails get their width from a CSS
+  transition; a panel that is itself the transition root is driven by
+  `features/communs/volet.ts`, which also hands the focus over.
 - A skin sets the duration and curve of menus and dialogs (`popover`, `modal`)
   by overriding these variables on the transition classes (Terminal: shorter,
   linear), never properties other than `opacity` and `transform`; a large decoration
@@ -179,7 +185,7 @@ De facto scale, to follow so a new layer finds its place:
   Dropped: anything that moves, scales, resizes or rotates. A named Vue
   transition becomes an opacity fade in place, `min(its token, 150 ms)` long (its
   offsets are declared under `@media (prefers-reduced-motion: no-preference)`); a sliding
-  panel's content fades in place. Every new animation or named transition gets its entry in
+  panel takes its width at once and its content fades in place. Every new animation or named transition gets its entry in
   that block.
 - Drags (editor splitters): one position per frame (`parImage`); the layout
   follows through size observers, and the shell only receives the final size.

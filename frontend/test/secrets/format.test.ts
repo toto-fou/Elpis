@@ -36,7 +36,7 @@ describe("actions permises", () => {
       modification: false,
       verification: false,
       suppression: false,
-      gere: { cible: "connectors", libelle: "Comptes Git" },
+      gere: { cible: "secrets:git", libelle: "Comptes Git" },
     });
     expect(d("llm")).toMatchObject({ rotation: true, suppression: false, gere: { cible: "ai_models" } });
     expect(d("mcp")).toEqual({

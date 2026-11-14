@@ -74,7 +74,7 @@ describe("setupGitConnecteurs", () => {
     const put = vus.find((v) => v[1] === "PUT")!;
     expect(put[0]).toBe("/api/git/connectors/3");
     expect(JSON.parse(put[2] as string)).not.toHaveProperty("token");
-    expect(toasts.at(-1)).toBe("Connecteur mis à jour");
+    expect(toasts.at(-1)).toBe("Compte mis à jour");
   });
 
   it("refus serveur : détail affiché ; test : résultat par connecteur", async () => {

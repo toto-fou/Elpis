@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/secrets-sections.test.ts — Paramètres › Secrets : sections « Secrets web » et « Jetons MCP », ancien onglet « connexions » qui mène à la seconde, recherche fusionnée. */
+/** frontend/test/reglages/secrets-sections.test.ts — Paramètres › Secrets : sections « Secrets web », « Comptes Git » et « Jetons MCP », anciens onglets « connexions » et « connectors » qui mènent à leur section, recherche fusionnée. */
 import * as Vue from "vue";
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App } from "vue";
@@ -21,6 +21,10 @@ vi.mock("../../src/components/reglages/onglets/OngletSecrets.vue", async () => {
   const { defineComponent, h: rendu } = await import("vue");
   return { default: defineComponent({ render: () => rendu("div", { "data-page": "web" }) }) };
 });
+vi.mock("../../src/components/reglages/onglets/OngletConnecteurs.vue", async () => {
+  const { defineComponent, h: rendu } = await import("vue");
+  return { default: defineComponent({ render: () => rendu("div", { "data-page": "git" }) }) };
+});
 vi.mock("../../src/components/reglages/onglets/OngletConnexions.vue", async () => {
   const { defineComponent, h: rendu } = await import("vue");
   return { default: defineComponent({ render: () => rendu("div", { "data-page": "jetons" }) }) };
@@ -41,25 +45,39 @@ const contexte = (sections: Record<string, string> = {}): ContexteSections => ({
 });
 const ids = (q: string): string[] => filtrerRail(q).flatMap((g) => g.entrees.map((e) => e.id));
 
-describe("Secrets : deux sections", () => {
-  it("« Secrets web » d'abord, puis « Jetons MCP », chacune avec son aide ; plus d'entrée « connexions »", () => {
+describe("Secrets : trois sections", () => {
+  it("« Secrets web », « Comptes Git » puis « Jetons MCP », chacune avec son aide ; plus d'entrée « connexions » ni « connectors »", () => {
     const l = sectionsVisibles(contexte(), "secrets");
     expect(l.map((s) => [s.id, s.libelle])).toEqual([
       ["web", "Secrets web"],
+      ["git", "Comptes Git"],
       ["jetons", "Jetons MCP"],
     ]);
     expect(l[0]!.aide).toContain("il n'en voit jamais la valeur");
-    expect(l[1]!.aide).toContain("MCP, OpenAPI, opencode");
+    expect(l[1]!.aide).toContain("GitHub, GitLab, Bitbucket, Gitea");
+    expect(l[2]!.aide).toContain("MCP, OpenAPI, opencode");
     expect(sectionCourante(contexte(), "secrets")?.id).toBe("web");
     expect(sectionCourante(contexte({ secrets: "jetons" }), "secrets")?.id).toBe("jetons");
     expect(GROUPES_RAIL.flatMap((g) => g.entrees).some((e) => e.id === "connexions")).toBe(false);
-    expect(GROUPES_RAIL.flatMap((g) => g.entrees).some((e) => e.id === "connectors")).toBe(true);
+    expect(GROUPES_RAIL.flatMap((g) => g.entrees).some((e) => e.id === "connectors")).toBe(false);
+    expect(sectionCourante(contexte({ secrets: "git" }), "secrets")?.id).toBe("git");
   });
 
-  it("la recherche des deux anciennes entrées mène à Secrets, et à la bonne section", () => {
-    for (const q of ["Jetons d'accès", "Connexions", "token", "mcp", "openapi", "coffre"])
+  it("la recherche des anciennes entrées mène à Secrets, et à la bonne section", () => {
+    for (const q of [
+      "Jetons d'accès",
+      "Connexions",
+      "Connecteurs",
+      "Comptes Git",
+      "token",
+      "mcp",
+      "openapi",
+      "coffre",
+    ])
       expect(ids(q), q).toContain("secrets");
     expect(sectionTrouvee("secrets", "openapi")).toBe("jetons");
+    expect(sectionTrouvee("secrets", "github")).toBe("git");
+    expect(sectionTrouvee("secrets", "Comptes Git")).toBe("git");
     expect(sectionTrouvee("secrets", "Jetons d'accès")).toBeNull();
     expect(sectionTrouvee("secrets", "coffre")).toBe("web");
   });
@@ -98,9 +116,21 @@ describe("Secrets dans la modale", () => {
     await nextTick();
     expect(rg.settingsSections["secrets"]).toBe("jetons");
     expect(pages()).toEqual(["jetons"]);
+    document.querySelector<HTMLButtonElement>('[data-sous-menu] [data-section="git"]')!.click();
+    await nextTick();
+    expect(pages()).toEqual(["git"]);
     document.querySelector<HTMLButtonElement>('[data-sous-menu] [data-section="web"]')!.click();
     await nextTick();
     expect(pages()).toEqual(["web"]);
+  });
+
+  it("un settingsTab « connectors » posé tel quel atterrit sur Secrets › Comptes Git", async () => {
+    const { rg } = monterModale("connectors");
+    await nextTick();
+    await nextTick();
+    expect(rg.settingsTab).toBe("secrets");
+    expect(rg.settingsSections["secrets"]).toBe("git");
+    expect(pages()).toEqual(["git"]);
   });
 
   it("un settingsTab « connexions » posé tel quel atterrit sur Secrets › Jetons MCP", async () => {
@@ -163,6 +193,15 @@ describe("openSettingsTab", () => {
     expect(dep.loadSecrets).toHaveBeenCalled();
   });
 
+  it("« connectors » (ancien lien) et « secrets:git » ouvrent Secrets › Comptes Git et chargent les comptes", async () => {
+    for (const tab of ["connectors", "secrets:git"]) {
+      const { m, dep } = await ouvrir(tab);
+      expect(m.settingsTab.value, tab).toBe("secrets");
+      expect(m.settingsSections.value["secrets"], tab).toBe("git");
+      expect(dep.loadGitConnectors, tab).toHaveBeenCalled();
+    }
+  });
+
   it("« secrets:jetons » et « secrets:web » ciblent la section", async () => {
     expect((await ouvrir("secrets:jetons")).m.settingsSections.value["secrets"]).toBe("jetons");
     expect((await ouvrir("secrets:web")).m.settingsSections.value["secrets"]).toBe("web");
@@ -170,7 +209,7 @@ describe("openSettingsTab", () => {
 });
 
 describe("sous-menu", () => {
-  it("Secrets a un bandeau à deux éléments", async () => {
+  it("Secrets a un bandeau à trois éléments", async () => {
     const rg = reactive({
       settingsTab: "secrets",
       settingsSections: {},
@@ -183,6 +222,6 @@ describe("sous-menu", () => {
     app = createApp({ render: () => h(SousMenuReglages) });
     app.provide(CLE_REGLAGES, rg as never);
     app.mount(hote);
-    expect(hote.querySelectorAll("[data-sous-menu] nav button")).toHaveLength(2);
+    expect(hote.querySelectorAll("[data-sous-menu] nav button")).toHaveLength(3);
   });
 });

@@ -45,9 +45,9 @@ function monter(onglet = "profile"): {
 }
 
 describe("rail des Paramètres", () => {
-  it("range les 14 entrées en quatre groupes par intention", () => {
+  it("range les 13 entrées en quatre groupes par intention", () => {
     expect(GROUPES_RAIL.map((g) => g.titre)).toEqual(["Général", "Assistant", "Accès", "Avancé"]);
-    expect(GROUPES_RAIL.flatMap((g) => g.entrees)).toHaveLength(14);
+    expect(GROUPES_RAIL.flatMap((g) => g.entrees)).toHaveLength(13);
   });
 
   it("montre « Fonctionnalités » dans « Général », sans déplier « Avancé »", () => {
@@ -59,7 +59,9 @@ describe("rail des Paramètres", () => {
   it("trouve un réglage par son libellé, sans accent ni casse", () => {
     const ids = (q: string): string[] => filtrerRail(q).flatMap((g) => g.entrees.map((e) => e.id));
     expect(ids("habillage")).toEqual(["appearance"]);
-    expect(ids("TOKEN")).toEqual(["secrets", "connectors", "usage"]);
+    expect(ids("TOKEN")).toEqual(["secrets", "usage"]);
+    expect(ids("Comptes Git")).toEqual(["secrets"]);
+    expect(ids("github")).toEqual(["secrets"]);
     expect(ids("Connexions")).toEqual(["secrets"]);
     expect(ids("Jetons d'accès")).toEqual(["secrets"]);
     expect(ids("memoire")).toEqual(["memory"]);

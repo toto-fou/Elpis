@@ -189,7 +189,6 @@ const ONGLETS = [
   ["Skills", "skills"],
   ["Mémoire", "memory"],
   ["Secrets", "secrets"],
-  ["Comptes Git", "connectors"],
   ["Compaction", "compaction"],
   ["Sandbox", "sandbox"],
   ["Archives", "archives"],

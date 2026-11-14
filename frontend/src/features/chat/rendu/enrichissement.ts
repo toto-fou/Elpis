@@ -619,26 +619,27 @@ export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
   const href = link.getAttribute("href");
   if (!href || !href.startsWith("#") || href.length < 2) return;
   event.preventDefault();
+  const el = cibleAncre(href, cible.closest(".markdown-body") || document);
+  if (el) el.scrollIntoView({ behavior: mouvementReduit() ? "auto" : "smooth", block: "start" });
+}
+
+/** Cible d'une ancre interne `#id` : l'élément d'id `id`, sinon le premier titre de `conteneur` dont le texte donne `id`. */
+export function cibleAncre(href: string, conteneur: ParentNode): Element | null {
   let id = href.substring(1);
   try {
     id = decodeURIComponent(id);
   } catch {
     /* ancre mal encodée : gardée telle quelle */
   }
-  let el: Element | null = document.getElementById(id);
-  if (!el) {
-    const conteneur = cible.closest(".markdown-body") || document;
-    for (const h of conteneur.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
-      const hId = (h.textContent || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^\wÀ-￿\s-]/g, "")
-        .replace(/\s+/g, "-");
-      if (hId === id || hId.includes(id.replace(/[^a-z0-9-]/g, ""))) {
-        el = h;
-        break;
-      }
-    }
+  const el = document.getElementById(id);
+  if (el) return el;
+  for (const h of conteneur.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+    const hId = (h.textContent || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^\wÀ-￿\s-]/g, "")
+      .replace(/\s+/g, "-");
+    if (hId === id || hId.includes(id.replace(/[^a-z0-9-]/g, ""))) return h;
   }
-  if (el) el.scrollIntoView({ behavior: mouvementReduit() ? "auto" : "smooth", block: "start" });
+  return null;
 }

@@ -23,9 +23,10 @@ watch(
 );
 onBeforeUnmount(() => guide?.detacher());
 
-// Lien vers un titre : la suite du guide est posée avant que le clic cherche sa cible.
+// Lien vers un titre : le guide est posé jusqu'au morceau de sa cible avant que le clic la cherche.
 function clic(ev: MouseEvent): void {
-  if (ev.target instanceof Element && ev.target.closest('a[href^="#"]')) guide?.terminer();
+  const href = ev.target instanceof Element ? ev.target.closest("a")?.getAttribute("href") : null;
+  if (href?.startsWith("#") && href.length > 1) guide?.poserJusqua(href);
   m.handleMarkdownClick(ev);
 }
 </script>

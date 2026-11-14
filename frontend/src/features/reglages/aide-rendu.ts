@@ -3,7 +3,7 @@
 import * as marked from "marked";
 
 import { escapeHtml } from "../../utils/utils-purs";
-import { enrichirBloc } from "../chat/rendu/enrichissement";
+import { cibleAncre, enrichirBloc } from "../chat/rendu/enrichissement";
 import { habillerBlocsCode } from "../chat/rendu/habillage-code";
 import { moteurMarkdown } from "../chat/rendu/instance";
 
@@ -86,8 +86,8 @@ function renduDe(texte: string): Rendu {
 }
 
 export interface GuideMonte {
-  /** Pose sans attendre les morceaux restants (lien vers un titre plus bas). */
-  terminer(): void;
+  /** Pose sans attendre, dans l'ordre, les morceaux jusqu'à celui qui porte la cible de l'ancre `href` (tous si aucun ne la porte). */
+  poserJusqua(href: string): void;
   detacher(): void;
 }
 
@@ -180,8 +180,13 @@ export function monterGuide(corps: HTMLElement, defilement: HTMLElement, texte: 
 
   programmer();
   return {
-    terminer() {
-      sections.forEach((_s, k) => poser(k));
+    poserJusqua(href) {
+      const cible = cibleAncre(href, corps);
+      if (cible && !sections.some((s) => s.contains(cible))) return;
+      for (let k = 0; k < sections.length; k++) {
+        poser(k);
+        if (cibleAncre(href, sections[k]!)) return;
+      }
     },
     detacher() {
       actif = false;

@@ -10,10 +10,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ModaleAide from "../../src/components/chat/modales/ModaleAide.vue";
 import { CLE_MODALES } from "../../src/features/chat/modales/domaine";
+import { clicMarkdown } from "../../src/features/chat/rendu/enrichissement";
 import { moteurMarkdown } from "../../src/features/chat/rendu/instance";
 import { decouperGuide, monterGuide } from "../../src/features/reglages/aide-rendu";
 import type { GuideMonte } from "../../src/features/reglages/aide-rendu";
-import { appelsDe, demonter, etat, monter } from "../chat/page/montage";
+import { demonter, etat, monter } from "../chat/page/montage";
 
 const marked = vi.hoisted(() => ({ analyses: 0 }));
 vi.mock("marked", async (original) => {
@@ -34,6 +35,7 @@ const guides: GuideMonte[] = [];
 
 afterEach(() => {
   for (const g of guides.splice(0)) g.detacher();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   demonter();
 });
@@ -49,6 +51,8 @@ function poser(texte: string): { corps: HTMLElement; guide: GuideMonte } {
   return { corps, guide };
 }
 
+// Ancre qu'aucun titre ne porte : tout le guide est posé.
+const toutPoser = (g: GuideMonte): void => g.poserJusqua("#cible-absente-du-guide");
 const sections = (corps: HTMLElement): HTMLElement[] => [
   ...corps.querySelectorAll<HTMLElement>(":scope > section"),
 ];
@@ -119,7 +123,7 @@ describe("pose du guide", () => {
   it("même HTML que le rendu d'un bloc, avec la même purification (guide et documentation développeur)", () => {
     for (const texte of [GUIDE, lire("docs/architecture.md")]) {
       const { corps, guide } = poser(texte);
-      guide.terminer();
+      toutPoser(guide);
       expect(deballe(corps)).toBe(normalise(moteurMarkdown().renderMarkdown(texte)));
     }
   });
@@ -136,10 +140,10 @@ describe("pose du guide", () => {
 
   it("une ouverture suivante reprend le HTML gardé, sans nouvelle analyse", () => {
     const texte = GUIDE + "\n\nVariante gardée.\n";
-    poser(texte).guide.terminer();
+    toutPoser(poser(texte).guide);
     const avant = marked.analyses;
     const { corps, guide } = poser(texte);
-    guide.terminer();
+    toutPoser(guide);
     expect(marked.analyses).toBe(avant);
     expect(corps.textContent).toContain("Variante gardée.");
   });
@@ -190,16 +194,26 @@ describe("pose du guide", () => {
 });
 
 describe("fenêtre d'aide", () => {
-  it("pose le guide à l'ouverture ; un lien du sommaire pose toute la suite avant de chercher son titre", async () => {
-    const dom = etat({ showHelpModal: true, isLoadingReadme: false, helpDoc: "user", readmeContent: GUIDE });
+  it("pose le guide à l'ouverture ; un lien du sommaire pose la suite jusqu'à son titre seulement, puis y défile", async () => {
+    const vus: string[] = [];
+    vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(function (this: HTMLElement) {
+      vus.push(this.tagName + ":" + (this.textContent ?? "").trim());
+    });
+    const dom = etat({
+      showHelpModal: true,
+      isLoadingReadme: false,
+      helpDoc: "user",
+      readmeContent: GUIDE,
+      handleMarkdownClick: (ev: Event) => clicMarkdown(ev, {}),
+    });
     const hote = monter(ModaleAide, [[CLE_MODALES as InjectionKey<object>, dom]]);
     await nextTick();
     const corps = hote.ownerDocument.querySelector<HTMLElement>('[role="dialog"] .markdown-body')!;
     expect(corps.querySelector(":scope > h1")).not.toBeNull();
+    const avant = enAttente(corps).length;
+    corps.querySelector<HTMLAnchorElement>(':scope > ul a[href^="#pr"]')!.click();
+    expect(vus).toEqual(["H2:Présentation"]);
+    expect(enAttente(corps).length).toBeLessThan(avant);
     expect(enAttente(corps).length).toBeGreaterThan(0);
-    const lien = corps.querySelector<HTMLAnchorElement>(':scope > ul a[href^="#"]')!;
-    lien.click();
-    expect(enAttente(corps)).toEqual([]);
-    expect(appelsDe("handleMarkdownClick").length).toBe(1);
   });
 });

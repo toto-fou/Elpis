@@ -145,10 +145,6 @@ export interface CartesMemoire {
     msg: { toolSteps?: readonly EtapeEffet[] | null } | null,
     msgIdx?: number | null,
   ): LigneMemoire[];
-  memorySavesFor(
-    msg: { toolSteps?: readonly EtapeEffet[] | null } | null,
-    msgIdx?: number | null,
-  ): LigneMemoire[];
   toolStepsForDisplay<T extends EtapeEffet>(steps: readonly T[] | null | undefined): T[];
   effectIsOpen(line: LigneEffet | null | undefined): boolean;
   effectDetail(line: LigneEffet | null | undefined): DetailEffet | null;
@@ -279,7 +275,6 @@ export function creerCartesMemoire(
 
   return {
     effectLinesFor: lignes,
-    memorySavesFor: lignes,
     toolStepsForDisplay,
     effectIsOpen,
     effectDetail,

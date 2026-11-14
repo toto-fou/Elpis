@@ -27,7 +27,7 @@
 //     ``_kind: 'memory'`` par l'un mais rejeté par l'autre — la ligne
 //     mémoire apparaît en live et disparaît après un F5, ou l'inverse.
 //     Le cas MIROIR ci-dessous fait passer une vraie ``tool_history``
-//     par ``parseToolHistorySegments`` puis par ``memorySavesFor`` :
+//     par ``parseToolHistorySegments`` puis par ``effectLinesFor`` :
 //     c'est le chemin réel, pas une comparaison de deux copies.
 //
 //  Note sur ``_firstLineTruncated`` : la troncature se fait sur une
@@ -51,7 +51,7 @@ const M = C.fabrique('setupChatMemoryCard', [null, null, null]);
 const segments = C.bac.elpisToolSegments;
 
 /** Lignes mémoire d'un message, recopiées dans le royaume de l'hôte. */
-const lignes = (steps) => depuisBac(M.memorySavesFor({ toolSteps: steps }));
+const lignes = (steps) => depuisBac(M.effectLinesFor({ toolSteps: steps }));
 
 /** Un step d'outil mémoire. */
 const pas = (args, extra) => Object.assign(
@@ -164,9 +164,9 @@ t('le marqueur _kind prime sur le nom de l\'outil', () => {
 });
 
 t('un message sans toolSteps rend une liste vide', () => {
-    assert.deepStrictEqual(depuisBac(M.memorySavesFor(null)), []);
-    assert.deepStrictEqual(depuisBac(M.memorySavesFor({})), []);
-    assert.deepStrictEqual(depuisBac(M.memorySavesFor({ toolSteps: 'pas un tableau' })), []);
+    assert.deepStrictEqual(depuisBac(M.effectLinesFor(null)), []);
+    assert.deepStrictEqual(depuisBac(M.effectLinesFor({})), []);
+    assert.deepStrictEqual(depuisBac(M.effectLinesFor({ toolSteps: 'pas un tableau' })), []);
 });
 
 t('les steps nuls dans la liste ne font pas tomber la dérivation', () => {
@@ -357,7 +357,7 @@ t('MIROIR : les actions reconnues par _kindFor le sont par _isMemorySave', () =>
         const step = segs.toolSteps[0];
         assert.equal(step._kind, 'memory',
             '_kindFor ne reconnaît pas « ' + action +' »');
-        // Le step reconstruit est done+succès → memorySavesFor l'AFFICHE
+        // Le step reconstruit est done+succès → effectLinesFor l'AFFICHE
         // (règle 2026-09-19) et toolStepsForDisplay l'a retiré : preuve
         // que _isMemorySave l'a bien reconnu lui aussi.
         assert.deepStrictEqual(depuisBac(M.toolStepsForDisplay([step])), [],

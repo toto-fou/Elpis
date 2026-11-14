@@ -310,7 +310,6 @@ export interface CtxFichiers {
 }
 
 export interface CarteFichiers {
-  diffCardState: Record<number, { files: Record<string, EtatFichier> }>;
   resetDiffCardState(): void;
   diffFilesFor(msg: MessageFichiers | null | undefined, msgIdx: number): FichierModifie[];
   hasDiffFiles(msg: MessageFichiers | null | undefined): boolean;
@@ -600,7 +599,6 @@ export function creerCarteFichiers(
   }
 
   return {
-    diffCardState,
     resetDiffCardState,
     diffFilesFor,
     hasDiffFiles,

@@ -5248,10 +5248,9 @@ th[aria-sort] .sup-tri .ph { opacity: 1; color: var(--accent-text); }
 .elpis-secrets__dl dd { color: var(--text-800); overflow-wrap: anywhere; }
 .elpis-secrets__refus { margin: 0.375rem 0 0; font-size: 0.75rem; color: var(--danger-text); }
 .elpis-secrets__vide { padding: 0.75rem 0; font-size: 0.8125rem; color: var(--text-500); }
-/* Secrets web en blocs (Paramètres) : nom et résumé coupés où il faut, états à la suite du nom. */
+/* Secrets web en blocs (Paramètres) : nom et résumé coupés où il faut. */
 .elpis-secret-bloc__nom,
 .elpis-secret-bloc__resume { overflow-wrap: anywhere; }
-.elpis-secret-bloc__nom .elpis-secrets__etat { display: inline-block; margin-left: 0.375rem; vertical-align: 0.0625rem; }
 .elpis-secret-form {
     padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
 }

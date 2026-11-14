@@ -33,10 +33,15 @@ const icone = (s: Secret): string => ICONES[s.kind] ?? "ph-vault";
 const BOUTON =
   "w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0";
 
-/** Premier bouton d'action d'un bloc : là où le focus revient. */
-function actions(id: number | null | undefined): HTMLElement | null {
+/** Bouton d'action d'un bloc où le focus revient : celui de l'action voulue, sinon le premier. */
+function actions(id: number | null | undefined, action = ""): HTMLElement | null {
   if (id === null || id === undefined) return null;
-  return racine.value?.querySelector<HTMLElement>(`[data-actions="${id}"] button:not(:disabled)`) ?? null;
+  const zone = racine.value?.querySelector<HTMLElement>(`[data-actions="${id}"]`);
+  return (
+    (action ? zone?.querySelector<HTMLElement>(`[data-action="${action}"]:not(:disabled)`) : null) ??
+    zone?.querySelector<HTMLElement>("button:not(:disabled)") ??
+    null
+  );
 }
 
 /** Blocs voisins d'un bloc, lus avant la mise à jour du DOM (un bloc supprimé n'y est plus après). */
@@ -48,18 +53,38 @@ function voisins(id: number): { suivant?: number; precedent?: number } {
   return i < 0 ? {} : { suivant: ids[i + 1], precedent: ids[i - 1] };
 }
 
-/** Focus rendu aux actions du bloc, à celles d'un voisin s'il a disparu, sinon à la liste. */
-function rendreFocus(id: number, v: { suivant?: number; precedent?: number }): void {
-  (actions(id) ?? actions(v.suivant) ?? actions(v.precedent) ?? racine.value)?.focus();
+/** Focus rendu au bouton de l'action faite, aux actions d'un voisin si le bloc a disparu, sinon à la liste. */
+function rendreFocus(id: number, v: { suivant?: number; precedent?: number }, action = ""): void {
+  (actions(id, action) ?? actions(v.suivant) ?? actions(v.precedent) ?? racine.value)?.focus();
 }
 
 const focusPerdu = (actif: Element | null): boolean => !actif || actif === globalThis.document.body;
 
-// Suppression armée puis clic ailleurs que sur les actions de ce bloc : désarmée.
+/** La corbeille armée et sa ligne de confirmation (avec « Annuler ») : ce qui ne désarme pas. */
+function dansLaConfirmation(cible: EventTarget | null): boolean {
+  if (g.confirmer === null || !(cible instanceof Node)) return false;
+  const bloc = racine.value?.querySelector(`[data-secret-id="${g.confirmer}"]`);
+  return (
+    !!bloc?.querySelector('[data-action="supprimer"]')?.contains(cible) ||
+    !!bloc?.querySelector("[data-confirmation]")?.contains(cible)
+  );
+}
+
+// Suppression armée puis clic ailleurs : désarmée.
 function dehors(e: Event): void {
-  if (g.confirmer === null || !(e.target instanceof Node)) return;
-  if (!racine.value?.querySelector(`[data-actions="${g.confirmer}"]`)?.contains(e.target))
+  if (g.confirmer !== null && !dansLaConfirmation(e.target)) g.annulerSuppression();
+}
+
+/** Focus parti de la corbeille armée vers autre chose que sa confirmation (Tab) : désarmée, comme par un clic ailleurs. */
+function focusParti(e: FocusEvent): void {
+  if (g.confirmer !== null && e.relatedTarget !== null && !dansLaConfirmation(e.relatedTarget))
     g.annulerSuppression();
+}
+
+/** « Annuler » : désarme, le focus revient à la corbeille. */
+function annuler(id: number): void {
+  g.annulerSuppression();
+  void nextTick(() => actions(id, "supprimer")?.focus());
 }
 onMounted(() => globalThis.document.addEventListener("pointerdown", dehors, true));
 onBeforeUnmount(() => {
@@ -74,15 +99,17 @@ const annonce = computed(() => {
 });
 const idAnnonce = `secrets-confirmation-${g.portee}`;
 
-/** Le même bouton arme puis supprime ; le bloc disparu, le focus va à un voisin. */
+/** Le même bouton arme puis supprime ; le bloc disparu, le focus va à un voisin ; suppression refusée, il revient à la corbeille. */
 async function supprimer(id: number): Promise<void> {
   const autour = voisins(id);
+  const armee = g.confirmer === id;
   await g.clicSupprimer(id);
   await nextTick();
   if (!g.secrets.some((s) => s.id === id)) rendreFocus(id, autour);
+  else if (armee && focusPerdu(globalThis.document.activeElement)) rendreFocus(id, autour, "supprimer");
 }
 
-// Panneau ouvert : focus sur son premier champ ou bouton ; refermé avec le focus dedans, focus rendu aux actions du bloc.
+// Panneau ouvert : focus sur son premier champ ou bouton ; refermé avec le focus dedans, focus rendu au bouton qui l'avait ouvert.
 watch(
   () => g.panneau,
   async (p, avant) => {
@@ -96,7 +123,7 @@ watch(
           `[data-panneau="${p.id}"] input, [data-panneau="${p.id}"] button:not(:disabled)`,
         )
         ?.focus();
-    else if (avant && dedans) rendreFocus(avant.id, autour);
+    else if (avant && dedans) rendreFocus(avant.id, autour, avant.mode);
   },
 );
 </script>
@@ -113,7 +140,10 @@ watch(
     <p :id="idAnnonce" class="sr-only" role="status">{{ annonce }}</p>
     <p v-if="g.erreurListe" role="alert" class="elpis-secrets__refus">{{ g.erreurListe }}</p>
     <p v-else-if="g.chargement && !g.charge" class="text-sm text-slate-500 py-4 text-center">Chargement…</p>
-    <p v-else-if="g.charge && !g.secrets.length" class="text-sm text-slate-500 py-4 text-center">
+    <p
+      v-else-if="g.charge && !g.secrets.length && !g.creation"
+      class="text-sm text-slate-500 py-4 text-center"
+    >
       Aucun secret.
     </p>
     <div
@@ -130,20 +160,23 @@ watch(
             <span data-nom>{{ s.name }}</span>
             <span
               v-if="s.state === 'unverified'"
-              class="elpis-secrets__etat font-normal"
+              class="ml-1.5 text-xs font-normal text-amber-600"
               title="Importé : inutilisable avant vérification"
+              data-etat
               >à vérifier</span
             >
             <span
               v-if="s.policy.tls === 'insecure'"
-              class="elpis-secrets__etat font-normal"
+              class="ml-1.5 text-xs font-normal text-amber-600"
               title="Certificat TLS non vérifié pour ce secret"
+              data-etat
               >TLS non vérifié</span
             >
             <span
               v-if="!s.key_current"
-              class="elpis-secrets__etat elpis-secrets__etat--cle font-normal"
+              class="ml-1.5 text-xs font-normal text-red-600"
               title="Chiffré par une autre clé que la clé courante : rotation, ou ./elpis vault rekey"
+              data-etat
               >autre clé</span
             >
           </div>
@@ -166,6 +199,7 @@ watch(
             :id="`secret-sites-${s.id}`"
             class="elpis-secrets__sites font-mono text-xs mt-1.5"
             :aria-label="`Sites de ${s.name}`"
+            title="Utilisé pour"
           >
             <li v-for="o in sitesMontres(s)" :key="o" class="elpis-secrets__site">
               <span class="elpis-secrets__schema">{{ partiesSite(o)[0] }}</span
@@ -191,11 +225,12 @@ watch(
             {{ deplies.has(s.id) ? "réduire" : `+ ${sitesCaches(s)} autres` }}
           </button>
         </div>
-        <div class="flex items-center gap-1 shrink-0" :data-actions="s.id">
+        <div class="flex items-center gap-1 shrink-0" :data-actions="s.id" @focusout="focusParti">
           <button
             v-if="g.droits(s).verification"
             type="button"
             title="Rendre utilisable ce secret importé, après relecture de ce pour quoi il sert"
+            :aria-label="`Vérifier ${s.name}`"
             class="px-2 py-1 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
             data-action="verifier"
             @click="g.choisir(s.id, 'verifier')"
@@ -227,7 +262,7 @@ watch(
           <button
             v-if="g.droits(s).gere"
             type="button"
-            :title="g.droits(s).gere?.libelle"
+            :title="`Géré par son connecteur : ${g.droits(s).gere?.libelle}`"
             :aria-label="`${g.droits(s).gere?.libelle} : ${s.name}`"
             :class="BOUTON"
             data-action="gerer"
@@ -264,7 +299,7 @@ watch(
         <button
           type="button"
           class="px-2 py-1 rounded-md text-slate-600 hover:bg-slate-100"
-          @click="g.annulerSuppression()"
+          @click="annuler(s.id)"
         >
           Annuler
         </button>

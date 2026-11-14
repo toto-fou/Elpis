@@ -69,7 +69,7 @@ const s = computed(() => props.secret);
         class="adm-btn adm-tool adm-btn--sm"
         @click="g.choisir(s.id, 'modifier')"
       >
-        Modifier le scope
+        Modifier
       </button>
       <button
         v-else-if="g.droits(s).gere"
@@ -82,14 +82,16 @@ const s = computed(() => props.secret);
       <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="g.fermerPanneau()">
         Annuler
       </button>
-      <span class="elpis-secrets__aide">unverified → active ; élargir le scope exige la valeur.</span>
+      <span class="elpis-secrets__aide"
+        >Le secret devient utilisable ; élargir ce pour quoi il sert redemande sa valeur.</span
+      >
     </div>
   </div>
 
   <FormulaireSecret v-else-if="g.panneau?.id === s.id && g.panneau.mode === 'modifier'" mode="edition" />
 
   <p
-    v-if="g.erreur?.cible === s.id && g.panneau?.mode !== 'modifier'"
+    v-if="g.erreur?.cible === s.id && !(g.panneau?.id === s.id && g.panneau.mode === 'modifier')"
     role="alert"
     class="elpis-secrets__refus"
   >

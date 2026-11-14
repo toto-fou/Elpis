@@ -1559,16 +1559,17 @@ and are left out of the browser's password manager.
   (`[a-z0-9][a-z0-9._-]{0,47}`, checked as you type); the scope lists exact origins,
   `scheme://host[:port]`, one per line (a token has none); `tls` is `strict` unless you choose
   `insecure`; the policy says whether the subagents and the routines may use it.
-- The buttons of a block offer **Rotation** (a new value, `version` + 1), **Edit** (an empty value
+- The buttons of a block offer *Rotation* (a new value, `version` + 1), *Modifier* (an empty value
   keeps the current one; adding an origin or switching to `tls insecure` requires the value
-  again), **Vérifier** for any imported secret, `git` included (read what it is used for, then it
-  becomes usable) and **Delete**, confirmed by clicking the same button a second time (clicking
-  elsewhere cancels). Escape closes the confirmation, then the panel, then the form, and asks
-  before discarding what you typed.
-- Secrets of a connector are listed but managed where they are created: `git` and `llm` secrets
-  offer **Rotation** and a link to Git accounts or AI models; `mcp` secrets are read-only here
-  (their value holds the server's authentication, headers and variables) and link to the MCP
-  servers panel.
+  again), *Vérifier* for any imported secret, `git` included (read what it is used for, then it
+  becomes usable) and *Supprimer*, confirmed by clicking the same button a second time (clicking
+  or tabbing elsewhere cancels). Escape closes the confirmation, then the panel, then the form,
+  and asks before discarding what you typed.
+- Secrets of a connector are managed where they are created (Git accounts, AI models, the MCP
+  servers panel) and are not listed here, except a `git` token imported from your sandbox: it
+  stays here, with *Vérifier* and a link to Git accounts, until you verify it. The administration
+  console lists the instance's connector secrets (`llm`, `mcp`, image engine): rotation there,
+  `mcp` values being read-only (they hold the server's authentication, headers and variables).
 
 The secrets of the instance (shared LLM connectors and MCP servers, image engine) are in the
 [admin console](#admin-console), *Models & services › Secrets*.

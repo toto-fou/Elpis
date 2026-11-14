@@ -48,10 +48,11 @@ const attendre = async (): Promise<void> => {
   await nextTick();
 };
 
-function store(horloge = { t: 0 }, liste = LISTE) {
+function store(horloge = { t: 0 }, liste = LISTE, refusSuppression = false) {
   const { api, appels } = fauxServeur((url, methode) => {
     if (methode === "GET") return json({ secrets: liste });
-    if (methode === "DELETE") return json({ ok: true });
+    if (methode === "DELETE")
+      return refusSuppression ? json({ detail: "Secret introuvable." }, 404) : json({ ok: true });
     if (url.endsWith("/verify")) return json({ secret: { ...LISTE[1]!, state: "active" } });
     if (url.endsWith("/rotate")) return json({ secret: { ...LISTE[0]!, version: 3 } });
     return json({ secret: secret(9, { name: "neuf" }) });
@@ -115,13 +116,12 @@ describe("liste des secrets en blocs", () => {
       "https://intranet.example.lan:8443",
       "https://idp.example.lan",
     ]);
-    expect(intranet.querySelectorAll(".elpis-secrets__etat")).toHaveLength(0);
+    expect(intranet.querySelectorAll("[data-etat]")).toHaveLength(0);
     expect(intranet.querySelector("i.ph")?.classList.contains("ph-globe")).toBe(true);
     const importe = bloc(hote, "ax-old");
-    expect([...importe.querySelectorAll(".elpis-secrets__etat")].map(texte)).toEqual([
-      "à vérifier",
-      "autre clé",
-    ]);
+    expect([...importe.querySelectorAll("[data-etat]")].map(texte)).toEqual(["à vérifier", "autre clé"]);
+    // Les mêmes mots et la même forme que « à vérifier » des Comptes Git : pas de pastille.
+    expect(importe.querySelector(".elpis-secrets__etat")).toBeNull();
     expect(texte(importe.querySelector("[data-resume]"))).toContain("http-auth · v1");
     const jeton = bloc(hote, "jeton-meteo");
     expect(texte(jeton.querySelector("[data-resume]"))).toBe("token · v1 · jamais utilisé");
@@ -140,7 +140,10 @@ describe("liste des secrets en blocs", () => {
     expect(action(bloc(hote, "intranet-admin"), "rotation").getAttribute("aria-label")).toBe(
       "Rotation de intranet-admin",
     );
-    expect(action(bloc(hote, "sandbox-git"), "gerer").getAttribute("title")).toBe("Comptes Git");
+    expect(action(bloc(hote, "ax-old"), "verifier").getAttribute("aria-label")).toBe("Vérifier ax-old");
+    expect(action(bloc(hote, "sandbox-git"), "gerer").getAttribute("title")).toBe(
+      "Géré par son connecteur : Comptes Git",
+    );
     action(bloc(hote, "sandbox-git"), "gerer").click();
     await attendre();
     expect(ouverts).toHaveLength(1);
@@ -172,20 +175,45 @@ describe("liste des secrets en blocs", () => {
     expect(texte(bloc(hote, "intranet-admin").querySelector("[data-confirmation]"))).toContain(
       "Cliquez de nouveau sur la corbeille pour supprimer.",
     );
-    // Second clic trop rapide : rien ne part.
+    // Second clic trop rapide : rien ne part ; l'appui sur la corbeille (ou son icône) ne désarme pas.
+    corbeille.querySelector("i")!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     corbeille.click();
     await attendre();
     expect(appels.filter((a) => a.methode === "DELETE")).toEqual([]);
+    expect(corbeille.classList.contains("is-arme")).toBe(true);
     // Clic ailleurs : désarmée.
     bloc(hote, "ax-old").dispatchEvent(new Event("pointerdown", { bubbles: true }));
     await attendre();
     expect(corbeille.classList.contains("is-arme")).toBe(false);
     expect(hote.querySelector("[data-confirmation]")).toBeNull();
-    // « Annuler » aussi.
+    // « Annuler » aussi : l'appui ne retire pas le bouton sous le pointeur, le clic désarme et rend le focus à la corbeille.
     corbeille.click();
     await attendre();
-    bloc(hote, "intranet-admin").querySelector<HTMLButtonElement>("[data-confirmation] button")!.click();
+    const annuler = bloc(hote, "intranet-admin").querySelector<HTMLButtonElement>(
+      "[data-confirmation] button",
+    )!;
+    annuler.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     await attendre();
+    expect(g.confirmer).toBe(1);
+    annuler.click();
+    await attendre();
+    expect(g.confirmer).toBeNull();
+    expect(document.activeElement).toBe(corbeille);
+    // Au clavier : Tab vers « Annuler » garde la corbeille armée, Tab ailleurs la désarme ; Échap aussi.
+    corbeille.click();
+    await attendre();
+    const versAnnuler = bloc(hote, "intranet-admin").querySelector<HTMLButtonElement>(
+      "[data-confirmation] button",
+    )!;
+    corbeille.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: versAnnuler }));
+    expect(g.confirmer).toBe(1);
+    corbeille.dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true, relatedTarget: action(bloc(hote, "ax-old"), "rotation") }),
+    );
+    expect(g.confirmer).toBeNull();
+    corbeille.click();
+    await attendre();
+    expect(g.fermerCouche()).toBe(true);
     expect(g.confirmer).toBeNull();
     // Armée puis confirmée.
     corbeille.click();
@@ -197,6 +225,42 @@ describe("liste des secrets en blocs", () => {
     expect(statut.textContent).toBe("");
     // Triés par nom : le bloc suivant est celui de jeton-meteo.
     expect(bloc(hote, "jeton-meteo").contains(document.activeElement)).toBe(true);
+  });
+
+  it("suppression refusée pendant qu'un autre secret est en cours de modification : le refus est dit dans le bloc visé, le focus revient à sa corbeille", async () => {
+    const horloge = { t: 1000 };
+    const { g } = store(horloge, LISTE, true);
+    await g.charger();
+    const hote = monter(ListeSecrets, g);
+    await attendre();
+    action(bloc(hote, "ax-old"), "modifier").click();
+    await attendre();
+    expect(bloc(hote, "ax-old").querySelector("[data-formulaire-secret]")).not.toBeNull();
+    const corbeille = action(bloc(hote, "intranet-admin"), "supprimer");
+    corbeille.click();
+    horloge.t += 500;
+    corbeille.click();
+    await attendre();
+    expect(hote.querySelector('[data-secret="intranet-admin"]')).not.toBeNull();
+    expect(texte(bloc(hote, "intranet-admin").querySelector('[role="alert"]'))).toBe("Secret introuvable.");
+    expect(bloc(hote, "ax-old").querySelector("[data-formulaire-secret]")).not.toBeNull();
+  });
+
+  it("beaucoup de sites : les trois premiers, le reste se déplie dans le bloc", async () => {
+    const sites = ["a", "b", "c", "d", "e", "f"].map((x) => `https://${x}.example.lan`);
+    const { g } = store({ t: 0 }, [secret(1, { name: "large", scope: { origins: sites } })]);
+    await g.charger();
+    const hote = monter(ListeSecrets, g);
+    await attendre();
+    const b = bloc(hote, "large");
+    expect(b.querySelectorAll(".elpis-secrets__site")).toHaveLength(3);
+    const plus = b.querySelector<HTMLButtonElement>("[data-plus-sites]")!;
+    expect(texte(plus)).toBe("+ 3 autres");
+    expect(plus.getAttribute("aria-controls")).toBe(b.querySelector(".elpis-secrets__sites")!.id);
+    plus.click();
+    await attendre();
+    expect(b.querySelectorAll(".elpis-secrets__site")).toHaveLength(6);
+    expect(plus.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("dernier secret supprimé : le focus va à la liste", async () => {
@@ -248,6 +312,26 @@ describe("liste des secrets en blocs", () => {
     annuler.click();
     await attendre();
     expect(document.activeElement).toBe(action(bloc(hote, "ax-old"), "verifier"));
+    // Le focus revient au bouton qui a ouvert le panneau, pas au premier du bloc.
+    action(bloc(hote, "ax-old"), "rotation").click();
+    await attendre();
+    const fermer = [...hote.querySelectorAll<HTMLButtonElement>('[data-panneau="2"] button')].find(
+      (b) => texte(b) === "Annuler",
+    )!;
+    fermer.focus();
+    fermer.click();
+    await attendre();
+    expect(document.activeElement).toBe(action(bloc(hote, "ax-old"), "rotation"));
+    // Vérification faite : le bouton « Vérifier » n'est plus là, le focus va au premier bouton restant.
+    action(bloc(hote, "ax-old"), "verifier").click();
+    await attendre();
+    [...hote.querySelectorAll<HTMLButtonElement>('[data-panneau="2"] button')]
+      .find((b) => texte(b) === "Vérifier")!
+      .click();
+    await attendre();
+    expect(appels.at(-1)).toMatchObject({ url: "/api/secrets/2/verify", methode: "POST" });
+    expect(bloc(hote, "ax-old").querySelector('[data-action="verifier"]')).toBeNull();
+    expect(document.activeElement).toBe(action(bloc(hote, "ax-old"), "rotation"));
   });
 });
 
@@ -257,7 +341,7 @@ describe("Paramètres › Secrets › Secrets web", () => {
     await g.charger();
     const hote = monter(OngletSecrets, g, true);
     await attendre();
-    expect(texte(hote.querySelector("[data-regle]"))).toContain("il n'en voit jamais la valeur");
+    expect(texte(hote.querySelector("[data-regle]"))).toContain("l'assistant n'en voit jamais la valeur");
     expect(hote.querySelector("table")).toBeNull();
     expect(hote.querySelectorAll("[data-secret]")).toHaveLength(4);
     const nouveau = hote.querySelector<HTMLButtonElement>("[data-nouveau-secret]")!;
@@ -269,5 +353,21 @@ describe("Paramètres › Secrets › Secrets web", () => {
     await attendre();
     expect(hote.querySelector("[data-formulaire-secret]")).not.toBeNull();
     expect(hote.querySelector("[data-nouveau-secret]")).toBeNull();
+    // Le focus entre dans le formulaire ; annulé, il revient au bouton.
+    expect(hote.querySelector("[data-formulaire-secret]")!.contains(document.activeElement)).toBe(true);
+    g.annulerCreation();
+    await attendre();
+    expect(document.activeElement).toBe(hote.querySelector("[data-nouveau-secret]"));
+  });
+
+  it("coffre vide : « Aucun secret. », qui s'efface pendant la création", async () => {
+    const { g } = store({ t: 0 }, []);
+    await g.charger();
+    const hote = monter(OngletSecrets, g, true);
+    await attendre();
+    expect(hote.textContent).toContain("Aucun secret.");
+    hote.querySelector<HTMLButtonElement>("[data-nouveau-secret]")!.click();
+    await attendre();
+    expect(hote.textContent).not.toContain("Aucun secret.");
   });
 });

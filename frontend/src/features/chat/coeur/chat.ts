@@ -901,7 +901,6 @@ export function setupChat(
     commitChatTitleEdit,
     cancelChatTitleEdit,
     scrollToBottom: rendu.scrollToBottom,
-    addCodeCopyButtons: renduChat.addCodeCopyButtons,
     autoResize: renduChat.autoResize,
     composerPlaceholder,
     exportChatAs: renduChat.exportChatAs,

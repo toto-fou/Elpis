@@ -43,7 +43,6 @@ describe("volets repliés", () => {
       showEditor: false,
       settings: { enable_editor: true, editor_ratio: 50 },
       editorFullscreen: false,
-      editorSplitDragging: false,
       interfaceEditeur: "skin",
       showExplorer: false,
       activeTabPath: "",

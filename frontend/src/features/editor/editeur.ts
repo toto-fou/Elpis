@@ -986,7 +986,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     termStartRename: terminal.termStartRename,
     termCommitRename: terminal.termCommitRename,
     termCancelRename: terminal.termCancelRename,
-    editorSplitDragging: redim.editorSplitDragging,
     editorSplitStart: redim.editorSplitStart,
     explorerResizeStart: redim.explorerResizeStart,
     mdPreview: e.mdPreview,

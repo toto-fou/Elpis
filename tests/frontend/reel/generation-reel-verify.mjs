@@ -49,7 +49,7 @@ try {
     v.ok('menu : Auto + valeurs du modèle seulement (low, medium, xhigh)', /Auto/.test(valeurs) && /low/.test(valeurs) && /medium/.test(valeurs) && /xhigh/.test(valeurs)
         && !/none/.test(valeurs) && !/\bhigh\b/.test(valeurs.replace(/xhigh/g, '')), valeurs);
     await sousMenu.locator('[title="low"]').click();
-    await pause(200);
+    await sousMenu.waitFor({ state: 'detached', timeout: 3000 }).catch(() => {});
     v.ok('choix « low » : « Réflexion › Basse », sous-menu refermé', (await puce.locator('[data-effort-courant]').textContent().catch(() => '')).trim() === 'Basse'
         && await sousMenu.count() === 0);
     await page.keyboard.press('Escape');

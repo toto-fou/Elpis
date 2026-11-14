@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/coeur/battement.test.ts — battement du flux : une mise à jour du message par image (porteur ou remplacement), arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, panneau de réflexion, caret plein tant que le texte coule. */
+/** frontend/test/chat/coeur/battement.test.ts — battement du flux : une mise à jour du message par image (porteur ou remplacement), arrêt au repos, budget par image, onglet caché, vidage synchrone (Stop, appel d'outil, fin), voix, une écriture de défilement par image, suivi glissé (borné, arrêté au geste, immédiat en mouvement réduit et onglet caché), panneau de réflexion, caret plein tant que le texte coule. */
 import * as Vue from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ContenuMarkdown from "../../../src/components/chat/ContenuMarkdown.vue";
 import TexteFlux from "../../../src/components/chat/TexteFlux.vue";
+import { creerDefilementChat } from "../../../src/app/racine/defilement";
 import { GestionnaireSession } from "../../../src/features/auth/session";
 import { setupChat } from "../../../src/features/chat/coeur/chat";
 import type { ModulesChat } from "../../../src/features/chat/coeur/chat";
@@ -76,8 +77,9 @@ function refs(messages: MessageChat[]): RefsRacineChat {
   } as RefsRacineChat;
 }
 
-function ctx(): CtxChat {
+function ctx(sup: Partial<CtxChat> = {}): CtxChat {
   return {
+    ...sup,
     showToast: () => undefined,
     fetchAuth: async () => new Response("{}", { status: 404 }),
     openConfirm: async () => true,
@@ -104,13 +106,16 @@ async function image(n = 1): Promise<void> {
 
 const noyaux: Vue.EffectScope[] = [];
 
-function monter(texte = ""): { api: Api; r: RefsRacineChat; remplacements: () => number; stop: () => void } {
+function monter(
+  texte = "",
+  sup: Partial<CtxChat> = {},
+): { api: Api; r: RefsRacineChat; remplacements: () => number; stop: () => void } {
   const r = refs([
     { role: "user", content: "Q" },
     { role: "assistant", content: texte, isStreaming: true },
   ]);
   const scope = Vue.effectScope();
-  const api = scope.run(() => setupChat(new GestionnaireSession(), r, ctx(), MODULES)) as unknown as Api;
+  const api = scope.run(() => setupChat(new GestionnaireSession(), r, ctx(sup), MODULES)) as unknown as Api;
   let n = 0;
   scope.run(() =>
     Vue.watch(
@@ -145,6 +150,7 @@ afterEach(() => {
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("battement : une image, un remplacement", () => {
@@ -469,25 +475,38 @@ function panneau(parent: HTMLElement, haut: number) {
   return pre;
 }
 
+/** Préférence de mouvement vue par le battement (lue une fois par flux). */
+function mouvement(reduit: boolean): void {
+  vi.spyOn(window, "matchMedia").mockImplementation(
+    (q: string) => ({ matches: reduit && q.includes("reduce") }) as MediaQueryList,
+  );
+}
+
 describe("battement : une écriture de défilement par image", () => {
-  it("après la mise à jour du message, une fois par image qui a versé du texte", async () => {
-    const { api, r, stop } = monter();
-    const noyau = noyaux[noyaux.length - 1] as Vue.EffectScope;
-    const { el, journal } = fil(r, noyau);
-    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
-    for (let k = 0; k < 4; k++) {
-      await contenu(api, "x".repeat(20));
-      await image();
-    }
-    expect(journal.filter((j) => j === "défilement").length).toBe(
-      journal.filter((j) => j === "message").length,
-    );
-    expect(journal.length).toBeGreaterThanOrEqual(2);
-    for (let k = 0; k < journal.length; k += 2)
-      expect(journal.slice(k, k + 2)).toEqual(["message", "défilement"]);
-    expect(el.scrollTop).toBe(5000);
-    stop();
-  });
+  it.each([true, false])(
+    "après la mise à jour du message, une fois par image qui a versé du texte (mouvement réduit : %s)",
+    async (reduit) => {
+      mouvement(reduit);
+      const { api, r, stop } = monter();
+      const noyau = noyaux[noyaux.length - 1] as Vue.EffectScope;
+      const { el, journal } = fil(r, noyau);
+      (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
+      for (let k = 0; k < 4; k++) {
+        await contenu(api, "x".repeat(20));
+        await image();
+      }
+      expect(journal.filter((j) => j === "défilement").length).toBe(
+        journal.filter((j) => j === "message").length,
+      );
+      expect(journal.length).toBeGreaterThanOrEqual(2);
+      for (let k = 0; k < journal.length; k += 2)
+        expect(journal.slice(k, k + 2)).toEqual(["message", "défilement"]);
+      // Réduit : le bas tout de suite ; sinon le glissé, jamais à plus de deux lignes du bas (5000 − 600).
+      if (reduit) expect(el.scrollTop).toBe(5000);
+      else expect(4400 - el.scrollTop).toBeLessThanOrEqual(48);
+      stop();
+    },
+  );
 
   it("le lecteur remonté n'est pas ramené en bas", async () => {
     const { api, r, stop } = monter();
@@ -514,6 +533,243 @@ describe("battement : une écriture de défilement par image", () => {
     await api.handleStreamEvent({ type: "thinking_token", text: "Encore une idée. ", n: 1 });
     await image(3);
     expect(remontee.scrollTop).toBe(120);
+    stop();
+  });
+});
+
+/** Fil défilant comme dans un navigateur : `scrollTop` borné au bas, hauteur réglable, chaque écriture relevée. */
+function filDefilant(hauteur: number, haut: number) {
+  const etat = { hauteur, haut };
+  const ecrits: number[] = [];
+  const el = document.createElement("div");
+  Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => etat.hauteur });
+  Object.defineProperty(el, "clientHeight", { configurable: true, value: 600 });
+  Object.defineProperty(el, "scrollTop", {
+    configurable: true,
+    get: () => etat.haut,
+    set: (v: number) => {
+      etat.haut = Math.max(0, Math.min(v, etat.hauteur - 600));
+      ecrits.push(etat.haut);
+    },
+  });
+  return { el, etat, ecrits, ecart: () => etat.hauteur - 600 - etat.haut };
+}
+
+function sansRecul(ecrits: readonly number[]): void {
+  for (let k = 1; k < ecrits.length; k++) expect(ecrits[k]).toBeGreaterThanOrEqual(ecrits[k - 1] ?? 0);
+}
+
+describe("battement : suivi glissé", () => {
+  const brancher = (api: Api, el: HTMLElement): void => {
+    (api["chatContainer"] as Vue.Ref<HTMLElement | null>).value = el;
+  };
+
+  // Battement, fil collé en bas et propriétaire du défilement (gestes, verrou, observateur de taille) branchés ensemble.
+  async function avecFil() {
+    mouvement(false);
+    let rappel = (): void => undefined;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(f: () => void) {
+          rappel = f;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    const verrou = { poser: (): void => undefined };
+    const { api, r, stop } = monter("", { _lockAutoScroll: () => verrou.poser() });
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    const conteneur = Vue.ref<HTMLElement | null>(null);
+    const defilement = (noyaux[noyaux.length - 1] as Vue.EffectScope).run(() =>
+      creerDefilementChat({ conteneur: () => conteneur.value, isUserScrolling: r.isUserScrolling }),
+    );
+    verrou.poser = () => defilement?.verrouillerDefilementAuto();
+    conteneur.value = f.el;
+    await Vue.nextTick();
+    const fin = async (): Promise<void> => {
+      conteneur.value = null;
+      await Vue.nextTick();
+      stop();
+    };
+    return { api, r, f, observer: () => rappel(), fin };
+  }
+
+  it("une ligne de plus : le fil glisse vers le nouveau bas en une centaine de millisecondes, sans recul", async () => {
+    mouvement(false);
+    const { api, stop } = monter();
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    await contenu(api, "Une ligne qui pousse le bas du fil.");
+    f.etat.hauteur += 24;
+    await image();
+    expect(f.ecart()).toBeGreaterThan(4);
+    expect(f.ecart()).toBeLessThan(24);
+    let images = 1;
+    while (f.ecart() > 0 && images < 30) {
+      await image();
+      images++;
+    }
+    expect(f.ecart()).toBe(0);
+    expect(images * IMAGE).toBeGreaterThanOrEqual(80);
+    expect(images * IMAGE).toBeLessThanOrEqual(150);
+    sansRecul(f.ecrits);
+    await image(60);
+    expect(file.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    stop();
+  });
+
+  it("le retard reste borné : jamais plus de deux lignes, même quand le bas avance à chaque image ou d'un bloc entier", async () => {
+    mouvement(false);
+    const { api, stop } = monter();
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    // Bas qui avance de 12 px par image (plus vite que 150 jetons/s) : le retard se stabilise sous deux lignes.
+    for (let k = 0; k < 60; k++) {
+      await contenu(api, "mot ");
+      f.etat.hauteur += 12;
+      await image();
+      expect(f.ecart()).toBeLessThanOrEqual(48);
+    }
+    // Un bloc entier d'un coup : saut jusqu'à deux lignes du bas, puis glissé.
+    f.etat.hauteur += 400;
+    await contenu(api, "fin.");
+    await image();
+    expect(f.ecart()).toBeLessThanOrEqual(48);
+    expect(f.ecart()).toBeGreaterThan(4);
+    await image(20);
+    expect(f.ecart()).toBe(0);
+    sansRecul(f.ecrits);
+    stop();
+  });
+
+  it.each(["molette", "clavier", "toucher", "barre de défilement"])(
+    "geste de remontée (%s) : le glissé s'arrête dans l'image même, le suivi aussi",
+    async (geste) => {
+      const { api, r, f, fin } = await avecFil();
+      await contenu(api, "Une réponse qui ajoute plusieurs lignes au fil.");
+      f.etat.hauteur += 120;
+      await image();
+      f.el.dispatchEvent(new Event("scroll"));
+      expect(f.ecart()).toBeGreaterThan(4);
+      const evenement = (type: string, champs: object): void =>
+        void f.el.dispatchEvent(Object.assign(new Event(type), champs));
+      if (geste === "molette") evenement("wheel", { deltaY: -40 });
+      else if (geste === "clavier") evenement("keydown", { key: "PageUp" });
+      else if (geste === "toucher") {
+        evenement("touchstart", { touches: [{ clientY: 100 }] });
+        evenement("touchmove", { touches: [{ clientY: 140 }] });
+      } else {
+        f.el.dispatchEvent(new Event("pointerdown"));
+        f.etat.haut -= 30;
+        f.el.dispatchEvent(new Event("scroll"));
+      }
+      expect(r.isUserScrolling.value).toBe(true);
+      const position = f.etat.haut;
+      const ecritures = f.ecrits.length;
+      await image();
+      expect(f.ecrits.length).toBe(ecritures);
+      await contenu(api, " Et encore du texte.");
+      f.etat.hauteur += 24;
+      await image(30);
+      expect(f.etat.haut).toBe(position);
+      expect(f.ecrits.length).toBe(ecritures);
+      expect(file.size).toBe(0);
+      await fin();
+    },
+  );
+
+  it("l'observateur de taille du fil laisse le glissé au battement, et reprend son rôle après", async () => {
+    const { api, f, observer, fin } = await avecFil();
+    await contenu(api, "Une ligne de plus.");
+    f.etat.hauteur += 24;
+    await image();
+    // Après la mise en page de la même image : le fil était collé en bas, l'observateur ne saute pas au bas.
+    observer();
+    expect(f.ecart()).toBeGreaterThan(4);
+    await image(30);
+    expect(f.ecart()).toBe(0);
+    f.el.dispatchEvent(new Event("scroll"));
+    // Plus de glissé : une image chargée plus haut agrandit le fil, l'observateur le recolle tout de suite.
+    f.etat.hauteur += 200;
+    observer();
+    expect(f.ecart()).toBe(0);
+    await fin();
+  });
+
+  it("mouvement réduit : le bas est posé tout de suite, sans glissé", async () => {
+    mouvement(true);
+    const { api, stop } = monter();
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    await contenu(api, "Une ligne de plus.");
+    f.etat.hauteur += 24;
+    await image();
+    expect(f.ecart()).toBe(0);
+    f.etat.hauteur += 400;
+    await contenu(api, " Un bloc entier.");
+    await image();
+    expect(f.ecart()).toBe(0);
+    stop();
+  });
+
+  it("onglet caché : pas de glissé ; un glissé en cours finit d'un coup quand l'onglet se cache", async () => {
+    mouvement(false);
+    const { api, stop } = monter();
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    await contenu(api, "Une ligne de plus.");
+    f.etat.hauteur += 120;
+    await image();
+    expect(f.ecart()).toBeGreaterThan(4);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(file.size).toBe(0);
+    await vi.advanceTimersByTimeAsync(260);
+    expect(f.ecart()).toBe(0);
+    // Caché, le texte qui arrive est suivi sans glissé.
+    await contenu(api, " Et la suite.");
+    f.etat.hauteur += 300;
+    await vi.advanceTimersByTimeAsync(260);
+    expect(f.ecart()).toBe(0);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(vi.getTimerCount()).toBe(0);
+    sansRecul(f.ecrits);
+    stop();
+  });
+
+  it("images sautées par le budget : le glissé avance quand même à chaque image", async () => {
+    mouvement(false);
+    const { api, r, stop } = monter();
+    const moteur = moteurMarkdown();
+    const vrai = moteur.avancerFlux;
+    const rendu = vi.spyOn(moteur, "avancerFlux").mockImplementation((...args: Parameters<typeof vrai>) => {
+      vi.advanceTimersByTime(20);
+      return vrai(...args);
+    });
+    const f = filDefilant(2000, 1400);
+    brancher(api, f.el);
+    // Texte balisé : chaque image le rend en entier (20 ms), le budget saute des images.
+    for (let k = 0; k < 4; k++) {
+      await contenu(api, "*b* ".repeat(8));
+      await image();
+    }
+    f.etat.hauteur += 200;
+    await contenu(api, "*c* ".repeat(16));
+    let sansRendu = 0;
+    for (let k = 0; k < 4; k++) {
+      const ecrits = f.ecrits.length;
+      const longueur = bulle(r)?.content?.length;
+      await image();
+      expect(f.ecrits.length - ecrits).toBe(1);
+      if (bulle(r)?.content?.length === longueur) sansRendu++;
+    }
+    expect(sansRendu).toBeGreaterThan(0);
+    sansRecul(f.ecrits);
+    rendu.mockRestore();
     stop();
   });
 });

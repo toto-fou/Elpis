@@ -84,7 +84,7 @@ export function creerDefilementChat(src: SourceDefilement) {
     el.addEventListener("pointerdown", surAppui);
     window.addEventListener("pointerup", surRelache);
     window.addEventListener("pointercancel", surRelache);
-    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image (pendant un battement du flux, c'est lui qui écrit).
+    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image (pendant le glissé du flux, c'est le battement qui écrit).
     const obs = new ResizeObserver(() => {
       if (battementEnCours()) return;
       if (colle && !src.isUserScrolling.value && distance(el) > 4) el.scrollTop = el.scrollHeight;

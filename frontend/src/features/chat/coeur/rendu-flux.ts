@@ -31,6 +31,9 @@ const ONGLET_CACHE_MS = 250;
 const BAS_PX = 4;
 const CARET_ATTENTE_MS = 400;
 const TEXTE_COULE = "elpis-texte-coule";
+// Glissé du suivi : constante de temps (95 % du chemin en 100 ms) et retard maximal (deux lignes de texte).
+const GLISSE_MS = 100 / 3;
+const ECART_MAX_PX = 48;
 
 /** Champs d'affichage du rendu incrémental du corps (blocs, bloc actif, état de découpe), purgés à chaque remise à zéro du flux ; le porteur est lâché (le battement suivant en pose un neuf). */
 export const STREAM_RENDER_CLEAR: Readonly<Objet> = Object.freeze({
@@ -233,6 +236,9 @@ export function creerRenduFlux(c: CoeurChat) {
   let filCoule: HTMLElement | null = null;
   let dernierTexte = 0;
   let minuterieCaret: ReturnType<typeof setTimeout> | null = null;
+  let glisse = false;
+  let dernierPas = 0;
+  let mqReduit: MediaQueryList | null = null;
   const budget = creerBudget();
   const vCorps = creerVersement();
   const vReflexion = creerVersement();
@@ -247,7 +253,36 @@ export function creerRenduFlux(c: CoeurChat) {
   const ongletCache = (): boolean => document.visibilityState === "hidden";
 
   function besoin(): boolean {
-    return !!f.thinkBuf || !!f.preContentBuf || (corpsArme && !!f.streamBuf) || f.shellPend.size > 0;
+    return (
+      !!f.thinkBuf || !!f.preContentBuf || (corpsArme && !!f.streamBuf) || f.shellPend.size > 0 || glisse
+    );
+  }
+
+  // Liste de requête créée une fois : lue à chaque image du glissé.
+  function mouvementReduit(): boolean {
+    mqReduit ??=
+      typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    return !!mqReduit?.matches;
+  }
+
+  // Seule écriture du défilement pendant une réponse : glissé vers le nouveau bas (l'observateur de taille du fil le laisse faire), jamais plus de deux lignes de retard ; immédiat en mouvement réduit et onglet caché.
+  function suivreBas(t: number, immediat: boolean): void {
+    const dt = glisse ? Math.min(100, Math.max(4, t - dernierPas)) : IMAGE_MS;
+    dernierPas = t;
+    glisse = false;
+    const el = e.chatContainer.value;
+    if (el && !r.isUserScrolling.value) {
+      ctx._lockAutoScroll?.();
+      const haut = el.scrollTop;
+      const ecart = el.scrollHeight - el.clientHeight - haut;
+      if (immediat || ecart <= 1 || mouvementReduit()) el.scrollTop = el.scrollHeight;
+      else {
+        const pas = Math.max(1, ecart * (1 - Math.exp(-dt / GLISSE_MS)), ecart - ECART_MAX_PX);
+        el.scrollTop = haut + pas;
+        glisse = pas < ecart;
+      }
+    }
+    marquerBattement(glisse);
   }
 
   // Caret plein tant que le corps s'écrit : le fil porte la classe jusqu'à 400 ms après le dernier caractère versé, le CSS fait pulser le caret ensuite.
@@ -317,6 +352,8 @@ export function creerRenduFlux(c: CoeurChat) {
     if (actif) document.removeEventListener("visibilitychange", surVisibilite);
     actif = false;
     derniereImage = 0;
+    glisse = false;
+    marquerBattement(false);
   }
 
   function eteindreSiInutile(): void {
@@ -424,6 +461,7 @@ export function creerRenduFlux(c: CoeurChat) {
       f.preContentBuf = "";
       f.streamBuf = "";
       f.shellPend.clear();
+      glisse = false;
       return;
     }
     const p: Objet = {};
@@ -440,10 +478,12 @@ export function creerRenduFlux(c: CoeurChat) {
     }
     const steps = shell?.get(idx);
     if (steps) p["toolSteps"] = steps;
-    if (!reflexion && !narration && !corps && !shell?.size) return;
+    if (!reflexion && !narration && !corps && !shell?.size) {
+      if (glisse) suivreBas(t0, force);
+      return;
+    }
     const pre = reflexion ? preReflexion() : null;
     const colle = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight <= BAS_PX;
-    marquerBattement(true);
     if (shell)
       for (const [i, st] of shell) {
         const autre = msgs[i];
@@ -458,11 +498,7 @@ export function creerRenduFlux(c: CoeurChat) {
       const apres = preReflexion();
       if (apres && (colle || apres !== pre)) apres.scrollTop = apres.scrollHeight;
     }
-    const el = e.chatContainer.value;
-    if (el && !r.isUserScrolling.value) {
-      ctx._lockAutoScroll?.();
-      el.scrollTop = el.scrollHeight;
-    }
+    suivreBas(t0, force);
     noterCout(budget, maintenant() - t0);
   }
 
@@ -472,13 +508,17 @@ export function creerRenduFlux(c: CoeurChat) {
     let echec = false;
     try {
       if (!besoin()) return;
-      if (!onglet && sauterImage(budget, maintenant())) return;
+      // Image sautée par le budget : rien n'est rendu, le glissé en cours avance quand même.
+      const t = maintenant();
+      if (!onglet && sauterImage(budget, t)) {
+        if (glisse) suivreBas(t, false);
+        return;
+      }
       await executer(onglet);
     } catch (err) {
       echec = true;
       journal.erreur("[flux] battement", err);
     } finally {
-      marquerBattement(false);
       enCours = false;
       if (!echec && besoin()) planifier();
       else eteindre();

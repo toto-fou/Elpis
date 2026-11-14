@@ -29,11 +29,13 @@ function monter(route: (u: string, o?: RequestInit) => Response) {
     vus.push([u, o?.method ?? "GET", o?.body]);
     return Promise.resolve(route(u, o));
   };
+  const changements = { n: 0 };
   const G = setupGitConnecteurs(
     { showToast: (m) => toasts.push(m), openConfirm: () => Promise.resolve(true) },
     new ClientHttp(new GestionnaireSession(), fetch),
+    () => changements.n++,
   );
-  return { G, vus, toasts };
+  return { G, vus, toasts, changements };
 }
 
 describe("setupGitConnecteurs", () => {
@@ -75,6 +77,20 @@ describe("setupGitConnecteurs", () => {
     expect(put[0]).toBe("/api/git/connectors/3");
     expect(JSON.parse(put[2] as string)).not.toHaveProperty("token");
     expect(toasts.at(-1)).toBe("Compte mis à jour");
+  });
+
+  it("un compte enregistré ou supprimé est signalé (son secret change dans le coffre) ; un refus ne l'est pas", async () => {
+    const { G, changements } = monter(() => json({ ok: true, connectors: [], provider_types: [] }));
+    G.editGitConnector(CONNECTEUR);
+    await G.saveGitConnector();
+    expect(changements.n).toBe(1);
+    await G.deleteGitConnector(CONNECTEUR);
+    expect(changements.n).toBe(2);
+    const refus = monter(() => json({ detail: "non" }, 409));
+    refus.G.editGitConnector(CONNECTEUR);
+    await refus.G.saveGitConnector();
+    await refus.G.deleteGitConnector(CONNECTEUR);
+    expect(refus.changements.n).toBe(0);
   });
 
   it("refus serveur : détail affiché ; test : résultat par connecteur", async () => {

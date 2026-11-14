@@ -153,7 +153,7 @@ describe("aucun outil git ne reçoit d'identifiant", () => {
         "into_path",
         "branch",
       ]);
-      expect(String(clone?.description)).toContain("Settings \u203a Git accounts");
+      expect(String(clone?.description)).toContain("Settings \u203a Secrets \u203a Git accounts");
       const r = (await c.callTool({
         name: "git_clone",
         arguments: { url: "https://forge.lan/o/r.git", token: "pat-secret" },
@@ -759,7 +759,7 @@ describe.skipIf(!PYTHON || !LAN)("réseau par le relais authentifiant", () => {
       const r = await appeler(c, "git_clone", { url: amont.url, into_path: "prive" });
       expect(r).toMatchObject({ ok: false, error: "clone_failed", credentialed: false });
       expect(String(r["fix"])).toContain(
-        "Ask the user to add a Git account for this host in Settings › Git accounts",
+        "Ask the user to add a Git account for this host in Settings › Secrets › Git accounts",
       );
       expect(new Set(f.enregistres.map((e) => JSON.stringify(e)))).toEqual(
         new Set([JSON.stringify([{ user_id: 7, username: "alice" }, amont.url])]),

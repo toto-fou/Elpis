@@ -95,6 +95,7 @@ function monterModale(settingsTab: string, sections: Record<string, string> = {}
     features: {},
     avatarARecadrer: null,
     mascottesOffertes: false,
+    chargerOnglet: vi.fn(async () => undefined),
   });
   const hote = document.createElement("div");
   document.body.appendChild(hote);
@@ -131,6 +132,7 @@ describe("Secrets dans la modale", () => {
     expect(rg.settingsTab).toBe("secrets");
     expect(rg.settingsSections["secrets"]).toBe("git");
     expect(pages()).toEqual(["git"]);
+    expect(rg.chargerOnglet).toHaveBeenCalledWith("secrets");
   });
 
   it("un settingsTab « connexions » posé tel quel atterrit sur Secrets › Jetons MCP", async () => {
@@ -200,6 +202,14 @@ describe("openSettingsTab", () => {
       expect(m.settingsSections.value["secrets"], tab).toBe("git");
       expect(dep.loadGitConnectors, tab).toHaveBeenCalled();
     }
+  });
+
+  it("chargerOnglet d'un ancien identifiant charge les listes de son onglet", async () => {
+    const { m, dep } = await ouvrir("profile");
+    expect(dep.loadGitConnectors).not.toHaveBeenCalled();
+    await m.chargerOnglet("connectors");
+    expect(dep.loadGitConnectors).toHaveBeenCalledTimes(1);
+    expect(dep.loadSecrets).toHaveBeenCalledTimes(1);
   });
 
   it("« secrets:jetons » et « secrets:web » ciblent la section", async () => {

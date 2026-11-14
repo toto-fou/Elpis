@@ -167,15 +167,17 @@ watch(
     >
       <thead>
         <tr>
-          <th scope="col" class="elpis-secrets__c-name">name</th>
-          <th scope="col">scope</th>
-          <th scope="col" class="elpis-secrets__c-user elpis-secrets__opt">user</th>
+          <th scope="col" class="elpis-secrets__c-name">Nom</th>
+          <th scope="col" title="Sites, serveur Git, serveur MCP ou modèle pour lesquels le secret sert">
+            Utilisé pour
+          </th>
+          <th scope="col" class="elpis-secrets__c-user elpis-secrets__opt">Identifiant</th>
           <th
             scope="col"
             class="elpis-secrets__c-usage elpis-secrets__opt"
             title="Dernier usage, nombre d'usages"
           >
-            dernier usage
+            Dernier usage
           </th>
           <th scope="col" class="elpis-secrets__menu"><span class="sr-only">Actions</span></th>
         </tr>
@@ -381,15 +383,15 @@ watch(
 
               <div v-else-if="g.panneau?.id === s.id && g.panneau.mode === 'verifier'">
                 <dl class="elpis-secrets__dl">
-                  <dt>scope</dt>
+                  <dt>Utilisé pour</dt>
                   <dd class="font-mono">
                     <ul class="elpis-secrets__sites" :aria-label="`Sites de ${s.name}`">
                       <li v-for="o in porteeTexte(s)" :key="o" class="elpis-secrets__site">{{ o }}</li>
                     </ul>
                   </dd>
-                  <dt>user</dt>
+                  <dt>Identifiant</dt>
                   <dd class="font-mono">{{ s.username ?? "—" }}</dd>
-                  <dt>tls</dt>
+                  <dt>TLS</dt>
                   <dd class="font-mono">{{ s.policy.tls }}</dd>
                 </dl>
                 <div class="elpis-secrets__ligne">

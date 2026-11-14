@@ -51,7 +51,7 @@ function annuler(): void {
     @submit.prevent="envoyer"
   >
     <div class="elpis-secret-form__grille">
-      <label :for="`${id}-name`">name</label>
+      <label :for="`${id}-name`">Nom</label>
       <div>
         <input
           :id="`${id}-name`"
@@ -70,7 +70,7 @@ function annuler(): void {
         </p>
       </div>
 
-      <label :for="`${id}-kind`">type</label>
+      <label :for="`${id}-kind`">Type</label>
       <select
         :id="`${id}-kind`"
         v-model="f.kind"
@@ -82,13 +82,13 @@ function annuler(): void {
       </select>
 
       <template v-if="parOrigines(f.kind)">
-        <span :id="`${id}-scope-l`" title="Sites exacts : scheme://hôte[:port]">sites</span>
+        <span :id="`${id}-scope-l`" title="Sites exacts : scheme://hôte[:port]">Sites</span>
         <div>
           <SitesSecret v-model="f.origins" :id-base="`${id}-scope`" :erreur="erreur('origins')" />
         </div>
       </template>
 
-      <label :for="`${id}-ident`">user</label>
+      <label :for="`${id}-ident`">Identifiant</label>
       <div>
         <input
           :id="`${id}-ident`"
@@ -102,7 +102,7 @@ function annuler(): void {
         <p v-if="erreur('username')" class="elpis-secret-form__err">{{ erreur("username") }}</p>
       </div>
 
-      <label :for="`${id}-value`">valeur</label>
+      <label :for="`${id}-value`">Valeur</label>
       <div>
         <ChampValeur
           :id="`${id}-value`"
@@ -120,7 +120,7 @@ function annuler(): void {
       </div>
 
       <template v-if="parOrigines(f.kind)">
-        <label :for="`${id}-tls`">tls</label>
+        <label :for="`${id}-tls`">TLS</label>
         <select :id="`${id}-tls`" v-model="f.tls" class="set-select font-mono" data-champ="tls">
           <option value="strict">strict</option>
           <option value="insecure">insecure</option>

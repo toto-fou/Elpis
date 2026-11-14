@@ -103,16 +103,16 @@ async function ouvrirMenu(hote: HTMLElement, nom: string): Promise<void> {
 }
 
 describe("table des secrets", () => {
-  it("colonnes : name (type, version, états), scope (sites entiers, un par ligne), user, usage ; plus de colonnes tls, version ni usages", async () => {
+  it("colonnes nommées en clair : Nom (type, version, états), Utilisé pour (sites entiers, un par ligne), Identifiant, Dernier usage ; plus de colonnes tls, version ni usages", async () => {
     const { g } = store();
     await g.charger();
     const hote = monterTable(g);
     await attendre();
     expect([...hote.querySelectorAll("thead th")].map((th) => (th.textContent ?? "").trim())).toEqual([
-      "name",
-      "scope",
-      "user",
-      "dernier usage",
+      "Nom",
+      "Utilisé pour",
+      "Identifiant",
+      "Dernier usage",
       "Actions",
     ]);
     const intranet = ligne(hote, "intranet-admin");

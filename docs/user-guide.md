@@ -1543,11 +1543,11 @@ Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
 
 ### Secrets
 
-Settings › **Secrets** lists the vault of your account in one table of four columns. `name`
+Settings › **Secrets** lists the vault of your account in one table of four columns. *Nom*
 carries the type and the version (`v2` after one rotation) under it, and `tls insecure` when the
-certificate is not checked; `scope` shows every site in full, one per line (beyond four, the first
-three and a button to unfold the rest); then `user` and `dernier usage` (last use in words, number
-of uses; the exact date is in the tooltip). In a narrow window `user` and the last use show under the name. An
+certificate is not checked; *Utilisé pour* shows every site in full, one per line (beyond four, the first
+three and a button to unfold the rest); then *Identifiant* and *Dernier usage* (last use in words, number
+of uses; the exact date is in the tooltip). In a narrow window the identifier and the last use show under the name. An
 imported secret is marked
 `unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
 it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no

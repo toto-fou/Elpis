@@ -138,7 +138,9 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
-- **Secrets table easier to read.** Four columns instead of eight: the name is shown in full with its
+- **Secrets table easier to read.** Four columns instead of eight, named in plain words (*Nom*,
+  *Utilisé pour*, *Identifiant*, *Dernier usage*; the form and the details use the same words):
+  the name is shown in full with its
   type, version and states under it, each site of the scope is written in full on its own line
   (long lists fold after three), the identifier is no longer cut, and last use and number of uses
   share one column. `tls` is only mentioned when it is `insecure`. Text is larger and long hosts

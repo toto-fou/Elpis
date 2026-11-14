@@ -906,13 +906,16 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     l.stopPreContentFlush();
     l.stopStreamFlush();
     f.streamBuf = "";
+    // La réflexion encore dans le tampon du versement vient d'être versée : elle fait partie du préremplissage.
+    const actuel = msgs[assistantIdx] ?? cur;
+    const pensee = (actuel.thinking || "").trim() || partiel;
     msgs[assistantIdx] = Object.assign(
       {},
-      cur,
+      actuel,
       {
-        _respondNowPrefill: "<think>\n" + partiel + "\n</think>\n\n",
+        _respondNowPrefill: "<think>\n" + pensee + "\n</think>\n\n",
         content: "",
-        thinking: partiel,
+        thinking: pensee,
         thinkingOpen: false,
         isStreaming: true,
         isTruncated: false,

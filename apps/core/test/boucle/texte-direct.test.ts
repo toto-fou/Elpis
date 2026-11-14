@@ -4,7 +4,7 @@ import "../moteur-environnement";
 
 import { describe, expect, it } from "vitest";
 
-import { estErreurAnnulation, longueurPy, lstripPy } from "@elpis/commun";
+import { estErreurAnnulation, longueurPy, lstripPy, prefixePy } from "@elpis/commun";
 
 import { emit } from "../../src/boucle/evenements";
 import {
@@ -71,8 +71,9 @@ describe("émission directe du contenu", () => {
       else await live.emitRest(op[1], { replaceOnDivergence: op[2] });
     }
     const etat = { parts: live.parts, n: live.n, pend: live.pend, gated: live.gated };
-    // Contenu qui peut n'être qu'un appel en texte, ou sans caractère visible : fenêtre fixe, à l'identique.
-    if (live.prudent !== false) {
+    // Contenu qui peut n'être qu'un appel en texte dès son début, ou sans caractère visible : fenêtre fixe, à l'identique.
+    const texte = lstripPy(s.ops.flatMap((op) => (op[0] === "jeton" ? [op[1]] : [])).join(""));
+    if (live.prudent === null || /^[`[{<]/u.test(texte)) {
       expect(evenements).toStrictEqual(s.evenements);
       expect(etat).toStrictEqual(s.etat);
       return;
@@ -124,6 +125,25 @@ describe("émission directe du contenu", () => {
     }
   });
 
+  it("appel JSON en texte que le portail ne voit pas (`name` après `arguments`) : fenêtre fixe dès l'accolade", async () => {
+    const appel = '{"arguments": {"q": "un texte assez long pour sortir de la fenêtre"}, "name": "search"}';
+    const contenu = "Je cherche. " + appel;
+    const [live, textes] = await emis(contenu.match(/[\s\S]{1,4}/gu) ?? []);
+    expect([live.gated, live.prudent]).toStrictEqual([false, true]);
+    expect(textes.join("")).toBe(prefixePy(contenu, longueurPy(contenu) - LIVE_HOLDBACK_CHARS));
+  });
+
+  it("demi-paire haute retenue jusqu'à la sienne : emoji entier, queue recollée sans perte", async () => {
+    const evenements: Record<string, unknown>[] = [];
+    const live = new LiveText((e) => {
+      evenements.push({ ...e });
+    });
+    for (const j of ["Voici \uD83D", "\uDE00 la suite", " {x}"]) await live.onToken(j);
+    await live.emitRest("Voici 😀 la suite {x}", { replaceOnDivergence: true });
+    expect(evenements.map((e) => e["text"])).toStrictEqual(["Voici ", "😀 la suite", " {x}"]);
+    expect(visible(evenements)).toBe("Voici 😀 la suite {x}");
+  });
+
   it("part émettable : premier `<` ou `{` de la fenêtre, blancs qui le précèdent, blancs finaux", () => {
     expect(partEmettable("abc", false)).toBe(3);
     expect(partEmettable("abc  \n", false)).toBe(3);
@@ -132,6 +152,7 @@ describe("émission directe du contenu", () => {
     const long = "{" + "y".repeat(LIVE_HOLDBACK_CHARS);
     expect(partEmettable(long, false)).toBe(long.length);
     expect(partEmettable(long, true)).toBe(1);
+    expect(partEmettable("ab \uD83D", false)).toBe(3);
   });
 
   it("queue restante (offsets en points de code, blanc de tête)", () => {

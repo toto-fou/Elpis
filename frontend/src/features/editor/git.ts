@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/editor/git.ts — Git du bac personnel pour l'éditeur : dépôts, statut, index, commit, push/pull, branches, fusion, journal, diff et restauration (porté de `editor/_git.js`). */
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import type { Ref } from "vue";
 import type { z } from "zod";
 
+import { partagerArbre } from "./arbre";
 import { remplacerContenu } from "./ecriture-modele";
 import type { ModeleEditable } from "./ecriture-modele";
 import type { Onglet } from "./fichiers";
@@ -124,7 +125,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
   const showGitPushAuth = ref(false);
   const gitCredShowPwd = ref(false);
   let pushForceEnAttente = false;
-  const gitTree: Ref<NoeudArbre[]> = ref([]);
+  const gitTree: Ref<NoeudArbre[]> = shallowRef([]);
   const gitLog: Ref<CommitGit[]> = ref([]);
   const gitDiffData: Ref<DiffCommit | null> = ref(null);
   const gitCredUser = ref("");
@@ -655,7 +656,7 @@ export function setupEditorGit(refs: RefsGit, ctx: CtxGit, rappels: RappelsGit =
           prefixer(items);
         }
         if (repo !== gitCurrentRepo.value) return;
-        gitTree.value = items;
+        gitTree.value = partagerArbre(gitTree.value, items);
       }
     } catch {
       if (repo === gitCurrentRepo.value) gitTree.value = [];

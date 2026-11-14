@@ -3,7 +3,6 @@
 import {
   schemaErreurApi,
   schemaEvenementInstantane as schemaEvenementInstantaneContrat,
-  schemaNoeudArbre,
   schemaRefusEnregistrement as schemaRefusEnregistrementContrat,
   schemaReponseApercuFusionGit,
   schemaReponseArbreBac,
@@ -44,7 +43,6 @@ import type {
 import { z } from "zod";
 
 export type NoeudArbre = NoeudArbreContrat;
-export const schemaNoeud = schemaNoeudArbre;
 export const schemaArbre = schemaReponseArbreBac;
 export const schemaQuota = schemaReponseQuotaFichiers;
 export const schemaGrep = schemaReponseRechercheContenu;

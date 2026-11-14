@@ -1,12 +1,43 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/studio/PageStudio.vue — page Studio : capture annotée d'une cible desktop, arbre UIA, inspecteur, mini-chat de pilotage, éditeur du script d'automatisation, exécution et rapport. -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 
 import { domaineStudio } from "../../features/studio/domaine";
+import CadreSurvolStudio from "./CadreSurvolStudio.vue";
+import InspecteurStudio from "./InspecteurStudio.vue";
+import MenuContexteStudio from "./MenuContexteStudio.vue";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const sd = domaineStudio();
 const avance = computed(() => sd.studioExpert);
+
+const arbre = ref<HTMLElement | null>(null);
+let lignesSurvolees: Element[] = [];
+/** Surligne les lignes de l'élément survolé (sauf sélectionné) par leur classe, après chaque mise à jour : le survol ne re-rend pas la page. */
+function surlignerLigne([id, choisi]: readonly unknown[]): void {
+  for (const l of lignesSurvolees) l.classList.remove("bg-amber-50");
+  lignesSurvolees = [];
+  if (id === null || id === undefined || id === choisi || !arbre.value) return;
+  lignesSurvolees = Array.from(arbre.value.querySelectorAll(`[data-el-id="${CSS.escape(String(id))}"]`));
+  for (const l of lignesSurvolees) l.classList.add("bg-amber-50");
+}
+watch(
+  [() => sd.hoveredElementId, () => sd.selectedElementId, () => sd.studioTreeRows, arbre],
+  surlignerLigne,
+  { flush: "post" },
+);
+
+const colonneArbre = ref<HTMLElement | null>(null);
+const rail = ref<HTMLElement | null>(null);
+/** Largeurs de l'arbre et du rail posées sur ces deux colonnes seules : glisser un diviseur ne re-rend ni ne restyle la page. */
+watchEffect(
+  () => {
+    if (colonneArbre.value) colonneArbre.value.style.width = sd.studioTreeWidth + "px";
+    if (rail.value) rail.value.style.width = (sd.studioTab === "script" ? sd.autoRailWidth : 420) + "px";
+  },
+  { flush: "post" },
+);
 
 function poserDefilement(el: unknown): void {
   sd.studioChatScrollEl = (el as HTMLElement | null) ?? null;
@@ -97,10 +128,15 @@ function poserSaisieModale(el: unknown): void {
                 >{{ sd.studioLayerFiltered.length }}/{{ sd.studioElements.length }}</span
               >
             </button>
-            <template v-if="sd.studioLayersOpen">
-              <div class="fixed inset-0 z-[54]" @click="sd.studioLayersOpen = false"></div>
+            <div
+              v-if="sd.studioLayersOpen"
+              class="fixed inset-0 z-[54]"
+              @click="sd.studioLayersOpen = false"
+            ></div>
+            <TransitionMenu>
               <div
-                class="absolute left-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-2 text-left"
+                v-if="sd.studioLayersOpen"
+                class="menu-ancre-gauche absolute left-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-2 text-left"
               >
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
@@ -168,7 +204,7 @@ function poserSaisieModale(el: unknown): void {
                   </button>
                 </div>
               </div>
-            </template>
+            </TransitionMenu>
           </div>
         </template>
       </div>
@@ -238,10 +274,15 @@ function poserSaisieModale(el: unknown): void {
               <i class="ph ph-caret-down text-xs"></i>
             </button>
           </div>
-          <template v-if="sd.studioActionsOpen">
-            <div class="fixed inset-0 z-[54]" @click="sd.studioActionsOpen = false"></div>
+          <div
+            v-if="sd.studioActionsOpen"
+            class="fixed inset-0 z-[54]"
+            @click="sd.studioActionsOpen = false"
+          ></div>
+          <TransitionMenu>
             <div
-              class="absolute right-0 top-full mt-1 z-[55] w-44 bg-white rounded-lg shadow-xl border border-slate-200 p-1 text-left"
+              v-if="sd.studioActionsOpen"
+              class="menu-ancre-droite absolute right-0 top-full mt-1 z-[55] w-44 bg-white rounded-lg shadow-xl border border-slate-200 p-1 text-left"
             >
               <button
                 :disabled="sd.studioReading || !sd.selectedTarget"
@@ -261,7 +302,7 @@ function poserSaisieModale(el: unknown): void {
                 <i class="ph ph-broom"></i> Vider
               </button>
             </div>
-          </template>
+          </TransitionMenu>
         </div>
         <!-- Réglages Studio : sélection d'écran(s) capturé(s)/piloté(s) -->
         <div class="relative">
@@ -278,10 +319,15 @@ function poserSaisieModale(el: unknown): void {
           >
             <i class="ph ph-gear text-sm"></i>
           </button>
-          <template v-if="sd.studioSettingsOpen">
-            <div class="fixed inset-0 z-[54]" @click="sd.studioSettingsOpen = false"></div>
+          <div
+            v-if="sd.studioSettingsOpen"
+            class="fixed inset-0 z-[54]"
+            @click="sd.studioSettingsOpen = false"
+          ></div>
+          <TransitionMenu>
             <div
-              class="absolute right-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-3 text-left"
+              v-if="sd.studioSettingsOpen"
+              class="menu-ancre-droite absolute right-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-3 text-left"
             >
               <!-- Mode de capture : VRAI toggle (switch) -->
               <div class="flex items-center justify-between gap-2">
@@ -352,7 +398,7 @@ function poserSaisieModale(el: unknown): void {
                 « Tous les écrans » = vue d'ensemble ; un écran précis = capture + clics ciblés dessus.
               </p>
             </div>
-          </template>
+          </TransitionMenu>
         </div>
       </div>
     </header>
@@ -423,7 +469,12 @@ function poserSaisieModale(el: unknown): void {
             />
             <!-- Boxes d'éléments : UNIQUEMENT en mode Inspecter -->
             <g v-if="sd.studioStageMode === 'inspect'">
-              <g v-for="el in sd.studioOverlayElements" :key="el.id">
+              <!-- Le survol n'est pas lu ici : chaque boîte ne se redessine qu'à la sélection ou à une nouvelle trame -->
+              <g
+                v-for="el in sd.studioOverlayElements"
+                :key="el.id"
+                v-memo="[el, el.id === sd.selectedElementId, sd.studioFrame]"
+              >
                 <!-- Grands cadres (fenêtre/conteneur) : NON dessinés en permanence + pointer-events:none → ils ne bloquent pas -->
                 <rect
                   :x="el.box[0]"
@@ -432,13 +483,13 @@ function poserSaisieModale(el: unknown): void {
                   :height="el.box[3] - el.box[1]"
                   :fill="sd.isContainerBox(el) ? 'none' : 'transparent'"
                   :stroke="
-                    sd.isContainerBox(el)
-                      ? el.id === sd.hoveredElementId || el.id === sd.selectedElementId
-                        ? sd.boxStroke(el)
-                        : 'none'
-                      : sd.boxStroke(el)
+                    el.id === sd.selectedElementId
+                      ? 'var(--accent)'
+                      : sd.isContainerBox(el)
+                        ? 'none'
+                        : 'var(--accent-300)'
                   "
-                  :stroke-width="el.id === sd.hoveredElementId || el.id === sd.selectedElementId ? 4 : 2"
+                  :stroke-width="el.id === sd.selectedElementId ? 4 : 2"
                   vector-effect="non-scaling-stroke"
                   :style="{
                     pointerEvents: sd.isContainerBox(el) ? 'none' : 'auto',
@@ -453,17 +504,8 @@ function poserSaisieModale(el: unknown): void {
                     }}{{ el.auto_id ? " · #" + el.auto_id : "" }} — clic pour agir
                   </title>
                 </rect>
-                <text
-                  v-if="el.id === sd.hoveredElementId"
-                  :x="el.box[0]"
-                  :y="Math.max(12, el.box[1] - 4)"
-                  :font-size="Math.max(11, (sd.studioFrame.imgH || 1000) / 55)"
-                  fill="#f59e0b"
-                  style="paint-order: stroke; stroke: #fff; stroke-width: 3px"
-                >
-                  {{ sd.elementDisplay(el) }}
-                </text>
               </g>
+              <CadreSurvolStudio />
             </g>
             <!-- Sélection de zone (rubber-band) -->
             <rect
@@ -509,73 +551,7 @@ function poserSaisieModale(el: unknown): void {
             </g>
           </svg>
           <!-- Inspecteur : l'élément sous le pointeur (le plus profond), son fil d'ancêtres -->
-          <div
-            v-if="sd.studioInspectInfo && sd.studioStageMode === 'inspect'"
-            class="absolute bottom-3 left-3 right-3 z-20 flex justify-center pointer-events-none"
-          >
-            <div
-              class="pointer-events-auto max-w-full bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-lg text-xs elpis-studio-inspector"
-            >
-              <div class="flex items-center gap-1 px-2.5 h-8 min-w-0">
-                <template v-for="c in sd.studioInspectInfo.crumbs" :key="c.id">
-                  <button
-                    :title="'Sélectionner ' + (c.role || '') + ' — ' + sd.elementDisplay(c)"
-                    class="text-slate-500 hover:text-blue-700 truncate max-w-[120px] shrink-0"
-                    @click="sd.selectStudioElement(c.id, true)"
-                  >
-                    {{ sd.elementDisplay(c) }}
-                  </button>
-                  <i class="ph ph-caret-right text-slate-300 text-xs shrink-0"></i>
-                </template>
-                <span
-                  class="font-semibold text-slate-800 truncate max-w-[200px]"
-                  :title="sd.elementDisplay(sd.studioInspectInfo.el)"
-                  >{{ sd.elementDisplay(sd.studioInspectInfo.el) }}</span
-                >
-                <span class="text-slate-400 shrink-0">· {{ sd.studioInspectInfo.el.role || "vision" }}</span>
-                <span class="w-px h-4 bg-slate-200 mx-1 shrink-0"></span>
-                <span
-                  class="text-xs font-semibold px-1 rounded shrink-0"
-                  :class="sd.qualityClass(sd.studioInspectInfo.quality)"
-                  :title="'Qualité de la cible : ' + sd.qualityLabel(sd.studioInspectInfo.quality)"
-                  >{{ sd.qualityLabel(sd.studioInspectInfo.quality) }}</span
-                >
-                <code
-                  class="font-mono text-xs text-slate-700 truncate max-w-[380px]"
-                  :title="sd.studioInspectInfo.target"
-                  >{{ sd.studioInspectInfo.target || "—" }}</code
-                >
-                <button
-                  title="Copier la cible"
-                  class="w-6 h-6 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center shrink-0"
-                  @click="sd.copyStudioTarget()"
-                >
-                  <i class="ph ph-copy"></i>
-                </button>
-                <button
-                  title="Fiche de l'élément"
-                  class="w-6 h-6 rounded flex items-center justify-center shrink-0"
-                  :class="
-                    sd.studioInspectOpen
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'hover:bg-slate-100 text-slate-400 hover:text-slate-700'
-                  "
-                  @click="sd.studioInspectOpen = !sd.studioInspectOpen"
-                >
-                  <i class="ph ph-info"></i>
-                </button>
-              </div>
-              <div
-                v-if="sd.studioInspectOpen"
-                class="border-t border-slate-100 px-2.5 py-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 max-h-40 overflow-y-auto custom-scrollbar"
-              >
-                <template v-for="row in sd.studioInspectRows" :key="row.k">
-                  <span class="text-slate-400">{{ row.k }}</span>
-                  <span class="font-mono text-slate-700 truncate" :title="row.v">{{ row.v }}</span>
-                </template>
-              </div>
-            </div>
-          </div>
+          <InspecteurStudio />
           <!-- Bandeau « armé » : clic droit → Glisser depuis ici → on attend la destination. -->
           <div
             v-if="sd.studioDragFrom"
@@ -593,8 +569,8 @@ function poserSaisieModale(el: unknown): void {
       <!-- ARBRE EN COLONNE : à côté de l'image et du code (env de code complet) -->
       <div
         v-if="avance && sd.studioTreeDock && sd.studioFrame.imageUrl"
+        ref="colonneArbre"
         class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0 bg-white"
-        :style="{ width: sd.studioTreeWidth + 'px' }"
       >
         <!-- Poignée : glisser vers la gauche élargit l'arbre ; double-clic = défaut. -->
         <div
@@ -663,14 +639,14 @@ function poserSaisieModale(el: unknown): void {
             :class="
               sd.studioAuditOpen
                 ? 'border-blue-300 bg-blue-50 text-blue-700'
-                : sd.studioAudit.unnamed
+                : sd.studioAuditResume.unnamed
                   ? 'border-amber-200 bg-amber-50 text-amber-700'
                   : 'border-slate-200 text-slate-500 hover:bg-slate-50'
             "
             @click="sd.toggleStudioAudit()"
           >
             <i class="ph ph-warning-circle"></i> Audit
-            <span v-if="sd.studioAudit.rows.length">{{ sd.studioAudit.rows.length }}</span>
+            <span v-if="sd.studioAuditResume.rows">{{ sd.studioAuditResume.rows }}</span>
           </button>
         </div>
         <!-- Audit a11y : ce que l'appli devrait nommer pour être automatisable sans chemin -->
@@ -722,7 +698,7 @@ function poserSaisieModale(el: unknown): void {
             }}</code>
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto p-1 custom-scrollbar">
+        <div ref="arbre" class="flex-1 overflow-y-auto p-1 custom-scrollbar">
           <div v-if="sd.studioElements.length === 0" class="text-center py-10 px-4">
             <i class="ph ph-tree-structure text-slate-300 text-2xl block mb-2"></i>
             <p v-if="!sd.studioFrame.imageUrl" class="text-xs text-slate-400">
@@ -739,18 +715,14 @@ function poserSaisieModale(el: unknown): void {
           >
             Aucun élément ne correspond.
           </div>
+          <!-- Survol posé par surlignerLigne, hors du rendu : chaque ligne ne se redessine qu'à la sélection ou à une nouvelle trame -->
           <div
             v-for="row in sd.studioTreeRows"
             :key="row.el.id"
+            v-memo="[row, row.el.id === sd.selectedElementId]"
             :data-el-id="row.el.id"
             class="flex items-center gap-1 pr-1.5 py-1 rounded-md cursor-pointer transition-colors"
-            :class="
-              row.el.id === sd.selectedElementId
-                ? 'bg-blue-50 ring-1 ring-blue-200'
-                : row.el.id === sd.hoveredElementId
-                  ? 'bg-amber-50'
-                  : 'hover:bg-slate-50'
-            "
+            :class="row.el.id === sd.selectedElementId ? 'bg-blue-50 ring-1 ring-blue-200' : ''"
             :style="{ paddingLeft: 4 + row.depth * 12 + 'px' }"
             @mouseenter="sd.highlightElement(row.el.id)"
             @mouseleave="sd.clearHighlight()"
@@ -854,10 +826,7 @@ function poserSaisieModale(el: unknown): void {
       </div>
 
       <!-- TABBED RAIL -->
-      <div
-        class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0"
-        :style="{ width: (sd.studioTab === 'script' ? sd.autoRailWidth : 420) + 'px' }"
-      >
+      <div ref="rail" class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0">
         <!-- Poignée : la section Script s'étire vers la gauche (glisser), double-clic = largeur par défaut -->
         <div
           v-if="sd.studioTab === 'script'"
@@ -1225,11 +1194,16 @@ function poserSaisieModale(el: unknown): void {
                     <i class="ph ph-caret-down text-xs"></i>
                   </button>
                 </div>
-                <template v-if="sd.autoRunMenuOpen">
-                  <div class="fixed inset-0 z-[54]" @click="sd.autoRunMenuOpen = false"></div>
-                  <!-- Ancré à DROITE (le rail est le bord de la page : left-0 + w-72 débordait). -->
+                <div
+                  v-if="sd.autoRunMenuOpen"
+                  class="fixed inset-0 z-[54]"
+                  @click="sd.autoRunMenuOpen = false"
+                ></div>
+                <!-- Ancré à DROITE (le rail est le bord de la page : left-0 + w-72 débordait). -->
+                <TransitionMenu>
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs elpis-run-menu"
+                    v-if="sd.autoRunMenuOpen"
+                    class="menu-ancre-droite absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs elpis-run-menu"
                   >
                     <button
                       :disabled="!!sd.autoRun?.running"
@@ -1276,7 +1250,7 @@ function poserSaisieModale(el: unknown): void {
                       </button>
                     </div>
                   </div>
-                </template>
+                </TransitionMenu>
               </div>
               <div class="relative shrink-0">
                 <button
@@ -1291,10 +1265,11 @@ function poserSaisieModale(el: unknown): void {
                 >
                   <i class="ph" :class="sd.autoDlBusy ? 'ph-spinner animate-spin' : 'ph-download-simple'"></i>
                 </button>
-                <template v-if="sd.autoDlOpen">
-                  <div class="fixed inset-0 z-[54]" @click="sd.autoDlOpen = false"></div>
+                <div v-if="sd.autoDlOpen" class="fixed inset-0 z-[54]" @click="sd.autoDlOpen = false"></div>
+                <TransitionMenu>
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs"
+                    v-if="sd.autoDlOpen"
+                    class="menu-ancre-droite absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs"
                   >
                     <button class="w-full text-left px-3 py-2 hover:bg-slate-50" @click="sd.autoDownload()">
                       <div class="font-medium text-slate-800 flex items-center gap-1.5">
@@ -1330,7 +1305,7 @@ function poserSaisieModale(el: unknown): void {
                       </div>
                     </button>
                   </div>
-                </template>
+                </TransitionMenu>
               </div>
               <button
                 title="Copier le code"
@@ -1707,407 +1682,7 @@ function poserSaisieModale(el: unknown): void {
     </div>
 
     <!-- Menu contextuel (clic droit sur le stage) → action sur élément/point/zone -->
-    <template v-if="sd.studioCtxMenu">
-      <div
-        class="fixed inset-0 z-[60]"
-        @click="sd.closeStudioCtx"
-        @contextmenu.prevent="sd.closeStudioCtx"
-      ></div>
-      <div
-        class="fixed z-[61] min-w-[210px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-sm elpis-ctx-menu"
-        :style="{ left: sd.studioCtxMenu.x + 'px', top: sd.studioCtxMenu.y + 'px' }"
-      >
-        <div class="px-3 py-1 text-xs text-slate-400 border-b border-slate-100 mb-1 truncate">
-          {{
-            sd.studioCtxMenu.el
-              ? "« " +
-                sd.elementDisplay(sd.studioCtxMenu.el) +
-                " »" +
-                (sd.studioCtxMenu.el.role ? " · " + sd.studioCtxMenu.el.role : "")
-              : "point " + sd.studioCtxMenu.point?.join(", ")
-          }}
-        </div>
-
-        <!-- Script (onglet Script ouvert) : blocs et lignes ÉCRITS au curseur, ciblés sur l'élément cliqué, sans rien -->
-        <div v-if="sd.studioTab === 'script'" class="relative" @mouseenter="sd.studioCtxSub = 'script'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-blue-50 text-blue-700 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'script' ? 'bg-blue-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'script' ? '' : 'script'"
-          >
-            <i class="ph ph-code"></i> Script <i class="ph ph-caret-right text-blue-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'script'"
-            class="absolute min-w-[230px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <div class="px-3 pt-0.5 pb-1 text-xs text-slate-400 truncate">
-              S'insère au curseur{{
-                sd.studioCtxMenu.el ? " — cible : " + sd.elementDisplay(sd.studioCtxMenu.el) : ""
-              }}
-            </div>
-            <template v-if="sd.studioCtxMenu.el">
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('if')"
-              >
-                <i class="ph ph-git-branch text-slate-400"></i> Si présent…
-              </button>
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('if_missing')"
-              >
-                <i class="ph ph-git-branch text-slate-400"></i> Si absent…
-              </button>
-            </template>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('else')"
-            >
-              <i class="ph ph-arrow-elbow-down-right text-slate-400"></i> Sinon
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('loop')"
-            >
-              <i class="ph ph-repeat text-slate-400"></i> Répéter
-            </button>
-            <div class="my-1 border-t border-slate-100"></div>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('wait')"
-            >
-              <i class="ph ph-hourglass text-slate-400"></i>
-              {{ sd.studioCtxMenu.el ? "Attendre l'élément" : "Attendre l'écran stable" }}
-              <span class="ml-auto text-xs text-slate-400" title="Délai (champ « Délai » de la palette)"
-                >{{ sd.autoWaitSec }} s</span
-              >
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('pause')"
-            >
-              <i class="ph ph-timer text-slate-400"></i> Pause
-              <span class="ml-auto text-xs text-slate-400">{{ sd.autoWaitSec }} s</span>
-            </button>
-            <template v-if="sd.studioCtxMenu.el">
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('wait_gone')"
-              >
-                <i class="ph ph-hourglass-low text-slate-400"></i> Attendre sa disparition
-                <span class="ml-auto text-xs text-slate-400">{{ sd.autoWaitSec }} s</span>
-              </button>
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('check')"
-              >
-                <i class="ph ph-check-square text-slate-400"></i> Vérifier présent
-              </button>
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('check_gone')"
-              >
-                <i class="ph ph-x-square text-slate-400"></i> Vérifier absent
-              </button>
-              <button
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                @click="sd.ctxScript('var')"
-              >
-                <i class="ph ph-brackets-curly text-slate-400"></i> Lire sa valeur (variable)
-              </button>
-            </template>
-            <div class="my-1 border-t border-slate-100"></div>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('click')"
-            >
-              <i class="ph ph-cursor-click text-slate-400"></i> Écrire le clic (sans l'exécuter)
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('double_click')"
-            >
-              <i class="ph ph-cursor-click text-slate-400"></i> Écrire un double-clic
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('right_click')"
-            >
-              <i class="ph ph-cursor text-slate-400"></i> Écrire un clic droit
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('set_value')"
-            >
-              <i class="ph ph-text-t text-slate-400"></i> Écrire une saisie…
-            </button>
-            <div class="my-1 border-t border-slate-100"></div>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('focus')"
-            >
-              <i class="ph ph-app-window text-slate-400"></i> Fenêtre au premier plan…
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScript('note')"
-            >
-              <i class="ph ph-note-pencil text-slate-400"></i> Note…
-            </button>
-          </div>
-        </div>
-
-        <!-- Clics -->
-        <div class="relative" @mouseenter="sd.studioCtxSub = 'clics'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'clics' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'clics' ? '' : 'clics'"
-          >
-            <i class="ph ph-cursor-click text-slate-400"></i> Clics
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'clics'"
-            class="absolute min-w-[190px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxAct('click')"
-            >
-              <i class="ph ph-cursor-click text-slate-400"></i> Cliquer
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxAct('double_click')"
-            >
-              <i class="ph ph-cursor-click text-slate-400"></i> Double-cliquer
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxAct('triple_click')"
-            >
-              <i class="ph ph-cursor-click text-slate-400"></i> Triple-cliquer
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxAct('right_click')"
-            >
-              <i class="ph ph-cursor text-slate-400"></i> Clic droit
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxAct('middle_click')"
-            >
-              <i class="ph ph-mouse text-slate-400"></i> Clic milieu
-            </button>
-          </div>
-        </div>
-
-        <!-- Contrôle (sémantique UIA) — uniquement sur un ÉLÉMENT -->
-        <div v-if="sd.studioCtxMenu.el" class="relative" @mouseenter="sd.studioCtxSub = 'ctrl'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'ctrl' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'ctrl' ? '' : 'ctrl'"
-          >
-            <i class="ph ph-sliders text-slate-400"></i> Contrôle (fiable)
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'ctrl'"
-            class="absolute min-w-[210px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('toggle')"
-            >
-              <i class="ph ph-toggle-left text-slate-400"></i> Basculer (case/bouton)
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('check')"
-            >
-              <i class="ph ph-check-square text-slate-400"></i> Cocher
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('uncheck')"
-            >
-              <i class="ph ph-square text-slate-400"></i> Décocher
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('select')"
-            >
-              <i class="ph ph-list-checks text-slate-400"></i> Sélectionner (liste/onglet)
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('expand')"
-            >
-              <i class="ph ph-caret-down text-slate-400"></i> Déplier
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('collapse')"
-            >
-              <i class="ph ph-caret-up text-slate-400"></i> Replier
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSemantic('scroll_into_view')"
-            >
-              <i class="ph ph-arrows-in text-slate-400"></i> Amener dans la vue
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxSetValue()"
-            >
-              <i class="ph ph-text-t text-slate-400"></i> Définir la valeur…
-            </button>
-          </div>
-        </div>
-
-        <!-- Saisie -->
-        <div class="relative" @mouseenter="sd.studioCtxSub = 'saisie'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'saisie' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'saisie' ? '' : 'saisie'"
-          >
-            <i class="ph ph-keyboard text-slate-400"></i> Saisie
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'saisie'"
-            class="absolute min-w-[190px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxType()"
-            >
-              <i class="ph ph-keyboard text-slate-400"></i> Taper…
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxPaste()"
-            >
-              <i class="ph ph-clipboard-text text-slate-400"></i> Coller…
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxCopy()"
-            >
-              <i class="ph ph-copy text-slate-400"></i> Copier
-            </button>
-          </div>
-        </div>
-
-        <!-- Touches / raccourcis (presets préconfigurés) -->
-        <div class="relative" @mouseenter="sd.studioCtxSub = 'keys'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'keys' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'keys' ? '' : 'keys'"
-          >
-            <i class="ph ph-command text-slate-400"></i> Touches
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'keys'"
-            class="absolute min-w-[210px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              v-for="k in sd.KEY_PRESETS"
-              :key="k.keys"
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxKeyPreset(k.keys)"
-            >
-              <i class="ph ph-keyboard text-slate-300"></i> {{ k.label }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Souris -->
-        <div class="relative" @mouseenter="sd.studioCtxSub = 'souris'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'souris' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'souris' ? '' : 'souris'"
-          >
-            <i class="ph ph-mouse text-slate-400"></i> Souris
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'souris'"
-            class="absolute min-w-[190px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxMove()"
-            >
-              <i class="ph ph-hand-pointing text-slate-400"></i> Survoler (déplacer)
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxDragFrom()"
-            >
-              <i class="ph ph-arrows-out-cardinal text-slate-400"></i> Glisser-déposer depuis ici…
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScroll('up')"
-            >
-              <i class="ph ph-arrow-fat-up text-slate-400"></i> Défiler vers le haut
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxScroll('down')"
-            >
-              <i class="ph ph-arrow-fat-down text-slate-400"></i> Défiler vers le bas
-            </button>
-          </div>
-        </div>
-
-        <!-- Lecture -->
-        <div class="relative" @mouseenter="sd.studioCtxSub = 'lecture'">
-          <button
-            class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-            :class="sd.studioCtxSub === 'lecture' ? 'bg-slate-50' : ''"
-            @click="sd.studioCtxSub = sd.studioCtxSub === 'lecture' ? '' : 'lecture'"
-          >
-            <i class="ph ph-text-aa text-slate-400"></i> Lecture
-            <i class="ph ph-caret-right text-slate-300 ml-auto text-xs"></i>
-          </button>
-          <div
-            v-if="sd.studioCtxSub === 'lecture'"
-            class="absolute min-w-[190px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
-            :class="sd.ctxSubPos()"
-          >
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-              @click="sd.ctxRead()"
-            >
-              <i class="ph ph-text-aa text-slate-400"></i> Lire (OCR) la zone
-            </button>
-            <button
-              class="w-full text-left px-3 py-1.5 hover:bg-blue-50 text-blue-700 flex items-center gap-2"
-              @click="sd.ctxAsk()"
-            >
-              <i class="ph ph-sparkle"></i> Demander au modèle…
-            </button>
-          </div>
-        </div>
-      </div>
-    </template>
+    <MenuContexteStudio />
 
     <!-- Modale de saisie PROPRE (remplace window.prompt) : Taper / Coller / Valeur / Lancer -->
     <div

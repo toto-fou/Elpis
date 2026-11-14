@@ -84,20 +84,6 @@ export const SOUS_COMMANDES: readonly ValeurMenuRag[] = [
 
 const NOMS_SOUS = SOUS_COMMANDES.map((s) => s.value);
 
-/** Titre du menu des valeurs selon la sous-commande déjà choisie. */
-export function titreMenu(avant: readonly string[]): string {
-  switch (avant[0]) {
-    case "use":
-      return "Collection à interroger";
-    case "add":
-      return "Collection à enrichir";
-    case "open":
-      return "Collection à ouvrir";
-    default:
-      return "RAG";
-  }
-}
-
 /** La saisie après `/rag` : sous-commande et reste de la ligne. */
 export function analyserSaisie(raw: string): { sous: string; reste: string } {
   const t = raw.trim();

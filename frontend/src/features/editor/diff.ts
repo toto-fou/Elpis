@@ -60,12 +60,12 @@ export function setupEditorDiff(
 
   function updateDiffView(): void {
     const chemin = activeTabPath.value;
-    const diff = monacoRef.diff;
-    const original = monacoRef.originalModel;
-    if (!isDiffView.value || !chemin || !diff || !original || !modelOk(chemin)) return;
+    if (!isDiffView.value || !chemin || !modelOk(chemin)) return;
     if (diffBase.value !== "saved" && diffBase.value !== "head") return;
     const modifie = models[chemin];
-    if (!modifie) return;
+    const d = modifie ? l.differences() : null;
+    if (!modifie || !d) return;
+    const { diff, original } = d;
     const texte = diffBase.value === "head" ? (tete[chemin]?.text ?? "") : originalFileContent[chemin] || "";
     try {
       if (original.getValue() !== texte) remplacerContenu(original, texte);
@@ -149,9 +149,9 @@ export function setupEditorDiff(
     void nextTick(async () => {
       await l.initMonaco();
       const ed = monacoRef.instance;
-      const diff = monacoRef.diff;
-      const original = monacoRef.originalModel;
-      if (!ed || !diff || !original) return;
+      const d = ed ? l.differences() : null;
+      if (!ed || !d) return;
+      const { diff, original } = d;
       if (activeTabPath.value !== chemin) {
         if (!openTabs.value.find((t) => t.path === chemin))
           openTabs.value.push({ path: chemin, name: chemin.split("/").pop() ?? chemin });
@@ -185,9 +185,9 @@ export function setupEditorDiff(
 
   function proposeAiEdit(p: PropositionIa): boolean {
     const monaco = window.monaco;
-    const diff = monacoRef.diff;
-    const original = monacoRef.originalModel;
-    if (!p || !p.model || !diff || !original || !monaco) return false;
+    const d = p && p.model && monaco ? l.differences() : null;
+    if (!p || !p.model || !d || !monaco) return false;
+    const { diff, original } = d;
     rejectAiProposal({ silent: true });
     const m = p.model;
     const texte = m.getValue();

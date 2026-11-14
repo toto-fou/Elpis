@@ -50,11 +50,6 @@ export interface ScriptAuto {
   updated_at?: string | null;
 }
 
-export interface ErreurBloc {
-  index: number;
-  message: string;
-}
-
 export interface LignePlan {
   line: number;
   indent: number;
@@ -64,7 +59,6 @@ export interface LignePlan {
 }
 
 export const DEFAULT_TIMEOUT_MS = 30000;
-const BLOCK_OPEN: Readonly<Record<string, boolean>> = { if: true, loop: true };
 export const KINDS = ["action", "wait", "check", "if", "else", "end", "loop", "focus", "note", "var", "code"];
 export const TIMEOUT_VAR = "TIMEOUT";
 export const FOOTER = "raise SystemExit(s.finish())";
@@ -134,44 +128,6 @@ export function makeStep(kind: string, fields?: Partial<EtapeAuto> | null): Etap
   if (kind === "var" && !st.name) st.name = "valeur";
   if (kind === "var" && !st.source) st.source = "value";
   return st;
-}
-
-/** Indentation d'affichage de chaque étape ; else/end au niveau du bloc qu'ils ferment. */
-export function blockDepths(steps?: readonly EtapeAuto[] | null): number[] {
-  let d = 0;
-  const out: number[] = [];
-  for (const st of steps || []) {
-    const kind = st.kind ?? "";
-    if (kind === "end" || kind === "else") d = Math.max(0, d - 1);
-    out.push(d);
-    if (BLOCK_OPEN[kind] || kind === "else") d++;
-  }
-  return out;
-}
-
-export function validateBlocks(steps?: readonly EtapeAuto[] | null): { ok: boolean; errors: ErreurBloc[] } {
-  const stack: { kind: string; i: number; hasElse: boolean }[] = [];
-  const errors: ErreurBloc[] = [];
-  (steps || []).forEach((st, i) => {
-    const kind = st.kind ?? "";
-    if (BLOCK_OPEN[kind]) stack.push({ kind, i, hasElse: false });
-    else if (kind === "else") {
-      const top = stack[stack.length - 1];
-      if (!top || top.kind !== "if") errors.push({ index: i, message: "« Sinon » sans « Si »" });
-      else if (top.hasElse) errors.push({ index: i, message: "deux « Sinon » pour le même « Si »" });
-      else top.hasElse = true;
-    } else if (kind === "end") {
-      if (!stack.length) errors.push({ index: i, message: "« Fin » sans bloc ouvert" });
-      else stack.pop();
-    }
-  });
-  for (const b of stack) {
-    errors.push({
-      index: b.i,
-      message: (b.kind === "if" ? "« Si »" : "« Boucle »") + " jamais fermé (ajoute « Fin »)",
-    });
-  }
-  return { ok: errors.length === 0, errors };
 }
 
 export function condLabel(entree?: Condition | null): string {

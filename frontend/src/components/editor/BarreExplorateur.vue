@@ -2,6 +2,7 @@
 <!-- frontend/src/components/editor/BarreExplorateur.vue — actions de l'explorateur : nouveau fichier ou dossier, import, fichiers cachés, localiser, tout replier, actualiser. -->
 <script setup lang="ts">
 import { domaineEditeur } from "../../features/editor/domaine";
+import TransitionMenu from "../communs/TransitionMenu.vue";
 
 const ed = domaineEditeur();
 </script>
@@ -76,10 +77,11 @@ const ed = domaineEditeur();
       </button>
     </div>
     <!-- Menu hors de la barre d'outils : son overflow-hidden le rognait, et le clic tombait sur le voile. -->
-    <template v-if="ed.showImportMenu">
-      <div class="fixed inset-0 z-40" @click="ed.showImportMenu = false"></div>
+    <div v-if="ed.showImportMenu" class="fixed inset-0 z-40" @click="ed.showImportMenu = false"></div>
+    <TransitionMenu>
       <div
-        class="absolute right-2 top-full mt-1 w-36 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 overflow-hidden"
+        v-if="ed.showImportMenu"
+        class="menu-ancre-droite absolute right-2 top-full mt-1 w-36 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 overflow-hidden"
       >
         <button
           class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 flex items-center gap-2"
@@ -94,6 +96,6 @@ const ed = domaineEditeur();
           <i class="ph ph-folder-open text-yellow-400"></i> Dossier
         </button>
       </div>
-    </template>
+    </TransitionMenu>
   </div>
 </template>

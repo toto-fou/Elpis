@@ -35,6 +35,7 @@ import {
 } from "../../modeles/scenario-model.ts";
 import type { Ancre, ElementUi, PasScenario } from "../../modeles/scenario-model.ts";
 import type { ActionDirecte, SurfaceDialogueStudio } from "./dialogue.ts";
+import { glisserPoignee } from "./menu.ts";
 import type { SurfaceMenuStudio } from "./menu.ts";
 import type { LecteurBureau } from "./api.ts";
 
@@ -58,7 +59,6 @@ export interface EditeurPython {
   revealLineInCenterIfOutsideViewport(l: number): void;
   revealLineInCenter(l: number): void;
   focus(): void;
-  layout(): void;
   dispose(): void;
 }
 
@@ -361,31 +361,14 @@ export function creerAutomatisationStudio(
   const dureePauseMs = (): number =>
     Math.max(1, Math.min(ATTENTE_MAX_S, Number(autoWaitSec.value) || ATTENTE_DEFAUT_S)) * 1000;
 
+  /** L'éditeur suit la largeur par sa mise en page automatique (observateur de taille de Monaco). */
   function autoRailDragStart(ev: PointerEvent): void {
-    if (!ev || ev.button) return;
-    const startX = ev.clientX;
     const startW = autoRailWidth.value;
-    const el = ev.currentTarget as HTMLElement;
-    const move = (e: PointerEvent): void => {
-      autoSetRailWidth(startW + (startX - e.clientX));
-      mettreEnPage();
-    };
-    const up = (): void => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      ecrireNombre("studioRailWidth", autoRailWidth.value);
-      mettreEnPage();
-    };
-    try {
-      el.setPointerCapture(ev.pointerId);
-    } catch {
-      /* ancien navigateur */
-    }
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    ev.preventDefault();
+    glisserPoignee(
+      ev,
+      (ecart) => autoSetRailWidth(startW + ecart),
+      () => ecrireNombre("studioRailWidth", autoRailWidth.value),
+    );
   }
 
   const cible = (): string => menu.selectedTarget?.value || "";
@@ -515,15 +498,6 @@ export function creerAutomatisationStudio(
     });
   }
 
-  function mettreEnPage(): void {
-    if (editeur) {
-      try {
-        editeur.layout();
-      } catch {
-        /* démonté */
-      }
-    }
-  }
   async function autoMountEditor(el: HTMLElement | null): Promise<void> {
     elementEditeur = el;
     if (!el || typeof window === "undefined") return;

@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/MenuOnglet.vue — menu contextuel d'un onglet de l'éditeur (clic droit, Maj+F10) : chaque entrée émet son action, le parent ferme le menu comme avant. -->
 <script setup lang="ts">
+import TransitionMenu from "../communs/TransitionMenu.vue";
+
 const props = defineProps<{
   ouvert: boolean;
   x: number;
@@ -37,11 +39,14 @@ function fermer(): void {
     class="fixed inset-0 z-[999]"
     @click="emit('clore')"
     @contextmenu.prevent="emit('clore')"
-  >
+  ></div>
+  <TransitionMenu>
     <div
-      class="absolute min-w-[200px] bg-white border border-slate-200 rounded-md shadow-lg py-1 text-[12px]"
+      v-if="props.ouvert"
+      class="menu-ancre-gauche fixed z-[999] min-w-[200px] bg-white border border-slate-200 rounded-md shadow-lg py-1 text-[12px]"
       :style="{ left: props.x + 'px', top: props.y + 'px' }"
       @click.stop
+      @contextmenu.prevent="emit('clore')"
     >
       <button
         class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2"
@@ -116,5 +121,5 @@ function fermer(): void {
         >
       </button>
     </div>
-  </div>
+  </TransitionMenu>
 </template>

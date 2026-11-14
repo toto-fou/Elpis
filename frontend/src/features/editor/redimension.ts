@@ -25,7 +25,7 @@ const coord = (e: Pointeur | Event, axe: "clientX" | "clientY"): number => {
 };
 
 /** Écoute de fin de glissement : souris, toucher, et les « relâchements manqués » (perte de focus, onglet masqué, pointeur hors fenêtre). */
-function suivreGlissement(deplacer: (e: Event) => void, finir: () => void): () => void {
+export function suivreGlissement(deplacer: (e: Event) => void, finir: () => void): () => void {
   document.addEventListener("mousemove", deplacer);
   document.addEventListener("mouseup", finir);
   document.addEventListener("touchmove", deplacer);

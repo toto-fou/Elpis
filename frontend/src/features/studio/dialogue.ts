@@ -618,7 +618,10 @@ export function creerDialogueStudio(ctx: CtxDialogueStudio, studioMenu: SurfaceM
     return !!(studioCtxMenu.value && studioCtxMenu.value.y > vh * 0.5);
   }
   function ctxSubPos(): string {
-    return (ctxSubLeft() ? "right-full mr-1 " : "left-full ml-1 ") + (ctxSubUp() ? "bottom-0" : "top-0");
+    return (
+      (ctxSubLeft() ? "menu-ancre-droite right-full mr-1 " : "menu-ancre-gauche left-full ml-1 ") +
+      (ctxSubUp() ? "bottom-0" : "top-0")
+    );
   }
 
   const studioTextModal = ref<{ title: string; value: string; placeholder: string } | null>(null);
@@ -922,6 +925,7 @@ export function creerDialogueStudio(ctx: CtxDialogueStudio, studioMenu: SurfaceM
     studioCtxMenu,
     studioCtxSub,
     ctxSubLeft,
+    ctxSubUp,
     ctxSubPos,
     openStudioCtx,
     closeStudioCtx,

@@ -182,7 +182,8 @@ De facto scale, to follow so a new layer finds its place:
   `--duree` with `--courbe-entree`, out over `--duree-courte`. Both start one
   frame ahead (`--duree-image`; entry from `@starting-style`, never
   `-enter-from`) so the first frame after the gesture already moves; the leaving
-  menu is `inert`, drops its focus and lets clicks through.
+  menu is `inert`, drops its focus and lets clicks through. A browser without
+  `@starting-style` shows the menu at once and still animates its exit.
 - A skin sets the duration, curve, slide and scale of menus and dialogs
   (`popover`, `modal`) by overriding these variables on the transition classes
   (Terminal: shorter, linear, no scale), never properties other than `opacity`

@@ -4884,6 +4884,11 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 .elpis-ask-liste { display: flex; flex-direction: column; gap: 2px; max-height: 45dvh; overflow-y: auto; padding: 2px; margin: -2px; }
 .elpis-ask-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 12px 8px; }
 .elpis-compose-card.elpis-ask-ouvert:focus-within { border-color: var(--accent-border); }
+/* Skins à carte de composeur opaque : aucun flou derrière (rien ne se voit au travers). */
+body:is(.elpis-skin-elpis, .elpis-skin-kiki, .elpis-skin-llamacpp, .elpis-skin-emeraude, .elpis-skin-pingouins) .elpis-compose-card {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
 body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: transparent; border-color: var(--accent-text); color: var(--accent-text); }
 @media (max-width: 640px), (pointer: coarse) { .elpis-ask-aide-clavier { display: none; } }
 .elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }

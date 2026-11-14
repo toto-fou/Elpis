@@ -513,8 +513,6 @@ body.elpis-skin-elpis .elpis-compose-card {
     border-color: var(--cl-border-2) !important;
     border-radius: var(--radius-xl) !important;
     box-shadow: 0 1px 2px rgba(140,104,52,0.05), 0 8px 20px rgba(140,104,52,0.06) !important;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
 }
 body.elpis-skin-elpis .elpis-compose-card .bg-blue-600 {
     background-color: var(--cl-action) !important;

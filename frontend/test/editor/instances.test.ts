@@ -11,6 +11,7 @@ class Compteurs {
   modeles = 0;
   observateurs = 0;
   globaux = 0;
+  commandes: Array<[number, () => void]> = [];
 }
 
 function fauxMonaco(c: Compteurs) {
@@ -38,7 +39,7 @@ function fauxMonaco(c: Compteurs) {
       onDidBlurEditorText: abonner,
       onDidFocusEditorText: abonner,
       onContextMenu: abonner,
-      addCommand: () => null,
+      addCommand: (touches: number, fn: () => void) => c.commandes.push([touches, fn]),
       updateOptions: (n: object) => Object.assign(ed.opts, n),
       layout: () => undefined,
       dispose: () => {
@@ -55,7 +56,9 @@ function fauxMonaco(c: Compteurs) {
       createDiffEditor: () => {
         c.editeurs++;
         return {
-          getModifiedEditor: () => ({ addCommand: () => null }),
+          getModifiedEditor: () => ({
+            addCommand: (touches: number, fn: () => void) => c.commandes.push([touches, fn]),
+          }),
           updateOptions: () => undefined,
           layout: () => undefined,
           dispose: () => {
@@ -101,13 +104,12 @@ const rappels: RappelsEditeurs = {
   optionsModele: rien,
   completer: rien,
   flouPrincipal: rien,
-  enregistrer: rien,
   menu: rien,
   focusGauche: rien,
   focusDroit: rien,
   contenuDroit: rien,
   flouDroit: rien,
-  enregistrerDroit: rien,
+  enregistrerAutre: rien,
   redimension: rien,
   problemes: rien,
   formaterPython: rien,
@@ -247,6 +249,20 @@ describe("éditeurs Monaco", () => {
     expect([sans.droit(), sans.differences()]).toEqual([null, null]);
     sans.liberer();
     expect(c).toMatchObject({ editeurs: 0, modeles: 0 });
+  });
+
+  it("Ctrl+S : une seule commande Monaco, quels que soient les éditeurs créés (une commande vaut pour tous)", () => {
+    const c = new Compteurs();
+    const { monaco } = fauxMonaco(c);
+    const autre = vi.fn();
+    const e = creerEditeurs(monaco, elements(), {}, { ...rappels, enregistrerAutre: autre });
+    e.droit();
+    e.differences();
+    const ctrlS = c.commandes.filter(([touches]) => touches === (2048 | 49));
+    expect(ctrlS).toHaveLength(1);
+    ctrlS[0]![1]();
+    expect(autre).toHaveBeenCalledTimes(1);
+    e.liberer();
   });
 
   it("préférences à chaud : appliquées aussi au panneau droit, et reprises par un éditeur créé ensuite", () => {

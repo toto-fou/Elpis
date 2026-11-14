@@ -78,7 +78,6 @@ export interface EditeurMonaco extends Jetable {
 }
 
 export interface EditeurDiffMonaco extends Jetable {
-  getModifiedEditor(): { addCommand(touches: number, fn: () => void): unknown };
   updateOptions(o: object): void;
   layout(): void;
 }
@@ -110,13 +109,13 @@ export interface RappelsEditeurs<Mo = unknown> {
   optionsModele(): void;
   completer(): void;
   flouPrincipal(): void;
-  enregistrer(): void;
   menu(e: MouseEvent): void;
   focusGauche(): void;
   focusDroit(): void;
   contenuDroit(): void;
   flouDroit(): void;
-  enregistrerDroit(): void;
+  /** Ctrl+S reçu par Monaco, après le raccourci de la fenêtre qui enregistre le panneau actif. */
+  enregistrerAutre(): void;
   redimension(): void;
   problemes(): void;
   formaterPython(modele: Mo): unknown;
@@ -218,8 +217,6 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   const garder = (j: Jetable): void => {
     jetables.push(j);
   };
-  const ctrlS = monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS;
-
   const instance = markRaw(
     monaco.editor.create(el.principal, {
       ...options(prefs, theme),
@@ -252,7 +249,8 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
     }
   }
   garder(instance.onDidBlurEditorText(r.flouPrincipal));
-  instance.addCommand(ctrlS, r.enregistrer);
+  // Une commande Monaco vaut pour tous ses éditeurs (la dernière posée l'emporte) : Ctrl+S n'en a qu'une, posée ici.
+  instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, r.enregistrerAutre);
   garder(
     instance.onContextMenu((e) => {
       e.event.preventDefault();
@@ -278,7 +276,6 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
       );
       if (prefsAppliquees) d.updateOptions(prefs);
       originalModel = markRaw(monaco.editor.createModel("", "plaintext"));
-      d.getModifiedEditor().addCommand(ctrlS, r.enregistrer);
       diff = d;
     }
     return diff && originalModel && !libere ? { diff, original: originalModel } : null;
@@ -294,7 +291,6 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
       garder(d.onDidChangeCursorPosition(r.curseur));
       garder(d.onDidChangeModelContent(r.contenuDroit));
       garder(d.onDidBlurEditorText(r.flouDroit));
-      d.addCommand(ctrlS, r.enregistrerDroit);
       garder(
         d.onContextMenu((e) => {
           e.event.preventDefault();

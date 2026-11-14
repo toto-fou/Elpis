@@ -626,7 +626,6 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
             if (surBlur() && p && onglets._tabIsDirty(p))
               void enr.saveEditorContent({ silent: true, path: p });
           },
-          enregistrer: () => void enr.saveEditorContent(),
           menu: (ev) => outils._openEditorCtxMenu(ev),
           focusGauche() {
             e.activePane.value = "left";
@@ -647,8 +646,11 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
             if (surBlur() && p && onglets._tabIsDirty(p))
               void enr.saveEditorContent({ silent: true, path: p });
           },
-          enregistrerDroit() {
-            if (e.splitTabPath.value) void enr.saveEditorContent({ path: e.splitTabPath.value });
+          // Le raccourci de la fenêtre a enregistré le panneau actif : reste l'autre fichier d'une vue scindée.
+          enregistrerAutre() {
+            const p = e.splitTabPath.value;
+            if (p && e.activePane.value !== "right" && p !== activeTabPath.value)
+              void enr.saveEditorContent({ path: p });
           },
           redimension() {
             // Pas de mise en page par image pendant l'animation d'ouverture (saccade).

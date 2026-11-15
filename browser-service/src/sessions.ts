@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/sessions.ts — life of the sessions: activity, closing, one live session per owner, cleanups (idle sessions, orphan processes, screenshots, artifacts), shared Chromium, shutdown. */
+/** browser-service/src/sessions.ts — vie des sessions : activité, fermeture, une session vivante par propriétaire, nettoyages (sessions inactives, processus orphelins, captures, artefacts), Chromium partagé, arrêt. */
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { chromium } from 'playwright';
+import type { Browser, LaunchOptions } from 'playwright';
+
 import { cleanupSessionScreenshots } from './captures.ts';
+import type { ServiceContext, Session } from './contexte.ts';
 import { lirePs, orphelins } from './proc_util.ts';
 import { COOKIES_DIR, HAR_DIR, PW_MUTEX, SCREENSHOT_DIR, TRACE_DIR, VIDEO_DIR } from './reglages.ts';
 import { acquireLock, lockIdle, makeLock } from './session_lock.ts';
+import type { Verrou } from './session_lock.ts';
 import { pingPage, planArtifactPurge, planScreenshotQuota, quotasSessions } from './session_util.ts';
+import type { EntreeArtefact, EntreeCapture } from './session_util.ts';
 
 
 // ==========================================
@@ -27,13 +30,13 @@ export const { maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PE
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
 export const OFFICIAL_TRY_MS = parseInt(process.env.PW_OFFICIAL_TRY_MS || '2500', 10);
 
-export function touchSession(ctx, sid) {
+export function touchSession(ctx: ServiceContext, sid: string): void {
     const { sessions } = ctx;
     const s = sessions.get(sid);
     if (s) s.lastActivity = Date.now();
 }
 
-export async function closeSession(ctx, sid, reason = 'unknown', { lockHeld = false } = {}) {
+export async function closeSession(ctx: ServiceContext, sid: string, reason = 'unknown', { lockHeld = false }: { lockHeld?: boolean } = {}): Promise<void> {
     const { sessions } = ctx;
     const s = sessions.get(sid);
     if (!s) return;
@@ -49,9 +52,9 @@ export async function closeSession(ctx, sid, reason = 'unknown', { lockHeld = fa
     // session ; l'attendre ici bloquerait 15 s avant de forcer.
     if (PW_MUTEX && s._lock && !lockHeld) {
         try { (await acquireLock(s._lock, { waitMs: 15000, maxWaiters: Infinity }))(); }
-        catch (e) { /* timeout → force close */ }
+        catch { /* timeout → force close */ }
     }
-    try { await s.context.close(); } catch (e) {}
+    try { await s.context.close(); } catch { /* already closed */ }
     cleanupSessionScreenshots(sid);
 }
 
@@ -60,7 +63,7 @@ export async function closeSession(ctx, sid, reason = 'unknown', { lockHeld = fa
 // ou null. Une session dont la page a crashé est fermée au passage afin
 // que l'appelant puisse en recréer une proprement. Une session ouverte avec
 // une politique TLS (pour un secret du coffre) n'est jamais reprise.
-export async function findLiveSessionByOwner(ctx, owner) {
+export async function findLiveSessionByOwner(ctx: ServiceContext, owner: string): Promise<[string, Session] | null> {
     const { sessions } = ctx;
     if (!owner) return null;
     for (const [sid, s] of sessions) {
@@ -75,11 +78,11 @@ export async function findLiveSessionByOwner(ctx, owner) {
     return null;
 }
 
-async function reapStaleSessions(ctx) {
+async function reapStaleSessions(ctx: ServiceContext): Promise<void> {
     const { sessions } = ctx;
     const now = Date.now();
     // Track reasons per sid so we can log them after closeSession deletes the entry
-    const stale = new Map(); // sid -> reason string
+    const stale = new Map<string, string>(); // sid -> reason string
     for (const [sid, s] of sessions) {
         const idle = now - (s.lastActivity || s.createdAt || now);
         if (idle > SESSION_TTL_MS) {
@@ -110,7 +113,7 @@ async function reapStaleSessions(ctx) {
 
 // Processus navigateur ORPHELINS seulement (cf. proc_util.js) : avant, tout
 // renderer de plus de 20 min était tué, onglets actifs compris.
-export function killZombieProcesses() {
+export function killZombieProcesses(): void {
     try {
         const uid = typeof process.getuid === 'function' ? process.getuid() : null;
         const cmd = uid === null ? 'ps -eo pid=,ppid=,etimes=,args='
@@ -120,14 +123,14 @@ export function killZombieProcesses() {
         // besoin du PID du navigateur, que Playwright n'expose pas pour un
         // ``Browser`` lancé (seulement pour un ``BrowserServer``).
         const cibles = orphelins(lirePs(texte), { ageMinS: 1200, epargner: [process.pid] });
-        for (const pid of cibles) { try { process.kill(pid, 'SIGKILL'); } catch (_) {} }
+        for (const pid of cibles) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
         if (cibles.length) console.log(`[REAPER] ${cibles.length} processus navigateur orphelin(s) arrêté(s).`);
-    } catch (e) { /* ps indisponible : rien à faire */ }
+    } catch { /* ps indisponible : rien à faire */ }
 }
 
 // Verrous de démarrage par propriétaire : purgés quand ils sont au repos et
 // que le propriétaire n'a plus de session (la Map ne grossit plus sans fin).
-function purgeOwnerStartLocks(ctx) {
+function purgeOwnerStartLocks(ctx: ServiceContext): void {
     const { sessions, ownerStartLocks } = ctx;
     const vivants = new Set([...sessions.values()].map(s => s.owner).filter(Boolean));
     for (const [owner, lock] of ownerStartLocks) {
@@ -166,27 +169,27 @@ const MAX_SHOTS_MB_PER_SESSION = parseInt(process.env.PW_MAX_SHOTS_MB_PER_SESSIO
 // Session id is 8-64 chars of [A-Za-z0-9-].
 const SCREENSHOT_SID_RE = /^(?:step|vision|live|smart|view|shot|fail)_([A-Za-z0-9-]{8,64})(?:_\d+)?\.(?:png|jpg)$/;
 
-function reapScreenshots(ctx) {
+function reapScreenshots(ctx: ServiceContext): void {
     const { sessions } = ctx;
-    let files;
+    let files: string[];
     try {
         files = fs.readdirSync(SCREENSHOT_DIR);
-    } catch (e) {
+    } catch {
         return; // dir missing / IO error — nothing to do
     }
     const now = Date.now();
     const activeSids = new Set(sessions.keys());
     let orphaned = 0, stale = 0, quota = 0, bytesFreed = 0;
-    const survivors = []; // pour le quota par session (fichiers non supprimés)
+    const survivors: EntreeCapture[] = []; // pour le quota par session (fichiers non supprimés)
 
     for (const f of files) {
         const m = SCREENSHOT_SID_RE.exec(f);
         if (!m) continue;
-        const sid = m[1];
+        const sid = m[1]!;
         const fpath = path.join(SCREENSHOT_DIR, f);
 
-        let stat;
-        try { stat = fs.statSync(fpath); } catch (e) { continue; }
+        let stat: fs.Stats;
+        try { stat = fs.statSync(fpath); } catch { continue; }
         const age = now - stat.mtimeMs;
 
         const isOrphan = !activeSids.has(sid) && age > SCREENSHOT_ORPHAN_GRACE_MS;
@@ -197,7 +200,7 @@ function reapScreenshots(ctx) {
                 fs.unlinkSync(fpath);
                 bytesFreed += stat.size;
                 if (isOrphan) orphaned++; else stale++;
-            } catch (e) { /* file may have been deleted meanwhile */ }
+            } catch { /* file may have been deleted meanwhile */ }
         } else {
             survivors.push({ name: f, sid, mtimeMs: stat.mtimeMs, size: stat.size });
         }
@@ -214,7 +217,7 @@ function reapScreenshots(ctx) {
             fs.unlinkSync(fpath);
             bytesFreed += sz;
             quota++;
-        } catch (e) { /* file may have been deleted meanwhile */ }
+        } catch { /* file may have been deleted meanwhile */ }
     }
 
     if (orphaned || stale || quota) {
@@ -229,22 +232,22 @@ const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 
 export const STATE_MAX_AGE_D = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10);
 const STATE_MAX_AGE_MS = STATE_MAX_AGE_D * 86400 * 1000;
 
-function _purgerDossier(dir, maxAgeMs) {
-    let noms;
-    try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
-    const entrees = [];
+function _purgerDossier(dir: string, maxAgeMs: number): number {
+    let noms: fs.Dirent[];
+    try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch { return 0; }
+    const entrees: EntreeArtefact[] = [];
     for (const d of noms) {
         if (!d.isFile()) continue;
-        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(path.join(dir, d.name)).mtimeMs }); } catch (_) {}
+        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(path.join(dir, d.name)).mtimeMs }); } catch { /* file gone */ }
     }
     let n = 0;
     for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
-        try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
+        try { fs.unlinkSync(path.join(dir, nom)); n++; } catch { /* file gone */ }
     }
     return n;
 }
 
-function reapArtifacts() {
+function reapArtifacts(): void {
     const n = _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
@@ -253,32 +256,33 @@ function reapArtifacts() {
 }
 
 /** Cleanups of the service: sessions, orphan processes and start locks every minute; screenshots and artifacts at start, then every 10 min. */
-export function demarrerNettoyages(ctx) {
+export function demarrerNettoyages(ctx: ServiceContext): void {
 // Start reaper
+// eslint-disable-next-line @typescript-eslint/no-misused-promises -- les erreurs sont attrapées à l'intérieur, le minuteur ignore la promesse
 const _reaperInterval = setInterval(async () => {
     try {
         await reapStaleSessions(ctx);
         killZombieProcesses();
         purgeOwnerStartLocks(ctx);
-    } catch (e) { console.error('[REAPER] Error:', e.message); }
+    } catch (e) { console.error('[REAPER] Error:', (e as Error).message); }
 }, REAPER_INTERVAL_MS);
 // Run once on startup (catches crashes that left files behind across restarts) and then on a timer.
 setImmediate(() => {
-    try { reapScreenshots(ctx); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
-    try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
+    try { reapScreenshots(ctx); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', (e as Error).message); }
+    try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', (e as Error).message); }
 });
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(ctx); }
-    catch (e) { console.error('[SCREENSHOT-REAPER] Error:', e.message); }
+    catch (e) { console.error('[SCREENSHOT-REAPER] Error:', (e as Error).message); }
     try { reapArtifacts(); }
-    catch (e) { console.error('[ARTIFACT-REAPER] Error:', e.message); }
+    catch (e) { console.error('[ARTIFACT-REAPER] Error:', (e as Error).message); }
 }, SCREENSHOT_REAPER_INTERVAL_MS);
 ctx.minuteries.push(_reaperInterval, _screenshotReaperInterval);
 }
 
 // Graceful shutdown. ``code`` ≠ 0 après une exception : le gestionnaire de
 // services doit voir un échec (et relancer), pas un arrêt voulu.
-export async function gracefulShutdown(ctx, signal, code = 0) {
+export async function gracefulShutdown(ctx: ServiceContext, signal: string, code = 0): Promise<void> {
     const { sessions } = ctx;
     console.log(`\n[SHUTDOWN] ${signal} received. Closing ${sessions.size} session(s)…`);
     for (const minuterie of ctx.minuteries) clearInterval(minuterie);
@@ -286,7 +290,7 @@ export async function gracefulShutdown(ctx, signal, code = 0) {
         await closeSession(ctx, sid, 'shutdown');
     }
     if (ctx.navigateur) {
-        try { await ctx.navigateur.close(); } catch (e) {}
+        try { await ctx.navigateur.close(); } catch { /* already closed */ }
         ctx.navigateur = null;
     }
     console.log(code ? `[SHUTDOWN] Exit ${code}.` : '[SHUTDOWN] Clean exit.');
@@ -297,7 +301,7 @@ export async function gracefulShutdown(ctx, signal, code = 0) {
 // BROWSER LIFECYCLE
 // ==========================================
 // Chromium headless sans channel (Playwright lance le headless shell) ; langue, téléchargements, HTTPS et CSP : contexte de /start.
-function buildLaunchOptions(ctx) {
+function buildLaunchOptions(ctx: ServiceContext): LaunchOptions {
     return {
         headless: true,
         args: [
@@ -313,14 +317,14 @@ function buildLaunchOptions(ctx) {
 
 // Une seule promesse de lancement : deux /start simultanés ne lancent plus
 // deux navigateurs (le second écrasait le premier, resté orphelin).
-export async function ensureBrowser(ctx) {
+export async function ensureBrowser(ctx: ServiceContext): Promise<Browser> {
     if (ctx.navigateur && ctx.navigateur.isConnected()) return ctx.navigateur;
     if (ctx.lancement) return ctx.lancement;
     ctx.lancement = _lancerNavigateur(ctx).finally(() => { ctx.lancement = null; });
     return ctx.lancement;
 }
 
-async function _lancerNavigateur(ctx) {
+async function _lancerNavigateur(ctx: ServiceContext): Promise<Browser> {
     if (!ctx.navigateur || !ctx.navigateur.isConnected()) {
         console.log('[GLOBAL] Démarrage de Chromium (headless shell)');
         const navigateur = await chromium.launch(buildLaunchOptions(ctx));
@@ -338,8 +342,8 @@ async function _lancerNavigateur(ctx) {
 // findLiveSessionByOwner(null) → double session (violation de « une instance
 // par utilisateur »). Verrou par owner le temps du start. Map bornée par le
 // nombre d'utilisateurs distincts (pas de fuite).
-export function _ownerStartLock(ctx, owner) {
+export function _ownerStartLock(ctx: ServiceContext, owner: string): Verrou {
     const { ownerStartLocks } = ctx;
     if (!ownerStartLocks.has(owner)) ownerStartLocks.set(owner, makeLock());
-    return ownerStartLocks.get(owner);
+    return ownerStartLocks.get(owner)!;
 }

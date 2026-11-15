@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/main.ts — entry point of the browser service (`node dist/main.mjs`), started by the tool host inside an account's sandbox: Unix socket and call token required, filtering relay, routes registered in their historical order. */
+/** browser-service/src/main.ts — point d'entrée du service navigateur (`node dist/main.mjs`), lancé par l'hôte d'outils dans le bac d'un compte : socket Unix et jeton d'appel exigés, relais filtrant, routes enregistrées dans leur ordre historique. */
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -32,7 +30,7 @@ import { verifierBac } from './url_guard.ts';
 // (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
 const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
 const JETON = (process.env.BROWSER_SERVICE_TOKEN || '').trim();
-for (const [manque, nom] of [[!LISTEN_SOCKET, 'FIREFOX_SERVICE_SOCKET (its Unix socket)'], [!JETON, 'BROWSER_SERVICE_TOKEN (its call token)']]) {
+for (const [manque, nom] of [[!LISTEN_SOCKET, 'FIREFOX_SERVICE_SOCKET (its Unix socket)'], [!JETON, 'BROWSER_SERVICE_TOKEN (its call token)']] as const) {
     if (!manque) continue;
     console.error(`[browser-service] ${nom} is required: the browser service only runs inside an account's sandbox, started by the tool host.`);
     process.exit(1);
@@ -62,7 +60,7 @@ creerDossiers();
 app.use((req, res, next) => {
     req.recuA = Date.now();
     const json = res.json.bind(res);
-    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode)));
+    res.json = (corps?: unknown) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode)));
     next();
 });
 
@@ -90,20 +88,20 @@ console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
 const ctx = creerContexte(_relais.port);
 
 demarrerNettoyages(ctx);
-process.on('SIGTERM', () => gracefulShutdown(ctx, 'SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown(ctx, 'SIGINT'));
+process.on('SIGTERM', () => { void gracefulShutdown(ctx, 'SIGTERM'); });
+process.on('SIGINT', () => { void gracefulShutdown(ctx, 'SIGINT'); });
 process.on('uncaughtException', (e) => {
     console.error('[FATAL]', e && e.stack ? e.stack : e);
     // Arrêt borné : une fermeture de session gelée ne doit pas empêcher la
     // sortie (et donc la relance).
     setTimeout(() => process.exit(1), 15000).unref();
-    gracefulShutdown(ctx, 'uncaughtException', 1);
+    void gracefulShutdown(ctx, 'uncaughtException', 1);
 });
 // Une promesse rejetée sans gestionnaire (souvent une page fermée pendant
 // une attente Playwright) est journalisée : elle ne doit ni passer inaperçue
 // ni arrêter le service pour toutes les sessions.
 process.on('unhandledRejection', (raison) => {
-    console.error('[UNHANDLED]', raison && raison.stack ? raison.stack : raison);
+    console.error('[UNHANDLED]', raison && (raison as Error).stack ? (raison as Error).stack : raison);
 });
 
 // Routes, dans l'ordre historique de leur enregistrement.
@@ -122,15 +120,15 @@ registerMockRoutes(app, ctx);
 registerRecorderRoutes(app, ctx);
 
 // Socket unix du bac (/run/elpis/browser.sock), joint par l'hôte d'outils avec le jeton du bac.
-try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+try { fs.unlinkSync(LISTEN_SOCKET); } catch { /* absent */ }
 app.listen(LISTEN_SOCKET, () => {
-    try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); }
+    try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', (e as Error).message); }
     console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET} (TTL: 15min, ${MAX_SESSIONS_PER_OWNER} sessions par propriétaire, ${MAX_SESSIONS_PER_GROUP} pour le compte, sous-agents compris)`);
 });
 // Sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
 if (ARRET_INACTIF_MS > 0) {
     let arret = false;
     setInterval(() => {
-        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; gracefulShutdown(ctx, 'idle', 0); }
+        if (!arret && Date.now() - _dernierAppel > ARRET_INACTIF_MS) { arret = true; void gracefulShutdown(ctx, 'idle', 0); }
     }, Math.min(30000, ARRET_INACTIF_MS)).unref();
 }

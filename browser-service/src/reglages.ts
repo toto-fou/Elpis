@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** browser-service/src/reglages.ts — settings read once at start: session mutex, data folders of the service (its current folder, /work/.elpis-browser in the sandbox). */
+/** browser-service/src/reglages.ts — réglages lus au démarrage : mutex des sessions, dossiers de données du service (son dossier courant, /work/.elpis-browser dans le bac). */
 import fs from 'fs';
 import path from 'path';
 
@@ -26,7 +26,7 @@ export const BASELINE_DIR = path.join(BASE_DIR, 'baselines');  // goldens régre
 export const VIDEO_DIR = path.join(BASE_DIR, 'videos');        // enregistrements vidéo de session (Phase 5)
 export const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Phase 5)
 
-/** Data folders created at start when missing. */
+/** Dossiers de données créés au démarrage s'ils manquent. */
 export function creerDossiers(): void {
 [SCREENSHOT_DIR, DOWNLOAD_DIR, COOKIES_DIR, HAR_DIR, BASELINE_DIR, VIDEO_DIR, TRACE_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

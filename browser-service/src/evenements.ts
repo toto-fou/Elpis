@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/evenements.ts — events of a page: native dialogs, console and network journals, tabs opened or closed by the page, navigation details. */
+/** browser-service/src/evenements.ts — événements d'une page : dialogues natifs, journaux console et réseau, onglets ouverts ou fermés par la page, détails de navigation. */
+import type { Response } from 'express';
+import type { Page, Request as RequetePw, Response as ReponsePw } from 'playwright';
+
+import type { EtatDialogues, JournalReseau, LigneConsole, Session } from './contexte.ts';
 import { finalUrl, tlsWarning } from './nav_util.ts';
+import type { AvertissementTls } from './nav_util.ts';
 import { NAV_GRACE_MS } from './requete.ts';
+import type { Appel } from './requete.ts';
 import { hostOf } from './result_util.ts';
 import { chargeRequete, purgerTexte, requetePorteSecret } from './secret_util.ts';
 import { joindreOnglets, urlOnglet } from './tab_util.ts';
@@ -20,14 +24,14 @@ import { joindreOnglets, urlOnglet } from './tab_util.ts';
 //
 // On garde donc une politique ARMABLE, consommée N fois puis oubliée, et un
 // journal du dernier dialogue vu. Défaut inchangé : accepter.
-export function makeDialogState() {
+export function makeDialogState(): EtatDialogues {
     return { pending: null, last: null, count: 0, history: [] };
 }
 
 // Ce que fait le navigateur quand rien n'est armé — DIT dans chaque status.
 export const DIALOG_DEFAULT_WHEN_UNARMED = 'accept';
 
-export function attachDialogHandler(page, dialogState) {
+export function attachDialogHandler(page: Page, dialogState: EtatDialogues): void {
     page.on('dialog', async (dialog) => {
         const type = dialog.type();
         const message = purgerTexte(dialog.message(), dialogState.formes);
@@ -54,7 +58,7 @@ export function attachDialogHandler(page, dialogState) {
             if (action === 'dismiss') await dialog.dismiss();
             else if (type === 'prompt') await dialog.accept(input);
             else await dialog.accept();
-        } catch (e) {}
+        } catch { /* dialog already handled */ }
     });
 }
 // ── Journaux console + réseau d'une page ─────────────────────────────
@@ -65,13 +69,13 @@ export function attachDialogHandler(page, dialogState) {
 // (onglets compris) — avant, seule la première page de la session l'était.
 // Pendant une connexion (`networkLog.formes`, formes du mot de passe) : console purgée, requêtes sans corps, celle qui porte le mot de passe écartée avec sa réponse.
 const NET_TYPES = new Set(['document', 'xhr', 'fetch']);
-const requetesEcartees = new WeakSet();
-export const documentSansFragment = (u) => String(u || '').split('#')[0];
-export function attachPageLoggers(page, consoleLogs, networkLog) {
+const requetesEcartees = new WeakSet<RequetePw>();
+export const documentSansFragment = (u: unknown): string => String(u || '').split('#')[0]!;
+export function attachPageLoggers(page: Page, consoleLogs: LigneConsole[], networkLog: JournalReseau): void {
     if (!page || page.__pwLoggersAttached || !consoleLogs || !networkLog) return;
     page.__pwLoggersAttached = true;
     // Chaque entrée porte l'URL du document (sans fragment) qui l'a émise : l'inspection ne rend que celles du document courant.
-    const noter = (line) => {
+    const noter = (line: string): void => {
         consoleLogs.push({ line, doc: documentSansFragment(page.url()) });
         if (consoleLogs.length > 100) consoleLogs.shift();
     };
@@ -80,17 +84,17 @@ export function attachPageLoggers(page, consoleLogs, networkLog) {
     });
     // Exception non rattrapée de la page (onload compris), que la console ne montre pas.
     page.on('pageerror', err => noter(`[pageerror] ${purgerTexte(String(err?.message || err), networkLog.formes)}`));
-    const pageHost = () => { try { return hostOf(page.url()); } catch (_) { return ''; } };
-    const entry = (req, rtype) => {
+    const pageHost = (): string => { try { return hostOf(page.url()); } catch { return ''; } };
+    const entry = (req: RequetePw, rtype: string) => {
         const url = req.url();
         const host = hostOf(url);
         let sameOrigin = host !== '' && host === pageHost();
         // Une navigation principale vers un autre hôte DEVIENT la page : c'est
         // du same-origin pour la suite (redirection d'auth, SSO).
-        try { if (rtype === 'document' && req.isNavigationRequest() && req.frame() === page.mainFrame()) sameOrigin = true; } catch (_) {}
+        try { if (rtype === 'document' && req.isNavigationRequest() && req.frame() === page.mainFrame()) sameOrigin = true; } catch { /* frame detached */ }
         return { url: url.substring(0, 300), type: rtype, host, same_origin: sameOrigin };
     };
-    page.on('request', req => {
+    page.on('request', (req): WeakSet<RequetePw> | void => {
         const rtype = req.resourceType();
         if (!NET_TYPES.has(rtype)) return;
         const formes = networkLog.formes;
@@ -115,7 +119,7 @@ const ATTENTE_POPUP_MS = parseInt(process.env.PW_POPUP_GRACE_MS || '150', 10);
 const ROUTES_ONGLETS = new Set(['/new_tab', '/switch_tab', '/close_tab', '/list_tabs']);
 
 // Suivi des onglets d'une page : ses popups adoptés, sa fermeture retirée de la session.
-export function suivreOnglets(s, page) {
+export function suivreOnglets(s: Session, page: Page): void {
     if (!page || page.__elpisOngletsSuivis) return;
     page.__elpisOngletsSuivis = true;
     page.on('popup', (popup) => adopterOnglet(s, popup));
@@ -123,14 +127,14 @@ export function suivreOnglets(s, page) {
 }
 
 // Onglet neuf de la session (tab_new, popup) : dialogues, journaux et suivi de ses propres popups.
-export function brancherOnglet(s, page) {
+export function brancherOnglet(s: Session, page: Page): void {
     attachDialogHandler(page, s.dialogState || (s.dialogState = makeDialogState()));
     attachPageLoggers(page, s.consoleLogs, s.networkLog);
     suivreOnglets(s, page);
 }
 
 // Popup ajouté à la session et mis en attente d'annonce.
-function adopterOnglet(s, page) {
+function adopterOnglet(s: Session, page: Page): void {
     if (s.tabs.includes(page) || page.isClosed()) return;
     brancherOnglet(s, page);
     s.tabs.push(page);
@@ -140,18 +144,18 @@ function adopterOnglet(s, page) {
 }
 
 // Onglet fermé retiré de la session ; s'il était actif, son voisin le devient (annoncé si la page s'est fermée seule).
-export function retirerOnglet(s, page) {
+export function retirerOnglet(s: Session, page: Page): void {
     const i = s.tabs.indexOf(page);
     if (i < 0) return;
     s.tabs.splice(i, 1);
     s.ongletsOuverts = (s.ongletsOuverts || []).filter(p => p !== page);
-    if (s.page === page && s.tabs.length) s.page = s.tabs[Math.min(i, s.tabs.length - 1)];
+    if (s.page === page && s.tabs.length) s.page = s.tabs[Math.min(i, s.tabs.length - 1)]!;
     if (!page.__elpisFermeParService) (s.ongletsFermes ||= []).push({ index: i, url: urlOnglet(page) });
 }
 
 // Attente bornée d'un onglet ouvert par la page, rendue dès son arrivée.
-function attendreOnglet(s, ms) {
-    return new Promise((resolve) => {
+function attendreOnglet(s: Session, ms: number): Promise<void> {
+    return new Promise<void>((resolve) => {
         const reveils = (s.reveilsOnglet ||= []);
         const reveil = () => {
             clearTimeout(minuteur);
@@ -164,24 +168,35 @@ function attendreOnglet(s, ms) {
     });
 }
 
+/** Geste de /action ou d'une étape de /chain, tel que lu pour savoir s'il peut ouvrir un onglet. */
+interface GesteOnglet {
+    type?: string;
+    key?: string;
+}
+
+/** Corps de /action (un geste) ou de /chain (ses étapes). */
+interface CorpsGeste extends GesteOnglet {
+    actions?: GesteOnglet[];
+}
+
 // Geste qui peut ouvrir un onglet sans que l'attente de navigation (/action, /chain) couvre déjà l'arrivée du popup.
-function peutOuvrirOnglet(req) {
-    const b = req.body || {};
-    const geste = (type, key) => ['click', 'dblclick', 'double_click'].includes(type) || (type === 'press' && key === 'Enter');
+function peutOuvrirOnglet(req: Appel): boolean {
+    const b = (req.body || {}) as CorpsGeste;
+    const geste = (type?: string, key?: string): boolean => (['click', 'dblclick', 'double_click'] as (string | undefined)[]).includes(type) || (type === 'press' && key === 'Enter');
     if (NAV_GRACE_MS >= ATTENTE_POPUP_MS) return false;
     if (req.path === '/action') return geste(b.type, b.key);
     if (req.path === '/chain' && Array.isArray(b.actions) && b.actions.length) {
-        const dernier = b.actions[b.actions.length - 1] || {};
+        const dernier: GesteOnglet = b.actions[b.actions.length - 1] || {};
         return geste(dernier.type, dernier.key);
     }
     return false;
 }
 
 // Réponse JSON d'une route de session : onglets ouverts ou fermés par la page annoncés (après une courte attente pour un clic), onglet actif rappelé sur une erreur.
-export function annoncerOnglets(req, res) {
-    const s = req.session;
+export function annoncerOnglets(req: Appel, res: Response): void {
+    const s = req.session!;
     const envoyer = res.json.bind(res);
-    res.json = function (payload) {
+    res.json = function (this: Response, payload?: unknown): Response {
         const annoncer = req.path !== '/stop' && (req.method === 'POST' || req.path === '/list_tabs');
         if (!annoncer || !payload || typeof payload !== 'object' || Array.isArray(payload)) return envoyer(payload);
         const finir = () => {
@@ -191,22 +206,29 @@ export function annoncerOnglets(req, res) {
                     ouverts: (s.ongletsOuverts || []).splice(0), fermes: (s.ongletsFermes || []).splice(0),
                     erreur: this.statusCode >= 400 && !ROUTES_ONGLETS.has(req.path),
                 });
-            } catch (e) { console.warn('[TABS] annonce impossible :', e.message); }
+            } catch (e) { console.warn('[TABS] annonce impossible :', (e as Error).message); }
             return envoyer(payload);
         };
         if (this.statusCode < 400 && !(s.ongletsOuverts || []).length && peutOuvrirOnglet(req)) {
-            attendreOnglet(s, ATTENTE_POPUP_MS).then(finir);
+            void attendreOnglet(s, ATTENTE_POPUP_MS).then(finir);
             return this;
         }
         return finir();
     };
 }
 
+/** Ce qu'une navigation qui a répondu ajoute à la réponse. */
+export interface DetailsNavigation {
+    http_status?: number;
+    final_url?: string;
+    tls_warning?: AvertissementTls;
+}
+
 // Statut HTTP, adresse finale (redirection) et avertissement TLS d'une navigation qui a répondu.
-export async function detailsNavigation(resp, cible, arrivee) {
+export async function detailsNavigation(resp: ReponsePw | null | undefined, cible: unknown, arrivee: string | null | undefined): Promise<DetailsNavigation> {
     if (!resp) return {};
-    const d = {};
-    try { d.http_status = resp.status(); } catch (_) { /* réponse détachée */ }
+    const d: DetailsNavigation = {};
+    try { d.http_status = resp.status(); } catch { /* réponse détachée */ }
     const fin = finalUrl(cible, arrivee);
     if (fin) d.final_url = fin;
     const tls = tlsWarning(await resp.securityDetails().catch(() => null));

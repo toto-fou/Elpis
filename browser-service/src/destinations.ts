@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** browser-service/src/destinations.ts — contrôles d'adresse avant une navigation demandée (forme seulement, le relais juge les destinations) et garde d'un contexte neuf. */
-import type { Response } from 'express';
-import type { BrowserContext, Page } from 'playwright';
+import type { Response } from "express";
+import type { BrowserContext, Page } from "playwright";
 
-import { analyserUrl, messageRefus } from './url_guard.ts';
+import { analyserUrl, messageRefus } from "./url_guard.ts";
 
 // ════════════════════════════════════════════════════════════════════
 //  DESTINATIONS (cf. url_guard.js, proxy_guard.js)
@@ -17,33 +17,37 @@ import { analyserUrl, messageRefus } from './url_guard.ts';
 
 /** Motif de refus d'une URL (``null`` = permise) : forme seule. */
 export async function refusUrl(url: unknown): Promise<string | null> {
-    const a = analyserUrl(url);
-    return a.ok ? null : a.motif;
+  const a = analyserUrl(url);
+  return a.ok ? null : a.motif;
 }
 
 /** Réponse 403 uniforme pour une navigation directe refusée. */
 export function repondreRefus(res: Response, url: unknown, motif: string): Response {
-    return res.status(403).json({ error: messageRefus(url, motif), code: 'url_blocked' });
+  return res.status(403).json({ error: messageRefus(url, motif), code: "url_blocked" });
 }
 
 // Schémas qu'une page ne doit jamais afficher, même atteints par un autre
 // chemin que page.goto (script de la page) : on la ramène à une page vide.
-const _SCHEMAS_INTERDITS = /^(file|view-source|chrome|chrome-extension|devtools|filesystem|resource|moz-extension):/i;
+const _SCHEMAS_INTERDITS =
+  /^(file|view-source|chrome|chrome-extension|devtools|filesystem|resource|moz-extension):/i;
 
 function gardePage(page: Page): void {
-    page.on('framenavigated', (frame) => {
-        try {
-            if (frame !== page.mainFrame()) return;
-            if (_SCHEMAS_INTERDITS.test(frame.url())) page.goto('about:blank').catch(() => {});
-        } catch { /* page fermée */ }
-    });
+  page.on("framenavigated", (frame) => {
+    try {
+      if (frame !== page.mainFrame()) return;
+      if (_SCHEMAS_INTERDITS.test(frame.url())) page.goto("about:blank").catch(() => {});
+    } catch {
+      /* page fermée */
+    }
+  });
 }
 
 /** Garde d'un contexte neuf : schémas interdits ramenés à une page vide
  *  (le réseau, lui, passe par le relais). */
 export async function installerGarde(context: BrowserContext): Promise<void> {
-    context.on('page', gardePage);
+  context.on("page", gardePage);
 }
 
 // Agent utilisateur des contextes : un Chrome de bureau (le headless shell s'annoncerait « HeadlessChrome »).
-export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+export const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";

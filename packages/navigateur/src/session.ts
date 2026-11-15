@@ -226,7 +226,7 @@ export async function trackPwSessionOwnership(
   }
 }
 
-/** Capture injectée par le service (`screenshot_step`) dans le résultat d'un outil `pw_*` → URL de la capture, sinon `null`. */
+/** Capture d'un outil `pw_*` → URL : l'explicite de sa session (`screenshot` : shot_<sid>_<pas>.png, montrée quel que soit le réglage), sinon celle d'étape (`screenshot_step`) ; `null` sans capture. */
 export function extractPwScreenshotUrl(
   outil: unknown,
   args: unknown,
@@ -244,6 +244,15 @@ export function extractPwScreenshotUrl(
     return null;
   }
   if (!estDict(data)) return null;
+  const nom = lire(data, "screenshot");
+  const explicite =
+    typeof nom === "string" && nom.startsWith(`shot_${sid}_`) ? nom.slice(sid.length + 6) : "";
+  if (/^[1-9][0-9]{0,8}\.png$/u.test(explicite))
+    return {
+      url: `/api/playwright/screenshot/${nom as string}?t=${Math.trunc(maintenant * 1000)}`,
+      step: Number(explicite.slice(0, -4)),
+      session_id: sid,
+    };
   const pas = lire(data, "screenshot_step");
   const entier =
     typeof pas === "boolean" || typeof pas === "bigint" || (typeof pas === "number" && Number.isInteger(pas));
